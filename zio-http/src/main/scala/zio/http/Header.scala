@@ -29,6 +29,7 @@ import scala.util.{Either, Failure, Success, Try}
 
 import zio._
 
+import zio.http.codec.RichTextCodec
 import zio.http.internal.DateEncoding
 
 sealed trait Header {
@@ -2460,58 +2461,138 @@ object Header {
 
   final case class ContentType(mediaType: MediaType, boundary: Option[Boundary] = None, charset: Option[Charset] = None) extends Header {
     override type Self = ContentType
-    override def self: Self                                = this
+
+    override def self: Self = this
+
     override def headerType: HeaderType.Typed[ContentType] = ContentType
   }
 
   object ContentType extends HeaderType {
+
     override type HeaderValue = ContentType
+
     override def name: String = "content-type"
 
-    def parse(s: String): Either[String, ContentType] = {
-      Chunk.fromArray(s.split(";")).map(_.trim) match {
-        case Chunk(mediaType)                                                                                                    =>
-          MediaType.forContentType(mediaType).toRight("Invalid Content-Type header").map(ContentType(_, None, None))
-        case Chunk(mediaType, directive) if directive.startsWith("charset=")                                                     =>
-          for {
-            mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
-            charset   <-
-              try Right(Charset.forName(directive.drop(8)))
-              catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
-          } yield ContentType(mediaType, None, Some(charset))
-        case Chunk(mediaType, directive) if directive.startsWith("boundary=")                                                    =>
-          for {
-            mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
-            boundary = directive.drop(9)
-          } yield ContentType(mediaType, Some(Boundary(boundary)), None)
-        case Chunk(mediaType, directive1, directive2) if directive1.startsWith("charset=") && directive2.startsWith("boundary=") =>
-          for {
-            mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
-            charset   <-
-              try Right(Charset.forName(directive1.drop(8)))
-              catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
-            boundary = directive2.drop(9)
-          } yield ContentType(mediaType, Some(Boundary(boundary)), Some(charset))
-        case Chunk(mediaType, directive1, directive2) if directive1.startsWith("boundary=") && directive2.startsWith("charset=") =>
-          for {
-            mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
-            charset   <-
-              try Right(Charset.forName(directive2.drop(8)))
-              catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
-            boundary = directive1.drop(9)
-          } yield ContentType(mediaType, Some(Boundary(boundary)), Some(charset))
-        case _                                                                                                                   =>
-          Left("Invalid Content-Type header")
+    def parse(s: String): Either[String, ContentType] = codec.decode(s)
+
+    def render(contentType: ContentType): String = codec.encode(contentType).toOption.get
+
+    private val codec: RichTextCodec[ContentType] = {
+
+      // char `.` according to BNF not allowed as `token`, but here tolerated
+      val token         = RichTextCodec.filter(_ => true).validate("not a token") {
+        case ' ' | '(' | ')' | '<' | '>' | '@' | ',' | ';' | ':' | '\\' | '"' | '/' | '[' | ']' | '?' | '=' => false
+        case _                                                                                              => true
       }
+      val tokenQuoted   = RichTextCodec.filter(_ => true).validate("not a quoted token") {
+        case ' ' | '"' => false
+        case _         => true
+      }
+      val type1         = RichTextCodec.string.collectOrFail("unsupported main type") {
+        case value if MediaType.mainTypeMap.get(value).isDefined => value
+      }
+      val type1x        = (RichTextCodec.literalCI("x-") ~ token.repeat.string).transform[String](in => s"${in._1}${in._2}", in => ("x-", s"${in.substring(2)}"))
+      val codecType1    = (type1 | type1x).transform[String](
+        _.merge,
+        {
+          case x if x.startsWith("x-") => Right(x)
+          case x                       => Left(x)
+        },
+      )
+      val codecType2    = token.repeat.string
+      val codecType     = (codecType1 <~ RichTextCodec.char('/').const('/')) ~ codecType2
+      val attribute     = token.repeat.string
+      val valueUnquoted = token.repeat.string
+      val valueQuoted   = RichTextCodec.char('"') ~ tokenQuoted.repeat.string ~ RichTextCodec.char('"')
+      val value         = valueQuoted | valueUnquoted
+
+      val param  = ((
+        RichTextCodec.char(';').const(';') ~>
+          (RichTextCodec.whitespaceChar.repeat | RichTextCodec.empty).transform[Char](_ => ' ', _ => Left(Chunk(()))).const(' ') ~>
+          attribute <~
+          RichTextCodec.char('=').const('=')
+      ) ~ value)
+        .transformOrFailLeft[ContentType.Parameter](
+          in => ContentType.Parameter.fromCodec(in),
+          in => in.toCodec,
+        )
+      val params = param.repeat
+      (codecType ~ params).transform[ContentType](
+        { case (mainType, subType, params) =>
+          ContentType(
+            MediaType.forContentType(s"$mainType/$subType").get,
+            params.collect { case p if p.key == ContentType.Parameter.Boundary.name => zio.http.Boundary(p.value) }.headOption,
+            params.collect { case p if p.key == ContentType.Parameter.Charset.name => java.nio.charset.Charset.forName(p.value) }.headOption,
+          )
+        },
+        in =>
+          (
+            in.mediaType.mainType,
+            in.mediaType.subType,
+            Chunk(
+              in.charset.map(in => Parameter.Charset(Parameter.Payload(Parameter.Charset.name, in, false))),
+              in.boundary.map(in => Parameter.Boundary(Parameter.Payload(Parameter.Boundary.name, in, false))),
+            ).flatten,
+          ),
+      )
     }
 
-    def render(contentType: ContentType): String =
-      (contentType.charset, contentType.boundary) match {
-        case (None, None)                    => contentType.mediaType.fullType
-        case (Some(charset), None)           => contentType.mediaType.fullType + "; charset=" + charset.toString
-        case (None, Some(boundary))          => contentType.mediaType.fullType + "; boundary=" + boundary.id
-        case (Some(charset), Some(boundary)) => contentType.mediaType.fullType + "; charset=" + charset.toString + "; boundary=" + boundary.id
+    private[Header] sealed trait Parameter {
+      self =>
+
+      def isQuoted: Boolean = self match {
+        case Parameter.Boundary(payload) => payload.isQuoted
+        case Parameter.Charset(payload)  => payload.isQuoted
+        case Parameter.Value(payload)    => payload.isQuoted
       }
+
+      def key: String = self match {
+        case Parameter.Value(payload)    => payload.key
+        case Parameter.Charset(payload)  => payload.key
+        case Parameter.Boundary(payload) => payload.key
+      }
+
+      def value: String = self match {
+        case Parameter.Value(payload)    => payload.value
+        case Parameter.Boundary(payload) => payload.value.id
+        case Parameter.Charset(payload)  => payload.value.toString.toLowerCase
+      }
+
+      def toCodec: (String, Either[(Char, String, Char), String]) =
+        (self.key, if (self.isQuoted) Left(('"', self.value, '"')) else Right(self.value))
+    }
+
+    private[Header] object Parameter {
+      case class Payload[A](key: String, value: A, isQuoted: Boolean)
+
+      case class Boundary(payload: Payload[zio.http.Boundary]) extends Parameter
+
+      object Boundary {
+        val name = "boundary"
+      }
+
+      case class Charset(payload: Payload[java.nio.charset.Charset]) extends Parameter
+
+      object Charset {
+        val name = "charset"
+      }
+
+      case class Value(payload: Payload[String]) extends Parameter
+
+      def make(key: String, value: String, isQuoted: Boolean): Either[String, Parameter] = {
+        if (key == Parameter.Charset.name) {
+          try Right(Parameter.Charset(Payload(key, java.nio.charset.Charset.forName(value), isQuoted)))
+          catch {
+            case _: UnsupportedCharsetException =>
+              Left(s"Invalid charset in Content-Type header: $value")
+          }
+        } else if (key == Parameter.Boundary.name) Right(Parameter.Boundary(Payload(key, zio.http.Boundary(value), isQuoted)))
+        else Right(Parameter.Value(Payload(key, value, isQuoted)))
+      }
+
+      def fromCodec(parse: (String, Either[(Char, String, Char), String])): Either[String, Parameter] =
+        Parameter.make(parse._1, parse._2.fold(a => a._2, identity), parse._2.isLeft)
+    }
   }
 
   final case class Date(value: ZonedDateTime) extends Header {
