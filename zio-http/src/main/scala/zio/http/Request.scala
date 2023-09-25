@@ -22,6 +22,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{NonEmptyChunk, Trace, ZIO}
 
 import zio.http.internal.HeaderOps
+import zio.Chunk
 
 final case class Request(
   version: Version = Version.Default,
@@ -111,12 +112,14 @@ final case class Request(
    * Returns the cookie with the given name if it exists.
    */
   def cookie(name: String): Option[Cookie] =
-    cookies.flatMap(_.filter(_.name == name).headOption)
+    cookies.find(_.name == name)
 
   /**
    * Uses the cookie with the given name if it exists and runs `f` afterwards.
    */
-  def cookieWith[R, A](name: String)(f: Cookie => ZIO[R, Throwable, A])(implicit trace: Trace): ZIO[R, Throwable, A] =
+  def cookieWithZIO[R, A](name: String)(f: Cookie => ZIO[R, Throwable, A])(implicit
+    trace: Trace,
+  ): ZIO[R, Throwable, A] =
     cookieWithOrFailImpl(name)(identity)(f)
 
   /**
@@ -125,8 +128,10 @@ final case class Request(
    * Also, you can replace a `NoSuchElementException` from an absent cookie with
    * `E`.
    */
-  def cookieWithOrFail[R, E, A](name: String)(e: E)(f: Cookie => ZIO[R, E, A])(implicit trace: Trace): ZIO[R, E, A] =
-    cookieWithOrFailImpl(name)(_ => e)(f)
+  def cookieWithOrFail[R, E, A](name: String)(missingCookieError: E)(f: Cookie => ZIO[R, E, A])(implicit
+    trace: Trace,
+  ): ZIO[R, E, A] =
+    cookieWithOrFailImpl(name)(_ => missingCookieError)(f)
 
   private def cookieWithOrFailImpl[R, E, A](name: String)(e: Throwable => E)(f: Cookie => ZIO[R, E, A])(implicit
     trace: Trace,
@@ -136,8 +141,8 @@ final case class Request(
   /**
    * Returns all cookies from the request.
    */
-  def cookies: Option[NonEmptyChunk[Cookie]] =
-    header(Header.Cookie).map(_.value)
+  def cookies: Chunk[Cookie] =
+    header(Header.Cookie).fold(Chunk.empty[Cookie])(_.value.toChunk)
 
 }
 
