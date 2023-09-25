@@ -54,7 +54,7 @@ object WebSocketConfigSpec extends HttpRunnableSpec {
         res <- ZIO.scoped {
           Handler.webSocket { channel =>
             channel.receiveAll {
-              case event @ Read(WebSocketFrame.Close(_, _)) => 
+              case event @ Read(WebSocketFrame.Close(_, _)) =>
                 msg.add(event, true)
               case _                                        => ZIO.unit
             }
@@ -75,22 +75,22 @@ object WebSocketConfigSpec extends HttpRunnableSpec {
         WebSocketConfig.default
           .forwardCloseFrames(true),
       ),
-    ) ++ 
-    ZLayer.succeed(NettyConfig.default) ++ 
-    DnsResolver.default >>> 
-    Client.live
+    ) ++
+      ZLayer.succeed(NettyConfig.default) ++
+      DnsResolver.default >>>
+      Client.live
 
-  override def spec = suite("Server") { 
-    ZIO.scoped { 
-      serve.as(List(webSocketConfigSpec)) 
-    } 
+  override def spec = suite("Server") {
+    ZIO.scoped {
+      serve.as(List(webSocketConfigSpec))
+    }
   }
-  .provideShared(
-    DynamicServer.live,
-    severTestLayer,
-    clientWithCloseFrames,
-    Scope.default,
-  ) @@
+    .provideShared(
+      DynamicServer.live,
+      severTestLayer,
+      clientWithCloseFrames,
+      Scope.default,
+    ) @@
     timeout(30 seconds) @@
     diagnose(30.seconds) @@
     withLiveClock @@
