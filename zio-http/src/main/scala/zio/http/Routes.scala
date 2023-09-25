@@ -16,6 +16,7 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Represents a collection of routes, each of which is defined by a pattern and
@@ -65,14 +66,14 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   /**
    * Handles all typed errors in the routes by converting them into responses.
    */
-  def handleError(f: Err => Response): Routes[Env, Nothing] =
+  def handleError(f: Err => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleError(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
    * converting them into responses.
    */
-  def handleErrorCause(f: Cause[Err] => Response): Routes[Env, Nothing] =
+  def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleErrorCause(f)))
 
   /**
@@ -87,14 +88,14 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    * responses, using best-effort heuristics to determine the appropriate HTTP
    * status code, and attaching error details using the HTTP header `Warning`.
    */
-  def sandbox: Routes[Env, Nothing] =
+  def sandbox(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.sandbox))
 
   /**
    * Returns new routes that are all timed out by the specified maximum
    * duration.
    */
-  def timeout(duration: Duration): Routes[Env, Err] =
+  def timeout(duration: Duration)(implicit trace: Trace): Routes[Env, Err] =
     self @@ Middleware.timeout(duration)
 
   /**
@@ -136,6 +137,6 @@ object Routes {
    * Constructs a singleton route from a handler that handles all possible
    * methods and paths. You would only use this method for testing.
    */
-  def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response]): Routes[Env, Err] =
+  def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))
 }

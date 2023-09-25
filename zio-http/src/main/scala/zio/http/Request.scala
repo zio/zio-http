@@ -144,6 +144,9 @@ final case class Request(
   def cookies: Chunk[Cookie] =
     header(Header.Cookie).fold(Chunk.empty[Cookie])(_.value.toChunk)
 
+  def flashMessage: Option[String] =
+    cookie("zio-http-flash").map(_.content)
+
 }
 
 object Request {

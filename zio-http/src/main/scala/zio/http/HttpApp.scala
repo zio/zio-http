@@ -58,7 +58,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
    * method and path of the specified request.
    */
   def isDefinedAt(request: Request): Boolean =
-    tree.get(request.method, request.path).nonEmpty
+    tree(Trace.empty).get(request.method, request.path).nonEmpty
 
   /**
    * Provides the specified environment to the HTTP application, returning a new
@@ -115,7 +115,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
   /**
    * Accesses the underlying tree that provides fast dispatch to handlers.
    */
-  def tree: HttpApp.Tree[Env] = {
+  def tree(implicit trace: Trace): HttpApp.Tree[Env] = {
     if (_tree eq null) {
       _tree = HttpApp.Tree.fromRoutes(routes)
     }
@@ -150,10 +150,10 @@ object HttpApp                                                     {
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(self.tree ++ that.tree)
 
-    final def add[Env1 <: Env](route: Route[Env1, Response]): Tree[Env1] =
+    final def add[Env1 <: Env](route: Route[Env1, Response])(implicit trace: Trace): Tree[Env1] =
       Tree(self.tree.add(route.routePattern, route.toHandler))
 
-    final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]]): Tree[Env1] =
+    final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit trace: Trace): Tree[Env1] =
       Tree(self.tree.addAll(routes.map(r => (r.routePattern, r.toHandler))))
 
     final def get(method: Method, path: Path): Chunk[RequestHandler[Env, Response]] =
@@ -162,7 +162,7 @@ object HttpApp                                                     {
   private[http] object Tree                                                                         {
     val empty: Tree[Any] = Tree(RoutePattern.Tree.empty)
 
-    def fromRoutes[Env](routes: Routes[Env, Response]): Tree[Env] =
+    def fromRoutes[Env](routes: Routes[Env, Response])(implicit trace: Trace): Tree[Env] =
       empty.addAll(routes.routes)
   }
 }
