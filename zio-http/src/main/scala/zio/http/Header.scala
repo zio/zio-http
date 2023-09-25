@@ -2491,14 +2491,11 @@ object Header {
       val type1         = RichTextCodec.string.collectOrFail("unsupported main type") {
         case value if MediaType.mainTypeMap.get(value).isDefined => value
       }
-      val type1x        = (RichTextCodec.literalCI("x-") ~ token.repeat.string).transform[String](in => s"${in._1}${in._2}", in => ("x-", s"${in.substring(2)}"))
-      val codecType1    = (type1 | type1x).transform[String](
-        _.merge,
-        {
-          case x if x.startsWith("x-") => Right(x)
-          case x                       => Left(x)
-        },
-      )
+      val type1x        = (RichTextCodec.literalCI("x-") ~ token.repeat.string).transform[String](in => s"${in._1}${in._2}")(in => ("x-", s"${in.substring(2)}"))
+      val codecType1    = (type1 | type1x).transform[String](_.merge) {
+        case x if x.startsWith("x-") => Right(x)
+        case x                       => Left(x)
+      }
       val codecType2    = token.repeat.string
       val codecType     = (codecType1 <~ RichTextCodec.char('/').const('/')) ~ codecType2
       val attribute     = token.repeat.string
@@ -2508,32 +2505,27 @@ object Header {
 
       val param  = ((
         RichTextCodec.char(';').const(';') ~>
-          (RichTextCodec.whitespaceChar.repeat | RichTextCodec.empty).transform[Char](_ => ' ', _ => Left(Chunk(()))).const(' ') ~>
+          (RichTextCodec.whitespaceChar.repeat | RichTextCodec.empty).transform[Char](_ => ' ')(_ => Left(Chunk(()))).const(' ') ~>
           attribute <~
           RichTextCodec.char('=').const('=')
       ) ~ value)
-        .transformOrFailLeft[ContentType.Parameter](
-          in => ContentType.Parameter.fromCodec(in),
-          in => in.toCodec,
-        )
+        .transformOrFailLeft[ContentType.Parameter](in => ContentType.Parameter.fromCodec(in))(in => in.toCodec)
       val params = param.repeat
-      (codecType ~ params).transform[ContentType](
-        { case (mainType, subType, params) =>
-          ContentType(
-            MediaType.forContentType(s"$mainType/$subType").get,
-            params.collect { case p if p.key == ContentType.Parameter.Boundary.name => zio.http.Boundary(p.value) }.headOption,
-            params.collect { case p if p.key == ContentType.Parameter.Charset.name => java.nio.charset.Charset.forName(p.value) }.headOption,
-          )
-        },
-        in =>
-          (
-            in.mediaType.mainType,
-            in.mediaType.subType,
-            Chunk(
-              in.charset.map(in => Parameter.Charset(Parameter.Payload(Parameter.Charset.name, in, false))),
-              in.boundary.map(in => Parameter.Boundary(Parameter.Payload(Parameter.Boundary.name, in, false))),
-            ).flatten,
-          ),
+      (codecType ~ params).transform[ContentType] { case (mainType, subType, params) =>
+        ContentType(
+          MediaType.forContentType(s"$mainType/$subType").get,
+          params.collect { case p if p.key == ContentType.Parameter.Boundary.name => zio.http.Boundary(p.value) }.headOption,
+          params.collect { case p if p.key == ContentType.Parameter.Charset.name => java.nio.charset.Charset.forName(p.value) }.headOption,
+        )
+      }(in =>
+        (
+          in.mediaType.mainType,
+          in.mediaType.subType,
+          Chunk(
+            in.charset.map(in => Parameter.Charset(Parameter.Payload(Parameter.Charset.name, in, false))),
+            in.boundary.map(in => Parameter.Boundary(Parameter.Payload(Parameter.Boundary.name, in, false))),
+          ).flatten,
+        ),
       )
     }
 
