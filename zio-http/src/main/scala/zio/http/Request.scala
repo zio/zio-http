@@ -19,10 +19,9 @@ package zio.http
 import java.net.InetAddress
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{NonEmptyChunk, Trace, ZIO}
+import zio.{Chunk, Trace, ZIO}
 
 import zio.http.internal.HeaderOps
-import zio.Chunk
 
 final case class Request(
   version: Version = Version.Default,
