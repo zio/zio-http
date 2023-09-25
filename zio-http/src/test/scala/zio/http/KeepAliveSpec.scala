@@ -21,7 +21,7 @@ import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test.{Spec, assert}
 import zio.{Scope, ZIO, durationInt}
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
@@ -63,12 +63,10 @@ object KeepAliveSpec extends HttpRunnableSpec {
     ),
   )
 
-  override def spec: Spec[Scope, Throwable] = {
+  override def spec: Spec[Any, Throwable] = {
     suite("KeepAliveSpec") {
       keepAliveSpec
-    }.provideSome[Scope](DynamicServer.live, severTestLayer, Client.default) @@ timeout(
-      30.seconds,
-    ) @@ withLiveClock @@ sequential
+    }.provide(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock @@ sequential
   }
 
 }

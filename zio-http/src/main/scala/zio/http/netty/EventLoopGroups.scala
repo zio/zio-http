@@ -16,7 +16,10 @@
 
 package zio.http.netty
 
+import java.time.temporal.TemporalUnit
 import java.util.concurrent.Executor
+
+import scala.concurrent.duration.TimeUnit
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
@@ -33,33 +36,44 @@ import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 object EventLoopGroups {
   trait Config extends ChannelType.Config {
     def nThreads: Int
+    def shutdownQuietPeriod: Long
+    def shutdownTimeOut: Long
+
+    def shutdownTimeUnit: TimeUnit
   }
 
-  def nio(nThreads: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(ZIO.succeed(new NioEventLoopGroup(nThreads)))
+  def nio(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(config: Config, ZIO.succeed(new NioEventLoopGroup(config.nThreads)))
 
-  def nio(nThreads: Int, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(ZIO.succeed(new NioEventLoopGroup(nThreads, executor)))
+  def nio(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(config, ZIO.succeed(new NioEventLoopGroup(config.nThreads, executor)))
 
-  def make(eventLoopGroup: UIO[EventLoopGroup])(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    ZIO.acquireRelease(eventLoopGroup)(ev => NettyFutureExecutor.executed(ev.shutdownGracefully).orDie)
+  def make(config: Config, eventLoopGroup: UIO[EventLoopGroup])(implicit
+    trace: Trace,
+  ): ZIO[Scope, Nothing, EventLoopGroup] =
+    ZIO.acquireRelease(eventLoopGroup)(ev =>
+      NettyFutureExecutor
+        .executed(ev.shutdownGracefully(config.shutdownQuietPeriod, config.shutdownTimeOut, config.shutdownTimeUnit))
+        .orDie,
+    )
 
-  def epoll(nThreads: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(ZIO.succeed(new EpollEventLoopGroup(nThreads)))
+  def epoll(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads)))
 
-  def kqueue(nThreads: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(ZIO.succeed(new KQueueEventLoopGroup(nThreads)))
+  def kqueue(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(config, ZIO.succeed(new KQueueEventLoopGroup(config.nThreads)))
 
-  def epoll(nThreads: Int, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(ZIO.succeed(new EpollEventLoopGroup(nThreads, executor)))
+  def epoll(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads, executor)))
 
-  def uring(nThread: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(ZIO.succeed(new IOUringEventLoopGroup(nThread)))
+  def uring(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads)))
 
-  def uring(nThread: Int, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(ZIO.succeed(new IOUringEventLoopGroup(nThread, executor)))
+  def uring(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads, executor)))
 
-  def default(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
+  def default(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
+    config,
     ZIO.succeed(new DefaultEventLoopGroup()),
   )
 
@@ -67,18 +81,18 @@ object EventLoopGroups {
 
   val live: ZLayer[Config, Nothing, EventLoopGroup] =
     ZLayer.scoped {
-      ZIO.service[Config].flatMap { config =>
+      ZIO.serviceWithZIO[Config] { config =>
         config.channelType match {
-          case ChannelType.NIO    => nio(config.nThreads)
-          case ChannelType.EPOLL  => epoll(config.nThreads)
-          case ChannelType.KQUEUE => kqueue(config.nThreads)
-          case ChannelType.URING  => uring(config.nThreads)
+          case ChannelType.NIO    => nio(config)
+          case ChannelType.EPOLL  => epoll(config)
+          case ChannelType.KQUEUE => kqueue(config)
+          case ChannelType.URING  => uring(config)
           case ChannelType.AUTO   =>
             if (Epoll.isAvailable)
-              epoll(config.nThreads)
+              epoll(config)
             else if (KQueue.isAvailable)
-              kqueue(config.nThreads)
-            else nio(config.nThreads)
+              kqueue(config)
+            else nio(config)
         }
       }
     }

@@ -17,6 +17,7 @@
 package zio.http
 
 import zio.Config
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.SSLConfig._
 

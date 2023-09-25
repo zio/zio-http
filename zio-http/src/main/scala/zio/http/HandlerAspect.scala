@@ -22,7 +22,7 @@ import java.nio.charset._
 import zio._
 import zio.metrics._
 
-import zio.http.html._
+import zio.http.template._
 
 /**
  * A [[zio.http.HandlerAspect]] is a kind of [[zio.http.ProtocolStack]] that is

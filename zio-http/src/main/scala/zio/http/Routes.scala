@@ -108,8 +108,8 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    * Returns new routes whose handlers are transformed by the specified
    * function.
    */
-  def transform[Env1 <: Env](
-    f: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
+  def transform[Env1](
+    f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
   ): Routes[Env1, Err] =
     new Routes(routes.map(_.transform(f)))
 }

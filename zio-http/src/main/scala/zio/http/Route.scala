@@ -114,8 +114,8 @@ sealed trait Route[-Env, +Err] { self =>
 
   final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = Routes(self).toHttpApp
 
-  def transform[Env1 <: Env](
-    f: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
+  def transform[Env1](
+    f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
   ): Route[Env1, Err] =
     Route.Augmented(self, f)
 }
@@ -229,15 +229,15 @@ object Route                   {
     override def toString() = s"Route.Provided(${route}, ${env})"
   }
 
-  private final case class Augmented[Env, +Err](
-    route: Route[Env, Err],
-    aspect: Handler[Env, Response, Request, Response] => Handler[Env, Response, Request, Response],
-  ) extends Route[Env, Err] {
+  private final case class Augmented[InEnv, -OutEnv, +Err](
+    route: Route[InEnv, Err],
+    aspect: Handler[InEnv, Response, Request, Response] => Handler[OutEnv, Response, Request, Response],
+  ) extends Route[OutEnv, Err] {
     def location: Trace = route.location
 
     def routePattern: RoutePattern[_] = route.routePattern
 
-    override def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response] =
+    override def toHandler(implicit ev: Err <:< Response): Handler[OutEnv, Response, Request, Response] =
       aspect(route.toHandler)
 
     override def toString() = s"Route.Augmented(${route}, ${aspect})"

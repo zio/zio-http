@@ -30,7 +30,7 @@ package object internal {
   val testNettyServerConfig: ZLayer[Any, Nothing, NettyConfig] =
     ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID))
 
-  val severTestLayer: ZLayer[Any, Throwable, Server.Config with Server] =
+  val serverTestLayer: ZLayer[Any, Throwable, Server.Config with Server] =
     ZLayer.make[Server.Config with Server](
       testServerConfig,
       testNettyServerConfig,

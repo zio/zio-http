@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.html
+package zio.http.template
 
 import zio.test.Gen
 

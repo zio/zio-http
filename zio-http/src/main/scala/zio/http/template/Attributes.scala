@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package zio.http.html
+package zio.http.template
 
-import zio.http.html.Attributes.PartialAttribute
+import zio.http.template.Attributes.PartialAttribute
 
 trait Attributes {
   final def acceptAttr: PartialAttribute[String] = PartialAttribute("accept")

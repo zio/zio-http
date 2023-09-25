@@ -1,25 +1,35 @@
 package zio.http.endpoint.cli
 
+import java.io.{File, IOException}
+import java.nio.channels.FileChannel
+import java.nio.file.Path
+
+import scala.io.Source
+
 import zio._
+import zio.cli._
 import zio.json.ast._
+
+import zio.stream.{ZSink, ZStream}
 
 import zio.http._
 
-private[cli] final case class CliRequest(
-  url: URL,
-  method: Method,
-  headers: Headers,
-  body: Json,
-) { self =>
-  def addFieldToBody(prefix: List[String], value: Json) = {
-    def sparseJson(prefix: List[String], json: Json): Json =
-      prefix match {
-        case Nil          => json
-        case head :: tail => Json.Obj(Chunk(head -> sparseJson(tail, json)))
-      }
+/**
+ * Represents a Request. The body parameter allows implementation of multipart
+ * form data and the retrieval of a body from a file or an URL.
+ */
 
-    self.copy(body = self.body.merge(sparseJson(prefix, value)))
-  }
+private[cli] final case class CliRequest(
+  body: Chunk[Retriever],
+  headers: Headers,
+  method: Method,
+  url: URL,
+  outputResponse: Boolean = true,
+  saveResponse: Boolean = false,
+) { self =>
+
+  def addBody(value: Retriever) =
+    self.copy(body = self.body ++ Chunk(value))
 
   def addHeader(name: String, value: String): CliRequest =
     self.copy(headers = self.headers.addHeader(name, value))
@@ -32,7 +42,27 @@ private[cli] final case class CliRequest(
 
   def method(method: Method): CliRequest =
     self.copy(method = method)
+
+  /*
+   * Retrieves data from files, urls or command options and construct a HTTP Request.
+   */
+  def toRequest(host: String, port: Int, retrieverClient: CliClient): Task[Request] = {
+    val clientLayer = retrieverClient match {
+      case CliZIOClient(client)    => ZLayer { ZIO.succeed(client) }
+      case CliZLayerClient(client) => client
+      case DefaultClient()         => Client.default
+    }
+    for {
+
+      forms     <- ZIO.foreach(body)(_.retrieve()).provide(clientLayer)
+      finalBody <- Body.fromMultipartFormUUID(Form(forms))
+    } yield Request(method = method, url = url.host(host).port(port), body = finalBody, headers = headers)
+  }
+
 }
+
 private[cli] object CliRequest {
-  val empty = CliRequest(URL.empty, Method.GET, Headers.empty, Json.Obj(Chunk.empty))
+
+  val empty = CliRequest(Chunk.empty, Headers.empty, Method.GET, URL.empty)
+
 }
