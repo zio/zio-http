@@ -15,7 +15,13 @@
  */
 
 package zio.http
+import java.nio.charset._
+
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.stream.{Take, ZPipeline, ZStream}
+
 import zio.http.FormDecodingError._
 import zio.http.Header.ContentTransferEncoding
 import zio.http.internal.FormAST
