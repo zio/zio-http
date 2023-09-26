@@ -114,28 +114,33 @@ final case class Request(
     cookies.find(_.name == name)
 
   /**
-   * Uses the cookie with the given name if it exists and runs `f` afterwards.
+   * Uses the cookie with the given name if it exists and runs `f` with the
+   * cookie afterwards.
    */
   def cookieWithZIO[R, A](name: String)(f: Cookie => ZIO[R, Throwable, A])(implicit
     trace: Trace,
   ): ZIO[R, Throwable, A] =
-    cookieWithOrFailImpl(name)(identity)(f)
+    cookieWithOrFailImpl[R, Throwable, A](name)(new java.util.NoSuchElementException(s"cookie doesn't exist: $name"))(f)
 
   /**
-   * Uses the cookie with the given name if it exists and runs `f` afterwards.
+   * Uses the cookie with the given name if it exists and runs `f` with the
+   * cookie afterwards.
    *
-   * Also, you can replace a `NoSuchElementException` from an absent cookie with
-   * `E`.
+   * Also, you can set a custom failure value from an absent cookie with `E`.
    */
   def cookieWithOrFail[R, E, A](name: String)(missingCookieError: E)(f: Cookie => ZIO[R, E, A])(implicit
     trace: Trace,
   ): ZIO[R, E, A] =
-    cookieWithOrFailImpl(name)(_ => missingCookieError)(f)
+    cookieWithOrFailImpl(name)(missingCookieError)(f)
 
-  private def cookieWithOrFailImpl[R, E, A](name: String)(e: Throwable => E)(f: Cookie => ZIO[R, E, A])(implicit
+  private def cookieWithOrFailImpl[R, E, A](name: String)(e: E)(f: Cookie => ZIO[R, E, A])(implicit
     trace: Trace,
-  ): ZIO[R, E, A] =
-    ZIO.getOrFailWith(e(new java.util.NoSuchElementException(s"cookie doesn't exist: $name")))(cookie(name)).flatMap(f)
+  ): ZIO[R, E, A] = {
+    cookie(name) match {
+      case Some(value) => f(value)
+      case None        => ZIO.fail(e)
+    }
+  }
 
   /**
    * Returns all cookies from the request.
