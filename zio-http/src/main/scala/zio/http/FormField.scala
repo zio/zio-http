@@ -155,15 +155,15 @@ object FormField {
           Chunk.empty[FormAST.Content],
         ),
       ) {
-        case (accum, header: FormAST.Header) if header.name == "Content-Disposition"       =>
+        case (accum, header: FormAST.Header) if header.name.toLowerCase == "content-disposition"       =>
           (Some(header), accum._2, accum._3, accum._4)
-        case (accum, content: FormAST.Content)                                             =>
+        case (accum, content: FormAST.Content)                                                         =>
           (accum._1, accum._2, accum._3, accum._4 :+ content)
-        case (accum, header: FormAST.Header) if header.name == "Content-Type"              =>
+        case (accum, header: FormAST.Header) if header.name.toLowerCase == "content-type"              =>
           (accum._1, Some(header), accum._3, accum._4)
-        case (accum, header: FormAST.Header) if header.name == "Content-Transfer-Encoding" =>
+        case (accum, header: FormAST.Header) if header.name.toLowerCase == "content-transfer-encoding" =>
           (accum._1, accum._2, Some(header), accum._4)
-        case (accum, _)                                                                    => accum
+        case (accum, _)                                                                                => accum
       }
 
     for {
