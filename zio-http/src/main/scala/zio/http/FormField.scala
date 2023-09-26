@@ -15,16 +15,13 @@
  */
 
 package zio.http
-import java.nio.charset._
-
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import zio.stream.{Take, ZPipeline, ZStream}
-
 import zio.http.FormDecodingError._
 import zio.http.Header.ContentTransferEncoding
 import zio.http.internal.FormAST
+import zio.stream.{Take, ZPipeline, ZStream}
+
+import java.nio.charset._
 
 /**
  * Represents a field in a form. Every field contains name, content type
@@ -155,15 +152,15 @@ object FormField {
           Chunk.empty[FormAST.Content],
         ),
       ) {
-        case (accum, header: FormAST.Header) if header.name.toLowerCase == "content-disposition"       =>
+        case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Disposition")       =>
           (Some(header), accum._2, accum._3, accum._4)
-        case (accum, content: FormAST.Content)                                                         =>
+        case (accum, content: FormAST.Content)                                                            =>
           (accum._1, accum._2, accum._3, accum._4 :+ content)
-        case (accum, header: FormAST.Header) if header.name.toLowerCase == "content-type"              =>
+        case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Type")              =>
           (accum._1, Some(header), accum._3, accum._4)
-        case (accum, header: FormAST.Header) if header.name.toLowerCase == "content-transfer-encoding" =>
+        case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Transfer-Encoding") =>
           (accum._1, accum._2, Some(header), accum._4)
-        case (accum, _)                                                                                => accum
+        case (accum, _)                                                                                   => accum
       }
 
     for {
