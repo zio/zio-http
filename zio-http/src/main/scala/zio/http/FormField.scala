@@ -25,9 +25,6 @@ import zio.stream.{Take, ZPipeline, ZStream}
 import zio.http.FormDecodingError._
 import zio.http.Header.ContentTransferEncoding
 import zio.http.internal.FormAST
-import zio.stream.{Take, ZPipeline, ZStream}
-
-import java.nio.charset._
 
 /**
  * Represents a field in a form. Every field contains name, content type
