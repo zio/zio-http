@@ -126,7 +126,7 @@ final case class Request(
    * Uses the cookie with the given name if it exists and runs `f` with the
    * cookie afterwards.
    *
-   * Also, you can set a custom failure value from an absent cookie with `E`.
+   * Also, you can set a custom failure value from a missing cookie with `E`.
    */
   def cookieWithOrFail[R, E, A](name: String)(missingCookieError: E)(f: Cookie => ZIO[R, E, A])(implicit
     trace: Trace,
