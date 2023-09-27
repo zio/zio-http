@@ -37,7 +37,7 @@ You can define custom middleware functions that can perform operations such as r
 
 <summary><b>Example</b></summary>
 
-```scala
+```scala mdoc:silent:reset
 package example
 
 import java.util.concurrent.TimeUnit
@@ -61,6 +61,7 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
       withHeader = Response.Patch.addHeader("X-Time", currentMilliseconds.toString)
     } yield withHeader,
   )
+  
   val middlewares =
     // print debug info about request and response
     HttpAppMiddleware.debug ++
