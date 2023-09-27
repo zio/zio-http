@@ -129,7 +129,21 @@ It updates the response header `Set-Cookie` as ```Set-Cookie: <cookie-name>=<coo
 
 ## Getting Cookie from Request
 
-In HTTP requests, cookies are stored in the `cookie` header. `cookiesDecoded` can be used to get all the cookies in the request:
+From HTTP requests, a single cookie can be retrieved with `cookie`.
+
+```scala mdoc
+ private val app4 = 
+  Routes(
+    Method.GET / "cookie" -> handler { (req: Request) =>
+      val cookieContent = req.cookie("sessionId").map(_.content)
+      Response.text(s"cookie content: $cookieContent")
+    }
+  )
+```
+
+## Getting Cookie from Header
+
+In HTTP requests, cookies are stored in the `cookie` header.
 
 ```scala mdoc
  private val app3 = 
