@@ -34,7 +34,7 @@ import zio.{Chunk, NonEmptyChunk}
 sealed trait RichTextCodec[A] { self =>
 
   final def string(implicit ev: A =:= Chunk[Char]): RichTextCodec[String] =
-    self.asType[Chunk[Char]].transform(_.mkString, a => Chunk(a.toList: _*))
+    self.asType[Chunk[Char]].transform(_.mkString)(a => Chunk(a.toList: _*))
 
   /**
    * Returns a new codec that is the sequential composition of this codec and
