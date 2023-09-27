@@ -37,7 +37,7 @@ You can define custom middleware functions that can perform operations such as r
 
 <summary><b>Example</b></summary>
 
-```scala mdoc:silent:reset
+```scala mdoc
 
 // check later
 ```
