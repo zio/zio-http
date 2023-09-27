@@ -39,10 +39,8 @@ object WebSocketEcho extends ZIOAppDefault {
 
   override val run = Server.serve(app).provide(Server.default)
 }
-
 ```
 
-<br>
 <br>
 
 ### Advanced WebSocket server

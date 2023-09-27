@@ -11,7 +11,7 @@ This example demonstrates the creation of a simple HTTP server in zio-http with 
 
 ## `build.sbt` Setup 
 
-```scala
+```scala mdoc:silent
 scalaVersion := "2.13.6"
 
 libraryDependencies ++= Seq(
@@ -22,7 +22,7 @@ libraryDependencies ++= Seq(
 
 ## code 
 
-```scala
+```scala mdoc:silent
 import zio._
 
 import zio.http._
