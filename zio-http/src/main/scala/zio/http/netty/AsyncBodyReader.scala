@@ -16,6 +16,8 @@
 
 package zio.http.netty
 
+import java.io.IOException
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, ChunkBuilder, Trace, Unsafe}
 
@@ -101,6 +103,17 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
       }
     }
     super.exceptionCaught(ctx, cause)
+  }
+
+  override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+    this.synchronized {
+      state match {
+        case State.Buffering        =>
+        case State.Direct(callback) =>
+          callback.fail(new IOException("Channel closed unexpectedly"))
+      }
+    }
+    ctx.fireChannelInactive()
   }
 }
 
