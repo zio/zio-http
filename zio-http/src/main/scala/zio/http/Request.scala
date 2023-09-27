@@ -19,7 +19,7 @@ package zio.http
 import java.net.InetAddress
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Trace, ZIO}
+import zio.{Chunk, Trace, ZIO}
 
 import zio.http.internal.HeaderOps
 
@@ -107,8 +107,46 @@ final case class Request(
   def unnest(prefix: Path): Request =
     copy(url = self.url.copy(path = self.url.path.unnest(prefix)))
 
+  /**
+   * Returns the cookie with the given name if it exists.
+   */
   def cookie(name: String): Option[Cookie] =
-    header(Header.Cookie).map(_.value).flatMap(_.filter(_.name == name).headOption)
+    cookies.find(_.name == name)
+
+  /**
+   * Uses the cookie with the given name if it exists and runs `f` with the
+   * cookie afterwards.
+   */
+  def cookieWithZIO[R, A](name: String)(f: Cookie => ZIO[R, Throwable, A])(implicit
+    trace: Trace,
+  ): ZIO[R, Throwable, A] =
+    cookieWithOrFailImpl[R, Throwable, A](name)(new java.util.NoSuchElementException(s"cookie doesn't exist: $name"))(f)
+
+  /**
+   * Uses the cookie with the given name if it exists and runs `f` with the
+   * cookie afterwards.
+   *
+   * Also, you can set a custom failure value from a missing cookie with `E`.
+   */
+  def cookieWithOrFail[R, E, A](name: String)(missingCookieError: E)(f: Cookie => ZIO[R, E, A])(implicit
+    trace: Trace,
+  ): ZIO[R, E, A] =
+    cookieWithOrFailImpl(name)(missingCookieError)(f)
+
+  private def cookieWithOrFailImpl[R, E, A](name: String)(e: E)(f: Cookie => ZIO[R, E, A])(implicit
+    trace: Trace,
+  ): ZIO[R, E, A] = {
+    cookie(name) match {
+      case Some(value) => f(value)
+      case None        => ZIO.fail(e)
+    }
+  }
+
+  /**
+   * Returns all cookies from the request.
+   */
+  def cookies: Chunk[Cookie] =
+    header(Header.Cookie).fold(Chunk.empty[Cookie])(_.value.toChunk)
 
   def flashMessage: Option[String] =
     cookie("zio-http-flash").map(_.content)
