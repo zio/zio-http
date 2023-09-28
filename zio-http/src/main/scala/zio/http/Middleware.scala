@@ -315,7 +315,8 @@ object Middleware extends HandlerAspects {
     toMiddleware(path, StaticServe.fromDirectory(docRoot))
 
   /**
-   * Creates a middleware for serving static files from resources.
+   * Creates a middleware for serving static files from resources at the path
+   * `path`.
    */
   def serveResources(path: Path)(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromResource)
