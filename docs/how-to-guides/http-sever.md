@@ -8,18 +8,6 @@ title:  HTTP server
 
 This example demonstrates the creation of a simple HTTP server in zio-http with ZIO.
 
-
-## `build.sbt` Setup 
-
-```scala mdoc:silent
-scalaVersion := "2.13.6"
-
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-http" % "3.0.0-RC2"
-)
-```
-
-
 ## code 
 
 ```scala mdoc:silent

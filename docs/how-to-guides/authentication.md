@@ -3,15 +3,11 @@ id: authentication
 title: "Authentication Server Example"
 ---
 
-<<<<<<< HEAD:docs/how-to-guides/authentication.md
 
 This code shows how to implement a server with bearer authentication middle ware in `zio-http`
 
 
 ```scala
-=======
-```scala mdoc:silent
->>>>>>> main:docs/examples/advanced/authentication.md
 import java.time.Clock
 
 import zio._

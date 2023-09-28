@@ -6,19 +6,6 @@ title: HTTP Client
 
 This example provided demonstrates how to perform an HTTP client request using the zio-http library in Scala with ZIO.
 
-
-
-## `build.sbt` Setup 
-
-```scala
-scalaVersion := "2.13.6"
-
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-http" % "3.0.0-RC2"
-)
-```
-
-
 ## code 
 
 ```scala

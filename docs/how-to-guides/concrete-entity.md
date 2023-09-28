@@ -3,17 +3,12 @@ id: concrete-entity
 title: "Concrete Entity Example"
 ---
 
-<<<<<<< HEAD:docs/how-to-guides/concrete-entity.md
 `Concrete entities` refer to specific data models or classes that represent the request and response payloads in an HTTP application. This code is an example demonstrating how to build an application using concrete entities in ZIO-HTTP.
 
 
 ## Code
 
 ```scala
-=======
-```scala mdoc:silent
-
->>>>>>> main:docs/examples/advanced/concrete-entity.md
 import zio._
 
 import zio.http._
