@@ -671,11 +671,12 @@ object ZClient {
         env <- ZIO.environment[Env1]
         webSocketUrl = url.scheme(
           url.scheme match {
-            case Some(Scheme.HTTP)  => Scheme.WS
-            case Some(Scheme.HTTPS) => Scheme.WSS
-            case Some(Scheme.WS)    => Scheme.WS
-            case Some(Scheme.WSS)   => Scheme.WSS
-            case None               => Scheme.WS
+            case Some(Scheme.HTTP)            => Scheme.WS
+            case Some(Scheme.HTTPS)           => Scheme.WSS
+            case Some(Scheme.WS)              => Scheme.WS
+            case Some(Scheme.WSS)             => Scheme.WSS
+            case Some(Scheme.ChromeExtension) => Scheme.ChromeExtension
+            case None                         => Scheme.WS
           },
         )
         scope <- ZIO.scope

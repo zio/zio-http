@@ -25,6 +25,7 @@ sealed trait Scheme { self =>
     case Scheme.HTTPS => "https"
     case Scheme.WS    => "ws"
     case Scheme.WSS   => "wss"
+    case Scheme.ChromeExtension => "chrome-extension"
   }
 
   def isHttp: Boolean = !isWebSocket
@@ -42,10 +43,11 @@ sealed trait Scheme { self =>
   }
 
   def defaultPort: Int = self match {
-    case Scheme.HTTP  => 80
-    case Scheme.HTTPS => 443
-    case Scheme.WS    => 80
-    case Scheme.WSS   => 443
+    case Scheme.HTTP            => 80
+    case Scheme.HTTPS           => 443
+    case Scheme.WS              => 80
+    case Scheme.WSS             => 443
+    case Scheme.ChromeExtension => 80
   }
 }
 object Scheme       {
@@ -60,14 +62,16 @@ object Scheme       {
   private[zio] object unsafe {
     def decode(scheme: String)(implicit unsafe: Unsafe): Scheme = {
       if (scheme == null) null
-      else
-        scheme.length match {
-          case 5 => Scheme.HTTPS
-          case 4 => Scheme.HTTP
-          case 3 => Scheme.WSS
-          case 2 => Scheme.WS
-          case _ => null
+      else {
+        scheme.toLowerCase match {
+          case "http"             => Scheme.HTTP
+          case "https"            => Scheme.HTTPS
+          case "ws"               => Scheme.WS
+          case "wss"              => Scheme.WSS
+          case "chrome-extension" => Scheme.ChromeExtension
+          case _                  => null
         }
+      }
     }
   }
 
@@ -78,4 +82,6 @@ object Scheme       {
   case object WS extends Scheme
 
   case object WSS extends Scheme
+
+  case object ChromeExtension extends Scheme
 }
