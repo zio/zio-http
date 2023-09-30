@@ -31,8 +31,8 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     trustStorePassword = "changeit",
   )
 
-  val waterAerobics =
-    URL.decode("https://sports.api.decathlon.com/groups/water-aerobics").toOption.get
+  val url =
+    URL.decode("https://google.com").toOption.get
 
   val badRequest =
     URL
@@ -47,11 +47,11 @@ object ClientHttpsSpec extends ZIOHttpSpec {
 
   override def spec = suite("Https Client request")(
     test("respond Ok") {
-      val actual = Client.request(Request.get(waterAerobics))
+      val actual = Client.request(Request.get(url))
       assertZIO(actual)(anything)
     },
     test("respond Ok with sslConfig") {
-      val actual = Client.request(Request.get(waterAerobics))
+      val actual = Client.request(Request.get(url))
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {

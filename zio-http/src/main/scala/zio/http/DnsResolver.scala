@@ -16,7 +16,8 @@
 
 package zio.http
 
-import java.net.{InetAddress, UnknownHostException}
+import java.lang.{System => JSystem}
+import java.net.{Inet6Address, InetAddress, UnknownHostException}
 import java.time.Instant
 
 import zio._
@@ -30,12 +31,19 @@ object DnsResolver {
   def resolve(host: String)(implicit trace: Trace): ZIO[DnsResolver, UnknownHostException, Chunk[InetAddress]] =
     ZIO.serviceWithZIO(_.resolve(host))
 
-  private final case class SystemResolver() extends DnsResolver {
-    override def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
+  private final case class SystemResolver(useIPv6: Boolean) extends DnsResolver {
+    override def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] = {
       ZIO
         .attemptBlocking(InetAddress.getAllByName(host))
         .refineToOrDie[UnknownHostException]
-        .map(Chunk.fromArray)
+        .map(result => {
+          val allHosts           = Chunk.fromArray(result)
+          val preferredAddresses =
+            if (useIPv6) allHosts.filter(_.isInstanceOf[Inet6Address])
+            else allHosts.filter(!_.isInstanceOf[Inet6Address])
+          if (preferredAddresses.isEmpty) allHosts else preferredAddresses
+        })
+    }
   }
 
   private[http] final case class CacheEntry(
@@ -233,7 +241,12 @@ object DnsResolver {
     maxConcurrentResolutions: Int,
     expireAction: ExpireAction,
     refreshRate: Duration,
-  )
+    useIPv6: Boolean,
+  ) {
+    self =>
+
+    def useIPv6(value: Boolean) = self.copy(useIPv6 = value)
+  }
 
   object Config {
     lazy val config: zio.Config[Config] =
@@ -242,9 +255,10 @@ object DnsResolver {
         zio.Config.int("max-count").withDefault(Config.default.maxCount) ++
         zio.Config.int("max-concurrent-resolutions").withDefault(Config.default.maxConcurrentResolutions) ++
         ExpireAction.config.nested("expire-action").withDefault(Config.default.expireAction) ++
-        zio.Config.duration("refresh-rate").withDefault(Config.default.refreshRate)).map {
-        case (ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate) =>
-          Config(ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate)
+        zio.Config.duration("refresh-rate").withDefault(Config.default.refreshRate) ++
+        zio.Config.boolean("use-ipv6").withDefault(Config.default.useIPv6)).map {
+        case (ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate, useIPv6) =>
+          Config(ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate, useIPv6)
       }
 
     lazy val default: Config = Config(
@@ -254,6 +268,7 @@ object DnsResolver {
       maxConcurrentResolutions = 16,
       expireAction = ExpireAction.Refresh,
       refreshRate = 2.seconds,
+      useIPv6 = false,
     )
   }
 
@@ -267,6 +282,7 @@ object DnsResolver {
     ZLayer.succeed(Config.default) >>> live
   }
 
+  // TODO: Move this to DnsResolverSpec?
   private[http] def explicit(
     ttl: Duration = 10.minutes,
     unknownHostTtl: Duration = 1.minute,
@@ -274,7 +290,7 @@ object DnsResolver {
     maxConcurrentResolutions: Int = 16,
     expireAction: ExpireAction = ExpireAction.Refresh,
     refreshRate: Duration = 2.seconds,
-    implementation: DnsResolver = SystemResolver(),
+    implementation: DnsResolver = SystemResolver(false),
   ): ZLayer[Any, Nothing, DnsResolver] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
@@ -298,7 +314,7 @@ object DnsResolver {
       for {
         config   <- ZIO.service[Config]
         resolver <- CachingResolver.make(
-          SystemResolver(),
+          SystemResolver(config.useIPv6),
           config.ttl,
           config.unknownHostTtl,
           config.maxCount,
@@ -310,8 +326,8 @@ object DnsResolver {
     }
   }
 
-  val system: ZLayer[Any, Nothing, DnsResolver] = {
+  def system(useIPv6: Boolean = false): ZLayer[Any, Nothing, DnsResolver] = {
     implicit val trace: Trace = Trace.empty
-    ZLayer.succeed(SystemResolver())
+    ZLayer.succeed(SystemResolver(useIPv6))
   }
 }

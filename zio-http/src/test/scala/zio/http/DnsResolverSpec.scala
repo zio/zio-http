@@ -16,7 +16,7 @@
 
 package zio.http
 
-import java.net.{InetAddress, UnknownHostException}
+import java.net.{Inet6Address, InetAddress, UnknownHostException}
 
 import zio._
 import zio.test.{Spec, TestClock, TestEnvironment, assertTrue}
@@ -129,6 +129,24 @@ object DnsResolverSpec extends ZIOHttpSpec {
           expireAction = ExpireAction.Refresh,
           implementation = TestResolver(),
         ),
+      ),
+      test("Only IPv4 is resolved by default") {
+        val host = "google.com"
+        for {
+          resolved      <- DnsResolver.resolve(host)
+          ipv6Addresses <- ZIO.succeed(resolved.filter(_.isInstanceOf[Inet6Address]))
+        } yield assertTrue(!resolved.isEmpty, ipv6Addresses.isEmpty)
+      }.provide(
+        DnsResolver.default,
+      ),
+      test("Only return IPv6 when specified in the config") {
+        val host = "google.com"
+        for {
+          resolved      <- DnsResolver.resolve(host)
+          ipv4Addresses <- ZIO.succeed(resolved.filter(!_.isInstanceOf[Inet6Address]))
+        } yield assertTrue(!resolved.isEmpty, ipv4Addresses.isEmpty)
+      }.provide(
+        ZLayer.succeed(DnsResolver.Config.default.useIPv6(true)) >>> DnsResolver.live,
       ),
     )
 
