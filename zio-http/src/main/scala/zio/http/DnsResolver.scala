@@ -16,8 +16,9 @@
 
 package zio.http
 
-import java.net.{InetAddress, UnknownHostException}
+import java.net.{InetAddress, Inet6Address, UnknownHostException}
 import java.time.Instant
+import java.lang.{System => JSystem}
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
@@ -27,15 +28,23 @@ trait DnsResolver {
 }
 
 object DnsResolver {
+  // NOTE: This system property is the only way for users to opt-in to IPv6.
+  // Even if the flag is set, we use both IPv4 and IPv6 and don't "prefer" IPv6
+  // in any way.
+  private final val useIPv6 = (JSystem.getProperty("java.net.preferIPv6Addresses") == "true")
+
   def resolve(host: String)(implicit trace: Trace): ZIO[DnsResolver, UnknownHostException, Chunk[InetAddress]] =
     ZIO.serviceWithZIO(_.resolve(host))
 
   private final case class SystemResolver() extends DnsResolver {
-    override def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
-      ZIO
+    override def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] = {
+      for {
+        allHosts <- ZIO
         .attemptBlocking(InetAddress.getAllByName(host))
         .refineToOrDie[UnknownHostException]
         .map(Chunk.fromArray)
+      } yield if (useIPv6) allHosts else allHosts.filter(!_.isInstanceOf[Inet6Address])
+    }
   }
 
   private[http] final case class CacheEntry(
