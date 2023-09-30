@@ -275,6 +275,7 @@ object URL {
   private[http] def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
       scheme <- Scheme.decode(uri.getScheme)
+      xx = scheme.defaultPort
       host   <- Option(uri.getHost)
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
@@ -289,8 +290,9 @@ object URL {
   } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
 
   private def portFromScheme(scheme: Scheme): Int = scheme match {
-    case Scheme.HTTP | Scheme.WS   => 80
+    case Scheme.HTTP  | Scheme.WS  => 80
     case Scheme.HTTPS | Scheme.WSS => 443
+    case Scheme.ChromeExtension    => 80
   }
 
 }

@@ -31,5 +31,9 @@ object SchemeSpec extends ZIOHttpSpec {
     test("null string decode") {
       assert(Scheme.decode(null))(isNone)
     },
+    test("decode chrome-extension") {
+      assertTrue(Scheme.decode("chrome-extension").isDefined)
+    }
+
   )
 }

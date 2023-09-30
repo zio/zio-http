@@ -69,5 +69,8 @@ object OriginSpec extends ZIOHttpSpec {
           )
         }
       },
+      test("parsing chrome-extension://EXTENSION_ID") {
+        assertTrue(Origin.parse("chrome-extension://pocenomcpddpoghnlagjlfmnllbdbfic").isRight)
+      }
     )
 }
