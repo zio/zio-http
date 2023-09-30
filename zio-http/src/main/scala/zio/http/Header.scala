@@ -3039,8 +3039,8 @@ object Header {
       if (value == "null") Right(Null)
       else
         URL.decode(value) match {
-          case Left(_)                                              => Left("Invalid Origin header")
-          case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Origin header")
+          case Left(_)                                              => Left(s"Invalid Origin header '$value'")
+          case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left(s"Invalid Origin header '$value'")
           case Right(url)                                           => Right(Value(url.scheme.get.encode, url.host.get, url.portIfNotDefault))
         }
 
