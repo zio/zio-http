@@ -275,7 +275,6 @@ object URL {
   private[http] def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
       scheme <- Scheme.decode(uri.getScheme)
-      xx = scheme.defaultPort
       host   <- Option(uri.getHost)
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
