@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.{NonEmptyChunk}
+import zio.{NonEmptyChunk, ZIO}
 import zio.schema.{DeriveSchema, Schema}
 import zio.test._
 
@@ -29,6 +29,8 @@ object FlashSpec extends ZIOHttpSpec {
 
         val cookie2 = Cookie.Request(Flash.COOKIE_NAME, cookie1.content)
         val request = Request(headers = Headers(Header.Cookie(NonEmptyChunk(cookie2))))
+
+        val aaa = request.flashWithZIO(Flash.get[Articles])(a => ZIO.succeed(a))
 
         assertTrue(request.flash(Flash.get[Articles]("does-not-exist") <> Flash.get[Articles]("articles")).isDefined) &&
         assertTrue(request.flash(Flash.get[Map[String, String]]).isDefined) &&

@@ -5,6 +5,13 @@ import zio.schema.codec.JsonCodec
 
 import java.net.{URLDecoder, URLEncoder}
 
+/**
+ * `Flash` represents a flash value that one can retrieve from the
+ * (cookie-based) flash scope.
+ *
+ * The flash scope consists of a serialized and url-encoded json object built
+ * with `zio-schema`.
+ */
 sealed trait Flash[+A] { self =>
 
   def flatMap[B](f: A => Flash[B]): Flash[B] = Flash.FlatMap(self, f)
@@ -28,6 +35,10 @@ sealed trait Flash[+A] { self =>
 object Flash {
 
   sealed trait Setter[A] { self =>
+
+    /**
+     * Combines setting this flash value with another setter for `that`.
+     */
     def ++[B](that: => Setter[B]): Setter[(A, B)] = Setter.Concat(self, that)
   }
 
@@ -49,13 +60,16 @@ object Flash {
         Flash.COOKIE_NAME,
         URLEncoder.encode(
           JsonCodec.jsonEncoder(Schema[Map[String, String]]).encodeJson(map).toString,
-          java.nio.charset.Charset.defaultCharset,
+          java.nio.charset.Charset.defaultCharset.toString.toLowerCase,
         ),
       )
 
     }
   }
 
+  /**
+   * Sets any flash value of type `A` with the given key `key`.
+   */
   def set[A: Schema](key: String, a: A): Setter[A] = Setter.Set(Schema[A], key, a)
 
   private[http] val COOKIE_NAME = "zio-http-flash"
@@ -74,20 +88,44 @@ object Flash {
 
   private def withInput[A](f: Map[String, String] => Flash[A]): Flash[A] = WithInput(f)
 
+  /**
+   * Gets any flash value of type `A` with the given key `key`.
+   */
   def get[A: Schema](key: String): Flash[A] = Flash.Get(Schema[A], key)
 
+  /**
+   * Gets a flash value of type `String` with the given key `key`.
+   */
   def getString(key: String): Flash[String] = get[String](key)
 
+  /**
+   * Gets a flash value of type `Float` with the given key `key`.
+   */
   def getFloat(key: String): Flash[Float] = get[Float](key)
 
+  /**
+   * Gets a flash value of type `Double` with the given key `key`.
+   */
   def getDouble(key: String): Flash[Double] = get[Double](key)
 
+  /**
+   * Gets a flash value of type `Int` with the given key `key`.
+   */
   def getInt(key: String): Flash[Int] = get[Int](key)
 
+  /**
+   * Gets a flash value of type `Long` with the given key `key`.
+   */
   def getLong(key: String): Flash[Long] = get[Long](key)
 
+  /**
+   * Gets a flash value of type `Boolean` with the given key `key`.
+   */
   def getBoolean(key: String): Flash[Boolean] = get[Boolean](key)
 
+  /**
+   * Gets the first flash value of type `A` regardless of any key.
+   */
   def get[A: Schema]: Flash[A] = withInput { map =>
     map.keys.map(a => Flash.get(a)(Schema[A])).reduce(_ <> _)
   }
@@ -101,7 +139,10 @@ object Flash {
       case WithInput(f)       =>
         loop(f(map), map)
       case OrElse(self, that) =>
-        loop(self, map).orElse(loop(that, map)).asInstanceOf[Either[Throwable, A]]
+        (loop(self, map) match {
+          case Left(_)      => loop(that, map)
+          case Right(value) => Right(value)
+        }).asInstanceOf[Either[Throwable, A]]
       case FlatMap(self, f)   =>
         loop(self, map) match {
           case Right(value) => loop(f(value), map)
@@ -115,7 +156,7 @@ object Flash {
       .cookie(COOKIE_NAME)
       .toRight(new Throwable("flash cookie doesn't exist"))
       .flatMap { cookie =>
-        try Right(URLDecoder.decode(cookie.content, java.nio.charset.Charset.defaultCharset))
+        try Right(URLDecoder.decode(cookie.content, java.nio.charset.Charset.defaultCharset.toString.toLowerCase))
         catch {
           case e: Exception => Left(e)
         }

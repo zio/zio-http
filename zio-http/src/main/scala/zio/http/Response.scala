@@ -16,6 +16,7 @@
 
 package zio.http
 
+import java.net.URLEncoder
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
 
 import scala.annotation.tailrec
@@ -25,12 +26,11 @@ import zio.{Cause, Task, Trace, ZIO}
 
 import zio.stream.ZStream
 
-import zio.http.internal.HeaderOps
-import zio.http.template.Html
 import zio.schema.Schema
 import zio.schema.codec.JsonCodec
 
-import java.net.URLEncoder
+import zio.http.internal.HeaderOps
+import zio.http.template.Html
 
 final case class Response(
   status: Status = Status.Ok,
@@ -47,7 +47,7 @@ final case class Response(
   /**
    * Add flash values to the (cookie-based) flash scope.
    */
-  def addFlash[A: Schema](flash: Flash.Setter[A]): Response =
+  def addFlash[A](flash: Flash.Setter[A]): Response =
     addCookie(Flash.Setter.run(flash))
 
   /**
