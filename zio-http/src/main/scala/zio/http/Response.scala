@@ -27,6 +27,10 @@ import zio.stream.ZStream
 
 import zio.http.internal.HeaderOps
 import zio.http.template.Html
+import zio.schema.Schema
+import zio.schema.codec.JsonCodec
+
+import java.net.URLEncoder
 
 final case class Response(
   status: Status = Status.Ok,
@@ -40,8 +44,11 @@ final case class Response(
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
-  def addFlashMessage(message: String): Response =
-    addCookie(Cookie.Response("zio-http-flash", message))
+  /**
+   * Add flash values to the (cookie-based) flash scope.
+   */
+  def addFlash[A: Schema](flash: Flash.Setter[A]): Response =
+    addCookie(Flash.Setter.run(flash))
 
   /**
    * Collects the potentially streaming body of the response into a single
