@@ -1,9 +1,9 @@
 package zio.http
 
+import java.net.{URLDecoder, URLEncoder}
+
 import zio.schema.Schema
 import zio.schema.codec.JsonCodec
-
-import java.net.{URLDecoder, URLEncoder}
 
 /**
  * `Flash` represents a flash value that one can retrieve from the
@@ -37,15 +37,15 @@ object Flash {
   sealed trait Setter[A] { self =>
 
     /**
-     * Combines setting this flash value with another setter for `that`.
+     * Combines setting this flash value with another setter `that`.
      */
-    def ++[B](that: => Setter[B]): Setter[(A, B)] = Setter.Concat(self, that)
+    def ++[B](that: => Setter[B]): Setter[Unit] = Setter.Concat(self, that)
   }
 
   private[http] object Setter {
-    case class Set[A](schema: Schema[A], key: String, a: A) extends Flash.Setter[A]
+    case class Set[A](schema: Schema[A], key: String, a: A) extends Flash.Setter[Unit]
 
-    case class Concat[A, B](left: Setter[A], right: Setter[B]) extends Flash.Setter[(A, B)]
+    case class Concat[A, B](left: Setter[A], right: Setter[B]) extends Flash.Setter[Unit]
 
     def run[A](self: Setter[A]): Cookie.Response = {
       def loop[B](self: Setter[B], map: Map[String, String]): Map[String, String] =
@@ -70,7 +70,7 @@ object Flash {
   /**
    * Sets any flash value of type `A` with the given key `key`.
    */
-  def set[A: Schema](key: String, a: A): Setter[A] = Setter.Set(Schema[A], key, a)
+  def set[A: Schema](key: String, a: A): Setter[Unit] = Setter.Set(Schema[A], key, a)
 
   private[http] val COOKIE_NAME = "zio-http-flash"
 

@@ -51,6 +51,12 @@ final case class Response(
     addCookie(Flash.Setter.run(flash))
 
   /**
+   * Adds optional flash values to the (cookie-based) flash scope.
+   */
+  def addFlash[A](flashOption: Option[Flash.Setter[A]]): Response =
+    flashOption.fold(self)(addFlash(_))
+
+  /**
    * Collects the potentially streaming body of the response into a single
    * chunk.
    */

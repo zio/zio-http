@@ -1,8 +1,9 @@
 package zio.http
 
-import zio.{NonEmptyChunk, ZIO}
-import zio.schema.{DeriveSchema, Schema}
 import zio.test._
+import zio.{NonEmptyChunk, ZIO}
+
+import zio.schema.{DeriveSchema, Schema}
 
 object FlashSpec extends ZIOHttpSpec {
 
