@@ -20,17 +20,17 @@ import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-
 import zio.stream.ZStream
-
 import zio.schema.{DeriveSchema, Schema}
-
 import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
 import zio.http.codec.HttpCodec.{authorization, query}
 import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
+import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.netty.server.NettyDriver
+
+import java.time.Instant
 
 object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
@@ -94,6 +94,20 @@ object RoundtripSpec extends ZIOHttpSpec {
       out    <- executor(endpoint.apply(in))
       result <- outF(out)
     } yield result
+
+  def testEndpointCustomRequestZIO[P, In, Err, Out](
+    route: Routes[Any, Nothing],
+    in: Request,
+    outF: Response => ZIO[Any, Err, TestResult],
+  ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
+    ZIO.scoped[Client with Server] {
+      for {
+        port   <- Server.install(route.toHttpApp @@ Middleware.requestLogging())
+        client <- ZIO.service[Client]
+        out    <- client.request(in.updateURL(_.host("localhost").port(port))).orDie
+        result <- outF(out)
+      } yield result
+    }
 
   def testEndpointError[P, In, Err, Out](
     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
@@ -461,6 +475,57 @@ object RoundtripSpec extends ZIOHttpSpec {
           )
         }
       } @@ ifEnvNotSet("CI"),
+      test("multi-part input with stream and invalid json field") {
+        val api = Endpoint(POST / "test")
+          .in[String]("name")
+          .in[ImageMetadata]("metadata")
+          .inStream[Byte]("file")
+          .out[String]
+
+        val route = api.implement {
+          Handler.fromFunctionZIO { case (name, metadata, file) =>
+            file.runCount.map { n =>
+              s"name: $name, metadata: $metadata, count: $n"
+            }
+          }
+        }
+
+        Random
+          .nextBytes(1024 * 1024)
+          .flatMap { bytes =>
+            testEndpointCustomRequestZIO(
+              Routes(route),
+              Request.post(
+                "/test",
+                Body.fromMultipartForm(
+                  Form(
+                    FormField.textField("name", """"xyz"""", MediaType.application.`json`),
+                    FormField.textField(
+                      "metadata",
+                      """{"description": "sample description", "modifiedAt": "2023-10-02T10:30:00.00Z"}""",
+                      MediaType.application.`json`,
+                    ),
+                    FormField.streamingBinaryField(
+                      "file",
+                      ZStream.fromChunk(bytes).rechunk(1000),
+                      MediaType.application.`octet-stream`,
+                    ),
+                  ),
+                  Boundary("bnd1234"),
+                ),
+              ),
+              response =>
+                response.body.asString.map(s =>
+                  assertTrue(
+                    s == s"\"name: xyz, metadata: ImageMetadata(sample description,2023-10-02T10:30:00Z), count: ${1024 * 1024}\"",
+                  ),
+                ),
+            )
+          }
+          .map { r =>
+            assert(r.isFailure)(isTrue) // We expect it to fail but complete
+          }
+      } @@ ifEnvNotSet("CI") @@ diagnose(5.seconds),
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
