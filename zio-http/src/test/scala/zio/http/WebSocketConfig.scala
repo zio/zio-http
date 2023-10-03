@@ -25,7 +25,7 @@ import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
 import zio.http.Client
 import zio.http.DnsResolver
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 import zio.http.Client
 import zio.http.netty.NettyConfig
 import zio.http.Client
@@ -87,7 +87,7 @@ object WebSocketConfigSpec extends HttpRunnableSpec {
   }
     .provideShared(
       DynamicServer.live,
-      severTestLayer,
+      serverTestLayer,
       clientWithCloseFrames,
       Scope.default,
     ) @@
