@@ -40,6 +40,9 @@ final case class Response(
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
+  def addFlashMessage(message: String): Response =
+    addCookie(Cookie.Response("zio-http-flash", message))
+
   /**
    * Collects the potentially streaming body of the response into a single
    * chunk.
@@ -176,7 +179,7 @@ object Response {
    *   \- stream of data to be sent as Server Sent Events
    */
   def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
-    Response(Status.Ok, contentTypeEventStream, Body.fromStream(data.map(_.encode)))
+    Response(Status.Ok, contentTypeEventStream, Body.fromCharSequenceStream(data.map(_.encode)))
 
   /**
    * Creates a new response for the provided socket app
@@ -263,8 +266,11 @@ object Response {
   def ok: Response = status(Status.Ok)
 
   /**
-   * Creates an empty response with status 301 or 302 depending on if it's
+   * Creates an empty response with status 307 or 308 depending on if it's
    * permanent or not.
+   *
+   * Note: if you intend to always redirect a browser with a HTTP GET to the
+   * given location you very likely should use `Response#seeOther` instead.
    */
   def redirect(location: URL, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
@@ -272,7 +278,7 @@ object Response {
   }
 
   /**
-   * Creates an empty response with status 303
+   * Creates an empty response with status 303.
    */
   def seeOther(location: URL): Response =
     Response(status = Status.SeeOther, headers = Headers(Header.Location(location)))

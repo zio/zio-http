@@ -99,7 +99,7 @@ object HttpCodecSpec extends ZIOHttpSpec {
         test("no fallback for defects") {
           val e = new RuntimeException("boom")
 
-          val codec1 = HttpCodec.empty.transform[Unit](_ => throw e, _ => ()).const("route1")
+          val codec1 = HttpCodec.empty.transform[Unit](_ => throw e)(_ => ()).const("route1")
           val codec2 = HttpCodec.empty.const("route2")
 
           val fallback = codec1 | codec2
@@ -137,8 +137,8 @@ object HttpCodecSpec extends ZIOHttpSpec {
         test("paramBool encoding") {
           val requestTrue  = codecBool.encodeRequest(true)
           val requestFalse = codecBool.encodeRequest(false)
-          assert(requestTrue.url.queryParams.get(isAge).get.head)(Assertion.equalTo("true")) &&
-          assert(requestFalse.url.queryParams.get(isAge).get.head)(Assertion.equalTo("false"))
+          assert(requestTrue.url.queryParams.get(isAge).get)(Assertion.equalTo("true")) &&
+          assert(requestFalse.url.queryParams.get(isAge).get)(Assertion.equalTo("false"))
         },
       ) +
       suite("Codec with examples") {

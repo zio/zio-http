@@ -586,7 +586,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * the handler has been appropriately sandboxed, turning all possible failures
    * into well-formed HTTP responses.
    */
-  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response): HttpApp[R] = {
+  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response, trace: Trace): HttpApp[R] = {
     val handler: Handler[R, Response, Request, Response] =
       self.asInstanceOf[Handler[R, Response, Request, Response]]
 
@@ -659,6 +659,16 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 }
 
 object Handler {
+
+  def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
+    Handler.fromZIO(
+      request.body.asStream.chunks
+        .runFoldZIO(Chunk.empty[Byte]) { case (acc, bytes) =>
+          ZIO
+            .succeed(acc ++ bytes)
+            .filterOrFail(_.size < limit)(new Exception("Too large input"))
+        },
+    )
 
   /**
    * Attempts to create a Handler that succeeds with the provided value,
@@ -897,7 +907,7 @@ object Handler {
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
       ZIO.environment[R].map { env =>
-        fromBody(Body.fromStream(stream.provideEnvironment(env), charset))
+        fromBody(Body.fromCharSequenceStream(stream.provideEnvironment(env), charset))
       }
     }.flatten
 

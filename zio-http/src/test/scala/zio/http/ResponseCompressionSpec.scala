@@ -41,7 +41,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
             Headers(
               Header.ContentType(MediaType.text.plain),
             ),
-            Body.fromStream(
+            Body.fromCharSequenceStream(
               ZStream
                 .unfold[Long, String](0L) { s =>
                   if (s < 1000) Some((s"$s\n", s + 1)) else None

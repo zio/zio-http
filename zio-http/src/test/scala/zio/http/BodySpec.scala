@@ -56,5 +56,11 @@ object BodySpec extends ZIOHttpSpec {
           ),
         ),
       ),
-    )
+      suite("mediaType")(
+        test("updates the Body media type with the provided value") {
+          val body = Body.fromString("test").contentType(MediaType.text.plain)
+          assertTrue(body.mediaType == Option(MediaType.text.plain))
+        },
+      ),
+    ) @@ timeout(10 seconds)
 }
