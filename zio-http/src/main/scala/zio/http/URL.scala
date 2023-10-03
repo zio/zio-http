@@ -289,7 +289,7 @@ object URL {
   } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
 
   private def portFromScheme(scheme: Scheme): Int = scheme match {
-    case Scheme.HTTP  | Scheme.WS  => 80
+    case Scheme.HTTP | Scheme.WS   => 80
     case Scheme.HTTPS | Scheme.WSS => 443
     case Scheme.ChromeExtension    => 80
   }
