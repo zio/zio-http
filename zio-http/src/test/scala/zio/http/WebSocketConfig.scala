@@ -89,7 +89,6 @@ object WebSocketConfigSpec extends HttpRunnableSpec {
       DynamicServer.live,
       serverTestLayer,
       clientWithCloseFrames,
-      Scope.default,
     ) @@
     timeout(30 seconds) @@
     diagnose(30.seconds) @@
