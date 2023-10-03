@@ -53,7 +53,7 @@ object WebSocketSpec extends HttpRunnableSpec {
                 channel.shutdown
               case _                                     =>
                 ZIO.unit
-            } 
+            }
           }.connect(url, Headers(DynamicServer.APP_ID, id)) *> {
             for {
               events <- msg.await
