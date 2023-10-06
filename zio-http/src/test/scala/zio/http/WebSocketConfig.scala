@@ -17,19 +17,13 @@
 package zio.http
 
 import zio._
-// import zio.test.Assertion.equalTo
 import zio.test.TestAspect._
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
-// import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
-import zio.http.Client
-import zio.http.DnsResolver
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
-import zio.http.Client
 import zio.http.netty.NettyConfig
-import zio.http.Client
-import zio.http.Client
+import zio.http.{Client, DnsResolver}
 // import zio.http.netty.NettyConfig
 
 object WebSocketConfigSpec extends HttpRunnableSpec {
