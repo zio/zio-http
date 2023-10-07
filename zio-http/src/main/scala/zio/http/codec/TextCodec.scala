@@ -16,8 +16,9 @@
 
 package zio.http.codec
 
-import java.util.UUID
+import zio.Chunk
 
+import java.util.UUID
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
@@ -58,6 +59,8 @@ object TextCodec {
   implicit val string: TextCodec[String] = StringCodec
 
   implicit val uuid: TextCodec[UUID] = UUIDCodec
+
+  implicit def seq[A](implicit scalarCodec: TextCodec[A]): TextCodec[Chunk[A]] = SeqCodec(scalarCodec)
 
   final case class Constant(string: String) extends TextCodec[Unit] {
 
@@ -190,4 +193,17 @@ object TextCodec {
     override def toString(): String = "TextCodec.uuid"
   }
 
+  case class SeqCodec[A](scalarCodec: TextCodec[A]) extends TextCodec[Chunk[A]] {
+    override def apply(value: String): Chunk[A] = (scalarCodec andThen (Chunk(_)))(value)
+
+    // TODO Find a better naming
+    override def describe: String = s"a sequence of ${scalarCodec.describe}"
+
+    override def encode(value: Chunk[A]): String =
+      throw new NotImplementedError("encode is not implemented for SeqCodec")
+
+    override def isDefinedAt(value: String): Boolean = scalarCodec.isDefinedAt(value)
+
+    override def toString: String = s"TextCodec.seq[${scalarCodec.toString}]"
+  }
 }

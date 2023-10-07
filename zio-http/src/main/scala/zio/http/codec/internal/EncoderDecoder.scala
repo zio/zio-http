@@ -17,15 +17,11 @@
 package zio.http.codec.internal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import zio.stream.ZStream
-
-import zio.schema.Schema
-import zio.schema.codec.{BinaryCodec, Codec}
-
 import zio.http._
 import zio.http.codec._
+import zio.schema.Schema
+import zio.schema.codec.{BinaryCodec, Codec}
+import zio.stream.ZStream
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
@@ -279,18 +275,21 @@ private[codec] object EncoderDecoder {
       var i       = 0
       val queries = flattened.query
       while (i < queries.length) {
-        val query = queries(i).erase
+        val query = queries(i)
 
-        val queryParamValue =
-          queryParams
-            .getAllOrElse(query.name, Nil)
-            .collectFirst(query.textCodec)
-
-        queryParamValue match {
-          case Some(value) =>
-            inputs(i) = value
-          case None        =>
-            throw HttpCodecError.MissingQueryParam(query.name)
+        query.textCodec match {
+          case TextCodec.SeqCodec(scalarCodec) =>
+            queryParams
+              .getAllOrElse(query.name, Nil)
+              .map(value =>
+                if (scalarCodec.isDefinedAt(value)) scalarCodec(value)
+                else throw HttpCodecError.MalformedQueryParam(query.name, query.textCodec),
+              )
+          case scalarCodec                     =>
+            inputs(i) = queryParams
+              .getAllOrElse(query.name, Nil)
+              .collectFirst(scalarCodec)
+              .getOrElse(throw HttpCodecError.MissingQueryParam(query.name))
         }
 
         i = i + 1
@@ -475,12 +474,14 @@ private[codec] object EncoderDecoder {
 
       var i = 0
       while (i < inputs.length) {
-        val query = flattened.query(i).erase
+        val query = flattened.query(i) // .erase
         val input = inputs(i)
 
-        val value = query.textCodec.encode(input)
-
-        queryParams = queryParams.add(query.name, value)
+        queryParams = query.textCodec match {
+          case TextCodec.SeqCodec(scalarCodec) =>
+            queryParams.addAll(query.name, input.asInstanceOf[Chunk[?]].map(scalarCodec.erase.encode))
+          case scalarCodec                     => queryParams.add(query.name, scalarCodec.erase.encode(input))
+        }
 
         i = i + 1
       }
