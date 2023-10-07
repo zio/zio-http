@@ -31,8 +31,6 @@ object FlashSpec extends ZIOHttpSpec {
         val cookie2 = Cookie.Request(Flash.COOKIE_NAME, cookie1.content)
         val request = Request(headers = Headers(Header.Cookie(NonEmptyChunk(cookie2))))
 
-        val aaa = request.flashWithZIO(Flash.get[Articles])(a => ZIO.succeed(a))
-
         assertTrue(request.flash(Flash.get[Articles]("does-not-exist") <> Flash.get[Articles]("articles")).isDefined) &&
         assertTrue(request.flash(Flash.get[Map[String, String]]).isDefined) &&
         assertTrue(
@@ -49,6 +47,40 @@ object FlashSpec extends ZIOHttpSpec {
         assertTrue(request.flash(Flash.get[List[String]]).isDefined) &&
         assertTrue(request.flash(Flash.get[List[Int]]).isEmpty) &&
         assertTrue(request.flash(Flash.get[(Article, Article)]("articlesTuple")).isDefined)
+      },
+      test("flash message") {
+        val flashMessageDefaultBoth      = Flash.setNotice[String]("notice") ++ Flash.setAlert[String]("alert")
+        val flashMessageCustomBoth       =
+          Flash.set("custom-notice", Article("custom-notice", 10)) ++ Flash.set("custom-alert", List("custom", "alert"))
+        val flashMessageCustomOnlyNotice = Flash.set("custom-notice-only", "custom-notice-only-value")
+        val flashMessageCustomOnlyAlert  = Flash.set("custom-alert-only", "custom-alert-only")
+
+        val cookie1 = Flash.Setter.run(
+          flashMessageCustomBoth ++ flashMessageDefaultBoth ++ flashMessageCustomOnlyNotice ++ flashMessageCustomOnlyAlert,
+        )
+        val cookie2 = Cookie.Request(Flash.COOKIE_NAME, cookie1.content)
+        val request = Request(headers = Headers(Header.Cookie(NonEmptyChunk(cookie2))))
+
+        assertTrue(request.flash(Flash.getMessageHtml).get.isBoth) &&
+        assertTrue(
+          request
+            .flash(Flash.getMessage(Flash.get[Article]("custom-notice"), Flash.get[List[String]]("custom-alert")))
+            .get
+            .isBoth,
+        ) &&
+        assertTrue(request.flash(Flash.getMessage(Flash.get[Article], Flash.get[List[String]])).get.isBoth) &&
+        assertTrue(
+          request
+            .flash(Flash.getMessage(Flash.getString("custom-notice-only"), Flash.getInt("does-not-exist")))
+            .get
+            .isNotice,
+        ) &&
+        assertTrue(
+          request
+            .flash(Flash.getMessage(Flash.getInt("does-not-exist"), Flash.getString("custom-alert-only")))
+            .get
+            .isAlert,
+        )
       },
     )
 
