@@ -175,20 +175,22 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
         )
 
     val handler =
-      handlers.tail.foldLeft(handlers2.head._1) { case (acc, (handler, condition)) =>
-        acc.catchAllCause { cause =>
-          if (condition(cause)) {
-            handler
-          } else {
-            Handler.failCause(cause)
+      handlers.tail
+        .foldLeft(handlers2.head._1) { case (acc, (handler, condition)) =>
+          acc.catchAllCause { cause =>
+            if (condition(cause)) {
+              handler
+            } else {
+              Handler.failCause(cause)
+            }
           }
         }
-      }.catchAllCause {
-        case cause if isHttpCodecError(cause) =>
-          Handler.succeed(zio.http.Response(status = Status.BadRequest))
+        .catchAllCause {
+          case cause if isHttpCodecError(cause) =>
+            Handler.succeed(zio.http.Response(status = Status.BadRequest))
 
-        case cause => Handler.failCause(cause)
-      }
+          case cause => Handler.failCause(cause)
+        }
 
     Route.handled(self.route)(handler)
   }
