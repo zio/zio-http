@@ -76,4 +76,9 @@ object HttpCodecError {
   def isHttpCodecError(cause: Cause[Any]): Boolean = {
     !cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError])
   }
+
+  def isMissingDataOnly(cause: Cause[Any]): Boolean =
+    !cause.isFailure && cause.defects.forall(e =>
+      e.isInstanceOf[HttpCodecError.MissingHeader] || e.isInstanceOf[HttpCodecError.MissingQueryParam],
+    )
 }
