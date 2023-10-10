@@ -44,14 +44,15 @@ private[codec] object EncoderDecoder {
 
     flattened.length match {
       case 0 => Undefined()
-      case 1 => Single(flattened.head, mediaType)
+      case 1 => Single(flattened.head._1, mediaType)
       case _ => Multiple(flattened)
     }
   }
 
-  private final case class Multiple[-AtomTypes, Value](httpCodecs: Chunk[HttpCodec[AtomTypes, Value]])
-      extends EncoderDecoder[AtomTypes, Value] {
-    val singles = httpCodecs.map(Single(_))
+  private final case class Multiple[-AtomTypes, Value](
+    httpCodecs: Chunk[(HttpCodec[AtomTypes, Value], HttpCodec.Fallback.Condition)],
+  ) extends EncoderDecoder[AtomTypes, Value] {
+    val singles = httpCodecs.map { case (httpCodec, condition) => Single(httpCodec) -> condition }
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
@@ -59,15 +60,18 @@ private[codec] object EncoderDecoder {
       def tryDecode(i: Int, lastError: Cause[Throwable]): Task[Value] = {
         if (i >= singles.length) ZIO.refailCause(lastError)
         else {
-          val codec = singles(i)
+          val (codec, condition) = singles(i)
 
-          codec
-            .decode(url, status, method, headers, body)
-            .catchAllCause(cause =>
-              if (HttpCodecError.isHttpCodecError(cause)) {
-                tryDecode(i + 1, lastError && cause)
-              } else ZIO.refailCause(cause),
-            )
+          if (condition.isMissingDataOnly && !HttpCodecError.isMissingDataOnly(lastError))
+            tryDecode(i + 1, lastError)
+          else
+            codec
+              .decode(url, status, method, headers, body)
+              .catchAllCause(cause =>
+                if (HttpCodecError.isHttpCodecError(cause)) {
+                  tryDecode(i + 1, lastError && cause)
+                } else ZIO.refailCause(cause),
+              )
         }
       }
 
@@ -80,7 +84,7 @@ private[codec] object EncoderDecoder {
       var lastError = null.asInstanceOf[Throwable]
 
       while (i < singles.length) {
-        val current = singles(i)
+        val (current, _) = singles(i)
 
         try {
           encoded = current.encodeWith(value)(f)
