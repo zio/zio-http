@@ -183,6 +183,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
             Handler.failCause(cause)
           }
         }
+      }.catchAllCause {
+        case cause if isHttpCodecError(cause) =>
+          Handler.succeed(zio.http.Response(status = Status.BadRequest))
+
+        case cause => Handler.failCause(cause)
       }
 
     Route.handled(self.route)(handler)
