@@ -4325,7 +4325,7 @@ object Header {
 
     def parse(value: String): Either[String, WWWAuthenticate] =
       Try {
-        val challengeRegEx(scheme, challenge) = (value: @unchecked)
+        val challengeRegEx(scheme, challenge) = value: @unchecked
         val params                            = auth
           .findAllMatchIn(challenge)
           .map { m =>
