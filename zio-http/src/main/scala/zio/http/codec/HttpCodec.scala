@@ -92,7 +92,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     if (self eq HttpCodec.Halt) that.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
     else {
       HttpCodec
-        .Fallback(self, that)
+        .Fallback(self, that, HttpCodec.Fallback.Condition.IsHttpCodecError)
         .transform[alternator.Out](either => either.fold(alternator.left(_), alternator.right(_)))(value =>
           alternator
             .unleft(value)
@@ -144,7 +144,8 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * inside the returned collection is guaranteed to contain no nested
    * alternatives.
    */
-  final def alternatives: Chunk[HttpCodec[AtomTypes, Value]] = HttpCodec.flattenFallbacks(self)
+  final def alternatives: Chunk[(HttpCodec[AtomTypes, Value], HttpCodec.Fallback.Condition)] =
+    HttpCodec.flattenFallbacks(self)
 
   /**
    * Returns a new codec that is the same as this one, but has attached
@@ -271,9 +272,12 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    */
   final def optional: HttpCodec[AtomTypes, Option[Value]] =
     Annotated(
-      self
-        .orElseEither(HttpCodec.empty)
-        .transform(_.swap.toOption)(_.fold[Either[Unit, Value]](Left(()))(Right(_)).swap),
+      if (self eq HttpCodec.Halt) HttpCodec.empty.asInstanceOf[HttpCodec[AtomTypes, Option[Value]]]
+      else {
+        HttpCodec
+          .Fallback(self, HttpCodec.empty, HttpCodec.Fallback.Condition.isMissingDataOnly)
+          .transform[Option[Value]](either => either.fold(Some(_), _ => None))(_.toLeft(()))
+      },
       Metadata.Optional(),
     )
 
@@ -654,37 +658,82 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   private[http] final case class Fallback[AtomType, A, B](
     left: HttpCodec[AtomType, A],
     right: HttpCodec[AtomType, B],
+    condition: Fallback.Condition,
   ) extends HttpCodec[AtomType, Either[A, B]] {
     type Left  = A
     type Right = B
     type Out   = Either[A, B]
   }
 
+  private[http] object Fallback {
+
+    /**
+     * `Condition` describes the circumstances under which the `right` codec in
+     * a `Fallback` is willing to attempt to recover from a failure of the
+     * `left` codec. All implementations of `Fallback` other than `optional` are
+     * willing to attempt to recover from any `HttpCodecError`. Implementations
+     * of `Fallback` constructed from `optional` are only willing to attempt to
+     * recover from `MissingHeader` or `MissingQueryParam` errors.
+     */
+    sealed trait Condition { self =>
+      def apply(cause: Cause[Any]): Boolean   =
+        self match {
+          case Condition.IsHttpCodecError  => HttpCodecError.isHttpCodecError(cause)
+          case Condition.isMissingDataOnly => HttpCodecError.isMissingDataOnly(cause)
+        }
+      def combine(that: Condition): Condition =
+        (self, that) match {
+          case (Condition.isMissingDataOnly, _) => Condition.isMissingDataOnly
+          case (_, Condition.isMissingDataOnly) => Condition.isMissingDataOnly
+          case _                                => Condition.IsHttpCodecError
+        }
+      def isHttpCodecError: Boolean           = self match {
+        case Condition.IsHttpCodecError => true
+        case _                          => false
+      }
+      def isMissingDataOnly: Boolean          = self match {
+        case Condition.isMissingDataOnly => true
+        case _                           => false
+      }
+    }
+    object Condition       {
+      case object IsHttpCodecError  extends Condition
+      case object isMissingDataOnly extends Condition
+    }
+  }
+
   private[http] def flattenFallbacks[AtomTypes, A](
     api: HttpCodec[AtomTypes, A],
-  ): Chunk[HttpCodec[AtomTypes, A]] = {
-    def rewrite[T, B](api: HttpCodec[T, B]): Chunk[HttpCodec[T, B]] =
+  ): Chunk[(HttpCodec[AtomTypes, A], Fallback.Condition)] = {
+    def rewrite[T, B](api: HttpCodec[T, B]): Chunk[(HttpCodec[T, B], Fallback.Condition)] =
       api match {
-        case fallback @ HttpCodec.Fallback(left, right) =>
-          rewrite[T, fallback.Left](left).map(_.toLeft[fallback.Right]) ++ rewrite[T, fallback.Right](right)
-            .map(_.toRight[fallback.Left])
+        case fallback @ HttpCodec.Fallback(left, right, condition) =>
+          rewrite[T, fallback.Left](left).map { case (codec, condition) =>
+            codec.toLeft[fallback.Right] -> condition
+          } ++
+            rewrite[T, fallback.Right](right).map { case (codec, _) =>
+              codec.toRight[fallback.Left] -> condition
+            }
 
         case transform @ HttpCodec.TransformOrFail(codec, f, g) =>
-          rewrite[T, transform.In](codec).map(HttpCodec.TransformOrFail(_, f, g))
+          rewrite[T, transform.In](codec).map { case (codec, condition) =>
+            HttpCodec.TransformOrFail(codec, f, g) -> condition
+          }
 
         case combine @ HttpCodec.Combine(left, right, combiner) =>
           for {
-            l <- rewrite[T, combine.Left](left)
-            r <- rewrite[T, combine.Right](right)
-          } yield HttpCodec.Combine(l, r, combiner)
+            (l, lCondition) <- rewrite[T, combine.Left](left)
+            (r, rCondition) <- rewrite[T, combine.Right](right)
+          } yield HttpCodec.Combine(l, r, combiner) -> lCondition.combine(rCondition)
 
-        case HttpCodec.Annotated(in, metadata) => rewrite[T, B](in).map(_.annotate(metadata))
+        case HttpCodec.Annotated(in, metadata) =>
+          rewrite[T, B](in).map { case (codec, missingDataOnly) => codec.annotate(metadata) -> missingDataOnly }
 
-        case HttpCodec.Empty => Chunk.single(HttpCodec.Empty)
+        case HttpCodec.Empty => Chunk.single(HttpCodec.Empty -> Fallback.Condition.IsHttpCodecError)
 
         case HttpCodec.Halt => Chunk.empty
 
-        case atom: Atom[_, _] => Chunk.single(atom)
+        case atom: Atom[_, _] => Chunk.single(atom -> Fallback.Condition.IsHttpCodecError)
       }
 
     rewrite(api)
