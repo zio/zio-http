@@ -452,7 +452,8 @@ object RoundtripSpec extends ZIOHttpSpec {
           }
         }
 
-        Random.nextBytes(1024 * 1024).flatMap { bytes =>
+        Random.nextBytes(1024 * 1024).timed.flatMap { case (duration, bytes) =>
+          ZIO.debug("generating bytes took " + duration.render) *>
           testEndpoint(
             api,
             Routes(route),
