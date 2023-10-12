@@ -15,30 +15,23 @@
  */
 
 package zio.http.codec
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Chunk, NonEmptyChunk}
 private[codec] trait QueryCodecs {
-  def query(name: String): QueryCodec[String] =
-    HttpCodec.Query(name, TextCodec.string)
+  @inline def queryAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
+    HttpCodec.Query(name, TextChunkCodec.one(codec))
 
-  def queryBool(name: String): QueryCodec[Boolean] =
-    HttpCodec.Query(name, TextCodec.boolean)
+  def query(name: String): QueryCodec[String] = queryAs[String](name)
 
-  def queryInt(name: String): QueryCodec[Int] =
-    HttpCodec.Query(name, TextCodec.int)
+  def queryBool(name: String): QueryCodec[Boolean] = queryAs[Boolean](name)
 
-  def queryAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
-    HttpCodec.Query(name, codec)
+  def queryInt(name: String): QueryCodec[Int] = queryAs[Int](name)
 
-  def paramStr(name: String): QueryCodec[String] =
-    HttpCodec.Query(name, TextCodec.string)
+  def queryOpt[I](name: String)(implicit codec: TextCodec[I]): QueryCodec[Option[I]] =
+    HttpCodec.Query(name, TextChunkCodec.optional(codec))
 
-  def paramBool(name: String): QueryCodec[Boolean] =
-    HttpCodec.Query(name, TextCodec.boolean)
+  def queryAll[I](name: String)(implicit codec: TextCodec[I]): QueryCodec[Chunk[I]] =
+    HttpCodec.Query(name, TextChunkCodec.any(codec))
 
-  def paramInt(name: String): QueryCodec[Int] =
-    HttpCodec.Query(name, TextCodec.int)
-
-  def paramAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
-    HttpCodec.Query(name, codec)
-
+  def queryOneOrMore[I](name: String)(implicit codec: TextCodec[I]): QueryCodec[NonEmptyChunk[I]] =
+    HttpCodec.Query(name, TextChunkCodec.oneOrMore(codec))
 }

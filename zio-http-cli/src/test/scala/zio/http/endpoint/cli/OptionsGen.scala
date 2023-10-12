@@ -76,16 +76,16 @@ object OptionsGen {
         },
       Gen
         .alphaNumericStringBounded(1, 30)
-        .zip(anyTextCodec)
+        .zip(anyTextChunkCodec)
         .map {
-          case (name, TextCodec.Constant(value)) =>
+          case (name, TextChunkCodec(TextCodec.Constant(value))) =>
             CliRepr(
               Options.Empty.map(_ => value),
               CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: Nil),
             )
-          case (name, codec)                     =>
+          case (name, codec)                                     =>
             CliRepr(
-              encodeOptions(name, codec),
+              encodeOptions(name, codec.parent),
               CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
             )
         },

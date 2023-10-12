@@ -1,15 +1,7 @@
 package zio.http.endpoint.cli
 
-import scala.util.Try
-
-import zio.cli._
-
-import zio.schema._
-
 import zio.http._
-import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
-import zio.http.codec.internal._
 import zio.http.endpoint._
 
 /**
@@ -133,10 +125,10 @@ private[cli] object CliEndpoint {
       case HttpCodec.Path(pathCodec, _) =>
         CliEndpoint(url = HttpOptions.Path(pathCodec) :: List())
 
-      case HttpCodec.Query(name, textCodec, _) =>
-        textCodec.asInstanceOf[TextCodec[_]] match {
-          case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: List())
-          case _                         => CliEndpoint(url = HttpOptions.Query(name, textCodec) :: List())
+      case query: HttpCodec.Query[Input, ?] =>
+        query.codec.parent match {
+          case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.QueryConstant(query.name, value) :: List())
+          case _                         => CliEndpoint(url = HttpOptions.Query(query.name, query.codec) :: List())
         }
 
       case HttpCodec.Status(_, _) => CliEndpoint.empty

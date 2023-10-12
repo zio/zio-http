@@ -22,6 +22,17 @@ object AuxGen {
       Gen.alphaNumericStringBounded(1, 30).map(TextCodec.constant(_)),
     )
 
+  lazy val anyTextChunkCodec: Gen[Any, TextChunkCodec[_, _]] = Gen.oneOf(
+    Gen.fromIterable(
+      List(
+        TextChunkCodec.any[Any] _,
+        TextChunkCodec.oneOrMore[Any] _,
+        TextChunkCodec.optional[Any] _,
+        TextChunkCodec.one[Any] _,
+      ),
+    ),
+  ) zip anyTextCodec map { case (tcc, tc) => tcc(tc.erase) }
+
   lazy val anyMediaType: Gen[Any, MediaType] = Gen.fromIterable(MediaType.allMediaTypes)
 
   lazy val anyDoc: Gen[Any, Doc] = Gen.alphaNumericStringBounded(1, 30).map(Doc.p(_))

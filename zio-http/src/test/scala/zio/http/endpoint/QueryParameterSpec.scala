@@ -30,7 +30,7 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt}
+import zio.http.codec.HttpCodec._
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.testEndpoint
 import zio.http.forms.Fixtures.formField
@@ -103,6 +103,60 @@ object QueryParameterSpec extends ZIOHttpSpec {
         testRoutes(s"/users/$userId?key=&value=", s"path(users, $userId, Some(), Some())") &&
         testRoutes(s"/users/$userId?key=&value=$value", s"path(users, $userId, Some(), Some($value))") &&
         testRoutes(s"/users/$userId?key=$key&value=$value", s"path(users, $userId, Some($key), Some($value))")
+      }
+    },
+    test("query parameter with any number of values") {
+      check(Gen.boolean, Gen.alphaNumericString, Gen.alphaNumericString) { (isSomething, name1, name2) =>
+        val testRoutes = testEndpoint(
+          Routes(
+            Endpoint(GET / "data")
+              .query(queryAs[Boolean]("isSomething"))
+              .query(queryAll[String]("name"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (isSomething, names) =>
+                  s"query($isSomething, ${names mkString ", "})"
+                }
+              },
+          ),
+        ) _
+        testRoutes(s"/data?isSomething=$isSomething", s"query($isSomething, )") &&
+        testRoutes(s"/data?isSomething=$isSomething&name=$name1", s"query($isSomething, $name1)") &&
+        testRoutes(s"/data?isSomething=$isSomething&name=$name1&name=$name2", s"query($isSomething, $name1, $name2)")
+      }
+    },
+    test("query parameter with one or more values") {
+      check(Gen.boolean, Gen.alphaNumericString, Gen.alphaNumericString) { (isSomething, name1, name2) =>
+        val testRoutes = testEndpoint(
+          Routes(
+            Endpoint(GET / "data")
+              .query(queryAs[Boolean]("isSomething"))
+              .query(queryOneOrMore[String]("name"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (isSomething, names) =>
+                  s"query($isSomething, ${names mkString ", "})"
+                }
+              },
+          ),
+        ) _
+        testRoutes(s"/data?isSomething=$isSomething&name=$name1", s"query($isSomething, $name1)") &&
+        testRoutes(s"/data?isSomething=$isSomething&name=$name1&name=$name2", s"query($isSomething, $name1, $name2)")
+      }
+    },
+    test("query parameter with optional value") {
+      check(Gen.alphaNumericString) { name =>
+        val testRoutes = testEndpoint(
+          Routes(
+            Endpoint(GET / "data")
+              .query(queryOpt[String]("name"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { name => s"query($name)" }
+              },
+          ),
+        ) _
+        testRoutes(s"/data", s"query(None)") && testRoutes(s"/data?name=$name", s"query(Some($name))")
       }
     },
   )

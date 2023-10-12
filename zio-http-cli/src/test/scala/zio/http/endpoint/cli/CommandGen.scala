@@ -1,6 +1,5 @@
 package zio.http.endpoint.cli
 
-import zio.ZNothing
 import zio.cli._
 import zio.test._
 
@@ -9,7 +8,6 @@ import zio.schema._
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.http.endpoint.cli.AuxGen._
 import zio.http.endpoint.cli.CliRepr.HelpRepr
 import zio.http.endpoint.cli.EndpointGen._
 
@@ -46,7 +44,7 @@ object CommandGen {
       case _: HttpOptions.Constant => false
       case _                       => true
     }.map {
-      case HttpOptions.Path(pathCodec, _)        =>
+      case HttpOptions.Path(pathCodec, _)    =>
         pathCodec.segments.toList.flatMap { case segment =>
           getSegment(segment) match {
             case (_, "")           => Nil
@@ -54,12 +52,12 @@ object CommandGen {
             case (name, codec)     => s"${getName(name, "")} $codec" :: Nil
           }
         }
-      case HttpOptions.Query(name, textCodec, _) =>
-        getType(textCodec) match {
+      case HttpOptions.Query(name, codec, _) =>
+        getType(codec.parent) match {
           case ""    => s"[${getName(name, "")}]" :: Nil
           case codec => s"${getName(name, "")} $codec" :: Nil
         }
-      case _                                     => Nil
+      case _                                 => Nil
     }.foldRight(List[String]())(_ ++ _)
 
     val headersOptions = cliEndpoint.headers.filter {

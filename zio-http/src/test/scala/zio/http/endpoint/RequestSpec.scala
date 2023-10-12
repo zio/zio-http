@@ -134,6 +134,25 @@ object RequestSpec extends ZIOHttpSpec {
               assertTrue(contentType.isEmpty)
           }
         },
+        test("multiple parameters for a single value query") {
+          check(Gen.int, Gen.int, Gen.int) { (id, id1, id2) =>
+            val endpoint =
+              Endpoint(GET / "posts")
+                .query(queryInt("id"))
+                .out[Int]
+            val routes   =
+              endpoint.implement {
+                Handler.succeed(id)
+              }
+            for {
+              response <- routes.toHttpApp.runZIO(
+                Request.get(URL.decode(s"/posts?id=$id1&id=$id2").toOption.get),
+              )
+              contentType = response.header(Header.ContentType)
+            } yield assertTrue(extractStatus(response).code == 400) &&
+              assertTrue(contentType.isEmpty)
+          }
+        },
         test("header codec") {
           check(Gen.int, Gen.alphaNumericString) { (id, notACorrelationId) =>
             val endpoint =

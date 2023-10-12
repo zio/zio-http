@@ -50,7 +50,7 @@ trait TestCliEndpoints {
         "posts" / int("postId") ?? Doc.p("The unique identifier of the post"),
     )
       .query(
-        paramStr("user-name") ?? Doc.p(
+        query("user-name") ?? Doc.p(
           "The user's name",
         ),
       )

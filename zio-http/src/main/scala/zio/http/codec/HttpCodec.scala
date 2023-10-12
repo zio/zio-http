@@ -22,6 +22,7 @@ import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 import zio._
+import zio.prelude._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
@@ -578,14 +579,18 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
-  private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Query, A]  {
-    self =>
-    def erase: Query[Any] = self.asInstanceOf[Query[Any]]
+
+  private[http] case class Query[A, I](name: String, codec: TextChunkCodec[A, I], index: Int = 0)
+      extends Atom[HttpCodecType.Query, A] {
+    def erase: Query[Any, I] = asInstanceOf[Query[Any, I]]
 
     def tag: AtomTag = AtomTag.Query
 
-    def index(index: Int): Query[A] = copy(index = index)
+    def index(index: Int): Query[A, I] = copy(index = index)
+
+    def encode(value: A): Chunk[String] = codec.encode(value)
+
+    def decode(chunk: Chunk[String]): TextChunkCodec.DecodeResult[A] = codec.decode(chunk)
   }
 
   private[http] final case class Method[A](codec: SimpleCodec[zio.http.Method, A], index: Int = 0)

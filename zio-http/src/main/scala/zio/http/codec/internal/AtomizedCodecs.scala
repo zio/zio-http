@@ -25,7 +25,7 @@ import zio.http.codec._
 private[http] final case class AtomizedCodecs(
   method: Chunk[SimpleCodec[zio.http.Method, _]],
   path: Chunk[PathCodec[_]],
-  query: Chunk[Query[_]],
+  query: Chunk[Query[_, _]],
   header: Chunk[Header[_]],
   content: Chunk[BodyCodec[_]],
   status: Chunk[SimpleCodec[zio.http.Status, _]],
@@ -33,7 +33,7 @@ private[http] final case class AtomizedCodecs(
   def append(atom: Atom[_, _]): AtomizedCodecs = atom match {
     case path0: Path[_]            => self.copy(path = path :+ path0.pathCodec)
     case method0: Method[_]        => self.copy(method = method :+ method0.codec)
-    case query0: Query[_]          => self.copy(query = query :+ query0)
+    case query0: Query[_, _]       => self.copy(query = query :+ query0)
     case header0: Header[_]        => self.copy(header = header :+ header0)
     case content0: Content[_]      =>
       self.copy(content = content :+ BodyCodec.Single(content0.schema, content0.mediaType, content0.name))

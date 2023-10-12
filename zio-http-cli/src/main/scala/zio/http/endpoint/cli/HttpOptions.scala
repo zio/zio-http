@@ -263,11 +263,12 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class Query(override val name: String, textCodec: TextCodec[_], doc: Doc = Doc.empty) extends URLOptions {
+  final case class Query(override val name: String, codec: TextChunkCodec[_, _], doc: Doc = Doc.empty)
+      extends URLOptions {
     self =>
 
     override val tag             = "?" + name
-    lazy val options: Options[_] = optionsFromTextCodec(textCodec)(name)
+    lazy val options: Options[_] = optionsFromTextCodec(codec.parent)(name)
 
     override def ??(doc: Doc): Query = self.copy(doc = self.doc + doc)
 
