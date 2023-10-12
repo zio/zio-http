@@ -147,7 +147,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ TestAspect.nonFlaky,
+      } @@ nonFlaky,
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
