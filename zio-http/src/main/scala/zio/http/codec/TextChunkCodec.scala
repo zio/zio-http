@@ -2,7 +2,6 @@ package zio.http.codec
 
 import scala.annotation.tailrec
 
-import zio.prelude._
 import zio.{Chunk, ChunkBuilder, NonEmptyChunk}
 
 sealed trait TextChunkCodec[A, I] {
@@ -34,7 +33,10 @@ object TextChunkCodec {
       case chunk if chunk.isEmpty => DecodeSuccess(None)
       case _                      => InvalidCardinality(chunk.length, "one or none")
     }
-    override def encode(value: Option[I]): Chunk[String]               = (value map codec.encode).toChunk
+    override def encode(value: Option[I]): Chunk[String]               = value match {
+      case Some(item) => Chunk(codec.encode(item))
+      case None       => Chunk.empty
+    }
   }
   def one[I](codec: TextCodec[I]): TextChunkCodec[I, I]                      = new TextChunkCodec[I, I] {
     def parent: TextCodec[I]                                   = codec
