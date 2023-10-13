@@ -195,8 +195,8 @@ object OpenAPIGen {
         case map: HttpCodec.TransformOrFail[_, _, _] => flattenedAtoms(map.api, annotations)
         case HttpCodec.Empty                         => Chunk.empty
         case HttpCodec.Halt                          => Chunk.empty
-        case _: HttpCodec.Fallback[_, _, _]          => in.alternatives.flatMap(flattenedAtoms(_, annotations))
-        case HttpCodec.Annotated(api, annotation)    =>
+        case _: HttpCodec.Fallback[_, _, _]       => in.alternatives.map(_._1).flatMap(flattenedAtoms(_, annotations))
+        case HttpCodec.Annotated(api, annotation) =>
           flattenedAtoms(api, annotations :+ annotation.asInstanceOf[HttpCodec.Metadata[Any]])
       }
   }
@@ -314,7 +314,7 @@ object OpenAPIGen {
               .nullable(optional(metadata))
               .description(description(metadata))
         }
-      case HttpCodec.Fallback(_, _) => throw new IllegalArgumentException("Fallback not supported at this point")
+      case HttpCodec.Fallback(_, _, _) => throw new IllegalArgumentException("Fallback not supported at this point")
     }
   }
 
@@ -349,7 +349,7 @@ object OpenAPIGen {
         None
       case HttpCodec.Combine(left, right, _)                                                           =>
         status(left).orElse(status(right))
-      case HttpCodec.Fallback(left, right)                                                             =>
+      case HttpCodec.Fallback(left, right, _)                                                          =>
         status(left).orElse(status(right))
       case _                                                                                           =>
         None
@@ -430,9 +430,12 @@ object OpenAPIGen {
   ): OpenAPI = {
     val inAtoms = AtomizedMetaCodecs.flatten(endpoint.input)
     val outs: Map[OpenAPI.StatusOrDefault, Map[MediaType, (JsonSchema, AtomizedMetaCodecs)]] =
-      schemaByStatusAndMediaType(endpoint.output.alternatives ++ endpoint.error.alternatives, referenceType)
+      schemaByStatusAndMediaType(
+        endpoint.output.alternatives.map(_._1) ++ endpoint.error.alternatives.map(_._1),
+        referenceType,
+      )
     // there is no status for inputs. So we just take the first one (default)
-    val ins = schemaByStatusAndMediaType(endpoint.input.alternatives, referenceType).values.headOption
+    val ins = schemaByStatusAndMediaType(endpoint.input.alternatives.map(_._1), referenceType).values.headOption
 
     def path: OpenAPI.Paths = {
       val path           = buildPath(endpoint.input)
@@ -468,7 +471,7 @@ object OpenAPIGen {
         case HttpCodec.Empty                      => None
         case HttpCodec.Halt                       => None
         case HttpCodec.Combine(left, right, _)    => pathCodec(left).orElse(pathCodec(right))
-        case HttpCodec.Fallback(left, right)      => pathCodec(left).orElse(pathCodec(right))
+        case HttpCodec.Fallback(left, right, _)   => pathCodec(left).orElse(pathCodec(right))
       }
 
       val pathString = {
@@ -645,9 +648,9 @@ object OpenAPIGen {
     }
 
     def componentSchemas: Map[OpenAPI.Key, OpenAPI.ReferenceOr[JsonSchema]] =
-      (endpoint.input.alternatives.map(AtomizedMetaCodecs.flatten).flatMap(_.content)
-        ++ endpoint.error.alternatives.map(AtomizedMetaCodecs.flatten).flatMap(_.content)
-        ++ endpoint.output.alternatives.map(AtomizedMetaCodecs.flatten).flatMap(_.content)).collect {
+      (endpoint.input.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten).flatMap(_.content)
+        ++ endpoint.error.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten).flatMap(_.content)
+        ++ endpoint.output.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten).flatMap(_.content)).collect {
         case MetaCodec(HttpCodec.Content(schema, _, _, _), _) if nominal(schema, referenceType).isDefined       =>
           OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
             OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(schema).discriminator(genDiscriminator(schema)))

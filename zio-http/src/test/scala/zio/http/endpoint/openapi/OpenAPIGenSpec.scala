@@ -783,8 +783,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |}""".stripMargin
         assertTrue(json == minify(expectedJson))
       },
-      // TODO: optional title leads to anyOf schema, which is not wrong,
-      //  but a duplicate and maybe confusing
       test("multipart") {
         val endpoint  = Endpoint(GET / "test-form")
           .outCodec(
@@ -795,7 +793,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
               HttpCodec.content[ImageMetadata]("metadata"),
           )
         val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
-        println(generated.toJsonPretty)
         val json      = generated.toJson
         val expected  = """{
                          |  "openapi" : "3.1.0",

@@ -16,12 +16,12 @@
 
 package zio.http.codec
 
-import zio.http.codec.Doc.Span.CodeStyle
 import zio.Chunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema.Schema
 
+import zio.http.codec.Doc.Span.CodeStyle
 import zio.http.template
 
 /**
@@ -331,7 +331,7 @@ object Doc {
     Schema[String].transform(
       fromCommonMark,
       _.toCommonMark,
-      )
+    )
 
   def fromCommonMark(commonMark: String): Doc =
     Doc.Raw(commonMark, RawDocType.CommonMark)
