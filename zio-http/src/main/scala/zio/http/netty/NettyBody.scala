@@ -123,21 +123,23 @@ object NettyBody extends BodyEncoding {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream
-        .async[Any, Throwable, Byte](emit =>
-          try {
-            unsafeAsync(new UnsafeAsync {
-              override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
-                emit(ZIO.succeed(message))
-                if (isLast) {
-                  emit(ZIO.fail(None))
+        .async[Any, Throwable, Byte](
+          emit =>
+            try {
+              unsafeAsync(new UnsafeAsync {
+                override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+                  emit(ZIO.succeed(message))
+                  if (isLast) {
+                    emit(ZIO.fail(None))
+                  }
                 }
-              }
-              override def fail(cause: Throwable): Unit                       =
-                emit(ZIO.fail(Some(cause)))
-            })
-          } catch {
-            case e: Throwable => emit(ZIO.fail(Option(e)))
-          },
+                override def fail(cause: Throwable): Unit                       =
+                  emit(ZIO.fail(Some(cause)))
+              })
+            } catch {
+              case e: Throwable => emit(ZIO.fail(Option(e)))
+            },
+          4096,
         )
 
     override def isComplete: Boolean = false
