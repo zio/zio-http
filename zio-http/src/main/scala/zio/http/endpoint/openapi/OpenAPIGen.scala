@@ -2,6 +2,8 @@ package zio.http.endpoint.openapi
 
 import java.util.UUID
 
+import scala.collection.{immutable, mutable}
+
 import zio.Chunk
 import zio.json.EncoderOps
 import zio.json.ast.Json
@@ -13,11 +15,30 @@ import zio.schema.{Schema, TypeId}
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
-import zio.http.endpoint.openapi.JsonSchema.ReferenceType
+import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
 import zio.http.endpoint.{Endpoint, EndpointMiddleware}
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
+
+  private[openapi] def groupMap[A, K, B](chunk: Chunk[A])(key: A => K)(f: A => B): immutable.Map[K, Chunk[B]] = {
+    val m = mutable.Map.empty[K, mutable.Builder[B, Chunk[B]]]
+    for (elem <- chunk) {
+      val k    = key(elem)
+      val bldr = m.getOrElseUpdate(k, Chunk.newBuilder[B])
+      bldr += f(elem)
+    }
+    class Result extends runtime.AbstractFunction1[(K, mutable.Builder[B, Chunk[B]]), Unit] {
+      var built = immutable.Map.empty[K, Chunk[B]]
+
+      def apply(kv: (K, mutable.Builder[B, Chunk[B]])): Unit =
+        built = built.updated(kv._1, kv._2.result())
+    }
+    val result = new Result
+    m.foreach(result)
+    result.built
+  }
+
   final case class MetaCodec[T](codec: T, annotations: Chunk[HttpCodec.Metadata[Any]]) {
     lazy val docs: Doc = {
       val annotatedDoc    = annotations.foldLeft(Doc.empty) {
@@ -80,7 +101,9 @@ object OpenAPIGen {
   ) {
     def append(metaCodec: MetaCodec[_]): AtomizedMetaCodecs = metaCodec match {
       case MetaCodec(codec: HttpCodec.Method[_], annotations)        =>
-        copy(method = method :+ MetaCodec(codec.codec, annotations))
+        copy(method =
+          (method :+ MetaCodec(codec.codec, annotations)).asInstanceOf[Chunk[MetaCodec[SimpleCodec[Method, _]]]],
+        )
       case MetaCodec(_: SegmentCodec[_], _)                          =>
         copy(path = path :+ metaCodec.asInstanceOf[MetaCodec[SegmentCodec[_]]])
       case MetaCodec(_: HttpCodec.Query[_], _)                       =>
@@ -165,10 +188,10 @@ object OpenAPIGen {
       annotations: Chunk[HttpCodec.Metadata[Any]] = Chunk.empty,
     ): Chunk[MetaCodec[_]] =
       in match {
-        case HttpCodec.Combine(left, right, _)       =>
+        case HttpCodec.Combine(left, right, _) =>
           flattenedAtoms(left, annotations) ++ flattenedAtoms(right, annotations)
-        case path: HttpCodec.Path[_]                 => path.pathCodec.segments.map(metaCodecFromSegment)
-        case atom: HttpCodec.Atom[_, _]              => Chunk(MetaCodec(atom, annotations))
+        case path: HttpCodec.Path[_]           => Chunk.fromIterable(path.pathCodec.segments.map(metaCodecFromSegment))
+        case atom: HttpCodec.Atom[_, _]        => Chunk(MetaCodec(atom, annotations))
         case map: HttpCodec.TransformOrFail[_, _, _] => flattenedAtoms(map.api, annotations)
         case HttpCodec.Empty                         => Chunk.empty
         case HttpCodec.Halt                          => Chunk.empty
@@ -186,7 +209,7 @@ object OpenAPIGen {
           annotations.map {
             case SegmentCodec.MetaData.Documented(value)  => HttpCodec.Metadata.Documented(value)
             case SegmentCodec.MetaData.Examples(examples) => HttpCodec.Metadata.Examples(examples)
-          },
+          }.asInstanceOf[Chunk[HttpCodec.Metadata[Any]]],
         )
       case other                                      => MetaCodec(other, Chunk.empty)
     }
@@ -195,7 +218,7 @@ object OpenAPIGen {
   def contentAsJsonSchema[R, A](
     codec: HttpCodec[R, A],
     metadata: Chunk[HttpCodec.Metadata[_]] = Chunk.empty,
-    referenceType: ReferenceType = ReferenceType.Inline,
+    referenceType: SchemaStyle = SchemaStyle.Inline,
     wrapInObject: Boolean = false,
   ): JsonSchema = {
     codec match {
@@ -296,8 +319,8 @@ object OpenAPIGen {
   }
 
   private def findName(metadata: Chunk[HttpCodec.Metadata[_]]): Option[String] =
-    metadata
-      .findLast(_.isInstanceOf[Metadata.Named[_]])
+    metadata.reverse
+      .find(_.isInstanceOf[Metadata.Named[_]])
       .asInstanceOf[Option[Metadata.Named[Any]]]
       .map(_.name)
 
@@ -374,19 +397,19 @@ object OpenAPIGen {
   def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
     title: String,
     version: String,
-    referenceType: ReferenceType,
+    referenceType: SchemaStyle,
     endpoint1: Endpoint[PathInput, Input, Err, Output, Middleware],
     endpoints: Endpoint[PathInput, Input, Err, Output, Middleware]*,
   ): OpenAPI = fromEndpoints(title, version, referenceType, endpoint1 +: endpoints)
 
   def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
-    referenceType: ReferenceType,
+    referenceType: SchemaStyle,
     endpoints: Iterable[Endpoint[PathInput, Input, Err, Output, Middleware]],
   ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, referenceType)).reduce(_ ++ _)
 
   def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
     endpoints: Iterable[Endpoint[PathInput, Input, Err, Output, Middleware]],
-  ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, ReferenceType.Compact)).reduce(_ ++ _)
+  ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, SchemaStyle.Compact)).reduce(_ ++ _)
 
   def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
     title: String,
@@ -397,13 +420,13 @@ object OpenAPIGen {
   def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
     title: String,
     version: String,
-    referenceType: ReferenceType,
+    referenceType: SchemaStyle,
     endpoints: Iterable[Endpoint[PathInput, Input, Err, Output, Middleware]],
   ): OpenAPI = fromEndpoints(referenceType, endpoints).title(title).version(version)
 
   def gen[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
     endpoint: Endpoint[PathInput, Input, Err, Output, Middleware],
-    referenceType: ReferenceType = ReferenceType.Compact,
+    referenceType: SchemaStyle = SchemaStyle.Compact,
   ): OpenAPI = {
     val inAtoms = AtomizedMetaCodecs.flatten(endpoint.input)
     val outs: Map[OpenAPI.StatusOrDefault, Map[MediaType, (JsonSchema, AtomizedMetaCodecs)]] =
@@ -654,7 +677,7 @@ object OpenAPIGen {
 
   private def schemaByStatusAndMediaType(
     alternatives: Chunk[HttpCodec[_, _]],
-    referenceType: ReferenceType,
+    referenceType: SchemaStyle,
   ): Map[OpenAPI.StatusOrDefault, Map[MediaType, (JsonSchema, AtomizedMetaCodecs)]] = {
     val statusAndCodec =
       alternatives.map { codec =>
@@ -664,10 +687,10 @@ object OpenAPIGen {
           .flatten(codec), contentAsJsonSchema(codec, referenceType = referenceType))
       }
 
-    statusAndCodec.groupMap { case (status, _) => status } { case (_, atomizedAndSchema) =>
+    groupMap(statusAndCodec) { case (status, _) => status } { case (_, atomizedAndSchema) =>
       atomizedAndSchema
     }.map { case (status, values) =>
-      status -> values
+      val mapped = values
         .foldLeft(Chunk.empty[(MediaType, (AtomizedMetaCodecs, JsonSchema))]) { case (acc, (atomized, schema)) =>
           if (atomized.content.size > 1) {
             acc :+ (MediaType.multipart.`form-data` -> (atomized, schema))
@@ -686,47 +709,49 @@ object OpenAPIGen {
             acc :+ (mediaType -> (atomized, schema))
           }
         }
-        .groupMap { case (mediaType, _) => mediaType } { case (_, atomizedAndSchema) =>
-          atomizedAndSchema
-        }
-        .map {
-          case (mediaType, Chunk((atomized, schema))) if values.size == 1 =>
-            mediaType -> (schema, atomized)
-          case (mediaType, values)                                        =>
-            val combinedAtomized: AtomizedMetaCodecs = values.map(_._1).reduce(_ ++ _)
-            val combinedContentDoc                   = combinedAtomized.contentDocs.toCommonMark
-            val alternativesSchema                   =
-              JsonSchema
-                .AnyOfSchema(values.map { case (_, schema) =>
-                  schema.description match {
-                    case Some(value) => schema.description(value.replace(combinedContentDoc, ""))
-                    case None        => schema
-                  }
-                })
-                .description(combinedContentDoc)
-            mediaType -> (alternativesSchema, combinedAtomized)
-        }
+      status -> groupMap(mapped) { case (mediaType, _) => mediaType } { case (_, atomizedAndSchema) =>
+        atomizedAndSchema
+      }.map {
+        case (mediaType, Chunk((atomized, schema))) if values.size == 1 =>
+          mediaType -> (schema, atomized)
+        case (mediaType, values)                                        =>
+          val combinedAtomized: AtomizedMetaCodecs = values.map(_._1).reduce(_ ++ _)
+          val combinedContentDoc                   = combinedAtomized.contentDocs.toCommonMark
+          val alternativesSchema                   = {
+            // todo minify the schema in case of opt fields
+            JsonSchema
+              .AnyOfSchema(values.map { case (_, schema) =>
+                schema.description match {
+                  case Some(value) => schema.description(value.replace(combinedContentDoc, ""))
+                  case None        => schema
+                }
+              })
+              .minify
+              .description(combinedContentDoc)
+          }
+          mediaType -> (alternativesSchema, combinedAtomized)
+      }
     }
   }
 
-  def nominal(schema: Schema[_], referenceType: ReferenceType): Option[String] =
+  def nominal(schema: Schema[_], referenceType: SchemaStyle): Option[String] =
     schema match {
       case enum: Schema.Enum[_] =>
         enum.id match {
-          case TypeId.Structural                                                 =>
+          case TypeId.Structural                                               =>
             None
-          case nominal: TypeId.Nominal if referenceType == ReferenceType.Compact =>
+          case nominal: TypeId.Nominal if referenceType == SchemaStyle.Compact =>
             Some(nominal.typeName)
-          case nominal: TypeId.Nominal                                           =>
+          case nominal: TypeId.Nominal                                         =>
             Some(nominal.fullyQualified.replace(".", "_"))
         }
       case record: Record[_]    =>
         record.id match {
-          case TypeId.Structural                                                 =>
+          case TypeId.Structural                                               =>
             None
-          case nominal: TypeId.Nominal if referenceType == ReferenceType.Compact =>
+          case nominal: TypeId.Nominal if referenceType == SchemaStyle.Compact =>
             Some(nominal.typeName)
-          case nominal: TypeId.Nominal                                           =>
+          case nominal: TypeId.Nominal                                         =>
             Some(nominal.fullyQualified.replace(".", "_"))
         }
       case _                    => None
@@ -753,7 +778,7 @@ object OpenAPIGen {
       )
     }
 
-  private def headersFrom(codec: AtomizedMetaCodecs)                                             = {
+  private def headersFrom(codec: AtomizedMetaCodecs)                                           = {
     codec.header.map { case mc @ MetaCodec(codec, _) =>
       codec.name -> OpenAPI.ReferenceOr.Or(
         OpenAPI.Header(
@@ -766,10 +791,10 @@ object OpenAPIGen {
       )
     }.toMap
   }
-  private def schemaReferencePath(nominal: TypeId.Nominal, referenceType: ReferenceType): String = {
+  private def schemaReferencePath(nominal: TypeId.Nominal, referenceType: SchemaStyle): String = {
     referenceType match {
-      case ReferenceType.Compact => s"#/components/schemas/${nominal.typeName}}"
-      case _                     => s"#/components/schemas/${nominal.fullyQualified.replace(".", "_")}}"
+      case SchemaStyle.Compact => s"#/components/schemas/${nominal.typeName}}"
+      case _                   => s"#/components/schemas/${nominal.fullyQualified.replace(".", "_")}}"
     }
   }
 }

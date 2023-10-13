@@ -130,7 +130,7 @@ object SegmentCodec          {
     def matches(segments: Chunk[String], index: Int): Int = codec.matches(segments, index)
   }
 
-  sealed trait MetaData[A]
+  sealed trait MetaData[A] extends Product with Serializable
 
   object MetaData {
     final case class Documented[A](value: Doc)             extends MetaData[A]

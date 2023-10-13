@@ -784,7 +784,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
         assertTrue(json == minify(expectedJson))
       },
       // TODO: optional title leads to anyOf schema, which is not wrong,
-      // but a duplicate and maybe confusing
+      //  but a duplicate and maybe confusing
       test("multipart") {
         val endpoint  = Endpoint(GET / "test-form")
           .outCodec(
@@ -795,6 +795,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
               HttpCodec.content[ImageMetadata]("metadata"),
           )
         val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        println(generated.toJsonPretty)
         val json      = generated.toJson
         val expected  = """{
                          |  "openapi" : "3.1.0",
@@ -805,13 +806,13 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |  "paths" : {
                          |    "/test-form" : {
                          |      "get" : {
-                         |        "requestBody" :
+                         |        "requestBody" : 
                          |          {
                          |          "content" : {
                          |            "application/json" : {
-                         |              "schema" :
+                         |              "schema" : 
                          |                {
-                         |                "type" :
+                         |                "type" : 
                          |                  "null"
                          |              }
                          |            }
@@ -819,90 +820,50 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |          "required" : false
                          |        },
                          |        "responses" : {
-                         |          "default" :
+                         |          "default" : 
                          |            {
                          |            "description" : "",
                          |            "content" : {
                          |              "multipart/form-data" : {
-                         |                "schema" :
+                         |                "schema" : 
                          |                  {
-                         |                  "anyOf" : [
-                         |                    {
-                         |                      "type" :
-                         |                        "object",
-                         |                      "properties" : {
-                         |                        "image" : {
-                         |                          "type" :
-                         |                            "string",
-                         |                          "contentEncoding" : "binary",
-                         |                          "contentMediaType" : "application/octet-stream"
-                         |                        },
-                         |                        "height" : {
-                         |                          "type" :
-                         |                            "integer",
-                         |                          "format" : "int32"
-                         |                        },
-                         |                        "metadata" : {
-                         |                          "$ref" : "#/components/schemas/ImageMetadata"
-                         |                        },
-                         |                        "title" : {
-                         |                          "type" :
-                         |                            [
-                         |                            "string",
-                         |                            "null"
-                         |                          ]
-                         |                        },
-                         |                        "width" : {
-                         |                          "type" :
-                         |                            "integer",
-                         |                          "format" : "int32"
-                         |                        }
-                         |                      },
-                         |                      "additionalProperties" :
-                         |                        false,
-                         |                      "required" : [
-                         |                        "image",
-                         |                        "title",
-                         |                        "width",
-                         |                        "height",
-                         |                        "metadata"
-                         |                      ],
-                         |                      "description" : ""
+                         |                  "type" : 
+                         |                    "object",
+                         |                  "properties" : {
+                         |                    "image" : {
+                         |                      "type" : 
+                         |                        "string",
+                         |                      "contentEncoding" : "binary",
+                         |                      "contentMediaType" : "application/octet-stream"
                          |                    },
-                         |                    {
-                         |                      "type" :
-                         |                        "object",
-                         |                      "properties" : {
-                         |                        "image" : {
-                         |                          "type" :
-                         |                            "string",
-                         |                          "contentEncoding" : "binary",
-                         |                          "contentMediaType" : "application/octet-stream"
-                         |                        },
-                         |                        "width" : {
-                         |                          "type" :
-                         |                            "integer",
-                         |                          "format" : "int32"
-                         |                        },
-                         |                        "height" : {
-                         |                          "type" :
-                         |                            "integer",
-                         |                          "format" : "int32"
-                         |                        },
-                         |                        "metadata" : {
-                         |                          "$ref" : "#/components/schemas/ImageMetadata"
-                         |                        }
-                         |                      },
-                         |                      "additionalProperties" :
-                         |                        false,
-                         |                      "required" : [
-                         |                        "image",
-                         |                        "width",
-                         |                        "height",
-                         |                        "metadata"
-                         |                      ],
-                         |                      "description" : ""
+                         |                    "height" : {
+                         |                      "type" : 
+                         |                        "integer",
+                         |                      "format" : "int32"
+                         |                    },
+                         |                    "metadata" : {
+                         |                      "$ref" : "#/components/schemas/ImageMetadata"
+                         |                    },
+                         |                    "title" : {
+                         |                      "type" : 
+                         |                        [
+                         |                        "string",
+                         |                        "null"
+                         |                      ]
+                         |                    },
+                         |                    "width" : {
+                         |                      "type" : 
+                         |                        "integer",
+                         |                      "format" : "int32"
                          |                    }
+                         |                  },
+                         |                  "additionalProperties" : 
+                         |                    false,
+                         |                  "required" : [
+                         |                    "image",
+                         |                    "width",
+                         |                    "height",
+                         |                    "metadata"
                          |                  ],
                          |                  "description" : "Test doc\n\n"
                          |                }
@@ -916,22 +877,22 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |  },
                          |  "components" : {
                          |    "schemas" : {
-                         |      "ImageMetadata" :
+                         |      "ImageMetadata" : 
                          |        {
-                         |        "type" :
+                         |        "type" : 
                          |          "object",
                          |        "properties" : {
                          |          "name" : {
-                         |            "type" :
+                         |            "type" : 
                          |              "string"
                          |          },
                          |          "size" : {
-                         |            "type" :
+                         |            "type" : 
                          |              "integer",
                          |            "format" : "int32"
                          |          }
                          |        },
-                         |        "additionalProperties" :
+                         |        "additionalProperties" : 
                          |          true,
                          |        "required" : [
                          |          "name",
@@ -940,8 +901,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |      }
                          |    }
                          |  }
-                         |}
-                         |""".stripMargin
+                         |}""".stripMargin
         assertTrue(json == minify(expected))
       },
     )

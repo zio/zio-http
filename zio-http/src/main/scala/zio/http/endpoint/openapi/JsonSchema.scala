@@ -308,15 +308,15 @@ object JsonSchema {
       case SegmentCodec.Trailing   => throw new IllegalArgumentException("Trailing segment is not supported.")
     }
 
-  def fromZSchema(schema: Schema[_], refType: ReferenceType = ReferenceType.Inline): JsonSchema =
+  def fromZSchema(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchema =
     schema match {
-      case enum0: Schema.Enum[_] if refType != ReferenceType.Inline && nominal(enum0).isDefined     =>
+      case enum0: Schema.Enum[_] if refType != SchemaStyle.Inline && nominal(enum0).isDefined     =>
         JsonSchema.RefSchema(nominal(enum0, refType).get)
-      case enum0: Schema.Enum[_]                                                                    =>
+      case enum0: Schema.Enum[_]                                                                  =>
         JsonSchema.Enum(enum0.cases.map(c => EnumValue.Str(c.id)))
-      case record: Schema.Record[_] if refType != ReferenceType.Inline && nominal(record).isDefined =>
+      case record: Schema.Record[_] if refType != SchemaStyle.Inline && nominal(record).isDefined =>
         JsonSchema.RefSchema(nominal(record, refType).get)
-      case record: Schema.Record[_]                                                                 =>
+      case record: Schema.Record[_]                                                               =>
         val additionalProperties =
           if (record.annotations.exists(_.isInstanceOf[rejectExtraFields])) {
             Left(false)
@@ -335,7 +335,7 @@ object JsonSchema {
           })
           .required(record.fields.filterNot(_.schema.isInstanceOf[Schema.Optional[_]]).map(_.name))
           .deprecated(deprecated(record))
-      case collection: Schema.Collection[_, _]                                                      =>
+      case collection: Schema.Collection[_, _]                                                    =>
         collection match {
           case Schema.Sequence(elementSchema, _, _, _, _) =>
             JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)))
@@ -348,9 +348,9 @@ object JsonSchema {
           case Schema.Set(elementSchema, _)               =>
             JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)))
         }
-      case Schema.Transform(schema, _, _, _, _)                                                     =>
+      case Schema.Transform(schema, _, _, _, _)                                                   =>
         fromZSchema(schema, refType)
-      case Schema.Primitive(standardType, _)                                                        =>
+      case Schema.Primitive(standardType, _)                                                      =>
         standardType match {
           case StandardType.UnitType          => JsonSchema.Null                        // is this null or empty object?
           case StandardType.StringType        => JsonSchema.String
@@ -392,30 +392,47 @@ object JsonSchema {
       case Schema.Dynamic(_)             => throw new IllegalArgumentException("Dynamic schema is not supported.")
     }
 
-  sealed trait ReferenceType extends Product with Serializable
-  object ReferenceType {
-    case object Inline    extends ReferenceType
-    case object Reference extends ReferenceType
-    case object Compact   extends ReferenceType
+  sealed trait SchemaStyle extends Product with Serializable
+  object SchemaStyle {
+
+    /** Generates inline json schema */
+    case object Inline extends SchemaStyle
+
+    /**
+     * Generates references to json schemas under #/components/schemas/{schema}
+     * and uses the full package path to help to generate unique schema names.
+     * @see
+     *   SchemaStyle.Compact for compact schema names.
+     */
+    case object Reference extends SchemaStyle
+
+    /**
+     * Generates references to json schemas under #/components/schemas/{schema}
+     * and uses the type name to help to generate schema names.
+     * @see
+     *   SchemaStyle.Reference for full package path schema names to avoid name
+     *   collisions.
+     */
+    case object Compact extends SchemaStyle
   }
 
   private def deprecated(schema: Schema[_]): Boolean =
     schema.annotations.exists(_.isInstanceOf[scala.deprecated])
 
-  private def nominal(schema: Schema[_], referenceType: ReferenceType = ReferenceType.Reference): Option[String] =
+  private def nominal(schema: Schema[_], referenceType: SchemaStyle = SchemaStyle.Reference): Option[String] =
     schema match {
       case enum: Schema.Enum[_]     => refForTypeId(enum.id, referenceType)
       case record: Schema.Record[_] => refForTypeId(record.id, referenceType)
       case _                        => None
     }
 
-  private def refForTypeId(id: TypeId, referenceType: ReferenceType): Option[String] =
+  private def refForTypeId(id: TypeId, referenceType: SchemaStyle): Option[String] =
     id match {
-      case nominal: TypeId.Nominal if referenceType == ReferenceType.Reference =>
+      case nominal: TypeId.Nominal if referenceType == SchemaStyle.Reference =>
         Some(s"#/components/schemas/${nominal.fullyQualified.replace(".", "_")}")
-      case nominal: TypeId.Nominal if referenceType == ReferenceType.Compact   =>
+      case nominal: TypeId.Nominal if referenceType == SchemaStyle.Compact   =>
         Some(s"#/components/schemas/${nominal.typeName}")
-      case _                                                                   =>
+      case _                                                                 =>
         None
     }
 
@@ -486,23 +503,49 @@ object JsonSchema {
       SerializableJsonSchema(ref = Some(ref))
   }
 
-  sealed trait OfSchema extends JsonSchema
-
-  final case class OneOfSchema(oneOf: Chunk[JsonSchema]) extends OfSchema {
+  final case class OneOfSchema(oneOf: Chunk[JsonSchema]) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
         oneOf = Some(oneOf.map(_.toSerializableSchema)),
       )
   }
 
-  final case class AllOfSchema(allOf: Chunk[JsonSchema]) extends OfSchema {
+  final case class AllOfSchema(allOf: Chunk[JsonSchema]) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
         allOf = Some(allOf.map(_.toSerializableSchema)),
       )
   }
 
-  final case class AnyOfSchema(anyOf: Chunk[JsonSchema]) extends OfSchema {
+  final case class AnyOfSchema(anyOf: Chunk[JsonSchema]) extends JsonSchema {
+    def minify: JsonSchema = {
+      val (objects, others) = anyOf.distinct.span(_.withoutAnnotations.isInstanceOf[JsonSchema.Object])
+      val markedForRemoval  = (for {
+        obj      <- objects
+        otherObj <- objects
+        notNullableSchemas = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties.collect {
+          case (name, schema)
+              if !schema.annotations.exists { case MetaData.Nullable(nullable) => nullable; case _ => false } =>
+            name -> schema
+        }
+        if notNullableSchemas == otherObj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties
+      } yield otherObj).distinct
+
+      val minified = objects.filterNot(markedForRemoval.contains).map { obj =>
+        val annotations        = obj.annotations
+        val asObject           = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object]
+        val notNullableSchemas = asObject.properties.collect {
+          case (name, schema)
+              if !schema.annotations.exists { case MetaData.Nullable(nullable) => nullable; case _ => false } =>
+            name -> schema
+        }
+        asObject.required(asObject.required.filter(notNullableSchemas.contains)).annotate(annotations)
+      }
+      val newAnyOf = minified ++ others
+
+      if (newAnyOf.size == 1) newAnyOf.head else AnyOfSchema(newAnyOf)
+    }
+
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
         anyOf = Some(anyOf.map(_.toSerializableSchema)),
