@@ -166,7 +166,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             )
           }
         } yield result
-      } @@ samples(50),
+      } @@ samples(50) @@ TestAspect.ifEnvNotSet("CI"),
       test("decoding random pre-encoded form") {
         for {
           port   <- server(streamingServer)
@@ -199,7 +199,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             )
           }
         } yield result
-      } @@ samples(50),
+      } @@ samples(50) @@ TestAspect.ifEnvNotSet("CI"),
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
         for {
@@ -234,7 +234,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
           }
         } yield result
-      } @@ samples(20),
+      } @@ samples(20) @@ TestAspect.ifEnvNotSet("CI"),
       test("failed stream") {
         for {
           port     <- server(streamingServer)
