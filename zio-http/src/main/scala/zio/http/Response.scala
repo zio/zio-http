@@ -16,18 +16,13 @@
 
 package zio.http
 
-import java.net.URLEncoder
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
 
 import scala.annotation.tailrec
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Cause, Task, Trace, ZIO}
+import zio._
 
 import zio.stream.ZStream
-
-import zio.schema.Schema
-import zio.schema.codec.JsonCodec
 
 import zio.http.internal.HeaderOps
 import zio.http.template.Html
@@ -45,16 +40,10 @@ final case class Response(
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
   /**
-   * Add flash values to the (cookie-based) flash scope.
+   * Adds flash values to the cookie-based flash-scope.
    */
-  def addFlash[A](flash: Flash.Setter[A]): Response =
-    addCookie(Flash.Setter.run(flash))
-
-  /**
-   * Adds optional flash values to the (cookie-based) flash scope.
-   */
-  def addFlash[A](flashOption: Option[Flash.Setter[A]]): Response =
-    flashOption.fold(self)(addFlash(_))
+  def addFlash[A](setter: Flash.Setter[A]): Response =
+    self.addCookie(Flash.Setter.run(setter))
 
   /**
    * Collects the potentially streaming body of the response into a single

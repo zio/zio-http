@@ -1,15 +1,17 @@
 package zio.http
 
-import zio.http.Flash.{Message, succeed}
-import zio.http.template.{Dom, Html}
-
 import java.net.{URLDecoder, URLEncoder}
+import java.util.UUID
+
+import zio._
+
 import zio.schema.Schema
 import zio.schema.codec.JsonCodec
 
+import zio.http.template._
+
 /**
- * `Flash` represents a flash value that one can retrieve from the
- * (cookie-based) flash scope.
+ * `Flash` represents a flash value that one can retrieve from the flash scope.
  *
  * The flash scope consists of a serialized and url-encoded json object built
  * with `zio-schema`.
@@ -52,8 +54,8 @@ sealed trait Flash[+A] { self =>
 object Flash {
 
   /**
-   * A flash message can represent a notice, an alert or both - it's some kind
-   * of a specialized `zio.prelude.These`.
+   * A fash message can represent a notice, an alert or both - it's some kind of
+   * a specialized `zio.prelude.These`.
    *
    * Using a flash message allows one to categorize those into notice or alert
    * and by that wrap both messages with a different ui design.
@@ -94,7 +96,7 @@ object Flash {
       case _                => false
     }
   }
-  object Message {
+  private[http] object Message {
     case class Notice[+A](a: A) extends Message[A, Nothing]
     private[http] object Notice {
       val name = "notice"
@@ -106,53 +108,127 @@ object Flash {
     private[http] case class Both[+A, +B](notice: Notice[A], alert: Alert[B]) extends Message[A, B]
   }
 
+  /**
+   * `Flash.Backend` represents a flash-scope that is not cookie-based but
+   * instead uses an internal structure.
+   *
+   * Semantically it is identical to the cookie-based flash-scope (valid for a
+   * single request) but by using `Flash.Backend` we're not limited in size of
+   * the payload as in the cookie-based flash-scope. Still, the `Flash.Backend`
+   * uses a cookie but does not transport the payload with it but only an
+   * internal identifier.
+   */
+  trait Backend { self =>
+
+    /**
+     * Gets an `A` from the backend-based flash-scope or fails with a
+     * `Throwable`.
+     */
+    def flash[A](request: Request, flash: Flash[A]): IO[Throwable, A]
+
+    /**
+     * Gets an `A` from the backend-based flash-scope and provides a fallback.
+     */
+    def flashOrElse[A](request: Request, flash: Flash[A])(orElse: => A): UIO[A] =
+      self.flash(request, flash) <> ZIO.succeed(orElse)
+
+    /**
+     * Adds flash values to the backend-based flash-scope and returns a workflow
+     * with an updated `Response`.
+     */
+    def addFlash[A](response: Response, setter: Flash.Setter[A]): UIO[Response]
+
+    /**
+     * Optionally adds flash values to the backend-based flash-scope and returns
+     * a workflow with an updated `Response`.
+     */
+    def addFlash[A](response: Response, setterOpt: Option[Flash.Setter[A]]): UIO[Response] =
+      setterOpt.fold(ZIO.succeed(response))(self.addFlash(response, _))
+  }
+
+  object Backend {
+
+    private case class Impl(ref: Ref[Map[UUID, Map[String, String]]]) extends Backend {
+      override def flash[A](request: Request, flash: Flash[A]): IO[Throwable, A] =
+        for {
+          flashId <- ZIO.from(Flash.run(Flash.getUUID(flashIdName), request))
+          a       <- ref.modify { map =>
+            Flash.run(flash, map.get(flashId).getOrElse(Map.empty)) match {
+              case value @ Right(_) => value -> (map - flashId)
+              case value @ Left(_)  => value -> map
+            }
+          }.flatMap(ZIO.from(_))
+        } yield a
+
+      override def addFlash[A](response: Response, setter: Setter[A]): UIO[Response] = {
+        val map = Flash.Setter.run(setter, Map.empty)
+        for {
+          flashId       <- zio.Random.nextUUID
+          setterFlashId <- ref.update(in => in + (flashId -> map)).as(Flash.setValue(flashIdName, flashId))
+        } yield response.addFlash(setterFlashId)
+      }
+    }
+
+    val layer: ULayer[Backend] = ZLayer(Ref.make(Map.empty[UUID, Map[String, String]]).map(Impl.apply))
+
+    private val flashIdName = "flashId"
+
+  }
+
   sealed trait Setter[A] { self =>
 
     /**
      * Combines setting this flash value with another setter `that`.
      */
-    def ++[B](that: => Setter[B]): Setter[Unit] = Setter.Concat(self, that)
+    def ++[B](that: => Setter[B]): Setter[(A, B)] = Setter.Concat(self, that)
   }
 
   private[http] object Setter {
-    case class Set[A](schema: Schema[A], key: String, a: A) extends Flash.Setter[Unit]
 
-    case class Concat[A, B](left: Setter[A], right: Setter[B]) extends Flash.Setter[Unit]
+    case object Empty extends Flash.Setter[Unit]
 
-    def run[A](self: Setter[A]): Cookie.Response = {
-      def loop[B](self: Setter[B], map: Map[String, String]): Map[String, String] =
-        self match {
-          case Set(schema, key, a) =>
-            map.updated(key, JsonCodec.jsonEncoder(schema).encodeJson(a).toString)
-          case Concat(left, right) =>
-            loop(right, loop(left, map))
-        }
-      val map                                                                     = loop(self, Map.empty)
+    case class SetValue[A](schema: Schema[A], key: String, a: A) extends Flash.Setter[A]
+
+    case class Concat[A, B](left: Setter[A], right: Setter[B]) extends Flash.Setter[(A, B)]
+
+    def run[A](setter: Setter[A]): Cookie.Response =
       Cookie.Response(
         Flash.COOKIE_NAME,
         URLEncoder.encode(
-          JsonCodec.jsonEncoder(Schema[Map[String, String]]).encodeJson(map).toString,
+          JsonCodec.jsonEncoder(Schema[Map[String, String]]).encodeJson(run(setter, Map.empty)).toString,
           java.nio.charset.Charset.defaultCharset.toString.toLowerCase,
         ),
       )
 
+    def run[A](setter: Setter[A], map: Map[String, String]): Map[String, String] = {
+      def loop[B](setter: Setter[B], map: Map[String, String]): Map[String, String] =
+        setter match {
+          case SetValue(schema, key, a) =>
+            map.updated(key, JsonCodec.jsonEncoder(schema).encodeJson(a).toString)
+          case Concat(left, right)      =>
+            loop(right, loop(left, map))
+          case Empty                    => map
+        }
+      loop(setter, map)
     }
   }
 
   /**
-   * Sets any flash value of type `A` with the given key `key`.
+   * Sets a flash value of type `A` with the given key `key`.
    */
-  def set[A: Schema](key: String, a: A): Setter[Unit] = Setter.Set(Schema[A], key, a)
+  def setValue[A: Schema](key: String, a: A): Setter[A] = Setter.SetValue(Schema[A], key, a)
 
   /**
-   * Sets any flash value of type `A` with the key for a notice.
+   * Sets a flash value of type `A` with the key for a notice.
    */
-  def setNotice[A: Schema](a: A): Setter[Unit] = Setter.Set(Schema[A], Message.Notice.name, a)
+  def setNotice[A: Schema](a: A): Setter[A] = Setter.SetValue(Schema[A], Message.Notice.name, a)
 
   /**
-   * Sets any flash value of type `A` with the key for an alert.
+   * Sets a flash value of type `A` with the key for an alert.
    */
-  def setAlert[A: Schema](a: A): Setter[Unit] = Setter.Set(Schema[A], Message.Alert.name, a)
+  def setAlert[A: Schema](a: A): Setter[A] = Setter.SetValue(Schema[A], Message.Alert.name, a)
+
+  def setEmpty: Setter[Unit] = Setter.Empty
 
   private[http] val COOKIE_NAME = "zio-http-flash"
 
@@ -178,7 +254,7 @@ object Flash {
     getMessage(Flash.get[A](Message.Notice.name), Flash.get[B](Message.Alert.name))
 
   /**
-   * Creates a `Flash.Message` from two simpler values `flashNotice` and
+   * Creates a `Flash.Message` from two other values `flashNotice` and
    * `flashAlert`.
    *
    * Uses `flashNotice` to create a `Flash.Message` representing a notice.
@@ -193,7 +269,7 @@ object Flash {
       case (Some(a), Some(b)) => Flash.succeed(Flash.Message.Both(Flash.Message.Notice(a), Flash.Message.Alert(b)))
       case (Some(a), _)       => Flash.succeed(Flash.Message.Notice(a))
       case (_, Some(b))       => Flash.succeed(Flash.Message.Alert(b))
-      case _ => Flash.fail(s"neither '${Message.Notice.name}' nor '${Message.Alert.name}' do exist in flash scope")
+      case _ => Flash.fail(s"neither '${Message.Notice.name}' nor '${Message.Alert.name}' do exist in the flash-scope")
     }
 
   private def getMessageHtml[A: Schema, B: Schema](f: A => Html, g: B => Html): Flash[Message[Html, Html]] =
@@ -224,8 +300,14 @@ object Flash {
    */
   def getString(key: String): Flash[String] = get[String](key)
 
+  /**
+   * Gets a flash value of type `A` associated with the notice key.
+   */
   def getNotice[A: Schema]: Flash[A] = get[A](Message.Notice.name)
 
+  /**
+   * Gets a flash value of type `A` associated with the alert key.
+   */
   def getAlert[A: Schema]: Flash[A] = get[A](Message.Alert.name)
 
   /**
@@ -249,6 +331,11 @@ object Flash {
   def getLong(key: String): Flash[Long] = get[Long](key)
 
   /**
+   * Gets a flash value of type `UUID` with the given key `key`.
+   */
+  def getUUID(key: String): Flash[UUID] = get[UUID](key)
+
+  /**
    * Gets a flash value of type `Boolean` with the given key `key`.
    */
   def getBoolean(key: String): Flash[Boolean] = get[Boolean](key)
@@ -263,7 +350,7 @@ object Flash {
   private def loop[A](flash: Flash[A], map: Map[String, String]): Either[Throwable, A] =
     flash match {
       case Get(schema, key)   =>
-        map.get(key).toRight(new Throwable(s"no key: $key")).flatMap { value =>
+        map.get(key).toRight(new Throwable(s"no flash key: $key")).flatMap { value =>
           JsonCodec.jsonDecoder(schema).decodeJson(value).left.map(e => new Throwable(e))
         }
       case WithInput(f)       =>
@@ -282,8 +369,8 @@ object Flash {
       case Fail(message)      => Left(new Throwable(message))
     }
 
-  private[http] def run[A](flash: Flash[A], request: Request): Either[Throwable, A] = {
-    request
+  private[http] def run[A](flash: Flash[A], sourceRequest: Request): Either[Throwable, A] = {
+    sourceRequest
       .cookie(COOKIE_NAME)
       .toRight(new Throwable("flash cookie doesn't exist"))
       .flatMap { cookie =>
@@ -295,6 +382,9 @@ object Flash {
       .flatMap { cookieContent =>
         JsonCodec.jsonDecoder(Schema.map[String, String]).decodeJson(cookieContent).left.map(e => new Throwable(e))
       }
-      .flatMap(loop(flash, _))
+      .flatMap(in => run(flash, in))
   }
+
+  private[http] def run[A](flash: Flash[A], sourceMap: Map[String, String]): Either[Throwable, A] =
+    loop(flash, sourceMap)
 }

@@ -16,15 +16,10 @@
 
 package zio.http
 
-import java.net.{InetAddress, URLDecoder, URLEncoder}
+import java.net.InetAddress
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, Trace, ZIO}
+import zio._
 
-import zio.schema.Schema
-import zio.schema.codec.JsonCodec
-
-import zio.http.codec.TextCodec
 import zio.http.internal.HeaderOps
 
 final case class Request(
@@ -153,38 +148,11 @@ final case class Request(
     header(Header.Cookie).fold(Chunk.empty[Cookie])(_.value.toChunk)
 
   /**
-   * Uses `A` from the given `flash` if it exists and runs `f` with `A`
-   * afterwards.
+   * Returns an `A` if it exists from the cookie-based flash-scope.
    */
-  def flashWithZIO[A1, R, A](flash: Flash[A1])(f: A1 => ZIO[R, Throwable, A])(implicit
-    trace: Trace,
-  ): ZIO[R, Throwable, A] =
-    flashWithOrFailImpl(flash)(identity)(f)
+  def flash[A](flash: Flash[A]): Option[A] =
+    Flash.run(flash, self).toOption
 
-  /**
-   * Uses `A` from the given `flash` if it exists and runs `f` with `A`
-   * afterwards.
-   *
-   * Also, you can set a custom failure value from a flash retrieval error with
-   * `E`.
-   */
-  def flashWithOrFail[A1, R, E, A](flash: Flash[A1])(flashRetrievalError: E)(f: A1 => ZIO[R, E, A])(implicit
-    trace: Trace,
-  ): ZIO[R, E, A] =
-    flashWithOrFailImpl(flash)(_ => flashRetrievalError)(f)
-
-  /**
-   * Returns an `A` from the flash if it exists.
-   */
-  def flash[A](flash: Flash[A]): Option[A] = Flash.run(flash, self).toOption
-
-  private def flashWithOrFailImpl[A1, R, E, A](
-    flash: Flash[A1],
-  )(e: Throwable => E)(f: A1 => ZIO[R, E, A])(implicit trace: Trace): ZIO[R, E, A] =
-    Flash.run(flash, self) match {
-      case Right(a)        => f(a)
-      case Left(throwable) => ZIO.fail(e(throwable))
-    }
 }
 
 object Request {
