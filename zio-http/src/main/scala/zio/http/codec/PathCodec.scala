@@ -16,12 +16,10 @@
 
 package zio.http.codec
 
-import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, NonEmptyChunk}
+import zio._
 
 import zio.http.Path
 
@@ -266,14 +264,15 @@ sealed trait PathCodec[A] { self =>
       pattern match {
         case PathCodec.Segment(segment) =>
           Chunk(segment.asInstanceOf[SegmentCodec[_]] match {
-            case SegmentCodec.Empty          => Opt.Unit
-            case SegmentCodec.Literal(value) => Opt.Match(value)
-            case SegmentCodec.IntSeg(_)      => Opt.IntOpt
-            case SegmentCodec.LongSeg(_)     => Opt.LongOpt
-            case SegmentCodec.Text(_)        => Opt.StringOpt
-            case SegmentCodec.UUID(_)        => Opt.UUIDOpt
-            case SegmentCodec.BoolSeg(_)     => Opt.BoolOpt
-            case SegmentCodec.Trailing       => Opt.TrailingOpt
+            case SegmentCodec.Empty               => Opt.Unit
+            case SegmentCodec.Literal(value)      => Opt.Match(value)
+            case SegmentCodec.IntSeg(_)           => Opt.IntOpt
+            case SegmentCodec.LongSeg(_)          => Opt.LongOpt
+            case SegmentCodec.Text(_)             => Opt.StringOpt
+            case SegmentCodec.UUID(_)             => Opt.UUIDOpt
+            case SegmentCodec.BoolSeg(_)          => Opt.BoolOpt
+            case SegmentCodec.Trailing            => Opt.TrailingOpt
+            case SegmentCodec.Annotated(codec, _) => loop(PathCodec.Segment(codec)).head
           })
 
         case Concat(left, right, combiner, _) =>
@@ -305,7 +304,7 @@ sealed trait PathCodec[A] { self =>
     loop(self)
   }
 
-  def renderIgnoreTrailing: String = {
+  private[zio] def renderIgnoreTrailing: String = {
     def loop(path: PathCodec[_]): String = path match {
       case PathCodec.Concat(left, right, _, _) =>
         loop(left) + loop(right)
@@ -313,6 +312,8 @@ sealed trait PathCodec[A] { self =>
       case PathCodec.Segment(SegmentCodec.Trailing) => ""
 
       case PathCodec.Segment(segment) => segment.render
+
+      case PathCodec.TransformOrFail(api, _, _) => loop(api)
     }
 
     loop(self)

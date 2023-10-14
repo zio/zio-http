@@ -2,6 +2,7 @@ package zio.http.endpoint.openapi
 
 import java.util.UUID
 
+import scala.annotation.tailrec
 import scala.collection.{immutable, mutable}
 
 import zio.Chunk
@@ -100,20 +101,23 @@ object OpenAPIGen {
     status: Chunk[MetaCodec[HttpCodec.Status[_]]],
   ) {
     def append(metaCodec: MetaCodec[_]): AtomizedMetaCodecs = metaCodec match {
-      case MetaCodec(codec: HttpCodec.Method[_], annotations)        =>
+      case MetaCodec(codec: HttpCodec.Method[_], annotations) =>
         copy(method =
           (method :+ MetaCodec(codec.codec, annotations)).asInstanceOf[Chunk[MetaCodec[SimpleCodec[Method, _]]]],
         )
-      case MetaCodec(_: SegmentCodec[_], _)                          =>
+      case MetaCodec(_: SegmentCodec[_], _)                   =>
         copy(path = path :+ metaCodec.asInstanceOf[MetaCodec[SegmentCodec[_]]])
-      case MetaCodec(_: HttpCodec.Query[_], _)                       =>
+      case MetaCodec(_: HttpCodec.Query[_], _)                =>
         copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_]]])
-      case MetaCodec(_: HttpCodec.Header[_], _)                      =>
+      case MetaCodec(_: HttpCodec.Header[_], _)               =>
         copy(header = header :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Header[_]]])
-      case MetaCodec(_: HttpCodec.Status[_], _)                      =>
+      case MetaCodec(_: HttpCodec.Status[_], _)               =>
         copy(status = status :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Status[_]]])
-      case MetaCodec(_: HttpCodec.Atom[HttpCodecType.Content, _], _) =>
+      case MetaCodec(_: HttpCodec.Content[_], _)              =>
         copy(content = content :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Atom[HttpCodecType.Content, _]]])
+      case MetaCodec(_: HttpCodec.ContentStream[_], _)        =>
+        copy(content = content :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Atom[HttpCodecType.Content, _]]])
+      case _                                                  => this
     }
 
     def ++(that: AtomizedMetaCodecs): AtomizedMetaCodecs =
@@ -136,6 +140,8 @@ object OpenAPIGen {
           mc.examples.map { case (name, value) =>
             name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(toJsonAst(schema, value)))
           }
+        case _                                                           =>
+          Map.empty[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]]
       }.toMap
 
     // in case of alternatives,
@@ -292,7 +298,7 @@ object OpenAPIGen {
                   .nullable(optional(metadata))
                   .description(description(metadata))
                   .annotate(annotations)
-
+              case _ => throw new IllegalArgumentException("Multipart content without name.")
             }
 
         }
@@ -313,6 +319,8 @@ object OpenAPIGen {
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
               .description(description(metadata))
+          case _                                  =>
+            throw new IllegalStateException("A non multipart combine, should lead to at least one null schema.")
         }
       case HttpCodec.Fallback(_, _, _) => throw new IllegalArgumentException("Fallback not supported at this point")
     }
@@ -337,21 +345,21 @@ object OpenAPIGen {
 
   def status[R, A](codec: HttpCodec[R, A]): Option[Status] =
     codec match {
-      case HttpCodec.Status(simpleCodec, _) if simpleCodec.isInstanceOf[SimpleCodec.Specified[Status]] =>
+      case HttpCodec.Status(simpleCodec, _) if simpleCodec.isInstanceOf[SimpleCodec.Specified[_]] =>
         Some(simpleCodec.asInstanceOf[SimpleCodec.Specified[Status]].value)
-      case HttpCodec.Annotated(codec, _)                                                               =>
+      case HttpCodec.Annotated(codec, _)                                                          =>
         status(codec)
-      case HttpCodec.TransformOrFail(api, _, _)                                                        =>
+      case HttpCodec.TransformOrFail(api, _, _)                                                   =>
         status(api)
-      case HttpCodec.Empty                                                                             =>
+      case HttpCodec.Empty                                                                        =>
         None
-      case HttpCodec.Halt                                                                              =>
+      case HttpCodec.Halt                                                                         =>
         None
-      case HttpCodec.Combine(left, right, _)                                                           =>
+      case HttpCodec.Combine(left, right, _)                                                      =>
         status(left).orElse(status(right))
-      case HttpCodec.Fallback(left, right, _)                                                          =>
+      case HttpCodec.Fallback(left, right, _)                                                     =>
         status(left).orElse(status(right))
-      case _                                                                                           =>
+      case _                                                                                      =>
         None
     }
 
@@ -444,14 +452,14 @@ object OpenAPIGen {
       val pathItem       = OpenAPI.PathItem.empty
         .copy(description = Some(endpoint.doc + endpoint.input.doc.getOrElse(Doc.empty)).filter(!_.isEmpty))
       val pathItemWithOp = method0 match {
-        case Method.OPTIONS => pathItem.options(operation(endpoint))
-        case Method.GET     => pathItem.get(operation(endpoint))
-        case Method.HEAD    => pathItem.head(operation(endpoint))
-        case Method.POST    => pathItem.post(operation(endpoint))
-        case Method.PUT     => pathItem.put(operation(endpoint))
-        case Method.PATCH   => pathItem.patch(operation(endpoint))
-        case Method.DELETE  => pathItem.delete(operation(endpoint))
-        case Method.TRACE   => pathItem.trace(operation(endpoint))
+        case Method.OPTIONS => pathItem.addOptions(operation(endpoint))
+        case Method.GET     => pathItem.addGet(operation(endpoint))
+        case Method.HEAD    => pathItem.addHead(operation(endpoint))
+        case Method.POST    => pathItem.addPost(operation(endpoint))
+        case Method.PUT     => pathItem.addPut(operation(endpoint))
+        case Method.PATCH   => pathItem.addPatch(operation(endpoint))
+        case Method.DELETE  => pathItem.addDelete(operation(endpoint))
+        case Method.TRACE   => pathItem.addTrace(operation(endpoint))
         case Method.ANY     => pathItem.any(operation(endpoint))
         case method         => throw new IllegalArgumentException(s"OpenAPI does not support method $method")
       }
@@ -634,16 +642,18 @@ object OpenAPIGen {
       callbacks = Map.empty,
     )
 
-    def segmentToJson(codec: SegmentCodec[_], value: Any) = {
+    @tailrec
+    def segmentToJson(codec: SegmentCodec[_], value: Any): Json = {
       codec match {
-        case SegmentCodec.Empty      => throw new Exception("Empty segment not allowed")
-        case SegmentCodec.Literal(_) => throw new Exception("Literal segment not allowed")
-        case SegmentCodec.BoolSeg(_) => Json.Bool(value.asInstanceOf[Boolean])
-        case SegmentCodec.IntSeg(_)  => Json.Num(value.asInstanceOf[Int])
-        case SegmentCodec.LongSeg(_) => Json.Num(value.asInstanceOf[Long])
-        case SegmentCodec.Text(_)    => Json.Str(value.asInstanceOf[String])
-        case SegmentCodec.UUID(_)    => Json.Str(value.asInstanceOf[UUID].toString)
-        case SegmentCodec.Trailing   => throw new Exception("Trailing segment not allowed")
+        case SegmentCodec.Empty               => throw new Exception("Empty segment not allowed")
+        case SegmentCodec.Literal(_)          => throw new Exception("Literal segment not allowed")
+        case SegmentCodec.BoolSeg(_)          => Json.Bool(value.asInstanceOf[Boolean])
+        case SegmentCodec.IntSeg(_)           => Json.Num(value.asInstanceOf[Int])
+        case SegmentCodec.LongSeg(_)          => Json.Num(value.asInstanceOf[Long])
+        case SegmentCodec.Text(_)             => Json.Str(value.asInstanceOf[String])
+        case SegmentCodec.UUID(_)             => Json.Str(value.asInstanceOf[UUID].toString)
+        case SegmentCodec.Annotated(codec, _) => segmentToJson(codec, value)
+        case SegmentCodec.Trailing            => throw new Exception("Trailing segment not allowed")
       }
     }
 

@@ -445,21 +445,21 @@ object OpenAPI {
    *   path.
    * @param description
    *   A description, intended to apply to all operations in this path.
-   * @param getOp
+   * @param get
    *   A definition of a GET operation on this path.
-   * @param putOp
+   * @param put
    *   A definition of a PUT operation on this path.
-   * @param postOp
+   * @param post
    *   A definition of a POST operation on this path.
-   * @param deleteOp
+   * @param delete
    *   A definition of a DELETE operation on this path.
-   * @param optionsOp
+   * @param options
    *   A definition of a OPTIONS operation on this path.
-   * @param headOp
+   * @param head
    *   A definition of a HEAD operation on this path.
-   * @param patchOp
+   * @param patch
    *   A definition of a PATCH operation on this path.
-   * @param traceOp
+   * @param trace
    *   A definition of a TRACE operation on this path.
    * @param servers
    *   An alternative server List to service all operations in this path.
@@ -474,35 +474,35 @@ object OpenAPI {
     @fieldName("$ref") ref: Option[String],
     summary: Option[String],
     description: Option[Doc],
-    getOp: Option[Operation],
-    putOp: Option[Operation],
-    postOp: Option[Operation],
-    deleteOp: Option[Operation],
-    optionsOp: Option[Operation],
-    headOp: Option[Operation],
-    patchOp: Option[Operation],
-    traceOp: Option[Operation],
+    get: Option[Operation],
+    put: Option[Operation],
+    post: Option[Operation],
+    delete: Option[Operation],
+    options: Option[Operation],
+    head: Option[Operation],
+    patch: Option[Operation],
+    trace: Option[Operation],
     servers: List[Server] = List.empty,
     parameters: Set[ReferenceOr[Parameter]] = Set.empty,
   ) {
-    def get(operation: Operation): PathItem     = copy(getOp = Some(operation))
-    def put(operation: Operation): PathItem     = copy(putOp = Some(operation))
-    def post(operation: Operation): PathItem    = copy(postOp = Some(operation))
-    def delete(operation: Operation): PathItem  = copy(deleteOp = Some(operation))
-    def options(operation: Operation): PathItem = copy(optionsOp = Some(operation))
-    def head(operation: Operation): PathItem    = copy(headOp = Some(operation))
-    def patch(operation: Operation): PathItem   = copy(patchOp = Some(operation))
-    def trace(operation: Operation): PathItem   = copy(traceOp = Some(operation))
-    def any(operation: Operation): PathItem     =
+    def addGet(operation: Operation): PathItem     = copy(get = Some(operation))
+    def addPut(operation: Operation): PathItem     = copy(put = Some(operation))
+    def addPost(operation: Operation): PathItem    = copy(post = Some(operation))
+    def addDelete(operation: Operation): PathItem  = copy(delete = Some(operation))
+    def addOptions(operation: Operation): PathItem = copy(options = Some(operation))
+    def addHead(operation: Operation): PathItem    = copy(head = Some(operation))
+    def addPatch(operation: Operation): PathItem   = copy(patch = Some(operation))
+    def addTrace(operation: Operation): PathItem   = copy(trace = Some(operation))
+    def any(operation: Operation): PathItem        =
       copy(
-        getOp = Some(operation),
-        putOp = Some(operation),
-        postOp = Some(operation),
-        deleteOp = Some(operation),
-        optionsOp = Some(operation),
-        headOp = Some(operation),
-        patchOp = Some(operation),
-        traceOp = Some(operation),
+        get = Some(operation),
+        put = Some(operation),
+        post = Some(operation),
+        delete = Some(operation),
+        options = Some(operation),
+        head = Some(operation),
+        patch = Some(operation),
+        trace = Some(operation),
       )
   }
 
@@ -514,14 +514,14 @@ object OpenAPI {
       ref = None,
       summary = None,
       description = None,
-      getOp = None,
-      putOp = None,
-      postOp = None,
-      deleteOp = None,
-      optionsOp = None,
-      headOp = None,
-      patchOp = None,
-      traceOp = None,
+      get = None,
+      put = None,
+      post = None,
+      delete = None,
+      options = None,
+      head = None,
+      patch = None,
+      trace = None,
       servers = List.empty,
       parameters = Set.empty,
     )
