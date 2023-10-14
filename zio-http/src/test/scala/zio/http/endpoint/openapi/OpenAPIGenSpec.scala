@@ -4,7 +4,7 @@ import zio.Scope
 import zio.json.ast.Json
 import zio.test._
 
-import zio.schema.DeriveSchema.gen
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Method.GET
 import zio.http._
@@ -14,10 +14,20 @@ import zio.http.endpoint._
 object OpenAPIGenSpec extends ZIOSpecDefault {
 
   final case class SimpleInputBody(name: String, age: Int)
+  implicit val simpleInputBodySchema: Schema[SimpleInputBody]           =
+    DeriveSchema.gen[SimpleInputBody]
   final case class OtherSimpleInputBody(fullName: String, shoeSize: Int)
+  implicit val otherSimpleInputBodySchema: Schema[OtherSimpleInputBody] =
+    DeriveSchema.gen[OtherSimpleInputBody]
   final case class SimpleOutputBody(userName: String, score: Int)
+  implicit val simpleOutputBodySchema: Schema[SimpleOutputBody]         =
+    DeriveSchema.gen[SimpleOutputBody]
   final case class NotFoundError(message: String)
+  implicit val notFoundErrorSchema: Schema[NotFoundError]               =
+    DeriveSchema.gen[NotFoundError]
   final case class ImageMetadata(name: String, size: Int)
+  implicit val imageMetadataSchema: Schema[ImageMetadata]               =
+    DeriveSchema.gen[ImageMetadata]
 
   def minify(str: String): String                          =
     Json.encoder.encodeJson(Json.decoder.decodeJson(str).toOption.get, None).toString

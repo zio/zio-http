@@ -421,9 +421,9 @@ object JsonSchema {
 
   private def nominal(schema: Schema[_], referenceType: SchemaStyle = SchemaStyle.Reference): Option[String] =
     schema match {
-      case enum: Schema.Enum[_]     => refForTypeId(enum.id, referenceType)
-      case record: Schema.Record[_] => refForTypeId(record.id, referenceType)
-      case _                        => None
+      case enumSchema: Schema.Enum[_] => refForTypeId(enumSchema.id, referenceType)
+      case record: Schema.Record[_]   => refForTypeId(record.id, referenceType)
+      case _                          => None
     }
 
   private def refForTypeId(id: TypeId, referenceType: SchemaStyle): Option[String] =

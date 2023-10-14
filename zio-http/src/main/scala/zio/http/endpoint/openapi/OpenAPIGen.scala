@@ -599,11 +599,11 @@ object OpenAPIGen {
 
     def genDiscriminator(schema: Schema[_]): Option[OpenAPI.Discriminator] = {
       schema match {
-        case enum: Schema.Enum[_] =>
+        case enumSchema: Schema.Enum[_] =>
           val discriminatorName =
-            enum.annotations.collectFirst { case zio.schema.annotation.discriminatorName(name) => name }
-          val noDiscriminator   = enum.annotations.contains(zio.schema.annotation.noDiscriminator())
-          val typeMapping       = enum.cases.map { case_ =>
+            enumSchema.annotations.collectFirst { case zio.schema.annotation.discriminatorName(name) => name }
+          val noDiscriminator   = enumSchema.annotations.contains(zio.schema.annotation.noDiscriminator())
+          val typeMapping       = enumSchema.cases.map { case_ =>
             val caseName =
               case_.annotations.collectFirst { case zio.schema.annotation.caseName(name) => name }.getOrElse(case_.id)
             // There should be no enums with cases that are not records with a nominal id
@@ -739,8 +739,8 @@ object OpenAPIGen {
 
   def nominal(schema: Schema[_], referenceType: SchemaStyle): Option[String] =
     schema match {
-      case enum: Schema.Enum[_] =>
-        enum.id match {
+      case enumSchema: Schema.Enum[_] =>
+        enumSchema.id match {
           case TypeId.Structural                                               =>
             None
           case nominal: TypeId.Nominal if referenceType == SchemaStyle.Compact =>
@@ -748,7 +748,7 @@ object OpenAPIGen {
           case nominal: TypeId.Nominal                                         =>
             Some(nominal.fullyQualified.replace(".", "_"))
         }
-      case record: Record[_]    =>
+      case record: Record[_]          =>
         record.id match {
           case TypeId.Structural                                               =>
             None
@@ -757,7 +757,7 @@ object OpenAPIGen {
           case nominal: TypeId.Nominal                                         =>
             Some(nominal.fullyQualified.replace(".", "_"))
         }
-      case _                    => None
+      case _                          => None
     }
 
   private def responsesForAlternatives(

@@ -128,7 +128,7 @@ object OpenAPI {
     externalDocs = None,
   )
 
-  implicit val statusSchema =
+  implicit val statusSchema: Schema[Status] =
     zio.schema
       .Schema[String]
       .transformOrFail[Status](
@@ -160,8 +160,8 @@ object OpenAPI {
   implicit def keyMapSchema[T](implicit
     schema: Schema[T],
   ): Schema[Map[Key, T]] =
-    DeriveSchema
-      .gen[Map[String, T]]
+    Schema
+      .map[String, T]
       .transformOrFail(
         m => {
           val it                               = m.iterator
@@ -183,8 +183,8 @@ object OpenAPI {
   implicit def statusMapSchema[T](implicit
     schema: Schema[T],
   ): Schema[Map[StatusOrDefault, T]] =
-    DeriveSchema
-      .gen[Map[String, T]]
+    Schema
+      .map[String, T]
       .transformOrFail(
         m => {
           val it                                           = m.iterator
@@ -415,7 +415,7 @@ object OpenAPI {
    * @param name
    *   The field name of the relative path MUST begin with a forward slash (/).
    */
-  case class Path private (name: String) extends AnyVal
+  case class Path private (name: String)
 
   object Path {
     implicit val schema: Schema[Path] = DeriveSchema.gen[Path]
@@ -445,21 +445,21 @@ object OpenAPI {
    *   path.
    * @param description
    *   A description, intended to apply to all operations in this path.
-   * @param get
+   * @param getOp
    *   A definition of a GET operation on this path.
-   * @param put
+   * @param putOp
    *   A definition of a PUT operation on this path.
-   * @param post
+   * @param postOp
    *   A definition of a POST operation on this path.
-   * @param delete
+   * @param deleteOp
    *   A definition of a DELETE operation on this path.
-   * @param options
+   * @param optionsOp
    *   A definition of a OPTIONS operation on this path.
-   * @param head
+   * @param headOp
    *   A definition of a HEAD operation on this path.
-   * @param patch
+   * @param patchOp
    *   A definition of a PATCH operation on this path.
-   * @param trace
+   * @param traceOp
    *   A definition of a TRACE operation on this path.
    * @param servers
    *   An alternative server List to service all operations in this path.
@@ -474,35 +474,35 @@ object OpenAPI {
     @fieldName("$ref") ref: Option[String],
     summary: Option[String],
     description: Option[Doc],
-    get: Option[Operation],
-    put: Option[Operation],
-    post: Option[Operation],
-    delete: Option[Operation],
-    options: Option[Operation],
-    head: Option[Operation],
-    patch: Option[Operation],
-    trace: Option[Operation],
+    getOp: Option[Operation],
+    putOp: Option[Operation],
+    postOp: Option[Operation],
+    deleteOp: Option[Operation],
+    optionsOp: Option[Operation],
+    headOp: Option[Operation],
+    patchOp: Option[Operation],
+    traceOp: Option[Operation],
     servers: List[Server] = List.empty,
     parameters: Set[ReferenceOr[Parameter]] = Set.empty,
   ) {
-    def get(operation: Operation): PathItem     = copy(get = Some(operation))
-    def put(operation: Operation): PathItem     = copy(put = Some(operation))
-    def post(operation: Operation): PathItem    = copy(post = Some(operation))
-    def delete(operation: Operation): PathItem  = copy(delete = Some(operation))
-    def options(operation: Operation): PathItem = copy(options = Some(operation))
-    def head(operation: Operation): PathItem    = copy(head = Some(operation))
-    def patch(operation: Operation): PathItem   = copy(patch = Some(operation))
-    def trace(operation: Operation): PathItem   = copy(trace = Some(operation))
+    def get(operation: Operation): PathItem     = copy(getOp = Some(operation))
+    def put(operation: Operation): PathItem     = copy(putOp = Some(operation))
+    def post(operation: Operation): PathItem    = copy(postOp = Some(operation))
+    def delete(operation: Operation): PathItem  = copy(deleteOp = Some(operation))
+    def options(operation: Operation): PathItem = copy(optionsOp = Some(operation))
+    def head(operation: Operation): PathItem    = copy(headOp = Some(operation))
+    def patch(operation: Operation): PathItem   = copy(patchOp = Some(operation))
+    def trace(operation: Operation): PathItem   = copy(traceOp = Some(operation))
     def any(operation: Operation): PathItem     =
       copy(
-        get = Some(operation),
-        put = Some(operation),
-        post = Some(operation),
-        delete = Some(operation),
-        options = Some(operation),
-        head = Some(operation),
-        patch = Some(operation),
-        trace = Some(operation),
+        getOp = Some(operation),
+        putOp = Some(operation),
+        postOp = Some(operation),
+        deleteOp = Some(operation),
+        optionsOp = Some(operation),
+        headOp = Some(operation),
+        patchOp = Some(operation),
+        traceOp = Some(operation),
       )
   }
 
@@ -514,14 +514,14 @@ object OpenAPI {
       ref = None,
       summary = None,
       description = None,
-      get = None,
-      put = None,
-      post = None,
-      delete = None,
-      options = None,
-      head = None,
-      patch = None,
-      trace = None,
+      getOp = None,
+      putOp = None,
+      postOp = None,
+      deleteOp = None,
+      optionsOp = None,
+      headOp = None,
+      patchOp = None,
+      traceOp = None,
       servers = List.empty,
       parameters = Set.empty,
     )
@@ -1094,13 +1094,13 @@ object OpenAPI {
       implicit val schema: Schema[BooleanLiteral] =
         Schema[Boolean].transform[BooleanLiteral](s => BooleanLiteral(s), p => p.value)
     }
-    sealed abstract case class Expression private (value: String) extends LiteralOrExpression
+    case class Expression(value: String) extends LiteralOrExpression
 
     object Expression {
       implicit val schema: Schema[Expression] =
         Schema[String].transform[Expression](s => Expression.create(s), p => p.value)
 
-      private[openapi] def create(value: String): Expression = new Expression(value) {}
+      private[openapi] def create(value: String): Expression = Expression(value)
     }
 
     // TODO: maybe one could make a regex to validate the expression. For now just accept anything
