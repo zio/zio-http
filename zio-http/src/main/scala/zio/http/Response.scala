@@ -43,7 +43,7 @@ final case class Response(
    * Adds flash values to the cookie-based flash-scope.
    */
   def addFlash[A](setter: Flash.Setter[A]): Response =
-    self.addCookie(Flash.Setter.run(setter))
+    self.addCookie(Flash.Setter.run(setter).copy(path = Some(Path.root)))
 
   /**
    * Collects the potentially streaming body of the response into a single
