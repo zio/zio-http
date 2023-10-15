@@ -20,22 +20,22 @@ object StaticServeSpec extends ZIOHttpSpec with HttpAppTestExtensions {
 
     val dir1       = Files.createDirectory(tempDir.resolve("etc"))
     val passwdFile = Files.createFile(dir1.resolve("passwd"))
-    Files.writeString(passwdFile, "root:x:0:0:root:/root:/bin/bash")
+    Files.write(passwdFile, "root:x:0:0:root:/root:/bin/bash".getBytes())
 
     val dir2  = Files.createDirectory(tempDir.resolve("home"))
     val dir3  = Files.createDirectory(dir2.resolve("src"))
     val file1 = Files.createFile(dir3.resolve("file1.json"))
-    Files.writeString(file1, """{"name": "zio"}""")
+    Files.write(file1, """{"name": "zio"}""".getBytes())
 
     val dir4  = Files.createDirectory(dir2.resolve("symlinkTest"))
     val file2 = Files.createFile(dir4.resolve("file1.json"))
-    Files.writeString(file2, """{"path": "/home/src/symblinkTest/file1.json"}""")
+    Files.write(file2, """{"path": "/home/src/symblinkTest/file1.json"}""".getBytes())
 
     Files.createSymbolicLink(dir3.resolve("symblinkTest"), dir4)
 
     val dir5  = Files.createDirectory(dir3.resolve("cleanFolder"))
     val file3 = Files.createFile(dir5.resolve("file1.json"))
-    Files.writeString(file3, """{"name": "zio1"}""")
+    Files.write(file3, """{"name": "zio1"}""".getBytes())
 
     /* Mock Directory Structure
             ├── etc
