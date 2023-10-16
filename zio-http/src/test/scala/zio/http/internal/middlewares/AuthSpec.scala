@@ -18,7 +18,7 @@ package zio.http.internal.middlewares
 
 import zio.test.Assertion._
 import zio.test._
-import zio.{Ref, ZIO, ZLayer}
+import zio.{Ref, ZIO}
 
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
@@ -45,6 +45,18 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     ZIO.succeed(c == bearerToken)
   }
 
+  private val basicAuthContextM = HandlerAspect.customAuthProviding[AuthContext] { r =>
+    {
+      r.headers.get(Header.Authorization).flatMap {
+        case Header.Authorization.Basic(uname, password) if uname.reverse == password =>
+          Some(AuthContext(uname))
+        case _                                                                        =>
+          None
+      }
+
+    }
+  }
+
   def spec = suite("AuthSpec")(
     suite("basicAuth")(
       test("HttpApp is accepted if the basic authentication succeeds") {
@@ -58,6 +70,12 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
         val app = (Handler.ok @@ basicAuthM).merge.header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
+      },
+      test("Extract username via context") {
+        val app = (Handler.fromFunction[(AuthContext, Request)] { case (c, _) =>
+          Response.text(c.value)
+        } @@ basicAuthContextM).merge.mapZIO(_.body.asString)
+        assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo("user"))
       },
     ),
     suite("basicAuthZIO")(

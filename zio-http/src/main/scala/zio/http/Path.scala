@@ -26,7 +26,7 @@ import zio.{Chunk, ChunkBuilder}
  * whether there are leading and trailing slashes in the path. This allows for a
  * combination of precision and performance and supports a rich API.
  */
-final case class Path private (flags: Path.Flags, segments: Chunk[String]) { self =>
+final case class Path private[http] (flags: Path.Flags, segments: Chunk[String]) { self =>
   import Path.{Flag, Flags}
 
   /**

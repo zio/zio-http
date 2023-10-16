@@ -97,7 +97,7 @@ private[cli] object CliEndpoint {
           case HttpCodec.Metadata.Documented(doc) => fromCodec(in) describeOptions doc
           case _                                  => fromCodec(in)
         }
-      case HttpCodec.Fallback(left, right)      => fromCodec(left) ++ fromCodec(right)
+      case HttpCodec.Fallback(left, right, _)   => fromCodec(left) ++ fromCodec(right)
       case HttpCodec.Combine(left, right, _)    => fromCodec(left) ++ fromCodec(right)
       case _                                    => CliEndpoint.empty
     }

@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package zio.http.endpoint
+package zio.http.codec
 
 import zio.test._
 
-import zio.http.ZIOHttpSpec
-import zio.http.codec.Doc
+import zio.http._
 import zio.http.codec.Doc._
 
 object DocSpec extends ZIOHttpSpec {
@@ -65,7 +64,7 @@ object DocSpec extends ZIOHttpSpec {
                        |
                        |<span style="color:red">This is an error</span>
                        |
-                       |```ZIO.succeed(1)```
+                       |`ZIO.succeed(1)`
                        |
                        |**This is strong**
                        |
@@ -207,6 +206,18 @@ object DocSpec extends ZIOHttpSpec {
                        |    - This is another nested enumeration item
                        |""".stripMargin
       assertTrue(complexDoc == expected)
+    },
+    test("md interpolator") {
+
+      val name     = "John"
+      val age      = 42
+      val doc      = md"""# Hello $name!
+                        |
+                        |You are $age years old."""
+      val expected = """# Hello John!
+                       |
+                       |You are 42 years old.""".stripMargin
+      assertTrue(doc.toCommonMark == expected)
     },
   )
 }

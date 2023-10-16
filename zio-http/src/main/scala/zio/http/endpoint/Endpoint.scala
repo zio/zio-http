@@ -66,9 +66,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Flattens out this endpoint to a chunk of alternatives. Each alternative is
    * guaranteed to not have any alternatives itself.
    */
-  def alternatives: Chunk[Endpoint[PathInput, Input, Err, Output, Middleware]] =
-    self.input.alternatives.map { input =>
-      self.copy(input = input)
+  def alternatives: Chunk[(Endpoint[PathInput, Input, Err, Output, Middleware], HttpCodec.Fallback.Condition)] =
+    self.input.alternatives.map { case (input, condition) =>
+      self.copy(input = input) -> condition
     }
 
   def apply(input: Input): Invocation[PathInput, Input, Err, Output, Middleware] =
@@ -150,7 +150,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   def implement[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.isHttpCodecError
 
-    val handlers = self.alternatives.map { endpoint =>
+    val handlers = self.alternatives.map { case (endpoint, condition) =>
       Handler.fromFunctionZIO { (request: zio.http.Request) =>
         val outputMediaTypes = request.headers
           .get(Header.Accept)
@@ -161,22 +161,36 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
             ZIO.succeed(endpoint.error.encodeResponse(error, outputMediaTypes))
           }
         }
-      }
+      } -> condition
     }
 
     // TODO: What to do if there are no endpoints??
     val handlers2 =
       NonEmptyChunk
         .fromChunk(handlers)
-        .getOrElse(NonEmptyChunk(Handler.fail(zio.http.Response(status = Status.NotFound))))
+        .getOrElse(
+          NonEmptyChunk(
+            Handler.fail(zio.http.Response(status = Status.NotFound)) -> HttpCodec.Fallback.Condition.IsHttpCodecError,
+          ),
+        )
 
     val handler =
-      Handler.firstSuccessOf(handlers2, isHttpCodecError(_)).catchAllCause {
-        case cause if isHttpCodecError(cause) =>
-          Handler.succeed(zio.http.Response(status = Status.BadRequest))
+      handlers.tail
+        .foldLeft(handlers2.head._1) { case (acc, (handler, condition)) =>
+          acc.catchAllCause { cause =>
+            if (condition(cause)) {
+              handler
+            } else {
+              Handler.failCause(cause)
+            }
+          }
+        }
+        .catchAllCause {
+          case cause if isHttpCodecError(cause) =>
+            Handler.succeed(zio.http.Response(status = Status.BadRequest))
 
-        case cause => Handler.failCause(cause)
-      }
+          case cause => Handler.failCause(cause)
+        }
 
     Route.handled(self.route)(handler)
   }

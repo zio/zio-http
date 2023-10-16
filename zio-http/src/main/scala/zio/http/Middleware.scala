@@ -309,7 +309,14 @@ object Middleware extends HandlerAspects {
 
   /**
    * Creates a middleware for serving static files from the directory `docRoot`
-   * at the path `path`.
+   * at the url path `path`.
+   *
+   * Example: `val serveDirectory = Middleware.serveDirectory(Path.empty /
+   * "assets", new File("/some/local/path"))`
+   *
+   * With this middleware in place, a request to
+   * `https://www.domain.com/assets/folder/file1.jpg` would serve the local file
+   * `/some/local/path/folder/file1.jpg`.
    */
   def serveDirectory(path: Path, docRoot: File)(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromDirectory(docRoot))
@@ -317,6 +324,13 @@ object Middleware extends HandlerAspects {
   /**
    * Creates a middleware for serving static files from resources at the path
    * `path`.
+   *
+   * Example: `val serveResources = Middleware.serveResources(Path.empty /
+   * "assets")`
+   *
+   * With this middleware in place, a request to
+   * `https://www.domain.com/assets/folder/file1.jpg` would serve the file
+   * `src/main/resources/folder/file1.jpg`.
    */
   def serveResources(path: Path)(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromResource)
