@@ -80,13 +80,13 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         val app = {
           Routes(
             Method.GET / "context" -> basicAuthContextM ->
-              Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) => Response.text(c.value) }
+              Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) => Response.text(c.value) },
           )
         }.toHttpApp
         assertZIO(
           app
             .runZIO(Request.get(URL.root / "context").copy(headers = successBasicHeader))
-            .flatMap(_.body.asString)
+            .flatMap(_.body.asString),
         )(equalTo("user"))
       },
     ),
