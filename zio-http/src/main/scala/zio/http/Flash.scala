@@ -372,7 +372,7 @@ object Flash {
   private[http] def run[A](flash: Flash[A], sourceRequest: Request): Either[Throwable, A] = {
     sourceRequest
       .cookie(COOKIE_NAME)
-      .toRight(new Throwable("flash cookie doesn't exist"))
+      .toRight(new RuntimeException("flash cookie doesn't exist"))
       .flatMap { cookie =>
         try Right(URLDecoder.decode(cookie.content, java.nio.charset.Charset.defaultCharset.toString.toLowerCase))
         catch {
