@@ -358,7 +358,7 @@ object Flash {
       case OrElse(self, that) =>
         (loop(self, map) match {
           case Left(_)      => loop(that, map)
-          case Right(value) => Right(value)
+          case r @ Right(_) => r.asInstanceOf[Either[Throwable, A]]
         }).asInstanceOf[Either[Throwable, A]]
       case FlatMap(self, f)   =>
         loop(self, map) match {
