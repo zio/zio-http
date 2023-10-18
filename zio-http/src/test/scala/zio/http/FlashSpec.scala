@@ -133,7 +133,7 @@ object FlashSpec extends ZIOHttpSpec {
           )
           bodyString <- response2.body.asString
         } yield assertTrue(bodyString.contains("successfully") && bodyString.contains("green"))
-      }.provideLayer(Flash.Backend.layer),
+      }.provideLayer(Flash.Backend.inMemory),
     )
 
 }
