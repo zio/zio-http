@@ -16,11 +16,12 @@
 
 package zio.http.internal.middlewares
 
-import zio.http._
-import zio.http.internal.HttpAppTestExtensions
 import zio.test.Assertion._
 import zio.test._
 import zio.{Ref, ZIO}
+
+import zio.http._
+import zio.http.internal.HttpAppTestExtensions
 
 object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   def extractStatus(response: Response): Status = response.status
