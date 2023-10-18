@@ -16,12 +16,11 @@
 
 package zio.http.internal.middlewares
 
+import zio.http._
+import zio.http.internal.HttpAppTestExtensions
 import zio.test.Assertion._
 import zio.test._
 import zio.{Ref, ZIO}
-
-import zio.http._
-import zio.http.internal.HttpAppTestExtensions
 
 object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   def extractStatus(response: Response): Status = response.status
@@ -76,6 +75,15 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
           Response.text(c.value)
         } @@ basicAuthContextM).merge.mapZIO(_.body.asString)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo("user"))
+      },
+      test("Extract username via context with Routes") {
+        val app = {
+          Routes(
+            Method.GET / "context" ->
+              Handler.fromFunction[(AuthContext, Request)] { case (c, _) => Response.text(c.value) },
+          ) @@ basicAuthContextM
+        }.toHttpApp
+        assertZIO(app.runZIO(Request.get(URL.root / "context").copy(headers = successBasicHeader)))(equalTo("user"))
       },
     ),
     suite("basicAuthZIO")(
