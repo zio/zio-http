@@ -363,7 +363,7 @@ object Flash {
       case FlatMap(self, f)   =>
         loop(self, map) match {
           case Right(value) => loop(f(value), map)
-          case Left(e)      => Left(e)
+          case l @ Left(_)  => l.asInstanceOf[Either[Throwable, A]]
         }
       case Succeed(a)         => Right(a)
       case Fail(message)      => Left(new Throwable(message))
