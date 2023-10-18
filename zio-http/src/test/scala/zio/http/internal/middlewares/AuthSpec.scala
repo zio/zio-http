@@ -79,11 +79,15 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       test("Extract username via context with Routes") {
         val app = {
           Routes(
-            Method.GET / "context" ->
-              Handler.fromFunction[(AuthContext, Request)] { case (c, _) => Response.text(c.value) },
-          ) @@ basicAuthContextM
+            Method.GET / "context" -> basicAuthContextM ->
+              Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) => Response.text(c.value) }
+          )
         }.toHttpApp
-        assertZIO(app.runZIO(Request.get(URL.root / "context").copy(headers = successBasicHeader)))(equalTo("user"))
+        assertZIO(
+          app
+            .runZIO(Request.get(URL.root / "context").copy(headers = successBasicHeader))
+            .flatMap(_.body.asString)
+        )(equalTo("user"))
       },
     ),
     suite("basicAuthZIO")(
