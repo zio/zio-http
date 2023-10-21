@@ -128,7 +128,7 @@ object OpenAPI {
     externalDocs = None,
   )
 
-  implicit val statusSchema: Schema[Status] =
+  implicit def statusSchema: Schema[Status] =
     zio.schema
       .Schema[String]
       .transformOrFail[Status](
@@ -136,7 +136,7 @@ object OpenAPI {
         p => Right(p.text),
       )
 
-  implicit val pathMapSchema: Schema[Map[Path, PathItem]] =
+  implicit def pathMapSchema: Schema[Map[Path, PathItem]] =
     DeriveSchema
       .gen[Map[String, PathItem]]
       .transformOrFail(
@@ -206,7 +206,7 @@ object OpenAPI {
         (m: Map[StatusOrDefault, T]) => Right(m.map { case (k, v) => k.text -> v }),
       )
 
-  implicit val mediaTypeTupleSchema: Schema[(String, MediaType)] =
+  implicit def mediaTypeTupleSchema: Schema[(String, MediaType)] =
     zio.schema
       .Schema[Map[String, MediaType]]
       .transformOrFail(
@@ -418,7 +418,10 @@ object OpenAPI {
   case class Path private (name: String)
 
   object Path {
-    implicit val schema: Schema[Path] = DeriveSchema.gen[Path]
+    implicit val schema: Schema[Path] = Schema[String].transformOrFail[Path](
+      s => fromString(s).toRight(s"Invalid Path $s"),
+      p => Right(p.name),
+    )
 
     // todo maybe not the best regex, but the old one was not working at all
     val validPath: Regex = """/[/a-zA-Z0-9\-_{}]*""".r

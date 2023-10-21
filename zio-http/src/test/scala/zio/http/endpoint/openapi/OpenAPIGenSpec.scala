@@ -29,20 +29,37 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   implicit val imageMetadataSchema: Schema[ImageMetadata]               =
     DeriveSchema.gen[ImageMetadata]
 
+  private val simpleEndpoint =
+    Endpoint(
+      (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
+      )
+      .in[SimpleInputBody](Doc.p("input body"))
+      .out[SimpleOutputBody](Doc.p("output body"))
+      .outError[NotFoundError](Status.NotFound, Doc.p("not found"))
+
+  private val queryParamEndpoint =
+    Endpoint(GET / "withQuery")
+      .in[SimpleInputBody]
+      .query(QueryCodec.paramStr("query"))
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+
+  private val alternativeInputEndpoint =
+    Endpoint(GET / "inputAlternative")
+      .inCodec(
+        (HttpCodec.content[OtherSimpleInputBody] ?? Doc.p("other input") | HttpCodec
+          .content[SimpleInputBody] ?? Doc.p("simple input")) ?? Doc.p("takes either of the two input bodies"),
+        )
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+
+
   def minify(str: String): String                          =
     Json.encoder.encodeJson(Json.decoder.decodeJson(str).toOption.get, None).toString
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("OpenAPIGenSpec")(
       test("simple endpoint to OpenAPI") {
-        val endpoint =
-          Endpoint(
-            (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
-          )
-            .in[SimpleInputBody](Doc.p("input body"))
-            .out[SimpleOutputBody](Doc.p("output body"))
-            .outError[NotFoundError](Status.NotFound, Doc.p("not found"))
-
-        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", simpleEndpoint)
         val json         = generated.toJson
         val expectedJson = """{
                              |  "openapi" : "3.1.0",
@@ -209,14 +226,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
         assertTrue(json == minify(expectedJson))
       },
       test("with query parameter") {
-        val endpoint =
-          Endpoint(GET / "static")
-            .in[SimpleInputBody]
-            .query(QueryCodec.paramStr("query"))
-            .out[SimpleOutputBody]
-            .outError[NotFoundError](Status.NotFound)
-
-        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamEndpoint)
         val json         = generated.toJson
         val expectedJson = """{
                              |  "openapi" : "3.1.0",
@@ -225,7 +235,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    "version" : "1.0"
                              |  },
                              |  "paths" : {
-                             |    "/static" : {
+                             |    "/withQuery" : {
                              |      "get" : {
                              |        "parameters" : [
                              |          {
@@ -344,16 +354,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
         assertTrue(json == minify(expectedJson))
       },
       test("alternative input") {
-        val endpoint =
-          Endpoint(GET / "static")
-            .inCodec(
-              (HttpCodec.content[OtherSimpleInputBody] ?? Doc.p("other input") | HttpCodec
-                .content[SimpleInputBody] ?? Doc.p("simple input")) ?? Doc.p("takes either of the two input bodies"),
-            )
-            .out[SimpleOutputBody]
-            .outError[NotFoundError](Status.NotFound)
-
-        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", alternativeInputEndpoint)
         val json         = generated.toJson
         val expectedJson =
           """{
@@ -363,7 +364,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |    "version" : "1.0"
             |  },
             |  "paths" : {
-            |    "/static" : {
+            |    "/inputAlternative" : {
             |      "get" : {
             |        "requestBody" :
             |          {
@@ -793,6 +794,191 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |}""".stripMargin
         assertTrue(json == minify(expectedJson))
       },
+      test("with query parameter, alternative input, alternative output and examples"){
+        val endpoint =
+          Endpoint(GET / "static")
+            .inCodec(
+              HttpCodec
+                .content[OtherSimpleInputBody] ?? Doc.p("other input") |
+                HttpCodec
+                  .content[SimpleInputBody] ?? Doc.p("simple input")
+            )
+            .query(QueryCodec.paramStr("query"))
+            .outCodec(
+              HttpCodec
+                .content[SimpleOutputBody] ?? Doc.p("simple output") |
+                HttpCodec
+                  .content[NotFoundError] ?? Doc.p("not found")
+            )
+
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = generated.toJson
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "parameters" : [
+            |
+            |            {
+            |            "name" : "query",
+            |            "in" : "query",
+            |            "required" : true,
+            |            "deprecated" : false,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "string"
+            |            },
+            |            "explode" : false,
+            |            "allowReserved" : false,
+            |            "style" : "form"
+            |          }
+            |        ],
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "anyOf" : [
+            |                  {
+            |                    "$ref" : "#/components/schemas/OtherSimpleInputBody",
+            |                    "description" : "other input\n\n"
+            |                  },
+            |                  {
+            |                    "$ref" : "#/components/schemas/SimpleInputBody",
+            |                    "description" : "simple input\n\n"
+            |                  }
+            |                ],
+            |                "description" : ""
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "responses" : {
+            |          "default" :
+            |            {
+            |            "description" : "",
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "anyOf" : [
+            |                    {
+            |                      "$ref" : "#/components/schemas/SimpleOutputBody",
+            |                      "description" : "simple output\n\n"
+            |                    },
+            |                    {
+            |                      "$ref" : "#/components/schemas/NotFoundError",
+            |                      "description" : "not found\n\n"
+            |                    }
+            |                  ],
+            |                  "description" : ""
+            |                }
+            |              }
+            |            }
+            |          }
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "OtherSimpleInputBody" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "fullName" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "shoeSize" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "fullName",
+            |          "shoeSize"
+            |        ]
+            |      },
+            |      "SimpleInputBody" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "age" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name",
+            |          "age"
+            |        ]
+            |      },
+            |      "SimpleOutputBody" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "userName" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "score" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "userName",
+            |          "score"
+            |        ]
+            |      },
+            |      "NotFoundError" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "message" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "message"
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == minify(expectedJson))
+      },
       test("multipart") {
         val endpoint  = Endpoint(GET / "test-form")
           .outCodec(
@@ -911,6 +1097,319 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |}""".stripMargin
         assertTrue(json == minify(expected))
       },
+      test("multiple endpoint definitions") {
+        val generated =
+          OpenAPIGen.fromEndpoints(
+            "Simple Endpoint",
+            "1.0",
+            simpleEndpoint,
+            queryParamEndpoint,
+            alternativeInputEndpoint
+          )
+        val json      = generated.toJson
+        val expected  =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static/{id}/{uuid}/{name}" : {
+            |      "get" : {
+            |        "parameters" : [
+            |
+            |            {
+            |            "name" : "id",
+            |            "in" : "path",
+            |            "required" : true,
+            |            "deprecated" : false,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "integer",
+            |              "format" : "int32"
+            |            },
+            |            "explode" : false,
+            |            "style" : "simple"
+            |          },
+            |
+            |            {
+            |            "name" : "uuid",
+            |            "in" : "path",
+            |            "description" : "user id\n\n",
+            |            "required" : true,
+            |            "deprecated" : false,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "string"
+            |            },
+            |            "explode" : false,
+            |            "style" : "simple"
+            |          },
+            |
+            |            {
+            |            "name" : "name",
+            |            "in" : "path",
+            |            "required" : true,
+            |            "deprecated" : false,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "string"
+            |            },
+            |            "explode" : false,
+            |            "style" : "simple"
+            |          }
+            |        ],
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/SimpleInputBody",
+            |                "description" : "input body\n\n"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "responses" : {
+            |          "200" :
+            |            {
+            |            "description" : "",
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody",
+            |                  "description" : "output body\n\n"
+            |                }
+            |              }
+            |            }
+            |          },
+            |          "404" :
+            |            {
+            |            "description" : "",
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/NotFoundError",
+            |                  "description" : "not found\n\n"
+            |                }
+            |              }
+            |            }
+            |          }
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    },
+            |    "/withQuery" : {
+            |      "get" : {
+            |        "parameters" : [
+            |
+            |            {
+            |            "name" : "query",
+            |            "in" : "query",
+            |            "required" : true,
+            |            "deprecated" : false,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "string"
+            |            },
+            |            "explode" : false,
+            |            "allowReserved" : false,
+            |            "style" : "form"
+            |          }
+            |        ],
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/SimpleInputBody"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "responses" : {
+            |          "200" :
+            |            {
+            |            "description" : "",
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+            |                }
+            |              }
+            |            }
+            |          },
+            |          "404" :
+            |            {
+            |            "description" : "",
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/NotFoundError"
+            |                }
+            |              }
+            |            }
+            |          }
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    },
+            |    "/inputAlternative" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "anyOf" : [
+            |                  {
+            |                    "$ref" : "#/components/schemas/OtherSimpleInputBody",
+            |                    "description" : "other input\n\n"
+            |                  },
+            |                  {
+            |                    "$ref" : "#/components/schemas/SimpleInputBody",
+            |                    "description" : "simple input\n\n"
+            |                  }
+            |                ],
+            |                "description" : "takes either of the two input bodies\n\n"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "responses" : {
+            |          "200" :
+            |            {
+            |            "description" : "",
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+            |                }
+            |              }
+            |            }
+            |          },
+            |          "404" :
+            |            {
+            |            "description" : "",
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/NotFoundError"
+            |                }
+            |              }
+            |            }
+            |          }
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "SimpleInputBody" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "age" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name",
+            |          "age"
+            |        ]
+            |      },
+            |      "NotFoundError" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "message" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "message"
+            |        ]
+            |      },
+            |      "SimpleOutputBody" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "userName" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "score" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "userName",
+            |          "score"
+            |        ]
+            |      },
+            |      "OtherSimpleInputBody" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "fullName" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "shoeSize" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "fullName",
+            |          "shoeSize"
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == minify(expected))
+      }
     )
 
 }

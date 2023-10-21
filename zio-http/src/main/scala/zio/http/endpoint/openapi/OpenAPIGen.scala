@@ -1,23 +1,19 @@
 package zio.http.endpoint.openapi
 
 import java.util.UUID
-
 import scala.annotation.tailrec
 import scala.collection.{immutable, mutable}
-
 import zio.Chunk
 import zio.json.EncoderOps
 import zio.json.ast.Json
-
 import zio.schema.Schema.Record
 import zio.schema.codec.JsonCodec
 import zio.schema.{Schema, TypeId}
-
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
-import zio.http.endpoint.{Endpoint, EndpointMiddleware}
+import zio.http.endpoint._
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -154,7 +150,7 @@ object OpenAPIGen {
         .flatMap(_.docsOpt)
         .map(_.flattened)
         .reduceOption(_ intersect _)
-        .map(_.reduce(_ + _))
+        .flatMap(_.reduceOption(_ + _))
         .getOrElse(Doc.empty)
 
     def optimize: AtomizedMetaCodecs =
@@ -390,50 +386,50 @@ object OpenAPIGen {
       .toOption
       .get
 
-  def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
-    endpoint1: Endpoint[PathInput, Input, Err, Output, Middleware],
-    endpoints: Endpoint[PathInput, Input, Err, Output, Middleware]*,
+  def fromEndpoints(
+    endpoint1: Endpoint[_, _, _, _, _],
+    endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(endpoint1 +: endpoints)
 
-  def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
+  def fromEndpoints(
     title: String,
     version: String,
-    endpoint1: Endpoint[PathInput, Input, Err, Output, Middleware],
-    endpoints: Endpoint[PathInput, Input, Err, Output, Middleware]*,
+    endpoint1: Endpoint[_, _, _, _, _],
+    endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(title, version, endpoint1 +: endpoints)
 
-  def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
+  def fromEndpoints(
     title: String,
     version: String,
     referenceType: SchemaStyle,
-    endpoint1: Endpoint[PathInput, Input, Err, Output, Middleware],
-    endpoints: Endpoint[PathInput, Input, Err, Output, Middleware]*,
+    endpoint1: Endpoint[_, _, _, _, _],
+    endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(title, version, referenceType, endpoint1 +: endpoints)
 
-  def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
+  def fromEndpoints(
     referenceType: SchemaStyle,
-    endpoints: Iterable[Endpoint[PathInput, Input, Err, Output, Middleware]],
+    endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, referenceType)).reduce(_ ++ _)
 
-  def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
-    endpoints: Iterable[Endpoint[PathInput, Input, Err, Output, Middleware]],
+  def fromEndpoints(
+    endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, SchemaStyle.Compact)).reduce(_ ++ _)
 
-  def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
+  def fromEndpoints(
     title: String,
     version: String,
-    endpoints: Iterable[Endpoint[PathInput, Input, Err, Output, Middleware]],
+    endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = fromEndpoints(endpoints).title(title).version(version)
 
-  def fromEndpoints[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
+  def fromEndpoints(
     title: String,
     version: String,
     referenceType: SchemaStyle,
-    endpoints: Iterable[Endpoint[PathInput, Input, Err, Output, Middleware]],
+    endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = fromEndpoints(referenceType, endpoints).title(title).version(version)
 
-  def gen[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
-    endpoint: Endpoint[PathInput, Input, Err, Output, Middleware],
+  def gen(
+    endpoint: Endpoint[_, _, _, _, _],
     referenceType: SchemaStyle = SchemaStyle.Compact,
   ): OpenAPI = {
     val inAtoms = AtomizedMetaCodecs.flatten(endpoint.input)
@@ -658,9 +654,9 @@ object OpenAPIGen {
     }
 
     def componentSchemas: Map[OpenAPI.Key, OpenAPI.ReferenceOr[JsonSchema]] =
-      (endpoint.input.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten).flatMap(_.content)
-        ++ endpoint.error.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten).flatMap(_.content)
-        ++ endpoint.output.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten).flatMap(_.content)).collect {
+      (endpoint.input.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)
+        ++ endpoint.error.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)
+        ++ endpoint.output.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)).collect {
         case MetaCodec(HttpCodec.Content(schema, _, _, _), _) if nominal(schema, referenceType).isDefined       =>
           OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
             OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(schema).discriminator(genDiscriminator(schema)))
