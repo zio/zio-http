@@ -32,7 +32,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
-      )
+    )
       .in[SimpleInputBody](Doc.p("input body"))
       .out[SimpleOutputBody](Doc.p("output body"))
       .outError[NotFoundError](Status.NotFound, Doc.p("not found"))
@@ -49,10 +49,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       .inCodec(
         (HttpCodec.content[OtherSimpleInputBody] ?? Doc.p("other input") | HttpCodec
           .content[SimpleInputBody] ?? Doc.p("simple input")) ?? Doc.p("takes either of the two input bodies"),
-        )
+      )
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
-
 
   def minify(str: String): String                          =
     Json.encoder.encodeJson(Json.decoder.decodeJson(str).toOption.get, None).toString
@@ -794,21 +793,21 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |}""".stripMargin
         assertTrue(json == minify(expectedJson))
       },
-      test("with query parameter, alternative input, alternative output and examples"){
+      test("with query parameter, alternative input, alternative output and examples") {
         val endpoint =
           Endpoint(GET / "static")
             .inCodec(
               HttpCodec
                 .content[OtherSimpleInputBody] ?? Doc.p("other input") |
                 HttpCodec
-                  .content[SimpleInputBody] ?? Doc.p("simple input")
+                  .content[SimpleInputBody] ?? Doc.p("simple input"),
             )
             .query(QueryCodec.paramStr("query"))
             .outCodec(
               HttpCodec
                 .content[SimpleOutputBody] ?? Doc.p("simple output") |
                 HttpCodec
-                  .content[NotFoundError] ?? Doc.p("not found")
+                  .content[NotFoundError] ?? Doc.p("not found"),
             )
 
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
@@ -1104,7 +1103,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             "1.0",
             simpleEndpoint,
             queryParamEndpoint,
-            alternativeInputEndpoint
+            alternativeInputEndpoint,
           )
         val json      = generated.toJson
         val expected  =
@@ -1409,7 +1408,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  }
             |}""".stripMargin
         assertTrue(json == minify(expected))
-      }
+      },
     )
 
 }
