@@ -1,6 +1,7 @@
 package zio.http.endpoint.openapi
 
 import zio.Scope
+import zio.json.DecoderOps
 import zio.json.ast.Json
 import zio.test._
 
@@ -53,13 +54,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
-  def minify(str: String): String                          =
-    Json.encoder.encodeJson(Json.decoder.decodeJson(str).toOption.get, None).toString
+  def toJsonAst(str: String): Json =
+    Json.decoder.decodeJson(str).toOption.get
+
+  def toJsonAst(api: OpenAPI): Json =
+    toJsonAst(api.toJson)
+
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("OpenAPIGenSpec")(
       test("simple endpoint to OpenAPI") {
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", simpleEndpoint)
-        val json         = generated.toJson
+        val json         = toJsonAst(generated)
         val expectedJson = """{
                              |  "openapi" : "3.1.0",
                              |  "info" : {
@@ -222,11 +227,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    }
                              |  }
                              |}""".stripMargin
-        assertTrue(json == minify(expectedJson))
+        assertTrue(json == toJsonAst(expectedJson))
       },
       test("with query parameter") {
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamEndpoint)
-        val json         = generated.toJson
+        val json         = toJsonAst(generated)
         val expectedJson = """{
                              |  "openapi" : "3.1.0",
                              |  "info" : {
@@ -350,11 +355,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    }
                              |  }
                              |}""".stripMargin
-        assertTrue(json == minify(expectedJson))
+        assertTrue(json == toJsonAst(expectedJson))
       },
       test("alternative input") {
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", alternativeInputEndpoint)
-        val json         = generated.toJson
+        val json         = toJsonAst(generated)
         val expectedJson =
           """{
             |  "openapi" : "3.1.0",
@@ -497,7 +502,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |    }
             |  }
             |}""".stripMargin
-        assertTrue(json == minify(expectedJson))
+        assertTrue(json == toJsonAst(expectedJson))
       },
       test("alternative output") {
         val endpoint     =
@@ -508,7 +513,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                 .content[NotFoundError] ?? Doc.p("not found")) ?? Doc.p("alternative outputs"),
             )
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
-        val json         = generated.toJson
+        val json         = toJsonAst(generated)
         val expectedJson =
           """{
             |  "openapi" : "3.1.0",
@@ -619,7 +624,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |    }
             |  }
             |}""".stripMargin
-        assertTrue(json == minify(expectedJson))
+        assertTrue(json == toJsonAst(expectedJson))
       },
       test("with examples") {
         val endpoint =
@@ -639,7 +644,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             )
 
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
-        val json         = generated.toJson
+        val json         = toJsonAst(generated)
         val expectedJson =
           """{
             |  "openapi" : "3.1.0",
@@ -791,7 +796,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |    }
             |  }
             |}""".stripMargin
-        assertTrue(json == minify(expectedJson))
+        assertTrue(json == toJsonAst(expectedJson))
       },
       test("with query parameter, alternative input, alternative output and examples") {
         val endpoint =
@@ -811,7 +816,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             )
 
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
-        val json         = generated.toJson
+        val json         = toJsonAst(generated)
         val expectedJson =
           """{
             |  "openapi" : "3.1.0",
@@ -976,7 +981,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |    }
             |  }
             |}""".stripMargin
-        assertTrue(json == minify(expectedJson))
+        assertTrue(json == toJsonAst(expectedJson))
       },
       test("multipart") {
         val endpoint  = Endpoint(GET / "test-form")
@@ -988,7 +993,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
               HttpCodec.content[ImageMetadata]("metadata"),
           )
         val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
-        val json      = generated.toJson
+        val json      = toJsonAst(generated)
         val expected  = """{
                          |  "openapi" : "3.1.0",
                          |  "info" : {
@@ -998,13 +1003,13 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |  "paths" : {
                          |    "/test-form" : {
                          |      "get" : {
-                         |        "requestBody" : 
+                         |        "requestBody" :
                          |          {
                          |          "content" : {
                          |            "application/json" : {
-                         |              "schema" : 
+                         |              "schema" :
                          |                {
-                         |                "type" : 
+                         |                "type" :
                          |                  "null"
                          |              }
                          |            }
@@ -1012,24 +1017,24 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |          "required" : false
                          |        },
                          |        "responses" : {
-                         |          "default" : 
+                         |          "default" :
                          |            {
                          |            "description" : "",
                          |            "content" : {
                          |              "multipart/form-data" : {
-                         |                "schema" : 
+                         |                "schema" :
                          |                  {
-                         |                  "type" : 
+                         |                  "type" :
                          |                    "object",
                          |                  "properties" : {
                          |                    "image" : {
-                         |                      "type" : 
+                         |                      "type" :
                          |                        "string",
                          |                      "contentEncoding" : "binary",
                          |                      "contentMediaType" : "application/octet-stream"
                          |                    },
                          |                    "height" : {
-                         |                      "type" : 
+                         |                      "type" :
                          |                        "integer",
                          |                      "format" : "int32"
                          |                    },
@@ -1037,19 +1042,19 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |                      "$ref" : "#/components/schemas/ImageMetadata"
                          |                    },
                          |                    "title" : {
-                         |                      "type" : 
+                         |                      "type" :
                          |                        [
                          |                        "string",
                          |                        "null"
                          |                      ]
                          |                    },
                          |                    "width" : {
-                         |                      "type" : 
+                         |                      "type" :
                          |                        "integer",
                          |                      "format" : "int32"
                          |                    }
                          |                  },
-                         |                  "additionalProperties" : 
+                         |                  "additionalProperties" :
                          |                    false,
                          |                  "required" : [
                          |                    "image",
@@ -1069,22 +1074,22 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |  },
                          |  "components" : {
                          |    "schemas" : {
-                         |      "ImageMetadata" : 
+                         |      "ImageMetadata" :
                          |        {
-                         |        "type" : 
+                         |        "type" :
                          |          "object",
                          |        "properties" : {
                          |          "name" : {
-                         |            "type" : 
+                         |            "type" :
                          |              "string"
                          |          },
                          |          "size" : {
-                         |            "type" : 
+                         |            "type" :
                          |              "integer",
                          |            "format" : "int32"
                          |          }
                          |        },
-                         |        "additionalProperties" : 
+                         |        "additionalProperties" :
                          |          true,
                          |        "required" : [
                          |          "name",
@@ -1094,7 +1099,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |    }
                          |  }
                          |}""".stripMargin
-        assertTrue(json == minify(expected))
+        assertTrue(json == toJsonAst(expected))
       },
       test("multiple endpoint definitions") {
         val generated =
@@ -1105,7 +1110,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             queryParamEndpoint,
             alternativeInputEndpoint,
           )
-        val json      = generated.toJson
+        val json      = toJsonAst(generated)
         val expected  =
           """{
             |  "openapi" : "3.1.0",
@@ -1407,7 +1412,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |    }
             |  }
             |}""".stripMargin
-        assertTrue(json == minify(expected))
+        assertTrue(json == toJsonAst(expected))
       },
     )
 
