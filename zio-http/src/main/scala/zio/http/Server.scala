@@ -238,16 +238,16 @@ object Server {
 
     /**
      * @param level
-     *   defines compression level, {@code 1} yields the fastest compression and
-     *   {@code 9} yields the best compression. {@code 0} means no compression.
+     *   defines compression level, {@@code1} yields the fastest compression and
+     *   {@@code9} yields the best compression. {@@code0} means no compression.
      * @param bits
      *   defines windowBits, The base two logarithm of the size of the history
-     *   buffer. The value should be in the range {@code 9} to {@code 15}
+     *   buffer. The value should be in the range {@@code9} to {@@code15}
      *   inclusive. Larger values result in better compression at the expense of
      *   memory usage
      * @param mem
      *   defines memlevel, How much memory should be allocated for the internal
-     *   compression state. {@code 1} uses minimum memory and {@code 9} uses
+     *   compression state. {@@code1} uses minimum memory and {@@code9} uses
      *   maximum memory. Larger values result in better and faster compression
      *   at the expense of memory usage
      */
