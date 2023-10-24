@@ -104,44 +104,6 @@ private[openapi] object TypeOrTypes {
   }
 }
 
-@noDiscriminator
-sealed trait EnumValue { self =>
-  def toJson: Json = self match {
-    case EnumValue.Bool(value)        => Json.Bool(value)
-    case EnumValue.Str(value)         => Json.Str(value)
-    case EnumValue.Num(value)         => Json.Num(value)
-    case EnumValue.Null               => Json.Null
-    case EnumValue.SchemaValue(value) =>
-      Json.decoder
-        .decodeJson(value.toJson)
-        .getOrElse(throw new IllegalArgumentException(s"Can't convert $self"))
-  }
-}
-
-object EnumValue {
-
-  def fromJson(json: Json): EnumValue =
-    json match {
-      case Json.Str(value)  => Str(value)
-      case Json.Num(value)  => Num(value)
-      case Json.Bool(value) => Bool(value)
-      case Json.Null        => Null
-      case other            =>
-        SchemaValue(
-          JsonSchema.codec
-            .decode(Chunk.fromArray(other.toString().getBytes))
-            .getOrElse(throw new IllegalArgumentException(s"Can't convert $json")),
-        )
-    }
-
-  final case class SchemaValue(value: JsonSchema) extends EnumValue
-  final case class Bool(value: Boolean)           extends EnumValue
-  final case class Str(value: String)             extends EnumValue
-  final case class Num(value: BigDecimal)         extends EnumValue
-  case object Null                                extends EnumValue
-
-}
-
 sealed trait JsonSchema extends Product with Serializable { self =>
 
   lazy val toJsonBytes: Chunk[Byte] = JsonCodec.schemaBasedBinaryCodec[JsonSchema].encode(self)
@@ -699,6 +661,44 @@ object JsonSchema {
         schemaType = Some(TypeOrTypes.Type("string")),
         enumValues = Some(values.map(_.toJson)),
       )
+  }
+
+  @noDiscriminator
+  sealed trait EnumValue { self =>
+    def toJson: Json = self match {
+      case EnumValue.Bool(value)        => Json.Bool(value)
+      case EnumValue.Str(value)         => Json.Str(value)
+      case EnumValue.Num(value)         => Json.Num(value)
+      case EnumValue.Null               => Json.Null
+      case EnumValue.SchemaValue(value) =>
+        Json.decoder
+          .decodeJson(value.toJson)
+          .getOrElse(throw new IllegalArgumentException(s"Can't convert $self"))
+    }
+  }
+
+  object EnumValue {
+
+    def fromJson(json: Json): EnumValue =
+      json match {
+        case Json.Str(value)  => Str(value)
+        case Json.Num(value)  => Num(value)
+        case Json.Bool(value) => Bool(value)
+        case Json.Null        => Null
+        case other            =>
+          SchemaValue(
+            JsonSchema.codec
+              .decode(Chunk.fromArray(other.toString().getBytes))
+              .getOrElse(throw new IllegalArgumentException(s"Can't convert $json")),
+          )
+      }
+
+    final case class SchemaValue(value: JsonSchema) extends EnumValue
+    final case class Bool(value: Boolean)           extends EnumValue
+    final case class Str(value: String)             extends EnumValue
+    final case class Num(value: BigDecimal)         extends EnumValue
+    case object Null                                extends EnumValue
+
   }
 
   case object Null extends JsonSchema {
