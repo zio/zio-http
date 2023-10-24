@@ -116,7 +116,8 @@ object FormSpec extends ZIOHttpSpec {
         form <- Form.fromMultipartBytes(multipartFormBytes1)
         encoding = form.multipartBytes(boundary)
         bytes <- encoding.runCollect
-        (text: FormField.Text) :: (image1: FormField.Binary) :: (image2: FormField.Binary) :: Nil = form.formData.toList
+        (text: FormField.Text) :: (image1: FormField.Binary) :: (image2: FormField.Binary) :: Nil =
+          form.formData.toList: @unchecked
       } yield assert(bytes)(equalTo(multipartFormBytes1)) &&
         assert(form.formData.size)(equalTo(3)) &&
         assert(text.name)(equalTo("submit-name")) &&
@@ -197,7 +198,7 @@ object FormSpec extends ZIOHttpSpec {
           .runCollect
           .map { formData =>
             val (text: FormField.Text) :: (image1: FormField.Binary) :: (image2: FormField.Binary) :: Nil =
-              formData.toList
+              formData.toList: @unchecked
             assert(formData.size)(equalTo(3)) &&
             assert(text.name)(equalTo("submit-name")) &&
             assert(text.value)(equalTo("Larry")) &&

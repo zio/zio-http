@@ -12,7 +12,10 @@ ThisBuild / resolvers +=
   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowJavaVersions := Seq(
+  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
+  JavaSpec.temurin("8"),
+)
 ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
@@ -104,17 +107,27 @@ inThisBuild(
 
 ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
+lazy val aggregatedProjects: Seq[ProjectReference] =
+  if (Shading.shadingEnabled) {
+    Seq(
+      zioHttp,
+      zioHttpTestkit,
+    )
+  } else {
+    Seq(
+      zioHttp,
+      zioHttpBenchmarks,
+      zioHttpCli,
+      zioHttpExample,
+      zioHttpTestkit,
+      docs,
+    )
+  }
+
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
-  .aggregate(
-    zioHttp,
-    zioHttpBenchmarks,
-    zioHttpCli,
-    zioHttpExample,
-    zioHttpTestkit,
-    docs,
-  )
+  .aggregate(aggregatedProjects: _*)
 
 lazy val zioHttp = (project in file("zio-http"))
   .enablePlugins(Shading.plugins(): _*)
