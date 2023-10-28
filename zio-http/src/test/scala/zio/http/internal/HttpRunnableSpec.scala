@@ -49,7 +49,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
           client(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", Some(port)))),
           )
             .flatMap(_.collect)
         }
@@ -80,7 +80,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
           client(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", Some(port)))),
           )
         }
       } yield response
