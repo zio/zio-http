@@ -8,7 +8,7 @@ object Dependencies {
   val ScalaCompactCollectionVersion = "2.11.0"
   val ZioVersion                    = "2.0.18"
   val ZioCliVersion                 = "0.5.0"
-  val ZioSchemaVersion              = "0.4.14"
+  val ZioSchemaVersion              = "0.4.15"
   val SttpVersion                   = "3.3.18"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
