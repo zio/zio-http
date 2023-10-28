@@ -4,12 +4,16 @@ package zio.http.benchmarks
 //import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 //import akka.http.scaladsl.server.Route
 import java.util.concurrent.TimeUnit
+
 import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
 import zio.{Scope => _, _}
+
 import zio.schema.{DeriveSchema, Schema}
+
 import zio.http._
 import zio.http.codec.QueryCodec
 import zio.http.endpoint.Endpoint
+
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO => CIO}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
