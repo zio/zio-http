@@ -1,10 +1,9 @@
 package example
 
 import zio._
-
 import zio.http.Header.Authorization
 import zio.http.codec.{HttpCodec, PathCodec}
-import zio.http.endpoint._
+import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
 import zio.http.{int => _, _}
 
 object EndpointExamples extends ZIOAppDefault {
