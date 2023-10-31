@@ -22,6 +22,7 @@ import java.nio.charset._
 import zio._
 import zio.metrics._
 
+import zio.http.endpoint.EndpointMiddleware.None.Err
 import zio.http.template._
 
 /**
@@ -42,7 +43,7 @@ import zio.http.template._
  * specialized to entuple contexts, so that each layer may only add context to
  * the contextual output.
  */
-final case class HandlerAspect[-Env, +CtxOut](
+final case class HandlerAspect[-Env, +CtxOut: Tag](
   protocol: ProtocolStack[
     Env,
     Request,
@@ -59,7 +60,7 @@ final case class HandlerAspect[-Env, +CtxOut](
    * incoming requests, and first on outgoing responses. Context from both
    * middleware will be combined using tuples.
    */
-  def ++[Env1 <: Env, CtxOut2](
+  def ++[Env1 <: Env, CtxOut2: Tag](
     that: HandlerAspect[Env1, CtxOut2],
   )(implicit zippable: Zippable[CtxOut, CtxOut2]): HandlerAspect[Env1, zippable.Out] =
     HandlerAspect {
@@ -125,6 +126,20 @@ final case class HandlerAspect[-Env, +CtxOut](
     }
   }
 
+  def applyHandlerContextAsEnvRoutes[Err](
+    routes: Routes[CtxOut, Err],
+  ): Routes[Env, Err] = {
+    routes.transform[Env] { handler =>
+      for {
+        tuple <- protocol.incomingHandler
+        (state, (request, ctxOut)) = tuple
+        either   <- Handler.fromZIO(handler(request)).either.provideEnvironment(ZEnvironment(ctxOut))
+        response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+        response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+      } yield response
+    }
+  }
+
   def applyHandler[Env1 <: Env](handler: RequestHandler[Env1, Response]): RequestHandler[Env1, Response] =
     if (self == HandlerAspect.identity) handler
     else {
@@ -141,14 +156,14 @@ final case class HandlerAspect[-Env, +CtxOut](
    * Returns new middleware that transforms the context of the middleware to the
    * specified constant.
    */
-  def as[CtxOut2](ctxOut2: => CtxOut2): HandlerAspect[Env, CtxOut2] =
+  def as[CtxOut2: Tag](ctxOut2: => CtxOut2): HandlerAspect[Env, CtxOut2] =
     map(_ => ctxOut2)
 
   /**
    * Returns new middleware that transforms the context of the middleware using
    * the specified function.
    */
-  def map[CtxOut2](f: CtxOut => CtxOut2): HandlerAspect[Env, CtxOut2] =
+  def map[CtxOut2: Tag](f: CtxOut => CtxOut2): HandlerAspect[Env, CtxOut2] =
     HandlerAspect(protocol.mapIncoming { case (request, ctx) => (request, f(ctx)) })
 
   /**
@@ -351,7 +366,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * requests to be passed on to the app, and provides a context to the request
    * handlers.
    */
-  final def customAuthProviding[Context](
+  final def customAuthProviding[Context: Tag](
     provide: Request => Option[Context],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
@@ -363,7 +378,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * requests to be passed on to the app, and provides a context to the request
    * handlers.
    */
-  def customAuthProvidingZIO[Env, Context](
+  def customAuthProvidingZIO[Env, Context: Tag](
     provide: Request => ZIO[Env, Nothing, Option[Context]],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
@@ -454,7 +469,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * another based on the result of the predicate, applied to the incoming
    * request's headers.
    */
-  def ifHeaderThenElse[Env, Ctx](
+  def ifHeaderThenElse[Env, Ctx: Tag](
     condition: Headers => Boolean,
   )(
     ifTrue: HandlerAspect[Env, Ctx],
@@ -467,7 +482,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * another based on the result of the predicate, applied to the incoming
    * request's method.
    */
-  def ifMethodThenElse[Env, Ctx](
+  def ifMethodThenElse[Env, Ctx: Tag](
     condition: Method => Boolean,
   )(
     ifTrue: HandlerAspect[Env, Ctx],
@@ -480,7 +495,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * another based on the result of the predicate, applied to the incoming
    * request.
    */
-  def ifRequestThenElse[Env, CtxOut](
+  def ifRequestThenElse[Env, CtxOut: Tag](
     predicate: Request => Boolean,
   )(
     ifTrue: HandlerAspect[Env, CtxOut],
@@ -497,7 +512,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * another based on the result of the predicate, effectfully applied to the
    * incoming request.
    */
-  def ifRequestThenElseZIO[Env, CtxOut](
+  def ifRequestThenElseZIO[Env, CtxOut: Tag](
     predicate: Request => ZIO[Env, Response, Boolean],
   )(
     ifTrue: HandlerAspect[Env, CtxOut],
@@ -525,7 +540,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * incoming and outgoing requests. If the incoming handler fails, then the
    * outgoing handler will not be invoked.
    */
-  def interceptHandler[Env, CtxOut](
+  def interceptHandler[Env, CtxOut: Tag](
     incoming0: Handler[Env, Response, Request, (Request, CtxOut)],
   )(
     outgoing0: Handler[Env, Nothing, Response, Response],
@@ -537,7 +552,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * incoming and outgoing requests. If the incoming handler fails, then the
    * outgoing handler will not be invoked.
    */
-  def interceptHandlerStateful[Env, State0, CtxOut](
+  def interceptHandlerStateful[Env, State0, CtxOut: Tag](
     incoming0: Handler[
       Env,
       Response,
@@ -553,7 +568,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * Creates middleware that will apply the specified handler to incoming
    * requests.
    */
-  def interceptIncomingHandler[Env, CtxOut](
+  def interceptIncomingHandler[Env, CtxOut: Tag](
     handler: Handler[Env, Response, Request, (Request, CtxOut)],
   ): HandlerAspect[Env, CtxOut] =
     interceptHandler(handler)(Handler.identity)

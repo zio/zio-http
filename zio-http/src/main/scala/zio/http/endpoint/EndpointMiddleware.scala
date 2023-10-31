@@ -17,7 +17,7 @@
 package zio.http.endpoint
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, Trace, ZIO}
+import zio.{Chunk, Tag, Trace, ZIO}
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
@@ -52,7 +52,7 @@ sealed trait EndpointMiddleware { self =>
   def ??(doc: Doc): EndpointMiddleware.Typed[In, Err, Out] =
     EndpointMiddleware.Spec(input, output, error, doc)
 
-  def implement[R, S](incoming: In => ZIO[R, Err, S])(
+  def implement[R, S: Tag](incoming: In => ZIO[R, Err, S])(
     outgoing: S => ZIO[R, Err, Out],
   )(implicit trace: Trace): HandlerAspect[R, S] =
     HandlerAspect.interceptHandlerStateful(

@@ -16,10 +16,13 @@
 
 package zio.http.internal.middlewares
 
+import java.net.URLDecoder
+
 import zio.test.Assertion._
 import zio.test._
 import zio.{Ref, ZIO}
 
+import zio.http.Header.ContentTransferEncoding.Base64
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 
@@ -76,6 +79,20 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
           Response.text(c.value)
         } @@ basicAuthContextM).merge.mapZIO(_.body.asString)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo("user"))
+      },
+      test("Extract basic auth username and pw via context providing through environment") {
+        val app = {
+          Routes(
+            (Method.GET / "context") -> Handler.fromZIO(
+              ZIO.serviceWith[Header.Authorization.Basic](s => Response.text(s"${s.username}:${s.password}")),
+            ),
+          ) @@ Middleware.customAuthProviding[Header.Authorization.Basic](_.headers.get(Header.Authorization).collect {
+            case basicAuth @ Header.Authorization.Basic(_, _) => basicAuth
+          })
+        }.toHttpApp
+        assertZIO(
+          app.runZIO(Request.get(URL.root / "context").copy(headers = successBasicHeader)).flatMap(_.body.asString),
+        )(equalTo("user:resu"))
       },
       test("Extract username via context with Routes") {
         val app = {

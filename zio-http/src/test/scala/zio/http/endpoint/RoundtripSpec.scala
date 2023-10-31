@@ -322,7 +322,7 @@ object RoundtripSpec extends ZIOHttpSpec {
         val routes = endpointRoute
 
         val app = routes.toHttpApp @@ alwaysFailingMiddleware
-          .implement(_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
+          .implement(_ => ZIO.fail("FAIL"))((_: Any) => ZIO.unit)
 
         for {
           port <- Server.install(app)
@@ -361,7 +361,7 @@ object RoundtripSpec extends ZIOHttpSpec {
         val routes = endpointRoute
 
         val app = routes.toHttpApp @@ alwaysFailingMiddleware
-          .implement(_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
+          .implement(_ => ZIO.fail("FAIL"))((_: Any) => ZIO.unit)
 
         for {
           port <- Server.install(app)
