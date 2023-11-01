@@ -232,14 +232,27 @@ object QueryParamsSpec extends ZIOHttpSpec {
       ),
       suite("get - getAll")(
         test("success") {
-          val name        = "name"
-          val default     = "default"
-          val unknown     = "non-existent"
-          val queryParams = QueryParams(name -> "a", name -> "b")
-          assertTrue(queryParams.get(name).get == "a") &&
-          assertTrue(queryParams.getOrElse(unknown, default) == default) &&
-          assertTrue(queryParams.getAll(name).get.length == 2) &&
-          assertTrue(queryParams.getAllOrElse(unknown, Chunk(default)).length == 1)
+          val name         = "name"
+          val typed        = "typed"
+          val default      = "default"
+          val typedDefault = 3
+          val unknown      = "non-existent"
+          val queryParams  = QueryParams(name -> "a", name -> "b", typed -> "1", typed -> "2")
+          println(queryParams.getAsOrElse[Int](typed, typedDefault) == typedDefault)
+          assertTrue(
+            queryParams.get(name).get == "a",
+            queryParams.get(unknown).isEmpty,
+            queryParams.getOrElse(name, default) == "a",
+            queryParams.getOrElse(unknown, default) == default,
+            queryParams.getAll(name).get.length == 2,
+            queryParams.getAllOrElse(unknown, Chunk(default)).length == 1,
+            queryParams.getAs[Int](typed).get == 1,
+            queryParams.getAs[Int](unknown).isEmpty,
+            queryParams.getAsOrElse[Int](typed, typedDefault) == 1,
+            queryParams.getAsOrElse[Int](unknown, typedDefault) == typedDefault,
+            queryParams.getAllAs[Int](typed).get.length == 2,
+            queryParams.getAllAsOrElse[Int](unknown, Chunk(typedDefault)).length == 1,
+          )
         },
       ),
       suite("encode - decode")(
