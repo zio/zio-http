@@ -18,10 +18,9 @@ package zio.http
 
 import java.nio.charset.Charset
 
-import zio.{Chunk, NonEmptyChunk}
+import zio.Chunk
 
-import zio.http.Charsets
-import zio.http.codec.{HttpCodecError, TextCodec}
+import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
 
 /**
