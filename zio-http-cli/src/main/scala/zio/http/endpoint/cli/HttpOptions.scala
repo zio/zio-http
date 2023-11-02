@@ -8,6 +8,7 @@ import zio.cli._
 import zio.json.ast._
 
 import zio.schema._
+import zio.schema.annotation.description
 
 import zio.http._
 import zio.http.codec._
