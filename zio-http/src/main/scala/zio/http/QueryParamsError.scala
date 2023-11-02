@@ -30,15 +30,15 @@ sealed trait QueryParamsError extends Exception with NoStackTrace {
   def message: String
 }
 object QueryParamsError {
-  final case class MissingQueryParam(queryParamName: String) extends QueryParamsError {
+  final case class Missing(queryParamName: String) extends QueryParamsError {
     def message = s"Missing query parameter with name $queryParamName"
   }
 
-  final case class MalformedQueryParam(name: String, value: String, codec: TextCodec[_]) extends QueryParamsError {
+  final case class Malformed(name: String, value: String, codec: TextCodec[_]) extends QueryParamsError {
     def message = s"Unable to decode query parameter with name $name and value $value using $codec"
   }
 
-  final case class MultiMalformedQueryParam(chunk: Chunk[MalformedQueryParam]) extends QueryParamsError {
+  final case class MultiMalformed(chunk: Chunk[Malformed]) extends QueryParamsError {
     def message: String = chunk.map(_.getMessage()).mkString("; ")
   }
 }

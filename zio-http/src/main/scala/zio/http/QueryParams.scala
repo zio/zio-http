@@ -96,12 +96,12 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
     map.get(key) match {
       case Some(params) =>
         params
-          .map(param => codec.decode(param).toRight(QueryParamsError.MalformedQueryParam(key, param, codec)))
+          .map(param => codec.decode(param).toRight(QueryParamsError.Malformed(key, param, codec)))
           .partitionMap(identity) match {
-          case (errors, _) if errors.nonEmpty => Left(QueryParamsError.MultiMalformedQueryParam(errors))
+          case (errors, _) if errors.nonEmpty => Left(QueryParamsError.MultiMalformed(errors))
           case (_, typedParams)               => Right(typedParams)
         }
-      case None         => Left(QueryParamsError.MissingQueryParam(key))
+      case None         => Left(QueryParamsError.Missing(key))
     }
 
   /**
@@ -113,8 +113,8 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
    * Retrieves the first typed query parameter value having the specified name.
    */
   def getAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, A] = for {
-    param      <- get(key).toRight(QueryParamsError.MissingQueryParam(key))
-    typedParam <- codec.decode(param).toRight(QueryParamsError.MalformedQueryParam(key, param, codec))
+    param      <- get(key).toRight(QueryParamsError.Missing(key))
+    typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, param, codec))
   } yield typedParam
 
   /**
