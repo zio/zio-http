@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{anything, equalTo, fails, hasSize}
 import zio.test._
 import zio.{Chunk, ZIO}
 
@@ -269,6 +269,12 @@ object QueryParamsSpec extends ZIOHttpSpec {
             queryParams.getAllAsOrElse[Int](invalidTyped, Chunk(default)).length == 1,
             queryParams.getAllAsOrElse[Int](unknown, Chunk(default)).length == 1,
           )
+          assertZIO(queryParams.getAsZIO[Int](typed))(equalTo(1)) &&
+          assertZIO(queryParams.getAsZIO[Int](invalidTyped).exit)(fails(anything)) &&
+          assertZIO(queryParams.getAsZIO[Int](unknown).exit)(fails(anything)) &&
+          assertZIO(queryParams.getAllAsZIO[Int](typed))(hasSize(equalTo(2))) &&
+          assertZIO(queryParams.getAllAsZIO[Int](invalidTyped).exit)(fails(anything)) &&
+          assertZIO(queryParams.getAllAsZIO[Int](unknown).exit)(fails(anything))
         },
       ),
       suite("encode - decode")(

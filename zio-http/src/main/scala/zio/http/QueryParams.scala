@@ -18,7 +18,7 @@ package zio.http
 
 import java.nio.charset.Charset
 
-import zio.Chunk
+import zio.{Chunk, IO, ZIO}
 
 import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
@@ -104,6 +104,13 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
     }
 
   /**
+   * Retrieves all typed query parameter values having the specified name as
+   * ZIO.
+   */
+  def getAllAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, Chunk[A]] =
+    ZIO.fromEither(getAllAs[A](key))
+
+  /**
    * Retrieves the first query parameter value having the specified name.
    */
   def get(key: String): Option[String] = getAll(key).flatMap(_.headOption)
@@ -115,6 +122,12 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
     param      <- get(key).toRight(QueryParamsError.Missing(key))
     typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, param, codec))
   } yield typedParam
+
+  /**
+   * Retrieves the first typed query parameter value having the specified name
+   * as ZIO.
+   */
+  def getAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, A] = ZIO.fromEither(getAs[A](key))
 
   /**
    * Retrieves all query parameter values having the specified name, or else
