@@ -18,7 +18,7 @@ package zio.http
 
 import java.nio.charset.Charset
 
-import zio.{Chunk, IO, ZIO}
+import zio.{Chunk, IO, NonEmptyChunk, ZIO}
 
 import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
@@ -91,17 +91,14 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
   /**
    * Retrieves all typed query parameter values having the specified name.
    */
-  def getAllAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] =
-    map.get(key) match {
-      case Some(params) =>
-        params
-          .map(param => codec.decode(param).toRight(QueryParamsError.Malformed(key, param, codec)))
-          .partitionMap(identity) match {
-          case (errors, _) if errors.nonEmpty => Left(QueryParamsError.MultiMalformed(errors))
-          case (_, typedParams)               => Right(typedParams)
-        }
-      case None         => Left(QueryParamsError.Missing(key))
-    }
+  def getAllAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
+    params <- map.get(key).toRight(QueryParamsError.Missing(key))
+    (failed, typed) = params.map(p => codec.decode(p).toRight(p)).partitionMap(identity)
+    result <- NonEmptyChunk
+      .fromChunk(failed)
+      .map(fails => QueryParamsError.Malformed(key, codec, fails))
+      .toLeft(typed)
+  } yield result
 
   /**
    * Retrieves all typed query parameter values having the specified name as
@@ -120,7 +117,7 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
    */
   def getAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, A] = for {
     param      <- get(key).toRight(QueryParamsError.Missing(key))
-    typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, param, codec))
+    typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, codec, NonEmptyChunk(param)))
   } yield typedParam
 
   /**
