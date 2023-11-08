@@ -20,7 +20,7 @@ import java.nio.charset.Charset
 
 import scala.util.control.NoStackTrace
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
@@ -30,15 +30,13 @@ sealed trait QueryParamsError extends Exception with NoStackTrace {
   def message: String
 }
 object QueryParamsError {
-  final case class Missing(queryParamName: String) extends QueryParamsError {
-    def message = s"Missing query parameter with name $queryParamName"
+  final case class Missing(name: String) extends QueryParamsError {
+    def message = s"Missing query parameter with name $name"
   }
 
-  final case class Malformed(name: String, value: String, codec: TextCodec[_]) extends QueryParamsError {
-    def message = s"Unable to decode query parameter with name $name and value $value using $codec"
-  }
-
-  final case class MultiMalformed(chunk: Chunk[Malformed]) extends QueryParamsError {
-    def message: String = chunk.map(_.getMessage()).mkString("; ")
+  final case class Malformed(name: String, codec: TextCodec[_], values: NonEmptyChunk[String])
+      extends QueryParamsError {
+    def message: String =
+      s"Unable to decode query parameter $name with values [ ${values.mkString(", ")} ] using ${codec.describe} codec"
   }
 }
