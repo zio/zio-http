@@ -93,7 +93,7 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
    */
   def getAllAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
     params <- map.get(key).toRight(QueryParamsError.Missing(key))
-    (failed, typed) = params.map(p => codec.decode(p).toRight(p)).partitionMap(identity)
+    (failed, typed) = params.partitionMap(p => codec.decode(p).toRight(p))
     result <- NonEmptyChunk
       .fromChunk(failed)
       .map(fails => QueryParamsError.Malformed(key, codec, fails))
