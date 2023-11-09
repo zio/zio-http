@@ -284,7 +284,8 @@ object Middleware extends HandlerAspects {
       }
 
       override def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] = {
-        val mountpoint = Method.GET / path.segments.map(PathCodec.literal).reduceLeft(_ / _)
+        val mountpoint =
+          Method.GET / path.segments.map(PathCodec.literal).reduceLeftOption(_ / _).getOrElse(PathCodec.empty)
         val pattern    = mountpoint / trailing
         val other      = Routes(
           pattern -> Handler
