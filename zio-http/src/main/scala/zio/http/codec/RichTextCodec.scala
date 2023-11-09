@@ -154,7 +154,9 @@ sealed trait RichTextCodec[A] { self =>
 }
 object RichTextCodec {
   private[codec] case object Empty                                        extends RichTextCodec[Unit]
-  private[codec] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char]
+  private[codec] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char] {
+    lazy val errorMessage = s"Not found: ${set.toArray.map(_.toChar).mkString}"
+  }
   private[codec] final case class TransformOrFail[A, B](
     codec: RichTextCodec[A],
     to: A => Either[String, B],
@@ -162,7 +164,7 @@ object RichTextCodec {
   ) extends RichTextCodec[B]
   private[codec] final case class Alt[A, B](left: RichTextCodec[A], right: RichTextCodec[B])
       extends RichTextCodec[Either[A, B]]
-  private[codec] final case class Lazy[A](codec0: () => RichTextCodec[A]) extends RichTextCodec[A] {
+  private[codec] final case class Lazy[A](codec0: () => RichTextCodec[A]) extends RichTextCodec[A]    {
     lazy val codec: RichTextCodec[A] = codec0()
   }
   private[codec] final case class Zip[A, B, C](
@@ -528,9 +530,9 @@ object RichTextCodec {
       case Empty =>
         Right((value, ()))
 
-      case CharIn(bitset) =>
+      case self @ CharIn(bitset) =>
         if (value.length == 0 || !bitset.contains(value.charAt(0).toInt))
-          Left(s"Not found: ${bitset.toArray.map(_.toChar).mkString}")
+          Left(self.errorMessage)
         else
           Right((value.subSequence(1, value.length), value.charAt(0)))
 
