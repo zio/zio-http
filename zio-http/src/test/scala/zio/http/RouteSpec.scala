@@ -16,8 +16,6 @@
 
 package zio.http
 
-import scala.collection.Seq
-
 import zio._
 import zio.test._
 
@@ -62,6 +60,25 @@ object RouteSpec extends ZIOHttpSpec {
           _   <- (handler @@ middleware).run().exit
           cnt <- ref.get
         } yield assertTrue(cnt == 2)
+      },
+    ),
+    suite("error handle")(
+      test("handleErrorCauseZIO should execute a ZIO effect") {
+        val route = Method.GET / "endpoint" -> handler { (req: Request) => ZIO.fail(new Exception("hmm...")) }
+        for {
+          p <- zio.Promise.make[Exception, String]
+
+          errorHandled = route
+            .handleErrorCauseZIO(c => p.failCause(c).as(Response.internalServerError))
+
+          request = Request.get(URL.decode("/endpoint").toOption.get)
+          response <- errorHandled.toHttpApp.runZIO(request)
+          result   <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
+
+        } yield assertTrue(
+          response.status == Status.InternalServerError,
+          result.contains("hmm..."),
+        )
       },
     ),
   )
