@@ -368,14 +368,15 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.foldHandler(err => Handler.fromZIO(f(err)), Handler.succeed(_))
 
   /**
-   * Transforms all failures except effectfull interruption.
+   * Transforms all failures of the handler effectfully except pure
+   * interruption.
    */
   final def mapErrorCauseZIO[R1 <: R, Err1, Out1 >: Out](
     f: Cause[Err] => ZIO[R1, Err1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In, Out1] =
     self.foldCauseHandler(
       err =>
-        if (err.isInterruptedOnly) Handler.fromZIO(f(err.asInstanceOf[Cause[Nothing]])) else Handler.fromZIO(f(err)),
+        if (err.isInterruptedOnly) Handler.failCause(err.asInstanceOf[Cause[Nothing]]) else Handler.fromZIO(f(err)),
       Handler.succeed(_),
     )
 
