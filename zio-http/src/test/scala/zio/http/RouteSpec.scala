@@ -75,10 +75,7 @@ object RouteSpec extends ZIOHttpSpec {
           response <- errorHandled.toHttpApp.runZIO(request)
           result   <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
 
-        } yield assertTrue(
-          response.status == Status.InternalServerError,
-          result.contains("hmm..."),
-        )
+        } yield assertTrue(extractStatus(response) == Status.InternalServerError, result.contains("hmm..."))
       },
     ),
   )
