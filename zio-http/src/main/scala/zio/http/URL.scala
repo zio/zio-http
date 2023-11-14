@@ -17,10 +17,12 @@
 package zio.http
 
 import java.net.{MalformedURLException, URI, URISyntaxException}
+
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import zio.Chunk
+
 import zio.http.URL.{Fragment, Location, portFromScheme}
 import zio.http.internal.QueryParamEncoding
 
