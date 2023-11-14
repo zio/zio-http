@@ -17,11 +17,11 @@
 package zio.http
 
 import java.net.{MalformedURLException, URI, URISyntaxException}
-
+import scala.collection.immutable.ListMap
+import scala.collection.immutable.SeqMap
 import scala.util.Try
 
 import zio.Chunk
-
 import zio.http.URL.{Fragment, Location, portFromScheme}
 import zio.http.internal.QueryParamEncoding
 
@@ -164,11 +164,11 @@ final case class URL(
   def queryParams(queryParams: QueryParams): URL =
     copy(queryParams = queryParams)
 
-  def queryParams(queryParams: Map[String, Chunk[String]]): URL =
+  def queryParams(queryParams: SeqMap[String, Chunk[String]]): URL =
     copy(queryParams = QueryParams(queryParams))
 
   def queryParams(queryParams: (String, Chunk[String])*): URL =
-    copy(queryParams = QueryParams(queryParams.toMap))
+    copy(queryParams = QueryParams(queryParams: _*))
 
   def queryParams(query: String): URL =
     copy(queryParams = QueryParams.decode(query))

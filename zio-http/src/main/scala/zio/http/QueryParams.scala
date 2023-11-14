@@ -17,16 +17,17 @@
 package zio.http
 
 import java.nio.charset.Charset
+import scala.collection.immutable.ListMap
+import scala.collection.immutable.SeqMap
 
 import zio.{Chunk, IO, NonEmptyChunk, ZIO}
-
 import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
 
 /**
  * A collection of query parameters.
  */
-final case class QueryParams(map: Map[String, Chunk[String]]) {
+final case class QueryParams(map: SeqMap[String, Chunk[String]]) {
   self =>
 
   /**
@@ -191,15 +192,20 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
 
 object QueryParams {
 
+  def apply(map: Map[String, Seq[String]]): QueryParams =
+    QueryParams(map = ListMap.from(map))
+
   def apply(tuples: (String, Chunk[String])*): QueryParams =
-    QueryParams(map = Chunk.fromIterable(tuples).groupBy(_._1).map { case (key, values) =>
+    QueryParams(map = ListMap.from(Chunk.fromIterable(tuples).groupBy(_._1).map { case (key, values) =>
       key -> values.flatMap(_._2)
-    })
+    }))
 
   def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams =
-    QueryParams(map = Chunk.fromIterable(tuple1 +: tuples.toVector).groupBy(_._1).map { case (key, values) =>
-      key -> values.map(_._2)
-    })
+    QueryParams(map =
+      ListMap.from(Chunk.fromIterable(tuple1 +: tuples.toVector).groupBy(_._1).map { case (key, values) =>
+        key -> values.map(_._2)
+      }),
+    )
 
   /**
    * Decodes the specified string into a collection of query parameters.
@@ -210,7 +216,7 @@ object QueryParams {
   /**
    * Empty query parameters.
    */
-  val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
+  val empty: QueryParams = QueryParams(SeqMap.empty[String, Chunk[String]])
 
   /**
    * Constructs query parameters from a form.
