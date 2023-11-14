@@ -192,7 +192,7 @@ final case class QueryParams(map: ListMap[String, Chunk[String]]) {
 object QueryParams {
 
   def apply(map: Map[String, Seq[String]]): QueryParams =
-    QueryParams(map = ListMap(map.toSeq.map { case (key, value) => key -> Chunk.fromIterable(value)} : _*))
+    QueryParams(map = ListMap(map.toSeq.map { case (key, value) => key -> Chunk.fromIterable(value) }: _*))
 
   def apply(tuples: (String, Chunk[String])*): QueryParams = {
     var result = ListMap.empty[String, Chunk[String]]
@@ -200,7 +200,7 @@ object QueryParams {
       result.get(key) match {
         case Some(previous) =>
           result = result.updated(key, previous ++ values)
-        case None=>
+        case None           =>
           result = result.updated(key, values)
       }
     }
@@ -213,7 +213,7 @@ object QueryParams {
       result.get(key) match {
         case Some(previous) =>
           result = result.updated(key, previous :+ value)
-        case None =>
+        case None           =>
           result = result.updated(key, Chunk(value))
       }
     }
