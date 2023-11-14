@@ -341,6 +341,13 @@ object QueryParamsSpec extends ZIOHttpSpec {
 
         },
       ),
+      suite("maintains ordering")(
+        test("success") {
+          val numbers = Range(0, 100).map(_.toString).toList
+          val queryParams = QueryParams( numbers.map (x => x -> Chunk("0")): _* )
+          assert(queryParams.map.iterator.map(_._1).toList)(equalTo(numbers))
+        },
+      ),
     )
 
 }
