@@ -17,10 +17,7 @@
 package zio.http.netty
 
 import java.nio.charset.Charset
-import java.util
-import scala.collection.View
 import scala.collection.immutable.ListMap
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 import zio.Chunk
@@ -36,8 +33,8 @@ private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
       val decoder = new QueryStringDecoder(queryStringFragment, charset, false)
       val params  = decoder.parameters().asScala.view.map { case (k, v) =>
         (k, Chunk.fromIterable(v.asScala))
-      }
-      QueryParams(ListMap.from(params))
+      }.toSeq
+      QueryParams(ListMap(params: _*))
     }
   }
 
