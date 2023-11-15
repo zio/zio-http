@@ -83,6 +83,32 @@ sealed trait Route[-Env, +Err] { self =>
         Handled(rpm.routePattern, handler2, location)
     }
 
+  final def handleErrorCauseZIO(
+    f: Cause[Err] => ZIO[Any, Nothing, Response],
+  )(implicit trace: Trace): Route[Env, Nothing] =
+    self match {
+      case Provided(route, env)                     => Provided(route.handleErrorCauseZIO(f), env)
+      case Augmented(route, aspect)                 => Augmented(route.handleErrorCauseZIO(f), aspect)
+      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
+
+      case Unhandled(rpm, handler, zippable, location) =>
+        val handler2: Handler[Env, Response, Request, Response] = {
+          val paramHandler =
+            Handler.fromFunctionZIO[(rpm.Context, Request)] { case (ctx, request) =>
+              rpm.routePattern.decode(request.method, request.path) match {
+                case Left(error)  => ZIO.dieMessage(error)
+                case Right(value) =>
+                  val params = rpm.zippable.zip(value, ctx)
+
+                  handler(zippable.zip(params, request))
+              }
+            }
+          rpm.aspect.applyHandlerContext(paramHandler.mapErrorCauseZIO(f))
+        }
+
+        Handled(rpm.routePattern, handler2, location)
+    }
+
   /**
    * Determines if the route is defined for the specified request.
    */

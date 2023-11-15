@@ -76,6 +76,9 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleErrorCause(f)))
 
+  def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
+    new Routes(routes.map(_.handleErrorCauseZIO(f)))
+
   /**
    * Returns new routes that have each been provided the specified environment,
    * thus eliminating their requirement for any specific environment.
