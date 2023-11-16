@@ -26,7 +26,11 @@ import zio.http.Server.Config.ResponseCompressionConfig
 import zio.http.netty.NettyConfig
 import zio.http.netty.server._
 
-import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
+import io.netty.handler.codec.http.HttpObjectDecoder.{
+  DEFAULT_MAX_CHUNK_SIZE,
+  DEFAULT_MAX_HEADER_SIZE,
+  DEFAULT_MAX_INITIAL_LINE_LENGTH,
+}
 
 /**
  * Represents a server, which is capable of serving zero or more HTTP
