@@ -26,6 +26,8 @@ import zio.http.Server.Config.ResponseCompressionConfig
 import zio.http.netty.NettyConfig
 import zio.http.netty.server._
 
+import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
+
 /**
  * Represents a server, which is capable of serving zero or more HTTP
  * applications.
@@ -54,7 +56,9 @@ object Server {
     requestDecompression: Decompression,
     responseCompression: Option[ResponseCompressionConfig],
     requestStreaming: RequestStreaming,
+    maxInitialLineLength: Int,
     maxHeaderSize: Int,
+    maxChunkSize: Int,
     logWarningOnFatalError: Boolean,
     gracefulShutdownTimeout: Duration,
     webSocketConfig: WebSocketConfig,
@@ -113,10 +117,22 @@ object Server {
     def logWarningOnFatalError(enable: Boolean): Config = self.copy(logWarningOnFatalError = enable)
 
     /**
+     * Configure the server to use `maxInitialLineLength` value when
+     * encode/decode headers.
+     */
+    def maxInitialLineLength(lineLength: Int): Config = self.copy(maxInitialLineLength = lineLength)
+
+    /**
      * Configure the server to use `maxHeaderSize` value when encode/decode
      * headers.
      */
     def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
+
+    /**
+     * Configure the server to use `maxChunkSize` value when encode/decode
+     * headers.
+     */
+    def maxChunkSize(chunkSize: Int): Config = self.copy(maxChunkSize = chunkSize)
 
     def noIdleTimeout: Config = self.copy(idleTimeout = None)
 
@@ -169,7 +185,9 @@ object Server {
         Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
         ResponseCompressionConfig.config.nested("response-compression").optional ++
         RequestStreaming.config.nested("request-streaming").withDefault(Config.default.requestStreaming) ++
+        zio.Config.int("max-initial-line-length").withDefault(Config.default.maxInitialLineLength) ++
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
+        zio.Config.int("max-chunk-size").withDefault(Config.default.maxChunkSize) ++
         zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
         zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout) ++
         zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout)
@@ -183,7 +201,9 @@ object Server {
             requestDecompression,
             responseCompression,
             requestStreaming,
+            maxInitialLineLength,
             maxHeaderSize,
+            maxChunkSize,
             logWarningOnFatalError,
             gracefulShutdownTimeout,
             idleTimeout,
@@ -196,7 +216,9 @@ object Server {
           requestDecompression = requestDecompression,
           responseCompression = responseCompression,
           requestStreaming = requestStreaming,
+          maxInitialLineLength = maxInitialLineLength,
           maxHeaderSize = maxHeaderSize,
+          maxChunkSize = maxChunkSize,
           logWarningOnFatalError = logWarningOnFatalError,
           gracefulShutdownTimeout = gracefulShutdownTimeout,
           idleTimeout = idleTimeout,
@@ -211,7 +233,9 @@ object Server {
       requestDecompression = Decompression.No,
       responseCompression = None,
       requestStreaming = RequestStreaming.Disabled(1024 * 100),
-      maxHeaderSize = 8192,
+      maxInitialLineLength = DEFAULT_MAX_INITIAL_LINE_LENGTH,
+      maxHeaderSize = DEFAULT_MAX_HEADER_SIZE,
+      maxChunkSize = DEFAULT_MAX_CHUNK_SIZE,
       logWarningOnFatalError = true,
       gracefulShutdownTimeout = 10.seconds,
       webSocketConfig = WebSocketConfig.default,

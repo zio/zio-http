@@ -36,13 +36,16 @@ object ServerSpec extends HttpRunnableSpec {
     content <- HttpGen.nonEmptyBody(Gen.const(data))
   } yield (data.mkString(""), content)
 
-  private val port    = 8080
-  private val MaxSize = 1024 * 10
-  val configApp       = Server.Config.default
+  private val port          = 8080
+  private val MaxSize       = 1024 * 10
+  private val MaxPathLength = 6144
+
+  val configApp = Server.Config.default
     .requestDecompression(true)
     .disableRequestStreaming(MaxSize)
     .port(port)
     .responseCompression()
+    .maxInitialLineLength(MaxPathLength * 2)
 
   private val app = serve
 
@@ -297,6 +300,16 @@ object ServerSpec extends HttpRunnableSpec {
           .toHttpApp
         val res = app.deploy.status.run(method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
+      } + test("can support long urls") {
+        check(Gen.alphaNumericStringBounded(0, MaxPathLength)) { path =>
+          val app = Routes
+            .singleton(handler { (_: Path, req: Request) => req.body.asChunk.as(Response.ok) })
+            .sandbox
+            .toHttpApp
+          val res =
+            app.deploy.status.run(method = Method.POST, path = Path.root / path, body = Body.fromString("some text"))
+          assertZIO(res)(equalTo(Status.Ok))
+        }
       }
   }
 

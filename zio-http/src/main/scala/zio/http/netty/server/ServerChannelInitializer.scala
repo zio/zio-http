@@ -28,7 +28,6 @@ import zio.http.netty.model.Conversions
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
-import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
@@ -60,7 +59,7 @@ private[zio] final case class ServerChannelInitializer(
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
       Names.HttpRequestDecoder,
-      new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, cfg.maxHeaderSize, DEFAULT_MAX_CHUNK_SIZE, false),
+      new HttpRequestDecoder(cfg.maxInitialLineLength, cfg.maxHeaderSize, cfg.maxChunkSize, false),
     )
     pipeline.addLast(Names.HttpResponseEncoder, new HttpResponseEncoder())
 
