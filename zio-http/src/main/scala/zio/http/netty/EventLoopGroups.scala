@@ -51,11 +51,12 @@ object EventLoopGroups {
   def make(config: Config, eventLoopGroup: UIO[EventLoopGroup])(implicit
     trace: Trace,
   ): ZIO[Scope, Nothing, EventLoopGroup] =
-    ZIO.acquireRelease(eventLoopGroup)(ev =>
+    ZIO.acquireRelease(eventLoopGroup) { ev =>
+      val future = ev.shutdownGracefully(config.shutdownQuietPeriod, config.shutdownTimeOut, config.shutdownTimeUnit)
       NettyFutureExecutor
-        .executed(ev.shutdownGracefully(config.shutdownQuietPeriod, config.shutdownTimeOut, config.shutdownTimeUnit))
-        .orDie,
-    )
+        .executed(future)
+        .orDie
+    }
 
   def epoll(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads)))

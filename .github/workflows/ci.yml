@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.18, 2.13.10, 3.3.0]
+        scala: [2.12.18, 2.13.12, 3.3.1]
         java: [graal_graalvm@17, temurin@8]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -54,8 +54,8 @@ jobs:
           cache: sbt
 
       - name: Check formatting
-        if: matrix.scala == '2.13.10'
-        run: sbt ++2.13.10 fmtCheck
+        if: matrix.scala == '2.13.12'
+        run: sbt ++2.13.12 fmtCheck
 
       - name: Check that workflows are up to date
         run: sbt '++ ${{ matrix.scala }}' githubWorkflowCheck
@@ -65,10 +65,10 @@ jobs:
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
-        run: sbt ++2.13.10 doc
+        run: sbt ++2.13.12 doc
 
       - name: zio-http-shaded Tests
-        if: matrix.scala == '2.13.10'
+        if: matrix.scala == '2.13.12'
         env:
           PUBLISH_SHADED: true
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
@@ -89,7 +89,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.10]
+        scala: [2.13.12]
         java: [graal_graalvm@17]
     runs-on: ${{ matrix.os }}
     steps:
@@ -126,22 +126,22 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (2.13.10)
+      - name: Download target directories (2.13.12)
         uses: actions/download-artifact@v3
         with:
-          name: target-${{ matrix.os }}-2.13.10-${{ matrix.java }}
+          name: target-${{ matrix.os }}-2.13.12-${{ matrix.java }}
 
-      - name: Inflate target directories (2.13.10)
+      - name: Inflate target directories (2.13.12)
         run: |
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.3.0)
+      - name: Download target directories (3.3.1)
         uses: actions/download-artifact@v3
         with:
-          name: target-${{ matrix.os }}-3.3.0-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.3.1-${{ matrix.java }}
 
-      - name: Inflate target directories (3.3.0)
+      - name: Inflate target directories (3.3.1)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -182,7 +182,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.10]
+        scala: [2.13.12]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -215,7 +215,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.10]
+        scala: [2.13.12]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
