@@ -6,11 +6,11 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{headerLicense, Heade
 
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.18"
-  val Scala213         = "2.13.10"
-  val Scala3           = "3.3.0"
+  val Scala213         = "2.13.12"
+  val Scala3           = "3.3.1"
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
-  val SilencerVersion  = "1.17.13"
+  val SilencerVersion  = "1.7.14"
 
   private val stdOptions = Seq(
     "-deprecation",
