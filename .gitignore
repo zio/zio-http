@@ -36,5 +36,4 @@ web/.DS_Store
 project/metals.sbt
 project/.bloop
 profiling/src/main/scala/Main.scala
-zio-http-react-example/build
-zio-http-react-example/project
+zio-http-react-example/**/*/build
