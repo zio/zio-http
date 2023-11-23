@@ -14,19 +14,19 @@ import java.nio.file.Paths
 
 object HelloWorld extends ZIOAppDefault {
     // Create the build relative directory path
-    private val buildDirectory = "./test"
+    private val buildDirectory = "../../react/build"
     
     // Create HTTP route
-    val app = Http.collectHttp[Request] {
-        case Method.GET -> Root / "api" / "hello" => Handler.text("Hello World!").toHttp
+    val app = Routes(
+        Method.GET -> Root / "api" / "hello" => Handler.text("Hello World!").toHttp,
 
         // Uses netty's capability to write file content to the Channel
         // Content-type response headers are automatically identified and added
         // Adds content-length header and does not use Chunked transfer encoding
-        case Method.GET -> Root => Http.fromFile(new File(s"$buildDirectory/index.html"))
-        case Method.GET -> "" /: file => Http.fromFile(new File(s"$buildDirectory/$file"))
-    }
-    
+        Method.GET -> Root => Handler.fromFile(new File(s"$buildDirectory/index.html")),
+        Method.GET -> "" /: file => Handler.fromFile(new File(s"$buildDirectory/$file")),
+    ).sandbox.toHttpApp
+
     // Run it like any simple app
     override val run = Server.serve(app.withDefaultErrorResponse).provide(Server.default)
 }
