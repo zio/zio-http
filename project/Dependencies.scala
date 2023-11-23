@@ -31,6 +31,7 @@ object Dependencies {
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
+  val `zio-http`            = "dev.zio" %% "zio-http"            % ZioVersion
   val `zio-streams`         = "dev.zio" %% "zio-streams"         % ZioVersion
   val `zio-schema`          = "dev.zio" %% "zio-schema"          % ZioSchemaVersion
   val `zio-schema-json`     = "dev.zio" %% "zio-schema-json"     % ZioSchemaVersion
