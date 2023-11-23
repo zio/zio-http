@@ -119,6 +119,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpBenchmarks,
       zioHttpCli,
       zioHttpExample,
+      zioHttpReactExample,
       zioHttpTestkit,
       docs,
     )
@@ -235,6 +236,12 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
+  .dependsOn(zioHttp, zioHttpCli)
+
+lazy val zioHttpReactExample = (project in file("zio-http-react-example"))
+  .settings(stdSettings("zio-http-react-example"))
+  .settings(publishSetting(false))
+  .settings(libraryDependencies ++= Seq("dev.zio" %% "zio-http" % ZioVersion))
   .dependsOn(zioHttp, zioHttpCli)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))

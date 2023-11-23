@@ -1,10 +1,5 @@
----
-id: fullstack-with-react-apps
-title: "Creating Full Stack Apps with React and Zio Http"
-sidebar_label: "Serve React App"
----
+package react_example
 
-```scala mdoc
 import zio._
 import zio.http._
 import zio.stream.ZStream
@@ -39,4 +34,3 @@ object ReactHelloWorld extends ZIOAppDefault {
     // Run it like any simple app
     val run = Server.serve(app).provide(Server.default) 
 }
-```
