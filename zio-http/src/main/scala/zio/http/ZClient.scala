@@ -668,18 +668,14 @@ object ZClient {
       app: WebSocketApp[Env1],
     )(implicit trace: Trace): ZIO[Env1 & Scope, Throwable, Response] =
       for {
-        env <- ZIO.environment[Env1]
-        webSocketUrl = url.scheme(
-          url.scheme match {
-            case Some(Scheme.HTTP)  => Scheme.WS
-            case Some(Scheme.HTTPS) => Scheme.WSS
-            case Some(Scheme.WS)    => Scheme.WS
-            case Some(Scheme.WSS)   => Scheme.WSS
-            case None               => Scheme.WS
-          },
-        )
-        scope <- ZIO.scope
-        res <- requestAsync(
+        env          <- ZIO.environment[Env1]
+        webSocketUrl <- url.scheme match {
+          case Some(Scheme.HTTP) | Some(Scheme.WS) | None => ZIO.succeed(url.scheme(Scheme.WS))
+          case Some(Scheme.WSS) | Some(Scheme.HTTPS)      => ZIO.succeed(url.scheme(Scheme.WSS))
+          case _ => ZIO.fail(throw new IllegalArgumentException("URL's scheme MUST be WS(S) or HTTP(S)"))
+        }
+        scope        <- ZIO.scope
+        res          <- requestAsync(
           Request(version = version, method = Method.GET, url = webSocketUrl, headers = headers),
           config,
           () => app.provideEnvironment(env),

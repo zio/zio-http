@@ -34,7 +34,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
           port       <- Server.install(app)
           baseClient <- ZIO.service[Client]
           client = baseClient.url(
-            URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", port)),
+            URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
           ) @@ ZClientAspect.debug
           response <- client.request(Request.get(URL.empty / "hello"))
           output   <- TestConsole.output
@@ -51,7 +51,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
           baseClient <- ZIO.service[Client]
           client = baseClient
             .url(
-              URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", port)),
+              URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
             )
             .disableStreaming @@ ZClientAspect.requestLogging(
             loggedRequestHeaders = Set(Header.UserAgent),
