@@ -222,16 +222,16 @@ object RoutePattern {
    */
   val any: RoutePattern[Path] = RoutePattern(Method.ANY, PathCodec.trailing)
 
+  def apply(method: Method, path: Path): RoutePattern[Unit] =
+    path.segments.foldLeft[RoutePattern[Unit]](fromMethod(method)) { (pathSpec, segment) =>
+      pathSpec./[Unit](PathCodec.Segment(SegmentCodec.literal(segment)))
+    }
+
   /**
    * Constructs a route pattern from a method and a path literal. To match
    * against any method, use [[zio.http.Method.ANY]]. The specified string may
    * contain path segments, which are separated by slashes.
    */
-  def apply(method: Method, value: String): RoutePattern[Unit] = {
-    val path = Path(value)
-
-    path.segments.foldLeft[RoutePattern[Unit]](fromMethod(method)) { (pathSpec, segment) =>
-      pathSpec./[Unit](PathCodec.Segment(SegmentCodec.literal(segment)))
-    }
-  }
+  def apply(method: Method, pathString: String): RoutePattern[Unit] =
+    apply(method, Path(pathString))
 }
