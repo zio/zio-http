@@ -43,6 +43,7 @@ object OriginSpec extends ZIOHttpSpec {
         assertTrue(
           Origin.parse("http://domain") == Right(Value("http", "domain", None)),
           Origin.parse("https://domain") == Right(Value("https", "domain", None)),
+          Origin.parse("chrome-extension://appid") == Right(Value("chrome-extension", "appid", None)),
         )
       },
       test("parsing of valid Origin values") {
