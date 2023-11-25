@@ -206,7 +206,7 @@ object FormField {
           (accum._1, Some(header), accum._3)
         case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Transfer-Encoding") =>
           (accum._1, accum._2, Some(header))
-        case (accum, _)                                                                    => accum
+        case (accum, _)                                                                                   => accum
       }
 
     for {
