@@ -70,7 +70,7 @@ object NettyConnectionPool {
           case None        =>
         }
 
-        if (location.scheme.isSecure) {
+        if (location.scheme.isSecure.getOrElse(false)) {
           pipeline.addLast(
             Names.SSLHandler,
             ClientSSLConverter

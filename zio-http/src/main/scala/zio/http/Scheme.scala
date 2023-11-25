@@ -21,13 +21,17 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 sealed trait Scheme { self =>
   def encode: String = self match {
-    case Scheme.HTTP  => "http"
-    case Scheme.HTTPS => "https"
-    case Scheme.WS    => "ws"
-    case Scheme.WSS   => "wss"
+    case Scheme.HTTP           => "http"
+    case Scheme.HTTPS          => "https"
+    case Scheme.WS             => "ws"
+    case Scheme.WSS            => "wss"
+    case Scheme.Custom(scheme) => scheme
   }
 
-  def isHttp: Boolean = !isWebSocket
+  def isHttp: Boolean = self match {
+    case Scheme.HTTP | Scheme.HTTPS => true
+    case _                          => false
+  }
 
   def isWebSocket: Boolean = self match {
     case Scheme.WS  => true
@@ -35,38 +39,45 @@ sealed trait Scheme { self =>
     case _          => false
   }
 
-  def isSecure: Boolean = self match {
-    case Scheme.HTTPS => true
-    case Scheme.WSS   => true
-    case _            => false
+  def isSecure: Option[Boolean] = self match {
+    case Scheme.HTTPS | Scheme.WSS => Some(true)
+    case Scheme.HTTP | Scheme.WS   => Some(false)
+    case _                         => None
   }
 
-  def defaultPort: Int = self match {
-    case Scheme.HTTP  => 80
-    case Scheme.HTTPS => 443
-    case Scheme.WS    => 80
-    case Scheme.WSS   => 443
+  /** default ports is only define for the Schemes: http, https, ws, wss */
+  def defaultPort: Option[Int] = self match {
+    case Scheme.HTTP      => Some(Scheme.defaultPortForHTTP)
+    case Scheme.HTTPS     => Some(Scheme.defaultPortForHTTPS)
+    case Scheme.WS        => Some(Scheme.defaultPortForWS)
+    case Scheme.WSS       => Some(Scheme.defaultPortForWSS)
+    case Scheme.Custom(_) => None
   }
+
 }
-object Scheme       {
+
+object Scheme {
 
   /**
    * Decodes a string to an Option of Scheme. Returns None in case of
    * null/non-valid Scheme
+   *
+   * The should be lowercase and follow this syntax:
+   *   - Scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
    */
   def decode(scheme: String): Option[Scheme] =
     Option(unsafe.decode(scheme)(Unsafe.unsafe))
 
   private[zio] object unsafe {
     def decode(scheme: String)(implicit unsafe: Unsafe): Scheme = {
-      if (scheme == null) null
+      if (scheme == null || scheme.isEmpty) null
       else
-        scheme.length match {
-          case 5 => Scheme.HTTPS
-          case 4 => Scheme.HTTP
-          case 3 => Scheme.WSS
-          case 2 => Scheme.WS
-          case _ => null
+        scheme match {
+          case "http"  => HTTP
+          case "https" => HTTPS
+          case "ws"    => WS
+          case "wss"   => WSS
+          case custom  => Custom(custom.toLowerCase)
         }
     }
   }
@@ -78,4 +89,15 @@ object Scheme       {
   case object WS extends Scheme
 
   case object WSS extends Scheme
+
+  /**
+   * @param scheme
+   *   value MUST not be "http" "https" "ws" "wss"
+   */
+  final case class Custom(scheme: String) extends Scheme
+
+  def defaultPortForHTTP  = 80
+  def defaultPortForHTTPS = 443
+  def defaultPortForWS    = 80
+  def defaultPortForWSS   = 443
 }

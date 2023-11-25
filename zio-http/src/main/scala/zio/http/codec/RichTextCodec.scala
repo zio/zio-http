@@ -21,7 +21,6 @@ import java.lang.Integer.parseInt
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, NonEmptyChunk}
 
 /**
@@ -108,6 +107,14 @@ sealed trait RichTextCodec[A] { self =>
    */
   final def encode(value: A): Either[String, String] = RichTextCodec.encode(value, self)
 
+  /**
+   * This method is Right biased merge
+   */
+  final def merge[B](implicit ev: A <:< Either[B, B]): RichTextCodec[B] = {
+    val codec = self.asInstanceOf[RichTextCodec[Either[B, B]]]
+    codec.transform[B](_.merge)(Right(_))
+  }
+
   final def optional(default: A): RichTextCodec[Option[A]] =
     self.transform[Option[A]](a => Some(a))(_.fold(default)(identity))
 
@@ -115,10 +122,10 @@ sealed trait RichTextCodec[A] { self =>
     ((self ~ repeat).transform[NonEmptyChunk[A]](t => NonEmptyChunk(t._1, t._2: _*))(c =>
       (c.head, c.tail),
     ) | RichTextCodec.empty.as(Chunk.empty[A]))
-      .transform[Chunk[A]](_ match {
+      .transform[Chunk[A]] {
         case Left(nonEmpty)    => nonEmpty
         case Right(maybeEmpty) => maybeEmpty
-      })(c => c.nonEmptyOrElse[Either[NonEmptyChunk[A], Chunk[A]]](Right(c))(Left(_)))
+      }(c => c.nonEmptyOrElse[Either[NonEmptyChunk[A], Chunk[A]]](Right(c))(Left(_)))
 
   final def singleton: RichTextCodec[NonEmptyChunk[A]] =
     self.transform(a => NonEmptyChunk(a))(_.head)
@@ -151,10 +158,16 @@ sealed trait RichTextCodec[A] { self =>
       case x if p(x) => x
     }
 
+  final def withError(errorMessage: String): RichTextCodec[A] =
+    (self | RichTextCodec.fail[A](errorMessage)).merge
+
 }
 object RichTextCodec {
   private[codec] case object Empty                                        extends RichTextCodec[Unit]
-  private[codec] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char]
+  private[codec] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char] {
+    val errorMessage: Left[String, Nothing] =
+      Left(s"Expected, but did not find: ${this.describe}")
+  }
   private[codec] final case class TransformOrFail[A, B](
     codec: RichTextCodec[A],
     to: A => Either[String, B],
@@ -162,7 +175,7 @@ object RichTextCodec {
   ) extends RichTextCodec[B]
   private[codec] final case class Alt[A, B](left: RichTextCodec[A], right: RichTextCodec[B])
       extends RichTextCodec[Either[A, B]]
-  private[codec] final case class Lazy[A](codec0: () => RichTextCodec[A]) extends RichTextCodec[A] {
+  private[codec] final case class Lazy[A](codec0: () => RichTextCodec[A]) extends RichTextCodec[A]    {
     lazy val codec: RichTextCodec[A] = codec0()
   }
   private[codec] final case class Zip[A, B, C](
@@ -188,6 +201,12 @@ object RichTextCodec {
    */
   def char(c: Char): RichTextCodec[Char] = CharIn(BitSet(c.toInt))
 
+  def chars(cs: Char*): RichTextCodec[Char] =
+    CharIn(BitSet(cs.map(_.toInt): _*))
+
+  def charsNot(cs: Char*): RichTextCodec[Char] =
+    filter(c => !cs.contains(c))
+
   /**
    * A codec that describes a digit character.
    */
@@ -200,12 +219,18 @@ object RichTextCodec {
    */
   val empty: RichTextCodec[Unit] = Empty
 
+  def fail[A](message: String): RichTextCodec[A] =
+    empty.transformOrFail(_ => Left(message))(_ => Left(message))
+
   /**
    * Defines a new codec for a single character based on the specified
    * predicate.
    */
   def filter(pred: Char => Boolean): RichTextCodec[Char] =
     CharIn(BitSet((Char.MinValue to Char.MaxValue).filter(pred).map(_.toInt): _*))
+
+  def filterOrFail(pred: Char => Boolean)(failure: String): RichTextCodec[Char] =
+    filter(pred).collectOrFail(failure) { case c => c }
 
   /**
    * A codec that describes a letter character.
@@ -528,9 +553,9 @@ object RichTextCodec {
       case Empty =>
         Right((value, ()))
 
-      case CharIn(bitset) =>
+      case self @ CharIn(bitset) =>
         if (value.length == 0 || !bitset.contains(value.charAt(0).toInt))
-          Left(s"Not found: ${bitset.toArray.map(_.toChar).mkString}")
+          self.errorMessage
         else
           Right((value.subSequence(1, value.length), value.charAt(0)))
 

@@ -30,6 +30,7 @@ import scala.util.{Either, Failure, Success, Try}
 import zio._
 
 import zio.http.codec.RichTextCodec
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.Http
 import zio.http.internal.DateEncoding
 
 sealed trait Header {
@@ -2480,16 +2481,12 @@ object Header {
     private val codec: RichTextCodec[ContentType] = {
 
       // char `.` according to BNF not allowed as `token`, but here tolerated
-      val token         = RichTextCodec.filter(_ => true).validate("not a token") {
-        case ' ' | '(' | ')' | '<' | '>' | '@' | ',' | ';' | ':' | '\\' | '"' | '/' | '[' | ']' | '?' | '=' => false
-        case _                                                                                              => true
-      }
-      val tokenQuoted   = RichTextCodec.filter(_ => true).validate("not a quoted token") {
-        case ' ' | '"' => false
-        case _         => true
-      }
+      val token = RichTextCodec.charsNot(' ', '(', ')', '<', '>', '@', ',', ';', ':', '\\', '"', '/', '[', ']', '?', '=')
+
+      val tokenQuoted = RichTextCodec.charsNot(' ', '"')
+
       val type1         = RichTextCodec.string.collectOrFail("unsupported main type") {
-        case value if MediaType.mainTypeMap.get(value).isDefined => value
+        case value if MediaType.mainTypeMap.contains(value) => value
       }
       val type1x        = (RichTextCodec.literalCI("x-") ~ token.repeat.string).transform[String](in => s"${in._1}${in._2}")(in => ("x-", s"${in.substring(2)}"))
       val codecType1    = (type1 | type1x).transform[String](_.merge) {
@@ -4325,7 +4322,7 @@ object Header {
 
     def parse(value: String): Either[String, WWWAuthenticate] =
       Try {
-        val challengeRegEx(scheme, challenge) = value
+        val challengeRegEx(scheme, challenge) = value: @unchecked
         val params                            = auth
           .findAllMatchIn(challenge)
           .map { m =>

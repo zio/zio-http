@@ -70,7 +70,7 @@ object HttpGen {
     scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
     host   <- Gen.alphaNumericStringBounded(1, 5)
     port   <- Gen.oneOf(Gen.const(80), Gen.const(443), Gen.int(0, 65536))
-  } yield URL.Location.Absolute(scheme, host, port)
+  } yield URL.Location.Absolute(scheme, host, Some(port))
 
   def genRelativeURL: Gen[Any, URL] = for {
     path        <- HttpGen.anyPath
