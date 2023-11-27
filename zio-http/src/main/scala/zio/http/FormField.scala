@@ -188,7 +188,7 @@ object FormField {
 
   private[http] def getContentType(ast: Chunk[FormAST]): MediaType =
     ast.collectFirst {
-      case header: FormAST.Header if header.name == "Content-Type" =>
+      case header: FormAST.Header if header.name.equalsIgnoreCase("Content-Type") =>
         MediaType
           .forContentType(header.value)
           .getOrElse(MediaType.application.`octet-stream`) // Unknown content type defaults to binary
@@ -200,13 +200,13 @@ object FormField {
   )(implicit trace: Trace): ZIO[Any, FormDecodingError, FormField] = {
     val extract =
       ast.foldLeft((Option.empty[FormAST.Header], Option.empty[FormAST.Header], Option.empty[FormAST.Header])) {
-        case (accum, header: FormAST.Header) if header.name == "Content-Disposition"       =>
+        case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Disposition")       =>
           (Some(header), accum._2, accum._3)
-        case (accum, header: FormAST.Header) if header.name == "Content-Type"              =>
+        case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Type")              =>
           (accum._1, Some(header), accum._3)
-        case (accum, header: FormAST.Header) if header.name == "Content-Transfer-Encoding" =>
+        case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Transfer-Encoding") =>
           (accum._1, accum._2, Some(header))
-        case (accum, _)                                                                    => accum
+        case (accum, _)                                                                                   => accum
       }
 
     for {

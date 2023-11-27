@@ -49,14 +49,14 @@ object URLSpec extends ZIOHttpSpec {
       ),
       suite("normalize")(
         test("adds leading slash") {
-          val url = URL(Path("a/b/c"), URL.Location.Absolute(Scheme.HTTP, "abc.com", 80), QueryParams.empty, None)
+          val url = URL(Path("a/b/c"), URL.Location.Absolute(Scheme.HTTP, "abc.com", Some(80)), QueryParams.empty, None)
 
           val url2 = url.normalize
 
           assertTrue(extractPath(url2) == Path("/a/b/c"))
         },
         test("deletes leading slash if there are no path segments") {
-          val url  = URL(Path.root, URL.Location.Absolute(Scheme.HTTP, "abc.com", 80), QueryParams.empty, None)
+          val url  = URL(Path.root, URL.Location.Absolute(Scheme.HTTP, "abc.com", Some(80)), QueryParams.empty, None)
           val url2 = url.normalize
 
           assertTrue(extractPath(url2) == Path.empty)
