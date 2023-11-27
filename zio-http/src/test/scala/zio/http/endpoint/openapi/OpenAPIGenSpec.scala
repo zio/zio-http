@@ -1,10 +1,12 @@
 package zio.http.endpoint.openapi
 
 import zio.Scope
-import zio.json.DecoderOps
 import zio.json.ast.Json
+import zio.json.{EncoderOps, JsonEncoder}
 import zio.test._
 
+import zio.schema.annotation.{caseName, discriminatorName, noDiscriminator, optionalField, transientField}
+import zio.schema.codec.JsonCodec
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Method.GET
@@ -29,6 +31,84 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   final case class ImageMetadata(name: String, size: Int)
   implicit val imageMetadataSchema: Schema[ImageMetadata]               =
     DeriveSchema.gen[ImageMetadata]
+
+  final case class WithTransientField(name: String, @transientField age: Int)
+  implicit val withTransientFieldSchema: Schema[WithTransientField] =
+    DeriveSchema.gen[WithTransientField]
+
+  final case class WithDefaultValue(age: Int = 42)
+  implicit val withDefaultValueSchema: Schema[WithDefaultValue]               =
+    DeriveSchema.gen[WithDefaultValue]
+  final case class WithComplexDefaultValue(data: ImageMetadata = ImageMetadata("default", 42))
+  implicit val withDefaultComplexValueSchema: Schema[WithComplexDefaultValue] =
+    DeriveSchema.gen[WithComplexDefaultValue]
+
+  final case class WithOptionalField(name: String, @optionalField age: Int)
+  implicit val withOptionalFieldSchema: Schema[WithOptionalField] =
+    DeriveSchema.gen[WithOptionalField]
+
+  sealed trait SimpleEnum
+  object SimpleEnum {
+    implicit val schema: Schema[SimpleEnum] = DeriveSchema.gen[SimpleEnum]
+    case object One   extends SimpleEnum
+    case object Two   extends SimpleEnum
+    case object Three extends SimpleEnum
+  }
+
+  sealed trait SealedTraitDefaultDiscriminator
+
+  object SealedTraitDefaultDiscriminator {
+    implicit val schema: Schema[SealedTraitDefaultDiscriminator] =
+      DeriveSchema.gen[SealedTraitDefaultDiscriminator]
+
+    case object One extends SealedTraitDefaultDiscriminator
+
+    case class Two(name: String) extends SealedTraitDefaultDiscriminator
+
+    @caseName("three")
+    case class Three(name: String) extends SealedTraitDefaultDiscriminator
+  }
+
+  @discriminatorName("type")
+  sealed trait SealedTraitCustomDiscriminator
+
+  object SealedTraitCustomDiscriminator {
+    implicit val schema: Schema[SealedTraitCustomDiscriminator] = DeriveSchema.gen[SealedTraitCustomDiscriminator]
+
+    case object One extends SealedTraitCustomDiscriminator
+
+    case class Two(name: String) extends SealedTraitCustomDiscriminator
+
+    @caseName("three")
+    case class Three(name: String) extends SealedTraitCustomDiscriminator
+  }
+
+  @noDiscriminator
+  sealed trait SealedTraitNoDiscriminator
+
+  object SealedTraitNoDiscriminator {
+    implicit val schema: Schema[SealedTraitNoDiscriminator] = DeriveSchema.gen[SealedTraitNoDiscriminator]
+
+    case object One extends SealedTraitNoDiscriminator
+
+    case class Two(name: String) extends SealedTraitNoDiscriminator
+
+    @caseName("three")
+    case class Three(name: String) extends SealedTraitNoDiscriminator
+  }
+
+  @noDiscriminator
+  sealed trait SimpleNestedSealedTrait
+
+  object SimpleNestedSealedTrait {
+    implicit val schema: Schema[SimpleNestedSealedTrait] = DeriveSchema.gen[SimpleNestedSealedTrait]
+
+    case object NestedOne extends SimpleNestedSealedTrait
+
+    case class NestedTwo(name: SealedTraitNoDiscriminator) extends SimpleNestedSealedTrait
+
+    case class NestedThree(name: String) extends SimpleNestedSealedTrait
+  }
 
   private val simpleEndpoint =
     Endpoint(
@@ -1413,6 +1493,740 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  }
             |}""".stripMargin
         assertTrue(json == toJsonAst(expected))
+      },
+      test("transient field") {
+        val endpoint  = Endpoint(GET / "static").in[WithTransientField]
+        val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json      = toJsonAst(generated)
+        val expected  = """{
+                         |  "openapi" : "3.1.0",
+                         |  "info" : {
+                         |    "title" : "Simple Endpoint",
+                         |    "version" : "1.0"
+                         |  },
+                         |  "paths" : {
+                         |    "/static" : {
+                         |      "get" : {
+                         |        "requestBody" :
+                         |          {
+                         |          "content" : {
+                         |            "application/json" : {
+                         |              "schema" :
+                         |                {
+                         |                "$ref" : "#/components/schemas/WithTransientField"
+                         |              }
+                         |            }
+                         |          },
+                         |          "required" : true
+                         |        },
+                         |        "deprecated" : false
+                         |      }
+                         |    }
+                         |  },
+                         |  "components" : {
+                         |    "schemas" : {
+                         |      "WithTransientField" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "name" : {
+                         |            "type" :
+                         |              "string"
+                         |          }
+                         |        },
+                         |        "additionalProperties" :
+                         |          true,
+                         |        "required" : [
+                         |          "name"
+                         |        ]
+                         |      }
+                         |    }
+                         |  }
+                         |}""".stripMargin
+        assertTrue(json == toJsonAst(expected))
+      },
+      test("primitive default value") {
+        val endpoint  = Endpoint(GET / "static").in[WithDefaultValue]
+        val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json      = toJsonAst(generated)
+        val expected  =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/WithDefaultValue"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "WithDefaultValue" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "age" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32",
+            |            "description" : "If not set, this field defaults to the value of the default annotation.",
+            |            "default" : 42
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expected))
+      },
+      test("complex default value") {
+        val endpoint  = Endpoint(GET / "static").in[WithComplexDefaultValue]
+        val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json      = toJsonAst(generated)
+        val expected  =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/WithComplexDefaultValue"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "WithComplexDefaultValue" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "data" : {
+            |            "type" :
+            |              "object",
+            |            "properties" : {
+            |              "name" : {
+            |                "type" :
+            |                  "string"
+            |              },
+            |              "size" : {
+            |                "type" :
+            |                  "integer",
+            |                "format" : "int32"
+            |              }
+            |            },
+            |            "additionalProperties" :
+            |              true,
+            |            "required" : [
+            |              "name",
+            |              "size"
+            |            ],
+            |            "description" : "If not set, this field defaults to the value of the default annotation.",
+            |            "default" : {
+            |              "name" : "default",
+            |              "size" : 42
+            |            }
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expected))
+      },
+      test("optional field") {
+        val endpoint  = Endpoint(GET / "static").in[WithOptionalField]
+        val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json      = toJsonAst(generated)
+        val expected  = """{
+                         |  "openapi" : "3.1.0",
+                         |  "info" : {
+                         |    "title" : "Simple Endpoint",
+                         |    "version" : "1.0"
+                         |  },
+                         |  "paths" : {
+                         |    "/static" : {
+                         |      "get" : {
+                         |        "requestBody" :
+                         |          {
+                         |          "content" : {
+                         |            "application/json" : {
+                         |              "schema" :
+                         |                {
+                         |                "$ref" : "#/components/schemas/WithOptionalField"
+                         |              }
+                         |            }
+                         |          },
+                         |          "required" : true
+                         |        },
+                         |        "deprecated" : false
+                         |      }
+                         |    }
+                         |  },
+                         |  "components" : {
+                         |    "schemas" : {
+                         |      "WithOptionalField" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "name" : {
+                         |            "type" :
+                         |              "string"
+                         |          },
+                         |          "age" : {
+                         |            "type" :
+                         |              "integer",
+                         |            "format" : "int32"
+                         |          }
+                         |        },
+                         |        "additionalProperties" :
+                         |          true,
+                         |        "required" : [
+                         |          "name"
+                         |        ]
+                         |      }
+                         |    }
+                         |  }
+                         |}""".stripMargin
+        assertTrue(json == toJsonAst(expected))
+      },
+      test("enum") {
+        val endpoint  = Endpoint(GET / "static").in[SimpleEnum]
+        val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json      = toJsonAst(generated)
+        val expected  = """{
+                         |  "openapi" : "3.1.0",
+                         |  "info" : {
+                         |    "title" : "Simple Endpoint",
+                         |    "version" : "1.0"
+                         |  },
+                         |  "paths" : {
+                         |    "/static" : {
+                         |      "get" : {
+                         |        "requestBody" :
+                         |          {
+                         |          "content" : {
+                         |            "application/json" : {
+                         |              "schema" :
+                         |                {
+                         |                "$ref" : "#/components/schemas/SimpleEnum"
+                         |              }
+                         |            }
+                         |          },
+                         |          "required" : true
+                         |        },
+                         |        "deprecated" : false
+                         |      }
+                         |    }
+                         |  },
+                         |  "components" : {
+                         |    "schemas" : {
+                         |      "SimpleEnum" :
+                         |        {
+                         |        "type" :
+                         |          "string",
+                         |        "enumValues" : [
+                         |          "One",
+                         |          "Two",
+                         |          "Three"
+                         |        ]
+                         |      }
+                         |    }
+                         |  }
+                         |}""".stripMargin
+        assertTrue(json == toJsonAst(expected))
+      },
+      test("sealed trait default discriminator") {
+        val endpoint     = Endpoint(GET / "static").in[SealedTraitDefaultDiscriminator]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/SealedTraitDefaultDiscriminator"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "One" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {},
+            |        "additionalProperties" :
+            |          true
+            |      },
+            |      "Two" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "Three" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "SealedTraitDefaultDiscriminator" :
+            |        {
+            |        "oneOf" : [
+            |          {
+            |            "type" :
+            |              "object",
+            |            "properties" : {
+            |              "One" : {
+            |                "$ref" : "#/components/schemas/One"
+            |              }
+            |            },
+            |            "additionalProperties" :
+            |              false,
+            |            "required" : [
+            |              "One"
+            |            ]
+            |          },
+            |          {
+            |            "type" :
+            |              "object",
+            |            "properties" : {
+            |              "Two" : {
+            |                "$ref" : "#/components/schemas/Two"
+            |              }
+            |            },
+            |            "additionalProperties" :
+            |              false,
+            |            "required" : [
+            |              "Two"
+            |            ]
+            |          },
+            |          {
+            |            "type" :
+            |              "object",
+            |            "properties" : {
+            |              "three" : {
+            |                "$ref" : "#/components/schemas/Three"
+            |              }
+            |            },
+            |            "additionalProperties" :
+            |              false,
+            |            "required" : [
+            |              "three"
+            |            ]
+            |          }
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("sealed trait custom discriminator") {
+        val endpoint     = Endpoint(GET / "static").in[SealedTraitCustomDiscriminator]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/SealedTraitCustomDiscriminator"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "One" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {},
+            |        "additionalProperties" :
+            |          true
+            |      },
+            |      "Two" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "Three" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "SealedTraitCustomDiscriminator" :
+            |        {
+            |        "oneOf" : [
+            |          {
+            |            "$ref" : "#/components/schemas/One"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Two"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Three"
+            |          }
+            |        ],
+            |        "discriminator" : {
+            |          "propertyName" : "type",
+            |          "mapping" : {
+            |            "One" : "#/components/schemas/One}",
+            |            "Two" : "#/components/schemas/Two}",
+            |            "three" : "#/components/schemas/Three}"
+            |          }
+            |        }
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("sealed trait no discriminator") {
+        val endpoint  = Endpoint(GET / "static").in[SealedTraitNoDiscriminator]
+        val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json      = toJsonAst(generated)
+        val expected  = """{
+                         |  "openapi" : "3.1.0",
+                         |  "info" : {
+                         |    "title" : "Simple Endpoint",
+                         |    "version" : "1.0"
+                         |  },
+                         |  "paths" : {
+                         |    "/static" : {
+                         |      "get" : {
+                         |        "requestBody" :
+                         |          {
+                         |          "content" : {
+                         |            "application/json" : {
+                         |              "schema" :
+                         |                {
+                         |                "$ref" : "#/components/schemas/SealedTraitNoDiscriminator"
+                         |              }
+                         |            }
+                         |          },
+                         |          "required" : true
+                         |        },
+                         |        "deprecated" : false
+                         |      }
+                         |    }
+                         |  },
+                         |  "components" : {
+                         |    "schemas" : {
+                         |      "One" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {},
+                         |        "additionalProperties" :
+                         |          true
+                         |      },
+                         |      "Two" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "name" : {
+                         |            "type" :
+                         |              "string"
+                         |          }
+                         |        },
+                         |        "additionalProperties" :
+                         |          true,
+                         |        "required" : [
+                         |          "name"
+                         |        ]
+                         |      },
+                         |      "Three" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "name" : {
+                         |            "type" :
+                         |              "string"
+                         |          }
+                         |        },
+                         |        "additionalProperties" :
+                         |          true,
+                         |        "required" : [
+                         |          "name"
+                         |        ]
+                         |      },
+                         |      "SealedTraitNoDiscriminator" :
+                         |        {
+                         |        "oneOf" : [
+                         |          {
+                         |            "$ref" : "#/components/schemas/One"
+                         |          },
+                         |          {
+                         |            "$ref" : "#/components/schemas/Two"
+                         |          },
+                         |          {
+                         |            "$ref" : "#/components/schemas/Three"
+                         |          }
+                         |        ]
+                         |      }
+                         |    }
+                         |  }
+                         |}
+                         |""".stripMargin
+        assertTrue(json == toJsonAst(expected))
+      },
+      test("sealed trait with nested sealed trait") {
+        val endpoint     = Endpoint(GET / "static").in[SimpleNestedSealedTrait]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/SimpleNestedSealedTrait"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "deprecated" : false
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "NestedOne" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {},
+            |        "additionalProperties" :
+            |          true
+            |      },
+            |      "NestedThree" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "NestedTwo" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "oneOf" : [
+            |              {
+            |                "$ref" : "#/components/schemas/One"
+            |              },
+            |              {
+            |                "$ref" : "#/components/schemas/Two"
+            |              },
+            |              {
+            |                "$ref" : "#/components/schemas/Three"
+            |              }
+            |            ]
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "Two" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "Three" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "One" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {},
+            |        "additionalProperties" :
+            |          true
+            |      },
+            |      "SimpleNestedSealedTrait" :
+            |        {
+            |        "oneOf" : [
+            |          {
+            |            "$ref" : "#/components/schemas/NestedOne"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/NestedTwo"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/NestedThree"
+            |          }
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
       },
     )
 

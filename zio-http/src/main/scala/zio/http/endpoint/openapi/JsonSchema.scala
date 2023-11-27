@@ -3,6 +3,7 @@ package zio.http.endpoint.openapi
 import zio._
 import zio.json.ast.Json
 
+import zio.schema.Schema.CaseClass0
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec._
@@ -30,6 +31,7 @@ private[openapi] case class SerializableJsonSchema(
   deprecated: Option[Boolean] = None,
   contentEncoding: Option[String] = None,
   contentMediaType: Option[String] = None,
+  default: Option[Json] = None,
 ) {
   def asNullableType(nullable: Boolean): SerializableJsonSchema =
     if (nullable && schemaType.isDefined)
@@ -104,6 +106,12 @@ private[openapi] object TypeOrTypes {
   }
 }
 
+final case class JsonSchemas(
+  root: JsonSchema,
+  rootRef: Option[String],
+  children: Map[String, JsonSchema],
+)
+
 sealed trait JsonSchema extends Product with Serializable { self =>
 
   lazy val toJsonBytes: Chunk[Byte] = JsonCodec.schemaBasedBinaryCodec[JsonSchema].encode(self)
@@ -128,6 +136,15 @@ sealed trait JsonSchema extends Product with Serializable { self =>
 
   def examples(examples: Chunk[Json]): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Examples(examples))
+
+  def default(default: Option[Json]): JsonSchema =
+    default match {
+      case Some(value) => JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Default(value))
+      case None        => self
+    }
+
+  def default(default: Json): JsonSchema =
+    JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Default(default))
 
   def description(description: String): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Description(description))
@@ -172,6 +189,13 @@ object JsonSchema {
     SerializableJsonSchema.schema.transform[JsonSchema](JsonSchema.fromSerializableSchema, _.toSerializableSchema)
 
   private[openapi] val codec = JsonCodec.schemaBasedBinaryCodec[JsonSchema]
+
+  private def toJsonAst(schema: Schema[_], v: Any): Json =
+    JsonCodec
+      .jsonEncoder(schema.asInstanceOf[Schema[Any]])
+      .toJsonAST(v)
+      .toOption
+      .get
 
   private def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
     val additionalProperties = schema.additionalProperties match {
@@ -244,6 +268,8 @@ object JsonSchema {
       case None        => ()
     }
 
+    jsonSchema = jsonSchema.default(schema.default)
+
     jsonSchema = jsonSchema.deprecated(schema.deprecated.getOrElse(false))
 
     jsonSchema
@@ -295,12 +321,158 @@ object JsonSchema {
       },
     )
 
+  def fromZSchemaMulti(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchemas = {
+    val ref = nominal(schema, refType)
+    schema match {
+      case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]]) =>
+        JsonSchemas(fromZSchema(enum0, SchemaStyle.Inline), ref, Map.empty)
+      case enum0: Schema.Enum[_]                                                             =>
+        JsonSchemas(
+          fromZSchema(enum0, SchemaStyle.Inline),
+          ref,
+          enum0.cases
+            .filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
+            .flatMap { c =>
+              val key    =
+                nominal(c.schema, refType)
+                  .orElse(nominal(c.schema, SchemaStyle.Compact))
+                  .getOrElse(throw new Exception(s"Unsupported enum case schema: ${c.schema}"))
+              val nested = fromZSchemaMulti(
+                c.schema,
+                refType,
+              )
+              nested.children + (key -> nested.root)
+            }
+            .toMap,
+        )
+      case record: Schema.Record[_]                                                          =>
+        val children = record.fields
+          .filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
+          .flatMap { field =>
+            val key    = nominal(field.schema, refType).orElse(nominal(field.schema, SchemaStyle.Compact))
+            val nested = fromZSchemaMulti(
+              field.schema,
+              refType,
+            )
+            key.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
+          }
+          .toMap
+        JsonSchemas(fromZSchema(record, SchemaStyle.Inline), ref, children)
+      case collection: Schema.Collection[_, _]                                               =>
+        collection match {
+          case Schema.Sequence(elementSchema, _, _, _, _) =>
+            arraySchemaMulti(refType, ref, elementSchema)
+          case Schema.Map(_, valueSchema, _)              =>
+            val nested = fromZSchemaMulti(valueSchema, refType)
+            if (valueSchema.isInstanceOf[Schema.Primitive[_]]) {
+              JsonSchemas(
+                JsonSchema.Object(
+                  Map.empty,
+                  Right(nested.root),
+                  Chunk.empty,
+                ),
+                ref,
+                nested.children,
+              )
+            } else {
+              JsonSchemas(
+                JsonSchema.Object(
+                  Map.empty,
+                  Right(nested.root),
+                  Chunk.empty,
+                ),
+                ref,
+                nested.children + (nested.rootRef.get -> nested.root),
+              )
+            }
+          case Schema.Set(elementSchema, _)               =>
+            arraySchemaMulti(refType, ref, elementSchema)
+        }
+      case Schema.Transform(schema, _, _, _, _)                                              =>
+        fromZSchemaMulti(schema, refType)
+      case Schema.Primitive(_, _)                                                            =>
+        JsonSchemas(fromZSchema(schema, SchemaStyle.Inline), ref, Map.empty)
+      case Schema.Optional(schema, _)                                                        =>
+        fromZSchemaMulti(schema, refType)
+      case Schema.Fail(_, _)                                                                 =>
+        throw new IllegalArgumentException("Fail schema is not supported.")
+      case Schema.Tuple2(left, right, _)                                                     =>
+        val leftSchema  = fromZSchemaMulti(left, refType)
+        val rightSchema = fromZSchemaMulti(right, refType)
+        JsonSchemas(
+          AllOfSchema(Chunk(leftSchema.root, rightSchema.root)),
+          ref,
+          leftSchema.children ++ rightSchema.children,
+        )
+      case Schema.Either(left, right, _)                                                     =>
+        val leftSchema  = fromZSchemaMulti(left, refType)
+        val rightSchema = fromZSchemaMulti(right, refType)
+        JsonSchemas(
+          OneOfSchema(Chunk(leftSchema.root, rightSchema.root)),
+          ref,
+          leftSchema.children ++ rightSchema.children,
+        )
+      case Schema.Lazy(schema0)                                                              =>
+        fromZSchemaMulti(schema0(), refType)
+      case Schema.Dynamic(_)                                                                 =>
+        throw new IllegalArgumentException("Dynamic schema is not supported.")
+    }
+  }
+
+  private def arraySchemaMulti(
+    refType: SchemaStyle,
+    ref: Option[String],
+    elementSchema: Schema[_],
+  ): JsonSchemas = {
+    val nested = fromZSchemaMulti(elementSchema, refType)
+    if (elementSchema.isInstanceOf[Schema.Primitive[_]]) {
+      JsonSchemas(
+        JsonSchema.ArrayType(Some(nested.root)),
+        ref,
+        nested.children,
+      )
+    } else {
+      JsonSchemas(
+        JsonSchema.ArrayType(Some(nested.root)),
+        ref,
+        nested.children + (nested.rootRef.get -> nested.root),
+      )
+    }
+  }
+
   def fromZSchema(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchema =
     schema match {
       case enum0: Schema.Enum[_] if refType != SchemaStyle.Inline && nominal(enum0).isDefined     =>
         JsonSchema.RefSchema(nominal(enum0, refType).get)
-      case enum0: Schema.Enum[_]                                                                  =>
+      case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]])      =>
         JsonSchema.Enum(enum0.cases.map(c => EnumValue.Str(c.id)))
+      case enum0: Schema.Enum[_]                                                                  =>
+        val noDiscriminator    = enum0.annotations.exists(_.isInstanceOf[noDiscriminator])
+        val discriminatorName0 =
+          enum0.annotations.collectFirst { case discriminatorName(name) => name }
+        val nonTransientCases  = enum0.cases.filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
+        if (noDiscriminator) {
+          JsonSchema
+            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, SchemaStyle.Compact)))
+        } else if (discriminatorName0.isDefined) {
+          JsonSchema
+            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, SchemaStyle.Compact)))
+            .discriminator(
+              OpenAPI.Discriminator(
+                propertyName = discriminatorName0.get,
+                mapping = nonTransientCases.map { c =>
+                  val name = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
+                  name -> nominal(c.schema, refType).orElse(nominal(c.schema, SchemaStyle.Compact)).get
+                }.toMap,
+              ),
+            )
+        } else {
+          JsonSchema
+            .OneOfSchema(nonTransientCases.map { c =>
+              val name = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
+              Object(Map(name -> fromZSchema(c.schema, SchemaStyle.Compact)), Left(false), Chunk(name))
+            })
+        }
       case record: Schema.Record[_] if refType != SchemaStyle.Inline && nominal(record).isDefined =>
         JsonSchema.RefSchema(nominal(record, refType).get)
       case record: Schema.Record[_]                                                               =>
@@ -310,17 +482,28 @@ object JsonSchema {
           } else {
             Left(true)
           }
+        val nonTransientFields   =
+          record.fields.filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
         JsonSchema
           .Object(
             Map.empty,
             additionalProperties,
             Chunk.empty,
           )
-          .addAll(record.fields.map { field =>
+          .addAll(nonTransientFields.map { field =>
             field.name ->
-              fromZSchema(field.schema, refType).deprecated(deprecated(field.schema))
+              fromZSchema(field.schema, refType)
+                .deprecated(deprecated(field.schema))
+                .description(fieldDoc(field))
+                .default(fieldDefault(field))
           })
-          .required(record.fields.filterNot(_.schema.isInstanceOf[Schema.Optional[_]]).map(_.name))
+          .required(
+            nonTransientFields
+              .filterNot(_.schema.isInstanceOf[Schema.Optional[_]])
+              .filterNot(_.annotations.exists(_.isInstanceOf[fieldDefaultValue[_]]))
+              .filterNot(_.annotations.exists(_.isInstanceOf[optionalField]))
+              .map(_.name),
+          )
           .deprecated(deprecated(record))
       case collection: Schema.Collection[_, _]                                                    =>
         collection match {
@@ -339,34 +522,34 @@ object JsonSchema {
         fromZSchema(schema, refType)
       case Schema.Primitive(standardType, _)                                                      =>
         standardType match {
-          case StandardType.UnitType          => JsonSchema.Null                        // is this null or empty object?
-          case StandardType.StringType        => JsonSchema.String
-          case StandardType.BoolType          => JsonSchema.Boolean
-          case StandardType.ByteType          => JsonSchema.String
-          case StandardType.ShortType         => JsonSchema.Integer(IntegerFormat.Int32)
-          case StandardType.IntType           => JsonSchema.Integer(IntegerFormat.Int32)
-          case StandardType.LongType          => JsonSchema.Integer(IntegerFormat.Int64)
-          case StandardType.FloatType         => JsonSchema.Number(NumberFormat.Float)
-          case StandardType.DoubleType        => JsonSchema.Number(NumberFormat.Double)
-          case StandardType.BinaryType        => JsonSchema.String
-          case StandardType.CharType          => JsonSchema.String
-          case StandardType.UUIDType          => JsonSchema.String
-          case StandardType.BigDecimalType    => JsonSchema.Number(NumberFormat.Double) // TODO: Is this correct?
-          case StandardType.BigIntegerType    => JsonSchema.Integer(IntegerFormat.Int64)
-          case StandardType.DayOfWeekType     => JsonSchema.String
-          case StandardType.MonthType         => JsonSchema.String
-          case StandardType.MonthDayType      => JsonSchema.String
-          case StandardType.PeriodType        => JsonSchema.String
-          case StandardType.YearType          => JsonSchema.String
-          case StandardType.YearMonthType     => JsonSchema.String
-          case StandardType.ZoneIdType        => JsonSchema.String
-          case StandardType.ZoneOffsetType    => JsonSchema.String
-          case StandardType.DurationType      => JsonSchema.String
-          case StandardType.InstantType       => JsonSchema.String
-          case StandardType.LocalDateType     => JsonSchema.String
-          case StandardType.LocalTimeType     => JsonSchema.String
-          case StandardType.LocalDateTimeType => JsonSchema.String
-          case StandardType.OffsetTimeType    => JsonSchema.String
+          case StandardType.UnitType           => JsonSchema.Null
+          case StandardType.StringType         => JsonSchema.String
+          case StandardType.BoolType           => JsonSchema.Boolean
+          case StandardType.ByteType           => JsonSchema.String
+          case StandardType.ShortType          => JsonSchema.Integer(IntegerFormat.Int32)
+          case StandardType.IntType            => JsonSchema.Integer(IntegerFormat.Int32)
+          case StandardType.LongType           => JsonSchema.Integer(IntegerFormat.Int64)
+          case StandardType.FloatType          => JsonSchema.Number(NumberFormat.Float)
+          case StandardType.DoubleType         => JsonSchema.Number(NumberFormat.Double)
+          case StandardType.BinaryType         => JsonSchema.String
+          case StandardType.CharType           => JsonSchema.String
+          case StandardType.UUIDType           => JsonSchema.String
+          case StandardType.BigDecimalType     => JsonSchema.Number(NumberFormat.Double) // TODO: Is this correct?
+          case StandardType.BigIntegerType     => JsonSchema.Integer(IntegerFormat.Int64)
+          case StandardType.DayOfWeekType      => JsonSchema.String
+          case StandardType.MonthType          => JsonSchema.String
+          case StandardType.MonthDayType       => JsonSchema.String
+          case StandardType.PeriodType         => JsonSchema.String
+          case StandardType.YearType           => JsonSchema.String
+          case StandardType.YearMonthType      => JsonSchema.String
+          case StandardType.ZoneIdType         => JsonSchema.String
+          case StandardType.ZoneOffsetType     => JsonSchema.String
+          case StandardType.DurationType       => JsonSchema.String
+          case StandardType.InstantType        => JsonSchema.String
+          case StandardType.LocalDateType      => JsonSchema.String
+          case StandardType.LocalTimeType      => JsonSchema.String
+          case StandardType.LocalDateTimeType  => JsonSchema.String
+          case StandardType.OffsetTimeType     => JsonSchema.String
           case StandardType.OffsetDateTimeType => JsonSchema.String
           case StandardType.ZonedDateTimeType  => JsonSchema.String
         }
@@ -405,6 +588,19 @@ object JsonSchema {
 
   private def deprecated(schema: Schema[_]): Boolean =
     schema.annotations.exists(_.isInstanceOf[scala.deprecated])
+
+  private def fieldDoc(schema: Schema.Field[_, _]): Option[String] = {
+    val description0 = schema.annotations.collectFirst { case description(value) => value }
+    val defaultValue = schema.annotations.collectFirst { case fieldDefaultValue(value) => value }.map { _ =>
+      s"${if (description0.isDefined) "\n" else ""}If not set, this field defaults to the value of the default annotation."
+    }
+    Some(description0.getOrElse("") + defaultValue.getOrElse(""))
+      .filter(_.nonEmpty)
+  }
+
+  private def fieldDefault(schema: Schema.Field[_, _]): Option[Json] =
+    schema.annotations.collectFirst { case fieldDefaultValue(value) => value }
+      .map(toJsonAst(schema.schema, _))
 
   private def nominal(schema: Schema[_], referenceType: SchemaStyle = SchemaStyle.Reference): Option[String] =
     schema match {
@@ -447,6 +643,8 @@ object JsonSchema {
           schema.toSerializableSchema.copy(contentMediaType = Some(mediaType))
         case MetaData.Deprecated                   =>
           schema.toSerializableSchema.copy(deprecated = Some(true))
+        case MetaData.Default(default)             =>
+          schema.toSerializableSchema.copy(default = Some(default))
       }
     }
   }
@@ -454,6 +652,7 @@ object JsonSchema {
   sealed trait MetaData extends Product with Serializable
   object MetaData {
     final case class Examples(chunk: Chunk[Json])                          extends MetaData
+    final case class Default(default: Json)                                extends MetaData
     final case class Discriminator(discriminator: OpenAPI.Discriminator)   extends MetaData
     final case class Nullable(nullable: Boolean)                           extends MetaData
     final case class Description(description: String)                      extends MetaData

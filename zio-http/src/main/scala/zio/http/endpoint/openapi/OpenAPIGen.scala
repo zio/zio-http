@@ -615,6 +615,7 @@ object OpenAPIGen {
             val caseName =
               case_.annotations.collectFirst { case zio.schema.annotation.caseName(name) => name }.getOrElse(case_.id)
             // There should be no enums with cases that are not records with a nominal id
+            // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
             val typeId   =
               case_.schema
                 .asInstanceOf[Schema.Record[_]]
@@ -662,12 +663,18 @@ object OpenAPIGen {
         ++ endpoint.error.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)
         ++ endpoint.output.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)).collect {
         case MetaCodec(HttpCodec.Content(schema, _, _, _), _) if nominal(schema, referenceType).isDefined       =>
-          OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
-            OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(schema).discriminator(genDiscriminator(schema)))
+          val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+          schemas.children.map { case (key, schema) =>
+            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
+            OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
         case MetaCodec(HttpCodec.ContentStream(schema, _, _, _), _) if nominal(schema, referenceType).isDefined =>
-          OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
-            OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(schema).discriminator(genDiscriminator(schema)))
-      }.toMap
+          val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+          schemas.children.map { case (key, schema) =>
+            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
+            OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
+      }.flatten.toMap
 
     OpenAPI(
       "3.1.0",
@@ -731,7 +738,6 @@ object OpenAPIGen {
           val combinedAtomized: AtomizedMetaCodecs = values.map(_._1).reduce(_ ++ _)
           val combinedContentDoc                   = combinedAtomized.contentDocs.toCommonMark
           val alternativesSchema                   = {
-            // todo minify the schema in case of opt fields
             JsonSchema
               .AnyOfSchema(values.map { case (_, schema) =>
                 schema.description match {
