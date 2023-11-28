@@ -25,7 +25,13 @@ import zio.http.URL.Location
 object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
-  val app: HttpApp[Any] = Handler.fromFunction[Request] { _ => Response.text("hello") }.toHttpApp
+  val app: HttpApp[Any] = {
+    Route.handled(Method.GET / "hello")(Handler.response(Response.text("hello")))
+  }.toHttpApp
+
+  val redir: HttpApp[Any] = {
+    Route.handled(Method.GET / "redirect")(Handler.response(Response.redirect(URL.empty / "hello")))
+  }.toHttpApp
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("ZClientAspect")(
@@ -76,6 +82,20 @@ object ZClientAspectSpec extends ZIOHttpSpec {
               "response"      -> "hello",
             ),
           annotations.head.contains("duration_ms"),
+        ),
+      ),
+      test("followRedirects")(
+        for {
+          port       <- Server.install(redir ++ app)
+          baseClient <- ZIO.service[Client]
+          client = baseClient
+            .url(
+              URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
+            )
+            .disableStreaming @@ ZClientAspect.followRedirects(2)((resp, message) => ZIO.logInfo(message).as(resp))
+          response <- client.request(Request.get(URL.empty / "redirect"))
+        } yield assertTrue(
+          extractStatus(response) == Status.Ok,
         ),
       ),
     ).provide(
