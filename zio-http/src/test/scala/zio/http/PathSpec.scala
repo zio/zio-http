@@ -413,5 +413,56 @@ object PathSpec extends ZIOHttpSpec with ExitAssertion {
         }
       },
     ),
+    suite("removeDotSegments")(
+      test("only leading slash and dots") {
+        val path     = Path.decode("/./../")
+        val result   = path.removeDotSegments
+        val expected = Path.root
+
+        assertTrue(result == expected)
+      },
+      test("only leading dots") {
+        val path     = Path.decode("./../")
+        val result   = path.removeDotSegments
+        val expected = Path.empty
+
+        assertTrue(result == expected)
+      },
+      test("leading slash and dots") {
+        val path     = Path.decode("/./../path")
+        val result   = path.removeDotSegments
+        val expected = Path.decode("/path")
+
+        assertTrue(result == expected)
+      },
+      test("leading dots and path") {
+        val path     = Path.decode("./../path")
+        val result   = path.removeDotSegments
+        val expected = Path.decode("path")
+
+        assertTrue(result == expected)
+      },
+      test("double dot to top") {
+        val path     = Path.decode("path/../subpath")
+        val result   = path.removeDotSegments
+        val expected = Path.decode("/subpath")
+
+        assertTrue(result == expected)
+      },
+      test("trailing double dots") {
+        val path     = Path.decode("path/ignored/..")
+        val result   = path.removeDotSegments
+        val expected = Path.decode("path/")
+
+        assertTrue(result == expected)
+      },
+      test("path traversal") {
+        val path     = Path.decode("/start/ignored/./../path/also/ignored/../../end/.")
+        val result   = path.removeDotSegments
+        val expected = Path.decode("/start/path/end/")
+
+        assertTrue(result == expected)
+      },
+    ),
   )
 }

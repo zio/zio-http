@@ -239,5 +239,87 @@ object URLSpec extends ZIOHttpSpec {
           assertZIO(result)(isLeft)
         },
       ),
+      suite("relative resolution")(
+        // next ones are edge cases
+        test("absolute reference with relative base") {
+          val base      = url"base/relative#basefrag"
+          val reference = url"https://reference/ignored/.././absolute#reffrag"
+
+          // uses reference without dot segments
+          val expected = url"https://reference/absolute#reffrag"
+
+          val result = base.resolve(reference)
+          assertTrue(result.contains(expected))
+        },
+        test("absolute reference with absolute base") {
+          val base      = url"https://base#basefrag"
+          val reference = url"https://reference/ignored/.././absolute#reffrag"
+
+          // uses reference without dot segments
+          val expected = url"https://reference/absolute#reffrag"
+
+          val result = base.resolve(reference)
+          assertTrue(result.contains(expected))
+        },
+        test("relative reference with relative base") {
+          val base      = url"base/relative"
+          val reference = url"reference/relative"
+
+          val result = base.resolve(reference)
+          assertTrue(result.isLeft)
+        },
+
+        // remainder are main resolution logic - absolute base, relative reference
+        test("empty reference path without query params") {
+          val base      = url"https://base/./ignored/../absolute?param=base#basefrag"
+          val reference = url"#reffrag"
+
+          // uses unmodified base path and base query params
+          val expected = url"https://base/./ignored/../absolute?param=base#reffrag"
+
+          val result = base.resolve(reference)
+          assertTrue(result.contains(expected))
+        },
+        test("empty reference path with query params") {
+          val base      = url"https://base/./ignored/../absolute?param=base#basefrag"
+          val reference = url"?param=reference#reffrag"
+
+          // uses unmodified base path and reference query params
+          val expected = url"https://base/./ignored/../absolute?param=reference#reffrag"
+
+          val result = base.resolve(reference)
+          assertTrue(result.contains(expected))
+        },
+        test("non-empty reference path with a leading slash") {
+          val base      = url"https://base/./ignored/../first/second?param=base#basefrag"
+          val reference = url"/reference/./ignored/../last?param=reference#reffrag"
+
+          // uses reference path without dot segments and reference query params
+          val expected = url"https://base/reference/last?param=reference#reffrag"
+
+          val result = base.resolve(reference)
+          assertTrue(result.contains(expected))
+        },
+        test("non-empty reference path without a leading slash") {
+          val base      = url"https://base/./ignored/../first/..?param=base#basefrag"
+          val reference = url"reference/./ignored/../last?param=reference#reffrag"
+
+          // uses base path without last segment, reference segments appended, without dot segments, and reference query params
+          val expected = url"https://base/first/reference/last?param=reference#reffrag"
+
+          val result = base.resolve(reference)
+          assertTrue(result.contains(expected))
+        },
+        test("non-empty reference path without a leading slash and empty base path") {
+          val base      = url"https://base?param=base#basefrag"
+          val reference = url"reference/./ignored/../last?param=reference#reffrag"
+
+          // uses reference path without dot segments and a leading slash
+          val expected = url"https://base/reference/last?param=reference#reffrag"
+
+          val result = base.resolve(reference)
+          assertTrue(result.contains(expected))
+        },
+      ),
     )
 }

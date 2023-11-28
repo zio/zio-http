@@ -16,8 +16,6 @@
 
 package zio.http
 
-import scala.collection.mutable
-
 import zio.{Chunk, ChunkBuilder}
 
 /**
@@ -183,6 +181,58 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
       else if (hasTrailingSlash) Path.root
       else Path.empty
     } else self
+
+  /**
+   * RFC 3986 § 5.2.4 Remove Dot Segments
+   * @return
+   *   the Path with `.` and `..` resolved and removed
+   */
+  def removeDotSegments: Path = {
+    // See https://www.rfc-editor.org/rfc/rfc3986#section-5.2.4
+    val segments     = new Array[String](self.segments.length)
+    var segmentCount = 0
+    // leading/trailing slashes may change but is unlikely
+    var flags        = self.flags
+
+    var i   = 0
+    val max = self.segments.length
+
+    if (!Flag.LeadingSlash.check(flags)) {
+      // § 5.2.4.2.A/D no leading slash, so skip all initial `./` and `../`
+      while (i < max && (self.segments(i) == "." | self.segments(i) == "..")) {
+        i += 1
+      }
+      // if the entire input was consumed, there is no more trailing slash
+      if (i == max) flags = Flag.TrailingSlash.remove(flags)
+    }
+
+    var loop = i < max
+    while (loop) {
+      val segment = self.segments(i)
+
+      i += 1
+      loop = i < max
+
+      if (segment == "..") {
+        segmentCount = (segmentCount - 1).max(0)
+        // § 5.2.4.2.C resolving `/..` and `/../` removes preceding slashes and is itself replaced by a slash
+        // so if we popped the first one we definitely have a leading slash
+        if (segmentCount == 0) flags = Flag.LeadingSlash.add(flags)
+        // § 5.2.4.2.C resolving `/..` and `/../` are both as-if replaced by a `/`
+        // so if this is the last segment, then we have a trailing slash
+        if (i == max) flags = Flag.TrailingSlash.add(flags)
+      } else if (segment == ".") {
+        // § 5.2.4.2.B resolving `/.` and `/./` are both as-if replaced by a `/`
+        // so if this is the last segment, then we have a trailing slash
+        if (i == max) flags = Flag.TrailingSlash.add(flags)
+      } else {
+        segments(segmentCount) = segment
+        segmentCount += 1
+      }
+    }
+
+    Path(flags, Chunk.fromArray(segments.take(segmentCount)))
+  }
 
   /**
    * Creates a new path from this one with it's segments reversed.
