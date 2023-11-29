@@ -334,7 +334,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     Endpoint(
       route,
       input,
-      output = (self.output | HttpCodec.content(implicitly[Schema[Output2]])) ++ StatusCodec.status(Status.Ok),
+      output = self.output | (HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(Status.Ok)),
       error,
       doc,
       mw,
@@ -387,7 +387,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | ((HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)) ?? doc),
       error,
-      doc,
+      Doc.empty,
       mw,
     )
 
@@ -402,7 +402,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ?? doc),
+      output = self.output | (HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ++ StatusCodec.Ok ?? doc),
       error,
       doc,
       mw,
