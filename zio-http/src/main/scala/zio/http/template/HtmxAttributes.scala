@@ -2,13 +2,7 @@ package zio.http.template
 
 import zio.http.template.Attributes.PartialAttribute
 
-/*
-* The fastest way to get going with htmx is to load it via a CDN. You can simply add this to your head tag and get going:
-<script src="https://unpkg.com/htmx.org@1.9.9"></script>
-While the CDN approach is extremely simple, you may want to consider not using CDNs in production.
-*
-*
-* */ trait HtmxAttributes {
+trait HtmxAttributes {
   final def hxGet: PartialAttribute[String] = PartialAttribute("hx-get")
 
   final def hxPost: PartialAttribute[String] = PartialAttribute("hx-post")
