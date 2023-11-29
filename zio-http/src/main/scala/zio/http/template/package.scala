@@ -16,4 +16,4 @@
 
 package zio.http
 
-package object template extends Attributes with Elements {}
+package object template extends Attributes with Elements with HtmxAttributes {}
