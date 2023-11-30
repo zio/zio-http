@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.util.Try
+
 import zio.Trace
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -169,6 +171,9 @@ object Status {
   case object NetworkAuthenticationRequired extends ServerError { override val code: Int = 511 }
 
   final case class Custom(override val code: Int) extends Status
+
+  def fromString(code: String): Option[Status] =
+    Try(code.toInt).toOption.flatMap(fromInt)
 
   def fromInt(code: Int): Option[Status] = {
 

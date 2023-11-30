@@ -1,7 +1,6 @@
 package zio.http.endpoint.cli
 
-import java.nio.file.Path
-
+import scala.annotation.tailrec
 import scala.language.implicitConversions
 import scala.util.Try
 
@@ -242,8 +241,8 @@ private[cli] object HttpOptions {
     self =>
 
     override val name = pathCodec.segments.map {
-      case SegmentCodec.Literal(value, _) => value
-      case _                              => ""
+      case SegmentCodec.Literal(value) => value
+      case _                           => ""
     }
       .filter(_ != "")
       .mkString("-")
@@ -301,7 +300,7 @@ private[cli] object HttpOptions {
             Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
               ValidationError(
                 ValidationErrorType.InvalidValue,
-                HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
+                HelpDoc.p(HelpDoc.Span.code(error.getMessage)),
               )
             },
           )
@@ -313,27 +312,29 @@ private[cli] object HttpOptions {
     }
 
   private[cli] def optionsFromSegment(segment: SegmentCodec[_]): Options[String] = {
+    @tailrec
     def fromSegment[A](segment: SegmentCodec[A]): Options[String] =
       segment match {
-        case SegmentCodec.UUID(name, doc)     =>
+        case SegmentCodec.UUID(name)          =>
           Options
             .text(name)
             .mapOrFail(str =>
               Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
                 ValidationError(
                   ValidationErrorType.InvalidValue,
-                  HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
+                  HelpDoc.p(HelpDoc.Span.code(error.getMessage)),
                 )
               },
             )
             .map(_.toString)
-        case SegmentCodec.Text(name, doc)     => Options.text(name)
-        case SegmentCodec.IntSeg(name, doc)   => Options.integer(name).map(_.toInt).map(_.toString)
-        case SegmentCodec.LongSeg(name, doc)  => Options.integer(name).map(_.toInt).map(_.toString)
-        case SegmentCodec.BoolSeg(name, doc)  => Options.boolean(name).map(_.toString)
-        case SegmentCodec.Literal(value, doc) => Options.Empty.map(_ => value)
-        case SegmentCodec.Trailing(doc)       => Options.none.map(_.toString)
-        case SegmentCodec.Empty(_)            => Options.none.map(_.toString)
+        case SegmentCodec.Text(name)          => Options.text(name)
+        case SegmentCodec.IntSeg(name)        => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.LongSeg(name)       => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.BoolSeg(name)       => Options.boolean(name).map(_.toString)
+        case SegmentCodec.Literal(value)      => Options.Empty.map(_ => value)
+        case SegmentCodec.Trailing            => Options.none.map(_.toString)
+        case SegmentCodec.Empty               => Options.none.map(_.toString)
+        case SegmentCodec.Annotated(codec, _) => fromSegment(codec)
       }
 
     fromSegment(segment)
