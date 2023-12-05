@@ -33,7 +33,7 @@ import zio.http.{Body, MediaType}
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
  * for a media type, using ZIO Schema codecs and schemas.
  */
-private[internal] sealed trait BodyCodec[A] { self =>
+private[http] sealed trait BodyCodec[A] { self =>
 
   /**
    * The element type, described by the schema. This could be the type of the
@@ -88,7 +88,7 @@ private[internal] sealed trait BodyCodec[A] { self =>
    */
   def name: Option[String]
 }
-private[internal] object BodyCodec {
+private[http] object BodyCodec {
   case object Empty extends BodyCodec[Unit] {
     type Element = Unit
 

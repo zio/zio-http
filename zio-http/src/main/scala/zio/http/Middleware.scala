@@ -357,7 +357,7 @@ object Middleware extends HandlerAspects {
               if (isFishy) {
                 Handler.fromZIO(ZIO.logWarning(s"fishy request detected: ${request.path.encode}")) *> Handler.badRequest
               } else {
-                val segs   = pattern.pathCodec.segments.collect { case SegmentCodec.Literal(v, _) =>
+                val segs   = pattern.pathCodec.segments.collect { case SegmentCodec.Literal(v) =>
                   v
                 }
                 val unnest = segs.foldLeft(Path.empty)(_ / _).addLeadingSlash
