@@ -64,7 +64,7 @@ object RouteSpec extends ZIOHttpSpec {
     ),
     suite("error handle")(
       test("handleErrorCauseZIO should execute a ZIO effect") {
-        val route = Method.GET / "endpoint" -> handler { (req: Request) => ZIO.fail(new Exception("hmm...")) }
+        val route = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hmm...")) }
         for {
           p <- zio.Promise.make[Exception, String]
 
@@ -76,6 +76,43 @@ object RouteSpec extends ZIOHttpSpec {
           result   <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
 
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, result.contains("hmm..."))
+      },
+      test("handleErrorCauseRequestZIO should produce an error based on the request") {
+        val route = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hmm...")) }
+        for {
+          p <- zio.Promise.make[Exception, String]
+
+          errorHandled = route
+            .handleErrorRequestCauseZIO((req, c) =>
+              p.failCause(c).as(Response.internalServerError(s"error accessing ${req.path.encode}")),
+            )
+
+          request = Request.get(URL.decode("/endpoint").toOption.get)
+          response      <- errorHandled.toHttpApp.runZIO(request)
+          result        <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
+          resultWarning <- ZIO.fromOption(response.headers.get(Header.Warning).map(_.text))
+
+        } yield assertTrue(
+          extractStatus(response) == Status.InternalServerError,
+          resultWarning == "error accessing /endpoint",
+          result.contains("hmm..."),
+        )
+      },
+      test("handleErrorCauseRequest should produce an error based on the request") {
+        val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hmm...")) }
+        val errorHandled =
+          route.handleErrorRequest((e, req) =>
+            Response.internalServerError(s"error accessing ${req.path.encode}: ${e.getMessage}"),
+          )
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          response      <- errorHandled.toHttpApp.runZIO(request)
+          resultWarning <- ZIO.fromOption(response.headers.get(Header.Warning).map(_.text))
+
+        } yield assertTrue(
+          extractStatus(response) == Status.InternalServerError,
+          resultWarning == "error accessing /endpoint: hmm...",
+        )
       },
     ),
   )
