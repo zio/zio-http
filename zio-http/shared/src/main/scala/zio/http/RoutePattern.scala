@@ -64,6 +64,13 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   ): Route[Env, Err] =
     Route.route(Route.Builder(self, HandlerAspect.identity))(handler)(zippable.zippable, trace)
 
+  def -->[Env, Err, I, Ctx, In](handler: Handler[Env, Err, I, Response])(implicit
+    zippable: RequestHandlerInput[In, I],
+    trace: zio.Trace,
+    context: Zippable.Out[A, Ctx, In],
+  ): Route.PartialRoute[A, Ctx, In, I, Env, Err] =
+    Route.PartialRoute(self, handler, context, zippable.zippable, trace)
+
   /**
    * Creates a route from this pattern and the specified handler, which ignores
    * any parameters produced by this route pattern. This method exists for

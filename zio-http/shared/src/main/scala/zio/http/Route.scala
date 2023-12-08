@@ -429,6 +429,14 @@ object Route                   {
     override def toString() = s"Route.Augmented(${route}, ${aspect})"
   }
 
+  final case class PartialRoute[PathInput, Ctx, In, Input, -Env, +Err](
+    routePattern: RoutePattern[PathInput],
+    handler: Handler[Env, Err, Input, Response],
+    zippable1: Zippable.Out[PathInput, Ctx, In],
+    zippable: Zippable.Out[In, Request, Input],
+    trace: Trace,
+  )
+
   private final case class Handled[-Env](
     routePattern: RoutePattern[_],
     handler: Handler[Env, Response, Request, Response],
@@ -439,7 +447,7 @@ object Route                   {
 
     override def toString() = s"Route.Handled(${routePattern}, ${location})"
   }
-  private final case class Unhandled[Params, Input, -Env, +Err](
+  private[http] final case class Unhandled[Params, Input, -Env, +Err](
     rpm: Route.Builder[Env, Params],
     handler: Handler[Env, Err, Input, Response],
     zippable: Zippable.Out[Params, Request, Input],
