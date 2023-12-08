@@ -415,7 +415,7 @@ object JsonSchema {
       case Schema.Lazy(schema0)                                                              =>
         fromZSchemaMulti(schema0(), refType)
       case Schema.Dynamic(_)                                                                 =>
-        throw new IllegalArgumentException("Dynamic schema is not supported.")
+        JsonSchemas(AnyJson, None, Map.empty)
     }
   }
 
@@ -435,7 +435,7 @@ object JsonSchema {
       JsonSchemas(
         JsonSchema.ArrayType(Some(nested.root)),
         ref,
-        nested.children + (nested.rootRef.get -> nested.root),
+        nested.children ++ (nested.rootRef.map(_ -> nested.root)),
       )
     }
   }
@@ -563,7 +563,8 @@ object JsonSchema {
       case Schema.Tuple2(left, right, _) => AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Either(left, right, _) => OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Lazy(schema0)          => fromZSchema(schema0(), refType)
-      case Schema.Dynamic(_)             => throw new IllegalArgumentException("Dynamic schema is not supported.")
+      case Schema.Dynamic(_)             => AnyJson
+
     }
 
   sealed trait SchemaStyle extends Product with Serializable
@@ -909,6 +910,11 @@ object JsonSchema {
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("null")),
       )
+  }
+
+  case object AnyJson extends JsonSchema {
+    override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
+      SerializableJsonSchema()
   }
 
 }
