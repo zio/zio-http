@@ -445,7 +445,11 @@ object JsonSchema {
       case enum0: Schema.Enum[_] if refType != SchemaStyle.Inline && nominal(enum0).isDefined     =>
         JsonSchema.RefSchema(nominal(enum0, refType).get)
       case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]])      =>
-        JsonSchema.Enum(enum0.cases.map(c => EnumValue.Str(c.id)))
+        JsonSchema.Enum(
+          enum0.cases.map(c =>
+            EnumValue.Str(c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)),
+          ),
+        )
       case enum0: Schema.Enum[_]                                                                  =>
         val noDiscriminator    = enum0.annotations.exists(_.isInstanceOf[noDiscriminator])
         val discriminatorName0 =
