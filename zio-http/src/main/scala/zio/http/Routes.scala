@@ -127,6 +127,40 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def provideEnvironment(env: ZEnvironment[Env]): Routes[Any, Err] =
     new Routes(routes.map(_.provideEnvironment(env)))
 
+  def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] = {
+
+    class RouteFailure(val err: Cause[Err]) extends Throwable(null, null, true, false) {
+      override def getMessage: String = err.unified.headOption.fold("<unknown>")(_.message)
+
+      override def getStackTrace(): Array[StackTraceElement] =
+        err.unified.headOption.fold[Chunk[StackTraceElement]](Chunk.empty)(_.trace).toArray
+
+      override def getCause(): Throwable =
+        err.find { case Cause.Die(throwable, _) => throwable }
+          .orElse(err.find { case Cause.Fail(value: Throwable, _) => value })
+          .orNull
+
+      def fillSuppressed()(implicit unsafe: Unsafe): Unit =
+        if (getSuppressed().length == 0) {
+          err.unified.iterator.drop(1).foreach(unified => addSuppressed(unified.toThrowable))
+        }
+
+      override def toString =
+        err.prettyPrint
+    }
+    var routeFailure: RouteFailure = null
+
+    handleErrorCauseZIO { cause =>
+      routeFailure = new RouteFailure(cause)
+      ZIO.refailCause(Cause.die(routeFailure))
+    }
+      .apply(request)
+      .mapErrorCause {
+        case Cause.Die(value: RouteFailure, _) if value == routeFailure => routeFailure.err.map(Left(_))
+        case cause                                                      => cause.map(Right(_))
+      }
+  }
+
   /**
    * Returns new routes that automatically translate all failures into
    * responses, using best-effort heuristics to determine the appropriate HTTP
