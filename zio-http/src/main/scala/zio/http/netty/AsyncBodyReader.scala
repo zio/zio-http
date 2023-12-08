@@ -16,6 +16,8 @@
 
 package zio.http.netty
 
+import java.io.IOException
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, ChunkBuilder, Trace, Unsafe}
 
@@ -38,11 +40,22 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
     this.synchronized {
       state match {
         case State.Buffering =>
-          state = State.Direct(callback)
-          buffer.result().foreach { case (chunk, isLast) =>
-            callback(chunk, isLast)
+          val result: Chunk[(Chunk[Byte], Boolean)] = buffer.result()
+          val readingDone: Boolean                  = result.lastOption match {
+            case None              => false
+            case Some((_, isLast)) => isLast
           }
-          ctx.read()
+
+          if (ctx.channel.isOpen || readingDone) {
+            state = State.Direct(callback)
+            result.foreach { case (chunk, isLast) =>
+              callback(chunk, isLast)
+            }
+            ctx.read()
+          } else {
+            throw new IllegalStateException("Attempting to read from a closed channel, which will never finish")
+          }
+
         case State.Direct(_) =>
           throw new IllegalStateException("Cannot connect twice")
       }
@@ -90,6 +103,17 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
       }
     }
     super.exceptionCaught(ctx, cause)
+  }
+
+  override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+    this.synchronized {
+      state match {
+        case State.Buffering        =>
+        case State.Direct(callback) =>
+          callback.fail(new IOException("Channel closed unexpectedly"))
+      }
+    }
+    ctx.fireChannelInactive()
   }
 }
 

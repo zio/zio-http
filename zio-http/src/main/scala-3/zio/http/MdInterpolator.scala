@@ -16,23 +16,12 @@
 
 package zio.http
 
-import zio.test.Assertion.isNone
-import zio.test._
+import zio.http.codec.Doc
 
-import zio.http.internal.HttpGen
+trait MdInterpolator {
 
-object SchemeSpec extends ZIOHttpSpec {
-  override def spec = suite("SchemeSpec")(
-    test("string decode") {
-      checkAll(HttpGen.scheme) { scheme =>
-        assertTrue(Scheme.decode(scheme.encode).get == scheme)
-      }
-    },
-    test("null string decode") {
-      assert(Scheme.decode(null))(isNone)
-    },
-    test("decode chrome-extension") {
-      assertTrue(Scheme.decode("chrome-extension").isDefined)
-    },
-  )
+  extension(inline sc: StringContext) {
+    inline def md(inline args: Any*): Doc = Doc.fromCommonMark(sc.s(args*).stripMargin)
+  }
+
 }
