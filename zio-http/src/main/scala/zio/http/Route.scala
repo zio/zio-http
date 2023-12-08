@@ -16,9 +16,6 @@
 package zio.http
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import zio.http.Route.Provided
 
 /*
  * Represents a single route, which has either handled its errors by converting
@@ -47,14 +44,16 @@ sealed trait Route[-Env, +Err] { self =>
   def asErrorType[Err2](implicit ev: Err <:< Err2): Route[Env, Err2] = self.asInstanceOf[Route[Env, Err2]]
 
   /**
-   * Handles the error of the route. This method can be used to convert a route
-   * that does not handle its errors into one that does handle its errors.
+   * Handles all typed errors in the route by converting them into responses.
+   * This method can be used to convert a route that does not handle its errors
+   * into one that does handle its errors.
    */
   final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorCause(Response.fromCauseWith(_)(f))
 
   /**
-   * Handles the error of the route. This method can be used to convert a route
+   * Handles all typed errors, as well as all non-recoverable errors, by
+   * converting them into responses. This method can be used to convert a route
    * that does not handle its errors into one that does handle its errors.
    */
   final def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Route[Env, Nothing] =
@@ -83,6 +82,12 @@ sealed trait Route[-Env, +Err] { self =>
         Handled(rpm.routePattern, handler2, location)
     }
 
+  /**
+   * Handles all typed errors, as well as all non-recoverable errors, by
+   * converting them into a ZIO effect that produces the response. This method
+   * can be used to convert a route that does not handle its errors into one
+   * that does handle its errors.
+   */
   final def handleErrorCauseZIO(
     f: Cause[Err] => ZIO[Any, Nothing, Response],
   )(implicit trace: Trace): Route[Env, Nothing] =
@@ -104,6 +109,88 @@ sealed trait Route[-Env, +Err] { self =>
               }
             }
           rpm.aspect.applyHandlerContext(paramHandler.mapErrorCauseZIO(f))
+        }
+
+        Handled(rpm.routePattern, handler2, location)
+    }
+
+  /**
+   * Handles all typed errors in the route by converting them into responses,
+   * taking into account the request that caused the error. This method can be
+   * used to convert a route that does not handle its errors into one that does
+   * handle its errors.
+   */
+  final def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Route[Env, Nothing] =
+    self.handleErrorRequestCause((request, cause) => Response.fromCauseWith(cause)(f(_, request)))
+
+  /**
+   * Handles all typed errors, as well as all non-recoverable errors, by
+   * converting them into responses, taking into account the request that caused
+   * the error. This method can be used to convert a route that does not handle
+   * its errors into one that does handle its errors.
+   */
+  final def handleErrorRequestCause(f: (Request, Cause[Err]) => Response)(implicit trace: Trace): Route[Env, Nothing] =
+    self match {
+      case Provided(route, env)                     => Provided(route.handleErrorRequestCause(f), env)
+      case Augmented(route, aspect)                 => Augmented(route.handleErrorRequestCause(f), aspect)
+      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
+
+      case Unhandled(rpm, handler, zippable, location) =>
+        val handler2: Handler[Env, Response, Request, Response] = {
+          val paramHandler =
+            Handler.fromFunctionZIO[(rpm.Context, Request)] { case (ctx, request) =>
+              rpm.routePattern.decode(request.method, request.path) match {
+                case Left(error)  => ZIO.dieMessage(error)
+                case Right(value) =>
+                  val params = rpm.zippable.zip(value, ctx)
+
+                  handler(zippable.zip(params, request))
+              }
+            }
+
+          // Sandbox before applying aspect:
+          rpm.aspect.applyHandlerContext(
+            Handler.fromFunctionHandler[(rpm.Context, Request)] { case (_, req) =>
+              paramHandler.mapErrorCause(f(req, _))
+            },
+          )
+        }
+
+        Handled(rpm.routePattern, handler2, location)
+    }
+
+  /**
+   * Handles all typed errors, as well as all non-recoverable errors, by
+   * converting them into a ZIO effect that produces the response, taking into
+   * account the request that caused the error. This method can be used to
+   * convert a route that does not handle its errors into one that does handle
+   * its errors.
+   */
+  final def handleErrorRequestCauseZIO(
+    f: (Request, Cause[Err]) => ZIO[Any, Nothing, Response],
+  )(implicit trace: Trace): Route[Env, Nothing] =
+    self match {
+      case Provided(route, env)                     => Provided(route.handleErrorRequestCauseZIO(f), env)
+      case Augmented(route, aspect)                 => Augmented(route.handleErrorRequestCauseZIO(f), aspect)
+      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
+
+      case Unhandled(rpm, handler, zippable, location) =>
+        val handler2: Handler[Env, Response, Request, Response] = {
+          val paramHandler =
+            Handler.fromFunctionZIO[(rpm.Context, Request)] { case (ctx, request) =>
+              rpm.routePattern.decode(request.method, request.path) match {
+                case Left(error)  => ZIO.dieMessage(error)
+                case Right(value) =>
+                  val params = rpm.zippable.zip(value, ctx)
+
+                  handler(zippable.zip(params, request))
+              }
+            }
+          rpm.aspect.applyHandlerContext(
+            Handler.fromFunctionHandler[(rpm.Context, Request)] { case (_, req) =>
+              paramHandler.mapErrorCauseZIO(f(req, _))
+            },
+          )
         }
 
         Handled(rpm.routePattern, handler2, location)

@@ -4173,8 +4173,9 @@ object Header {
           2xx warn-codes describe some aspect of the representation that is not rectified by a validation and
              will not be deleted by a cache after validation unless a full response is sent.
        */
-      val warnCode: Int = Try {
-        Integer.parseInt(warningString.split(" ")(0))
+      val warnCodeString = warningString.split(" ")(0)
+      val warnCode: Int  = Try {
+        Integer.parseInt(warnCodeString)
       }.getOrElse(-1)
 
       /*
@@ -4187,11 +4188,11 @@ object Header {
          <warn-text>
          An advisory text describing the error.
        */
-      val descriptionStartIndex = warningString.indexOf('\"')
-      val descriptionEndIndex   = warningString.indexOf("\"", warningString.indexOf("\"") + 1)
+      val descriptionStartIndex = warningString.indexOf('\"', warnCodeString.length + warnAgent.length) + 1
+      val descriptionEndIndex   = warningString.indexOf("\"", descriptionStartIndex)
       val description           =
         Try {
-          warningString.substring(descriptionStartIndex, descriptionEndIndex + 1)
+          warningString.substring(descriptionStartIndex, descriptionEndIndex)
         }.getOrElse("")
 
       /*
@@ -4249,17 +4250,16 @@ object Header {
 
     def render(warning: Warning): String =
       warning match {
-        case Warning(code, agent, text, date) => {
+        case Warning(code, agent, text, date) =>
           val formattedDate = date match {
             case Some(value) => DateEncoding.default.encodeDate(value)
             case None        => ""
           }
           if (formattedDate.isEmpty) {
-            code.toString + " " + agent + " " + text
+            code.toString + " " + agent + " " + '"' + text + '"'
           } else {
-            code.toString + " " + agent + " " + text + " " + '"' + formattedDate + '"'
+            code.toString + " " + agent + " " + '"' + text + '"' + " " + '"' + formattedDate + '"'
           }
-        }
       }
   }
 
