@@ -107,8 +107,8 @@ object OpenAPIGen {
         )
       case MetaCodec(_: SegmentCodec[_], _)                   =>
         copy(path = path :+ metaCodec.asInstanceOf[MetaCodec[SegmentCodec[_]]])
-      case MetaCodec(_: HttpCodec.Query[_, _], _)                =>
-        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_]]])
+      case MetaCodec(_: HttpCodec.Query[_, _], _)             =>
+        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_, _]]])
       case MetaCodec(_: HttpCodec.Header[_], _)               =>
         copy(header = header :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Header[_]]])
       case MetaCodec(_: HttpCodec.Status[_], _)               =>
