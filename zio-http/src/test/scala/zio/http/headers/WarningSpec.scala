@@ -58,11 +58,11 @@ object WarningSpec extends ZIOHttpSpec {
       },
       test("Accepts Valid Warning with Date") {
         assertTrue(
-          Warning.parse(validWarningWithDate) == Right(Warning(112, "-", "\"cache down\"", Some(stubDate))),
+          Warning.parse(validWarningWithDate) == Right(Warning(112, "-", "cache down", Some(stubDate))),
         )
       },
       test("Accepts Valid Warning without Date") {
-        assertTrue(Warning.parse(validWarning) == Right(Warning(110, "anderson/1.3.37", "\"Response is stale\"")))
+        assertTrue(Warning.parse(validWarning) == Right(Warning(110, "anderson/1.3.37", "Response is stale")))
       },
       test("parsing and encoding is symmetrical for warning with Date") {
         val encodedWarningwithDate = Warning.render(Warning.parse(validWarningWithDate).toOption.get)
