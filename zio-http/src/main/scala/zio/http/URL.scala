@@ -16,7 +16,7 @@
 
 package zio.http
 
-import java.net.{MalformedURLException, URI, URISyntaxException}
+import java.net.{MalformedURLException, URI}
 
 import scala.util.Try
 
@@ -182,6 +182,84 @@ final case class URL(
   def relative: URL = self.kind match {
     case URL.Location.Relative => self
     case _                     => self.copy(kind = URL.Location.Relative)
+  }
+
+  /**
+   * RFC 3986 § 5.2 Relative Resolution
+   * @param reference
+   *   the URL to resolve relative to ``this`` base URL
+   * @return
+   *   the target URL
+   */
+  def resolve(reference: URL): Either[String, URL] = {
+    // See https://www.rfc-editor.org/rfc/rfc3986#section-5.2
+    // § 5.2.1 - `self` is the base and already pre-parsed into components
+    // § 5.2.2 - strict parsing does not ignore the reference URL scheme, so we use it directly, instead of un-setting it
+
+    if (reference.kind.isRelative) {
+      // § 5.2.2 - reference scheme is undefined, i.e. it is relative
+      self.kind match {
+        // § 5.2.1 - `self` is the base and is required to have a scheme, therefore it must be absolute
+        case Location.Relative => Left("cannot resolve against relative url")
+
+        case location: Location.Absolute =>
+          var path: Path         = null
+          var query: QueryParams = null
+
+          if (reference.path.isEmpty) {
+            // § 5.2.2 - empty reference path keeps base path unmodified
+            path = self.path
+            // § 5.2.2 - given an empty reference path, use non-empty reference query params,
+            //           while empty reference query params keeps base query params
+            // NOTE: strictly, if the reference defines a query it should be used, even if that query is empty
+            //       but currently no-query is not differentiated from empty-query
+            if (reference.queryParams.isEmpty) {
+              query = self.queryParams
+            } else {
+              query = reference.queryParams
+            }
+          } else {
+            // § 5.2.2 - non-empty reference path always keeps reference query params
+            query = reference.queryParams
+
+            if (reference.path.hasLeadingSlash) {
+              // § 5.2.2 - reference path starts from root, keep reference path without dot segments
+              path = reference.path.removeDotSegments
+            } else {
+              // § 5.2.2 - merge base and reference paths, then collapse dot segments
+              // § 5.2.3 - if base has an authority AND an empty path, use the reference path, ensuring a leading slash
+              //           the authority is the [user]@host[:port], which is always present on `self`,
+              //           so we only need to check for an empty path
+              if (self.path.isEmpty) {
+                path = reference.path.addLeadingSlash
+              } else {
+                // § 5.2.3 - otherwise (base has no authority OR a non-empty path), drop the very last portion of the base path,
+                //           and append all the reference path components
+                path = Path(
+                  Path.Flags.concat(self.path.flags, reference.path.flags),
+                  self.path.segments.dropRight(1) ++ reference.path.segments,
+                )
+              }
+
+              path = path.removeDotSegments
+            }
+          }
+
+          val url = URL(path, location, query, reference.fragment)
+
+          Right(url)
+
+      }
+    } else {
+      // § 5.2.2 - if the reference scheme is defined, i.e. the reference is absolute,
+      //           the target components are the reference components but with dot segments removed
+
+      // § 5.2.2 - if the reference scheme is undefined and authority is defined, keep the base scheme
+      //           and take everything else from the reference, removing dot segments from the path
+      // NOTE: URL currently does not track authority separate from scheme to implement this
+      //       so having an authority is the same as having a scheme and they are treated the same
+      Right(reference.copy(path = reference.path.removeDotSegments))
+    }
   }
 
   def scheme: Option[Scheme] = kind match {

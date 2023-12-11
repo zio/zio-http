@@ -415,7 +415,7 @@ object JsonSchema {
       case Schema.Lazy(schema0)                                                              =>
         fromZSchemaMulti(schema0(), refType)
       case Schema.Dynamic(_)                                                                 =>
-        throw new IllegalArgumentException("Dynamic schema is not supported.")
+        JsonSchemas(AnyJson, None, Map.empty)
     }
   }
 
@@ -435,7 +435,7 @@ object JsonSchema {
       JsonSchemas(
         JsonSchema.ArrayType(Some(nested.root)),
         ref,
-        nested.children + (nested.rootRef.get -> nested.root),
+        nested.children ++ (nested.rootRef.map(_ -> nested.root)),
       )
     }
   }
@@ -445,7 +445,11 @@ object JsonSchema {
       case enum0: Schema.Enum[_] if refType != SchemaStyle.Inline && nominal(enum0).isDefined     =>
         JsonSchema.RefSchema(nominal(enum0, refType).get)
       case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]])      =>
-        JsonSchema.Enum(enum0.cases.map(c => EnumValue.Str(c.id)))
+        JsonSchema.Enum(
+          enum0.cases.map(c =>
+            EnumValue.Str(c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)),
+          ),
+        )
       case enum0: Schema.Enum[_]                                                                  =>
         val noDiscriminator    = enum0.annotations.exists(_.isInstanceOf[noDiscriminator])
         val discriminatorName0 =
@@ -559,7 +563,8 @@ object JsonSchema {
       case Schema.Tuple2(left, right, _) => AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Either(left, right, _) => OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Lazy(schema0)          => fromZSchema(schema0(), refType)
-      case Schema.Dynamic(_)             => throw new IllegalArgumentException("Dynamic schema is not supported.")
+      case Schema.Dynamic(_)             => AnyJson
+
     }
 
   sealed trait SchemaStyle extends Product with Serializable
@@ -905,6 +910,11 @@ object JsonSchema {
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("null")),
       )
+  }
+
+  case object AnyJson extends JsonSchema {
+    override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
+      SerializableJsonSchema()
   }
 
 }
