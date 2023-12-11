@@ -16,38 +16,42 @@
 
 package zio.http.netty.client
 
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.timeout.ReadTimeoutException
+import io.netty.handler.codec.http._
+import io.netty.handler.timeout.ReadTimeoutHandler
 import zio._
+import zio.duration._
+import zio.http.{Request, Response}
+import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
-import zio.http.{Request, Response}
-
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http._
-
-/**
- * Handles HTTP response
- */
-final class ClientInboundHandler(
+class CustomClientInboundHandler(
   rtm: NettyRuntime,
   req: Request,
   jReq: HttpRequest,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
-  enableKeepAlive: Boolean,
+  enableKeepAlive: Boolean
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
     super.handlerAdded(ctx)
+    // Add your custom pipeline logic here if needed
+    ctx.pipeline().addLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS))
   }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     sendRequest(ctx)
   }
 
-  override def handlerRemoved(ctx: ChannelHandlerContext): Unit = super.handlerRemoved(ctx)
+  override def handlerRemoved(ctx: ChannelHandlerContext): Unit = {
+    // Clean up your custom pipeline logic if needed
+    ctx.pipeline().remove(classOf[ReadTimeoutHandler])
+    super.handlerRemoved(ctx)
+  }
 
   private def sendRequest(ctx: ChannelHandlerContext): Unit = {
     jReq match {
@@ -83,8 +87,14 @@ final class ClientInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-      onResponse.fail(error) *> onComplete.fail(error),
-    )(unsafeClass, trace)
+    // Handle the ReadTimeoutException here or log it as needed
+    error match {
+      case _: ReadTimeoutException => // Handle or ignore the timeout exception
+      case _ =>
+        // Propagate other exceptions
+        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
+          onResponse.fail(error) *> onComplete.fail(error),
+        )(unsafeClass, trace)
+    }
   }
 }
