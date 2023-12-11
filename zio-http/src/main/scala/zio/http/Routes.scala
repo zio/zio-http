@@ -56,6 +56,9 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)
 
+  def apply(request: Request)(implicit ev: Err <:< Response, trace: Trace): ZIO[Env, Response, Response] =
+    self.toHttpApp.apply(request)
+
   def asEnvType[Env2](implicit ev: Env2 <:< Env): Routes[Env2, Err] =
     self.asInstanceOf[Routes[Env2, Err]]
 

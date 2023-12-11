@@ -1,15 +1,15 @@
 package zio.http.endpoint.openapi
 
-import zio.Scope
 import zio.json.ast.Json
 import zio.json.{EncoderOps, JsonEncoder}
 import zio.test._
+import zio.{Scope, ZIO}
 
 import zio.schema.annotation.{caseName, discriminatorName, noDiscriminator, optionalField, transientField}
 import zio.schema.codec.JsonCodec
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.Method.GET
+import zio.http.Method.{GET, POST}
 import zio.http._
 import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.endpoint._
@@ -2227,6 +2227,25 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  }
             |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("multiple methods on same path") {
+        val getEndpoint  = Endpoint(GET / "test")
+          .out[String](MediaType.text.`plain`)
+        val postEndpoint = Endpoint(POST / "test")
+          .in[String]
+          .out[String](Status.Created, MediaType.text.`plain`)
+        val generated    = OpenAPIGen.fromEndpoints(
+          "Multiple Methods on Same Path",
+          "1.0",
+          getEndpoint,
+          postEndpoint,
+        )
+        val json         = toJsonAst(generated)
+        for {
+          expectedJson <- ZIO.acquireReleaseWith(
+            ZIO.attemptBlockingIO(scala.io.Source.fromResource("endpoint/openapi/multiple-methods-on-same-path.json")),
+          )(buf => ZIO.attemptBlockingIO(buf.close()).orDie)(buf => ZIO.attemptBlockingIO(buf.mkString))
+        } yield assertTrue(json == toJsonAst(expectedJson))
       },
     )
 

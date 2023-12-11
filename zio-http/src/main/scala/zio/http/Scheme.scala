@@ -77,7 +77,7 @@ object Scheme {
           case "https" => HTTPS
           case "ws"    => WS
           case "wss"   => WSS
-          case custom  => Custom(custom.toLowerCase)
+          case custom  => new Custom(custom.toLowerCase) {}
         }
     }
   }
@@ -94,7 +94,7 @@ object Scheme {
    * @param scheme
    *   value MUST not be "http" "https" "ws" "wss"
    */
-  final case class Custom(scheme: String) extends Scheme
+  sealed abstract case class Custom private[http] (scheme: String) extends Scheme
 
   def defaultPortForHTTP  = 80
   def defaultPortForHTTPS = 443
