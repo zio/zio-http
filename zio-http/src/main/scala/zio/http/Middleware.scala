@@ -16,12 +16,13 @@
 package zio.http
 
 import java.io.File
+import java.net.URLEncoder
 
 import zio._
 import zio.metrics._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.codec.{PathCodec, SegmentCodec}
+import zio.http.endpoint.openapi.OpenAPI
 
 trait Middleware[-UpperEnv] { self =>
   def apply[Env1 <: UpperEnv, Err](
