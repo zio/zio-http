@@ -217,6 +217,13 @@ sealed trait Route[-Env, +Err] { self =>
   def routePattern: RoutePattern[_]
 
   /**
+   * Applies the route to the specified request. The route must be defined for
+   * the request, or else this method will fail fatally.
+   */
+  final def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] =
+    Routes(self).run(request)
+
+  /**
    * Returns a route that automatically translates all failures into responses,
    * using best-effort heuristics to determine the appropriate HTTP status code,
    * and attaching error details using the HTTP header `Warning`.
