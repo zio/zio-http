@@ -349,12 +349,11 @@ object JsonSchema {
         val children = record.fields
           .filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
           .flatMap { field =>
-            val key    = nominal(field.schema, refType).orElse(nominal(field.schema, SchemaStyle.Compact))
             val nested = fromZSchemaMulti(
               field.schema,
               refType,
             )
-            key.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
+            nested.rootRef.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
           }
           .toMap
         JsonSchemas(fromZSchema(record, SchemaStyle.Inline), ref, children)
@@ -496,7 +495,7 @@ object JsonSchema {
           )
           .addAll(nonTransientFields.map { field =>
             field.name ->
-              fromZSchema(field.schema, refType)
+              fromZSchema(field.schema, SchemaStyle.Compact)
                 .deprecated(deprecated(field.schema))
                 .description(fieldDoc(field))
                 .default(fieldDefault(field))
