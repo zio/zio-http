@@ -26,6 +26,7 @@ trait ConnectionPool[Connection] {
     location: URL.Location.Absolute,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
+    maxInitialLineLength: Int,
     maxHeaderSize: Int,
     decompression: Decompression,
     idleTimeout: Option[Duration],
