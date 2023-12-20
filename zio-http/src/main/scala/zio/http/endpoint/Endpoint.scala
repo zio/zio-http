@@ -19,7 +19,6 @@ package zio.http.endpoint
 import scala.reflect.ClassTag
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -234,6 +233,30 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = input ++ (HttpCodec.content(name)(schema) ?? doc))
+
+  def in[Input2](mediaType: MediaType)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ HttpCodec.content(mediaType)(schema))
+
+  def in[Input2](mediaType: MediaType, doc: Doc)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ (HttpCodec.content(mediaType) ?? doc))
+
+  def in[Input2](mediaType: MediaType, name: String)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ HttpCodec.content(name, mediaType))
+
+  def in[Input2](mediaType: MediaType, name: String, doc: Doc)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ (HttpCodec.content(name, mediaType) ?? doc))
 
   /**
    * Returns a new endpoint derived from this one, whose request must satisfy
