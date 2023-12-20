@@ -17,6 +17,8 @@ package zio.http
 
 import zio._
 
+import zio.http.codec.PathCodec
+
 /**
  * Represents a collection of routes, each of which is defined by a pattern and
  * a handler. This data type can be thought of as modeling a routing table,
@@ -89,6 +91,9 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    */
   def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleErrorCauseZIO(f)))
+
+  def nest(prefix: PathCodec[Unit])(implicit trace: Trace, ev: Err <:< Response): Routes[Env, Err] =
+    new Routes(self.routes.map(_.nest(prefix)))
 
   /**
    * Handles all typed errors in the routes by converting them into responses,

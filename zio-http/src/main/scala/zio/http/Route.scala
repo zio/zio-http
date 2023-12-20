@@ -17,6 +17,8 @@ package zio.http
 
 import zio._
 
+import zio.http.codec.PathCodec
+
 /*
  * Represents a single route, which has either handled its errors by converting
  * them into responses, or which has polymorphic errors, which must later be
@@ -207,6 +209,16 @@ sealed trait Route[-Env, +Err] { self =>
    */
   def location: Trace
 
+  def nest(prefix: PathCodec[Unit])(implicit ev: Err <:< Response): Route[Env, Err] =
+    self match {
+      case Provided(route, env)                     => Provided(route.nest(prefix), env)
+      case Augmented(route, aspect)                 => Augmented(route.nest(prefix), aspect)
+      case Handled(routePattern, handler, location) => Handled(routePattern.nest(prefix), handler, location)
+
+      case Unhandled(rpm, handler, zippable, location) =>
+        Unhandled(rpm.prefix(prefix), handler, zippable, location)
+    }
+
   final def provideEnvironment(env: ZEnvironment[Env]): Route[Any, Err] =
     Route.Provided(self, env)
 
@@ -315,6 +327,16 @@ object Route                   {
 
       Route.route[A, Env1](self)(handler)
     }
+
+    def prefix(path: PathCodec[Unit]): Builder[Env, A] =
+      new Builder[Env, A] {
+        type PathInput = self.PathInput
+        type Context   = self.Context
+
+        def routePattern: RoutePattern[PathInput]         = self.routePattern.nest(path)
+        def aspect: HandlerAspect[Env, Context]           = self.aspect
+        def zippable: Zippable.Out[PathInput, Context, A] = self.zippable
+      }
 
     def provideEnvironment(env: ZEnvironment[Env]): Route.Builder[Any, A] = {
       implicit val z = zippable
