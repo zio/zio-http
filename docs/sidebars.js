@@ -63,6 +63,7 @@ const sidebars = {
         "how-to-guides/multipart-form-data",
         "how-to-guides/how-to-utilize-signed-cookies",
         "how-to-guides/how-to-handle-WebSocket-exceptions-and-errors",
+        "how-to-guides/static-files",
       ]
     },
      {

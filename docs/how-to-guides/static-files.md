@@ -1,7 +1,6 @@
 ---
 id: static-files
 title: "Serving Static Files"
-sidebar_label: "Static Files"
 ---
 
 how to host static resources like images, CSS and JavaScript files using ZIO HTTP's built-in middleware.
