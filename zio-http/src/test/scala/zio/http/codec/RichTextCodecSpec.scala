@@ -27,8 +27,8 @@ object RichTextCodecSpec extends ZIOHttpSpec {
 
   def textOf(doc: Doc): Option[String] =
     doc match {
-      case Doc.Paragraph(Doc.Span.Code(text)) => Some(text)
-      case _                                  => None
+      case Doc.Paragraph(Doc.Span.Code(text, _)) => Some(text)
+      case _                                     => None
     }
 
   override def spec = suite("Rich Text Codec Spec")(
@@ -249,6 +249,10 @@ object RichTextCodecSpec extends ZIOHttpSpec {
         val codec = RichTextCodec.literal("123").transform(_.toInt)(_.toString)
         assertTrue(success(123) == codec.decode("123--")) &&
         assertTrue(codec.decode("4123").isLeft)
+      },
+      test("With error message") {
+        val codec = RichTextCodec.literal("123").withError("Not 123")
+        assertTrue(codec.decode("678") == Left("(Expected, but did not find: Paragraph(Code(“1”,Inline)), Not 123)"))
       },
     ),
   )

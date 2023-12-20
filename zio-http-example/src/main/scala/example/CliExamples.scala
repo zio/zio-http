@@ -4,12 +4,13 @@ import zio._
 import zio.cli._
 
 import zio.schema._
+import zio.schema.annotation.description
 
 import zio.http.Header.Location
 import zio.http._
 import zio.http.codec._
-import zio.http.endpoint._
 import zio.http.endpoint.cli._
+import zio.http.endpoint.{Endpoint, EndpointExecutor}
 
 trait TestCliEndpoints {
   import zio.http.codec.PathCodec._
