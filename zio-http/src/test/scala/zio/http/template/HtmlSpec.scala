@@ -75,6 +75,11 @@ case object HtmlSpec extends ZIOHttpSpec {
           assert(none.encode)(equalTo(""))
         },
       ),
+      test("explicitly constructed script tag is not escaped") {
+        val view     = script("alert('Hello!');")
+        val expected = """<script>alert('Hello!');</script>"""
+        assert(view.encode)(equalTo(expected.stripMargin))
+      },
     )
   }
 }

@@ -34,8 +34,9 @@ sealed trait Dom { self =>
   def encode(spaces: Int): CharSequence =
     encode(EncodingState.Indentation(0, spaces))
 
-  private[template] def encode(state: EncodingState): CharSequence = self match {
+  private[template] def encode(state: EncodingState, encodeHtml: Boolean = true): CharSequence = self match {
     case Dom.Element(name, children) =>
+      val encode     = if (name == "script" || name == "style") false else encodeHtml
       val attributes = children.collect { case self: Dom.Attribute => self.encode }
 
       val innerState = state.inner
@@ -51,9 +52,9 @@ sealed trait Dom { self =>
 
       def inner: CharSequence =
         elements match {
-          case Seq(singleText: Dom.Text) => singleText.encode(innerState)
+          case Seq(singleText: Dom.Text) => singleText.encode(innerState, encode)
           case _                         =>
-            s"${innerState.nextElemSeparator}${elements.map(_.encode(innerState)).mkString(innerState.nextElemSeparator)}${state.nextElemSeparator}"
+            s"${innerState.nextElemSeparator}${elements.map(_.encode(innerState, encode)).mkString(innerState.nextElemSeparator)}${state.nextElemSeparator}"
         }
 
       if (noElements && noAttributes && isVoid) s"<$name/>"
@@ -64,11 +65,11 @@ sealed trait Dom { self =>
       else
         s"<$name ${attributes.mkString(" ")}>$inner</$name>"
 
-    case Dom.Text(data)             => OutputEncoder.encodeHtml(data.toString)
-    case Dom.Attribute(name, value) =>
-      s"""$name="${OutputEncoder.encodeHtml(value.toString)}""""
-    case Dom.Empty                  => ""
-    case Dom.Raw(raw)               => raw
+    case Dom.Text(data) if encodeHtml => OutputEncoder.encodeHtml(data.toString)
+    case Dom.Text(data)               => data
+    case Dom.Attribute(name, value)   => s"""$name="${OutputEncoder.encodeHtml(value.toString)}""""
+    case Dom.Empty                    => ""
+    case Dom.Raw(raw)                 => raw
   }
 }
 

@@ -19,7 +19,6 @@ package zio.http.endpoint
 import scala.reflect.ClassTag
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -27,7 +26,7 @@ import zio.schema._
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec.{HttpCodec, _}
+import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
 /**
@@ -235,6 +234,30 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = input ++ (HttpCodec.content(name)(schema) ?? doc))
 
+  def in[Input2](mediaType: MediaType)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ HttpCodec.content(mediaType)(schema))
+
+  def in[Input2](mediaType: MediaType, doc: Doc)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ (HttpCodec.content(mediaType) ?? doc))
+
+  def in[Input2](mediaType: MediaType, name: String)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ HttpCodec.content(name, mediaType))
+
+  def in[Input2](mediaType: MediaType, name: String, doc: Doc)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ (HttpCodec.content(name, mediaType) ?? doc))
+
   /**
    * Returns a new endpoint derived from this one, whose request must satisfy
    * the specified codec.
@@ -334,7 +357,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     Endpoint(
       route,
       input,
-      output = (self.output | HttpCodec.content(implicitly[Schema[Output2]])) ++ StatusCodec.status(Status.Ok),
+      output = self.output | (HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(Status.Ok)),
       error,
       doc,
       mw,
@@ -387,7 +410,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | ((HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)) ?? doc),
       error,
-      doc,
+      Doc.empty,
       mw,
     )
 
@@ -402,7 +425,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ?? doc),
+      output = self.output | (HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ++ StatusCodec.Ok ?? doc),
       error,
       doc,
       mw,
@@ -583,6 +606,41 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     combiner: Combiner[Input, A],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
+
+  /**
+   * Transforms the input of this endpoint using the specified functions. This
+   * is useful to build from different http inputs a domain specific input.
+   *
+   * For example
+   * {{{
+   *   case class ChangeUserName(userId: UUID, name: String)
+   *   val endpoint =
+   *   Endpoint(Method.POST / "user" / uuid("userId") / "changeName").in[String]
+   *     .transformIn { case (userId, name) => ChangeUserName(userId, name) } {
+   *       case ChangeUserName(userId, name) => (userId, name)
+   *     }
+   * }}}
+   */
+  def transformIn[Input1](f: Input => Input1)(
+    g: Input1 => Input,
+  ): Endpoint[PathInput, Input1, Err, Output, Middleware] =
+    copy(input = self.input.transform(f)(g))
+
+  /**
+   * Transforms the output of this endpoint using the specified functions.
+   */
+  def transformOut[Output1](f: Output => Output1)(
+    g: Output1 => Output,
+  ): Endpoint[PathInput, Input, Err, Output1, Middleware] =
+    copy(output = self.output.transform(f)(g))
+
+  /**
+   * Transforms the error of this endpoint using the specified functions.
+   */
+  def transformError[Err1](f: Err => Err1)(
+    g: Err1 => Err,
+  ): Endpoint[PathInput, Input, Err1, Output, Middleware] =
+    copy(error = self.error.transform(f)(g))
 }
 
 object Endpoint {
