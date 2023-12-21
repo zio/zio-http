@@ -20,8 +20,7 @@ import java.nio.file.{AccessDeniedException, NotDirectoryException}
 
 import scala.annotation.tailrec
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Cause, Task, Trace, ZIO}
+import zio._
 
 import zio.stream.ZStream
 
@@ -40,8 +39,11 @@ final case class Response(
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
-  def addFlashMessage(message: String): Response =
-    addCookie(Cookie.Response("zio-http-flash", message))
+  /**
+   * Adds flash values to the cookie-based flash-scope.
+   */
+  def addFlash[A](setter: Flash.Setter[A]): Response =
+    self.addCookie(Flash.Setter.run(setter).copy(path = Some(Path.root)))
 
   /**
    * Collects the potentially streaming body of the response into a single

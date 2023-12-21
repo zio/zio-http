@@ -18,8 +18,7 @@ package zio.http
 
 import java.net.InetAddress
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, Trace, ZIO}
+import zio._
 
 import zio.http.internal.HeaderOps
 
@@ -148,8 +147,11 @@ final case class Request(
   def cookies: Chunk[Cookie] =
     header(Header.Cookie).fold(Chunk.empty[Cookie])(_.value.toChunk)
 
-  def flashMessage: Option[String] =
-    cookie("zio-http-flash").map(_.content)
+  /**
+   * Returns an `A` if it exists from the cookie-based flash-scope.
+   */
+  def flash[A](flash: Flash[A]): Option[A] =
+    Flash.run(flash, self).toOption
 
 }
 
