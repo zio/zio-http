@@ -41,28 +41,28 @@ object PathCodecSpec extends ZIOHttpSpec {
         test("/users") {
           val codec = PathCodec.path("/users")
 
-          assertTrue(codec.segments.length == 2)
+          assertTrue(codec.segments.length == 1)
         },
         test("/users/{user-id}/posts/{post-id}") {
           val codec =
-            PathCodec.path("/users") / SegmentCodec.int("user-id") / SegmentCodec.literal("posts") / SegmentCodec
+            PathCodec.path("/users") / PathCodec.int("user-id") / PathCodec.literal("posts") / PathCodec
               .string(
                 "post-id",
               )
 
-          assertTrue(codec.segments.length == 5)
+          assertTrue(codec.segments.length == 4)
         },
         test("transformed") {
           val codec =
             PathCodec.path("/users") /
-              SegmentCodec.int("user-id").transform(UserId.apply)(_.value) /
-              SegmentCodec.literal("posts") /
-              SegmentCodec
+              PathCodec.int("user-id").transform(UserId.apply)(_.value) /
+              PathCodec.literal("posts") /
+              PathCodec
                 .string("post-id")
                 .transformOrFailLeft(s =>
                   Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
                 )(_.value)
-          assertTrue(codec.segments.length == 5)
+          assertTrue(codec.segments.length == 4)
         },
       ),
       suite("decoding")(
@@ -86,14 +86,14 @@ object PathCodecSpec extends ZIOHttpSpec {
           assertTrue(codec.decode(Path("/users")) == Right(Path("/users")))
         },
         test("/users") {
-          val codec = PathCodec.empty / SegmentCodec.literal("users")
+          val codec = PathCodec.empty / PathCodec.literal("users")
 
           assertTrue(codec.decode(Path("/users")) == Right(())) &&
           assertTrue(codec.decode(Path("/users/")) == Right(()))
         },
         test("concat") {
-          val codec1 = PathCodec.empty / SegmentCodec.literal("users") / SegmentCodec.int("user-id")
-          val codec2 = PathCodec.empty / SegmentCodec.literal("posts") / SegmentCodec.string("post-id")
+          val codec1 = PathCodec.empty / PathCodec.literal("users") / PathCodec.int("user-id")
+          val codec2 = PathCodec.empty / PathCodec.literal("posts") / PathCodec.string("post-id")
 
           val codec = codec1 ++ codec2
 
@@ -102,9 +102,9 @@ object PathCodecSpec extends ZIOHttpSpec {
         test("transformed") {
           val codec =
             PathCodec.path("/users") /
-              SegmentCodec.int("user-id").transform(UserId.apply)(_.value) /
-              SegmentCodec.literal("posts") /
-              SegmentCodec
+              PathCodec.int("user-id").transform(UserId.apply)(_.value) /
+              PathCodec.literal("posts") /
+              PathCodec
                 .string("post-id")
                 .transformOrFailLeft(s =>
                   Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
@@ -122,7 +122,7 @@ object PathCodecSpec extends ZIOHttpSpec {
           assertTrue(codec.segments == Chunk(SegmentCodec.empty))
         },
         test("/users") {
-          val codec = PathCodec.empty / SegmentCodec.literal("users")
+          val codec = PathCodec.empty / PathCodec.literal("users")
 
           assertTrue(
             codec.segments ==
@@ -137,24 +137,24 @@ object PathCodecSpec extends ZIOHttpSpec {
           assertTrue(codec.render == "")
         },
         test("/users") {
-          val codec = PathCodec.empty / SegmentCodec.literal("users")
+          val codec = PathCodec.empty / PathCodec.literal("users")
 
           assertTrue(codec.render == "/users")
         },
         test("/users/{user-id}/posts/{post-id}") {
           val codec =
-            PathCodec.empty / SegmentCodec.literal("users") / SegmentCodec.int("user-id") / SegmentCodec.literal(
+            PathCodec.empty / PathCodec.literal("users") / PathCodec.int("user-id") / PathCodec.literal(
               "posts",
-            ) / SegmentCodec.string("post-id")
+            ) / PathCodec.string("post-id")
 
           assertTrue(codec.render == "/users/{user-id}/posts/{post-id}")
         },
         test("transformed") {
           val codec =
             PathCodec.path("/users") /
-              SegmentCodec.int("user-id").transform(UserId.apply)(_.value) /
-              SegmentCodec.literal("posts") /
-              SegmentCodec
+              PathCodec.int("user-id").transform(UserId.apply)(_.value) /
+              PathCodec.literal("posts") /
+              PathCodec
                 .string("post-id")
                 .transformOrFailLeft(s =>
                   Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),

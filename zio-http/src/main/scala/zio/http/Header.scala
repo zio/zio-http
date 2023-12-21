@@ -30,6 +30,7 @@ import scala.util.{Either, Failure, Success, Try}
 import zio._
 
 import zio.http.codec.RichTextCodec
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.Http
 import zio.http.internal.DateEncoding
 
 sealed trait Header {
@@ -2480,16 +2481,12 @@ object Header {
     private val codec: RichTextCodec[ContentType] = {
 
       // char `.` according to BNF not allowed as `token`, but here tolerated
-      val token         = RichTextCodec.filter(_ => true).validate("not a token") {
-        case ' ' | '(' | ')' | '<' | '>' | '@' | ',' | ';' | ':' | '\\' | '"' | '/' | '[' | ']' | '?' | '=' => false
-        case _                                                                                              => true
-      }
-      val tokenQuoted   = RichTextCodec.filter(_ => true).validate("not a quoted token") {
-        case ' ' | '"' => false
-        case _         => true
-      }
+      val token = RichTextCodec.charsNot(' ', '(', ')', '<', '>', '@', ',', ';', ':', '\\', '"', '/', '[', ']', '?', '=')
+
+      val tokenQuoted = RichTextCodec.charsNot(' ', '"')
+
       val type1         = RichTextCodec.string.collectOrFail("unsupported main type") {
-        case value if MediaType.mainTypeMap.get(value).isDefined => value
+        case value if MediaType.mainTypeMap.contains(value) => value
       }
       val type1x        = (RichTextCodec.literalCI("x-") ~ token.repeat.string).transform[String](in => s"${in._1}${in._2}")(in => ("x-", s"${in.substring(2)}"))
       val codecType1    = (type1 | type1x).transform[String](_.merge) {
@@ -4176,8 +4173,9 @@ object Header {
           2xx warn-codes describe some aspect of the representation that is not rectified by a validation and
              will not be deleted by a cache after validation unless a full response is sent.
        */
-      val warnCode: Int = Try {
-        Integer.parseInt(warningString.split(" ")(0))
+      val warnCodeString = warningString.split(" ")(0)
+      val warnCode: Int  = Try {
+        Integer.parseInt(warnCodeString)
       }.getOrElse(-1)
 
       /*
@@ -4190,11 +4188,11 @@ object Header {
          <warn-text>
          An advisory text describing the error.
        */
-      val descriptionStartIndex = warningString.indexOf('\"')
-      val descriptionEndIndex   = warningString.indexOf("\"", warningString.indexOf("\"") + 1)
+      val descriptionStartIndex = warningString.indexOf('\"', warnCodeString.length + warnAgent.length) + 1
+      val descriptionEndIndex   = warningString.indexOf("\"", descriptionStartIndex)
       val description           =
         Try {
-          warningString.substring(descriptionStartIndex, descriptionEndIndex + 1)
+          warningString.substring(descriptionStartIndex, descriptionEndIndex)
         }.getOrElse("")
 
       /*
@@ -4252,17 +4250,16 @@ object Header {
 
     def render(warning: Warning): String =
       warning match {
-        case Warning(code, agent, text, date) => {
+        case Warning(code, agent, text, date) =>
           val formattedDate = date match {
             case Some(value) => DateEncoding.default.encodeDate(value)
             case None        => ""
           }
           if (formattedDate.isEmpty) {
-            code.toString + " " + agent + " " + text
+            code.toString + " " + agent + " " + '"' + text + '"'
           } else {
-            code.toString + " " + agent + " " + text + " " + '"' + formattedDate + '"'
+            code.toString + " " + agent + " " + '"' + text + '"' + " " + '"' + formattedDate + '"'
           }
-        }
       }
   }
 

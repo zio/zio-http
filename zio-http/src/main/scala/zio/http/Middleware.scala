@@ -16,12 +16,13 @@
 package zio.http
 
 import java.io.File
+import java.net.URLEncoder
 
 import zio._
 import zio.metrics._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.codec.{PathCodec, SegmentCodec}
+import zio.http.endpoint.openapi.OpenAPI
 
 trait Middleware[-UpperEnv] { self =>
   def apply[Env1 <: UpperEnv, Err](
@@ -357,7 +358,7 @@ object Middleware extends HandlerAspects {
               if (isFishy) {
                 Handler.fromZIO(ZIO.logWarning(s"fishy request detected: ${request.path.encode}")) *> Handler.badRequest
               } else {
-                val segs   = pattern.pathCodec.segments.collect { case SegmentCodec.Literal(v, _) =>
+                val segs   = pattern.pathCodec.segments.collect { case SegmentCodec.Literal(v) =>
                   v
                 }
                 val unnest = segs.foldLeft(Path.empty)(_ / _).addLeadingSlash
