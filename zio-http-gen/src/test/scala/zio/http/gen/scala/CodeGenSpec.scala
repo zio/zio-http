@@ -6,6 +6,7 @@ import java.nio.file._
 import scala.jdk.CollectionConverters._
 
 import zio.Scope
+import zio.test.TestAspect.flaky
 import zio.test._
 
 import zio.http._
@@ -199,5 +200,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/GeneratedPaymentNoDiscriminator.scala",
         )
       },
-    ) @@ java11OrNewer
+    ) @@ java11OrNewer @@ flaky // Downloading scalafmt on CI is flaky
 }
