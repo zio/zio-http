@@ -387,11 +387,12 @@ object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
           val tempFile = tempPath.toFile
           val http     = Handler.fromFileZIO(ZIO.succeed(tempFile))
           for {
-            r <- http.apply {}
+            r        <- http.apply {}
+            tempFile <- Body.fromFile(tempFile)
           } yield {
             assert(r.status)(equalTo(Status.Ok)) &&
             assert(r.headers)(contains(Header.ContentType(MediaType.image.`jpeg`))) &&
-            assert(r.body)(equalTo(Body.fromFile(tempFile)))
+            assert(r.body)(equalTo(tempFile))
           }
         }
       },

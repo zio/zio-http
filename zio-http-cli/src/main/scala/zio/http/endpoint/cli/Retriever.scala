@@ -50,7 +50,7 @@ private[cli] object Retriever {
 
     override def retrieve(): Task[FormField] =
       for {
-        chunk <- Body.fromFile(new java.io.File(path.toUri())).asChunk
+        chunk <- Body.fromFile(new java.io.File(path.toUri())).flatMap(_.asChunk)
       } yield FormField.binaryField(name, chunk, media)
 
   }

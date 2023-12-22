@@ -45,55 +45,60 @@ object NettyBodyWriter {
         // Write the end marker.
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         None
-      case AsyncBody(async, _, _)             =>
-        async(
-          new UnsafeAsync {
-            override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
-              val nettyMsg = message match {
-                case b: ByteArray => Unpooled.wrappedBuffer(b.array)
-                case other        => Unpooled.wrappedBuffer(other.toArray)
-              }
-              ctx.writeAndFlush(nettyMsg)
-              if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-            }
+      case AsyncBody(async, _, _, _)          =>
+        contentLength.orElse(body.knownContentLength) match {
+          case Some(_) =>
+            async(
+              new UnsafeAsync {
+                override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+                  val nettyMsg = message match {
+                    case b: ByteArray => Unpooled.wrappedBuffer(b.array)
+                    case other        => Unpooled.wrappedBuffer(other.toArray)
+                  }
+                  ctx.writeAndFlush(nettyMsg)
+                }
 
-            override def fail(cause: Throwable): Unit =
-              ctx.fireExceptionCaught(cause)
-          },
-        )
-        None
+                override def fail(cause: Throwable): Unit =
+                  ctx.fireExceptionCaught(cause)
+              },
+            )
+            None
+          case None    =>
+            async(
+              new UnsafeAsync {
+                override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+                  val nettyMsg = message match {
+                    case b: ByteArray => Unpooled.wrappedBuffer(b.array)
+                    case other        => Unpooled.wrappedBuffer(other.toArray)
+                  }
+                  ctx.writeAndFlush(new DefaultHttpContent(nettyMsg))
+                  if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+                }
+
+                override def fail(cause: Throwable): Unit =
+                  ctx.fireExceptionCaught(cause)
+              },
+            )
+            None
+        }
       case AsciiStringBody(asciiString, _, _) =>
-        ctx.write(Unpooled.wrappedBuffer(asciiString.array()))
-        ctx.flush()
+        ctx.writeAndFlush(Unpooled.wrappedBuffer(asciiString.array()))
         None
-      case StreamBody(stream, _, _)           =>
+      case StreamBody(stream, _, _, _)        =>
         Some(
-          contentLength match {
+          contentLength.orElse(body.knownContentLength) match {
             case Some(length) =>
               stream.chunks
                 .runFoldZIO(length) { (remaining, bytes) =>
-                  remaining - bytes.size match {
-                    case 0L =>
-                      NettyFutureExecutor.executed {
-                        // Flushes the last body content and LastHttpContent together to avoid race conditions.
-                        ctx.write(new DefaultHttpContent(Unpooled.wrappedBuffer(bytes.toArray)))
-                        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-                      }.as(0L)
-
-                    case n =>
-                      NettyFutureExecutor.executed {
-                        ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(bytes.toArray)))
-                      }.as(n)
-                  }
+                  NettyFutureExecutor.executed {
+                    ctx.writeAndFlush(Unpooled.wrappedBuffer(bytes.toArray))
+                  }.as(remaining - bytes.size)
                 }
                 .flatMap {
                   case 0L        => ZIO.unit
                   case remaining =>
                     val actualLength = length - remaining
-                    ZIO.logWarning(s"Expected Content-Length of $length, but sent $actualLength bytes") *>
-                      NettyFutureExecutor.executed {
-                        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-                      }
+                    ZIO.logWarning(s"Expected Content-Length of $length, but sent $actualLength bytes")
                 }
 
             case None =>
@@ -109,8 +114,7 @@ object NettyBodyWriter {
           },
         )
       case ChunkBody(data, _, _)              =>
-        ctx.write(Unpooled.wrappedBuffer(data.toArray))
-        ctx.flush()
+        ctx.writeAndFlush(Unpooled.wrappedBuffer(data.toArray))
         None
       case EmptyBody                          =>
         ctx.flush()

@@ -63,7 +63,8 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request(version, method, url, headers, Body.fromFile(file), None)
+      body    <- Gen.fromZIO(Body.fromFile(file))
+    } yield Request(version, method, url, headers, body, None)
   }
 
   def genAbsoluteLocation: Gen[Any, Location.Absolute] = for {
@@ -97,7 +98,7 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Body.fromStream(
+            Body.fromStreamChunked(
               ZStream.fromIterable(list, chunkSize = 2).map(b => Chunk.fromArray(b.getBytes())).flattenChunks,
             ),
             Body.fromString(list.mkString("")),
@@ -134,7 +135,7 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Body.fromStream(
+            Body.fromStreamChunked(
               ZStream.fromIterable(list, chunkSize = 2).map(b => Chunk.fromArray(b.getBytes())).flattenChunks,
             ),
             Body.fromString(list.mkString("")),
