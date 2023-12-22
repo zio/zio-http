@@ -75,6 +75,28 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       _ <- driver.addApp(app, r)
     } yield ()
 
+  /**
+   * @param routes new routes
+   * @tparam Env environment
+   * @return
+   *
+   * @example
+   * {{{
+   *   for{
+          client <- ZIO.service[Client]
+          testRequest <- requestToCorrectPort
+          _ <- TestServer.addRoutes(
+            Routes(
+              Method.GET / PathCodec.empty -> handler {
+                Response.ok
+              }
+            )
+          )
+          response <- client(testRequest)
+
+        } yield assertTrue(status(response)==Status.Ok)
+   * }}}
+   */
   def addRoutes[Env](routes : Routes[Env,Response]): ZIO[Env, Nothing, Unit] =
     for{
       env <- ZIO.environment[Env]

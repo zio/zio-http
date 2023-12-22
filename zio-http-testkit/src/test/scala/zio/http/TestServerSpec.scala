@@ -90,7 +90,7 @@ object TestServerSpec extends ZIOHttpSpec {
         Scope.default,
       ),
     suite("Test Routes")(
-      test("Get A Respones Ok"){
+      test("Get a Response for Ok"){
         for{
           client <- ZIO.service[Client]
           testRequest <- requestToCorrectPort
