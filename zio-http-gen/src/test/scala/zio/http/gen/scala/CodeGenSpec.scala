@@ -2,18 +2,16 @@ package zio.http.gen.scala
 
 import java.io.File
 import java.nio.file._
-
 import scala.jdk.CollectionConverters._
-
 import zio.Scope
 import zio.test._
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.EndpointGen
+import zio.test.TestAspect.flaky
 
 object CodeGenSpec extends ZIOSpecDefault {
 
@@ -199,5 +197,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/GeneratedPaymentNoDiscriminator.scala",
         )
       },
-    ) @@ java11OrNewer
+    ) @@ java11OrNewer @@ flaky // Downloading scalafmt on CI is flaky
 }
