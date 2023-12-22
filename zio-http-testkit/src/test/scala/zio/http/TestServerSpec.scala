@@ -8,13 +8,13 @@ import zio.test._
 object TestServerSpec extends ZIOHttpSpec {
   def status(response: Response): Status = response.status
 
-  def spec = suite("TestServerSpec")(
+  def spec: Spec[TestEnvironment with Scope, Any] = suite("TestServerSpec")(
     test("with state") {
       for {
         client      <- ZIO.service[Client]
         state       <- Ref.make(0)
         testRequest <- requestToCorrectPort
-        _           <- TestServer.addHandler { case (_: Request) =>
+        _           <- TestServer.addHandler { case _: Request =>
           for {
             curState <- state.getAndUpdate(_ + 1)
           } yield {
