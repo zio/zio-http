@@ -364,7 +364,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * handlers.
    */
   def customAuthProvidingZIO[Env, Context](
-    provide: Request => ZIO[Env, Nothing, Option[Context]],
+    provide: Request => ZIO[Env, Response, Option[Context]],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
   ): HandlerAspect[Env, Context] =
