@@ -75,6 +75,13 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       _ <- driver.addApp(app, r)
     } yield ()
 
+  def addRoutes[Env](routes : Routes[Env,Response]): ZIO[Env, Nothing, Unit] =
+    for{
+      env <- ZIO.environment[Env]
+      app = HttpApp(routes)
+      _ <- driver.addApp(app,env)
+    } yield ()
+
   override def install[R](httpApp: HttpApp[R])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
@@ -91,6 +98,9 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
 }
 
 object TestServer {
+  def addRoutes[R](value: Routes[R, Response]) : ZIO[R with TestServer,Nothing,Unit] =
+    ZIO.serviceWithZIO[TestServer](_.addRoutes(value))
+
   def addHandler[R](
     pf: PartialFunction[Request, ZIO[R, Response, Response]],
   ): ZIO[R with TestServer, Nothing, Unit] =

@@ -1,9 +1,9 @@
 package zio.http
 
 import zio._
-import zio.test._
-
+import zio.http.codec.PathCodec
 import zio.http.netty.server.NettyDriver
+import zio.test._
 
 object TestServerSpec extends ZIOHttpSpec {
   def status(response: Response): Status = response.status
@@ -85,11 +85,31 @@ object TestServerSpec extends ZIOHttpSpec {
             )
         } yield assertTrue(status(finalResponse) == Status.NotFound)
       },
-    )
-      .provideSome[Client with Driver](
+    ).provideSome[Client with Driver](
         TestServer.layer,
         Scope.default,
       ),
+    suite("Test Routes")(
+      test("Get A Respones Ok"){
+        for{
+          client <- ZIO.service[Client]
+          testRequest <- requestToCorrectPort
+          _ <- TestServer.addRoutes(
+            Routes(
+              Method.GET / PathCodec.empty -> handler {
+                Response.ok
+              }
+            )
+          )
+          response <- client(testRequest)
+
+        } yield assertTrue(status(response)==Status.Ok)
+      },
+
+    ).provideSome[Client with Driver](
+      TestServer.layer,
+      Scope.default
+    )
   ).provide(
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,
