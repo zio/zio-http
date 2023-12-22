@@ -76,32 +76,34 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
     } yield ()
 
   /**
-   * @param routes new routes
-   * @tparam Env environment
+   * @param routes
+   *   new routes
+   * @tparam Env
+   *   environment
    * @return
    *
    * @example
-   * {{{
-   *   for{
-          client <- ZIO.service[Client]
-          testRequest <- requestToCorrectPort
-          _ <- TestServer.addRoutes(
-            Routes(
-              Method.GET / PathCodec.empty -> handler {
-                Response.ok
-              }
-            )
-          )
-          response <- client(testRequest)
-
-        } yield assertTrue(status(response)==Status.Ok)
-   * }}}
+   *   {{{
+   *    for{
+   * client <- ZIO.service[Client]
+   * testRequest <- requestToCorrectPort
+   * _ <- TestServer.addRoutes(
+   * Routes(
+   * Method.GET / PathCodec.empty -> handler {
+   * Response.ok
+   * }
+   * )
+   * )
+   * response <- client(testRequest)
+   *
+   * } yield assertTrue(status(response)==Status.Ok)
+   *   }}}
    */
-  def addRoutes[Env](routes : Routes[Env,Response]): ZIO[Env, Nothing, Unit] =
-    for{
+  def addRoutes[Env](routes: Routes[Env, Response]): ZIO[Env, Nothing, Unit] =
+    for {
       env <- ZIO.environment[Env]
       app = HttpApp(routes)
-      _ <- driver.addApp(app,env)
+      _ <- driver.addApp(app, env)
     } yield ()
 
   override def install[R](httpApp: HttpApp[R])(implicit
@@ -120,7 +122,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
 }
 
 object TestServer {
-  def addRoutes[R](value: Routes[R, Response]) : ZIO[R with TestServer,Nothing,Unit] =
+  def addRoutes[R](value: Routes[R, Response]): ZIO[R with TestServer, Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer](_.addRoutes(value))
 
   def addHandler[R](
