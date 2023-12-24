@@ -14,11 +14,11 @@ object WebSocketAdvanced extends ZIOAppDefault {
         case Read(WebSocketFrame.Text("end"))                =>
           channel.shutdown
 
-        // Send a "bar" if the server sends a "foo"
+        // Send a "bar" if the client sends a "foo"
         case Read(WebSocketFrame.Text("foo"))                =>
           channel.send(Read(WebSocketFrame.text("bar")))
 
-        // Send a "foo" if the server sends a "bar"
+        // Send a "foo" if the client sends a "bar"
         case Read(WebSocketFrame.Text("bar"))                =>
           channel.send(Read(WebSocketFrame.text("foo")))
 
@@ -31,7 +31,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
               ZIO.logErrorCause(s"failed sending", cause)
             }
 
-        // Send a "greeting" message to the server once the connection is established
+        // Send a "greeting" message to the client once the connection is established
         case UserEventTriggered(UserEvent.HandshakeComplete) =>
           channel.send(Read(WebSocketFrame.text("Greetings!")))
 
@@ -57,4 +57,43 @@ object WebSocketAdvanced extends ZIOAppDefault {
     ).toHttpApp
 
   override val run = Server.serve(app).provide(Server.default)
+}
+
+object WebSocketAdvancedClient extends ZIOAppDefault {
+
+  def sendChatMessage(message: String): ZIO[Queue[String], Throwable, Unit] =
+    ZIO.serviceWithZIO[Queue[String]](_.offer(message).unit)
+
+  def processQueue(channel: WebSocketChannel): ZIO[Queue[String], Throwable, Unit] = {
+    for {
+      queue <- ZIO.service[Queue[String]]
+      msg   <- queue.take
+      _     <- channel.send(Read(WebSocketFrame.Text(msg)))
+    } yield ()
+  }.forever.forkDaemon.unit
+
+  private def webSocketHandler: ZIO[Queue[String] with Client with Scope, Throwable, Response] =
+    Handler.webSocket { channel =>
+      for {
+        _ <- processQueue(channel)
+        _ <- channel.receiveAll {
+          case Read(WebSocketFrame.Text(text)) =>
+            Console.printLine(s"Server: $text")
+          case _                               =>
+            ZIO.unit
+        }
+      } yield ()
+    }.connect("ws://localhost:8080/subscriptions")
+
+  override val run =
+    (for {
+      _ <- webSocketHandler
+      _ <- Console.readLine.flatMap(sendChatMessage).forever.forkDaemon
+      _ <- ZIO.never
+    } yield ())
+      .provideSome[Scope](
+        Client.default,
+        ZLayer(Queue.bounded[String](100)),
+      )
+
 }
