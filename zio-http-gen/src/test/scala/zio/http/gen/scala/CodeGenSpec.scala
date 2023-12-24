@@ -1,6 +1,5 @@
 package zio.http.gen.scala
 
-import java.io.File
 import java.nio.file._
 
 import scala.jdk.CollectionConverters._
@@ -200,5 +199,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/GeneratedPaymentNoDiscriminator.scala",
         )
       },
-    ) @@ java11OrNewer @@ flaky // Downloading scalafmt on CI is flaky
+    ) @@ java11OrNewer
 }

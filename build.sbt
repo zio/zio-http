@@ -1,5 +1,5 @@
 import BuildHelper._
-import Dependencies.{scalafmt, _}
+import Dependencies._
 import sbt.librarymanagement.ScalaArtifacts.isScala3
 import scala.concurrent.duration._
 
@@ -246,7 +246,8 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio`,
       `zio-test`,
       `zio-test-sbt`,
-      scalafmt.cross(CrossVersion.for3Use2_13),
+      `scalafmt-dynamic`.cross(CrossVersion.for3Use2_13),
+      `scalafmt-core`.cross(CrossVersion.for3Use2_13),
     ),
   )
   .dependsOn(zioHttp)
