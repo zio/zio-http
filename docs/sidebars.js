@@ -63,7 +63,7 @@ const sidebars = {
                 "examples/advanced/server",
                 "examples/advanced/streaming-file",
                 "examples/advanced/streaming-response",
-                "examples/advanced/websocket"
+                "examples/advanced/websocket-server"
               ]
             }
           ]

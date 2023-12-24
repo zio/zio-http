@@ -1,5 +1,10 @@
-package example
+---
+id: websocket-server
+title: "WebSocket Server Example"
+sidebar_label: "WebSocket Server"
+---
 
+```scala mdoc:silent
 import zio._
 
 import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
@@ -24,12 +29,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
         // Echo the same message 10 times if it's not "foo" or "bar"
         case Read(WebSocketFrame.Text(text))                 =>
-          channel
-            .send(Read(WebSocketFrame.text(s"echo $text")))
-            .repeatN(10)
-            .catchSomeCause { case cause =>
-              ZIO.logErrorCause(s"failed sending", cause)
-            }
+          channel.send(Read(WebSocketFrame.text(text))).repeatN(10)
 
         // Send a "greeting" message to the server once the connection is established
         case UserEventTriggered(UserEvent.HandshakeComplete) =>
@@ -50,7 +50,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
   val app: HttpApp[Any] =
     Routes(
-      Method.GET / "greet" / string("name") -> handler { (name: String, _: Request) =>
+      Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) =>
         Response.text(s"Greetings ${name}!")
       },
       Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
@@ -58,3 +58,4 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
   override val run = Server.serve(app).provide(Server.default)
 }
+```
