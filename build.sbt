@@ -1,5 +1,5 @@
 import BuildHelper._
-import Dependencies._
+import Dependencies.{scalafmt, _}
 import sbt.librarymanagement.ScalaArtifacts.isScala3
 import scala.concurrent.duration._
 
@@ -118,6 +118,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttp,
       zioHttpBenchmarks,
       zioHttpCli,
+      zioHttpGen,
       zioHttpExample,
       zioHttpTestkit,
       docs,
@@ -236,6 +237,19 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zioHttp, zioHttpCli)
+
+lazy val zioHttpGen = (project in file("zio-http-gen"))
+  .settings(stdSettings("zio-http-gen"))
+  .settings(publishSetting(true))
+  .settings(
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-test`,
+      `zio-test-sbt`,
+      scalafmt.cross(CrossVersion.for3Use2_13),
+    ),
+  )
+  .dependsOn(zioHttp)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .enablePlugins(Shading.plugins(): _*)

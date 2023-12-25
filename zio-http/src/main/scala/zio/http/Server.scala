@@ -54,6 +54,7 @@ object Server {
     requestDecompression: Decompression,
     responseCompression: Option[ResponseCompressionConfig],
     requestStreaming: RequestStreaming,
+    maxInitialLineLength: Int,
     maxHeaderSize: Int,
     logWarningOnFatalError: Boolean,
     gracefulShutdownTimeout: Duration,
@@ -112,6 +113,8 @@ object Server {
      */
     def logWarningOnFatalError(enable: Boolean): Config = self.copy(logWarningOnFatalError = enable)
 
+    def maxInitialLineLength(initialLineLength: Int): Config = self.copy(maxInitialLineLength = initialLineLength)
+
     /**
      * Configure the server to use `maxHeaderSize` value when encode/decode
      * headers.
@@ -169,6 +172,7 @@ object Server {
         Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
         ResponseCompressionConfig.config.nested("response-compression").optional ++
         RequestStreaming.config.nested("request-streaming").withDefault(Config.default.requestStreaming) ++
+        zio.Config.int("max-initial-line-length").withDefault(Config.default.maxInitialLineLength) ++
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
         zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
         zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout) ++
@@ -183,6 +187,7 @@ object Server {
             requestDecompression,
             responseCompression,
             requestStreaming,
+            maxInitialLineLength,
             maxHeaderSize,
             logWarningOnFatalError,
             gracefulShutdownTimeout,
@@ -196,6 +201,7 @@ object Server {
           requestDecompression = requestDecompression,
           responseCompression = responseCompression,
           requestStreaming = requestStreaming,
+          maxInitialLineLength = maxInitialLineLength,
           maxHeaderSize = maxHeaderSize,
           logWarningOnFatalError = logWarningOnFatalError,
           gracefulShutdownTimeout = gracefulShutdownTimeout,
@@ -211,6 +217,7 @@ object Server {
       requestDecompression = Decompression.No,
       responseCompression = None,
       requestStreaming = RequestStreaming.Disabled(1024 * 100),
+      maxInitialLineLength = 4096,
       maxHeaderSize = 8192,
       logWarningOnFatalError = true,
       gracefulShutdownTimeout = 10.seconds,

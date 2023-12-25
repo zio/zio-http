@@ -535,6 +535,7 @@ object ZClient {
     ssl: Option[ClientSSLConfig],
     proxy: Option[zio.http.Proxy],
     connectionPool: ConnectionPoolConfig,
+    maxInitialLineLength: Int,
     maxHeaderSize: Int,
     requestDecompression: Decompression,
     localAddress: Option[InetSocketAddress],
@@ -556,6 +557,8 @@ object ZClient {
 
     def disabledConnectionPool: Config =
       self.copy(connectionPool = ConnectionPoolConfig.Disabled)
+
+    def maxInitialLineLength(initialLineLength: Int): Config = self.copy(maxInitialLineLength = initialLineLength)
 
     /**
      * Configure the client to use `maxHeaderSize` value when encode/decode
@@ -590,6 +593,7 @@ object ZClient {
         ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++
           zio.http.Proxy.config.nested("proxy").optional.withDefault(Config.default.proxy) ++
           ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
+          zio.Config.int("max-initial-line-length").withDefault(Config.default.maxInitialLineLength) ++
           zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
           zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
@@ -600,6 +604,7 @@ object ZClient {
               ssl,
               proxy,
               connectionPool,
+              maxInitialLineLength,
               maxHeaderSize,
               requestDecompression,
               addUserAgentHeader,
@@ -610,6 +615,7 @@ object ZClient {
             ssl = ssl,
             proxy = proxy,
             connectionPool = connectionPool,
+            maxInitialLineLength = maxInitialLineLength,
             maxHeaderSize = maxHeaderSize,
             requestDecompression = requestDecompression,
             addUserAgentHeader = addUserAgentHeader,
@@ -622,6 +628,7 @@ object ZClient {
       ssl = None,
       proxy = None,
       connectionPool = ConnectionPoolConfig.Fixed(10),
+      maxInitialLineLength = 4096,
       maxHeaderSize = 8192,
       requestDecompression = Decompression.No,
       localAddress = None,
@@ -708,6 +715,7 @@ object ZClient {
                       location,
                       clientConfig.proxy,
                       clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
+                      clientConfig.maxInitialLineLength,
                       clientConfig.maxHeaderSize,
                       clientConfig.requestDecompression,
                       clientConfig.idleTimeout,

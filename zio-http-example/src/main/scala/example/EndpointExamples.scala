@@ -3,12 +3,13 @@ package example
 import zio._
 
 import zio.http.Header.Authorization
+import zio.http._
 import zio.http.codec.{HttpCodec, PathCodec}
+import zio.http.endpoint.openapi.{OpenAPIGen, SwaggerUI}
 import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
-import zio.http.{int => _, _}
 
 object EndpointExamples extends ZIOAppDefault {
-  import HttpCodec._
+  import HttpCodec.query
   import PathCodec._
 
   val auth = EndpointMiddleware.auth
@@ -36,7 +37,9 @@ object EndpointExamples extends ZIOAppDefault {
       }
     }
 
-  val routes = Routes(getUserRoute, getUserPostsRoute)
+  val openAPI = OpenAPIGen.fromEndpoints(title = "Endpoint Example", version = "1.0", getUser, getUserPosts)
+
+  val routes = Routes(getUserRoute, getUserPostsRoute) ++ SwaggerUI.routes("docs" / "openapi", openAPI)
 
   val app = routes.toHttpApp // (auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
 

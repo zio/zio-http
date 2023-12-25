@@ -81,12 +81,35 @@ final case class OpenAPI(
     openapi = openapi,
     info = info,
     servers = servers ++ other.servers,
-    paths = paths ++ other.paths,
+    paths = mergePaths(paths, other.paths),
     components = (components.toSeq ++ other.components).reduceOption(_ ++ _),
     security = security ++ other.security,
     tags = tags ++ other.tags,
     externalDocs = externalDocs,
   )
+
+  private def mergePaths(paths: Map[OpenAPI.Path, OpenAPI.PathItem]*): Map[OpenAPI.Path, OpenAPI.PathItem] =
+    paths
+      .foldRight[Seq[(OpenAPI.Path, OpenAPI.PathItem)]](Seq.empty)((z, p) => z.toSeq ++ p)
+      .groupBy(_._1)
+      .map { case (path, pathItems) =>
+        val pathItem = pathItems.map(_._2).reduce { (i, j) =>
+          i.copy(
+            get = i.get.orElse(j.get),
+            put = i.put.orElse(j.put),
+            post = i.post.orElse(j.post),
+            delete = i.delete.orElse(j.delete),
+            options = i.options.orElse(j.options),
+            head = i.head.orElse(j.head),
+            patch = i.patch.orElse(j.patch),
+            trace = i.trace.orElse(j.trace),
+          )
+        }
+        (path, pathItem)
+      }
+
+  def path(path: OpenAPI.Path, pathItem: OpenAPI.PathItem): OpenAPI =
+    copy(paths = mergePaths(Map(path -> pathItem), paths))
 
   def toJson: String =
     JsonCodec
@@ -110,6 +133,11 @@ object OpenAPI {
   implicit val schema: Schema[OpenAPI] =
     DeriveSchema.gen[OpenAPI]
 
+  def fromJson(json: String): Either[String, OpenAPI] =
+    JsonCodec
+      .jsonDecoder(OpenAPI.schema)
+      .decodeJson(json)
+
   def empty: OpenAPI = OpenAPI(
     openapi = "3.1.0",
     info = Info(
@@ -131,9 +159,9 @@ object OpenAPI {
   implicit def statusSchema: Schema[Status] =
     zio.schema
       .Schema[String]
-      .transformOrFail[Status](
-        s => Status.fromInt(s.toInt).toRight("Invalid Status"),
-        p => Right(p.text),
+      .transform[Status](
+        s => Status.fromInt(s.toInt),
+        p => p.text,
       )
 
   implicit def pathMapSchema: Schema[Map[Path, PathItem]] =

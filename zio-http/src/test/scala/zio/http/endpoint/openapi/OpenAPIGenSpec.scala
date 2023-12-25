@@ -1,15 +1,15 @@
 package zio.http.endpoint.openapi
 
-import zio.Scope
 import zio.json.ast.Json
 import zio.json.{EncoderOps, JsonEncoder}
 import zio.test._
+import zio.{Scope, ZIO}
 
 import zio.schema.annotation.{caseName, discriminatorName, noDiscriminator, optionalField, transientField}
 import zio.schema.codec.JsonCodec
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.Method.GET
+import zio.http.Method.{GET, POST}
 import zio.http._
 import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.endpoint._
@@ -46,6 +46,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   final case class WithOptionalField(name: String, @optionalField age: Int)
   implicit val withOptionalFieldSchema: Schema[WithOptionalField] =
     DeriveSchema.gen[WithOptionalField]
+
+  final case class NestedProduct(imageMetadata: ImageMetadata, withOptionalField: WithOptionalField)
+  implicit val nestedProductSchema: Schema[NestedProduct] =
+    DeriveSchema.gen[NestedProduct]
 
   sealed trait SimpleEnum
   object SimpleEnum {
@@ -179,8 +183,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "deprecated" : false,
                              |            "schema" :
                              |              {
-                             |              "type" :
-                             |                "string"
+                             |              "type" : "string",
+                             |              "format" : "uuid"
                              |            },
                              |            "explode" : false,
                              |            "style" : "simple"
@@ -1226,8 +1230,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "deprecated" : false,
             |            "schema" :
             |              {
-            |              "type" :
-            |                "string"
+            |              "type" : "string",
+            |              "format" : "uuid"
             |            },
             |            "explode" : false,
             |            "style" : "simple"
@@ -1631,31 +1635,35 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  },
             |  "components" : {
             |    "schemas" : {
+            |      "ImageMetadata" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "size" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          true,
+            |        "required" : [
+            |          "name",
+            |          "size"
+            |        ]
+            |      },
             |      "WithComplexDefaultValue" :
             |        {
             |        "type" :
             |          "object",
             |        "properties" : {
             |          "data" : {
-            |            "type" :
-            |              "object",
-            |            "properties" : {
-            |              "name" : {
-            |                "type" :
-            |                  "string"
-            |              },
-            |              "size" : {
-            |                "type" :
-            |                  "integer",
-            |                "format" : "int32"
-            |              }
-            |            },
-            |            "additionalProperties" :
-            |              true,
-            |            "required" : [
-            |              "name",
-            |              "size"
-            |            ],
+            |            "$ref" : "#/components/schemas/ImageMetadata",
             |            "description" : "If not set, this field defaults to the value of the default annotation.",
             |            "default" : {
             |              "name" : "default",
@@ -1721,6 +1729,104 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |          true,
                          |        "required" : [
                          |          "name"
+                         |        ]
+                         |      }
+                         |    }
+                         |  }
+                         |}""".stripMargin
+        assertTrue(json == toJsonAst(expected))
+      },
+      test("nested product") {
+        val endpoint  = Endpoint(GET / "static").in[NestedProduct]
+        val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json      = toJsonAst(generated)
+        val expected  = """{
+                         |  "openapi" : "3.1.0",
+                         |  "info" : {
+                         |    "title" : "Simple Endpoint",
+                         |    "version" : "1.0"
+                         |  },
+                         |  "paths" : {
+                         |    "/static" : {
+                         |      "get" : {
+                         |        "requestBody" :
+                         |          {
+                         |          "content" : {
+                         |            "application/json" : {
+                         |              "schema" :
+                         |                {
+                         |                "$ref" : "#/components/schemas/NestedProduct"
+                         |              }
+                         |            }
+                         |          },
+                         |          "required" : true
+                         |        },
+                         |        "deprecated" : false
+                         |      }
+                         |    }
+                         |  },
+                         |  "components" : {
+                         |    "schemas" : {
+                         |      "ImageMetadata" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "name" : {
+                         |            "type" :
+                         |              "string"
+                         |          },
+                         |          "size" : {
+                         |            "type" :
+                         |              "integer",
+                         |            "format" : "int32"
+                         |          }
+                         |        },
+                         |        "additionalProperties" :
+                         |          true,
+                         |        "required" : [
+                         |          "name",
+                         |          "size"
+                         |        ]
+                         |      },
+                         |      "WithOptionalField" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "name" : {
+                         |            "type" :
+                         |              "string"
+                         |          },
+                         |          "age" : {
+                         |            "type" :
+                         |              "integer",
+                         |            "format" : "int32"
+                         |          }
+                         |        },
+                         |        "additionalProperties" :
+                         |          true,
+                         |        "required" : [
+                         |          "name"
+                         |        ]
+                         |      },
+                         |      "NestedProduct" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "imageMetadata" : {
+                         |            "$ref" : "#/components/schemas/ImageMetadata"
+                         |          },
+                         |          "withOptionalField" : {
+                         |            "$ref" : "#/components/schemas/WithOptionalField"
+                         |          }
+                         |        },
+                         |        "additionalProperties" :
+                         |          true,
+                         |        "required" : [
+                         |          "imageMetadata",
+                         |          "withOptionalField"
                          |        ]
                          |      }
                          |    }
@@ -2120,6 +2226,20 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  },
             |  "components" : {
             |    "schemas" : {
+            |      "SealedTraitNoDiscriminator" :
+            |        {
+            |        "oneOf" : [
+            |          {
+            |            "$ref" : "#/components/schemas/One"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Two"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Three"
+            |          }
+            |        ]
+            |      },
             |      "NestedOne" :
             |        {
             |        "type" :
@@ -2150,17 +2270,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          "object",
             |        "properties" : {
             |          "name" : {
-            |            "oneOf" : [
-            |              {
-            |                "$ref" : "#/components/schemas/One"
-            |              },
-            |              {
-            |                "$ref" : "#/components/schemas/Two"
-            |              },
-            |              {
-            |                "$ref" : "#/components/schemas/Three"
-            |              }
-            |            ]
+            |            "$ref" : "#/components/schemas/SealedTraitNoDiscriminator"
             |          }
             |        },
             |        "additionalProperties" :
@@ -2227,6 +2337,25 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  }
             |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("multiple methods on same path") {
+        val getEndpoint  = Endpoint(GET / "test")
+          .out[String](MediaType.text.`plain`)
+        val postEndpoint = Endpoint(POST / "test")
+          .in[String]
+          .out[String](Status.Created, MediaType.text.`plain`)
+        val generated    = OpenAPIGen.fromEndpoints(
+          "Multiple Methods on Same Path",
+          "1.0",
+          getEndpoint,
+          postEndpoint,
+        )
+        val json         = toJsonAst(generated)
+        for {
+          expectedJson <- ZIO.acquireReleaseWith(
+            ZIO.attemptBlockingIO(scala.io.Source.fromResource("endpoint/openapi/multiple-methods-on-same-path.json")),
+          )(buf => ZIO.attemptBlockingIO(buf.close()).orDie)(buf => ZIO.attemptBlockingIO(buf.mkString))
+        } yield assertTrue(json == toJsonAst(expectedJson))
       },
     )
 

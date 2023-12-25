@@ -16,7 +16,8 @@
 package zio.http
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.codec.PathCodec
 
 /**
  * Represents a collection of routes, each of which is defined by a pattern and
@@ -57,6 +58,9 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)
 
+  def apply(request: Request)(implicit ev: Err <:< Response, trace: Trace): ZIO[Env, Response, Response] =
+    self.toHttpApp.apply(request)
+
   def asEnvType[Env2](implicit ev: Env2 <:< Env): Routes[Env2, Err] =
     self.asInstanceOf[Routes[Env2, Err]]
 
@@ -65,19 +69,61 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
 
   /**
    * Handles all typed errors in the routes by converting them into responses.
+   * This method can be used to convert routes that do not handle their errors
+   * into ones that do handle their errors.
    */
   def handleError(f: Err => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleError(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
-   * converting them into responses.
+   * converting them into responses. This method can be used to convert routes
+   * that do not handle their errors into ones that do handle their errors.
    */
   def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleErrorCause(f)))
 
+  /**
+   * Handles all typed errors, as well as all non-recoverable errors, by
+   * converting them into a ZIO effect that produces the response. This method
+   * can be used to convert routes that do not handle their errors into ones
+   * that do handle their errors.
+   */
   def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleErrorCauseZIO(f)))
+
+  def nest(prefix: PathCodec[Unit])(implicit trace: Trace, ev: Err <:< Response): Routes[Env, Err] =
+    new Routes(self.routes.map(_.nest(prefix)))
+
+  /**
+   * Handles all typed errors in the routes by converting them into responses,
+   * taking into account the request that caused the error. This method can be
+   * used to convert routes that do not handle their errors into ones that do
+   * handle their errors.
+   */
+  def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Routes[Env, Nothing] =
+    new Routes(routes.map(_.handleErrorRequest(f)))
+
+  /**
+   * Handles all typed errors in the routes by converting them into responses,
+   * taking into account the request that caused the error. This method can be
+   * used to convert routes that do not handle their errors into ones that do
+   * handle their errors.
+   */
+  def handleErrorRequestCause(f: (Request, Cause[Err]) => Response)(implicit trace: Trace): Routes[Env, Nothing] =
+    new Routes(routes.map(_.handleErrorRequestCause(f)))
+
+  /**
+   * Handles all typed errors, as well as all non-recoverable errors, by
+   * converting them into a ZIO effect that produces the response, taking into
+   * account the request that caused the error. This method can be used to
+   * convert routes that do not handle their errors into ones that do handle
+   * their errors.
+   */
+  def handleErrorRequestCauseZIO(f: (Request, Cause[Err]) => ZIO[Any, Nothing, Response])(implicit
+    trace: Trace,
+  ): Routes[Env, Nothing] =
+    new Routes(routes.map(_.handleErrorRequestCauseZIO(f)))
 
   /**
    * Returns new routes that have each been provided the specified environment,
@@ -85,6 +131,40 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    */
   def provideEnvironment(env: ZEnvironment[Env]): Routes[Any, Err] =
     new Routes(routes.map(_.provideEnvironment(env)))
+
+  def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] = {
+
+    class RouteFailure[+Err](val err: Cause[Err]) extends Throwable(null, null, true, false) {
+      override def getMessage: String = err.unified.headOption.fold("<unknown>")(_.message)
+
+      override def getStackTrace(): Array[StackTraceElement] =
+        err.unified.headOption.fold[Chunk[StackTraceElement]](Chunk.empty)(_.trace).toArray
+
+      override def getCause(): Throwable =
+        err.find { case Cause.Die(throwable, _) => throwable }
+          .orElse(err.find { case Cause.Fail(value: Throwable, _) => value })
+          .orNull
+
+      def fillSuppressed()(implicit unsafe: Unsafe): Unit =
+        if (getSuppressed().length == 0) {
+          err.unified.iterator.drop(1).foreach(unified => addSuppressed(unified.toThrowable))
+        }
+
+      override def toString =
+        err.prettyPrint
+    }
+    var routeFailure: RouteFailure[Err] = null
+
+    handleErrorCauseZIO { cause =>
+      routeFailure = new RouteFailure(cause)
+      ZIO.refailCause(Cause.die(routeFailure))
+    }
+      .apply(request)
+      .mapErrorCause {
+        case Cause.Die(value: RouteFailure[_], _) if value == routeFailure => routeFailure.err.map(Left(_))
+        case cause                                                         => cause.map(Right(_))
+      }
+  }
 
   /**
    * Returns new routes that automatically translate all failures into

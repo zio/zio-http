@@ -16,12 +16,13 @@
 package zio.http
 
 import java.io.File
+import java.net.URLEncoder
 
 import zio._
 import zio.metrics._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.codec.{PathCodec, SegmentCodec}
+import zio.http.endpoint.openapi.OpenAPI
 
 trait Middleware[-UpperEnv] { self =>
   def apply[Env1 <: UpperEnv, Err](
@@ -402,7 +403,7 @@ object Middleware extends HandlerAspects {
    * Creates a middleware for managing the flash scope.
    */
   def flashScopeHandling: HandlerAspect[Any, Unit] = Middleware.intercept { (req, resp) =>
-    req.cookie("zio-http-flash").fold(resp)(flash => resp.addCookie(Cookie.clear(flash.name)))
+    req.cookie(Flash.COOKIE_NAME).fold(resp)(flash => resp.addCookie(Cookie.clear(flash.name)))
   }
 
 }

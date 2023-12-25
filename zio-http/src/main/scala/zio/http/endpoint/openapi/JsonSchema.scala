@@ -32,6 +32,7 @@ private[openapi] case class SerializableJsonSchema(
   contentEncoding: Option[String] = None,
   contentMediaType: Option[String] = None,
   default: Option[Json] = None,
+  pattern: Option[String] = None,
 ) {
   def asNullableType(nullable: Boolean): SerializableJsonSchema =
     if (nullable && schemaType.isDefined)
@@ -181,6 +182,15 @@ sealed trait JsonSchema extends Product with Serializable { self =>
   def contentMediaType(mediaType: String): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.ContentMediaType(mediaType))
 
+  def isPrimitive: Boolean = self match {
+    case _: JsonSchema.Number  => true
+    case _: JsonSchema.Integer => true
+    case _: JsonSchema.String  => true
+    case JsonSchema.Boolean    => true
+    case JsonSchema.Null       => true
+    case _                     => false
+  }
+
 }
 
 object JsonSchema {
@@ -205,7 +215,7 @@ object JsonSchema {
       case None                                     => Left(true)
     }
 
-    var jsonSchema = schema match {
+    var jsonSchema: JsonSchema = schema match {
       case schema if schema.ref.isDefined                                                                =>
         RefSchema(schema.ref.get)
       case schema if schema.schemaType.contains(TypeOrTypes.Type("number"))                              =>
@@ -213,7 +223,7 @@ object JsonSchema {
       case schema if schema.schemaType.contains(TypeOrTypes.Type("integer"))                             =>
         JsonSchema.Integer(IntegerFormat.fromString(schema.format.getOrElse("int64")))
       case schema if schema.schemaType.contains(TypeOrTypes.Type("string")) && schema.enumValues.isEmpty =>
-        JsonSchema.String
+        JsonSchema.String(schema.format.map(StringFormat.fromString), schema.pattern.map(Pattern.apply))
       case schema if schema.schemaType.contains(TypeOrTypes.Type("boolean"))                             =>
         JsonSchema.Boolean
       case schema if schema.schemaType.contains(TypeOrTypes.Type("array"))                               =>
@@ -278,11 +288,11 @@ object JsonSchema {
   def fromTextCodec(codec: TextCodec[_]): JsonSchema =
     codec match {
       case TextCodec.Constant(string) => JsonSchema.Enum(Chunk(EnumValue.Str(string)))
-      case TextCodec.StringCodec      => JsonSchema.String
+      case TextCodec.StringCodec      => JsonSchema.String()
       case TextCodec.IntCodec         => JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)
       case TextCodec.LongCodec        => JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)
       case TextCodec.BooleanCodec     => JsonSchema.Boolean
-      case TextCodec.UUIDCodec        => JsonSchema.String
+      case TextCodec.UUIDCodec        => JsonSchema.String(JsonSchema.StringFormat.UUID)
     }
 
   def fromSegmentCodec(codec: SegmentCodec[_]): JsonSchema =
@@ -290,8 +300,8 @@ object JsonSchema {
       case SegmentCodec.BoolSeg(_)                    => JsonSchema.Boolean
       case SegmentCodec.IntSeg(_)                     => JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)
       case SegmentCodec.LongSeg(_)                    => JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)
-      case SegmentCodec.Text(_)                       => JsonSchema.String
-      case SegmentCodec.UUID(_)                       => JsonSchema.String
+      case SegmentCodec.Text(_)                       => JsonSchema.String()
+      case SegmentCodec.UUID(_)                       => JsonSchema.String(JsonSchema.StringFormat.UUID)
       case SegmentCodec.Annotated(codec, annotations) =>
         fromSegmentCodec(codec).description(segmentDoc(annotations)).examples(segmentExamples(codec, annotations))
       case SegmentCodec.Literal(_) => throw new IllegalArgumentException("Literal segment is not supported.")
@@ -311,7 +321,7 @@ object JsonSchema {
           case SegmentCodec.BoolSeg(_)      => Json.Bool(value.asInstanceOf[Boolean])
           case SegmentCodec.IntSeg(_)       => Json.Num(value.asInstanceOf[Int])
           case SegmentCodec.LongSeg(_)      => Json.Num(value.asInstanceOf[Long])
-          case SegmentCodec.Text(_)         => Json.Str(value.asInstanceOf[String])
+          case SegmentCodec.Text(_)         => Json.Str(value.asInstanceOf[java.lang.String])
           case SegmentCodec.UUID(_)         => Json.Str(value.asInstanceOf[java.util.UUID].toString)
           case SegmentCodec.Trailing        =>
             throw new IllegalArgumentException("Trailing segment is not supported.")
@@ -349,12 +359,11 @@ object JsonSchema {
         val children = record.fields
           .filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
           .flatMap { field =>
-            val key    = nominal(field.schema, refType).orElse(nominal(field.schema, SchemaStyle.Compact))
             val nested = fromZSchemaMulti(
               field.schema,
               refType,
             )
-            key.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
+            nested.rootRef.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
           }
           .toMap
         JsonSchemas(fromZSchema(record, SchemaStyle.Inline), ref, children)
@@ -415,13 +424,13 @@ object JsonSchema {
       case Schema.Lazy(schema0)                                                              =>
         fromZSchemaMulti(schema0(), refType)
       case Schema.Dynamic(_)                                                                 =>
-        throw new IllegalArgumentException("Dynamic schema is not supported.")
+        JsonSchemas(AnyJson, None, Map.empty)
     }
   }
 
   private def arraySchemaMulti(
     refType: SchemaStyle,
-    ref: Option[String],
+    ref: Option[java.lang.String],
     elementSchema: Schema[_],
   ): JsonSchemas = {
     val nested = fromZSchemaMulti(elementSchema, refType)
@@ -435,7 +444,7 @@ object JsonSchema {
       JsonSchemas(
         JsonSchema.ArrayType(Some(nested.root)),
         ref,
-        nested.children + (nested.rootRef.get -> nested.root),
+        nested.children ++ (nested.rootRef.map(_ -> nested.root)),
       )
     }
   }
@@ -445,7 +454,11 @@ object JsonSchema {
       case enum0: Schema.Enum[_] if refType != SchemaStyle.Inline && nominal(enum0).isDefined     =>
         JsonSchema.RefSchema(nominal(enum0, refType).get)
       case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]])      =>
-        JsonSchema.Enum(enum0.cases.map(c => EnumValue.Str(c.id)))
+        JsonSchema.Enum(
+          enum0.cases.map(c =>
+            EnumValue.Str(c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)),
+          ),
+        )
       case enum0: Schema.Enum[_]                                                                  =>
         val noDiscriminator    = enum0.annotations.exists(_.isInstanceOf[noDiscriminator])
         val discriminatorName0 =
@@ -492,7 +505,7 @@ object JsonSchema {
           )
           .addAll(nonTransientFields.map { field =>
             field.name ->
-              fromZSchema(field.schema, refType)
+              fromZSchema(field.schema, SchemaStyle.Compact)
                 .deprecated(deprecated(field.schema))
                 .description(fieldDoc(field))
                 .default(fieldDefault(field))
@@ -523,35 +536,35 @@ object JsonSchema {
       case Schema.Primitive(standardType, _)                                                      =>
         standardType match {
           case StandardType.UnitType           => JsonSchema.Null
-          case StandardType.StringType         => JsonSchema.String
+          case StandardType.StringType         => JsonSchema.String()
           case StandardType.BoolType           => JsonSchema.Boolean
-          case StandardType.ByteType           => JsonSchema.String
+          case StandardType.ByteType           => JsonSchema.String()
           case StandardType.ShortType          => JsonSchema.Integer(IntegerFormat.Int32)
           case StandardType.IntType            => JsonSchema.Integer(IntegerFormat.Int32)
           case StandardType.LongType           => JsonSchema.Integer(IntegerFormat.Int64)
           case StandardType.FloatType          => JsonSchema.Number(NumberFormat.Float)
           case StandardType.DoubleType         => JsonSchema.Number(NumberFormat.Double)
-          case StandardType.BinaryType         => JsonSchema.String
-          case StandardType.CharType           => JsonSchema.String
-          case StandardType.UUIDType           => JsonSchema.String
+          case StandardType.BinaryType         => JsonSchema.String()
+          case StandardType.CharType           => JsonSchema.String()
+          case StandardType.UUIDType           => JsonSchema.String(StringFormat.UUID)
           case StandardType.BigDecimalType     => JsonSchema.Number(NumberFormat.Double) // TODO: Is this correct?
           case StandardType.BigIntegerType     => JsonSchema.Integer(IntegerFormat.Int64)
-          case StandardType.DayOfWeekType      => JsonSchema.String
-          case StandardType.MonthType          => JsonSchema.String
-          case StandardType.MonthDayType       => JsonSchema.String
-          case StandardType.PeriodType         => JsonSchema.String
-          case StandardType.YearType           => JsonSchema.String
-          case StandardType.YearMonthType      => JsonSchema.String
-          case StandardType.ZoneIdType         => JsonSchema.String
-          case StandardType.ZoneOffsetType     => JsonSchema.String
-          case StandardType.DurationType       => JsonSchema.String
-          case StandardType.InstantType        => JsonSchema.String
-          case StandardType.LocalDateType      => JsonSchema.String
-          case StandardType.LocalTimeType      => JsonSchema.String
-          case StandardType.LocalDateTimeType  => JsonSchema.String
-          case StandardType.OffsetTimeType     => JsonSchema.String
-          case StandardType.OffsetDateTimeType => JsonSchema.String
-          case StandardType.ZonedDateTimeType  => JsonSchema.String
+          case StandardType.DayOfWeekType      => JsonSchema.String()
+          case StandardType.MonthType          => JsonSchema.String()
+          case StandardType.MonthDayType       => JsonSchema.String()
+          case StandardType.PeriodType         => JsonSchema.String()
+          case StandardType.YearType           => JsonSchema.String()
+          case StandardType.YearMonthType      => JsonSchema.String()
+          case StandardType.ZoneIdType         => JsonSchema.String()
+          case StandardType.ZoneOffsetType     => JsonSchema.String()
+          case StandardType.DurationType       => JsonSchema.String(StringFormat.Duration)
+          case StandardType.InstantType        => JsonSchema.String()
+          case StandardType.LocalDateType      => JsonSchema.String()
+          case StandardType.LocalTimeType      => JsonSchema.String()
+          case StandardType.LocalDateTimeType  => JsonSchema.String()
+          case StandardType.OffsetTimeType     => JsonSchema.String()
+          case StandardType.OffsetDateTimeType => JsonSchema.String()
+          case StandardType.ZonedDateTimeType  => JsonSchema.String()
         }
 
       case Schema.Optional(schema, _)    => fromZSchema(schema, refType).nullable(true)
@@ -559,7 +572,8 @@ object JsonSchema {
       case Schema.Tuple2(left, right, _) => AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Either(left, right, _) => OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Lazy(schema0)          => fromZSchema(schema0(), refType)
-      case Schema.Dynamic(_)             => throw new IllegalArgumentException("Dynamic schema is not supported.")
+      case Schema.Dynamic(_)             => AnyJson
+
     }
 
   sealed trait SchemaStyle extends Product with Serializable
@@ -589,7 +603,7 @@ object JsonSchema {
   private def deprecated(schema: Schema[_]): Boolean =
     schema.annotations.exists(_.isInstanceOf[scala.deprecated])
 
-  private def fieldDoc(schema: Schema.Field[_, _]): Option[String] = {
+  private def fieldDoc(schema: Schema.Field[_, _]): Option[java.lang.String] = {
     val description0 = schema.annotations.collectFirst { case description(value) => value }
     val defaultValue = schema.annotations.collectFirst { case fieldDefaultValue(value) => value }.map { _ =>
       s"${if (description0.isDefined) "\n" else ""}If not set, this field defaults to the value of the default annotation."
@@ -602,14 +616,14 @@ object JsonSchema {
     schema.annotations.collectFirst { case fieldDefaultValue(value) => value }
       .map(toJsonAst(schema.schema, _))
 
-  private def nominal(schema: Schema[_], referenceType: SchemaStyle = SchemaStyle.Reference): Option[String] =
+  private def nominal(schema: Schema[_], referenceType: SchemaStyle = SchemaStyle.Reference): Option[java.lang.String] =
     schema match {
       case enumSchema: Schema.Enum[_] => refForTypeId(enumSchema.id, referenceType)
       case record: Schema.Record[_]   => refForTypeId(record.id, referenceType)
       case _                          => None
     }
 
-  private def refForTypeId(id: TypeId, referenceType: SchemaStyle): Option[String] =
+  private def refForTypeId(id: TypeId, referenceType: SchemaStyle): Option[java.lang.String] =
     id match {
       case nominal: TypeId.Nominal if referenceType == SchemaStyle.Reference =>
         Some(s"#/components/schemas/${nominal.fullyQualified.replace(".", "_")}")
@@ -619,7 +633,7 @@ object JsonSchema {
         None
     }
 
-  def obj(properties: (String, JsonSchema)*): JsonSchema =
+  def obj(properties: (java.lang.String, JsonSchema)*): JsonSchema =
     JsonSchema.Object(
       properties = properties.toMap,
       additionalProperties = Left(false),
@@ -655,9 +669,9 @@ object JsonSchema {
     final case class Default(default: Json)                                extends MetaData
     final case class Discriminator(discriminator: OpenAPI.Discriminator)   extends MetaData
     final case class Nullable(nullable: Boolean)                           extends MetaData
-    final case class Description(description: String)                      extends MetaData
+    final case class Description(description: java.lang.String)            extends MetaData
     final case class ContentEncoding(encoding: JsonSchema.ContentEncoding) extends MetaData
-    final case class ContentMediaType(mediaType: String)                   extends MetaData
+    final case class ContentMediaType(mediaType: java.lang.String)         extends MetaData
     case object Deprecated                                                 extends MetaData
   }
 
@@ -671,7 +685,7 @@ object JsonSchema {
     case object Base32          extends ContentEncoding
     case object Base64          extends ContentEncoding
 
-    def fromString(string: String): Option[ContentEncoding] =
+    def fromString(string: java.lang.String): Option[ContentEncoding] =
       string.toLowerCase match {
         case "7bit"         => Some(SevenBit)
         case "8bit"         => Some(EightBit)
@@ -684,7 +698,7 @@ object JsonSchema {
       }
   }
 
-  final case class RefSchema(ref: String) extends JsonSchema {
+  final case class RefSchema(ref: java.lang.String) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(ref = Some(ref))
   }
@@ -749,7 +763,7 @@ object JsonSchema {
   sealed trait NumberFormat extends Product with Serializable
   object NumberFormat {
 
-    def fromString(string: String): NumberFormat =
+    def fromString(string: java.lang.String): NumberFormat =
       string match {
         case "float"  => Float
         case "double" => Double
@@ -771,7 +785,7 @@ object JsonSchema {
   sealed trait IntegerFormat extends Product with Serializable
   object IntegerFormat {
 
-    def fromString(string: String): IntegerFormat =
+    def fromString(string: java.lang.String): IntegerFormat =
       string match {
         case "int32"     => Int32
         case "int64"     => Int64
@@ -784,10 +798,75 @@ object JsonSchema {
   }
 
   // TODO: Add string formats and patterns
-  case object String extends JsonSchema {
+  final case class String(format: Option[StringFormat], pattern: Option[Pattern]) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
-      SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("string")))
+      SerializableJsonSchema(
+        schemaType = Some(TypeOrTypes.Type("string")),
+        format = format.map(_.value),
+        pattern = pattern.map(_.value),
+      )
   }
+
+  object String {
+    def apply(format: StringFormat): String = String(Some(format), None)
+    def apply(pattern: Pattern): String     = String(None, Some(pattern))
+    def apply(): String                     = String(None, None)
+  }
+
+  sealed trait StringFormat extends Product with Serializable {
+    def value: java.lang.String
+  }
+
+  object StringFormat {
+    case class Custom(value: java.lang.String) extends StringFormat
+    case object Date                           extends StringFormat { val value = "date"                  }
+    case object DateTime                       extends StringFormat { val value = "date-time"             }
+    case object Duration                       extends StringFormat { val value = "duration"              }
+    case object Email                          extends StringFormat { val value = "email"                 }
+    case object Hostname                       extends StringFormat { val value = "hostname"              }
+    case object IdnEmail                       extends StringFormat { val value = "idn-email"             }
+    case object IdnHostname                    extends StringFormat { val value = "idn-hostname"          }
+    case object IPv4                           extends StringFormat { val value = "ipv4"                  }
+    case object IPv6                           extends StringFormat { val value = "ipv6"                  }
+    case object IRI                            extends StringFormat { val value = "iri"                   }
+    case object IRIReference                   extends StringFormat { val value = "iri-reference"         }
+    case object JSONPointer                    extends StringFormat { val value = "json-pointer"          }
+    case object Password                       extends StringFormat { val value = "password"              }
+    case object Regex                          extends StringFormat { val value = "regex"                 }
+    case object RelativeJSONPointer            extends StringFormat { val value = "relative-json-pointer" }
+    case object Time                           extends StringFormat { val value = "time"                  }
+    case object URI                            extends StringFormat { val value = "uri"                   }
+    case object URIRef                         extends StringFormat { val value = "uri-reference"         }
+    case object URITemplate                    extends StringFormat { val value = "uri-template"          }
+    case object UUID                           extends StringFormat { val value = "uuid"                  }
+
+    def fromString(string: java.lang.String): StringFormat =
+      string match {
+        case "date"                  => Date
+        case "date-time"             => DateTime
+        case "duration"              => Duration
+        case "email"                 => Email
+        case "hostname"              => Hostname
+        case "idn-email"             => IdnEmail
+        case "idn-hostname"          => IdnHostname
+        case "ipv4"                  => IPv4
+        case "ipv6"                  => IPv6
+        case "iri"                   => IRI
+        case "iri-reference"         => IRIReference
+        case "json-pointer"          => JSONPointer
+        case "password"              => Password
+        case "regex"                 => Regex
+        case "relative-json-pointer" => RelativeJSONPointer
+        case "time"                  => Time
+        case "uri"                   => URI
+        case "uri-reference"         => URIRef
+        case "uri-template"          => URITemplate
+        case "uuid"                  => UUID
+        case value                   => Custom(value)
+      }
+  }
+
+  final case class Pattern(value: java.lang.String) extends Product with Serializable
 
   case object Boolean extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
@@ -803,11 +882,11 @@ object JsonSchema {
   }
 
   final case class Object(
-    properties: Map[String, JsonSchema],
+    properties: Map[java.lang.String, JsonSchema],
     additionalProperties: Either[Boolean, JsonSchema],
-    required: Chunk[String],
+    required: Chunk[java.lang.String],
   ) extends JsonSchema {
-    def addAll(value: Chunk[(String, JsonSchema)]): Object =
+    def addAll(value: Chunk[(java.lang.String, JsonSchema)]): Object =
       value.foldLeft(this) { case (obj, (name, schema)) =>
         schema match {
           case Object(properties, additionalProperties, required) =>
@@ -820,7 +899,7 @@ object JsonSchema {
         }
       }
 
-    def required(required: Chunk[String]): Object =
+    def required(required: Chunk[java.lang.String]): Object =
       this.copy(required = required)
 
     private def combineAdditionalProperties(
@@ -894,7 +973,7 @@ object JsonSchema {
 
     final case class SchemaValue(value: JsonSchema) extends EnumValue
     final case class Bool(value: Boolean)           extends EnumValue
-    final case class Str(value: String)             extends EnumValue
+    final case class Str(value: java.lang.String)   extends EnumValue
     final case class Num(value: BigDecimal)         extends EnumValue
     case object Null                                extends EnumValue
 
@@ -905,6 +984,11 @@ object JsonSchema {
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("null")),
       )
+  }
+
+  case object AnyJson extends JsonSchema {
+    override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
+      SerializableJsonSchema()
   }
 
 }
