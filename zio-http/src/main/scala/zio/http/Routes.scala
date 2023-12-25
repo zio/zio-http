@@ -92,6 +92,20 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleErrorCauseZIO(f)))
 
+  /**
+   * Allows the transformation of the Err type through an Effectful program
+   * allowing one to build up a Routes in Stages delegates to the Route
+   */
+  def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Routes[Env, Err1] =
+    new Routes(routes.map(_.mapErrorZIO(fxn)))
+
+  /**
+   * Allows the transformation of the Err type through a function allowing one
+   * to build up a Routes in Stages delegates to the Route
+   */
+  def mapError[Err1](fxn: Err => Err1): Routes[Env, Err1] =
+    new Routes(routes.map(_.mapError(fxn)))
+
   def nest(prefix: PathCodec[Unit])(implicit trace: Trace, ev: Err <:< Response): Routes[Env, Err] =
     new Routes(self.routes.map(_.nest(prefix)))
 
