@@ -107,6 +107,22 @@ final case class Request(
     copy(url = self.url.copy(path = self.url.path.unnest(prefix)))
 
   /**
+   * Returns a request with a body derived from the current body.
+   */
+  def updateBody(f: Body => Body): Request = self.copy(body = f(body))
+
+  /**
+   * Returns a request with a body derived from the current body in an effectful
+   * way.
+   */
+  def updateBodyZIO[R, E](f: Body => ZIO[R, E, Body]): ZIO[R, E, Request] = f(body).map(withBody)
+
+  /**
+   * Returns a request with the specified body.
+   */
+  def withBody(body: Body): Request = self.copy(body = body)
+
+  /**
    * Returns the cookie with the given name if it exists.
    */
   def cookie(name: String): Option[Cookie] =
