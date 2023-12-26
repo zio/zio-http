@@ -1,5 +1,5 @@
 ---
-id: authentication
+id: authentication-server
 title: "Authentication Server Example"
 ---
 

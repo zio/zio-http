@@ -46,6 +46,7 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "how-to-guides/advance-http-sever",
+        "how-to-guides/authentication-server",
         "how-to-guides/http-client",
         "how-to-guides/http-sever",
         "how-to-guides/https-server",
@@ -90,7 +91,6 @@ const sidebars = {
             "dsl/headers",
             "dsl/cookies",
             "dsl/middleware",
-            "dsl/html",
             "dsl/template",
             {
               type: "category",

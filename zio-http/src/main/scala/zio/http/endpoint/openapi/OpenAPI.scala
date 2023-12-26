@@ -108,6 +108,9 @@ final case class OpenAPI(
         (path, pathItem)
       }
 
+  def path(path: OpenAPI.Path, pathItem: OpenAPI.PathItem): OpenAPI =
+    copy(paths = mergePaths(Map(path -> pathItem), paths))
+
   def toJson: String =
     JsonCodec
       .jsonEncoder(JsonCodec.Config(ignoreEmptyCollections = true))(OpenAPI.schema)
@@ -130,6 +133,11 @@ object OpenAPI {
   implicit val schema: Schema[OpenAPI] =
     DeriveSchema.gen[OpenAPI]
 
+  def fromJson(json: String): Either[String, OpenAPI] =
+    JsonCodec
+      .jsonDecoder(OpenAPI.schema)
+      .decodeJson(json)
+
   def empty: OpenAPI = OpenAPI(
     openapi = "3.1.0",
     info = Info(
@@ -151,9 +159,9 @@ object OpenAPI {
   implicit def statusSchema: Schema[Status] =
     zio.schema
       .Schema[String]
-      .transformOrFail[Status](
-        s => Status.fromInt(s.toInt).toRight("Invalid Status"),
-        p => Right(p.text),
+      .transform[Status](
+        s => Status.fromInt(s.toInt),
+        p => p.text,
       )
 
   implicit def pathMapSchema: Schema[Map[Path, PathItem]] =

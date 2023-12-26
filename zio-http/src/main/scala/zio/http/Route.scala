@@ -17,6 +17,8 @@ package zio.http
 
 import zio._
 
+import zio.http.codec.PathCodec
+
 /*
  * Represents a single route, which has either handled its errors by converting
  * them into responses, or which has polymorphic errors, which must later be
@@ -115,6 +117,33 @@ sealed trait Route[-Env, +Err] { self =>
     }
 
   /**
+   * Allows the transformation of the Err type through a function allowing one
+   * to build up a Routes in Stages targets the Unhandled case
+   */
+  final def mapError[Err1](fxn: Err => Err1)(implicit trace: Trace): Route[Env, Err1] = {
+    self match {
+      case Provided(route, env)                        => Provided(route.mapError(fxn), env)
+      case Augmented(route, aspect)                    => Augmented(route.mapError(fxn), aspect)
+      case Handled(routePattern, handler, location)    => Handled(routePattern, handler, location)
+      case Unhandled(rpm, handler, zippable, location) => Unhandled(rpm, handler.mapError(fxn), zippable, location)
+    }
+
+  }
+
+  /**
+   * Allows the transformation of the Err type through an Effectful program
+   * allowing one to build up a Routes in Stages targets the Unhandled case
+   * only.
+   */
+  final def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Route[Env, Err1] =
+    self match {
+      case Provided(route, env)                        => Provided(route.mapErrorZIO(fxn), env)
+      case Augmented(route, aspect)                    => Augmented(route.mapErrorZIO(fxn), aspect)
+      case Handled(routePattern, handler, location)    => Handled(routePattern, handler, location)
+      case Unhandled(rpm, handler, zippable, location) => Unhandled(rpm, handler.mapErrorZIO(fxn), zippable, location)
+    }
+
+  /**
    * Handles all typed errors in the route by converting them into responses,
    * taking into account the request that caused the error. This method can be
    * used to convert a route that does not handle its errors into one that does
@@ -206,6 +235,16 @@ sealed trait Route[-Env, +Err] { self =>
    * purposes.
    */
   def location: Trace
+
+  def nest(prefix: PathCodec[Unit])(implicit ev: Err <:< Response): Route[Env, Err] =
+    self match {
+      case Provided(route, env)                     => Provided(route.nest(prefix), env)
+      case Augmented(route, aspect)                 => Augmented(route.nest(prefix), aspect)
+      case Handled(routePattern, handler, location) => Handled(routePattern.nest(prefix), handler, location)
+
+      case Unhandled(rpm, handler, zippable, location) =>
+        Unhandled(rpm.prefix(prefix), handler, zippable, location)
+    }
 
   final def provideEnvironment(env: ZEnvironment[Env]): Route[Any, Err] =
     Route.Provided(self, env)
@@ -316,6 +355,16 @@ object Route                   {
       Route.route[A, Env1](self)(handler)
     }
 
+    def prefix(path: PathCodec[Unit]): Builder[Env, A] =
+      new Builder[Env, A] {
+        type PathInput = self.PathInput
+        type Context   = self.Context
+
+        def routePattern: RoutePattern[PathInput]         = self.routePattern.nest(path)
+        def aspect: HandlerAspect[Env, Context]           = self.aspect
+        def zippable: Zippable.Out[PathInput, Context, A] = self.zippable
+      }
+
     def provideEnvironment(env: ZEnvironment[Env]): Route.Builder[Any, A] = {
       implicit val z = zippable
 
@@ -397,4 +446,5 @@ object Route                   {
       Route.handled(rpm)(handler).toHandler
     }
   }
+
 }

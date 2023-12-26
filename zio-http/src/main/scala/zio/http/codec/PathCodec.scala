@@ -21,7 +21,7 @@ import scala.language.implicitConversions
 
 import zio._
 
-import zio.http.Path
+import zio.http._
 
 /**
  * A codec for paths, which consists of segments, where each segment may be a
@@ -47,6 +47,11 @@ sealed trait PathCodec[A] { self =>
 
   final def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
     self ++ that
+
+  final def /[Env](routes: Routes[Env, Response])(implicit
+    ev: PathCodec[A] <:< PathCodec[Unit],
+  ): Routes[Env, Response] =
+    routes.nest(ev(self))
 
   final def asType[B](implicit ev: A =:= B): PathCodec[B] = self.asInstanceOf[PathCodec[B]]
 

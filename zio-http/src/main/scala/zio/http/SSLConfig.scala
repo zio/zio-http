@@ -17,16 +17,32 @@
 package zio.http
 
 import zio.Config
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.SSLConfig._
 
-final case class SSLConfig(behaviour: HttpBehaviour, data: Data, provider: Provider)
+sealed trait ClientAuth
+
+object ClientAuth {
+  case object Required       extends ClientAuth
+  case object NoneClientAuth extends ClientAuth
+  case object Optional       extends ClientAuth
+
+}
+
+final case class SSLConfig(
+  behaviour: HttpBehaviour,
+  data: Data,
+  provider: Provider,
+  clientAuth: Option[ClientAuth] = None,
+)
 
 object SSLConfig {
 
   def apply(data: Data): SSLConfig =
-    new SSLConfig(HttpBehaviour.Redirect, data, Provider.JDK)
+    new SSLConfig(HttpBehaviour.Redirect, data, Provider.JDK, None)
+
+  def apply(data: Data, clientAuth: ClientAuth): SSLConfig =
+    new SSLConfig(HttpBehaviour.Redirect, data, Provider.JDK, Some(clientAuth))
 
   val config: Config[SSLConfig] =
     (
@@ -38,22 +54,41 @@ object SSLConfig {
     }
 
   def fromFile(certPath: String, keyPath: String): SSLConfig =
-    new SSLConfig(HttpBehaviour.Redirect, Data.FromFile(certPath, keyPath), Provider.JDK)
+    fromFile(HttpBehaviour.Redirect, certPath, keyPath)
 
-  def fromFile(behaviour: HttpBehaviour, certPath: String, keyPath: String): SSLConfig =
-    new SSLConfig(behaviour, Data.FromFile(certPath, keyPath), Provider.JDK)
+  def fromFile(certPath: String, keyPath: String, clientAuth: ClientAuth): SSLConfig =
+    fromFile(HttpBehaviour.Redirect, certPath, keyPath, Some(clientAuth))
+
+  def fromFile(
+    behaviour: HttpBehaviour,
+    certPath: String,
+    keyPath: String,
+    clientAuth: Option[ClientAuth] = None,
+  ): SSLConfig =
+    new SSLConfig(behaviour, Data.FromFile(certPath, keyPath), Provider.JDK, clientAuth)
 
   def fromResource(certPath: String, keyPath: String): SSLConfig =
-    new SSLConfig(HttpBehaviour.Redirect, Data.FromResource(certPath, keyPath), Provider.JDK)
+    fromResource(HttpBehaviour.Redirect, certPath, keyPath, None)
 
-  def fromResource(behaviour: HttpBehaviour, certPath: String, keyPath: String): SSLConfig =
-    new SSLConfig(behaviour, Data.FromResource(certPath, keyPath), Provider.JDK)
+  def fromResource(certPath: String, keyPath: String, clientAuth: ClientAuth): SSLConfig =
+    fromResource(HttpBehaviour.Redirect, certPath, keyPath, Some(clientAuth))
+
+  def fromResource(
+    behaviour: HttpBehaviour,
+    certPath: String,
+    keyPath: String,
+    clientAuth: Option[ClientAuth] = None,
+  ): SSLConfig =
+    new SSLConfig(behaviour, Data.FromResource(certPath, keyPath), Provider.JDK, clientAuth)
 
   def generate: SSLConfig =
-    new SSLConfig(HttpBehaviour.Redirect, Data.Generate, Provider.JDK)
+    generate(HttpBehaviour.Redirect, None)
 
-  def generate(behaviour: HttpBehaviour): SSLConfig =
-    new SSLConfig(behaviour, Data.Generate, Provider.JDK)
+  def generate(clientAuth: ClientAuth): SSLConfig =
+    generate(HttpBehaviour.Redirect, Some(clientAuth))
+
+  def generate(behaviour: HttpBehaviour, clientAuth: Option[ClientAuth] = None): SSLConfig =
+    new SSLConfig(behaviour, Data.Generate, Provider.JDK, clientAuth)
 
   sealed trait HttpBehaviour
   object HttpBehaviour {
