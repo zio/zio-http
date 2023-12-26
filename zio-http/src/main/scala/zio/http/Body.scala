@@ -25,6 +25,8 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
+import zio.schema.codec.BinaryCodec
+
 import zio.http.internal.BodyEncoding
 
 /**
@@ -40,6 +42,23 @@ trait Body { self =>
    * other will be returned. Otherwise, the right body will be returned.
    */
   def ++(that: Body): Body = if (that.isEmpty) self else that
+
+  /**
+   * Decodes the content of the body as a value based on a zio-schema
+   * [[zio.schema.codec.BinaryCodec]].<br>
+   *
+   * Example for json:
+   * {{{
+   * import zio.schema.json.codec._
+   * case class Person(name: String, age: Int)
+   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * val person = Person("John", 42)
+   * val body = Body.from(person)
+   * val decodedPerson = body.as[Person]
+   * }}}
+   */
+  def as[A](implicit codec: BinaryCodec[A], trace: Trace): Task[A] =
+    asChunk.flatMap(bytes => ZIO.fromEither(codec.decode(bytes)))
 
   /**
    * Returns an effect that decodes the content of the body as array of bytes.
@@ -156,6 +175,20 @@ object Body {
   val empty: Body = EmptyBody
 
   /**
+   * Constructs a [[zio.http.Body]] from a value based on a zio-schema
+   * [[zio.schema.codec.BinaryCodec]].<br> Example for json:
+   * {{{
+   * import zio.schema.codec.JsonCodec._
+   * case class Person(name: String, age: Int)
+   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * val person = Person("John", 42)
+   * val body = Body.from(person)
+   * }}}
+   */
+  def from[A](a: A)(implicit codec: BinaryCodec[A], trace: Trace): Body =
+    fromChunk(codec.encode(a))
+
+  /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
   def fromCharSequence(
@@ -214,6 +247,22 @@ object Body {
    */
   def fromStream(stream: ZStream[Any, Throwable, Byte], contentLength: Long): Body =
     StreamBody(stream, knownContentLength = Some(contentLength))
+
+  /**
+   * Constructs a [[zio.http.Body]] from stream of values based on a zio-schema
+   * [[zio.schema.codec.BinaryCodec]].<br>
+   *
+   * Example for json:
+   * {{{
+   * import zio.schema.codec.JsonCodec._
+   * case class Person(name: String, age: Int)
+   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * val persons = ZStream(Person("John", 42))
+   * val body = Body.fromStream(persons)
+   * }}}
+   */
+  def fromStream[A](stream: ZStream[Any, Throwable, A])(implicit codec: BinaryCodec[A], trace: Trace): Body =
+    StreamBody(stream >>> codec.streamEncoder)
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of bytes of unknown length,
