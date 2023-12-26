@@ -117,6 +117,33 @@ sealed trait Route[-Env, +Err] { self =>
     }
 
   /**
+   * Allows the transformation of the Err type through a function allowing one
+   * to build up a Routes in Stages targets the Unhandled case
+   */
+  final def mapError[Err1](fxn: Err => Err1)(implicit trace: Trace): Route[Env, Err1] = {
+    self match {
+      case Provided(route, env)                        => Provided(route.mapError(fxn), env)
+      case Augmented(route, aspect)                    => Augmented(route.mapError(fxn), aspect)
+      case Handled(routePattern, handler, location)    => Handled(routePattern, handler, location)
+      case Unhandled(rpm, handler, zippable, location) => Unhandled(rpm, handler.mapError(fxn), zippable, location)
+    }
+
+  }
+
+  /**
+   * Allows the transformation of the Err type through an Effectful program
+   * allowing one to build up a Routes in Stages targets the Unhandled case
+   * only.
+   */
+  final def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Route[Env, Err1] =
+    self match {
+      case Provided(route, env)                        => Provided(route.mapErrorZIO(fxn), env)
+      case Augmented(route, aspect)                    => Augmented(route.mapErrorZIO(fxn), aspect)
+      case Handled(routePattern, handler, location)    => Handled(routePattern, handler, location)
+      case Unhandled(rpm, handler, zippable, location) => Unhandled(rpm, handler.mapErrorZIO(fxn), zippable, location)
+    }
+
+  /**
    * Handles all typed errors in the route by converting them into responses,
    * taking into account the request that caused the error. This method can be
    * used to convert a route that does not handle its errors into one that does
@@ -419,4 +446,5 @@ object Route                   {
       Route.handled(rpm)(handler).toHandler
     }
   }
+
 }
