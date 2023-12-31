@@ -189,6 +189,16 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
     new Routes(routes.map(_.sandbox))
 
   /**
+   * Like sandbox except the errors are not converted to responses rather they
+   * are shifted to the untyped error channel aka a defect. This is useful for
+   * interop with other libraries which may want to handle a Throwable
+   * differently than Response.fromCause(_).
+   */
+
+  def orDie(implicit ev1: Err <:< Throwable, ev2: CanFail[Err], trace: Trace): Routes[Env, Nothing] =
+    new Routes(routes.map(_.orDie))
+
+  /**
    * Returns new routes that are all timed out by the specified maximum
    * duration.
    */

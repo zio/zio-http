@@ -270,6 +270,18 @@ sealed trait Route[-Env, +Err] { self =>
   final def sandbox(implicit trace: Trace): Route[Env, Nothing] =
     handleErrorCause(Response.fromCause(_))
 
+  /**
+   * Transforms a Route[Env, Throwable] into a Route[Env, Nothing] by shifting
+   * all typed errors into defects
+   */
+  final def orDie(implicit ev1: Err <:< Throwable, ev2: CanFail[Err], trace: Trace): Route[Env, Nothing] =
+    self match {
+      case Provided(route, env)                        => Provided(route.orDie, env)
+      case Augmented(route, aspect)                    => Augmented(route.orDie, aspect)
+      case Handled(routePattern, handler, location)    => Handled(routePattern, handler, location)
+      case Unhandled(rpm, handler, zippable, location) => Unhandled(rpm, handler.orDie, zippable, location)
+    }
+
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
   final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = Routes(self).toHttpApp
