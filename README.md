@@ -59,7 +59,6 @@ Eager to start coding without delay? If you're in a hurry, you can follow the [q
 ## Module feature overview
 
 Core:
-
 - Lightweight and performant HTTP handler and message objects
 - Powerful routing system with support for path-based and parameterized routes
 - Typesafe HTTP message construction and deconstruction
