@@ -346,12 +346,11 @@ object JsonSchema {
               val key    =
                 nominal(c.schema, refType)
                   .orElse(nominal(c.schema, SchemaStyle.Compact))
-                  .getOrElse(throw new Exception(s"Unsupported enum case schema: ${c.schema}"))
               val nested = fromZSchemaMulti(
                 c.schema,
                 refType,
               )
-              nested.children + (key -> nested.root)
+              nested.children ++ key.map(_ -> nested.root)
             }
             .toMap,
         )
