@@ -108,6 +108,9 @@ object NettyBodyWriter {
               }
           },
         )
+      case ArrayBody(data, _, _)              =>
+        ctx.writeAndFlush(Unpooled.wrappedBuffer(data))
+        None
       case ChunkBody(data, _, _)              =>
         ctx.write(Unpooled.wrappedBuffer(data.toArray))
         ctx.flush()
