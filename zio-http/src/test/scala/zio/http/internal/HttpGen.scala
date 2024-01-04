@@ -102,6 +102,7 @@ object HttpGen {
             ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+            Body.fromArray(list.mkString("").getBytes()),
             Body.empty,
           ),
         )
@@ -139,6 +140,7 @@ object HttpGen {
             ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+            Body.fromArray(list.mkString("").getBytes()),
           ),
         )
     } yield cnt

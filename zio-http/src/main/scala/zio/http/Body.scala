@@ -165,6 +165,13 @@ object Body {
   def fromChunk(data: Chunk[Byte]): Body = ChunkBody(data)
 
   /**
+   * Constructs a [[zio.http.Body]] from an array of bytes.
+   *
+   * WARNING: The array must not be mutated after creating the body.
+   */
+  def fromArray(data: Array[Byte]): Body = ArrayBody(data)
+
+  /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
   def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4): Body =
@@ -286,6 +293,35 @@ object Body {
     override def toString(): String = s"Body.fromChunk($data)"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
+
+    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
+
+    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+  }
+
+  private[zio] final case class ArrayBody(
+    data: Array[Byte],
+    override val mediaType: Option[MediaType] = None,
+    override val boundary: Option[Boundary] = None,
+  ) extends Body
+      with UnsafeWriteable
+      with UnsafeBytes { self =>
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data)
+
+    override def isComplete: Boolean = true
+
+    override def isEmpty: Boolean = data.isEmpty
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(Chunk.fromArray(data))
+
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+      ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
+
+    override def toString(): String = s"Body.fromArray($data)"
+
+    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data
 
     override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
 
