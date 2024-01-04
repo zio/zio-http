@@ -15,7 +15,7 @@ import sttp.client3.{HttpURLConnectionBackend, UriContext, basicRequest}
 class ServerInboundHandlerBenchmark {
   private val random      = scala.util.Random
   random.setSeed(42)
-  private val largeString = random.alphanumeric.take(100_000).mkString
+  private val largeString = random.alphanumeric.take(100000).mkString
 
   private val baseUrl = "http://localhost:8080"
   private val headers = Headers(Header.ContentType(MediaType.text.`plain`).untyped)
