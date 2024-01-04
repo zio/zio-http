@@ -24,12 +24,8 @@ import zio.test.{TestAspect, assertZIO}
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-object ClientHttpsSpec extends ZIOHttpSpec {
-
-  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
-    trustStorePath = "truststore.jks",
-    trustStorePassword = "changeit",
-  )
+abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
+  val sslConfig: ClientSSLConfig
 
   val zioDev =
     URL.decode("https://zio.dev").toOption.get
@@ -87,4 +83,21 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
+}
+
+object ClientHttpsSpec extends ClientHttpsSpecBase {
+
+  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
+    trustStorePath = "truststore.jks",
+    trustStorePassword = "changeit",
+  )
+}
+
+object ClientHttpsFromJavaxNetSslSpec extends ClientHttpsSpecBase {
+
+  val sslConfig =
+    ClientSSLConfig.FromJavaxNetSsl
+      .builderWithTrustManagerFile("trustStore.jsk")
+      .trustManagerPassword("changeit")
+      .build()
 }

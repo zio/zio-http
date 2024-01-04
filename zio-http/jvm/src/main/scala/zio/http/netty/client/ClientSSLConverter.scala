@@ -18,7 +18,7 @@ package zio.http.netty.client
 
 import java.io.{FileInputStream, InputStream}
 import java.security.KeyStore
-import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.{KeyManagerFactory, TrustManagerFactory}
 
 import zio.Config.Secret
 import zio.stacktracer.TracingImplicits.disableAutoTrace
@@ -38,6 +38,38 @@ object ClientSSLConverter {
       .forClient()
       .trustManager(trustManagerFactory)
       .build()
+  }
+
+  private def keyManagerTrustManagerToSslContext(
+    keyManagerInfo: Option[(String, InputStream, Option[String])],
+    trustManagerInfo: Option[(String, InputStream, Option[String])],
+  ): SslContext = {
+    val mkeyManagerFactory =
+      keyManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
+        val keyStore          = KeyStore.getInstance(keyStoreType)
+        val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
+        val password          = maybePassword.map(_.toCharArray).orNull
+
+        keyStore.load(inputStream, password)
+        keyManagerFactory.init(keyStore, password)
+        keyManagerFactory
+      }
+
+    val mtrustManagerFactory =
+      trustManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
+        val keyStore            = KeyStore.getInstance(keyStoreType)
+        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+        val password            = maybePassword.map(_.toCharArray).orNull
+
+        keyStore.load(inputStream, password)
+        trustManagerFactory.init(keyStore)
+        trustManagerFactory
+      }
+
+    var bldr = SslContextBuilder.forClient()
+    mkeyManagerFactory.foreach(kmf => bldr = bldr.keyManager(kmf))
+    mtrustManagerFactory.foreach(tmf => bldr = bldr.trustManager(tmf))
+    bldr.build()
   }
 
   private def certToSslContext(certStream: InputStream): SslContext =
@@ -60,6 +92,36 @@ object ClientSSLConverter {
     case ClientSSLConfig.FromCertResource(certPath) =>
       val certStream = getClass.getClassLoader.getResourceAsStream(certPath)
       certToSslContext(certStream)
+
+    case ClientSSLConfig.FromJavaxNetSsl(
+          keyManagerKeyStoreType,
+          keyManagerSource,
+          keyManagerPassword,
+          trustManagerKeyStoreType,
+          trustManagerSource,
+          trustManagerPassword,
+        ) =>
+      val keyManagerInfo =
+        (keyManagerSource match {
+          case ClientSSLConfig.FromJavaxNetSsl.File(path)     =>
+            Option(new FileInputStream(path))
+          case ClientSSLConfig.FromJavaxNetSsl.Resource(path) =>
+            Option(getClass.getClassLoader.getResourceAsStream(path))
+          case ClientSSLConfig.FromJavaxNetSsl.Empty          =>
+            None
+        }).map(inputStream => (keyManagerKeyStoreType, inputStream, keyManagerPassword))
+
+      val trustManagerInfo =
+        (trustManagerSource match {
+          case ClientSSLConfig.FromJavaxNetSsl.File(path)     =>
+            Option(new FileInputStream(path))
+          case ClientSSLConfig.FromJavaxNetSsl.Resource(path) =>
+            Option(getClass.getClassLoader.getResourceAsStream(path))
+          case ClientSSLConfig.FromJavaxNetSsl.Empty          =>
+            None
+        }).map(inputStream => (trustManagerKeyStoreType, inputStream, trustManagerPassword))
+
+      keyManagerTrustManagerToSslContext(keyManagerInfo, trustManagerInfo)
 
     case ClientSSLConfig.FromTrustStoreFile(trustStorePath, trustStorePassword) =>
       val trustStoreStream = new FileInputStream(trustStorePath)
