@@ -122,6 +122,9 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    */
   def matches(method: Method, path: Path): Boolean = decode(method, path).isRight
 
+  def nest(prefix: PathCodec[Unit]): RoutePattern[A] =
+    copy(pathCodec = prefix ++ pathCodec)
+
   /**
    * Renders the route pattern as a string.
    */

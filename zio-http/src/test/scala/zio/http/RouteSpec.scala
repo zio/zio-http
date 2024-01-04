@@ -23,6 +23,16 @@ object RouteSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   def spec = suite("RouteSpec")(
+    suite("Route#prefix")(
+      test("prefix should add a prefix to the route") {
+        val route =
+          Method.GET / "foo" -> handler(Response.ok)
+
+        val prefixed = route.nest("bar")
+
+        assertTrue(prefixed.isDefinedAt(Request.get(url"/bar/foo")))
+      },
+    ),
     suite("Route#sandbox")(
       test("infallible route does not change under sandbox") {
         val route =

@@ -183,8 +183,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "deprecated" : false,
                              |            "schema" :
                              |              {
-                             |              "type" :
-                             |                "string"
+                             |              "type" : "string",
+                             |              "format" : "uuid"
                              |            },
                              |            "explode" : false,
                              |            "style" : "simple"
@@ -1230,8 +1230,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "deprecated" : false,
             |            "schema" :
             |              {
-            |              "type" :
-            |                "string"
+            |              "type" : "string",
+            |              "format" : "uuid"
             |            },
             |            "explode" : false,
             |            "style" : "simple"
@@ -1739,7 +1739,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       test("nested product") {
         val endpoint  = Endpoint(GET / "static").in[NestedProduct]
         val generated = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
-        println(generated.toJsonPretty)
         val json      = toJsonAst(generated)
         val expected  = """{
                          |  "openapi" : "3.1.0",
@@ -2198,7 +2197,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       test("sealed trait with nested sealed trait") {
         val endpoint     = Endpoint(GET / "static").in[SimpleNestedSealedTrait]
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
-        println(generated.toJsonPretty)
         val json         = toJsonAst(generated)
         val expectedJson =
           """{
