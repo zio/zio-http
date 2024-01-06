@@ -143,10 +143,10 @@ private[http] object BodyCodec {
       ZIO.succeed((body.asStream >>> ZPipeline.decodeCharsWith(Charset.defaultCharset()) >>> codec.streamDecoder).orDie)
 
     def encodeToBody(value: ZStream[Any, Nothing, E], codec: BinaryCodec[E])(implicit trace: Trace): Body =
-      Body.fromStream(value >>> codec.streamEncoder)
+      Body.fromStreamChunked(value >>> codec.streamEncoder)
 
     def encodeToBody(value: ZStream[Any, Nothing, E], codec: Codec[String, Char, E])(implicit trace: Trace): Body =
-      Body.fromStream(value >>> codec.streamEncoder.map(_.toByte))
+      Body.fromStreamChunked(value >>> codec.streamEncoder.map(_.toByte))
 
     type Element = E
   }

@@ -40,16 +40,17 @@ private[zio] object NettyRequestEncoder {
     // Host and port information should be in the headers.
     val path = replaceEmptyPathWithSlash(req.url).relative.addLeadingSlash.encode
 
-    val encodedReqHeaders = Conversions.headersToNetty(req.allHeaders)
+    val headers = Conversions.headersToNetty(req.allHeaders)
 
-    val headers = req.url.hostPort match {
-      case Some(host) => encodedReqHeaders.set(HttpHeaderNames.HOST, host)
-      case _          => encodedReqHeaders
+    req.url.hostPort match {
+      case Some(host) if !headers.contains(HttpHeaderNames.HOST) =>
+        headers.set(HttpHeaderNames.HOST, host)
+      case _                                                     =>
     }
 
     if (req.body.isComplete) {
-      req.body.asChunk.map { chunk =>
-        val content = Unpooled.wrappedBuffer(chunk.toArray)
+      req.body.asArray.map { array =>
+        val content = Unpooled.wrappedBuffer(array)
 
         val writerIndex = content.writerIndex()
         headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString)
@@ -60,7 +61,12 @@ private[zio] object NettyRequestEncoder {
       }
     } else {
       ZIO.attempt {
-        headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked")
+        req.body.knownContentLength match {
+          case Some(length) =>
+            headers.set(HttpHeaderNames.CONTENT_LENGTH, length.toString)
+          case None         =>
+            headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked")
+        }
         new DefaultHttpRequest(jVersion, method, path, headers)
       }
     }

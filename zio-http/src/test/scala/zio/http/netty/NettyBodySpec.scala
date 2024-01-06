@@ -31,12 +31,12 @@ object NettyBodySpec extends ZIOHttpSpec {
       suite("fromAsync")(
         test("success") {
           val message = Chunk.fromArray("Hello World".getBytes(Charsets.Http))
-          val chunk   = NettyBody.fromAsync(async => async(message, isLast = true)).asChunk
+          val chunk   = NettyBody.fromAsync(async => async(message, isLast = true), knownContentLength = None).asChunk
           assertZIO(chunk)(equalTo(message))
         },
         test("fail") {
           val exception = new RuntimeException("Some Error")
-          val error     = NettyBody.fromAsync(_ => throw exception).asChunk.flip
+          val error     = NettyBody.fromAsync(_ => throw exception, knownContentLength = None).asChunk.flip
           assertZIO(error)(equalTo(exception))
         },
       ),

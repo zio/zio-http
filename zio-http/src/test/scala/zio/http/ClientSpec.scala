@@ -64,7 +64,7 @@ object ClientSpec extends HttpRunnableSpec {
       val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toHttpApp
       val stream = ZStream.fromIterable(List("a", "b", "c"), chunkSize = 1)
       val res    = app
-        .deploy(Request(method = Method.POST, body = Body.fromCharSequenceStream(stream)))
+        .deploy(Request(method = Method.POST, body = Body.fromCharSequenceStreamChunked(stream)))
         .flatMap(_.body.asString)
       assertZIO(res)(equalTo("abc"))
     },
@@ -87,7 +87,7 @@ object ClientSpec extends HttpRunnableSpec {
       } yield assertTrue(loggedUrl == s"$baseURL/")
     },
     test("reading of unfinished body must fail") {
-      val app         = Handler.fromStream(ZStream.never).sandbox.toHttpApp
+      val app         = Handler.fromStreamChunked(ZStream.never).sandbox.toHttpApp
       val requestCode = (client: Client) =>
         (for {
           response <- ZIO.scoped(client(Request()))

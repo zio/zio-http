@@ -37,10 +37,12 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       handler(Response.text("simple response")),
     Method.GET / "streaming-get"   ->
       handler(
-        Response(body = Body.fromStream(ZStream.fromIterable("streaming response".getBytes).rechunk(3))),
+        Response(body = Body.fromStreamChunked(ZStream.fromIterable("streaming response".getBytes).rechunk(3))),
       ),
     Method.POST / "simple-post"    -> handler((req: Request) => req.ignoreBody.as(Response.ok)),
-    Method.POST / "streaming-echo" -> handler((req: Request) => Response(body = Body.fromStream(req.body.asStream))),
+    Method.POST / "streaming-echo" -> handler((req: Request) =>
+      Response(body = Body.fromStreamChunked(req.body.asStream)),
+    ),
     Method.POST / "form"           -> handler((req: Request) =>
       req.body.asMultipartFormStream.flatMap { form =>
         form.collectAll.flatMap { inMemoryForm =>
@@ -95,7 +97,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             .request(
               Request.post(
                 URL.decode(s"http://localhost:$port/simple-post").toOption.get,
-                Body.fromStream(
+                Body.fromStreamChunked(
                   (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3))
                     .schedule(Schedule.fixed(10.millis)),
                 ),
@@ -111,7 +113,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             .request(
               Request.post(
                 URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
-                Body.fromStream(
+                Body.fromStreamChunked(
                   ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3),
                 ),
               ),
@@ -221,7 +223,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                   Request
                     .post(
                       URL.decode(s"http://localhost:$port/form").toOption.get,
-                      Body.fromStream(stream),
+                      Body.fromStreamChunked(stream),
                     )
                     .addHeaders(Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary)))),
                 )
@@ -243,7 +245,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             .request(
               Request.post(
                 URL.decode(s"http://localhost:$port/simple-post").toOption.get,
-                Body.fromStream(ZStream.fail(new RuntimeException("Some error"))),
+                Body.fromStreamChunked(ZStream.fail(new RuntimeException("Some error"))),
               ),
             )
             .exit
@@ -262,7 +264,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             .request(
               Request.post(
                 URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
-                Body.fromStream(
+                Body.fromStreamChunked(
                   (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3)).chunks.tap { chunk =>
                     if (chunk == Chunk.fromArray("que".getBytes))
                       sync.await

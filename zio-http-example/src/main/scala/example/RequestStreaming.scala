@@ -14,7 +14,7 @@ object RequestStreaming extends ZIOAppDefault {
 
     // Creating HttpData from the stream
     // This works for file of any size
-    val data = Body.fromStream(stream)
+    val data = Body.fromStreamChunked(stream)
 
     Response(body = data)
   }).toHttpApp
