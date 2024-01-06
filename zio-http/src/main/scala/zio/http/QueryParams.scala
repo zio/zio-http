@@ -209,18 +209,10 @@ object QueryParams {
     QueryParams(map = result)
   }
 
-  def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams = {
-    var result = ListMap.empty[String, Chunk[String]]
-    Chunk.fromIterable(tuple1 +: tuples.toVector).foreach { case (key, value) =>
-      result.get(key) match {
-        case Some(previous) =>
-          result = result.updated(key, previous :+ value)
-        case None           =>
-          result = result.updated(key, Chunk(value))
-      }
-    }
-    QueryParams(map = result)
-  }
+  def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams =
+    QueryParams(map = ListMap.from(Chunk.fromIterable(tuple1 +: tuples).groupBy(_._1).map { case (key, values) =>
+      key -> values.map(_._2)
+    }))
 
   /**
    * Decodes the specified string into a collection of query parameters.
