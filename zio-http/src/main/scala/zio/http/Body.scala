@@ -54,10 +54,10 @@ trait Body { self =>
    * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
    * val person = Person("John", 42)
    * val body = Body.from(person)
-   * val decodedPerson = body.as[Person]
+   * val decodedPerson = body.to[Person]
    * }}}
    */
-  def as[A](implicit codec: BinaryCodec[A], trace: Trace): Task[A] =
+  def to[A](implicit codec: BinaryCodec[A], trace: Trace): Task[A] =
     asChunk.flatMap(bytes => ZIO.fromEither(codec.decode(bytes)))
 
   /**
@@ -262,7 +262,7 @@ object Body {
    * }}}
    */
   def fromStream[A](stream: ZStream[Any, Throwable, A])(implicit codec: BinaryCodec[A], trace: Trace): Body =
-    StreamBody(stream >>> codec.streamEncoder)
+    StreamBody(stream >>> codec.streamEncoder, knownContentLength = None)
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of bytes of unknown length,

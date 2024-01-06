@@ -16,7 +16,6 @@
 
 package zio.http
 
-import zio.Chunk
 import zio.test._
 
 import zio.stream.ZStream
@@ -43,9 +42,9 @@ object BodySchemaOpsSpec extends ZIOHttpSpec {
       val expected = """{"name":"John","age":42}{"name":"Jane","age":43}"""
       body.asString.map(s => assertTrue(s == expected))
     },
-    test("Body#as") {
+    test("Body#to") {
       val body = Body.fromString("""{"name":"John","age":42}""")
-      body.as[Person].map(p => assertTrue(p == person))
+      body.to[Person].map(p => assertTrue(p == person))
     },
   )
 }
