@@ -16,4 +16,5 @@
 
 package zio.http
 import zio.http.htmx.AttributesHtmx
-package object template extends Attributes with AttributesHtmx with Elements  {}
+
+package object template extends Attributes with AttributesHtmx with Elements {}
