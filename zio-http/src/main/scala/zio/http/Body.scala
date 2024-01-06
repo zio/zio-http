@@ -360,6 +360,8 @@ object Body {
 
     override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+
+    override def knownContentLength: Option[Long] = Some(data.length.toLong)
   }
 
   private[zio] final case class FileBody(
