@@ -63,14 +63,15 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request(version, method, url, headers, Body.fromFile(file), None)
+      body    <- Gen.fromZIO(Body.fromFile(file))
+    } yield Request(version, method, url, headers, body, None)
   }
 
   def genAbsoluteLocation: Gen[Any, Location.Absolute] = for {
     scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
     host   <- Gen.alphaNumericStringBounded(1, 5)
     port   <- Gen.oneOf(Gen.const(80), Gen.const(443), Gen.int(0, 65536))
-  } yield URL.Location.Absolute(scheme, host, port)
+  } yield URL.Location.Absolute(scheme, host, Some(port))
 
   def genRelativeURL: Gen[Any, URL] = for {
     path        <- HttpGen.anyPath
@@ -97,11 +98,12 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Body.fromStream(
+            Body.fromStreamChunked(
               ZStream.fromIterable(list, chunkSize = 2).map(b => Chunk.fromArray(b.getBytes())).flattenChunks,
             ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+            Body.fromArray(list.mkString("").getBytes()),
             Body.empty,
           ),
         )
@@ -134,11 +136,12 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Body.fromStream(
+            Body.fromStreamChunked(
               ZStream.fromIterable(list, chunkSize = 2).map(b => Chunk.fromArray(b.getBytes())).flattenChunks,
             ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+            Body.fromArray(list.mkString("").getBytes()),
           ),
         )
     } yield cnt

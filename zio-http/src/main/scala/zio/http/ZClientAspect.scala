@@ -222,11 +222,12 @@ object ZClientAspect {
                 case (duration, Exit.Success(response)) =>
                   ZIO
                     .logLevel(level(response.status)) {
-                      def requestHeaders  =
+                      def requestHeaders =
                         headers.collect {
                           case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
                         }.toSet
+
                       def responseHeaders =
                         response.headers.collect {
                           case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
@@ -312,6 +313,123 @@ object ZClientAspect {
             implicit trace: Trace,
           ): ZIO[Env1 with Scope, Err, Response] =
             client.driver.socket(version, url, headers, app)
+        }
+
+        client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)
+      }
+    }
+  }
+
+  final def followRedirects[R, E](max: Int)(
+    onRedirectError: (Response, String) => ZIO[R, E, Response],
+  )(implicit trace: Trace): ZClientAspect[Nothing, R, Nothing, Body, E, Any, Nothing, Response] = {
+    new ZClientAspect[Nothing, R, Nothing, Body, E, Any, Nothing, Response] {
+      override def apply[
+        Env >: Nothing <: R,
+        In >: Nothing <: Body,
+        Err >: E <: Any,
+        Out >: Nothing <: Response,
+      ](client: ZClient[Env, In, Err, Out]): ZClient[Env, In, Err, Out] = {
+        val oldDriver = client.driver
+
+        val newDriver = new ZClient.Driver[Env, Err] {
+          def scopedRedirectErr(resp: Response, message: String) =
+            ZIO.scopeWith(_ => onRedirectError(resp, message))
+
+          override def request(
+            version: Version,
+            method: Method,
+            url: URL,
+            headers: Headers,
+            body: Body,
+            sslConfig: Option[ClientSSLConfig],
+            proxy: Option[Proxy],
+          )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] = {
+            def req(
+              attempt: Int,
+              version: Version,
+              method: Method,
+              url: URL,
+              headers: Headers,
+              body: Body,
+              sslConfig: Option[ClientSSLConfig],
+              proxy: Option[Proxy],
+            ): ZIO[Env & Scope, Err, Response] = {
+              oldDriver.request(version, method, url, headers, body, sslConfig, proxy).flatMap { resp =>
+                if (resp.status.isRedirection) {
+                  if (attempt < max) {
+                    resp.headerOrFail(Header.Location) match {
+                      case Some(locOrError) =>
+                        locOrError match {
+                          case Left(locHeaderErr) =>
+                            scopedRedirectErr(resp, locHeaderErr)
+
+                          case Right(loc) =>
+                            url.resolve(loc.url) match {
+                              case Left(relativeResolveErr) =>
+                                scopedRedirectErr(resp, relativeResolveErr)
+
+                              case Right(resolved) =>
+                                req(attempt + 1, version, method, resolved, headers, body, sslConfig, proxy)
+                            }
+                        }
+                      case None             =>
+                        scopedRedirectErr(resp, "no location header to resolve redirect")
+                    }
+                  } else {
+                    scopedRedirectErr(resp, "followed maximum redirects")
+                  }
+                } else {
+                  ZIO.succeed(resp)
+                }
+              }
+            }
+
+            req(0, version, method, url, headers, body, sslConfig, proxy)
+          }
+
+          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
+            implicit trace: Trace,
+          ): ZIO[Env1 & Scope, Err, Response] = {
+            def sock(
+              attempt: Int,
+              version: Version,
+              url: URL,
+              headers: Headers,
+              app: WebSocketApp[Env1],
+            ): ZIO[Env1 & Scope, Err, Response] = {
+              oldDriver.socket(version, url, headers, app).flatMap { resp =>
+                if (resp.status.isRedirection) {
+                  if (attempt < max) {
+                    resp.headerOrFail(Header.Location) match {
+                      case Some(locOrError) =>
+                        locOrError match {
+                          case Left(locHeaderErr) =>
+                            scopedRedirectErr(resp, locHeaderErr)
+
+                          case Right(loc) =>
+                            url.resolve(loc.url) match {
+                              case Left(relativeResolveErr) =>
+                                scopedRedirectErr(resp, relativeResolveErr)
+
+                              case Right(resolved) =>
+                                sock(attempt + 1, version, resolved, headers, app)
+                            }
+                        }
+                      case None             =>
+                        scopedRedirectErr(resp, "no location header to resolve redirect")
+                    }
+                  } else {
+                    scopedRedirectErr(resp, "followed maximum redirects")
+                  }
+                } else {
+                  ZIO.succeed(resp)
+                }
+              }
+            }
+
+            sock(0, version, url, headers, app)
+          }
         }
 
         client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)

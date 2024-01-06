@@ -530,13 +530,15 @@ private[codec] object EncoderDecoder {
       } else None
     private def encodeBody(inputs: Array[Any], contentType: => Header.ContentType): Body = {
       if (isByteStream) {
-        Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
+        Body.fromStreamChunked(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
       } else {
         if (inputs.length > 1) {
           Body.fromMultipartForm(encodeMultipartFormData(inputs), formBoundary)
         } else {
           if (isEventStream) {
-            Body.fromCharSequenceStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode))
+            Body.fromCharSequenceStreamChunked(
+              inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode),
+            )
           } else if (inputs.length < 1) {
             Body.empty
           } else {

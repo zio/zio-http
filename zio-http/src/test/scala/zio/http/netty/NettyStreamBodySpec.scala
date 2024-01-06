@@ -19,10 +19,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
         handler(
           http.Response(
             status = Status.Ok,
-            // content length header is important,
-            // in this case the server will not use chunked transfer encoding even if response is a stream
-            headers = Headers(Header.ContentLength(len)),
-            body = Body.fromStream(streams.next()),
+            body = Body.fromStream(streams.next(), len),
           ),
         ),
     ).sandbox.toHttpApp

@@ -19,11 +19,9 @@ package zio.http.netty.server
 import java.io.FileInputStream
 import java.util
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.SSLConfig.{HttpBehaviour, Provider}
 import zio.http.netty.Names
-import zio.http.{SSLConfig, Server}
+import zio.http.{ClientAuth, SSLConfig, Server}
 
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandlerContext
@@ -33,9 +31,16 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
   SelectedListenerFailureBehavior,
   SelectorFailureBehavior,
 }
+import io.netty.handler.ssl._
 import io.netty.handler.ssl.util.SelfSignedCertificate
-import io.netty.handler.ssl.{SslContext, SslHandler, _}
+import io.netty.handler.ssl.{ClientAuth => NettyClientAuth}
 object SSLUtil {
+
+  def getClientAuth(clientAuth: ClientAuth): NettyClientAuth = clientAuth match {
+    case ClientAuth.Required => NettyClientAuth.REQUIRE
+    case ClientAuth.Optional => NettyClientAuth.OPTIONAL
+    case _                   => NettyClientAuth.NONE
+  }
 
   implicit class SslContextBuilderOps(self: SslContextBuilder) {
     def toNettyProvider(sslProvider: Provider): SslProvider = sslProvider match {
@@ -43,17 +48,21 @@ object SSLUtil {
       case Provider.JDK     => SslProvider.JDK
     }
 
-    def buildWithDefaultOptions(sslConfig: SSLConfig): SslContext = self
-      .sslProvider(toNettyProvider(sslConfig.provider))
-      .applicationProtocolConfig(
-        new ApplicationProtocolConfig(
-          Protocol.ALPN,
-          SelectorFailureBehavior.NO_ADVERTISE,
-          SelectedListenerFailureBehavior.ACCEPT,
-          ApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
-      .build()
+    def buildWithDefaultOptions(sslConfig: SSLConfig): SslContext = {
+      val clientAuthConfig: Option[ClientAuth] = sslConfig.clientAuth
+      clientAuthConfig.foreach(ca => self.clientAuth(getClientAuth(ca)))
+      self
+        .sslProvider(toNettyProvider(sslConfig.provider))
+        .applicationProtocolConfig(
+          new ApplicationProtocolConfig(
+            Protocol.ALPN,
+            SelectorFailureBehavior.NO_ADVERTISE,
+            SelectedListenerFailureBehavior.ACCEPT,
+            ApplicationProtocolNames.HTTP_1_1,
+          ),
+        )
+        .build()
+    }
   }
 
   def sslConfigToSslContext(sslConfig: SSLConfig): SslContext = sslConfig.data match {

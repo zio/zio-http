@@ -30,8 +30,7 @@ object StreamingResponse extends ZIOAppDefault {
       handler(
         http.Response(
           status = Status.Ok,
-          headers = Headers(Header.ContentLength(message.length.toLong)),
-          body = Body.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
+          body = Body.fromStream(ZStream.fromChunk(message), message.length.toLong), // Encoding content using a ZStream
         ),
       ),
   ).toHttpApp

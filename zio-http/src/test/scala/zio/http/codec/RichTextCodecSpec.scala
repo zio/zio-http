@@ -250,6 +250,10 @@ object RichTextCodecSpec extends ZIOHttpSpec {
         assertTrue(success(123) == codec.decode("123--")) &&
         assertTrue(codec.decode("4123").isLeft)
       },
+      test("With error message") {
+        val codec = RichTextCodec.literal("123").withError("Not 123")
+        assertTrue(codec.decode("678") == Left("(Expected, but did not find: Paragraph(Code(“1”,Inline)), Not 123)"))
+      },
     ),
   )
 }

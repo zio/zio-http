@@ -13,10 +13,39 @@ import sttp.client3.{HttpURLConnectionBackend, UriContext, basicRequest}
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class ServerInboundHandlerBenchmark {
+  private val random      = scala.util.Random
+  random.setSeed(42)
+  private val largeString = random.alphanumeric.take(100000).mkString
+
+  private val baseUrl = "http://localhost:8080"
+  private val headers = Headers(Header.ContentType(MediaType.text.`plain`).untyped)
+
+  private val arrayEndpoint = "array"
+  private val arrayResponse = ZIO.succeed(
+    Response(
+      status = Status.Ok,
+      headers = headers,
+      body = Body.fromArray(largeString.getBytes),
+    ),
+  )
+  private val arrayRoute    = Route.route(Method.GET / arrayEndpoint)(handler(arrayResponse))
+  private val arrayRequest  = basicRequest.get(uri"$baseUrl/$arrayEndpoint")
+
+  private val chunkEndpoint = "chunk"
+  private val chunkResponse = ZIO.succeed(
+    Response(
+      status = Status.Ok,
+      headers = headers,
+      body = Body.fromChunk(Chunk.fromArray(largeString.getBytes)),
+    ),
+  )
+  private val chunkRoute    = Route.route(Method.GET / chunkEndpoint)(handler(chunkResponse))
+  private val chunkRequest  = basicRequest.get(uri"$baseUrl/$chunkEndpoint")
+
   private val testResponse = ZIO.succeed(Response.text("Hello World!"))
   private val testEndPoint = "test"
   private val testRoute    = Route.route(Method.GET / testEndPoint)(handler(testResponse))
-  private val testUrl      = s"http://localhost:8080/$testEndPoint"
+  private val testUrl      = s"$baseUrl/$testEndPoint"
   private val testRequest  = basicRequest.get(uri"$testUrl")
 
   private val shutdownResponse = Response.text("shutting down")
@@ -27,7 +56,8 @@ class ServerInboundHandlerBenchmark {
 
   private def shutdownRoute(shutdownSignal: Promise[Nothing, Unit]) =
     Route.route(Method.GET / shutdownEndpoint)(handler(shutdownSignal.succeed(()).as(shutdownResponse)))
-  private def http(shutdownSignal: Promise[Nothing, Unit]) = Routes(testRoute, shutdownRoute(shutdownSignal)).toHttpApp
+  private def http(shutdownSignal: Promise[Nothing, Unit])          =
+    Routes(testRoute, arrayRoute, chunkRoute, shutdownRoute(shutdownSignal)).toHttpApp
 
   @Setup(Level.Trial)
   def setup(): Unit = {
@@ -58,7 +88,21 @@ class ServerInboundHandlerBenchmark {
   }
 
   @Benchmark
-  def benchmarkApp(): Unit = {
+  def benchmarkLargeArray(): Unit = {
+    val statusCode = arrayRequest.send(backend).code
+    if (!statusCode.isSuccess)
+      throw new RuntimeException(s"Received unexpected status code ${statusCode.code}")
+  }
+
+  @Benchmark
+  def benchmarkLargeChunk(): Unit = {
+    val statusCode = chunkRequest.send(backend).code
+    if (!statusCode.isSuccess)
+      throw new RuntimeException(s"Received unexpected status code ${statusCode.code}")
+  }
+
+  @Benchmark
+  def benchmarkSimple(): Unit = {
     val statusCode = testRequest.send(backend).code
     if (!statusCode.isSuccess)
       throw new RuntimeException(s"Received unexpected status code ${statusCode.code}")
