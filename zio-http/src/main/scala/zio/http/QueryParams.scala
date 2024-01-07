@@ -187,7 +187,7 @@ final case class ListMapQueryParams(map: ListMap[String, Chunk[String]]) extends
    * left-to-right.
    */
   override def ++(that: QueryParams): QueryParams =
-    ListMapQueryParams(this.map.foldLeft(ListMap.from(that.map)) { case (map, (k, v2)) =>
+    ListMapQueryParams(ListMap.from(that.map).foldLeft(map) { case (map, (k, v2)) =>
       map.updated(
         k,
         map.get(k) match {
