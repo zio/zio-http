@@ -20,6 +20,8 @@ import zio._
 
 import zio.http._
 
+import zio.logging._
+
 object GracefulShutdown extends ZIOAppDefault {
 
   val app: HttpApp[Any] = Handler
@@ -36,9 +38,9 @@ object GracefulShutdown extends ZIOAppDefault {
         .install(app)
         .zipRight(started.succeed(()))
         .zipRight(ZIO.never)
-        .provide(
+        .provideCustomLayer(
           Server.live,
-          ZLayer.succeed(Server.Config.default.port(8080)),
+          Logging.console() >>> Logging.withRootLoggerName("GracefulShutdown")
         )
         .fork
       _        <- started.await
@@ -47,8 +49,32 @@ object GracefulShutdown extends ZIOAppDefault {
       body     <- response.body.asString
       _        <- Console.printLine(response.status)
       _        <- Console.printLine(body)
-    } yield ()).provide(
-      Client.default,
-      Scope.default,
+      _        <- fiber.interrupt
+    } yield ()).catchAll(
+      error => console.puStrLn(s"Error: ${error.getMessage}")
+    ).exitCode.provideCustomLayer(
+      Client.default + Scope.default
     )
+}
+
+object GracefulShutdownTest extends ZIOApp {
+
+  val app: HttpApp[Any] = Handler.fromFunctionZIO[Request] { _ =>
+    ZIO.sleep(10.seconds).debug("request handler delay done").as(Response.text("done"))
+  }.sandbox.toHttpApp
+
+  override def run: URIO[ZEnv, ExitCode] =
+    (for {
+      fiber <- Server
+        .install(app)
+        .provideCustomLayer(Server.live)
+        .fork
+      _ <- ZIO.sleep(1.second) 
+      response <- ZClient.request(Request.get(URL.decode("http://localhost:8080/test").toOption.get))
+      body <- response.body.asString
+      _ <- Console.printLine(response.status)
+      _ <- Console.printLine(body)
+      _ <- fiber.interrupt
+    } yield ()).catchAll(error => console.putStrLn(s"Error occurred: ${error.getMessage}")).exitCode
+      .provideCustomLayer(Client.default ++ Scope.global)
 }
