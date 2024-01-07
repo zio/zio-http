@@ -36,6 +36,11 @@ object ResponseSpec extends ZIOHttpSpec {
 
         assertTrue(extractStatus(Response.fromCause(cause)) == Status.BadRequest)
       },
+      test("from Exception") {
+        val cause = Cause.fail(new java.lang.RuntimeException("Test"))
+
+        assertTrue(extractStatus(Response.fromCause(cause)) == Status.InternalServerError)
+      },
       test("from String") {
         val cause = Cause.fail("error")
 
