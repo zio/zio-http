@@ -47,7 +47,7 @@ object Proxy {
         .string("url")
         .mapOrFail(s => URL.decode(s).left.map(error => Config.Error.InvalidData(message = error.getMessage))) ++
         (Config.string("user") ++ Config
-          .string("password")).nested("credentials").map { case (u, p) => Credentials(u, p) }.optional ++
+          .secret("password")).nested("credentials").map { case (u, p) => Credentials(u, p) }.optional ++
         Config.chunkOf("headers", Config.string("name").zip(Config.string("value"))).optional.map {
           case Some(headers) => Headers(headers.map { case (name, value) => Header.Custom(name, value) }: _*)
           case None          => Headers.empty

@@ -118,13 +118,11 @@ object RichTextCodecSpec extends ZIOHttpSpec {
       },
       test("describe simple recursion") {
         val codec = RichTextCodec.char('x').repeat
-        // This would be perhaps nicer as «1» ⩴ “x”* or even without the label.
-        assertTrue(textOf(codec.describe).get == "«1» ⩴ (“x” «1»)?")
+        assertTrue(textOf(codec.describe).get == "“x”*")
       },
       test("describe tagged simple recursion") {
         val codec = RichTextCodec.char('x').repeat ?? "xs"
-        // This would be perhaps nicer as «xs» ⩴ “x”*
-        assertTrue(textOf(codec.describe).get == "«xs» ⩴ (“x” «xs»)?")
+        assertTrue(textOf(codec.describe).get == "«xs» ⩴ “x”*")
       },
       test("describe tagged with recursion") {
         lazy val integer: RichTextCodec[_] = (RichTextCodec.digit ~ (RichTextCodec.empty | integer)) ?? "integer"

@@ -16,6 +16,7 @@
 
 package zio.http.netty
 
+import zio.Config.Secret
 import zio.test.Assertion.{equalTo, isNone, isNull, isSome}
 import zio.test._
 
@@ -29,7 +30,7 @@ object NettyProxySpec extends ZIOHttpSpec {
       test("successfully encode valid proxy") {
         val username = "unameTest"
         val password = "upassTest"
-        val proxy    = Proxy(validUrl, Some(Credentials(username, password)))
+        val proxy    = Proxy(validUrl, Some(Credentials(username, Secret(password))))
         val encoded  = NettyProxy.fromProxy(proxy).encode
 
         assert(encoded.map(_.username()))(isSome(equalTo(username))) &&

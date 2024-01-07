@@ -35,7 +35,7 @@ class NettyProxy private (proxy: Proxy) {
     uname          = credentials.uname
     upassword      = credentials.upassword
     encodedHeaders = Conversions.headersToNetty(proxy.headers)
-  } yield new HttpProxyHandler(proxyAddress, uname, upassword, encodedHeaders)
+  } yield new HttpProxyHandler(proxyAddress, uname, upassword.value.asString, encodedHeaders)
 
   private def unauthorizedProxy: Option[HttpProxyHandler] = for {
     proxyAddress <- buildProxyAddress
