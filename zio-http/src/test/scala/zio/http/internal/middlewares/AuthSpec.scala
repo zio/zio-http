@@ -16,6 +16,7 @@
 
 package zio.http.internal.middlewares
 
+import zio.Config.Secret
 import zio.test.Assertion._
 import zio.test._
 import zio.{Ref, ZIO}
@@ -33,10 +34,10 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   private val failureBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken + "SomethingElse"))
 
   private val basicAuthM     = HandlerAspect.basicAuth { c =>
-    c.uname.reverse == c.upassword
+    Secret(c.uname.reverse) == c.upassword
   }
   private val basicAuthZIOM  = HandlerAspect.basicAuthZIO { c =>
-    ZIO.succeed(c.uname.reverse == c.upassword)
+    ZIO.succeed(Secret(c.uname.reverse) == c.upassword)
   }
   private val bearerAuthM    = HandlerAspect.bearerAuth { c =>
     c == bearerToken
@@ -48,9 +49,9 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   private val basicAuthContextM = HandlerAspect.customAuthProviding[AuthContext] { r =>
     {
       r.headers.get(Header.Authorization).flatMap {
-        case Header.Authorization.Basic(uname, password) if uname.reverse == password =>
+        case Header.Authorization.Basic(uname, password) if Secret(uname.reverse) == password =>
           Some(AuthContext(uname))
-        case _                                                                        =>
+        case _                                                                                =>
           None
       }
 

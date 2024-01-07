@@ -125,7 +125,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   private val queryParamEndpoint =
     Endpoint(GET / "withQuery")
       .in[SimpleInputBody]
-      .query(QueryCodec.paramStr("query"))
+      .query(QueryCodec.query("query"))
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
@@ -891,7 +891,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                 HttpCodec
                   .content[SimpleInputBody] ?? Doc.p("simple input"),
             )
-            .query(QueryCodec.paramStr("query"))
+            .query(QueryCodec.query("query"))
             .outCodec(
               HttpCodec
                 .content[SimpleOutputBody] ?? Doc.p("simple output") |

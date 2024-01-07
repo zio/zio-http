@@ -2,9 +2,6 @@ package zio.http
 
 import zio._
 
-import zio.http.ChannelEvent.{Unregistered, UserEvent}
-import zio.http.{Headers, Method, Scheme, Status, Version}
-
 /**
  * Enables tests that use a client without needing a live Server
  *
@@ -13,7 +10,7 @@ import zio.http.{Headers, Method, Scheme, Status, Version}
  *   Server
  */
 final case class TestClient(
-  behavior: Ref[PartialFunction[Request, ZIO[Any, Response, Response]]],
+  behavior: Ref[Routes[Any, Response]],
   serverSocketBehavior: Ref[WebSocketApp[Any]],
 ) extends ZClient.Driver[Any, Throwable] {
 
@@ -33,45 +30,66 @@ final case class TestClient(
     expectedRequest: Request,
     response: Response,
   ): ZIO[Any, Nothing, Unit] = {
-    val handler = new PartialFunction[Request, ZIO[Any, Response, Response]] {
 
-      def isDefinedAt(realRequest: Request): Boolean = {
-        // The way that the Client breaks apart and re-assembles the request prevents a straightforward
-        //    expectedRequest == realRequest
-        val defined = expectedRequest.url.relative == realRequest.url &&
-          expectedRequest.method == realRequest.method &&
-          expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
-
-        defined
-      }
-
-      def apply(request: Request): ZIO[Any, Response, Response] =
-        if (!isDefinedAt(request))
-          throw new MatchError(s"TestClient received unexpected request: $request (expected: $expectedRequest)")
-        else ZIO.succeed(response)
+    def isDefinedAt(realRequest: Request): Boolean = {
+      // The way that the Client breaks apart and re-assembles the request prevents a straightforward
+      //    expectedRequest == realRequest
+      expectedRequest.url.relative == realRequest.url &&
+      expectedRequest.method == realRequest.method &&
+      expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
     }
-    addHandler(handler)
+    addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
+      if (!isDefinedAt(realRequest))
+        throw new MatchError(s"TestClient received unexpected request: $realRequest (expected: $expectedRequest)")
+      else response
+    })
   }
 
   /**
-   * Adds a flexible handler for requests that are submitted by test cases
-   * @param handler
-   *   New behavior to be added to the TestClient
+   * Adds a route definition to handle requests that are submitted by test cases
+   * @param route
+   *   New route to be added to the TestClient
    * @tparam R
-   *   Environment of the new handler's effect.
+   *   Environment of the new route
    *
    * @example
    *   {{{
-   *    TestClient.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
+   *    TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
    *   }}}
    */
-  def addHandler[R](
-    handler: PartialFunction[Request, ZIO[R, Response, Response]],
+  def addRoute[R](
+    route: Route[R, Response],
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      newBehavior = handler.andThen(_.provideEnvironment(r))
-      _ <- behavior.update(_.orElse(newBehavior))
+      provided = route.provideEnvironment(r)
+      _ <- behavior.update(_ :+ provided)
+    } yield ()
+
+  /**
+   * Adds routes to handle requests that are submitted by test cases
+   * @param routes
+   *   New routes to be added to the TestClient
+   * @tparam R
+   *   Environment of the new route
+   *
+   * @example
+   *   {{{
+   *   TestClient.addRoutes {
+   *     Routes(
+   *       Method.GET / trailing          -> handler { Response.text("fallback") },
+   *       Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
+   *     )
+   *   }
+   *   }}}
+   */
+  def addRoutes[R](
+    routes: Routes[R, Response],
+  ): ZIO[R, Nothing, Unit] =
+    for {
+      r <- ZIO.environment[R]
+      provided = routes.provideEnvironment(r)
+      _ <- behavior.update(_ ++ provided)
     } yield ()
 
   def headers: Headers = Headers.empty
@@ -93,12 +111,8 @@ final case class TestClient(
     sslConfig: Option[zio.http.ClientSSLConfig],
     proxy: Option[Proxy],
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
-    val notFound: PartialFunction[Request, ZIO[Any, Response, Response]] = { case _: Request =>
-      ZIO.succeed(Response.notFound)
-    }
-
     for {
-      currentBehavior <- behavior.get.map(_.orElse(notFound))
+      currentBehavior <- behavior.get.map(_ :+ Method.ANY / trailing -> handler(Response.notFound))
       request = Request(
         body = body,
         headers = headers,
@@ -107,9 +121,6 @@ final case class TestClient(
         version = version,
         remoteAddress = None,
       )
-      _        <- ZIO.when(!currentBehavior.isDefinedAt(request)) {
-        ZIO.fail(new Throwable(s"TestClient does not have a handler for $request"))
-      }
       response <- currentBehavior(request).merge
     } yield response
   }
@@ -166,21 +177,43 @@ object TestClient {
     ZIO.serviceWithZIO[TestClient](_.addRequestResponse(request, response))
 
   /**
-   * Adds a flexible handler for requests that are submitted by test cases
-   * @param handler
-   *   New behavior to be added to the TestClient
+   * Adds a route definition to handle requests that are submitted by test cases
+   * @param route
+   *   New route to be added to the TestClient
    * @tparam R
-   *   Environment of the new handler's effect.
+   *   Environment of the new route
    *
    * @example
    *   {{{
-   *    TestClient.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
+   *    TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
    *   }}}
    */
-  def addHandler[R](
-    handler: PartialFunction[Request, ZIO[R, Response, Response]],
+  def addRoute[R](
+    route: Route[R, Response],
   ): ZIO[R with TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
+    ZIO.serviceWithZIO[TestClient](_.addRoute(route))
+
+  /**
+   * Adds routes to handle requests that are submitted by test cases
+   * @param routes
+   *   New routes to be added to the TestClient
+   * @tparam R
+   *   Environment of the new route
+   *
+   * @example
+   *   {{{
+   *   TestClient.addRoutes {
+   *     Routes(
+   *       Method.GET / trailing          -> handler { Response.text("fallback") },
+   *       Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
+   *     )
+   *   }
+   *   }}}
+   */
+  def addRoutes[R](
+    routes: Routes[R, Response],
+  ): ZIO[R with TestClient, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClient](_.addRoutes(routes))
 
   def installSocketApp(
     app: WebSocketApp[Any],
@@ -190,7 +223,7 @@ object TestClient {
   val layer: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
-        behavior       <- Ref.make[PartialFunction[Request, ZIO[Any, Response, Response]]](PartialFunction.empty)
+        behavior       <- Ref.make[Routes[Any, Response]](Routes.empty)
         socketBehavior <- Ref.make[WebSocketApp[Any]](WebSocketApp.unit)
         driver = TestClient(behavior, socketBehavior)
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
