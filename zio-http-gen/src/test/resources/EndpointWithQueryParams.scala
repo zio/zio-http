@@ -7,8 +7,8 @@ object Users {
   import zio.http.endpoint._
   import zio.http.codec._
   val get = Endpoint(Method.GET / "api" / "v1" / "users")
-    .query(QueryCodec.queryAs[Int]("limit"))
-    .query(QueryCodec.queryAs[String]("name"))
+    .query(QueryCodec.queryTo[Int]("limit"))
+    .query(QueryCodec.queryTo[String]("name"))
     .in[Unit]
 
 }

@@ -246,7 +246,7 @@ object CodeGen {
         case Code.CodecType.UUID    => "UUID"
         case Code.CodecType.Literal => throw new Exception("Literal query params are not supported")
       }
-      s""".query(QueryCodec.queryAs[$tpe]("$name"))"""
+      s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
   }
 
   def renderInCode(inCode: Code.InCode): String = inCode match {
