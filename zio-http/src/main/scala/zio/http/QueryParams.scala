@@ -26,6 +26,9 @@ import zio.{Chunk, IO, NonEmptyChunk, ZIO}
 import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
 
+/**
+ * A collection of query parameters.
+ */
 trait QueryParams {
   self: QueryParams =>
 
@@ -176,7 +179,7 @@ trait QueryParams {
 }
 
 /**
- * A collection of query parameters.
+ * A ordered collection of query parameters.
  */
 final case class ListMapQueryParams(map: ListMap[String, Chunk[String]]) extends QueryParams {
   self =>
