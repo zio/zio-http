@@ -275,7 +275,6 @@ lazy val docs = project
     projectName                                := "ZIO Http",
     mainModuleName                             := (zioHttp / moduleName).value,
     projectStage                               := ProjectStage.Development,
-    docsPublishBranch                          := "main",
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp),
     ciWorkflowName                             := "Continuous Integration",
     libraryDependencies ++= Seq(
