@@ -213,7 +213,10 @@ object Response {
       case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage)
       case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
       case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
-      case _                                  => error(Status.InternalServerError, throwable.getMessage)
+      case _                                  => {
+         throwable.printStackTrace(scala.Console.err)
+         error(Status.InternalServerError, throwable.getMessage)
+      }
     }
   }
 
