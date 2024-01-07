@@ -67,6 +67,20 @@ object HttpGen {
     } yield Request(version, method, url, headers, body, None)
   }
 
+  private def clearSiteDataDirective: Gen[Any, ClearSiteDataDirective] = Gen.fromIterable(
+    List(
+      ClearSiteDataDirective.Cache,
+      ClearSiteDataDirective.ClientHints,
+      ClearSiteDataDirective.Cookies,
+      ClearSiteDataDirective.Storage,
+      ClearSiteDataDirective.ExecutionContexts,
+      ClearSiteDataDirective.All,
+    ),
+  )
+
+  def clearSiteData: Gen[Any, ClearSiteData] =
+    Gen.chunkOfBounded(1, 5)(clearSiteDataDirective).map(c => ClearSiteData(NonEmptyChunk.fromChunk(c).get))
+
   def genAbsoluteLocation: Gen[Any, Location.Absolute] = for {
     scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
     host   <- Gen.alphaNumericStringBounded(1, 5)

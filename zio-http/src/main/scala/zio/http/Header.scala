@@ -1399,6 +1399,62 @@ object Header {
 
   }
 
+  final case class ClearSiteData(directives: NonEmptyChunk[ClearSiteDataDirective]) extends Header {
+    override type Self = ClearSiteData
+    override def self: Self                                  = this
+    override def headerType: HeaderType.Typed[ClearSiteData] = ClearSiteData
+  }
+
+  object ClearSiteData extends HeaderType {
+    override type HeaderValue = ClearSiteData
+
+    override def name: String = "clear-site-data"
+
+    def parse(value: String): Either[String, ClearSiteData] = {
+      val values     = value.split(",").map(_.trim)
+      val directives = values.flatMap { directive =>
+        directive match {
+          case """"cache""""             => Some(ClearSiteDataDirective.Cache)
+          case """"clientHints""""       => Some(ClearSiteDataDirective.ClientHints)
+          case """"cookies""""           => Some(ClearSiteDataDirective.Cookies)
+          case """"storage""""           => Some(ClearSiteDataDirective.Storage)
+          case """"executionContexts"""" => Some(ClearSiteDataDirective.ExecutionContexts)
+          case """"*""""                 => Some(ClearSiteDataDirective.All)
+          case _                         => None
+        }
+      }
+
+      if (values.exists(x => !x.headOption.contains('"') || !x.lastOption.contains('"')))
+        Left("Invalid Clear-Site-Data header")
+      else {
+        NonEmptyChunk.fromIterableOption(directives) match {
+          case Some(directives) => Right(ClearSiteData(directives))
+          case None             => Left("Invalid Clear-Site-Data header")
+        }
+      }
+    }
+
+    def render(clearSiteData: ClearSiteData): String =
+      clearSiteData.directives.map {
+        case ClearSiteDataDirective.Cache             => """"cache""""
+        case ClearSiteDataDirective.ClientHints       => """"clientHints""""
+        case ClearSiteDataDirective.Cookies           => """"cookies""""
+        case ClearSiteDataDirective.Storage           => """"storage""""
+        case ClearSiteDataDirective.ExecutionContexts => """"executionContexts""""
+        case ClearSiteDataDirective.All               => """"*""""
+      }.mkString(", ")
+  }
+
+  sealed trait ClearSiteDataDirective
+  object ClearSiteDataDirective {
+    case object Cache             extends ClearSiteDataDirective
+    case object ClientHints       extends ClearSiteDataDirective
+    case object Cookies           extends ClearSiteDataDirective
+    case object Storage           extends ClearSiteDataDirective
+    case object ExecutionContexts extends ClearSiteDataDirective
+    case object All               extends ClearSiteDataDirective
+  }
+
   /**
    * Connection header value.
    */
@@ -2745,6 +2801,30 @@ object Header {
       DateEncoding.default.encodeDate(expires.value)
   }
 
+  final case class Forwarded(by: Option[String] = None, forValues: List[String] = Nil, host: Option[String] = None, proto: Option[String] = None) extends Header {
+    override type Self = Forwarded
+    override def self: Self                              = this
+    override def headerType: HeaderType.Typed[Forwarded] = Forwarded
+  }
+
+  object Forwarded extends HeaderType {
+    override type HeaderValue = Forwarded
+
+    override def name: String = "forwarded"
+
+    def parse(forwarded: String): Either[String, Forwarded] = {
+      val parts    = forwarded.split(";")
+      val by       = parts.collectFirst { case s if s.startsWith("by=") => s.drop(3) }.map(_.trim)
+      val forValue = parts.collectFirst { case s if s.startsWith("for=") => s.split(',') }.map(_.map(_.trim.drop(4).trim).toList).getOrElse(Nil)
+      val host     = parts.collectFirst { case s if s.startsWith("host=") => s.drop(5) }.map(_.trim)
+      val proto    = parts.collectFirst { case s if s.startsWith("proto=") => s.drop(6) }.map(_.trim)
+      Right(Forwarded(by, forValue, host, proto))
+    }
+
+    def render(forwarded: Forwarded): String =
+      s"${forwarded.by}; ${forwarded.forValues.map(v => s"for=$v").mkString(",")}; ${forwarded.host}; ${forwarded.proto}"
+  }
+
   /** From header value. */
   final case class From(email: String) extends Header {
     override type Self = From
@@ -2965,6 +3045,56 @@ object Header {
 
     def render(lastModified: LastModified): String =
       DateEncoding.default.encodeDate(lastModified.value)
+  }
+
+  final case class Link(uri: URL, params: Map[String, String]) extends Header {
+    override type Self = Link
+    override def self: Self                         = this
+    override def headerType: HeaderType.Typed[Link] = Link
+  }
+
+  object Link extends HeaderType {
+    override type HeaderValue = Link
+
+    override def name: String = "link"
+
+    def parse(value: String): Either[String, Link] = {
+      val parts = value.split(";").map(_.trim).filter(_.nonEmpty)
+      if (parts.length < 2) Left("Invalid Link header")
+      else if (!parts(0).startsWith("<") || !parts(0).endsWith(">")) Left("Invalid Link header")
+      else {
+        val uri = parts(0).substring(1, parts(0).length - 1)
+        URL.decode(uri) match {
+          case Left(_)    => Left("Invalid Link header")
+          case Right(url) =>
+            val params    = parts.drop(1).map { part =>
+              val keyValue = part.split("=").map(_.trim).filter(_.nonEmpty)
+              if (keyValue.length != 2) Left("Invalid Link header")
+              else {
+                val (key, value) = (keyValue(0), keyValue(1))
+                val unquoted     =
+                  if (value.startsWith("\"") && value.endsWith("\"")) value.substring(1, value.length - 1)
+                  else value
+                Right(key -> unquoted)
+              }
+
+            }
+            val paramsMap = params.foldLeft[Either[String, Map[String, String]]](Right(Map.empty)) {
+              case (Left(error), _)                  => Left(error)
+              case (Right(map), Right((key, value))) =>
+                if (map.contains(key)) Left("Invalid Link header")
+                else Right(map + (key -> value))
+              case _                                 => Left("Invalid Link header")
+            }
+            paramsMap.map(Link(url, _))
+        }
+      }
+    }
+
+    def render(link: Link): String = {
+      val params = link.params.map { case (key, value) => s"""$key="$value"""" }.mkString("; ")
+      s"""<${link.uri.encode}>; $params"""
+    }
   }
 
   /**
