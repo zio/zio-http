@@ -18,6 +18,7 @@ package zio.http
 
 import java.nio.charset.Charset
 
+import scala.collection.compat._
 import scala.collection.immutable.ListMap
 
 import zio.{Chunk, IO, NonEmptyChunk, ZIO}
