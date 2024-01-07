@@ -1,3 +1,5 @@
 package zio.http
 
-final case class Credentials(uname: String, upassword: String)
+import zio.Config.Secret
+
+final case class Credentials(uname: String, upassword: Secret)

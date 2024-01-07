@@ -273,7 +273,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * credentials are same as the ones given
    */
   def basicAuth(u: String, p: String): HandlerAspect[Any, Unit] =
-    basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
+    basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == zio.Config.Secret(p)) }
 
   /**
    * Creates a middleware for basic authentication using an effectful
@@ -300,7 +300,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   def bearerAuth(f: String => Boolean): HandlerAspect[Any, Unit] =
     customAuth(
       _.header(Header.Authorization) match {
-        case Some(Header.Authorization.Bearer(token)) => f(token)
+        case Some(Header.Authorization.Bearer(token)) => f(token.value.asString)
         case _                                        => false
       },
       Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
@@ -318,7 +318,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   )(implicit trace: Trace): HandlerAspect[Env, Unit] =
     customAuthZIO(
       _.header(Header.Authorization) match {
-        case Some(Header.Authorization.Bearer(token)) => f(token)
+        case Some(Header.Authorization.Bearer(token)) => f(token.value.asString)
         case _                                        => ZIO.succeed(false)
       },
       Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),

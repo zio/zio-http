@@ -27,6 +27,7 @@ import scala.util.control.NonFatal
 import scala.util.matching.Regex
 import scala.util.{Either, Failure, Success, Try}
 
+import zio.Config.Secret
 import zio._
 
 import zio.http.codec.RichTextCodec
@@ -1021,7 +1022,11 @@ object Header {
 
     override def name: String = "authorization"
 
-    final case class Basic(username: String, password: String) extends Authorization
+    final case class Basic(username: String, password: Secret) extends Authorization
+
+    object Basic {
+      def apply(username: String, password: String): Basic = new Basic(username, Secret(password))
+    }
 
     final case class Digest(
       response: String,
@@ -1037,9 +1042,17 @@ object Header {
       userhash: Boolean,
     ) extends Authorization
 
-    final case class Bearer(token: String) extends Authorization
+    final case class Bearer(token: Secret) extends Authorization
 
-    final case class Unparsed(authScheme: String, authParameters: String) extends Authorization
+    object Bearer {
+      def apply(token: String): Bearer = Bearer(Secret(token))
+    }
+
+    final case class Unparsed(authScheme: String, authParameters: Secret) extends Authorization
+
+    object Unparsed {
+      def apply(authScheme: String, authParameters: String): Unparsed = Unparsed(authScheme, Secret(authParameters))
+    }
 
     def parse(value: String): Either[String, Authorization] = {
       val parts = value.split(" ")
@@ -1055,20 +1068,20 @@ object Header {
 
     def render(header: Authorization): String = header match {
       case Basic(username, password) =>
-        s"Basic ${Base64.getEncoder.encodeToString(s"$username:$password".getBytes(StandardCharsets.UTF_8))}"
+        s"Basic ${Base64.getEncoder.encodeToString((s"$username:" ++: password.value).map(_.toByte).toArray)}"
 
       case Digest(response, username, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash) =>
         s"""Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
           s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
-      case Bearer(token)                                                                          => s"Bearer $token"
-      case Unparsed(scheme, params)                                                               => s"$scheme $params"
+      case Bearer(token)            => s"Bearer ${token.value.asString}"
+      case Unparsed(scheme, params) => s"$scheme ${params.value.asString}"
     }
 
     private def parseBasic(value: String): Either[String, Authorization] = {
       try {
         val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(":")
         if (partsOfBasic.length == 2) {
-          Right(Basic(partsOfBasic(0), partsOfBasic(1)))
+          Right(Basic(partsOfBasic(0), Secret(partsOfBasic(1))))
         } else {
           Left("Basic Authorization header value is not in the format username:password")
         }
