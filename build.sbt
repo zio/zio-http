@@ -251,6 +251,13 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
   )
   .dependsOn(zioHttp)
 
+lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
+  .settings(
+    stdSettings("zio-http-htmx"),
+    publishSetting(true)
+  )
+  .dependsOn(zioHttp)
+
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .enablePlugins(Shading.plugins(): _*)
   .settings(stdSettings("zio-http-testkit"))
