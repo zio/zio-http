@@ -38,13 +38,13 @@ object ResponseSpec extends ZIOHttpSpec {
       },
       test("from Exception") {
         val cause = Cause.fail("error exception")
-        
+
         val stream = new java.io.ByteArrayOutputStream()
         scala.Console.withErr(stream) {
           Response.fromCause(cause)
         }
-      
-        assertTrue(stream.toString.contains("Exception in thread \"zio-fiber-\" java.lang.String: error exception") )
+
+        assertTrue(stream.toString.contains("Exception in thread \"zio-fiber-\" java.lang.String: error exception"))
       },
       test("from String") {
         val cause = Cause.fail("error")
