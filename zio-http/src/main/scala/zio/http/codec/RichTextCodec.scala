@@ -16,12 +16,13 @@
 
 package zio.http.codec
 
-import zio.{Chunk, NonEmptyChunk}
-
 import java.lang.Integer.parseInt
+
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
 import scala.util.control.ControlThrowable
+
+import zio.{Chunk, NonEmptyChunk}
 
 /**
  * A `RichTextCodec` is a more compositional version of `TextCodec`, which has
