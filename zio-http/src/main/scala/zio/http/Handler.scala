@@ -31,8 +31,8 @@ import java.util.zip.ZipFile
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
-  def @@[Env1 <: R, Ctx, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
-    in: In1 <:< Request,
+  def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
+    in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
   ): Handler[Env1, Response, Request, Response] = {
@@ -672,6 +672,12 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 }
 
 object Handler {
+
+  sealed trait IsRequest[-A]
+
+  object IsRequest {
+    implicit val request: IsRequest[Request] = new IsRequest[Request] {}
+  }
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
     Handler.fromZIO(
