@@ -16,13 +16,12 @@
 
 package zio.http.codec
 
-import java.lang.Integer.parseInt
+import zio.{Chunk, NonEmptyChunk}
 
+import java.lang.Integer.parseInt
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
 import scala.util.control.ControlThrowable
-
-import zio.{Chunk, NonEmptyChunk}
 
 /**
  * A `RichTextCodec` is a more compositional version of `TextCodec`, which has
@@ -603,12 +602,16 @@ object RichTextCodec {
         } yield combiner.combine(l, r)
 
       case Alt(left, right) =>
+        val startIdx = parserIdx.get()
         parse(value, left, parserIdx) match {
           case Right(a)        => Right(Left(a))
           case Left(errorLeft) =>
+            parserIdx.set(startIdx)
             parse(value, right, parserIdx) match {
               case Right(b)         => Right(Right(b))
-              case Left(errorRight) => Left(s"($errorLeft, $errorRight)")
+              case Left(errorRight) =>
+                parserIdx.set(startIdx)
+                Left(s"($errorLeft, $errorRight)")
             }
         }
 
@@ -633,16 +636,16 @@ object RichTextCodec {
   private class ParserIndex {
     private var i = 0
 
+    def get(): Int         = i
+    def set(idx: Int): Unit = i = idx
+
     def getAndIncr(): Int = {
       val res = i
       i += 1
       res
     }
 
-    def decr(): Unit = {
-      i -= 1
-      ()
-    }
+    def decr(): Unit        = i -= 1
   }
 
 }
