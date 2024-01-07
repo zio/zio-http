@@ -323,11 +323,13 @@ private[zio] final case class ServerInboundHandler(
             }
             None
           }
-        }.flatMap(_.getOrElse(ZIO.unit)).catchSomeCause { case cause =>
-          ZIO.attempt(
-            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash)),
-          )
-        }
+        }.foldCauseZIO(
+          cause => ZIO.attempt(attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash))),
+          {
+            case None       => ZIO.unit
+            case Some(task) => task.orElse(ZIO.attempt(ctx.close()))
+          },
+        )
       }
 
       pgm.provideEnvironment(env)

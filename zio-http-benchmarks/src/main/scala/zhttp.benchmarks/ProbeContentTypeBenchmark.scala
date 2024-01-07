@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.util.Random
 
+import zio.http.Header.ContentType
 import zio.http.MediaType
 
 import org.openjdk.jmh.annotations._
@@ -14,11 +15,24 @@ import org.openjdk.jmh.annotations._
 class ProbeContentTypeBenchmark {
 
   private val extensions = List("mp4", "def", "mp3", "js", "html", "css", "gif", "jpeg")
+  private val header     = ContentType(MediaType.application.`json`)
 
   @Benchmark
   def benchmarkApp(): Unit = {
     val rand = Random.nextInt(8)
     MediaType.forFileExtension(extensions(rand))
+    ()
+  }
+
+  @Benchmark
+  def benchmarkParseContentType(): Unit = {
+    ContentType.parse("application/json; charset=utf-8")
+    ()
+  }
+
+  @Benchmark
+  def benchmarkRenderContentType(): Unit = {
+    ContentType.render(header)
     ()
   }
 }

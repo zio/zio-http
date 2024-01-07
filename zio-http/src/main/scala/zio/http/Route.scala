@@ -62,7 +62,8 @@ sealed trait Route[-Env, +Err] { self =>
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorCause(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorCause(f), aspect)
-      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
+      case Handled(routePattern, handler, location) =>
+        Handled(routePattern, handler.mapErrorCause(c => f(c.asInstanceOf[Cause[Nothing]])), location)
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {
@@ -96,7 +97,8 @@ sealed trait Route[-Env, +Err] { self =>
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorCauseZIO(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorCauseZIO(f), aspect)
-      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
+      case Handled(routePattern, handler, location) =>
+        Handled(routePattern, handler.mapErrorCauseZIO(c => f(c.asInstanceOf[Cause[Nothing]])), location)
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {
@@ -162,7 +164,14 @@ sealed trait Route[-Env, +Err] { self =>
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorRequestCause(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorRequestCause(f), aspect)
-      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
+      case Handled(routePattern, handler, location) =>
+        Handled(
+          routePattern,
+          Handler.fromFunctionHandler[Request] { (req: Request) =>
+            handler.mapErrorCause(c => f(req, c.asInstanceOf[Cause[Nothing]]))
+          },
+          location,
+        )
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {
@@ -201,7 +210,14 @@ sealed trait Route[-Env, +Err] { self =>
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorRequestCauseZIO(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorRequestCauseZIO(f), aspect)
-      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
+      case Handled(routePattern, handler, location) =>
+        Handled(
+          routePattern,
+          Handler.fromFunctionHandler[Request] { (req: Request) =>
+            handler.mapErrorCauseZIO(c => f(req, c.asInstanceOf[Cause[Nothing]]))
+          },
+          location,
+        )
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {

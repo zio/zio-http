@@ -18,6 +18,7 @@ package zio.http
 
 import java.net.ConnectException
 
+import zio.Config.Secret
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test._
@@ -110,7 +111,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           proxy = Proxy.empty
             .url(url)
             .headers(Headers(DynamicServer.APP_ID, id))
-            .credentials(Credentials("test", "test"))
+            .credentials(Credentials("test", Secret("test")))
           out <- Client
             .request(
               Request.get(url = url),

@@ -27,10 +27,10 @@ import scala.util.control.NonFatal
 import scala.util.matching.Regex
 import scala.util.{Either, Failure, Success, Try}
 
+import zio.Config.Secret
 import zio._
 
 import zio.http.codec.RichTextCodec
-import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.Http
 import zio.http.internal.DateEncoding
 
 sealed trait Header {
@@ -1021,7 +1021,11 @@ object Header {
 
     override def name: String = "authorization"
 
-    final case class Basic(username: String, password: String) extends Authorization
+    final case class Basic(username: String, password: Secret) extends Authorization
+
+    object Basic {
+      def apply(username: String, password: String): Basic = new Basic(username, Secret(password))
+    }
 
     final case class Digest(
       response: String,
@@ -1037,9 +1041,17 @@ object Header {
       userhash: Boolean,
     ) extends Authorization
 
-    final case class Bearer(token: String) extends Authorization
+    final case class Bearer(token: Secret) extends Authorization
 
-    final case class Unparsed(authScheme: String, authParameters: String) extends Authorization
+    object Bearer {
+      def apply(token: String): Bearer = Bearer(Secret(token))
+    }
+
+    final case class Unparsed(authScheme: String, authParameters: Secret) extends Authorization
+
+    object Unparsed {
+      def apply(authScheme: String, authParameters: String): Unparsed = Unparsed(authScheme, Secret(authParameters))
+    }
 
     def parse(value: String): Either[String, Authorization] = {
       val parts = value.split(" ")
@@ -1055,20 +1067,20 @@ object Header {
 
     def render(header: Authorization): String = header match {
       case Basic(username, password) =>
-        s"Basic ${Base64.getEncoder.encodeToString(s"$username:$password".getBytes(StandardCharsets.UTF_8))}"
+        s"Basic ${Base64.getEncoder.encodeToString((s"$username:" ++: password.value).map(_.toByte).toArray)}"
 
       case Digest(response, username, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash) =>
         s"""Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
           s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
-      case Bearer(token)                                                                          => s"Bearer $token"
-      case Unparsed(scheme, params)                                                               => s"$scheme $params"
+      case Bearer(token)            => s"Bearer ${token.value.asString}"
+      case Unparsed(scheme, params) => s"$scheme ${params.value.asString}"
     }
 
     private def parseBasic(value: String): Either[String, Authorization] = {
       try {
         val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(":")
         if (partsOfBasic.length == 2) {
-          Right(Basic(partsOfBasic(0), partsOfBasic(1)))
+          Right(Basic(partsOfBasic(0), Secret(partsOfBasic(1))))
         } else {
           Left("Basic Authorization header value is not in the format username:password")
         }
@@ -1398,6 +1410,62 @@ object Header {
       }
     }
 
+  }
+
+  final case class ClearSiteData(directives: NonEmptyChunk[ClearSiteDataDirective]) extends Header {
+    override type Self = ClearSiteData
+    override def self: Self                                  = this
+    override def headerType: HeaderType.Typed[ClearSiteData] = ClearSiteData
+  }
+
+  object ClearSiteData extends HeaderType {
+    override type HeaderValue = ClearSiteData
+
+    override def name: String = "clear-site-data"
+
+    def parse(value: String): Either[String, ClearSiteData] = {
+      val values     = value.split(",").map(_.trim)
+      val directives = values.flatMap { directive =>
+        directive match {
+          case """"cache""""             => Some(ClearSiteDataDirective.Cache)
+          case """"clientHints""""       => Some(ClearSiteDataDirective.ClientHints)
+          case """"cookies""""           => Some(ClearSiteDataDirective.Cookies)
+          case """"storage""""           => Some(ClearSiteDataDirective.Storage)
+          case """"executionContexts"""" => Some(ClearSiteDataDirective.ExecutionContexts)
+          case """"*""""                 => Some(ClearSiteDataDirective.All)
+          case _                         => None
+        }
+      }
+
+      if (values.exists(x => !x.headOption.contains('"') || !x.lastOption.contains('"')))
+        Left("Invalid Clear-Site-Data header")
+      else {
+        NonEmptyChunk.fromIterableOption(directives) match {
+          case Some(directives) => Right(ClearSiteData(directives))
+          case None             => Left("Invalid Clear-Site-Data header")
+        }
+      }
+    }
+
+    def render(clearSiteData: ClearSiteData): String =
+      clearSiteData.directives.map {
+        case ClearSiteDataDirective.Cache             => """"cache""""
+        case ClearSiteDataDirective.ClientHints       => """"clientHints""""
+        case ClearSiteDataDirective.Cookies           => """"cookies""""
+        case ClearSiteDataDirective.Storage           => """"storage""""
+        case ClearSiteDataDirective.ExecutionContexts => """"executionContexts""""
+        case ClearSiteDataDirective.All               => """"*""""
+      }.mkString(", ")
+  }
+
+  sealed trait ClearSiteDataDirective
+  object ClearSiteDataDirective {
+    case object Cache             extends ClearSiteDataDirective
+    case object ClientHints       extends ClearSiteDataDirective
+    case object Cookies           extends ClearSiteDataDirective
+    case object Storage           extends ClearSiteDataDirective
+    case object ExecutionContexts extends ClearSiteDataDirective
+    case object All               extends ClearSiteDataDirective
   }
 
   /**
@@ -2466,6 +2534,8 @@ object Header {
     override def self: Self = this
 
     override def headerType: HeaderType.Typed[ContentType] = ContentType
+
+    override lazy val renderedValue: String = ContentType.render(this)
   }
 
   object ContentType extends HeaderType {
@@ -2481,47 +2551,55 @@ object Header {
     private val codec: RichTextCodec[ContentType] = {
 
       // char `.` according to BNF not allowed as `token`, but here tolerated
-      val token = RichTextCodec.charsNot(' ', '(', ')', '<', '>', '@', ',', ';', ':', '\\', '"', '/', '[', ']', '?', '=')
+      val token       = RichTextCodec.charsNot(' ', '(', ')', '<', '>', '@', ',', ';', ':', '\\', '"', '/', '[', ']', '?', '=')
+      val tokenString = token.repeat.string
 
-      val tokenQuoted = RichTextCodec.charsNot(' ', '"')
+      val tokenStringQuoted = RichTextCodec.charsNot(' ', '"').repeat.string
 
-      val type1         = RichTextCodec.string.collectOrFail("unsupported main type") {
+      val type1        = RichTextCodec.string.collectOrFail("unsupported main type") {
         case value if MediaType.mainTypeMap.contains(value) => value
       }
-      val type1x        = (RichTextCodec.literalCI("x-") ~ token.repeat.string).transform[String](in => s"${in._1}${in._2}")(in => ("x-", s"${in.substring(2)}"))
-      val codecType1    = (type1 | type1x).transform[String](_.merge) {
+      val type1x       = (RichTextCodec.literalCI("x-") ~ tokenString).transform[String](in => s"${in._1}${in._2}")(in => ("x-", s"${in.substring(2)}"))
+      val codecType1   = (type1 | type1x).transform[String](_.merge) {
         case x if x.startsWith("x-") => Right(x)
         case x                       => Left(x)
       }
-      val codecType2    = token.repeat.string
-      val codecType     = (codecType1 <~ RichTextCodec.char('/').const('/')) ~ codecType2
-      val attribute     = token.repeat.string
-      val valueUnquoted = token.repeat.string
-      val valueQuoted   = RichTextCodec.char('"') ~ tokenQuoted.repeat.string ~ RichTextCodec.char('"')
-      val value         = valueQuoted | valueUnquoted
+      val forwardSlash = RichTextCodec.char('/').const('/')
+      val codecType    = (codecType1 <~ forwardSlash) ~ tokenString
+      val quote        = RichTextCodec.char('"')
+      val valueQuoted  = quote ~ tokenStringQuoted ~ quote
+      val value        = valueQuoted | tokenString
 
-      val param  = ((
+      val unitChunk   = Chunk.single(())
+      val whitespaces = RichTextCodec.whitespaceChar.repeat.transform[Char](_ => ' ')(_ => unitChunk).const(' ')
+      val param       = ((
         RichTextCodec.char(';').const(';') ~>
-          (RichTextCodec.whitespaceChar.repeat | RichTextCodec.empty).transform[Char](_ => ' ')(_ => Left(Chunk(()))).const(' ') ~>
-          attribute <~
+          whitespaces ~>
+          tokenString <~
           RichTextCodec.char('=').const('=')
       ) ~ value)
         .transformOrFailLeft[ContentType.Parameter](in => ContentType.Parameter.fromCodec(in))(in => in.toCodec)
-      val params = param.repeat
+      val params      = param.repeat
+
       (codecType ~ params).transform[ContentType] { case (mainType, subType, params) =>
         ContentType(
           MediaType.forContentType(s"$mainType/$subType").get,
-          params.collect { case p if p.key == ContentType.Parameter.Boundary.name => zio.http.Boundary(p.value) }.headOption,
-          params.collect { case p if p.key == ContentType.Parameter.Charset.name => java.nio.charset.Charset.forName(p.value) }.headOption,
+          params.collectFirst { case p if p.key == ContentType.Parameter.Boundary.name => zio.http.Boundary(p.value) },
+          params.collectFirst { case p if p.key == ContentType.Parameter.Charset.name => java.nio.charset.Charset.forName(p.value) },
         )
       }(in =>
         (
           in.mediaType.mainType,
-          in.mediaType.subType,
-          Chunk(
-            in.charset.map(in => Parameter.Charset(Parameter.Payload(Parameter.Charset.name, in, false))),
-            in.boundary.map(in => Parameter.Boundary(Parameter.Payload(Parameter.Boundary.name, in, false))),
-          ).flatten,
+          in.mediaType.subType, {
+            val charset  = in.charset.map(in => Parameter.Charset(Parameter.Payload(Parameter.Charset.name, in, false)))
+            val boundary = in.boundary.map(in => Parameter.Boundary(Parameter.Payload(Parameter.Boundary.name, in, false)))
+            (charset, boundary) match {
+              case (Some(c), Some(b)) => Chunk(c, b)
+              case (Some(c), _)       => Chunk.single(c)
+              case (_, Some(b))       => Chunk.single(b)
+              case _                  => Chunk.empty
+            }
+          },
         ),
       )
     }
@@ -2734,6 +2812,30 @@ object Header {
 
     def render(expires: Expires): String =
       DateEncoding.default.encodeDate(expires.value)
+  }
+
+  final case class Forwarded(by: Option[String] = None, forValues: List[String] = Nil, host: Option[String] = None, proto: Option[String] = None) extends Header {
+    override type Self = Forwarded
+    override def self: Self                              = this
+    override def headerType: HeaderType.Typed[Forwarded] = Forwarded
+  }
+
+  object Forwarded extends HeaderType {
+    override type HeaderValue = Forwarded
+
+    override def name: String = "forwarded"
+
+    def parse(forwarded: String): Either[String, Forwarded] = {
+      val parts    = forwarded.split(";")
+      val by       = parts.collectFirst { case s if s.startsWith("by=") => s.drop(3) }.map(_.trim)
+      val forValue = parts.collectFirst { case s if s.startsWith("for=") => s.split(',') }.map(_.map(_.trim.drop(4).trim).toList).getOrElse(Nil)
+      val host     = parts.collectFirst { case s if s.startsWith("host=") => s.drop(5) }.map(_.trim)
+      val proto    = parts.collectFirst { case s if s.startsWith("proto=") => s.drop(6) }.map(_.trim)
+      Right(Forwarded(by, forValue, host, proto))
+    }
+
+    def render(forwarded: Forwarded): String =
+      s"${forwarded.by}; ${forwarded.forValues.map(v => s"for=$v").mkString(",")}; ${forwarded.host}; ${forwarded.proto}"
   }
 
   /** From header value. */
@@ -2956,6 +3058,56 @@ object Header {
 
     def render(lastModified: LastModified): String =
       DateEncoding.default.encodeDate(lastModified.value)
+  }
+
+  final case class Link(uri: URL, params: Map[String, String]) extends Header {
+    override type Self = Link
+    override def self: Self                         = this
+    override def headerType: HeaderType.Typed[Link] = Link
+  }
+
+  object Link extends HeaderType {
+    override type HeaderValue = Link
+
+    override def name: String = "link"
+
+    def parse(value: String): Either[String, Link] = {
+      val parts = value.split(";").map(_.trim).filter(_.nonEmpty)
+      if (parts.length < 2) Left("Invalid Link header")
+      else if (!parts(0).startsWith("<") || !parts(0).endsWith(">")) Left("Invalid Link header")
+      else {
+        val uri = parts(0).substring(1, parts(0).length - 1)
+        URL.decode(uri) match {
+          case Left(_)    => Left("Invalid Link header")
+          case Right(url) =>
+            val params    = parts.drop(1).map { part =>
+              val keyValue = part.split("=").map(_.trim).filter(_.nonEmpty)
+              if (keyValue.length != 2) Left("Invalid Link header")
+              else {
+                val (key, value) = (keyValue(0), keyValue(1))
+                val unquoted     =
+                  if (value.startsWith("\"") && value.endsWith("\"")) value.substring(1, value.length - 1)
+                  else value
+                Right(key -> unquoted)
+              }
+
+            }
+            val paramsMap = params.foldLeft[Either[String, Map[String, String]]](Right(Map.empty)) {
+              case (Left(error), _)                  => Left(error)
+              case (Right(map), Right((key, value))) =>
+                if (map.contains(key)) Left("Invalid Link header")
+                else Right(map + (key -> value))
+              case _                                 => Left("Invalid Link header")
+            }
+            paramsMap.map(Link(url, _))
+        }
+      }
+    }
+
+    def render(link: Link): String = {
+      val params = link.params.map { case (key, value) => s"""$key="$value"""" }.mkString("; ")
+      s"""<${link.uri.encode}>; $params"""
+    }
   }
 
   /**

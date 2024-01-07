@@ -30,48 +30,69 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
     expectedRequest: Request,
     response: Response,
   ): ZIO[Any, Nothing, Unit] = {
-    val handler: PartialFunction[Request, ZIO[Any, Nothing, Response]] = {
-      case realRequest if {
-            // The way that the Client breaks apart and re-assembles the request prevents a straightforward
-            //    expectedRequest == realRequest
-            expectedRequest.url.relative == realRequest.url &&
-            expectedRequest.method == realRequest.method &&
-            expectedRequest.headers.forall(expectedHeader => realRequest.hasHeader(expectedHeader))
-          } =>
-        ZIO.succeed(response)
-    }
-    addHandler(handler)
+    addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
+      if (
+        // The way that the Client breaks apart and re-assembles the request prevents a straightforward
+        //    expectedRequest == realRequest
+        expectedRequest.url.relative == realRequest.url &&
+        expectedRequest.method == realRequest.method &&
+        expectedRequest.headers.forall(expectedHeader => realRequest.hasHeader(expectedHeader))
+      ) response
+      else Response.notFound
+    })
   }
 
   /**
-   * Add new behavior to Server
-   * @param pf
-   *   New behavior
+   * Adds a new route to the Server
    *
+   * @param route
+   *   New route
    * @example
    *   {{{
-   *  for {
-   *    state <- Ref.make(0)
-   *    testRequest <- requestToCorrectPort
-   *    _           <- TestServer.addHandler{ case (_: Request) =>
-   *      for {
-   *        curState <- state.getAndUpdate(_ + 1)
-   *      } yield {
-   *        if (curState > 0)
-   *          Response(Status.InternalServerError)
-   *        else
-   *          Response(Status.Ok)
-   *      }
-   *    }
+   * TestServer.addRoute {
+   *   Method.ANY / trailing -> handler { (_: Path, _: Request) =>
+   *     for {
+   *       curState <- state.getAndUpdate(_ + 1)
+   *     } yield {
+   *       if (curState > 0)
+   *         Response(Status.InternalServerError)
+   *       else
+   *         Response(Status.Ok)
+   *     }
+   *   }
+   * }
    *   }}}
    */
-  def addHandler[R](
-    pf: PartialFunction[Request, ZIO[R, Response, Response]],
+  def addRoute[R](
+    route: Route[R, Response],
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      behavior          = pf.andThen(_.provideEnvironment(r))
-      app: HttpApp[Any] = HttpApp.collectZIO(behavior)
+      provided          = route.provideEnvironment(r)
+      app: HttpApp[Any] = provided.toHttpApp
+      _ <- driver.addApp(app, r)
+    } yield ()
+
+  /**
+   * Add new routes to the Server
+   * @example
+   *   {{{
+   *   TestServer.addRoutes {
+   *     Routes(
+   *       Method.ANY / trailing -> handler { (_: Path, _: Request) => Response.text("Fallback handler") },
+   *       Method.GET / "hello" / "world" -> handler { (_: Path, _: Request) => Response.text("Hello world!") },
+   *     )
+   *   }
+   *   }}}
+   */
+
+  def addRoutes[R](
+    routes: Routes[R, Response],
+  ): ZIO[R, Nothing, Unit] =
+    for {
+      r <- ZIO.environment[R]
+      provided          = routes.provideEnvironment(r)
+      app: HttpApp[Any] = provided.toHttpApp
       _ <- driver.addApp(app, r)
     } yield ()
 
@@ -91,10 +112,15 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
 }
 
 object TestServer {
-  def addHandler[R](
-    pf: PartialFunction[Request, ZIO[R, Response, Response]],
+  def addRoute[R](
+    route: Route[R, Response],
   ): ZIO[R with TestServer, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer](_.addHandler(pf))
+    ZIO.serviceWithZIO[TestServer](_.addRoute(route))
+
+  def addRoutes[R](
+    routes: Routes[R, Response],
+  ): ZIO[R with TestServer, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer](_.addRoutes(routes))
 
   def addRequestResponse(
     request: Request,
