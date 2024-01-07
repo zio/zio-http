@@ -2501,7 +2501,8 @@ object Header {
       val valueQuoted  = quote ~ tokenStringQuoted ~ quote
       val value        = valueQuoted | tokenString
 
-      val whitespaces = RichTextCodec.whitespaceChar.repeat.const(Chunk.single(' '))
+      val unitChunk   = Chunk.single(())
+      val whitespaces = RichTextCodec.whitespaceChar.repeat.transform[Char](_ => ' ')(_ => unitChunk).const(' ')
       val param       = ((
         RichTextCodec.char(';').const(';') ~>
           whitespaces ~>
