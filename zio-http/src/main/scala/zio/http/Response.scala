@@ -154,6 +154,7 @@ object Response {
    * failure inside the cause, if any.
    */
   def fromCause(cause: Cause[Any]): Response = {
+
     cause.failureOrCause match {
       case Left(failure: Response)  => failure
       case Left(failure: Throwable) => fromThrowable(failure)
@@ -214,8 +215,8 @@ object Response {
       case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
       case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
       case _                                  => {
-         throwable.printStackTrace(scala.Console.err)
-         error(Status.InternalServerError, throwable.getMessage)
+        throwable.printStackTrace(scala.Console.err)
+        error(Status.InternalServerError, throwable.getMessage)
       }
     }
   }
