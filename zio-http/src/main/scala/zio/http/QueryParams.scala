@@ -44,7 +44,8 @@ trait QueryParams {
   /**
    * Adds the specified key/value pair to the query parameters.
    */
-  def add(key: String, value: String): QueryParams
+  def add(key: String, value: String): QueryParams =
+    addAll(key, Chunk(value))
 
   /**
    * Adds the specified key/value pairs to the query parameters.
@@ -54,12 +55,12 @@ trait QueryParams {
   /**
    * Encodes the query parameters into a string.
    */
-  def encode: String
+  def encode: String = encode(Charsets.Utf8)
 
   /**
    * Encodes the query parameters into a string using the specified charset.
    */
-  def encode(charset: Charset): String
+  def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
   def equals(that: Any): Boolean
 
@@ -71,70 +72,86 @@ trait QueryParams {
   /**
    * Retrieves all query parameter values having the specified name.
    */
-  def getAll(key: String): Option[Chunk[String]]
+  def getAll(key: String): Option[Chunk[String]] = map.get(key)
 
   /**
    * Retrieves all typed query parameter values having the specified name.
    */
-  def getAllAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]]
+  def getAllAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
+    params <- map.get(key).toRight(QueryParamsError.Missing(key))
+    (failed, typed) = params.partitionMap(p => codec.decode(p).toRight(p))
+    result <- NonEmptyChunk
+      .fromChunk(failed)
+      .map(fails => QueryParamsError.Malformed(key, codec, fails))
+      .toLeft(typed)
+  } yield result
 
   /**
    * Retrieves all typed query parameter values having the specified name as
    * ZIO.
    */
-  def getAllAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, Chunk[A]]
+  def getAllAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, Chunk[A]] =
+    ZIO.fromEither(getAllAs[A](key))
 
   /**
    * Retrieves the first query parameter value having the specified name.
    */
-  def get(key: String): Option[String]
+  def get(key: String): Option[String] = getAll(key).flatMap(_.headOption)
 
   /**
    * Retrieves the first typed query parameter value having the specified name.
    */
-  def getAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, A]
+  def getAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, A] = for {
+    param      <- get(key).toRight(QueryParamsError.Missing(key))
+    typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, codec, NonEmptyChunk(param)))
+  } yield typedParam
+
+  /**
+   * Retrieves all query parameter values having the specified name, or else
+   * uses the default iterable.
+   */
+  def getAllOrElse(key: String, default: => Iterable[String]): Chunk[String] =
+    getAll(key).getOrElse(Chunk.fromIterable(default))
 
   /**
    * Retrieves the first typed query parameter value having the specified name
    * as ZIO.
    */
-  def getAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, A]
+  def getAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, A] =
+    ZIO.fromEither(getAs[A](key))
 
   /**
    * Retrieves all query parameter values having the specified name, or else
    * uses the default iterable.
    */
-  def getAllOrElse(key: String, default: => Iterable[String]): Chunk[String]
-
-  /**
-   * Retrieves all query parameter values having the specified name, or else
-   * uses the default iterable.
-   */
-  def getAllAsOrElse[A](key: String, default: => Iterable[A])(implicit codec: TextCodec[A]): Chunk[A]
+  def getAllAsOrElse[A](key: String, default: => Iterable[A])(implicit codec: TextCodec[A]): Chunk[A] =
+    getAllAs[A](key).getOrElse(Chunk.fromIterable(default))
 
   /**
    * Retrieves the first query parameter value having the specified name, or
    * else uses the default value.
    */
-  def getOrElse(key: String, default: => String): String
+  def getOrElse(key: String, default: => String): String =
+    get(key).getOrElse(default)
 
   /**
    * Retrieves the first typed query parameter value having the specified name,
    * or else uses the default value.
    */
-  def getAsOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A
+  def getAsOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A =
+    getAs[A](key).getOrElse(default)
 
-  def hashCode: Int
+  override def hashCode: Int = normalize.map.hashCode
 
   /**
    * Determines if the query parameters are empty.
    */
-  def isEmpty: Boolean
+  def isEmpty: Boolean = map.isEmpty
 
   /**
    * Determines if the query parameters are non-empty.
    */
-  def nonEmpty: Boolean
+  def nonEmpty: Boolean = map.nonEmpty
 
   /**
    * Normalizes the query parameters by removing empty keys and values.
@@ -154,7 +171,7 @@ trait QueryParams {
   /**
    * Converts the query parameters into a form.
    */
-  def toForm: Form
+  def toForm: Form = Form.fromQueryParams(self)
 
 }
 
@@ -181,11 +198,6 @@ final case class ListMapQueryParams(map: ListMap[String, Chunk[String]]) extends
     })
 
   /**
-   * Adds the specified key/value pair to the query parameters.
-   */
-  override def add(key: String, value: String): ListMapQueryParams = addAll(key, Chunk(value))
-
-  /**
    * Adds the specified key/value pairs to the query parameters.
    */
   override def addAll(key: String, value: Chunk[String]): ListMapQueryParams = {
@@ -197,16 +209,6 @@ final case class ListMapQueryParams(map: ListMap[String, Chunk[String]]) extends
     ListMapQueryParams(map.updated(key, newValue))
   }
 
-  /**
-   * Encodes the query parameters into a string.
-   */
-  override def encode: String = encode(Charsets.Utf8)
-
-  /**
-   * Encodes the query parameters into a string using the specified charset.
-   */
-  override def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
-
   override def equals(that: Any): Boolean = that match {
     case that: ListMapQueryParams => self.normalize.map == that.normalize.map
     case _                        => false
@@ -217,90 +219,6 @@ final case class ListMapQueryParams(map: ListMap[String, Chunk[String]]) extends
    */
   override def filter(p: (String, Chunk[String]) => Boolean): ListMapQueryParams =
     ListMapQueryParams(map.filter(p.tupled))
-
-  /**
-   * Retrieves all query parameter values having the specified name.
-   */
-  override def getAll(key: String): Option[Chunk[String]] = map.get(key)
-
-  /**
-   * Retrieves all typed query parameter values having the specified name.
-   */
-  override def getAllAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
-    params <- map.get(key).toRight(QueryParamsError.Missing(key))
-    (failed, typed) = params.partitionMap(p => codec.decode(p).toRight(p))
-    result <- NonEmptyChunk
-      .fromChunk(failed)
-      .map(fails => QueryParamsError.Malformed(key, codec, fails))
-      .toLeft(typed)
-  } yield result
-
-  /**
-   * Retrieves all typed query parameter values having the specified name as
-   * ZIO.
-   */
-  override def getAllAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, Chunk[A]] =
-    ZIO.fromEither(getAllAs[A](key))
-
-  /**
-   * Retrieves the first query parameter value having the specified name.
-   */
-  override def get(key: String): Option[String] = getAll(key).flatMap(_.headOption)
-
-  /**
-   * Retrieves the first typed query parameter value having the specified name.
-   */
-  override def getAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, A] = for {
-    param      <- get(key).toRight(QueryParamsError.Missing(key))
-    typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, codec, NonEmptyChunk(param)))
-  } yield typedParam
-
-  /**
-   * Retrieves the first typed query parameter value having the specified name
-   * as ZIO.
-   */
-  override def getAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, A] =
-    ZIO.fromEither(getAs[A](key))
-
-  /**
-   * Retrieves all query parameter values having the specified name, or else
-   * uses the default iterable.
-   */
-  override def getAllOrElse(key: String, default: => Iterable[String]): Chunk[String] =
-    getAll(key).getOrElse(Chunk.fromIterable(default))
-
-  /**
-   * Retrieves all query parameter values having the specified name, or else
-   * uses the default iterable.
-   */
-  override def getAllAsOrElse[A](key: String, default: => Iterable[A])(implicit codec: TextCodec[A]): Chunk[A] =
-    getAllAs[A](key).getOrElse(Chunk.fromIterable(default))
-
-  /**
-   * Retrieves the first query parameter value having the specified name, or
-   * else uses the default value.
-   */
-  override def getOrElse(key: String, default: => String): String =
-    get(key).getOrElse(default)
-
-  /**
-   * Retrieves the first typed query parameter value having the specified name,
-   * or else uses the default value.
-   */
-  override def getAsOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A =
-    getAs[A](key).getOrElse(default)
-
-  override def hashCode: Int = normalize.map.hashCode
-
-  /**
-   * Determines if the query parameters are empty.
-   */
-  override def isEmpty: Boolean = map.isEmpty
-
-  /**
-   * Determines if the query parameters are non-empty.
-   */
-  override def nonEmpty: Boolean = map.nonEmpty
 
   /**
    * Normalizes the query parameters by removing empty keys and values.
@@ -319,10 +237,6 @@ final case class ListMapQueryParams(map: ListMap[String, Chunk[String]]) extends
    */
   override def removeAll(keys: Iterable[String]): ListMapQueryParams = ListMapQueryParams(map -- keys)
 
-  /**
-   * Converts the query parameters into a form.
-   */
-  override def toForm: Form = Form.fromQueryParams(self)
 }
 
 object QueryParams {
@@ -357,7 +271,7 @@ object QueryParams {
   /**
    * Empty query parameters.
    */
-  val empty: ListMapQueryParams = ListMapQueryParams(ListMap.empty[String, Chunk[String]])
+  val empty: QueryParams = ListMapQueryParams(ListMap.empty[String, Chunk[String]])
 
   /**
    * Constructs query parameters from a form.
