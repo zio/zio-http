@@ -16,12 +16,12 @@
 
 package zio.http.codec
 
-import java.lang.Integer.parseInt
+import zio.{Chunk, NonEmptyChunk}
 
+import java.lang.Integer.parseInt
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
-
-import zio.{Chunk, NonEmptyChunk}
+import scala.util.control.ControlThrowable
 
 /**
  * A `RichTextCodec` is a more compositional version of `TextCodec`, which has
@@ -184,6 +184,8 @@ object RichTextCodec {
     lazy val codec: RichTextCodec[A] = codec0()
   }
   object Lazy {
+    // Prevents us from accidentally extracting the codec function in pattern matching. However, compiling doesn't work
+    // with Scala 2.12 when used this way so it's only defined just to be safe
     def unapply[A](l: Lazy[A]): Option[RichTextCodec[A]] = Some(l.codec)
   }
 
@@ -374,7 +376,7 @@ object RichTextCodec {
           case Alt(left, right)         =>
             val lc = findCycles(seen + codec, lastAnonymous, tags, left)
             findCycles(seen + codec, lc._2, tags ++ lc._1, right)
-          case l @ Lazy(_)              =>
+          case l: Lazy[A @unchecked]    =>
             val res = findCycles(seen + codec, lastAnonymous, tags, l.codec)
             (res._1 ++ res._1.get(l.codec).map(t => codec -> t), res._2)
           case Zip(left, right, _)      =>
@@ -389,7 +391,7 @@ object RichTextCodec {
               c: RichTextCodec[_],
             ): Map[RichTextCodec[_], Tagged[_]] =
               c match {
-                case l @ Lazy(_)                  => addTag(tags + (c -> t), l.codec)
+                case l: Lazy[A @unchecked]        => addTag(tags + (c -> t), l.codec)
                 case TransformOrFail(codec, _, _) => addTag(tags + (c -> t), codec)
                 case _                            => tags + (c -> t)
               }
@@ -467,10 +469,11 @@ object RichTextCodec {
                 },
                 leftDescription.taggedToDescribe ++ rightDescription.taggedToDescribe,
               )
-            case Lazy(codec)                                         => loop(codec, namesSeen, explaining, seen)
-            case Repeated(codec)                                     =>
-              val c       = cycles.getOrElse(codec, codec)
-              val partial = loop(codec, namesSeen, explaining, cycles.contains(c))
+            case l: Lazy[A @unchecked]                               =>
+              loop(l.codec, namesSeen, explaining, seen)
+            case Repeated(codec0)                                    =>
+              val c       = cycles.getOrElse(codec0, codec0)
+              val partial = loop(codec0, namesSeen, explaining, cycles.contains(c))
               PartialDescription(DocPart.Repeated(partial.description), partial.taggedToDescribe)
             case Zip(left, right, _)                                 =>
               val l                = cycles.getOrElse(left, left)
@@ -532,41 +535,49 @@ object RichTextCodec {
     getLines(Nil, List(cycles.getOrElse(codec, codec)), Set.empty).reverse.mkString("\n")
   }
 
+  private case class EncodingError(error: String) extends ControlThrowable
+
   private def encode[A](value: A, self: RichTextCodec[A]): Either[String, String] = {
-    self match {
-      case RichTextCodec.CharIn(_)                       => Right(value.asInstanceOf[Char].toString)
-      case RichTextCodec.TransformOrFail(codec, _, from) =>
-        from(value) match {
-          case Right(value2) => codec.encode(value2)
-          case Left(err)     => Left(err)
-        }
-      case RichTextCodec.Zip(left, right, combiner)      =>
-        val (a, b) = combiner.separate(value)
-        for {
-          l <- left.encode(a)
-          r <- right.encode(b)
-        } yield l + r
-      case RichTextCodec.Alt(left, right)                =>
-        value match {
-          case Left(a)  => left.encode(a)
-          case Right(b) => right.encode(b)
-        }
-      case RichTextCodec.Lazy(codec0)                    => codec0.encode(value)
-      case RichTextCodec.Tagged(_, codec, _)             => codec.encode(value)
-      case RichTextCodec.Empty                           => Right("")
-      case RichTextCodec.Repeated(codec)                 =>
-        val iter        = value.chunkIterator
-        val builder     = new StringBuilder(value.length)
-        var i           = 0
-        var err: String = null
-        while (iter.hasNextAt(i) && (err eq null)) {
-          codec.encode(iter.nextAt(i)) match {
-            case Right(v) => builder ++= v; i += 1
-            case Left(e)  => err = e
+    val builder = new StringBuilder()
+
+    def loop[AA](value: AA, self: RichTextCodec[AA]): Unit = {
+      self match {
+        case RichTextCodec.CharIn(_)                       =>
+          builder append value.asInstanceOf[Char]
+          ()
+        case RichTextCodec.TransformOrFail(codec, _, from) =>
+          from(value) match {
+            case Right(value2) => loop(value2, codec)
+            case Left(err)     => throw EncodingError(err)
           }
-        }
-        if (err eq null) Right(builder.result())
-        else Left(err)
+        case RichTextCodec.Zip(left, right, combiner)      =>
+          val (a, b) = combiner.separate(value)
+          loop(a, left)
+          loop(b, right)
+        case RichTextCodec.Alt(left, right)                =>
+          value match {
+            case Left(a)  => loop(a, left)
+            case Right(b) => loop(b, right)
+          }
+        case l: RichTextCodec.Lazy[AA]                     => loop(value, l.codec)
+        case RichTextCodec.Tagged(_, codec, _)             => loop(value, codec)
+        case RichTextCodec.Empty                           => ()
+        case RichTextCodec.Repeated(codec)                 =>
+          val iter = value.chunkIterator
+          var i    = 0
+          while (iter.hasNextAt(i)) {
+            loop(iter.nextAt(i), codec)
+            i += 1
+          }
+          ()
+      }
+    }
+
+    try {
+      loop(value, self)
+      Right(builder.result())
+    } catch {
+      case EncodingError(error) => Left(error)
     }
   }
 
@@ -600,22 +611,21 @@ object RichTextCodec {
             }
         }
 
-      case RichTextCodec.Lazy(codec0) => parse(value, codec0, parserIdx)
+      case l: RichTextCodec.Lazy[A] => parse(value, l.codec, parserIdx)
 
       case RichTextCodec.Tagged(_, codec, _) => parse(value, codec, parserIdx)
 
       case Empty => Right(())
 
       case RichTextCodec.Repeated(codec) =>
-        val codecA           = codec.asInstanceOf[RichTextCodec[A]]
-        val builder          = Chunk.newBuilder[A]
+        val builder            = Chunk.newBuilder[Any]
         @tailrec
-        def loop(): Chunk[A] =
-          parse(value, codecA, parserIdx) match {
+        def loop(): Chunk[Any] =
+          parse(value, codec, parserIdx) match {
             case Right(v) => builder += v; loop()
-            case Left(_)  => builder.result()
+            case _        => builder.result()
           }
-        Right(loop())
+        Right(loop().asInstanceOf[A])
     }
   }
 
