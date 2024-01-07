@@ -52,3 +52,26 @@ object HelloWorld extends ZIOAppDefault {
 You can use the [sbt-revolver] plugin to start the server and run it in watch mode using `~ reStart` command on the SBT console.
 
 [sbt-revolver]: https://github.com/spray/sbt-revolver
+
+## Documentation
+
+Learn more on the [ZIO Http homepage](https://github.com/zio/zio-http)!
+
+## Contributing
+
+For the general guidelines, see ZIO [contributor's guide](https://zio.dev/contributor-guidelines/).
+
+## Code of Conduct
+
+See the [Code of Conduct](https://zio.dev/about/code-of-conduct)
+
+## Support
+
+Come chat with us on [![Badge-Discord]][Link-Discord].
+
+[Badge-Discord]: https://img.shields.io/discord/629491597070827530?logo=discord "chat on discord"
+[Link-Discord]: https://discord.gg/2ccFBr4 "Discord"
+
+## License
+
+[License](LICENSE)
