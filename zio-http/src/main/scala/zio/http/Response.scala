@@ -160,7 +160,10 @@ object Response {
       case Left(failure: Cause[_])  => fromCause(failure)
       case _                        =>
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
-        else error(Status.InternalServerError, cause.prettyPrint.take(100))
+        else {
+          scala.Console.err.println(cause.prettyPrint)
+          error(Status.InternalServerError, cause.prettyPrint.take(100))
+        }
     }
   }
 
