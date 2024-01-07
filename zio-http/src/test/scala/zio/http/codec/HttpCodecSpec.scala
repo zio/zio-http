@@ -38,7 +38,7 @@ object HttpCodecSpec extends ZIOHttpSpec {
   val emptyJson = Body.fromString("{}")
 
   val isAge                           = "isAge"
-  val codecBool                       = QueryCodec.paramBool(isAge)
+  val codecBool                       = QueryCodec.queryBool(isAge)
   def makeRequest(paramValue: String) = Request.get(googleUrl.queryParams(QueryParams(isAge -> paramValue)))
 
   def spec = suite("HttpCodecSpec")(
