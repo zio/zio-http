@@ -66,7 +66,7 @@ trait QueryParams {
   def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
   override def equals(that: Any): Boolean = that match {
-    case queryParams: QueryParams => this.toChunk == queryParams.toChunk
+    case queryParams: QueryParams => normalize.toChunk == queryParams.normalize.toChunk
     case _                        => false
   }
 
@@ -152,7 +152,7 @@ trait QueryParams {
   /**
    * Determines if the query parameters are empty.
    */
-  def isEmpty: Boolean
+  def isEmpty: Boolean = toChunk.isEmpty
 
   /**
    * Determines if the query parameters are non-empty.
@@ -209,6 +209,7 @@ object QueryParams {
      * Determines if the query parameters are empty.
      */
     override def isEmpty: Boolean = underlying.isEmpty
+
   }
 
   private def javaMapAsLinkedHashMap(
