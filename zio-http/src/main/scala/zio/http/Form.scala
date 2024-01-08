@@ -18,11 +18,14 @@ package zio.http
 
 import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
+
 import scala.jdk.CollectionConverters._
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.stream._
+
 import zio.http.FormDecodingError._
 import zio.http.FormField._
 import zio.http.internal.FormAST

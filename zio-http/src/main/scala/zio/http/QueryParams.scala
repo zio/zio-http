@@ -18,11 +18,13 @@ package zio.http
 
 import java.nio.charset.Charset
 import java.util
+
 import scala.collection.compat._
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 
 import zio.{Chunk, IO, NonEmptyChunk, ZIO}
+
 import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
 
