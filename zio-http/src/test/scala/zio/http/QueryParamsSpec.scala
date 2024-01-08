@@ -362,7 +362,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val queryParams = QueryParams("a" -> Chunk("1", "2"), "b" -> Chunk("3"))
           assertTrue(queryParams.map == Map("a" -> Chunk("1", "2"), "b" -> Chunk("3")))
         },
-      )
+      ),
     )
 
 }

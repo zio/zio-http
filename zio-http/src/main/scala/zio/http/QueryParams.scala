@@ -38,9 +38,10 @@ trait QueryParams {
   private[http] def seq: Seq[util.Map.Entry[String, util.List[String]]]
 
   /**
-   * All query parameters as a map. Note that by default this method constructs the map on
-   * access from the underlying storage implementation, so should be used with care. Prefer
-   * to use `getAll` and friends if all you need is to access the values.
+   * All query parameters as a map. Note that by default this method constructs
+   * the map on access from the underlying storage implementation, so should be
+   * used with care. Prefer to use `getAll` and friends if all you need is to
+   * access the values.
    */
   def map: Map[String, Chunk[String]] = ListMap.from(seq.map { entry =>
     (entry.getKey, Chunk.fromIterable(entry.getValue.asScala))
