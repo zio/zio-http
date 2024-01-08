@@ -19,6 +19,8 @@ package zio.http
 import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
 
+import scala.jdk.CollectionConverters._
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -211,8 +213,8 @@ object Form {
     } yield form
 
   def fromQueryParams(queryParams: QueryParams): Form = {
-    queryParams.map.foldLeft[Form](Form.empty) { case (acc, (key, values)) =>
-      acc + FormField.simpleField(key, values.mkString(","))
+    queryParams.seq.foldLeft[Form](Form.empty) { case (acc, entry) =>
+      acc + FormField.simpleField(entry.getKey, entry.getValue.asScala.mkString(","))
     }
   }
 

@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.jdk.CollectionConverters._
+
 import zio.test.Assertion.{anything, equalTo, fails, hasSize}
 import zio.test._
 import zio.{Chunk, ZIO}
@@ -320,16 +322,15 @@ object QueryParamsSpec extends ZIOHttpSpec {
             }
 
           def deduplicateAndSortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.map.map { case (k, v) => (k, v.sorted) })
-
-          def sortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.map.map { case (k, v) => (k, v.sorted) })
+            QueryParams(queryParams.seq.map { entry =>
+              (entry.getKey, Chunk.fromIterable(entry.getValue.asScala).sorted)
+            }: _*)
 
           for {
             nonCornerCasesTests <- check(genQueryParamsWithoutCornerCases) { case givenQueryParams =>
               val result = QueryParams.decode(givenQueryParams.encode)
 
-              assert(sortQueryParamValues(result))(
+              assert(deduplicateAndSortQueryParamValues(result))(
                 equalTo(deduplicateAndSortQueryParamValues(givenQueryParams)),
               )
             }
@@ -339,6 +340,27 @@ object QueryParamsSpec extends ZIOHttpSpec {
             cornerCasesTests = t1 && t2 && t3
           } yield nonCornerCasesTests && cornerCasesTests
 
+        },
+      ),
+      suite("maintains ordering")(
+        test("upon construction") {
+          val numbers     = Range(0, 100).map(_.toString).toList
+          val queryParams = QueryParams(numbers.map(x => x -> Chunk("0")): _*)
+          assertTrue(queryParams.seq.map(_.getKey).toList == numbers)
+        },
+        test("after ++") {
+          val numbers0     = Range(0, 50).map(_.toString).toList
+          val numbers50    = Range(50, 100).map(_.toString).toList
+          val numbers100   = Range(0, 100).map(_.toString).toList
+          val queryParams1 = QueryParams(numbers0.map(x => x -> Chunk("0")): _*) ++
+            QueryParams(numbers50.map(x => x -> Chunk("0")): _*)
+          assertTrue(queryParams1.seq.map(_.getKey).toList == numbers100)
+        },
+      ),
+      suite("produces a map")(
+        test("success") {
+          val queryParams = QueryParams("a" -> Chunk("1", "2"), "b" -> Chunk("3"))
+          assertTrue(queryParams.map == Map("a" -> Chunk("1", "2"), "b" -> Chunk("3")))
         },
       ),
     )
