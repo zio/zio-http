@@ -17,7 +17,7 @@
 package zio.http
 
 import zio.test.Assertion.{anything, equalTo, fails, hasField}
-import zio.test.TestAspect.{ignore, timeout}
+import zio.test.TestAspect.{withLiveClock}
 import zio.test.assertZIO
 import zio.{Scope, ZLayer, durationInt}
 
@@ -32,7 +32,7 @@ object ClientHttpsSpec extends ZIOHttpSpec {
   )
 
   val waterAerobics =
-    URL.decode("https://sports.api.decathlon.com/groups/water-aerobics").toOption.get
+    URL.decode("https://www.google.com").toOption.get
 
   val badRequest =
     URL
@@ -61,15 +61,15 @@ object ClientHttpsSpec extends ZIOHttpSpec {
         )
         .map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
-    } @@ ignore,
-    test("should throw DecoderException for handshake failure") {
-      val actual = Client
-        .request(
-          Request.get(untrusted),
-        )
-        .exit
-      assertZIO(actual)(fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("DecoderException"))))
     },
+//    test("should throw DecoderException for handshake failure") {
+//      val actual = Client
+//        .request(
+//          Request.get(untrusted),
+//        )
+//        .exit
+//      assertZIO(actual)(fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("DecoderException"))))
+//    },
   ).provide(
     ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
     Client.customized,
@@ -77,5 +77,5 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
     Scope.default,
-  ) @@ ignore
+  ) @@ withLiveClock
 }
