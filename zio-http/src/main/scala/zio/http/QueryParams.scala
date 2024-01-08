@@ -79,7 +79,8 @@ trait QueryParams {
   /**
    * Retrieves all query parameter values having the specified name.
    */
-  def getAll(key: String): Option[Chunk[String]]
+  def getAll(key: String): Option[Chunk[String]] =
+    toChunk.find(_._1 == key).map(_._2)
 
   /**
    * Retrieves all typed query parameter values having the specified name.
@@ -199,14 +200,17 @@ object QueryParams {
     }
 
     /**
-     * Retrieves all query parameter values having the specified name.
+     * Retrieves all query parameter values having the specified name. Override
+     * takes advantage of LinkedHashMap implementation for O(1) lookup and
+     * avoids conversion to Chunk.
      */
     override def getAll(key: String): Option[Chunk[String]] = Option(underlying.get(key))
       .map(_.asScala)
       .map(Chunk.fromIterable)
 
     /**
-     * Determines if the query parameters are empty.
+     * Determines if the query parameters are empty. Override avoids conversion
+     * to Chunk in favor of LinkedHashMap implementation of isEmpty.
      */
     override def isEmpty: Boolean = underlying.isEmpty
 
