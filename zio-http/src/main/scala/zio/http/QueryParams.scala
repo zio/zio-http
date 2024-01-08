@@ -17,12 +17,12 @@
 package zio.http
 
 import java.nio.charset.Charset
-
+import java.util
 import scala.collection.compat._
 import scala.collection.immutable.ListMap
+import scala.jdk.CollectionConverters._
 
 import zio.{Chunk, IO, NonEmptyChunk, ZIO}
-
 import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
 
@@ -33,16 +33,17 @@ trait QueryParams {
   self: QueryParams =>
 
   /**
-   * All query parameters as a map
+   * All query parameters as a Chunk
    */
-  def map: Map[String, Chunk[String]]
+  def toChunk: Chunk[(String, Chunk[String])]
 
   /**
    * Combines two collections of query parameters together. If there are
    * duplicate keys, the values from both sides are preserved, in order from
    * left-to-right.
    */
-  def ++(that: QueryParams): QueryParams
+  def ++(that: QueryParams): QueryParams =
+    QueryParams(toChunk ++ that.toChunk)
 
   /**
    * Adds the specified key/value pair to the query parameters.
@@ -53,7 +54,18 @@ trait QueryParams {
   /**
    * Adds the specified key/value pairs to the query parameters.
    */
-  def addAll(key: String, value: Chunk[String]): QueryParams
+  def addAll(key: String, value: Chunk[String]): QueryParams = {
+    val oldValue      = getAll(key)
+    val combinedValue = oldValue match {
+      case Some(v) => v ++ value
+      case None    => value
+    }
+    if (oldValue.isDefined) QueryParams(toChunk.map { case (k, v) =>
+      val newValue = if (k == key) combinedValue else v
+      k -> newValue
+    })
+    else QueryParams(toChunk :+ key -> value)
+  }
 
   /**
    * Encodes the query parameters into a string.
@@ -65,23 +77,27 @@ trait QueryParams {
    */
   def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
-  def equals(that: Any): Boolean
+  override def equals(that: Any): Boolean = that match {
+    case queryParams: QueryParams => this.toChunk == queryParams.toChunk
+    case _                        => false
+  }
 
   /**
    * Filters the query parameters using the specified predicate.
    */
-  def filter(p: (String, Chunk[String]) => Boolean): QueryParams
+  def filter(p: (String, Chunk[String]) => Boolean): QueryParams =
+    QueryParams(toChunk.filter { case (k, v) => p(k, v) })
 
   /**
    * Retrieves all query parameter values having the specified name.
    */
-  def getAll(key: String): Option[Chunk[String]] = map.get(key)
+  def getAll(key: String): Option[Chunk[String]]
 
   /**
    * Retrieves all typed query parameter values having the specified name.
    */
   def getAllAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
-    params <- map.get(key).toRight(QueryParamsError.Missing(key))
+    params <- getAll(key).toRight(QueryParamsError.Missing(key))
     (failed, typed) = params.partitionMap(p => codec.decode(p).toRight(p))
     result <- NonEmptyChunk
       .fromChunk(failed)
@@ -144,32 +160,37 @@ trait QueryParams {
   def getAsOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A =
     getAs[A](key).getOrElse(default)
 
-  override def hashCode: Int = normalize.map.hashCode
+  override def hashCode: Int = normalize.toChunk.hashCode
 
   /**
    * Determines if the query parameters are empty.
    */
-  def isEmpty: Boolean = map.isEmpty
+  def isEmpty: Boolean
 
   /**
    * Determines if the query parameters are non-empty.
    */
-  def nonEmpty: Boolean = map.nonEmpty
+  def nonEmpty: Boolean = !isEmpty
 
   /**
    * Normalizes the query parameters by removing empty keys and values.
    */
-  def normalize: QueryParams
+  def normalize: QueryParams =
+    QueryParams(toChunk.filter { case (k, v) =>
+      k.nonEmpty && v.nonEmpty
+    })
 
   /**
    * Removes the specified key from the query parameters.
    */
-  def remove(key: String): QueryParams
+  def remove(key: String): QueryParams =
+    QueryParams(toChunk.filter { case (k, _) => k != key })
 
   /**
    * Removes the specified keys from the query parameters.
    */
-  def removeAll(keys: Iterable[String]): QueryParams
+  def removeAll(keys: Iterable[String]): QueryParams =
+    QueryParams(toChunk.filter { case (k, _) => Chunk(keys).contains(k) })
 
   /**
    * Converts the query parameters into a form.
@@ -178,92 +199,73 @@ trait QueryParams {
 
 }
 
-/**
- * A ordered collection of query parameters.
- */
-final case class ListMapQueryParams(map: ListMap[String, Chunk[String]]) extends QueryParams {
-  self =>
-
-  /**
-   * Combines two collections of query parameters together. If there are
-   * duplicate keys, the values from both sides are preserved, in order from
-   * left-to-right.
-   */
-  override def ++(that: QueryParams): QueryParams =
-    ListMapQueryParams(ListMap.from(that.map).foldLeft(map) { case (map, (k, v2)) =>
-      map.updated(
-        k,
-        map.get(k) match {
-          case Some(v1) => v1 ++ v2
-          case None     => v2
-        },
-      )
-    })
-
-  /**
-   * Adds the specified key/value pairs to the query parameters.
-   */
-  override def addAll(key: String, value: Chunk[String]): ListMapQueryParams = {
-    val previousValue = map.get(key)
-    val newValue      = previousValue match {
-      case Some(prev) => prev ++ value
-      case None       => value
-    }
-    ListMapQueryParams(map.updated(key, newValue))
-  }
-
-  override def equals(that: Any): Boolean = that match {
-    case that: ListMapQueryParams => self.normalize.map == that.normalize.map
-    case _                        => false
-  }
-
-  /**
-   * Filters the query parameters using the specified predicate.
-   */
-  override def filter(p: (String, Chunk[String]) => Boolean): ListMapQueryParams =
-    ListMapQueryParams(map.filter(p.tupled))
-
-  /**
-   * Normalizes the query parameters by removing empty keys and values.
-   */
-  override def normalize: ListMapQueryParams =
-    if (isEmpty) self
-    else ListMapQueryParams(map.filter(i => i._1.nonEmpty && i._2.nonEmpty))
-
-  /**
-   * Removes the specified key from the query parameters.
-   */
-  override def remove(key: String): ListMapQueryParams = ListMapQueryParams(map - key)
-
-  /**
-   * Removes the specified keys from the query parameters.
-   */
-  override def removeAll(keys: Iterable[String]): ListMapQueryParams = ListMapQueryParams(map -- keys)
-
-}
-
 object QueryParams {
+  private final case class JavaLinkedHashMapQueryParams(
+    private val underlying: java.util.LinkedHashMap[String, java.util.List[String]],
+  ) extends QueryParams {
+    override def toChunk: Chunk[(String, Chunk[String])] = {
+      Chunk.fromIterable(javaMapAsLinkedHashMap(underlying).asScala.view.map { case (k, v) =>
+        k -> Chunk.fromIterable(v.asScala)
+      })
+    }
 
-  def apply(map: Map[String, Seq[String]]): ListMapQueryParams =
-    ListMapQueryParams(map = ListMap(map.toSeq.map { case (key, value) => key -> Chunk.fromIterable(value) }: _*))
+    /**
+     * Retrieves all query parameter values having the specified name.
+     */
+    override def getAll(key: String): Option[Chunk[String]] = Option(underlying.get(key))
+      .map(_.asScala)
+      .map(Chunk.fromIterable)
 
-  def apply(tuples: (String, Chunk[String])*): ListMapQueryParams = {
-    var result = ListMap.empty[String, Chunk[String]]
+    /**
+     * Determines if the query parameters are empty.
+     */
+    override def isEmpty: Boolean = underlying.isEmpty
+  }
+
+  private def javaMapAsLinkedHashMap(
+    map: java.util.LinkedHashMap[String, java.util.List[String]],
+  ): java.util.LinkedHashMap[String, java.util.List[String]] =
+    map match {
+      case x: java.util.LinkedHashMap[String, java.util.List[String]] => x
+      // This isn't really supposed to happen, Netty constructs LinkedHashMap
+      case x                                                          => new java.util.LinkedHashMap(x)
+    }
+
+  def apply(map: java.util.Map[String, java.util.List[String]]): QueryParams = {
+    val params: java.util.LinkedHashMap[String, java.util.List[String]] = map match {
+      case x: java.util.LinkedHashMap[String, java.util.List[String]] => x
+      // This isn't really supposed to happen, Netty constructs LinkedHashMap
+      case x                                                          => new java.util.LinkedHashMap(x)
+    }
+    apply(params)
+  }
+
+  def apply(map: java.util.LinkedHashMap[String, java.util.List[String]]): QueryParams =
+    JavaLinkedHashMapQueryParams(map)
+
+  def apply(map: Map[String, Chunk[String]]): QueryParams =
+    apply(map.toSeq: _*)
+
+  def apply(tuples: (String, Chunk[String])*): QueryParams = {
+    val result = new java.util.LinkedHashMap[String, java.util.List[String]]()
     tuples.foreach { case (key, values) =>
-      result.get(key) match {
+      Option(result.get(key)) match {
         case Some(previous) =>
-          result = result.updated(key, previous ++ values)
+          previous.addAll(values.asJava)
         case None           =>
-          result = result.updated(key, values)
+          result.replace(key, values.asJava)
       }
     }
-    ListMapQueryParams(map = result)
+    JavaLinkedHashMapQueryParams(result)
   }
 
-  def apply(tuple1: (String, String), tuples: (String, String)*): ListMapQueryParams =
-    ListMapQueryParams(map = ListMap.from(Chunk.fromIterable(tuple1 +: tuples).groupBy(_._1).map { case (key, values) =>
-      key -> values.map(_._2)
-    }))
+  /**
+   * Construct from tuples of k, v with singular v
+   */
+  def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams =
+    apply((tuple1 +: tuples).map { case (k, v) =>
+      (k, Chunk(v))
+    })
 
   /**
    * Decodes the specified string into a collection of query parameters.
@@ -274,7 +276,7 @@ object QueryParams {
   /**
    * Empty query parameters.
    */
-  val empty: QueryParams = ListMapQueryParams(ListMap.empty[String, Chunk[String]])
+  val empty: QueryParams = JavaLinkedHashMapQueryParams(new java.util.LinkedHashMap[String, java.util.List[String]])
 
   /**
    * Constructs query parameters from a form.

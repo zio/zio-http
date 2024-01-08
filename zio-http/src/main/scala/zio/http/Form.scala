@@ -211,7 +211,7 @@ object Form {
     } yield form
 
   def fromQueryParams(queryParams: QueryParams): Form = {
-    queryParams.map.foldLeft[Form](Form.empty) { case (acc, (key, values)) =>
+    queryParams.toChunk.foldLeft[Form](Form.empty) { case (acc, (key, values)) =>
       acc + FormField.simpleField(key, values.mkString(","))
     }
   }

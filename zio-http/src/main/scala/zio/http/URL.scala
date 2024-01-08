@@ -175,7 +175,7 @@ final case class URL(
     copy(queryParams = QueryParams(queryParams))
 
   def queryParams(queryParams: (String, Chunk[String])*): URL =
-    copy(queryParams = QueryParams(queryParams: _*))
+    copy(queryParams = QueryParams(queryParams))
 
   def queryParams(query: String): URL =
     copy(queryParams = QueryParams.decode(query))

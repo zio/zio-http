@@ -320,10 +320,10 @@ object QueryParamsSpec extends ZIOHttpSpec {
             }
 
           def deduplicateAndSortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.map.map { case (k, v) => (k, v.sorted) })
+            QueryParams(queryParams.toChunk.map { case (k, v) => (k, v.sorted) })
 
           def sortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.map.map { case (k, v) => (k, v.sorted) })
+            QueryParams(queryParams.toChunk.map { case (k, v) => (k, v.sorted) })
 
           for {
             nonCornerCasesTests <- check(genQueryParamsWithoutCornerCases) { case givenQueryParams =>
