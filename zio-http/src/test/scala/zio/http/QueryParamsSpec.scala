@@ -16,7 +16,7 @@
 
 package zio.http
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.jdk.CollectionConverters._
 
 import zio.test.Assertion.{anything, equalTo, fails, hasSize}
 import zio.test._
