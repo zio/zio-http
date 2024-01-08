@@ -371,6 +371,32 @@ object ServerSpec extends HttpRunnableSpec {
           .run()
       assertZIO(res)(equalTo("foo\nbar"))
     } @@ TestAspect.os(os => !os.isWindows),
+    test("streaming failure - known content type") {
+      val res =
+        Handler
+          .fromStream(ZStream.fromZIO(ZIO.attempt(throw new Exception("boom"))), 42)
+          .sandbox
+          .toHttpApp
+          .deploy
+          .body
+          .mapZIO(_.asString)
+          .run()
+          .exit
+      assertZIO(res)(failsWithA[java.io.IOException])
+    } @@ TestAspect.timeout(10.seconds),
+    test("streaming failure - unknown content type") {
+      val res =
+        Handler
+          .fromStreamChunked(ZStream.fromZIO(ZIO.attempt(throw new Exception("boom"))))
+          .sandbox
+          .toHttpApp
+          .deploy
+          .body
+          .mapZIO(_.asString)
+          .run()
+          .exit
+      assertZIO(res)(failsWithA[java.io.IOException])
+    } @@ TestAspect.timeout(10.seconds),
     suite("html")(
       test("body") {
         val res =

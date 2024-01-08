@@ -20,6 +20,7 @@ import java.io.{FileInputStream, InputStream}
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
+import zio.Config.Secret
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ClientSSLConfig
@@ -27,11 +28,11 @@ import zio.http.ClientSSLConfig
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 object ClientSSLConverter {
-  private def trustStoreToSslContext(trustStoreStream: InputStream, trustStorePassword: String): SslContext = {
+  private def trustStoreToSslContext(trustStoreStream: InputStream, trustStorePassword: Secret): SslContext = {
     val trustStore          = KeyStore.getInstance("JKS")
     val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
 
-    trustStore.load(trustStoreStream, trustStorePassword.toCharArray)
+    trustStore.load(trustStoreStream, trustStorePassword.value.toArray)
     trustManagerFactory.init(trustStore)
     SslContextBuilder
       .forClient()

@@ -14,14 +14,16 @@ object TestServerSpec extends ZIOHttpSpec {
         client      <- ZIO.service[Client]
         state       <- Ref.make(0)
         testRequest <- requestToCorrectPort
-        _           <- TestServer.addHandler { case (_: Request) =>
-          for {
-            curState <- state.getAndUpdate(_ + 1)
-          } yield {
-            if (curState > 0)
-              Response(Status.InternalServerError)
-            else
-              Response(Status.Ok)
+        _           <- TestServer.addRoute {
+          Method.ANY / trailing -> handler {
+            for {
+              curState <- state.getAndUpdate(_ + 1)
+            } yield {
+              if (curState > 0)
+                Response(Status.InternalServerError)
+              else
+                Response(Status.Ok)
+            }
           }
         }
         response1   <-
@@ -90,6 +92,25 @@ object TestServerSpec extends ZIOHttpSpec {
         TestServer.layer,
         Scope.default,
       ),
+    test("add routes to the server") {
+      for {
+        client           <- ZIO.service[Client]
+        testRequest      <- requestToCorrectPort
+        _                <- TestServer.addRoutes {
+          Routes(
+            Method.GET / trailing          -> handler { Response.text("fallback") },
+            Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
+          )
+        }
+        helloResponse    <- client(Request.get(testRequest.url / "hello" / "world"))
+        helloBody        <- helloResponse.body.asString
+        fallbackResponse <- client(Request.get(testRequest.url / "any"))
+        fallbackBody     <- fallbackResponse.body.asString
+      } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
+    }.provideSome[Client with Driver](
+      TestServer.layer,
+      Scope.default,
+    ),
   ).provide(
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,

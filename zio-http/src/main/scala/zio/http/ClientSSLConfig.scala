@@ -17,6 +17,7 @@
 package zio.http
 
 import zio.Config
+import zio.Config.Secret
 
 sealed trait ClientSSLConfig
 
@@ -25,7 +26,7 @@ object ClientSSLConfig {
     val tpe                = Config.string("type")
     val certPath           = Config.string("certPath")
     val trustStorePath     = Config.string("trustStorePath")
-    val trustStorePassword = Config.secret("trustStorePassword").map(d => new String(d.value.toArray))
+    val trustStorePassword = Config.secret("trustStorePassword")
 
     val default                = Config.succeed(Default)
     val fromCertFile           = certPath.map(FromCertFile(_))
@@ -45,6 +46,14 @@ object ClientSSLConfig {
   case object Default                                                                         extends ClientSSLConfig
   final case class FromCertFile(certPath: String)                                             extends ClientSSLConfig
   final case class FromCertResource(certPath: String)                                         extends ClientSSLConfig
-  final case class FromTrustStoreResource(trustStorePath: String, trustStorePassword: String) extends ClientSSLConfig
-  final case class FromTrustStoreFile(trustStorePath: String, trustStorePassword: String)     extends ClientSSLConfig
+  final case class FromTrustStoreResource(trustStorePath: String, trustStorePassword: Secret) extends ClientSSLConfig
+  object FromTrustStoreResource {
+    def apply(trustStorePath: String, trustStorePassword: String): FromTrustStoreResource =
+      FromTrustStoreResource(trustStorePath, Secret(trustStorePassword))
+  }
+  final case class FromTrustStoreFile(trustStorePath: String, trustStorePassword: Secret) extends ClientSSLConfig
+  object FromTrustStoreFile     {
+    def apply(trustStorePath: String, trustStorePassword: String): FromTrustStoreFile =
+      FromTrustStoreFile(trustStorePath, Secret(trustStorePassword))
+  }
 }

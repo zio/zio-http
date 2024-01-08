@@ -96,7 +96,7 @@ trait QueryParams {
   /**
    * Retrieves all typed query parameter values having the specified name.
    */
-  def getAllAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
+  def getAllTo[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
     params <- getAll(key).toRight(QueryParamsError.Missing(key))
     (failed, typed) = params.partitionMap(p => codec.decode(p).toRight(p))
     result <- NonEmptyChunk
@@ -109,8 +109,8 @@ trait QueryParams {
    * Retrieves all typed query parameter values having the specified name as
    * ZIO.
    */
-  def getAllAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, Chunk[A]] =
-    ZIO.fromEither(getAllAs[A](key))
+  def getAllToZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, Chunk[A]] =
+    ZIO.fromEither(getAllTo[A](key))
 
   /**
    * Retrieves the first query parameter value having the specified name.
@@ -120,10 +120,16 @@ trait QueryParams {
   /**
    * Retrieves the first typed query parameter value having the specified name.
    */
-  def getAs[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, A] = for {
+  def getTo[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, A] = for {
     param      <- get(key).toRight(QueryParamsError.Missing(key))
     typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, codec, NonEmptyChunk(param)))
   } yield typedParam
+
+  /**
+   * Retrieves the first typed query parameter value having the specified name
+   * as ZIO.
+   */
+  def getToZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, A] = ZIO.fromEither(getTo[A](key))
 
   /**
    * Retrieves all query parameter values having the specified name, or else
@@ -133,18 +139,11 @@ trait QueryParams {
     getAll(key).getOrElse(Chunk.fromIterable(default))
 
   /**
-   * Retrieves the first typed query parameter value having the specified name
-   * as ZIO.
-   */
-  def getAsZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, A] =
-    ZIO.fromEither(getAs[A](key))
-
-  /**
    * Retrieves all query parameter values having the specified name, or else
    * uses the default iterable.
    */
-  def getAllAsOrElse[A](key: String, default: => Iterable[A])(implicit codec: TextCodec[A]): Chunk[A] =
-    getAllAs[A](key).getOrElse(Chunk.fromIterable(default))
+  def getAllToOrElse[A](key: String, default: => Iterable[A])(implicit codec: TextCodec[A]): Chunk[A] =
+    getAllTo[A](key).getOrElse(Chunk.fromIterable(default))
 
   /**
    * Retrieves the first query parameter value having the specified name, or
@@ -157,8 +156,8 @@ trait QueryParams {
    * Retrieves the first typed query parameter value having the specified name,
    * or else uses the default value.
    */
-  def getAsOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A =
-    getAs[A](key).getOrElse(default)
+  def getToOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A =
+    getTo[A](key).getOrElse(default)
 
   override def hashCode: Int = normalize.toChunk.hashCode
 

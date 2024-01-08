@@ -256,25 +256,25 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val unknown      = "non-existent"
           val queryParams  = QueryParams(typed -> "1", typed -> "2", invalidTyped -> "str")
           assertTrue(
-            queryParams.getAs[Int](typed) == Right(1),
-            queryParams.getAs[Int](invalidTyped).isLeft,
-            queryParams.getAs[Int](unknown).isLeft,
-            queryParams.getAsOrElse[Int](typed, default) == 1,
-            queryParams.getAsOrElse[Int](invalidTyped, default) == default,
-            queryParams.getAsOrElse[Int](unknown, default) == default,
-            queryParams.getAllAs[Int](typed).map(_.length) == Right(2),
-            queryParams.getAllAs[Int](invalidTyped).isLeft,
-            queryParams.getAllAs[Int](unknown).isLeft,
-            queryParams.getAllAsOrElse[Int](typed, Chunk(default)).length == 2,
-            queryParams.getAllAsOrElse[Int](invalidTyped, Chunk(default)).length == 1,
-            queryParams.getAllAsOrElse[Int](unknown, Chunk(default)).length == 1,
+            queryParams.getTo[Int](typed) == Right(1),
+            queryParams.getTo[Int](invalidTyped).isLeft,
+            queryParams.getTo[Int](unknown).isLeft,
+            queryParams.getToOrElse[Int](typed, default) == 1,
+            queryParams.getToOrElse[Int](invalidTyped, default) == default,
+            queryParams.getToOrElse[Int](unknown, default) == default,
+            queryParams.getAllTo[Int](typed).map(_.length) == Right(2),
+            queryParams.getAllTo[Int](invalidTyped).isLeft,
+            queryParams.getAllTo[Int](unknown).isLeft,
+            queryParams.getAllToOrElse[Int](typed, Chunk(default)).length == 2,
+            queryParams.getAllToOrElse[Int](invalidTyped, Chunk(default)).length == 1,
+            queryParams.getAllToOrElse[Int](unknown, Chunk(default)).length == 1,
           )
-          assertZIO(queryParams.getAsZIO[Int](typed))(equalTo(1)) &&
-          assertZIO(queryParams.getAsZIO[Int](invalidTyped).exit)(fails(anything)) &&
-          assertZIO(queryParams.getAsZIO[Int](unknown).exit)(fails(anything)) &&
-          assertZIO(queryParams.getAllAsZIO[Int](typed))(hasSize(equalTo(2))) &&
-          assertZIO(queryParams.getAllAsZIO[Int](invalidTyped).exit)(fails(anything)) &&
-          assertZIO(queryParams.getAllAsZIO[Int](unknown).exit)(fails(anything))
+          assertZIO(queryParams.getToZIO[Int](typed))(equalTo(1)) &&
+          assertZIO(queryParams.getToZIO[Int](invalidTyped).exit)(fails(anything)) &&
+          assertZIO(queryParams.getToZIO[Int](unknown).exit)(fails(anything)) &&
+          assertZIO(queryParams.getAllToZIO[Int](typed))(hasSize(equalTo(2))) &&
+          assertZIO(queryParams.getAllToZIO[Int](invalidTyped).exit)(fails(anything)) &&
+          assertZIO(queryParams.getAllToZIO[Int](unknown).exit)(fails(anything))
         },
       ),
       suite("encode - decode")(

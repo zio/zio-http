@@ -172,6 +172,7 @@ object CodeGen {
       case "allow"                            => "HeaderCodec.allow"
       case "authorization"                    => "HeaderCodec.authorization"
       case "cache-control"                    => "HeaderCodec.cacheControl"
+      case "clear-site-data"                  => "HeaderCodec.clearSiteData"
       case "connection"                       => "HeaderCodec.connection"
       case "content-base"                     => "HeaderCodec.contentBase"
       case "content-encoding"                 => "HeaderCodec.contentEncoding"
@@ -190,6 +191,7 @@ object CodeGen {
       case "etag"                             => "HeaderCodec.etag"
       case "expect"                           => "HeaderCodec.expect"
       case "expires"                          => "HeaderCodec.expires"
+      case "forwarded"                        => "HeaderCodec.forwarded"
       case "from"                             => "HeaderCodec.from"
       case "host"                             => "HeaderCodec.host"
       case "if-match"                         => "HeaderCodec.ifMatch"
@@ -198,6 +200,7 @@ object CodeGen {
       case "if-range"                         => "HeaderCodec.ifRange"
       case "if-unmodified-since"              => "HeaderCodec.ifUnmodifiedSince"
       case "last-modified"                    => "HeaderCodec.lastModified"
+      case "link"                             => "HeaderCodec.link"
       case "location"                         => "HeaderCodec.location"
       case "max-forwards"                     => "HeaderCodec.maxForwards"
       case "origin"                           => "HeaderCodec.origin"
@@ -246,7 +249,7 @@ object CodeGen {
         case Code.CodecType.UUID    => "UUID"
         case Code.CodecType.Literal => throw new Exception("Literal query params are not supported")
       }
-      s""".query(QueryCodec.queryAs[$tpe]("$name"))"""
+      s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
   }
 
   def renderInCode(inCode: Code.InCode): String = inCode match {
