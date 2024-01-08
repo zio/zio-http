@@ -17,13 +17,10 @@
 package zio.http.netty
 
 import java.nio.charset.Charset
-import java.util
-import scala.collection.mutable
-import scala.jdk.CollectionConverters._
 
-import zio.Chunk
 import zio.http.QueryParams
 import zio.http.internal.QueryParamEncoding
+
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
 private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
