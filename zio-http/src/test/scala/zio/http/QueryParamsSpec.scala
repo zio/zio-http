@@ -342,10 +342,18 @@ object QueryParamsSpec extends ZIOHttpSpec {
         },
       ),
       suite("maintains ordering")(
-        test("success") {
+        test("upon construction") {
           val numbers     = Range(0, 100).map(_.toString).toList
           val queryParams = QueryParams(numbers.map(x => x -> Chunk("0")): _*)
           assertTrue(queryParams.toChunk.map(_._1).toList == numbers)
+        },
+        test("after ++") {
+          val numbers0     = Range(0, 50).map(_.toString).toList
+          val numbers50    = Range(50, 100).map(_.toString).toList
+          val numbers100   = Range(0, 100).map(_.toString).toList
+          val queryParams1 = QueryParams(numbers0.map(x => x -> Chunk("0")): _*) ++
+            QueryParams(numbers50.map(x => x -> Chunk("0")): _*)
+          assertTrue(queryParams1.toChunk.map(_._1).toList == numbers100)
         },
       ),
     )
