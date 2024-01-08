@@ -119,6 +119,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpBenchmarks,
       zioHttpCli,
       zioHttpGen,
+      zioHttpHtmx,
       zioHttpExample,
       zioHttpTestkit,
       docs,
