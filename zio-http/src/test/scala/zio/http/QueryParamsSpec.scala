@@ -320,10 +320,10 @@ object QueryParamsSpec extends ZIOHttpSpec {
             }
 
           def deduplicateAndSortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.toChunk.map { case (k, v) => (k, v.sorted) })
+            QueryParams(queryParams.toChunk.map { case (k, v) => (k, v.sorted) }: _*)
 
           def sortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.toChunk.map { case (k, v) => (k, v.sorted) })
+            QueryParams(queryParams.toChunk.map { case (k, v) => (k, v.sorted) }: _*)
 
           for {
             nonCornerCasesTests <- check(genQueryParamsWithoutCornerCases) { case givenQueryParams =>
@@ -345,7 +345,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
         test("success") {
           val numbers     = Range(0, 100).map(_.toString).toList
           val queryParams = QueryParams(numbers.map(x => x -> Chunk("0")): _*)
-          assert(queryParams.map.iterator.map(_._1).toList)(equalTo(numbers))
+          assertTrue(queryParams.toChunk.map(_._1).toList == numbers)
         },
       ),
     )

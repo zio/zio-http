@@ -43,7 +43,7 @@ trait QueryParams {
    * left-to-right.
    */
   def ++(that: QueryParams): QueryParams =
-    QueryParams(toChunk ++ that.toChunk)
+    QueryParams(toChunk ++ that.toChunk: _*)
 
   /**
    * Adds the specified key/value pair to the query parameters.
@@ -63,8 +63,8 @@ trait QueryParams {
     if (oldValue.isDefined) QueryParams(toChunk.map { case (k, v) =>
       val newValue = if (k == key) combinedValue else v
       k -> newValue
-    })
-    else QueryParams(toChunk :+ key -> value)
+    }: _*)
+    else QueryParams(toChunk :+ key -> value: _*)
   }
 
   /**
@@ -86,7 +86,7 @@ trait QueryParams {
    * Filters the query parameters using the specified predicate.
    */
   def filter(p: (String, Chunk[String]) => Boolean): QueryParams =
-    QueryParams(toChunk.filter { case (k, v) => p(k, v) })
+    QueryParams(toChunk.filter { case (k, v) => p(k, v) }: _*)
 
   /**
    * Retrieves all query parameter values having the specified name.
@@ -177,19 +177,19 @@ trait QueryParams {
   def normalize: QueryParams =
     QueryParams(toChunk.filter { case (k, v) =>
       k.nonEmpty && v.nonEmpty
-    })
+    }: _*)
 
   /**
    * Removes the specified key from the query parameters.
    */
   def remove(key: String): QueryParams =
-    QueryParams(toChunk.filter { case (k, _) => k != key })
+    QueryParams(toChunk.filter { case (k, _) => k != key }: _*)
 
   /**
    * Removes the specified keys from the query parameters.
    */
   def removeAll(keys: Iterable[String]): QueryParams =
-    QueryParams(toChunk.filter { case (k, _) => Chunk(keys).contains(k) })
+    QueryParams(toChunk.filter { case (k, _) => Chunk(keys).contains(k) }: _*)
 
   /**
    * Converts the query parameters into a form.
@@ -222,7 +222,7 @@ object QueryParams {
   }
 
   private def javaMapAsLinkedHashMap(
-    map: java.util.LinkedHashMap[String, java.util.List[String]],
+    map: java.util.Map[String, java.util.List[String]],
   ): java.util.LinkedHashMap[String, java.util.List[String]] =
     map match {
       case x: java.util.LinkedHashMap[String, java.util.List[String]] => x
@@ -230,14 +230,8 @@ object QueryParams {
       case x                                                          => new java.util.LinkedHashMap(x)
     }
 
-  def apply(map: java.util.Map[String, java.util.List[String]]): QueryParams = {
-    val params: java.util.LinkedHashMap[String, java.util.List[String]] = map match {
-      case x: java.util.LinkedHashMap[String, java.util.List[String]] => x
-      // This isn't really supposed to happen, Netty constructs LinkedHashMap
-      case x                                                          => new java.util.LinkedHashMap(x)
-    }
-    apply(params)
-  }
+  def apply(map: java.util.Map[String, java.util.List[String]]): QueryParams =
+    apply(javaMapAsLinkedHashMap(map))
 
   def apply(map: java.util.LinkedHashMap[String, java.util.List[String]]): QueryParams =
     JavaLinkedHashMapQueryParams(map)
@@ -264,7 +258,7 @@ object QueryParams {
   def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams =
     apply((tuple1 +: tuples).map { case (k, v) =>
       (k, Chunk(v))
-    })
+    }: _*)
 
   /**
    * Decodes the specified string into a collection of query parameters.
