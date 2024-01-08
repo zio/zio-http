@@ -17,12 +17,12 @@
 package zio.http
 
 import java.nio.charset.Charset
-
+import java.util
 import scala.collection.compat._
+import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 
 import zio.{Chunk, IO, NonEmptyChunk, ZIO}
-
 import zio.http.codec.TextCodec
 import zio.http.internal.QueryParamEncoding
 
@@ -33,9 +33,16 @@ trait QueryParams {
   self: QueryParams =>
 
   /**
-   * All query parameters as a Chunk
+   * Internal representation of query parameters
    */
-  def toChunk: Chunk[(String, Chunk[String])]
+  private[http] def seq: Seq[util.Map.Entry[String, util.List[String]]]
+
+  /**
+   * All query parameters as a map
+   */
+  def map: Map[String, Chunk[String]] = ListMap.from(seq.map { entry =>
+    (entry.getKey, Chunk.fromIterable(entry.getValue.asScala))
+  })
 
   /**
    * Combines two collections of query parameters together. If there are
@@ -43,7 +50,7 @@ trait QueryParams {
    * left-to-right.
    */
   def ++(that: QueryParams): QueryParams =
-    QueryParams(toChunk ++ that.toChunk: _*)
+    QueryParams.fromEntries(seq ++ that.seq: _*)
 
   /**
    * Adds the specified key/value pair to the query parameters.
@@ -68,7 +75,7 @@ trait QueryParams {
   def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
   override def equals(that: Any): Boolean = that match {
-    case queryParams: QueryParams => normalize.toChunk == queryParams.normalize.toChunk
+    case queryParams: QueryParams => normalize.seq == queryParams.normalize.seq
     case _                        => false
   }
 
@@ -76,13 +83,13 @@ trait QueryParams {
    * Filters the query parameters using the specified predicate.
    */
   def filter(p: (String, Chunk[String]) => Boolean): QueryParams =
-    QueryParams(toChunk.filter { case (k, v) => p(k, v) }: _*)
+    QueryParams.fromEntries(seq.filter { entry => p(entry.getKey, Chunk.fromIterable(entry.getValue.asScala)) }: _*)
 
   /**
    * Retrieves all query parameter values having the specified name.
    */
   def getAll(key: String): Option[Chunk[String]] =
-    toChunk.find(_._1 == key).map(_._2)
+    seq.find(_.getKey == key).map(e => Chunk.fromIterable(e.getValue.asScala))
 
   /**
    * Retrieves all typed query parameter values having the specified name.
@@ -150,12 +157,12 @@ trait QueryParams {
   def getToOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A =
     getTo[A](key).getOrElse(default)
 
-  override def hashCode: Int = normalize.toChunk.hashCode
+  override def hashCode: Int = normalize.seq.hashCode
 
   /**
    * Determines if the query parameters are empty.
    */
-  def isEmpty: Boolean = toChunk.isEmpty
+  def isEmpty: Boolean = seq.isEmpty
 
   /**
    * Determines if the query parameters are non-empty.
@@ -166,22 +173,22 @@ trait QueryParams {
    * Normalizes the query parameters by removing empty keys and values.
    */
   def normalize: QueryParams =
-    QueryParams(toChunk.filter { case (k, v) =>
-      k.nonEmpty && v.nonEmpty
+    QueryParams.fromEntries(seq.filter { entry =>
+      entry.getKey.nonEmpty && entry.getValue.asScala.nonEmpty
     }: _*)
 
   /**
    * Removes the specified key from the query parameters.
    */
   def remove(key: String): QueryParams =
-    QueryParams(toChunk.filter { case (k, _) => k != key }: _*)
+    QueryParams.fromEntries(seq.filter { entry => entry.getKey != key }: _*)
 
   /**
    * Removes the specified keys from the query parameters.
    */
   def removeAll(keys: Iterable[String]): QueryParams = {
     val keysToRemove = keys.toSet
-    QueryParams(toChunk.filterNot { case (k, _) => keysToRemove.contains(k) }: _*)
+    QueryParams.fromEntries(seq.filterNot { entry => keysToRemove.contains(entry.getKey) }: _*)
   }
 
   /**
@@ -195,11 +202,8 @@ object QueryParams {
   private final case class JavaLinkedHashMapQueryParams(
     private val underlying: java.util.LinkedHashMap[String, java.util.List[String]],
   ) extends QueryParams {
-    override def toChunk: Chunk[(String, Chunk[String])] = {
-      Chunk.fromIterable(javaMapAsLinkedHashMap(underlying).asScala.view.map { case (k, v) =>
-        k -> Chunk.fromIterable(v.asScala)
-      })
-    }
+    override private[http] def seq: Seq[util.Map.Entry[String, util.List[String]]] =
+      underlying.entrySet.asScala.toSeq
 
     /**
      * Retrieves all query parameter values having the specified name. Override
@@ -245,6 +249,22 @@ object QueryParams {
           result.replace(key, combined.asJava)
         case None           =>
           result.put(key, values.asJava)
+      }
+    }
+    apply(result)
+  }
+
+  private[http] def fromEntries(entries: util.Map.Entry[String, util.List[String]]*): QueryParams = {
+    val result = new util.LinkedHashMap[String, util.List[String]]()
+    entries.foreach { entry =>
+      Option(result.get(entry.getKey)) match {
+        case Some(previous) =>
+          val combined = new util.ArrayList[String]()
+          combined.addAll(previous)
+          combined.addAll(entry.getValue)
+          result.replace(entry.getKey, combined)
+        case None           =>
+          result.put(entry.getKey, entry.getValue)
       }
     }
     apply(result)

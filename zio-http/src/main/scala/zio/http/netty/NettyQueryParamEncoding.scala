@@ -17,10 +17,10 @@
 package zio.http.netty
 
 import java.nio.charset.Charset
+import scala.jdk.CollectionConverters._
 
 import zio.http.QueryParams
 import zio.http.internal.QueryParamEncoding
-
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
 private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
@@ -35,7 +35,9 @@ private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
 
   override final def encode(baseUri: String, queryParams: QueryParams, charset: Charset): String = {
     val encoder = new QueryStringEncoder(baseUri, charset)
-    queryParams.toChunk.foreach { case (key, values) =>
+    queryParams.seq.foreach { entry =>
+      val key    = entry.getKey
+      val values = entry.getValue.asScala
       if (key != "") {
         if (values.isEmpty) {
           encoder.addParam(key, "")

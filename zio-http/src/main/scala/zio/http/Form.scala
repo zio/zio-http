@@ -18,12 +18,11 @@ package zio.http
 
 import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
+import scala.jdk.CollectionConverters._
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.stream._
-
 import zio.http.FormDecodingError._
 import zio.http.FormField._
 import zio.http.internal.FormAST
@@ -211,8 +210,8 @@ object Form {
     } yield form
 
   def fromQueryParams(queryParams: QueryParams): Form = {
-    queryParams.toChunk.foldLeft[Form](Form.empty) { case (acc, (key, values)) =>
-      acc + FormField.simpleField(key, values.mkString(","))
+    queryParams.seq.foldLeft[Form](Form.empty) { case (acc, entry) =>
+      acc + FormField.simpleField(entry.getKey, entry.getValue.asScala.mkString(","))
     }
   }
 
