@@ -188,8 +188,10 @@ trait QueryParams {
   /**
    * Removes the specified keys from the query parameters.
    */
-  def removeAll(keys: Iterable[String]): QueryParams =
-    QueryParams(toChunk.filter { case (k, _) => Chunk(keys).contains(k) }: _*)
+  def removeAll(keys: Iterable[String]): QueryParams = {
+    val keysToRemove = keys.toSet
+    QueryParams(toChunk.filterNot { case (k, _) => keysToRemove.contains(k) }: _*)
+  }
 
   /**
    * Converts the query parameters into a form.
@@ -244,12 +246,13 @@ object QueryParams {
     tuples.foreach { case (key, values) =>
       Option(result.get(key)) match {
         case Some(previous) =>
-          previous.addAll(values.asJava)
+          val combined = Chunk.fromIterable(previous.asScala) ++ values
+          result.replace(key, combined.asJava)
         case None           =>
-          result.replace(key, values.asJava)
+          result.put(key, values.asJava)
       }
     }
-    JavaLinkedHashMapQueryParams(result)
+    apply(result)
   }
 
   /**
