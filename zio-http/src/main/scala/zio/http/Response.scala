@@ -162,7 +162,7 @@ object Response {
       case _                        =>
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
         else {
-          scala.Console.err.println(cause.prettyPrint)
+          ZIO.logError(cause.prettyPrint)
           error(Status.InternalServerError, cause.prettyPrint.take(100))
         }
     }
@@ -215,7 +215,10 @@ object Response {
       case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
       case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
       case _                                  => {
-        throwable.printStackTrace(scala.Console.err)
+        val sw = new java.io.StringWriter
+        val pw = new java.io.PrintWriter(sw)
+        throwable.printStackTrace(pw)
+        ZIO.logError(sw.toString)
         error(Status.InternalServerError, throwable.getMessage)
       }
     }
