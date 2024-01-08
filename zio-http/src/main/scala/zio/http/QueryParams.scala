@@ -54,18 +54,8 @@ trait QueryParams {
   /**
    * Adds the specified key/value pairs to the query parameters.
    */
-  def addAll(key: String, value: Chunk[String]): QueryParams = {
-    val oldValue      = getAll(key)
-    val combinedValue = oldValue match {
-      case Some(v) => v ++ value
-      case None    => value
-    }
-    if (oldValue.isDefined) QueryParams(toChunk.map { case (k, v) =>
-      val newValue = if (k == key) combinedValue else v
-      k -> newValue
-    }: _*)
-    else QueryParams(toChunk :+ key -> value: _*)
-  }
+  def addAll(key: String, value: Chunk[String]): QueryParams =
+    self ++ QueryParams(key -> value)
 
   /**
    * Encodes the query parameters into a string.
