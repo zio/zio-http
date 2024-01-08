@@ -18,7 +18,6 @@ package zio.http
 
 import java.net.{MalformedURLException, URI}
 
-import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import zio.Chunk
