@@ -161,13 +161,7 @@ object Response {
       case Left(failure: Cause[_])  => fromCause(failure)
       case _                        =>
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
-        else if (cause.isDie) {
-          Response(
-            Status.InternalServerError,
-            contentTypeText,
-            Body.fromCharSequence("error"),
-          )
-        } else throw new Exception(cause.prettyPrint)
+        else throw new Exception(cause.prettyPrint)
     }
   }
 

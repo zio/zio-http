@@ -103,7 +103,6 @@ private[zio] final case class ServerInboundHandler(
         } catch {
           case error: Throwable => {
             error.printStackTrace()
-            releaseRequest()
             val exit = Exit.succeed(Response.fromThrowable(error))
             writeResponse(ctx, env, exit, jReq)(releaseRequest)
           }
@@ -334,13 +333,11 @@ private[zio] final case class ServerInboundHandler(
             }
             None
           }
-        }.foldCauseZIO(
-          cause => ZIO.attempt(attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash))),
-          {
-            case None       => ZIO.unit
-            case Some(task) => task.orElse(ZIO.attempt(ctx.close()))
-          },
-        )
+        }.flatMap(_.getOrElse(ZIO.unit)).catchSomeCause { case cause =>
+          ZIO.attempt(
+            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash)),
+          )
+        }
       }
 
       pgm.provideEnvironment(env)
