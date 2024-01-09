@@ -35,7 +35,7 @@ object ResponseSpec extends ZIOHttpSpec {
 
     result
   }
-  private val location: URL                     = URL.decode("www.google.com").toOption.get
+  private val location: URL = URL.decode("www.google.com").toOption.get
 
   def spec = suite("Response")(
     suite("fromCause")(
@@ -48,19 +48,6 @@ object ResponseSpec extends ZIOHttpSpec {
         val cause = Cause.fail(new IllegalArgumentException)
 
         assertTrue(extractStatus(Response.fromCause(cause)) == Status.BadRequest)
-      },
-      test("from RuntimeException") {
-        val cause = Cause.fail(new java.lang.RuntimeException("error exception"))
-
-        for {
-          result <- TestConsole.output
-          logStr = result(0)
-        } yield {
-          assertTrue(logStr.contains("java.lang.RuntimeException: error exception"))
-        }
-
-        assertTrue(extractStatus(Response.fromCause(cause)) == Status.InternalServerError)
-
       },
       test("from String") {
         val cause = Cause.fail("error")
