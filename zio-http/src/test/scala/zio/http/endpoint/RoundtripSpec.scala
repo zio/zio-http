@@ -23,7 +23,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-import zio.stream.ZStream
+import zio.stream.{Take, ZStream}
 
 import zio.schema.{DeriveSchema, Schema}
 
@@ -528,7 +528,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           .map { r =>
             assert(r.isFailure)(isTrue) // We expect it to fail but complete
           }
-      } @@ ifEnvNotSet("CI") @@ diagnose(5.seconds),
+      },
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),

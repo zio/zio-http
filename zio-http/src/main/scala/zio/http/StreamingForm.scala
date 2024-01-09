@@ -49,8 +49,9 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
       for {
         runtime    <- ZIO.runtime[Any]
         buffer     <- ZIO.succeed(new Buffer(bufferSize))
+        abort      <- Promise.make[Nothing, Unit]
         fieldQueue <- Queue.bounded[Take[Throwable, FormField]](4)
-        reader      =
+        reader =
           source
             .mapAccumImmediate(initialState) { (state, byte) =>
               state.formState match {
@@ -60,7 +61,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                     case Some(queue) =>
                       val takes = buffer.addByte(crlfBoundary, byte)
                       if (takes.nonEmpty) {
-                        runtime.unsafe.run(queue.offerAll(takes)).getOrThrowFiberFailure()
+                        runtime.unsafe.run(queue.offerAll(takes).raceFirst(abort.await)).getOrThrowFiberFailure()
                       }
                     case None        =>
                   }
@@ -142,11 +143,16 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
             }
         _ <- reader.runDrain.catchAllCause { cause =>
           fieldQueue.offer(Take.failCause(cause))
+        }.ensuring(
+          fieldQueue.offer(Take.end),
+        ).forkScoped
+          .interruptible
+        _ <- Scope.addFinalizerExit { exit =>
+          // If the fieldStream fails, we need to make sure the reader stream can be interrupted, as it may be blocked
+          // in the unsafe.run(queue.offer) call (interruption does not propagate into the unsafe.run). This is implemented
+          // by setting the abort promise which is raced within the unsafe run when offering the element to the queue.
+          abort.succeed().when(exit.isFailure)
         }
-          .ensuring(
-            fieldQueue.offer(Take.end),
-          )
-          .forkScoped
         fieldStream = ZStream.fromQueue(fieldQueue).flattenTake
       } yield fieldStream
     }
