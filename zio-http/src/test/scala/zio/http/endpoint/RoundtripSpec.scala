@@ -520,7 +520,7 @@ object RoundtripSpec extends ZIOHttpSpec {
               response =>
                 response.body.asString.map(s =>
                   assertTrue(
-                    s == s"\"name: xyz, metadata: ImageMetadata(sample description,2023-10-02T10:30:00Z), count: ${1024 * 1024}\"",
+                    s == """"name: xyz, metadata: ImageMetadata(sample description,2023-10-02T10:30:00Z), count: 1048576"""",
                   ),
                 ),
             )
