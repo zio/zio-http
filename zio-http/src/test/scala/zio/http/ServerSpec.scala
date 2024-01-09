@@ -93,9 +93,9 @@ object ServerSpec extends HttpRunnableSpec {
           val res = app.deploy.status.run()
           assertZIO(res)(equalTo(Status.InternalServerError))
         } +
-          test("content is empty") {
+          test("content is not empty") {
             val res = app.deploy.body.mapZIO(_.asString).run()
-            assertZIO(res)(isEmptyString)
+            assertZIO(res)(isNonEmptyString)
           } +
           test("header is set") {
             val res = app.deploy.header(Header.ContentLength).run()
