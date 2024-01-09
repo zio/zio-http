@@ -50,9 +50,8 @@ sealed trait Route[-Env, +Err] { self =>
    * This method can be used to convert a route that does not handle its errors
    * into one that does handle its errors.
    */
-  final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] = {
+  final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorCause(Response.fromCauseWith(_)(f))
-    
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -63,8 +62,7 @@ sealed trait Route[-Env, +Err] { self =>
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorCause(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorCause(f), aspect)
-      case Handled(routePattern, handler, location) =>
-        Handled(routePattern, handler.mapErrorCause(c => f(c.asInstanceOf[Cause[Nothing]])), location)
+      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {
@@ -98,8 +96,7 @@ sealed trait Route[-Env, +Err] { self =>
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorCauseZIO(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorCauseZIO(f), aspect)
-      case Handled(routePattern, handler, location) =>
-        Handled(routePattern, handler.mapErrorCauseZIO(c => f(c.asInstanceOf[Cause[Nothing]])), location)
+      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {
@@ -165,14 +162,7 @@ sealed trait Route[-Env, +Err] { self =>
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorRequestCause(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorRequestCause(f), aspect)
-      case Handled(routePattern, handler, location) =>
-        Handled(
-          routePattern,
-          Handler.fromFunctionHandler[Request] { (req: Request) =>
-            handler.mapErrorCause(c => f(req, c.asInstanceOf[Cause[Nothing]]))
-          },
-          location,
-        )
+      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {
@@ -211,14 +201,7 @@ sealed trait Route[-Env, +Err] { self =>
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorRequestCauseZIO(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorRequestCauseZIO(f), aspect)
-      case Handled(routePattern, handler, location) =>
-        Handled(
-          routePattern,
-          Handler.fromFunctionHandler[Request] { (req: Request) =>
-            handler.mapErrorCauseZIO(c => f(req, c.asInstanceOf[Cause[Nothing]]))
-          },
-          location,
-        )
+      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {
@@ -303,6 +286,7 @@ object Route                   {
   )(handler: Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] = {
     // Sandbox before constructing:
     Route.Handled(routePattern, handler.sandbox, Trace.empty)
+
   }
 
   def handled[Params, Env](rpm: Route.Builder[Env, Params]): HandledConstructor[Env, Params] =
