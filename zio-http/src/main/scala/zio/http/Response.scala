@@ -133,8 +133,6 @@ object Response {
 
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
-
-
   def error(status: Status.Error, message: String): Response = {
     import zio.http.internal.OutputEncoder
 
