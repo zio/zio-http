@@ -16,7 +16,7 @@
 
 package zio.http.netty.server
 
-import java.io.{IOException, PrintWriter, StringWriter}
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.LongAdder
 
