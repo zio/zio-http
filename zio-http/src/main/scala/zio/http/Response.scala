@@ -133,22 +133,7 @@ object Response {
 
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
-  def error(status: Status.Error, message: String, cause: Cause[_]): Response = {
 
-    val logLogic = for {
-      _ <- ZIO.logErrorCause(cause)
-    } yield ()
-
-    Unsafe.unsafe { implicit unsafe =>
-      zio.Runtime.default.unsafe
-        .run(
-          logLogic,
-        )
-        .getOrThrowFiberFailure()
-    }
-
-    error(status, message)
-  }
 
   def error(status: Status.Error, message: String): Response = {
     import zio.http.internal.OutputEncoder
@@ -178,9 +163,7 @@ object Response {
       case Left(failure: Cause[_])  => fromCause(failure)
       case _                        =>
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
-        else {
-          error(Status.InternalServerError, cause.prettyPrint.take(100), cause)
-        }
+        else throw new Exception(cause.prettyPrint)
     }
   }
 
@@ -231,7 +214,7 @@ object Response {
       case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
       case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
       case _                                  => {
-        error(Status.InternalServerError, throwable.getMessage, Cause.fail(throwable))
+        error(Status.InternalServerError, throwable.getMessage)
       }
     }
   }

@@ -50,8 +50,9 @@ sealed trait Route[-Env, +Err] { self =>
    * This method can be used to convert a route that does not handle its errors
    * into one that does handle its errors.
    */
-  final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
+  final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] = {
     self.handleErrorCause(Response.fromCauseWith(_)(f))
+    
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by

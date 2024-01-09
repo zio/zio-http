@@ -1229,7 +1229,10 @@ object Handler {
           try {
             Exit.succeed(f(in))
           } catch {
-            case error: Throwable => Exit.die(error)
+            case error: Throwable => {
+              error.printStackTrace()
+              Exit.die(error)
+            }
           }
       }
   }
