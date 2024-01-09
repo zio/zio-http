@@ -16,7 +16,7 @@
 
 package zio.http.netty.server
 
-import java.io.IOException
+import java.io.{IOException, PrintWriter, StringWriter}
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.LongAdder
 
@@ -102,7 +102,21 @@ private[zio] final case class ServerInboundHandler(
           }
         } catch {
           case error: Throwable => {
-            error.printStackTrace()
+
+            val logLogic = for {
+              _ <- ZIO.logCause(Cause.fail(error))
+            } yield ()
+
+            val runtime = Runtime(ZEnvironment[Any](env), FiberRefs.empty, RuntimeFlags.default)
+
+            Unsafe.unsafe { implicit unsafe =>
+              runtime.unsafe
+                .run(
+                  logLogic,
+                )
+                .getOrThrowFiberFailure()
+            }
+
             val exit = Exit.succeed(Response.fromThrowable(error))
             writeResponse(ctx, env, exit, jReq)(releaseRequest)
           }
