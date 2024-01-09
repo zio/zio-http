@@ -20,8 +20,6 @@ import java.nio.charset.Charset
 
 import scala.jdk.CollectionConverters._
 
-import zio.Chunk
-
 import zio.http.QueryParams
 import zio.http.internal.QueryParamEncoding
 
@@ -33,16 +31,15 @@ private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
       QueryParams.empty
     } else {
       val decoder = new QueryStringDecoder(queryStringFragment, charset, false)
-      val params  = decoder.parameters()
-      QueryParams(params.asScala.view.map { case (k, v) =>
-        (k, Chunk.fromIterable(v.asScala))
-      }.toMap)
+      QueryParams(decoder.parameters())
     }
   }
 
   override final def encode(baseUri: String, queryParams: QueryParams, charset: Charset): String = {
     val encoder = new QueryStringEncoder(baseUri, charset)
-    queryParams.map.foreach { case (key, values) =>
+    queryParams.seq.foreach { entry =>
+      val key    = entry.getKey
+      val values = entry.getValue.asScala
       if (key != "") {
         if (values.isEmpty) {
           encoder.addParam(key, "")

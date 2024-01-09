@@ -135,12 +135,12 @@ object URLSpec extends ZIOHttpSpec {
             .scheme(Scheme.HTTPS)
             .queryParams("?type=builder&query=provided")
 
-          assertTrue(builderUrl == asURL("https://www.abc.com:8080/list?query=provided&type=builder"))
+          assertTrue(builderUrl == asURL("https://www.abc.com:8080/list?type=builder&query=provided"))
         },
         test("returns relative URL if port, host, and scheme are not set") {
           val actual = URL.empty
             .path(Path.decode("/list"))
-            .queryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
+            .queryParams(QueryParams("query" -> Chunk("provided"), "type" -> Chunk("builder")))
             .encode
 
           assertTrue(asURL(actual) == asURL("/list?query=provided&type=builder"))
