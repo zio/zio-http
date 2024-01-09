@@ -133,10 +133,10 @@ object Response {
 
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
-  def error(status: Status.Error, message: String, stackTrace: String): Response = {
+  def error(status: Status.Error, message: String, cause: Cause[_]): Response = {
 
     val logLogic = for {
-      _ <- ZIO.logError(stackTrace)
+      _ <- ZIO.logErrorCause(cause)
     } yield ()
 
     Unsafe.unsafe { implicit unsafe =>
@@ -179,7 +179,7 @@ object Response {
       case _                        =>
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
         else {
-          error(Status.InternalServerError, cause.prettyPrint.take(100), cause.prettyPrint)
+          error(Status.InternalServerError, cause.prettyPrint.take(100), cause)
         }
     }
   }
@@ -231,10 +231,7 @@ object Response {
       case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
       case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
       case _                                  => {
-        val sw = new java.io.StringWriter
-        val pw = new java.io.PrintWriter(sw)
-        throwable.printStackTrace(pw)
-        error(Status.InternalServerError, throwable.getMessage, sw.toString)
+        error(Status.InternalServerError, throwable.getMessage, Cause.fail(throwable))
       }
     }
   }
