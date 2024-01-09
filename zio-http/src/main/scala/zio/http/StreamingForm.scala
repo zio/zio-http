@@ -151,7 +151,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
           // If the fieldStream fails, we need to make sure the reader stream can be interrupted, as it may be blocked
           // in the unsafe.run(queue.offer) call (interruption does not propagate into the unsafe.run). This is implemented
           // by setting the abort promise which is raced within the unsafe run when offering the element to the queue.
-          abort.succeed().when(exit.isFailure)
+          abort.succeed(()).when(exit.isFailure)
         }
         fieldStream = ZStream.fromQueue(fieldQueue).flattenTake
       } yield fieldStream
