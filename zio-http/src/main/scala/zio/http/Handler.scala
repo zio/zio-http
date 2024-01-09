@@ -1226,14 +1226,7 @@ object Handler {
     def apply[Out](f: In => Out): Handler[Any, Nothing, In, Out] =
       new Handler[Any, Nothing, In, Out] {
         override def apply(in: In): ZIO[Any, Nothing, Out] =
-          try {
             Exit.succeed(f(in))
-          } catch {
-            case error: Throwable => {
-              error.printStackTrace()
-              Exit.die(error)
-            }
-          }
       }
   }
 

@@ -85,17 +85,29 @@ private[zio] final case class ServerInboundHandler(
           ()
         }
 
-        ensureHasApp()
-        val exit =
-          if (jReq.decoderResult().isFailure) {
-            val throwable = jReq.decoderResult().cause()
-            Exit.succeed(Response.fromThrowable(throwable))
-          } else
-            app(req)
-        if (!attemptImmediateWrite(ctx, exit)) {
-          writeResponse(ctx, env, exit, jReq)(releaseRequest)
-        } else {
-          releaseRequest()
+        try {
+          ensureHasApp()
+          val exit =
+            if (jReq.decoderResult().isFailure) {
+              val throwable = jReq.decoderResult().cause()
+              Exit.succeed(Response.fromThrowable(throwable))
+            } else {
+              app(req)
+            }
+
+          if (!attemptImmediateWrite(ctx, exit)) {
+            writeResponse(ctx, env, exit, jReq)(releaseRequest)
+          } else {
+            releaseRequest()
+          }
+        } catch {
+          case error: Throwable => {
+            error.printStackTrace()
+            releaseRequest()
+            val exit = Exit.succeed(Response.fromThrowable(error))
+            writeResponse(ctx, env, exit, jReq)(releaseRequest)
+
+          }
         }
 
       case msg: HttpContent =>
