@@ -22,6 +22,19 @@ import zio.test._
 
 object ResponseSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
+  def extractException(cause: Cause[_]): String = {
+
+    var result = "Expected value not found"
+    try {
+      Response.fromCause(cause)
+    } catch {
+      case error: Throwable => {
+        result = error.getMessage()
+      }
+    }
+
+    result
+  }
   private val location: URL                     = URL.decode("www.google.com").toOption.get
 
   def spec = suite("Response")(
@@ -52,7 +65,7 @@ object ResponseSpec extends ZIOHttpSpec {
       test("from String") {
         val cause = Cause.fail("error")
 
-        assertTrue(extractStatus(Response.fromCause(cause)) == Status.InternalServerError)
+        assertTrue(extractException(cause) == "Exception in thread \"zio-fiber-\" java.lang.String: error")
       },
     ),
     suite("fromThrowable")(

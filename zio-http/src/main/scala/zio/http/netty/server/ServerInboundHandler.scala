@@ -106,7 +106,6 @@ private[zio] final case class ServerInboundHandler(
             releaseRequest()
             val exit = Exit.succeed(Response.fromThrowable(error))
             writeResponse(ctx, env, exit, jReq)(releaseRequest)
-
           }
         }
 
