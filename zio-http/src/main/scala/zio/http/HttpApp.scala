@@ -130,22 +130,6 @@ object HttpApp                                                     {
    */
   val empty: HttpApp[Any] = HttpApp(Routes.empty)
 
-  /**
-   * Generates an HttpApp from a partial function. This constructor should only
-   * be used for testing. If you are migrating from a pre-release version of ZIO
-   * HTTP, you should instead look at the new way of defining routes using
-   * [[zio.http.Routes]].
-   */
-  def collectZIO[R](pf: PartialFunction[Request, ZIO[R, Response, Response]])(implicit trace: Trace): HttpApp[R] =
-    HttpApp(
-      Routes.singleton {
-        Handler.fromFunctionZIO[(Path, Request)] { case (_: Path, request: Request) =>
-          if (pf.isDefinedAt(request)) pf(request)
-          else ZIO.succeed(Response.notFound)
-        }
-      },
-    )
-
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(self.tree ++ that.tree)

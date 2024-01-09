@@ -59,13 +59,13 @@ To create an `Body` that encodes a Stream you can use `Body.fromStream`.
 - Using a Stream of Bytes
 
 ```scala mdoc:silent
-  val streamHttpData1: Body = Body.fromStream(ZStream.fromChunk(Chunk.fromArray("Some String".getBytes(Charsets.Http))))
+  val streamHttpData1: Body = Body.fromStreamChunked(ZStream.fromChunk(Chunk.fromArray("Some String".getBytes(Charsets.Http))))
 ```
 
 - Using a Stream of String
 
 ```scala mdoc:silent
-  val streamHttpData2: Body = Body.fromCharSequenceStream(ZStream("a", "b", "c"), Charsets.Http)
+  val streamHttpData2: Body = Body.fromCharSequenceStreamChunked(ZStream("a", "b", "c"), Charsets.Http)
 ```
 
 ### Creating a Body from a `File`
@@ -73,5 +73,5 @@ To create an `Body` that encodes a Stream you can use `Body.fromStream`.
 To create an `Body` that encodes a File you can use `Body.fromFile`:
 
 ```scala mdoc:silent:crash
-  val fileHttpData: Body = Body.fromFile(new java.io.File(getClass.getResource("/fileName.txt").getPath))
+  val fileHttpData: ZIO[Any, Nothing, Body] = Body.fromFile(new java.io.File(getClass.getResource("/fileName.txt").getPath))
 ```

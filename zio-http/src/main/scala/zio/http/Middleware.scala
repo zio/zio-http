@@ -16,12 +16,13 @@
 package zio.http
 
 import java.io.File
+import java.net.URLEncoder
 
 import zio._
 import zio.metrics._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.codec.{PathCodec, SegmentCodec}
+import zio.http.endpoint.openapi.OpenAPI
 
 trait Middleware[-UpperEnv] { self =>
   def apply[Env1 <: UpperEnv, Err](
@@ -170,6 +171,68 @@ object Middleware extends HandlerAspects {
     }
   }
 
+  def logAnnotate(key: => String, value: => String)(implicit trace: Trace): Middleware[Any] =
+    logAnnotate(LogAnnotation(key, value))
+
+  def logAnnotate(logAnnotation: => LogAnnotation, logAnnotations: LogAnnotation*)(implicit
+    trace: Trace,
+  ): Middleware[Any] =
+    logAnnotate((logAnnotation +: logAnnotations).toSet)
+
+  def logAnnotate(logAnnotations: => Set[LogAnnotation])(implicit trace: Trace): Middleware[Any] =
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        routes.transform[Env1] { h =>
+          handler((req: Request) => ZIO.logAnnotate(logAnnotations)(h(req)))
+        }
+    }
+
+  /**
+   * Creates a middleware that will annotate log messages that are logged while
+   * a request is handled with log annotations derived from the request.
+   */
+  def logAnnotate(fromRequest: Request => Set[LogAnnotation])(implicit trace: Trace): Middleware[Any] =
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        routes.transform[Env1] { h =>
+          handler((req: Request) => ZIO.logAnnotate(fromRequest(req))(h(req)))
+        }
+    }
+
+  /**
+   * Creates a middleware that will annotate log messages that are logged while
+   * a request is handled with the names and the values of the specified
+   * headers.
+   */
+  def logAnnotateHeaders(headerName: String, headerNames: String*)(implicit trace: Trace): Middleware[Any] =
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] = {
+        val headers = headerName +: headerNames
+        routes.transform[Env1] { h =>
+          handler((req: Request) => {
+            val annotations = Set.newBuilder[LogAnnotation]
+            annotations.sizeHint(headers.length)
+            var i           = 0
+            while (i < headers.length) {
+              val name = headers(i)
+              annotations += LogAnnotation(name, req.headers.get(name).mkString)
+              i += 1
+            }
+            ZIO.logAnnotate(annotations.result())(h(req))
+          })
+        }
+      }
+    }
+
+  /**
+   * Creates middleware that will annotate log messages that are logged while a
+   * request is handled with the names and the values of the specified headers.
+   */
+  def logAnnotateHeaders(header: Header.HeaderType, headers: Header.HeaderType*)(implicit
+    trace: Trace,
+  ): Middleware[Any] =
+    logAnnotateHeaders(header.name, headers.map(_.name): _*)
+
   def timeout(duration: Duration)(implicit trace: Trace): Middleware[Any] =
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
@@ -284,7 +347,8 @@ object Middleware extends HandlerAspects {
       }
 
       override def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] = {
-        val mountpoint = Method.GET / path.segments.map(PathCodec.literal).reduceLeft(_ / _)
+        val mountpoint =
+          Method.GET / path.segments.map(PathCodec.literal).reduceLeftOption(_ / _).getOrElse(PathCodec.empty)
         val pattern    = mountpoint / trailing
         val other      = Routes(
           pattern -> Handler
@@ -294,7 +358,7 @@ object Middleware extends HandlerAspects {
               if (isFishy) {
                 Handler.fromZIO(ZIO.logWarning(s"fishy request detected: ${request.path.encode}")) *> Handler.badRequest
               } else {
-                val segs   = pattern.pathCodec.segments.collect { case SegmentCodec.Literal(v, _) =>
+                val segs   = pattern.pathCodec.segments.collect { case SegmentCodec.Literal(v) =>
                   v
                 }
                 val unnest = segs.foldLeft(Path.empty)(_ / _).addLeadingSlash
@@ -309,7 +373,14 @@ object Middleware extends HandlerAspects {
 
   /**
    * Creates a middleware for serving static files from the directory `docRoot`
-   * at the path `path`.
+   * at the url path `path`.
+   *
+   * Example: `val serveDirectory = Middleware.serveDirectory(Path.empty /
+   * "assets", new File("/some/local/path"))`
+   *
+   * With this middleware in place, a request to
+   * `https://www.domain.com/assets/folder/file1.jpg` would serve the local file
+   * `/some/local/path/folder/file1.jpg`.
    */
   def serveDirectory(path: Path, docRoot: File)(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromDirectory(docRoot))
@@ -317,6 +388,13 @@ object Middleware extends HandlerAspects {
   /**
    * Creates a middleware for serving static files from resources at the path
    * `path`.
+   *
+   * Example: `val serveResources = Middleware.serveResources(Path.empty /
+   * "assets")`
+   *
+   * With this middleware in place, a request to
+   * `https://www.domain.com/assets/folder/file1.jpg` would serve the file
+   * `src/main/resources/folder/file1.jpg`.
    */
   def serveResources(path: Path)(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromResource)
@@ -325,7 +403,7 @@ object Middleware extends HandlerAspects {
    * Creates a middleware for managing the flash scope.
    */
   def flashScopeHandling: HandlerAspect[Any, Unit] = Middleware.intercept { (req, resp) =>
-    req.cookie("zio-http-flash").fold(resp)(flash => resp.addCookie(Cookie.clear(flash.name)))
+    req.cookie(Flash.COOKIE_NAME).fold(resp)(flash => resp.addCookie(Cookie.clear(flash.name)))
   }
 
 }

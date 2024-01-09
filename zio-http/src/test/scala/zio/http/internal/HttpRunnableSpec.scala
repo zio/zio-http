@@ -49,15 +49,15 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
           client(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", Some(port)))),
           )
             .flatMap(_.collect)
         }
       } yield response
 
-    def deployAndRequest(
-      call: Client => ZIO[Scope, Throwable, Response],
-    ): Handler[Client with DynamicServer with R with Scope, Throwable, Any, Response] =
+    def deployAndRequest[Output](
+      call: Client => ZIO[Scope, Throwable, Output],
+    ): Handler[Client with DynamicServer with R with Scope, Throwable, Any, Output] =
       for {
         port     <- Handler.fromZIO(DynamicServer.port)
         id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
@@ -80,7 +80,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
           client(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", Some(port)))),
           )
         }
       } yield response

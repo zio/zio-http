@@ -31,7 +31,7 @@ import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 
-final case class NettyClientDriver private (
+final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
   nettyRuntime: NettyRuntime,

@@ -16,12 +16,17 @@
 
 package zio.http.endpoint
 
+import java.time.Instant
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+
 import zio.stream.ZStream
+
 import zio.schema.{DeriveSchema, Schema}
+
 import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
@@ -29,8 +34,6 @@ import zio.http.codec.HttpCodec.{authorization, query}
 import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.netty.server.NettyDriver
-
-import java.time.Instant
 
 object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
@@ -305,7 +308,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           ("name", 10, Post(1, "title", "body", 111)),
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
-      } @@ ifEnvNotSet("CI"),
+      },
       test("endpoint error returned") {
         val api = Endpoint(POST / "test")
           .outError[String](Status.Custom(999))
@@ -474,7 +477,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ ifEnvNotSet("CI"),
+      },
       test("multi-part input with stream and invalid json field") {
         val api = Endpoint(POST / "test")
           .in[String]("name")

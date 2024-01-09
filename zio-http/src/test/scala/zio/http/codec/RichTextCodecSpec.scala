@@ -27,8 +27,8 @@ object RichTextCodecSpec extends ZIOHttpSpec {
 
   def textOf(doc: Doc): Option[String] =
     doc match {
-      case Doc.Paragraph(Doc.Span.Code(text)) => Some(text)
-      case _                                  => None
+      case Doc.Paragraph(Doc.Span.Code(text, _)) => Some(text)
+      case _                                     => None
     }
 
   override def spec = suite("Rich Text Codec Spec")(
@@ -118,13 +118,11 @@ object RichTextCodecSpec extends ZIOHttpSpec {
       },
       test("describe simple recursion") {
         val codec = RichTextCodec.char('x').repeat
-        // This would be perhaps nicer as «1» ⩴ “x”* or even without the label.
-        assertTrue(textOf(codec.describe).get == "«1» ⩴ (“x” «1»)?")
+        assertTrue(textOf(codec.describe).get == "“x”*")
       },
       test("describe tagged simple recursion") {
         val codec = RichTextCodec.char('x').repeat ?? "xs"
-        // This would be perhaps nicer as «xs» ⩴ “x”*
-        assertTrue(textOf(codec.describe).get == "«xs» ⩴ (“x” «xs»)?")
+        assertTrue(textOf(codec.describe).get == "«xs» ⩴ “x”*")
       },
       test("describe tagged with recursion") {
         lazy val integer: RichTextCodec[_] = (RichTextCodec.digit ~ (RichTextCodec.empty | integer)) ?? "integer"
@@ -249,6 +247,10 @@ object RichTextCodecSpec extends ZIOHttpSpec {
         val codec = RichTextCodec.literal("123").transform(_.toInt)(_.toString)
         assertTrue(success(123) == codec.decode("123--")) &&
         assertTrue(codec.decode("4123").isLeft)
+      },
+      test("With error message") {
+        val codec = RichTextCodec.literal("123").withError("Not 123")
+        assertTrue(codec.decode("678") == Left("(Expected, but did not find: Paragraph(Code(“1”,Inline)), Not 123)"))
       },
     ),
   )

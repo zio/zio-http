@@ -38,7 +38,7 @@ object HttpCodecSpec extends ZIOHttpSpec {
   val emptyJson = Body.fromString("{}")
 
   val isAge                           = "isAge"
-  val codecBool                       = QueryCodec.paramBool(isAge)
+  val codecBool                       = QueryCodec.queryBool(isAge)
   def makeRequest(paramValue: String) = Request.get(googleUrl.queryParams(QueryParams(isAge -> paramValue)))
 
   def spec = suite("HttpCodecSpec")(
@@ -109,6 +109,30 @@ object HttpCodecSpec extends ZIOHttpSpec {
           } yield assertTrue(result.causeOption.get.defects.forall(_ == e))
         }
     } +
+      suite("optional") {
+        test("fallback for missing values") {
+          val codec = QueryCodec.query("name").transformOrFail[String](_ => Left("fail"))(Right(_))
+
+          val request = Request.get(url = URL.root)
+
+          val optional = codec.optional
+
+          for {
+            result <- optional.decodeRequest(request)
+          } yield assertTrue(result.isEmpty)
+        } +
+          test("no fallback for decoding errors") {
+            val codec = QueryCodec.query("key").transformOrFail[String](_ => Left("fail"))(Right(_))
+
+            val request = Request.get(url = URL.root.copy(queryParams = QueryParams("key" -> "value")))
+
+            val optional = codec.optional
+
+            for {
+              result <- optional.decodeRequest(request).exit
+            } yield assertTrue(result.isFailure)
+          }
+      } +
       suite("HeaderCodec") {
         test("dummy test") {
           assertTrue(true)

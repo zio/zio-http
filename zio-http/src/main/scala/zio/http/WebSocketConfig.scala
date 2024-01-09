@@ -33,13 +33,13 @@ final case class WebSocketConfig(
 ) { self =>
 
   /**
-   * Close frame to send, when close frame was not send manually.
+   * Close frame to send, when close frame was not sent manually.
    */
   def closeFrame(code: Int, reason: String): WebSocketConfig =
     self.copy(sendCloseFrame = WebSocketConfig.CloseStatus.Custom(code, reason))
 
   /**
-   * Close frame to send, when close frame was not send manually.
+   * Close frame to send, when close frame was not sent manually.
    */
   def closeStatus(status: WebSocketConfig.CloseStatus): WebSocketConfig = self.copy(sendCloseFrame = status)
 
@@ -53,9 +53,10 @@ final case class WebSocketConfig(
     self.copy(forceCloseTimeoutMillis = duration.toMillis)
 
   /**
-   * Close frames should be forwarded
+   * Close frames should be forwarded instead of handled solely by Netty,
+   * invisibly to the Websocket Client
    */
-  def forwardCloseFrames(forward: Boolean): WebSocketConfig = self.copy(handleCloseFrames = forward)
+  def forwardCloseFrames(forward: Boolean): WebSocketConfig = self.copy(handleCloseFrames = !forward)
 
   /**
    * Pong frames should be forwarded

@@ -16,7 +16,9 @@
 
 package zio.http
 
-import zio.test.Assertion.equalTo
+import scala.jdk.CollectionConverters._
+
+import zio.test.Assertion.{anything, equalTo, fails, hasSize}
 import zio.test._
 import zio.{Chunk, ZIO}
 
@@ -236,10 +238,45 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val default     = "default"
           val unknown     = "non-existent"
           val queryParams = QueryParams(name -> "a", name -> "b")
-          assertTrue(queryParams.get(name).get == "a") &&
-          assertTrue(queryParams.getOrElse(unknown, default) == default) &&
-          assertTrue(queryParams.getAll(name).get.length == 2) &&
-          assertTrue(queryParams.getAllOrElse(unknown, Chunk(default)).length == 1)
+          assertTrue(
+            queryParams.get(name).get == "a",
+            queryParams.get(unknown).isEmpty,
+            queryParams.getOrElse(name, default) == "a",
+            queryParams.getOrElse(unknown, default) == default,
+            queryParams.getAll(name).get.length == 2,
+            queryParams.getAll(unknown).isEmpty,
+            queryParams.getAllOrElse(name, Chunk(default)).length == 2,
+            queryParams.getAllOrElse(unknown, Chunk(default)).length == 1,
+          )
+        },
+      ),
+      suite("getAs - getAllAs")(
+        test("success") {
+          val typed        = "typed"
+          val default      = 3
+          val invalidTyped = "invalidTyped"
+          val unknown      = "non-existent"
+          val queryParams  = QueryParams(typed -> "1", typed -> "2", invalidTyped -> "str")
+          assertTrue(
+            queryParams.getTo[Int](typed) == Right(1),
+            queryParams.getTo[Int](invalidTyped).isLeft,
+            queryParams.getTo[Int](unknown).isLeft,
+            queryParams.getToOrElse[Int](typed, default) == 1,
+            queryParams.getToOrElse[Int](invalidTyped, default) == default,
+            queryParams.getToOrElse[Int](unknown, default) == default,
+            queryParams.getAllTo[Int](typed).map(_.length) == Right(2),
+            queryParams.getAllTo[Int](invalidTyped).isLeft,
+            queryParams.getAllTo[Int](unknown).isLeft,
+            queryParams.getAllToOrElse[Int](typed, Chunk(default)).length == 2,
+            queryParams.getAllToOrElse[Int](invalidTyped, Chunk(default)).length == 1,
+            queryParams.getAllToOrElse[Int](unknown, Chunk(default)).length == 1,
+          )
+          assertZIO(queryParams.getToZIO[Int](typed))(equalTo(1)) &&
+          assertZIO(queryParams.getToZIO[Int](invalidTyped).exit)(fails(anything)) &&
+          assertZIO(queryParams.getToZIO[Int](unknown).exit)(fails(anything)) &&
+          assertZIO(queryParams.getAllToZIO[Int](typed))(hasSize(equalTo(2))) &&
+          assertZIO(queryParams.getAllToZIO[Int](invalidTyped).exit)(fails(anything)) &&
+          assertZIO(queryParams.getAllToZIO[Int](unknown).exit)(fails(anything))
         },
       ),
       suite("encode - decode")(
@@ -285,16 +322,15 @@ object QueryParamsSpec extends ZIOHttpSpec {
             }
 
           def deduplicateAndSortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.map.map { case (k, v) => (k, v.sorted) })
-
-          def sortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.map.map { case (k, v) => (k, v.sorted) })
+            QueryParams(queryParams.seq.map { entry =>
+              (entry.getKey, Chunk.fromIterable(entry.getValue.asScala).sorted)
+            }: _*)
 
           for {
             nonCornerCasesTests <- check(genQueryParamsWithoutCornerCases) { case givenQueryParams =>
               val result = QueryParams.decode(givenQueryParams.encode)
 
-              assert(sortQueryParamValues(result))(
+              assert(deduplicateAndSortQueryParamValues(result))(
                 equalTo(deduplicateAndSortQueryParamValues(givenQueryParams)),
               )
             }
@@ -304,6 +340,27 @@ object QueryParamsSpec extends ZIOHttpSpec {
             cornerCasesTests = t1 && t2 && t3
           } yield nonCornerCasesTests && cornerCasesTests
 
+        },
+      ),
+      suite("maintains ordering")(
+        test("upon construction") {
+          val numbers     = Range(0, 100).map(_.toString).toList
+          val queryParams = QueryParams(numbers.map(x => x -> Chunk("0")): _*)
+          assertTrue(queryParams.seq.map(_.getKey).toList == numbers)
+        },
+        test("after ++") {
+          val numbers0     = Range(0, 50).map(_.toString).toList
+          val numbers50    = Range(50, 100).map(_.toString).toList
+          val numbers100   = Range(0, 100).map(_.toString).toList
+          val queryParams1 = QueryParams(numbers0.map(x => x -> Chunk("0")): _*) ++
+            QueryParams(numbers50.map(x => x -> Chunk("0")): _*)
+          assertTrue(queryParams1.seq.map(_.getKey).toList == numbers100)
+        },
+      ),
+      suite("produces a map")(
+        test("success") {
+          val queryParams = QueryParams("a" -> Chunk("1", "2"), "b" -> Chunk("3"))
+          assertTrue(queryParams.map == Map("a" -> Chunk("1", "2"), "b" -> Chunk("3")))
         },
       ),
     )

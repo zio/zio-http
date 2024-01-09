@@ -47,6 +47,7 @@ object NettyConnectionPool {
     location: URL.Location.Absolute,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
+    maxInitialLineLength: Int,
     maxHeaderSize: Int,
     decompression: Decompression,
     idleTimeout: Option[Duration],
@@ -70,7 +71,7 @@ object NettyConnectionPool {
           case None        =>
         }
 
-        if (location.scheme.isSecure) {
+        if (location.scheme.isSecure.getOrElse(false)) {
           pipeline.addLast(
             Names.SSLHandler,
             ClientSSLConverter
@@ -92,7 +93,7 @@ object NettyConnectionPool {
         // This way, if the server closes the connection before the whole response has been sent,
         // we get an error. (We can also handle the channelInactive callback, but since for now
         // we always buffer the whole HTTP response we can letty Netty take care of this)
-        pipeline.addLast(Names.HttpClientCodec, new HttpClientCodec(4096, maxHeaderSize, 8192, true))
+        pipeline.addLast(Names.HttpClientCodec, new HttpClientCodec(maxInitialLineLength, maxHeaderSize, 8192, true))
 
         // HttpContentDecompressor
         if (decompression.enabled)
@@ -135,6 +136,7 @@ object NettyConnectionPool {
       location: Location.Absolute,
       proxy: Option[Proxy],
       sslOptions: ClientSSLConfig,
+      maxInitialLineLength: Int,
       maxHeaderSize: Int,
       decompression: Decompression,
       idleTimeout: Option[Duration],
@@ -147,6 +149,7 @@ object NettyConnectionPool {
         location,
         proxy,
         sslOptions,
+        maxInitialLineLength,
         maxHeaderSize,
         decompression,
         idleTimeout,
@@ -166,6 +169,7 @@ object NettyConnectionPool {
     location: Location.Absolute,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
+    maxInitialLineLength: Int,
     maxHeaderSize: Int,
     decompression: Decompression,
     idleTimeout: Option[Duration],
@@ -179,6 +183,7 @@ object NettyConnectionPool {
       location: Location.Absolute,
       proxy: Option[Proxy],
       sslOptions: ClientSSLConfig,
+      maxInitialLineLength: Int,
       maxHeaderSize: Int,
       decompression: Decompression,
       idleTimeout: Option[Duration],
@@ -186,7 +191,18 @@ object NettyConnectionPool {
       localAddress: Option[InetSocketAddress] = None,
     )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] =
       pool
-        .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression, idleTimeout, connectionTimeout))
+        .get(
+          PoolKey(
+            location,
+            proxy,
+            sslOptions,
+            maxInitialLineLength,
+            maxHeaderSize,
+            decompression,
+            idleTimeout,
+            connectionTimeout,
+          ),
+        )
 
     override def invalidate(channel: JChannel)(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
       pool.invalidate(channel)
@@ -243,6 +259,7 @@ object NettyConnectionPool {
           key.location,
           key.proxy,
           key.sslOptions,
+          key.maxInitialLineLength,
           key.maxHeaderSize,
           key.decompression,
           key.idleTimeout,
@@ -287,6 +304,7 @@ object NettyConnectionPool {
           key.location,
           key.proxy,
           key.sslOptions,
+          key.maxInitialLineLength,
           key.maxHeaderSize,
           key.decompression,
           key.idleTimeout,

@@ -16,9 +16,10 @@
 
 package zio.http.internal.middlewares
 
+import zio.Config.Secret
 import zio.test.Assertion._
 import zio.test._
-import zio.{Ref, ZIO, ZLayer}
+import zio.{Ref, ZIO}
 
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
@@ -33,16 +34,28 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   private val failureBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken + "SomethingElse"))
 
   private val basicAuthM     = HandlerAspect.basicAuth { c =>
-    c.uname.reverse == c.upassword
+    Secret(c.uname.reverse) == c.upassword
   }
   private val basicAuthZIOM  = HandlerAspect.basicAuthZIO { c =>
-    ZIO.succeed(c.uname.reverse == c.upassword)
+    ZIO.succeed(Secret(c.uname.reverse) == c.upassword)
   }
   private val bearerAuthM    = HandlerAspect.bearerAuth { c =>
     c == bearerToken
   }
   private val bearerAuthZIOM = HandlerAspect.bearerAuthZIO { c =>
     ZIO.succeed(c == bearerToken)
+  }
+
+  private val basicAuthContextM = HandlerAspect.customAuthProviding[AuthContext] { r =>
+    {
+      r.headers.get(Header.Authorization).flatMap {
+        case Header.Authorization.Basic(uname, password) if Secret(uname.reverse) == password =>
+          Some(AuthContext(uname))
+        case _                                                                                =>
+          None
+      }
+
+    }
   }
 
   def spec = suite("AuthSpec")(
@@ -58,6 +71,25 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
         val app = (Handler.ok @@ basicAuthM).merge.header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
+      },
+      test("Extract username via context") {
+        val app = (Handler.fromFunction[(AuthContext, Request)] { case (c, _) =>
+          Response.text(c.value)
+        } @@ basicAuthContextM).merge.mapZIO(_.body.asString)
+        assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo("user"))
+      },
+      test("Extract username via context with Routes") {
+        val app = {
+          Routes(
+            Method.GET / "context" -> basicAuthContextM ->
+              Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) => Response.text(c.value) },
+          )
+        }.toHttpApp
+        assertZIO(
+          app
+            .runZIO(Request.get(URL.root / "context").copy(headers = successBasicHeader))
+            .flatMap(_.body.asString),
+        )(equalTo("user"))
       },
     ),
     suite("basicAuthZIO")(

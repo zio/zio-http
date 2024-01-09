@@ -7,10 +7,9 @@ import zio.test._
 
 import zio.schema._
 
-import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.http.endpoint.cli.CliRepr._
+import zio.http.{Request, _}
 
 /**
  * Test suite for Http CliApp. It tests:
@@ -47,46 +46,55 @@ object CliSpec extends ZIOSpecDefault {
   val testClient: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
-        behavior       <- Ref.make[PartialFunction[Request, ZIO[Any, Response, Response]]](PartialFunction.empty)
+        behavior       <- Ref.make[Routes[Any, Response]](Routes.empty)
         socketBehavior <- Ref.make[WebSocketApp[Any]](WebSocketApp(Handler.unit))
         driver = TestClient(behavior, socketBehavior)
-        _ <- driver.addHandler {
-          case Request(_, Method.GET, URL(path, _, _, _), _, _, _) if path.encode == "/fromURL" =>
-            ZIO.succeed(Response.text("342.76"))
-          case Request(_, Method.GET, _, headers, body, _)
-              if headers.headOption.map(_.renderedValue) == Some("fromURL") =>
-            ZIO.succeed(Response(Status.Ok, headers, body))
-          case Request(_, Method.GET, _, _, body, _)                                            =>
-            for {
-              text <- body.asMultipartForm
-                .map(_.formData)
-                .map(_.map(_.stringValue.toString()))
-                .map(_.toString())
-                .mapError(e => Response.error(Status.BadRequest, e.getMessage()))
-            } yield if (text == "Chunk(Some(342.76))") Response.text("received 1") else Response.text(text)
-          case Request(_, Method.POST, _, _, body, _)                                           =>
-            for {
-              text     <- body.asMultipartForm
-                .map(_.formData)
-                .map(_.map(_.stringValue.toString()))
-                .map(_.toString())
-                .mapError(e => Response.error(Status.BadRequest, e.getMessage()))
-              response <-
-                if (text == """Chunk(Some(342.76),Some("sample"))""") ZIO.succeed("received 2")
-                else ZIO.succeed(text)
-            } yield Response.text(response)
-          case Request(_, Method.PUT, _, _, body, _)                                            =>
-            for {
-              text     <- body.asMultipartForm
-                .map(_.formData)
-                .map(_.map(_.stringValue.toString()))
-                .map(_.toString())
-                .mapError(e => Response.error(Status.BadRequest, e.getMessage()))
-              response <-
-                if (text == "Chunk(Some(342))") ZIO.succeed("received 3")
-                else ZIO.succeed(text)
-            } yield Response.text(response)
-          case _ => ZIO.succeed(Response.text("not received"))
+        _ <- driver.addRoutes {
+          Routes(
+            Method.GET / "fromURL" -> handler(Response.text("342.76")),
+            Method.GET / trailing  -> handler { (_: Path, request: Request) =>
+              val headers = request.headers
+              val body    = request.body
+              if (headers.headOption.map(_.renderedValue).contains("fromURL"))
+                ZIO.succeed(Response(Status.Ok, headers, body))
+              else {
+                for {
+                  text <- body.asMultipartForm
+                    .map(_.formData)
+                    .map(_.map(_.stringValue.toString()))
+                    .map(_.toString())
+                    .mapError(e => Response.error(Status.BadRequest, e.getMessage))
+                } yield if (text == "Chunk(Some(342.76))") Response.text("received 1") else Response.text(text)
+              }
+            },
+            Method.POST / trailing -> handler { (req: Request) =>
+              val body = req.body
+              for {
+                text     <- body.asMultipartForm
+                  .map(_.formData)
+                  .map(_.map(_.stringValue.toString()))
+                  .map(_.toString())
+                  .mapError(e => Response.error(Status.BadRequest, e.getMessage))
+                response <-
+                  if (text == """Chunk(Some(342.76),Some("sample"))""") ZIO.succeed("received 2")
+                  else ZIO.succeed(text)
+              } yield Response.text(response)
+            },
+            Method.PUT / trailing  -> handler { (req: Request) =>
+              val body = req.body
+              for {
+                text     <- body.asMultipartForm
+                  .map(_.formData)
+                  .map(_.map(_.stringValue.toString()))
+                  .map(_.toString())
+                  .mapError(e => Response.error(Status.BadRequest, e.getMessage))
+                response <-
+                  if (text == "Chunk(Some(342))") ZIO.succeed("received 3")
+                  else ZIO.succeed(text)
+              } yield Response.text(response)
+            },
+            Method.ANY / trailing  -> handler(Response.text("not received")),
+          )
         }
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
     }

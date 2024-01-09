@@ -39,8 +39,14 @@ object NettyBody extends BodyEncoding {
 
   private[zio] def fromAsync(
     unsafeAsync: UnsafeAsync => Unit,
+    knownContentLength: Option[Long],
     contentTypeHeader: Option[Header.ContentType] = None,
-  ): Body = AsyncBody(unsafeAsync, contentTypeHeader.map(_.mediaType), contentTypeHeader.flatMap(_.boundary))
+  ): Body = AsyncBody(
+    unsafeAsync,
+    knownContentLength,
+    contentTypeHeader.map(_.mediaType),
+    contentTypeHeader.flatMap(_.boundary),
+  )
 
   /**
    * Helper to create Body from ByteBuf
@@ -79,6 +85,8 @@ object NettyBody extends BodyEncoding {
 
     override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+
+    override def knownContentLength: Option[Long] = Some(asciiString.length().toLong)
   }
 
   private[zio] final case class ByteBufBody(
@@ -109,10 +117,13 @@ object NettyBody extends BodyEncoding {
 
     override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+
+    override def knownContentLength: Option[Long] = Some(byteBuf.readableBytes().toLong)
   }
 
   private[zio] final case class AsyncBody(
     unsafeAsync: UnsafeAsync => Unit,
+    knownContentLength: Option[Long],
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
@@ -123,21 +134,23 @@ object NettyBody extends BodyEncoding {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream
-        .async[Any, Throwable, Byte](emit =>
-          try {
-            unsafeAsync(new UnsafeAsync {
-              override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
-                emit(ZIO.succeed(message))
-                if (isLast) {
-                  emit(ZIO.fail(None))
+        .async[Any, Throwable, Byte](
+          emit =>
+            try {
+              unsafeAsync(new UnsafeAsync {
+                override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+                  emit(ZIO.succeed(message))
+                  if (isLast) {
+                    emit(ZIO.fail(None))
+                  }
                 }
-              }
-              override def fail(cause: Throwable): Unit                       =
-                emit(ZIO.fail(Some(cause)))
-            })
-          } catch {
-            case e: Throwable => emit(ZIO.fail(Option(e)))
-          },
+                override def fail(cause: Throwable): Unit                       =
+                  emit(ZIO.fail(Some(cause)))
+              })
+            } catch {
+              case e: Throwable => emit(ZIO.fail(Option(e)))
+            },
+          4096,
         )
 
     override def isComplete: Boolean = false

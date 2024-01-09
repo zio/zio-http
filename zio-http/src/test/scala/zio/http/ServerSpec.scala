@@ -129,7 +129,7 @@ object ServerSpec extends HttpRunnableSpec {
             val app        =
               Routes(RoutePattern.any -> handler((_: Path, req: Request) => Response(body = req.body))).toHttpApp
             val res        =
-              app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromCharSequenceStream(dataStream))
+              app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromCharSequenceStreamChunked(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
       } +
@@ -337,13 +337,13 @@ object ServerSpec extends HttpRunnableSpec {
       }
     },
     test("text streaming") {
-      val res = Handler.fromStream(ZStream("a", "b", "c")).sandbox.toHttpApp.deploy.body.mapZIO(_.asString).run()
+      val res = Handler.fromStreamChunked(ZStream("a", "b", "c")).sandbox.toHttpApp.deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("abc"))
     },
     test("echo streaming") {
       val res = Routes
         .singleton(handler { (_: Path, req: Request) =>
-          Handler.fromStream(ZStream.fromZIO(req.body.asChunk).flattenChunks): Handler[
+          Handler.fromStreamChunked(ZStream.fromZIO(req.body.asChunk).flattenChunks): Handler[
             Any,
             Throwable,
             (Path, Request),
@@ -361,9 +361,42 @@ object ServerSpec extends HttpRunnableSpec {
     test("file-streaming") {
       val path = getClass.getResource("/TestFile.txt").getPath
       val res  =
-        Handler.fromStream(ZStream.fromPath(Paths.get(path))).sandbox.toHttpApp.deploy.body.mapZIO(_.asString).run()
+        Handler
+          .fromStreamChunked(ZStream.fromPath(Paths.get(path)))
+          .sandbox
+          .toHttpApp
+          .deploy
+          .body
+          .mapZIO(_.asString)
+          .run()
       assertZIO(res)(equalTo("foo\nbar"))
     } @@ TestAspect.os(os => !os.isWindows),
+    test("streaming failure - known content type") {
+      val res =
+        Handler
+          .fromStream(ZStream.fromZIO(ZIO.attempt(throw new Exception("boom"))), 42)
+          .sandbox
+          .toHttpApp
+          .deploy
+          .body
+          .mapZIO(_.asString)
+          .run()
+          .exit
+      assertZIO(res)(failsWithA[java.io.IOException])
+    } @@ TestAspect.timeout(10.seconds),
+    test("streaming failure - unknown content type") {
+      val res =
+        Handler
+          .fromStreamChunked(ZStream.fromZIO(ZIO.attempt(throw new Exception("boom"))))
+          .sandbox
+          .toHttpApp
+          .deploy
+          .body
+          .mapZIO(_.asString)
+          .run()
+          .exit
+      assertZIO(res)(failsWithA[java.io.IOException])
+    } @@ TestAspect.timeout(10.seconds),
     suite("html")(
       test("body") {
         val res =
@@ -426,7 +459,7 @@ object ServerSpec extends HttpRunnableSpec {
     test("POST Request stream") {
       val app: HttpApp[Any] = Routes.singleton {
         handler { (_: Path, req: Request) =>
-          Response(body = Body.fromStream(req.body.asStream))
+          Response(body = Body.fromStreamChunked(req.body.asStream))
         }
       }.toHttpApp
 

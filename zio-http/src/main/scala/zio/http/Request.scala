@@ -18,8 +18,7 @@ package zio.http
 
 import java.net.InetAddress
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, Trace, ZIO}
+import zio._
 
 import zio.http.internal.HeaderOps
 
@@ -108,6 +107,22 @@ final case class Request(
     copy(url = self.url.copy(path = self.url.path.unnest(prefix)))
 
   /**
+   * Returns a request with a body derived from the current body.
+   */
+  def updateBody(f: Body => Body): Request = self.copy(body = f(body))
+
+  /**
+   * Returns a request with a body derived from the current body in an effectful
+   * way.
+   */
+  def updateBodyZIO[R, E](f: Body => ZIO[R, E, Body]): ZIO[R, E, Request] = f(body).map(withBody)
+
+  /**
+   * Returns a request with the specified body.
+   */
+  def withBody(body: Body): Request = self.copy(body = body)
+
+  /**
    * Returns the cookie with the given name if it exists.
    */
   def cookie(name: String): Option[Cookie] =
@@ -148,8 +163,11 @@ final case class Request(
   def cookies: Chunk[Cookie] =
     header(Header.Cookie).fold(Chunk.empty[Cookie])(_.value.toChunk)
 
-  def flashMessage: Option[String] =
-    cookie("zio-http-flash").map(_.content)
+  /**
+   * Returns an `A` if it exists from the cookie-based flash-scope.
+   */
+  def flash[A](flash: Flash[A]): Option[A] =
+    Flash.run(flash, self).toOption
 
 }
 

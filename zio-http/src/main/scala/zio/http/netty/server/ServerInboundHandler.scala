@@ -224,13 +224,9 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress = remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val handler = addAsyncBodyHandler(ctx)
-        val body    = NettyBody.fromAsync(
-          { async =>
-            handler.connect(async)
-          },
-          contentType,
-        )
+        val knownContentLength = headers.get(Header.ContentLength).map(_.length)
+        val handler            = addAsyncBodyHandler(ctx)
+        val body               = NettyBody.fromAsync(async => handler.connect(async), knownContentLength, contentType)
 
         Request(
           body = body,
@@ -327,11 +323,13 @@ private[zio] final case class ServerInboundHandler(
             }
             None
           }
-        }.flatMap(_.getOrElse(ZIO.unit)).catchSomeCause { case cause =>
-          ZIO.attempt(
-            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash)),
-          )
-        }
+        }.foldCauseZIO(
+          cause => ZIO.attempt(attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash))),
+          {
+            case None       => ZIO.unit
+            case Some(task) => task.orElse(ZIO.attempt(ctx.close()))
+          },
+        )
       }
 
       pgm.provideEnvironment(env)

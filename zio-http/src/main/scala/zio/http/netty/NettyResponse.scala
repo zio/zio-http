@@ -48,10 +48,11 @@ object NettyResponse {
     unsafe: Unsafe,
     trace: Trace,
   ): ZIO[Any, Nothing, Response] = {
-    val status  = Conversions.statusFromNetty(jRes.status())
-    val headers = Conversions.headersFromNetty(jRes.headers())
+    val status             = Conversions.statusFromNetty(jRes.status())
+    val headers            = Conversions.headersFromNetty(jRes.headers())
+    val knownContentLength = headers.get(Header.ContentLength).map(_.length)
 
-    if (headers.get(Header.ContentLength).map(_.length).contains(0L)) {
+    if (knownContentLength.contains(0L)) {
       onComplete
         .succeed(ChannelState.forStatus(status))
         .as(
@@ -67,9 +68,7 @@ object NettyResponse {
           responseHandler,
         ): Unit
 
-      val data = NettyBody.fromAsync { callback =>
-        responseHandler.connect(callback)
-      }
+      val data = NettyBody.fromAsync(callback => responseHandler.connect(callback), knownContentLength)
       ZIO.succeed(Response(status, headers, data))
     }
   }

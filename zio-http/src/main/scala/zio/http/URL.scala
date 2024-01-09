@@ -16,13 +16,13 @@
 
 package zio.http
 
-import java.net.{MalformedURLException, URI, URISyntaxException}
+import java.net.{MalformedURLException, URI}
 
 import scala.util.Try
 
 import zio.Chunk
 
-import zio.http.URL.{Fragment, Location, portFromScheme}
+import zio.http.URL.{Fragment, Location}
 import zio.http.internal.QueryParamEncoding
 
 final case class URL(
@@ -48,10 +48,10 @@ final case class URL(
   def /(segment: String): URL = self.copy(path = self.path / segment)
 
   def absolute(host: String): URL =
-    self.copy(kind = URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP)))
+    self.copy(kind = URL.Location.Absolute(Scheme.HTTP, host, None))
 
   def absolute(scheme: Scheme, host: String, port: Int): URL =
-    self.copy(kind = URL.Location.Absolute(scheme, host, port))
+    self.copy(kind = URL.Location.Absolute(scheme, host, Some(port)))
 
   def addLeadingSlash: URL = self.copy(path = path.addLeadingSlash)
 
@@ -101,20 +101,25 @@ final case class URL(
 
   def host(host: String): URL = {
     val location = kind match {
-      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP))
+      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, None)
       case abs: URL.Location.Absolute => abs.copy(host = host)
     }
     copy(kind = location)
   }
 
+  /**
+   * @return
+   *   the location, the host name and the port. The port part is omitted if is
+   *   the default port for the protocol.
+   */
   def hostPort: Option[String] =
     kind match {
-      case URL.Location.Relative                     => None
-      case URL.Location.Absolute(scheme, host, port) =>
-        Some(
-          if (port == portFromScheme(scheme)) host
-          else s"$host:$port",
-        )
+      case URL.Location.Relative      => None
+      case abs: URL.Location.Absolute =>
+        abs.portIfNotDefault match {
+          case None             => Some(abs.host)
+          case Some(customPort) => Some(s"${abs.host}:$customPort")
+        }
     }
 
   def isAbsolute: Boolean = self.kind match {
@@ -140,8 +145,8 @@ final case class URL(
 
   def port(port: Int): URL = {
     val location = kind match {
-      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, "", port)
-      case abs: URL.Location.Absolute => abs.copy(port = port)
+      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, "", Some(port))
+      case abs: URL.Location.Absolute => abs.copy(originalPort = Some(port))
     }
 
     copy(kind = location)
@@ -149,16 +154,17 @@ final case class URL(
 
   def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
-    case abs: URL.Location.Absolute => Option(abs.port)
+    case abs: URL.Location.Absolute => abs.originalPort
   }
 
-  def portOrDefault: Int = port.getOrElse(portFromScheme(scheme.getOrElse(Scheme.HTTP)))
+  def portOrDefault: Option[Int] = kind match {
+    case URL.Location.Relative      => None
+    case abs: URL.Location.Absolute => abs.portOrDefault
+  }
 
   def portIfNotDefault: Option[Int] = kind match {
-    case URL.Location.Relative      =>
-      None
-    case abs: URL.Location.Absolute =>
-      if (abs.port == portFromScheme(abs.scheme)) None else Some(abs.port)
+    case URL.Location.Relative      => None
+    case abs: URL.Location.Absolute => abs.portIfNotDefault
   }
 
   def queryParams(queryParams: QueryParams): URL =
@@ -168,7 +174,7 @@ final case class URL(
     copy(queryParams = QueryParams(queryParams))
 
   def queryParams(queryParams: (String, Chunk[String])*): URL =
-    copy(queryParams = QueryParams(queryParams.toMap))
+    copy(queryParams = QueryParams(queryParams: _*))
 
   def queryParams(query: String): URL =
     copy(queryParams = QueryParams.decode(query))
@@ -178,6 +184,84 @@ final case class URL(
     case _                     => self.copy(kind = URL.Location.Relative)
   }
 
+  /**
+   * RFC 3986 § 5.2 Relative Resolution
+   * @param reference
+   *   the URL to resolve relative to ``this`` base URL
+   * @return
+   *   the target URL
+   */
+  def resolve(reference: URL): Either[String, URL] = {
+    // See https://www.rfc-editor.org/rfc/rfc3986#section-5.2
+    // § 5.2.1 - `self` is the base and already pre-parsed into components
+    // § 5.2.2 - strict parsing does not ignore the reference URL scheme, so we use it directly, instead of un-setting it
+
+    if (reference.kind.isRelative) {
+      // § 5.2.2 - reference scheme is undefined, i.e. it is relative
+      self.kind match {
+        // § 5.2.1 - `self` is the base and is required to have a scheme, therefore it must be absolute
+        case Location.Relative => Left("cannot resolve against relative url")
+
+        case location: Location.Absolute =>
+          var path: Path         = null
+          var query: QueryParams = null
+
+          if (reference.path.isEmpty) {
+            // § 5.2.2 - empty reference path keeps base path unmodified
+            path = self.path
+            // § 5.2.2 - given an empty reference path, use non-empty reference query params,
+            //           while empty reference query params keeps base query params
+            // NOTE: strictly, if the reference defines a query it should be used, even if that query is empty
+            //       but currently no-query is not differentiated from empty-query
+            if (reference.queryParams.isEmpty) {
+              query = self.queryParams
+            } else {
+              query = reference.queryParams
+            }
+          } else {
+            // § 5.2.2 - non-empty reference path always keeps reference query params
+            query = reference.queryParams
+
+            if (reference.path.hasLeadingSlash) {
+              // § 5.2.2 - reference path starts from root, keep reference path without dot segments
+              path = reference.path.removeDotSegments
+            } else {
+              // § 5.2.2 - merge base and reference paths, then collapse dot segments
+              // § 5.2.3 - if base has an authority AND an empty path, use the reference path, ensuring a leading slash
+              //           the authority is the [user]@host[:port], which is always present on `self`,
+              //           so we only need to check for an empty path
+              if (self.path.isEmpty) {
+                path = reference.path.addLeadingSlash
+              } else {
+                // § 5.2.3 - otherwise (base has no authority OR a non-empty path), drop the very last portion of the base path,
+                //           and append all the reference path components
+                path = Path(
+                  Path.Flags.concat(self.path.flags, reference.path.flags),
+                  self.path.segments.dropRight(1) ++ reference.path.segments,
+                )
+              }
+
+              path = path.removeDotSegments
+            }
+          }
+
+          val url = URL(path, location, query, reference.fragment)
+
+          Right(url)
+
+      }
+    } else {
+      // § 5.2.2 - if the reference scheme is defined, i.e. the reference is absolute,
+      //           the target components are the reference components but with dot segments removed
+
+      // § 5.2.2 - if the reference scheme is undefined and authority is defined, keep the base scheme
+      //           and take everything else from the reference, removing dot segments from the path
+      // NOTE: URL currently does not track authority separate from scheme to implement this
+      //       so having an authority is the same as having a scheme and they are treated the same
+      Right(reference.copy(path = reference.path.removeDotSegments))
+    }
+  }
+
   def scheme: Option[Scheme] = kind match {
     case Location.Absolute(scheme, _, _) => Some(scheme)
     case Location.Relative               => None
@@ -185,7 +269,7 @@ final case class URL(
 
   def scheme(scheme: Scheme): URL = {
     val location = kind match {
-      case URL.Location.Relative      => URL.Location.Absolute(scheme, "", URL.portFromScheme(scheme))
+      case URL.Location.Relative      => URL.Location.Absolute(scheme, "", None)
       case abs: URL.Location.Absolute => abs.copy(scheme = scheme)
     }
 
@@ -239,7 +323,11 @@ object URL {
   }
 
   object Location {
-    final case class Absolute(scheme: Scheme, host: String, port: Int) extends Location
+    final case class Absolute(scheme: Scheme, host: String, originalPort: Option[Int]) extends Location {
+      def portOrDefault: Option[Int]    = originalPort.orElse(scheme.defaultPort)
+      def portIfNotDefault: Option[Int] = originalPort.filter(p => scheme.defaultPort.exists(_ != p))
+      def port: Int                     = originalPort.orElse(scheme.defaultPort).getOrElse(Scheme.defaultPortForHTTP)
+    }
 
     case object Relative extends Location
   }
@@ -262,13 +350,13 @@ object URL {
       ) + url.fragment.fold("")(f => "#" + f.raw)
 
     url.kind match {
-      case Location.Relative                     =>
-        path(true)
-      case Location.Absolute(scheme, host, port) =>
+      case Location.Relative      => path(true)
+      case abs: Location.Absolute =>
         val path2 = path(false)
-
-        if (port == portFromScheme(scheme)) s"${scheme.encode}://$host$path2"
-        else s"${scheme.encode}://$host:$port$path2"
+        abs.portIfNotDefault match {
+          case None             => s"${abs.scheme.encode}://${abs.host}$path2"
+          case Some(customPort) => s"${abs.scheme.encode}://${abs.host}:$customPort$path2"
+        }
     }
   }
 
@@ -277,7 +365,7 @@ object URL {
       scheme <- Scheme.decode(uri.getScheme)
       host   <- Option(uri.getHost)
       path   <- Option(uri.getRawPath)
-      port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
+      port       = Option(uri.getPort).filter(_ != -1).orElse(scheme.defaultPort) // FIXME REMOVE defaultPort
       connection = URL.Location.Absolute(scheme, host, port)
       path2      = Path.decode(path)
       path3      = if (path.nonEmpty) path2.addLeadingSlash else path2
@@ -287,10 +375,5 @@ object URL {
   private[http] def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
   } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
-
-  private def portFromScheme(scheme: Scheme): Int = scheme match {
-    case Scheme.HTTP | Scheme.WS   => 80
-    case Scheme.HTTPS | Scheme.WSS => 443
-  }
 
 }

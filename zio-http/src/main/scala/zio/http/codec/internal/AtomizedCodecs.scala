@@ -85,6 +85,6 @@ private[http] object AtomizedCodecs {
       case Annotated(api, _)             => flattenedAtoms(api)
       case Empty                         => Chunk.empty
       case Halt                          => Chunk.empty
-      case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
+      case Fallback(_, _, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
 }

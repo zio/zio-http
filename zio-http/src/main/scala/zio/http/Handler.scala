@@ -31,8 +31,8 @@ import java.util.zip.ZipFile
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
-  def @@[Env1 <: R, Ctx, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
-    in: In1 <:< Request,
+  def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
+    in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
   ): Handler[Env1, Response, Request, Response] = {
@@ -368,6 +368,19 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.foldHandler(err => Handler.fromZIO(f(err)), Handler.succeed(_))
 
   /**
+   * Transforms all failures of the handler effectfully except pure
+   * interruption.
+   */
+  final def mapErrorCauseZIO[R1 <: R, Err1, Out1 >: Out](
+    f: Cause[Err] => ZIO[R1, Err1, Out1],
+  )(implicit trace: Trace): Handler[R1, Err1, In, Out1] =
+    self.foldCauseHandler(
+      err =>
+        if (err.isInterruptedOnly) Handler.failCause(err.asInstanceOf[Cause[Nothing]]) else Handler.fromZIO(f(err)),
+      Handler.succeed(_),
+    )
+
+  /**
    * Returns a new handler where the error channel has been merged into the
    * success channel to their common combined type.
    */
@@ -660,6 +673,12 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
 object Handler {
 
+  sealed trait IsRequest[-A]
+
+  object IsRequest {
+    implicit val request: IsRequest[Request] = new IsRequest[Request] {}
+  }
+
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
     Handler.fromZIO(
       request.body.asStream.chunks
@@ -819,17 +838,18 @@ object Handler {
             ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
           } else {
             if (file.isFile) {
-              val length   = Headers(Header.ContentLength(file.length()))
-              val response = http.Response(headers = length, body = Body.fromFile(file))
-              val pathName = file.toPath.toString
+              Body.fromFile(file).flatMap { body =>
+                val response = http.Response(body = body)
+                val pathName = file.toPath.toString
 
-              // Set MIME type in the response headers. This is only relevant in
-              // case of RandomAccessFile transfers as browsers use the MIME type,
-              // not the file extension, to determine how to process a URL.
-              // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-              determineMediaType(pathName) match {
-                case Some(mediaType) => ZIO.succeed(response.addHeader(Header.ContentType(mediaType)))
-                case None            => ZIO.succeed(response)
+                // Set MIME type in the response headers. This is only relevant in
+                // case of RandomAccessFile transfers as browsers use the MIME type,
+                // not the file extension, to determine how to process a URL.
+                // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+                determineMediaType(pathName) match {
+                  case Some(mediaType) => ZIO.succeed(response.addHeader(Header.ContentType(mediaType)))
+                  case None            => ZIO.succeed(response)
+                }
               }
             } else {
               ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
@@ -884,11 +904,10 @@ object Handler {
                   .acquireReleaseWith(openZip)(closeZip)
                   .mapZIO(jar => ZIO.attemptBlocking(jar.getEntry(resourcePath) -> jar))
                   .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
-                response      = Response(body = Body.fromStream(inZStream))
+                response      = Response(body = Body.fromStream(inZStream, contentLength))
               } yield mediaType.fold(response) { t =>
                 response
                   .addHeader(Header.ContentType(t))
-                  .addHeader(Header.ContentLength(contentLength))
               }
             }
         }
@@ -900,27 +919,53 @@ object Handler {
 
   /**
    * Creates a Handler that always succeeds with a 200 status code and the
-   * provided ZStream as the body
+   * provided ZStream with a known content length as the body
    */
-  def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = Charsets.Http)(implicit
-    trace: Trace,
+  def fromStream[R](stream: ZStream[R, Throwable, String], contentLength: Long, charset: Charset = Charsets.Http)(
+    implicit trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
       ZIO.environment[R].map { env =>
-        fromBody(Body.fromCharSequenceStream(stream.provideEnvironment(env), charset))
+        fromBody(Body.fromCharSequenceStream(stream.provideEnvironment(env), contentLength, charset))
       }
     }.flatten
 
   /**
    * Creates a Handler that always succeeds with a 200 status code and the
-   * provided ZStream as the body
+   * provided ZStream with a known content length as the body
    */
-  def fromStream[R](stream: ZStream[R, Throwable, Byte])(implicit
+  def fromStream[R](stream: ZStream[R, Throwable, Byte], contentLength: Long)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
       ZIO.environment[R].map { env =>
-        fromBody(Body.fromStream(stream.provideEnvironment(env)))
+        fromBody(Body.fromStream(stream.provideEnvironment(env), contentLength))
+      }
+    }.flatten
+
+  /**
+   * Creates a Handler that always succeeds with a 200 status code and the
+   * provided ZStream as the body using chunked transfer encoding
+   */
+  def fromStreamChunked[R](stream: ZStream[R, Throwable, String], charset: Charset = Charsets.Http)(implicit
+    trace: Trace,
+  ): Handler[R, Throwable, Any, Response] =
+    Handler.fromZIO {
+      ZIO.environment[R].map { env =>
+        fromBody(Body.fromCharSequenceStreamChunked(stream.provideEnvironment(env), charset))
+      }
+    }.flatten
+
+  /**
+   * Creates a Handler that always succeeds with a 200 status code and the
+   * provided ZStream as the body using chunked transfer encoding
+   */
+  def fromStreamChunked[R](stream: ZStream[R, Throwable, Byte])(implicit
+    trace: Trace,
+  ): Handler[R, Throwable, Any, Response] =
+    Handler.fromZIO {
+      ZIO.environment[R].map { env =>
+        fromBody(Body.fromStreamChunked(stream.provideEnvironment(env)))
       }
     }.flatten
 

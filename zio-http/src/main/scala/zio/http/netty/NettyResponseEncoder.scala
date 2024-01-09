@@ -38,8 +38,15 @@ private[zio] object NettyResponseEncoder {
       val bytes = runtime.runtime(ctx).unsafe.run(body.asArray).getOrThrow()
       fastEncode(response, bytes)
     } else {
-      val jHeaders         = Conversions.headersToNetty(response.headers)
-      val jStatus          = Conversions.statusToNetty(response.status)
+      val jHeaders = Conversions.headersToNetty(response.headers)
+      val jStatus  = Conversions.statusToNetty(response.status)
+
+      response.body.knownContentLength match {
+        case Some(contentLength) if !jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH) =>
+          jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentLength)
+        case _                                                                         =>
+      }
+
       val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
       new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders)
@@ -62,10 +69,6 @@ private[zio] object NettyResponseEncoder {
     val jContent  = Unpooled.wrappedBuffer(bytes)
     val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, false)
 
-    // TODO: Unit test for this
-    // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
-    // Due to this client limitation it is not possible to write a unit-test for this.
-    // Alternative would be to use sttp client for this use-case.
     if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
     jResponse.headers().add(jHeaders)
     jResponse

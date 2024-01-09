@@ -1,5 +1,5 @@
 import BuildHelper._
-import Dependencies._
+import Dependencies.{scalafmt, _}
 import sbt.librarymanagement.ScalaArtifacts.isScala3
 import scala.concurrent.duration._
 
@@ -12,7 +12,10 @@ ThisBuild / resolvers +=
   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowJavaVersions := Seq(
+  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
+  JavaSpec.temurin("8"),
+)
 ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
@@ -104,17 +107,28 @@ inThisBuild(
 
 ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
+lazy val aggregatedProjects: Seq[ProjectReference] =
+  if (Shading.shadingEnabled) {
+    Seq(
+      zioHttp,
+      zioHttpTestkit,
+    )
+  } else {
+    Seq(
+      zioHttp,
+      zioHttpBenchmarks,
+      zioHttpCli,
+      zioHttpGen,
+      zioHttpExample,
+      zioHttpTestkit,
+      docs,
+    )
+  }
+
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
-  .aggregate(
-    zioHttp,
-    zioHttpBenchmarks,
-    zioHttpCli,
-    zioHttpExample,
-    zioHttpTestkit,
-    docs,
-  )
+  .aggregate(aggregatedProjects: _*)
 
 lazy val zioHttp = (project in file("zio-http"))
   .enablePlugins(Shading.plugins(): _*)
@@ -196,7 +210,7 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
       "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.5.1",
       "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.1",
-      "com.softwaremill.sttp.client3" %% "core"                % "3.9.0",
+      "com.softwaremill.sttp.client3" %% "core"                % "3.9.1",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.9",
       "org.slf4j"                      % "slf4j-simple"        % "2.0.9",
@@ -223,6 +237,19 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zioHttp, zioHttpCli)
+
+lazy val zioHttpGen = (project in file("zio-http-gen"))
+  .settings(stdSettings("zio-http-gen"))
+  .settings(publishSetting(true))
+  .settings(
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-test`,
+      `zio-test-sbt`,
+      scalafmt.cross(CrossVersion.for3Use2_13),
+    ),
+  )
+  .dependsOn(zioHttp)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .enablePlugins(Shading.plugins(): _*)
