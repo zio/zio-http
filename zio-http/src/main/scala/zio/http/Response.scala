@@ -133,6 +133,23 @@ object Response {
 
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
+  def error(status: Status.Error, message: String, stackTrace: String): Response = {
+
+    val logLogic = for {
+      _ <- ZIO.logError(stackTrace)
+    } yield ()
+
+    Unsafe.unsafe { implicit unsafe =>
+      zio.Runtime.default.unsafe
+        .run(
+          logLogic,
+        )
+        .getOrThrowFiberFailure()
+    }
+
+    error(status, message)
+  }
+
   def error(status: Status.Error, message: String): Response = {
     import zio.http.internal.OutputEncoder
 
@@ -162,8 +179,7 @@ object Response {
       case _                        =>
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
         else {
-          ZIO.logError(cause.prettyPrint)
-          error(Status.InternalServerError, cause.prettyPrint.take(100))
+          error(Status.InternalServerError, cause.prettyPrint.take(100), cause.prettyPrint)
         }
     }
   }
@@ -218,8 +234,7 @@ object Response {
         val sw = new java.io.StringWriter
         val pw = new java.io.PrintWriter(sw)
         throwable.printStackTrace(pw)
-        ZIO.logError(sw.toString)
-        error(Status.InternalServerError, throwable.getMessage)
+        error(Status.InternalServerError, throwable.getMessage, sw.toString)
       }
     }
   }
