@@ -17,9 +17,9 @@
 package zio.http
 
 import zio.test.Assertion.{anything, equalTo, fails, hasField}
-import zio.test.TestAspect.{ignore, timeout}
+import zio.test.TestAspect.{ignore, nonFlaky}
 import zio.test.assertZIO
-import zio.{Scope, ZLayer, durationInt}
+import zio.{Scope, ZLayer}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
@@ -49,11 +49,11 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     test("respond Ok") {
       val actual = Client.request(Request.get(waterAerobics))
       assertZIO(actual)(anything)
-    },
+    } @@ ignore,
     test("respond Ok with sslConfig") {
       val actual = Client.request(Request.get(waterAerobics))
       assertZIO(actual)(anything)
-    },
+    } @@ ignore,
     test("should respond as Bad Request") {
       val actual = Client
         .request(
@@ -63,19 +63,15 @@ object ClientHttpsSpec extends ZIOHttpSpec {
       assertZIO(actual)(equalTo(Status.BadRequest))
     } @@ ignore,
     test("should throw DecoderException for handshake failure") {
-      val actual = Client
-        .request(
-          Request.get(untrusted),
-        )
-        .exit
+      val actual = Client.request(Request.get(untrusted)).exit
       assertZIO(actual)(fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("DecoderException"))))
-    },
+    } @@ nonFlaky(10),
   ).provide(
-    ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
+    ZLayer.succeed(ZClient.Config.default.disabledConnectionPool.ssl(sslConfig)),
     Client.customized,
     NettyClientDriver.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
     Scope.default,
-  ) @@ ignore
+  )
 }
