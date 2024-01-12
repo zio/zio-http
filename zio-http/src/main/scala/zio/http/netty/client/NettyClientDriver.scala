@@ -28,6 +28,7 @@ import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
+import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 
@@ -67,6 +68,21 @@ final case class NettyClientDriver private[netty] (
         webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
         app              = createSocketApp()
         _ <- app.handler.runZIO(webSocketChannel).ignoreLogged.interruptible.forkScoped
+        _ <- ZIO.unless(location.scheme.isWebSocket)(
+          // If the future was closed and the promises were not completed, this will lead to the request hanging so we need
+          // to listen to the close future and complete the promises
+          NettyFutureExecutor
+            .executed(channel.closeFuture())
+            .interruptible
+            .zipRight(
+              onComplete.interrupt *> onResponse.fail(
+                new PrematureChannelClosureException(
+                  "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+                ),
+              ),
+            )
+            .forkScoped,
+        )
       } yield {
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()

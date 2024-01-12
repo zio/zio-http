@@ -83,8 +83,6 @@ final class ClientInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-      onResponse.fail(error) *> onComplete.fail(error),
-    )(unsafeClass, trace)
+    ctx.fireExceptionCaught(error)
   }
 }

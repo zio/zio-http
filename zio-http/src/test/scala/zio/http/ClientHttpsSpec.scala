@@ -16,9 +16,9 @@
 
 package zio.http
 
-import zio.test.Assertion.{anything, equalTo, fails, hasField}
+import zio.test.Assertion._
 import zio.test.TestAspect.{ignore, nonFlaky}
-import zio.test.assertZIO
+import zio.test.{TestAspect, assertZIO}
 import zio.{Scope, ZLayer}
 
 import zio.http.netty.NettyConfig
@@ -64,14 +64,22 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     } @@ ignore,
     test("should throw DecoderException for handshake failure") {
       val actual = Client.request(Request.get(untrusted)).exit
-      assertZIO(actual)(fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("DecoderException"))))
-    } @@ nonFlaky(10),
+      assertZIO(actual)(
+        fails(
+          hasField(
+            "class.simpleName",
+            _.getClass.getSimpleName,
+            isOneOf(List("DecoderException", "PrematureChannelClosureException")),
+          ),
+        ),
+      )
+    } @@ nonFlaky(20),
   ).provide(
-    ZLayer.succeed(ZClient.Config.default.disabledConnectionPool.ssl(sslConfig)),
+    ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
     Client.customized,
     NettyClientDriver.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
     Scope.default,
-  )
+  ) @@ TestAspect.withLiveClock
 }
