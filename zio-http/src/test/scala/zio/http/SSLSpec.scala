@@ -17,7 +17,7 @@
 package zio.http
 
 import zio.test.Assertion.equalTo
-import zio.test.{Gen, assertNever, assertZIO}
+import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 import zio.{Scope, ZLayer}
 
 import zio.http.netty.NettyConfig
@@ -71,7 +71,7 @@ object SSLSpec extends ZIOHttpSpec {
                 { e =>
                   val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
                   val errorType      = e.getClass.getSimpleName
-                  if (expectedErrors.contains(errorType)) assertNever("unexpected error type")
+                  if (expectedErrors.contains(errorType)) assertCompletes
                   else assertNever(s"request failed with unexpected error type: $errorType")
                 },
                 _ => assertNever("expected request to fail"),
