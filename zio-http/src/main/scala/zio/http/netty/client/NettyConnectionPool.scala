@@ -208,13 +208,14 @@ object NettyConnectionPool {
           // Channel might have closed while in the pool, either because of a timeout or because of a connection error
           // We retry to get another channel from the pool up to the number of minimum channels in the pool + 1
           if (channel.isOpen) ZIO.succeed(channel)
-          else pool.invalidate(channel) *> ZIO.fail(None)
+          else invalidate(channel) *> ZIO.fail(None)
         }
         .retry(retrySchedule(minSize(key) + 1))
         .catchAll {
           case None         => pool.get(key) // We did all we could, let the caller handle it
           case e: Throwable => ZIO.fail(e)
         }
+        .withFinalizer(c => ZIO.unless(c.isOpen)(invalidate(c)))
     }
 
     override def invalidate(channel: JChannel)(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
