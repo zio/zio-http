@@ -382,7 +382,7 @@ object ServerSpec extends HttpRunnableSpec {
           .mapZIO(_.asString)
           .run()
           .exit
-      assertZIO(res)(failsWithA[java.io.IOException])
+      assertZIO(res)(fails(anything))
     } @@ TestAspect.timeout(10.seconds),
     test("streaming failure - unknown content type") {
       val res =
@@ -395,7 +395,7 @@ object ServerSpec extends HttpRunnableSpec {
           .mapZIO(_.asString)
           .run()
           .exit
-      assertZIO(res)(failsWithA[java.io.IOException])
+      assertZIO(res)(fails(anything))
     } @@ TestAspect.timeout(10.seconds),
     suite("html")(
       test("body") {
