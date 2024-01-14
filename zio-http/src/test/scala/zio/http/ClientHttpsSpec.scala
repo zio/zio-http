@@ -47,11 +47,11 @@ object ClientHttpsSpec extends ZIOHttpSpec {
 
   override def spec = suite("Https Client request")(
     test("respond Ok") {
-      val actual = Client.request(Request.get(typicode))
+      val actual = Client.request(Request.get(typicode).addHeader(Header.Host("jsonplaceholder.typicode.com")))
       assertZIO(actual)(anything)
     }.provide(ZLayer.succeed(ZClient.Config.default), partialClientLayer, Scope.default),
     test("respond Ok with sslConfig") {
-      val actual = Client.request(Request.get(typicode))
+      val actual = Client.request(Request.get(typicode).addHeader(Header.Host("jsonplaceholder.typicode.com")))
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {
