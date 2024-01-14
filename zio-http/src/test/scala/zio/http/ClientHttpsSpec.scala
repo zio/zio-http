@@ -16,10 +16,10 @@
 
 package zio.http
 
+import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.{ignore, nonFlaky}
 import zio.test.{TestAspect, assertZIO}
-import zio.{Scope, ZLayer}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
@@ -31,8 +31,8 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     trustStorePassword = "changeit",
   )
 
-  val waterAerobics =
-    URL.decode("https://sports.api.decathlon.com/groups/water-aerobics").toOption.get
+  val example =
+    URL.decode("https://example.com/").toOption.get
 
   val badRequest =
     URL
@@ -47,13 +47,13 @@ object ClientHttpsSpec extends ZIOHttpSpec {
 
   override def spec = suite("Https Client request")(
     test("respond Ok") {
-      val actual = Client.request(Request.get(waterAerobics))
+      val actual = Client.request(Request.get(example))
       assertZIO(actual)(anything)
-    } @@ ignore,
+    }.provide(ZLayer.succeed(ZClient.Config.default), partialClientLayer, Scope.default),
     test("respond Ok with sslConfig") {
-      val actual = Client.request(Request.get(waterAerobics))
+      val actual = Client.request(Request.get(example))
       assertZIO(actual)(anything)
-    } @@ ignore,
+    },
     test("should respond as Bad Request") {
       val actual = Client
         .request(
@@ -74,12 +74,17 @@ object ClientHttpsSpec extends ZIOHttpSpec {
         ),
       )
     } @@ nonFlaky(20),
-  ).provide(
-    ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
+  )
+    .provideSomeLayer[Client](Scope.default)
+    .provideShared(
+      ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
+      partialClientLayer,
+    ) @@ TestAspect.withLiveClock
+
+  private val partialClientLayer = ZLayer.makeSome[ZClient.Config, Client](
     Client.customized,
     NettyClientDriver.live,
     DnsResolver.default,
-    ZLayer.succeed(NettyConfig.default),
-    Scope.default,
-  ) @@ TestAspect.withLiveClock
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+  )
 }
