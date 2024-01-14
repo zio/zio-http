@@ -197,25 +197,3 @@ object NettyClientDriver {
       }
 
 }
-object Main extends ZIOAppDefault {
-  implicit val trace: Trace = Trace.empty
-
-  private val untrusted = URL.decode("https://untrusted-root.badssl.com/").toOption.get
-
-  override def run = {
-    ZIO.foreach((1 to 20).toList) { _ =>
-      ZIO.scoped[Client](Client.request(Request.get(untrusted))).exit.debug
-    }
-  }.provide(
-    ZLayer.succeed(ZClient.Config.default),
-    Client.customized,
-    NettyClientDriver.live,
-    DnsResolver.default,
-    ZLayer.succeed(NettyConfig.default),
-  )
-
-  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
-    trustStorePath = "truststore.jks",
-    trustStorePassword = "changeit",
-  )
-}
