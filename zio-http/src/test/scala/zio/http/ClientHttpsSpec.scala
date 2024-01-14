@@ -84,7 +84,7 @@ object ClientHttpsSpec extends ZIOHttpSpec {
   private val partialClientLayer = ZLayer.makeSome[ZClient.Config, Client](
     Client.customized,
     NettyClientDriver.live,
-    DnsResolver.default,
+    DnsResolver.system,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
 }
