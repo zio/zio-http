@@ -178,7 +178,6 @@ object NettyConnectionPool {
 
   private final class ZioNettyConnectionPool(
     pool: ZKeyedPool[Throwable, PoolKey, JChannel],
-    minSize: PoolKey => Int,
   ) extends NettyConnectionPool {
     override def get(
       location: Location.Absolute,
@@ -206,11 +205,11 @@ object NettyConnectionPool {
         .get(key)
         .flatMap { channel =>
           // Channel might have closed while in the pool, either because of a timeout or because of a connection error
-          // We retry to get another channel from the pool up to the number of minimum channels in the pool + 1
+          // We retry a few times hoping to obtain an open channel
           if (channel.isOpen) ZIO.succeed(channel)
           else invalidate(channel) *> ZIO.fail(None)
         }
-        .retry(retrySchedule(minSize(key) + 1))
+        .retry(retrySchedule(2))
         .catchAll {
           case None         => pool.get(key) // We did all we could, let the caller handle it
           case e: Throwable => ZIO.fail(e)
@@ -286,9 +285,8 @@ object NettyConnectionPool {
           None,
           dnsResolver,
         ).uninterruptible
-      _size  = (key: PoolKey) => size(key.location)
-      keyedPool <- ZKeyedPool.make(poolFn, _size)
-    } yield new ZioNettyConnectionPool(keyedPool, _size)
+      keyedPool <- ZKeyedPool.make(poolFn, (key: PoolKey) => size(key.location))
+    } yield new ZioNettyConnectionPool(keyedPool)
 
   private def createDynamic(
     min: Int,
@@ -320,9 +318,12 @@ object NettyConnectionPool {
           None,
           dnsResolver,
         ).uninterruptible
-      _size  = (key: PoolKey) => min(key.location) to max(key.location)
-      keyedPool <- ZKeyedPool.make(poolFn, _size, (key: PoolKey) => ttl(key.location))
-    } yield new ZioNettyConnectionPool(keyedPool, _size.andThen(_.min))
+      keyedPool <- ZKeyedPool.make(
+        poolFn,
+        (key: PoolKey) => min(key.location) to max(key.location),
+        (key: PoolKey) => ttl(key.location),
+      )
+    } yield new ZioNettyConnectionPool(keyedPool)
 
   implicit final class BootstrapSyntax(val bootstrap: Bootstrap) extends AnyVal {
     def withOption[T](option: ChannelOption[T], value: Option[T]): Bootstrap =

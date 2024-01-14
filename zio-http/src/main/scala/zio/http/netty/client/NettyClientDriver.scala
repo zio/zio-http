@@ -51,7 +51,7 @@ final case class NettyClientDriver private[netty] (
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
-    NettyRequestEncoder.encode(req).flatMap { jReq =>
+    val f = NettyRequestEncoder.encode(req).flatMap { jReq =>
       for {
         _     <- Scope.addFinalizer {
           ZIO.attempt {
@@ -152,19 +152,24 @@ final case class NettyClientDriver private[netty] (
           }
         }
       }
-    } <* ZIO.unless(location.scheme.isWebSocket)(
-      // If the future was closed and the promises were not completed, this will lead to the request hanging so we need
-      // to listen to the close future and complete the promises
-      NettyFutureExecutor
-        .executed(channel.closeFuture())
-        .interruptible
-        .zipRight(
-          onComplete.interrupt *> onResponse.fail(
-            new PrematureChannelClosureException(
-              "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
-            ),
-          ),
-        )
+    }
+
+    f.ensuring(
+      ZIO
+        .unless(location.scheme.isWebSocket) {
+          // If the channel was closed and the promises were not completed, this will lead to the request hanging so we need
+          // to listen to the close future and complete the promises
+          NettyFutureExecutor
+            .executed(channel.closeFuture())
+            .interruptible
+            .zipRight(
+              onComplete.interrupt *> onResponse.fail(
+                new PrematureChannelClosureException(
+                  "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+                ),
+              ),
+            )
+        }
         .forkScoped,
     )
   }
@@ -191,4 +196,26 @@ object NettyClientDriver {
         } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
       }
 
+}
+object Main extends ZIOAppDefault {
+  implicit val trace: Trace = Trace.empty
+
+  private val untrusted = URL.decode("https://untrusted-root.badssl.com/").toOption.get
+
+  override def run = {
+    ZIO.foreach((1 to 20).toList) { _ =>
+      ZIO.scoped[Client](Client.request(Request.get(untrusted))).exit.debug
+    }
+  }.provide(
+    ZLayer.succeed(ZClient.Config.default),
+    Client.customized,
+    NettyClientDriver.live,
+    DnsResolver.default,
+    ZLayer.succeed(NettyConfig.default),
+  )
+
+  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
+    trustStorePath = "truststore.jks",
+    trustStorePassword = "changeit",
+  )
 }
