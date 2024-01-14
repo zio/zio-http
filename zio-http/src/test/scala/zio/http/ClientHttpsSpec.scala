@@ -31,8 +31,8 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     trustStorePassword = "changeit",
   )
 
-  val typicode =
-    URL.decode("https://jsonplaceholder.typicode.com/posts/").toOption.get
+  val zioDev =
+    URL.decode("https://zio.dev").toOption.get
 
   val badRequest =
     URL
@@ -47,11 +47,11 @@ object ClientHttpsSpec extends ZIOHttpSpec {
 
   override def spec = suite("Https Client request")(
     test("respond Ok") {
-      val actual = Client.request(Request.get(typicode).addHeader(Header.Host("jsonplaceholder.typicode.com")))
+      val actual = Client.request(Request.get(zioDev))
       assertZIO(actual)(anything)
     }.provide(ZLayer.succeed(ZClient.Config.default), partialClientLayer, Scope.default),
     test("respond Ok with sslConfig") {
-      val actual = Client.request(Request.get(typicode).addHeader(Header.Host("jsonplaceholder.typicode.com")))
+      val actual = Client.request(Request.get(zioDev))
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {
