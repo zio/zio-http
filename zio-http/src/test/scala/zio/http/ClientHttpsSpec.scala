@@ -31,8 +31,8 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     trustStorePassword = "changeit",
   )
 
-  val google =
-    URL.decode("https://google.com/").toOption.get
+  val typicode =
+    URL.decode("https://jsonplaceholder.typicode.com/posts/").toOption.get
 
   val badRequest =
     URL
@@ -47,11 +47,11 @@ object ClientHttpsSpec extends ZIOHttpSpec {
 
   override def spec = suite("Https Client request")(
     test("respond Ok") {
-      val actual = Client.request(Request.get(google))
+      val actual = Client.request(Request.get(typicode))
       assertZIO(actual)(anything)
     }.provide(ZLayer.succeed(ZClient.Config.default), partialClientLayer, Scope.default),
     test("respond Ok with sslConfig") {
-      val actual = Client.request(Request.get(google))
+      val actual = Client.request(Request.get(typicode))
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {
@@ -84,7 +84,7 @@ object ClientHttpsSpec extends ZIOHttpSpec {
   private val partialClientLayer = ZLayer.makeSome[ZClient.Config, Client](
     Client.customized,
     NettyClientDriver.live,
-    DnsResolver.system,
+    DnsResolver.default,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
 }
