@@ -17,6 +17,11 @@
 package zio.http
 
 import java.nio.charset.Charset
+import java.util
+
+import scala.collection.compat._
+import scala.collection.immutable.ListMap
+import scala.jdk.CollectionConverters._
 
 import zio.{Chunk, IO, NonEmptyChunk, ZIO}
 
@@ -26,8 +31,23 @@ import zio.http.internal.QueryParamEncoding
 /**
  * A collection of query parameters.
  */
-final case class QueryParams(map: Map[String, Chunk[String]]) {
-  self =>
+trait QueryParams {
+  self: QueryParams =>
+
+  /**
+   * Internal representation of query parameters
+   */
+  private[http] def seq: Seq[util.Map.Entry[String, util.List[String]]]
+
+  /**
+   * All query parameters as a map. Note that by default this method constructs
+   * the map on access from the underlying storage implementation, so should be
+   * used with care. Prefer to use `getAll` and friends if all you need is to
+   * access the values by a known key.
+   */
+  def map: Map[String, Chunk[String]] = ListMap.from(seq.map { entry =>
+    (entry.getKey, Chunk.fromIterable(entry.getValue.asScala))
+  })
 
   /**
    * Combines two collections of query parameters together. If there are
@@ -35,32 +55,19 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
    * left-to-right.
    */
   def ++(that: QueryParams): QueryParams =
-    QueryParams(that.map.foldLeft(map) { case (map, (k, v2)) =>
-      map.updated(
-        k,
-        map.get(k) match {
-          case Some(v1) => v1 ++ v2
-          case None     => v2
-        },
-      )
-    })
+    QueryParams.fromEntries(seq ++ that.seq: _*)
 
   /**
    * Adds the specified key/value pair to the query parameters.
    */
-  def add(key: String, value: String): QueryParams = addAll(key, Chunk(value))
+  def add(key: String, value: String): QueryParams =
+    addAll(key, Chunk(value))
 
   /**
    * Adds the specified key/value pairs to the query parameters.
    */
-  def addAll(key: String, value: Chunk[String]): QueryParams = {
-    val previousValue = map.get(key)
-    val newValue      = previousValue match {
-      case Some(prev) => prev ++ value
-      case None       => value
-    }
-    QueryParams(map.updated(key, newValue))
-  }
+  def addAll(key: String, value: Chunk[String]): QueryParams =
+    self ++ QueryParams(key -> value)
 
   /**
    * Encodes the query parameters into a string.
@@ -73,26 +80,27 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
   def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
   override def equals(that: Any): Boolean = that match {
-    case that: QueryParams => self.normalize.map == that.normalize.map
-    case _                 => false
+    case queryParams: QueryParams => normalize.seq == queryParams.normalize.seq
+    case _                        => false
   }
 
   /**
    * Filters the query parameters using the specified predicate.
    */
   def filter(p: (String, Chunk[String]) => Boolean): QueryParams =
-    QueryParams(map.filter(p.tupled))
+    QueryParams.fromEntries(seq.filter { entry => p(entry.getKey, Chunk.fromIterable(entry.getValue.asScala)) }: _*)
 
   /**
    * Retrieves all query parameter values having the specified name.
    */
-  def getAll(key: String): Option[Chunk[String]] = map.get(key)
+  def getAll(key: String): Option[Chunk[String]] =
+    seq.find(_.getKey == key).map(e => Chunk.fromIterable(e.getValue.asScala))
 
   /**
    * Retrieves all typed query parameter values having the specified name.
    */
   def getAllTo[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
-    params <- map.get(key).toRight(QueryParamsError.Missing(key))
+    params <- getAll(key).toRight(QueryParamsError.Missing(key))
     (failed, typed) = params.partitionMap(p => codec.decode(p).toRight(p))
     result <- NonEmptyChunk
       .fromChunk(failed)
@@ -154,52 +162,126 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
   def getToOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A =
     getTo[A](key).getOrElse(default)
 
-  override def hashCode: Int = normalize.map.hashCode
+  override def hashCode: Int = normalize.seq.hashCode
 
   /**
    * Determines if the query parameters are empty.
    */
-  def isEmpty: Boolean = map.isEmpty
+  def isEmpty: Boolean = seq.isEmpty
 
   /**
    * Determines if the query parameters are non-empty.
    */
-  def nonEmpty: Boolean = map.nonEmpty
+  def nonEmpty: Boolean = !isEmpty
 
   /**
    * Normalizes the query parameters by removing empty keys and values.
    */
   def normalize: QueryParams =
-    if (isEmpty) self
-    else QueryParams(map.filter(i => i._1.nonEmpty && i._2.nonEmpty))
+    QueryParams.fromEntries(seq.filter { entry =>
+      entry.getKey.nonEmpty && entry.getValue.asScala.nonEmpty
+    }: _*)
 
   /**
    * Removes the specified key from the query parameters.
    */
-  def remove(key: String): QueryParams = QueryParams(map - key)
+  def remove(key: String): QueryParams =
+    QueryParams.fromEntries(seq.filter { entry => entry.getKey != key }: _*)
 
   /**
    * Removes the specified keys from the query parameters.
    */
-  def removeAll(keys: Iterable[String]): QueryParams = QueryParams(map -- keys)
+  def removeAll(keys: Iterable[String]): QueryParams = {
+    val keysToRemove = keys.toSet
+    QueryParams.fromEntries(seq.filterNot { entry => keysToRemove.contains(entry.getKey) }: _*)
+  }
 
   /**
    * Converts the query parameters into a form.
    */
   def toForm: Form = Form.fromQueryParams(self)
+
 }
 
 object QueryParams {
+  private final case class JavaLinkedHashMapQueryParams(
+    private val underlying: java.util.LinkedHashMap[String, java.util.List[String]],
+  ) extends QueryParams {
+    override private[http] def seq: Seq[util.Map.Entry[String, util.List[String]]] =
+      underlying.entrySet.asScala.toSeq
 
-  def apply(tuples: (String, Chunk[String])*): QueryParams =
-    QueryParams(map = Chunk.fromIterable(tuples).groupBy(_._1).map { case (key, values) =>
-      key -> values.flatMap(_._2)
-    })
+    /**
+     * Retrieves all query parameter values having the specified name. Override
+     * takes advantage of LinkedHashMap implementation for O(1) lookup and
+     * avoids conversion to Chunk.
+     */
+    override def getAll(key: String): Option[Chunk[String]] = Option(underlying.get(key))
+      .map(_.asScala)
+      .map(Chunk.fromIterable)
 
+    /**
+     * Determines if the query parameters are empty. Override avoids conversion
+     * to Chunk in favor of LinkedHashMap implementation of isEmpty.
+     */
+    override def isEmpty: Boolean = underlying.isEmpty
+
+  }
+
+  private def javaMapAsLinkedHashMap(
+    map: java.util.Map[String, java.util.List[String]],
+  ): java.util.LinkedHashMap[String, java.util.List[String]] =
+    map match {
+      case x: java.util.LinkedHashMap[String, java.util.List[String]] => x
+      // This isn't really supposed to happen, Netty constructs LinkedHashMap
+      case x                                                          => new java.util.LinkedHashMap(x)
+    }
+
+  def apply(map: java.util.Map[String, java.util.List[String]]): QueryParams =
+    apply(javaMapAsLinkedHashMap(map))
+
+  def apply(map: java.util.LinkedHashMap[String, java.util.List[String]]): QueryParams =
+    JavaLinkedHashMapQueryParams(map)
+
+  def apply(map: Map[String, Chunk[String]]): QueryParams =
+    apply(map.toSeq: _*)
+
+  def apply(tuples: (String, Chunk[String])*): QueryParams = {
+    val result = new java.util.LinkedHashMap[String, java.util.List[String]]()
+    tuples.foreach { case (key, values) =>
+      Option(result.get(key)) match {
+        case Some(previous) =>
+          val combined = Chunk.fromIterable(previous.asScala) ++ values
+          result.replace(key, combined.asJava)
+        case None           =>
+          result.put(key, values.asJava)
+      }
+    }
+    apply(result)
+  }
+
+  private[http] def fromEntries(entries: util.Map.Entry[String, util.List[String]]*): QueryParams = {
+    val result = new util.LinkedHashMap[String, util.List[String]]()
+    entries.foreach { entry =>
+      Option(result.get(entry.getKey)) match {
+        case Some(previous) =>
+          val combined = new util.ArrayList[String]()
+          combined.addAll(previous)
+          combined.addAll(entry.getValue)
+          result.replace(entry.getKey, combined)
+        case None           =>
+          result.put(entry.getKey, entry.getValue)
+      }
+    }
+    apply(result)
+  }
+
+  /**
+   * Construct from tuples of k, v with singular v
+   */
   def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams =
-    QueryParams(map = Chunk.fromIterable(tuple1 +: tuples.toVector).groupBy(_._1).map { case (key, values) =>
-      key -> values.map(_._2)
-    })
+    apply((tuple1 +: tuples).map { case (k, v) =>
+      (k, Chunk(v))
+    }: _*)
 
   /**
    * Decodes the specified string into a collection of query parameters.
@@ -210,7 +292,7 @@ object QueryParams {
   /**
    * Empty query parameters.
    */
-  val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
+  val empty: QueryParams = JavaLinkedHashMapQueryParams(new java.util.LinkedHashMap[String, java.util.List[String]])
 
   /**
    * Constructs query parameters from a form.
