@@ -178,7 +178,7 @@ object NettyConnectionPool {
 
   private final class ZioNettyConnectionPool(
     pool: ZKeyedPool[Throwable, PoolKey, JChannel],
-    nRetries: PoolKey => Int,
+    maxItems: PoolKey => Int,
   ) extends NettyConnectionPool {
     override def get(
       location: Location.Absolute,
@@ -205,10 +205,12 @@ object NettyConnectionPool {
       restore(pool.get(key)).withEarlyRelease.flatMap { case (release, channel) =>
         // Channel might have closed while in the pool, either because of a timeout or because of a connection error
         // We retry a few times hoping to obtain an open channel
+        // NOTE: We need to release the channel before retrying, so that it can be closed and removed from the pool
+        // We do that in a forked fiber so that we don't "block" the current fiber while the new resource is obtained
         if (channel.isOpen) ZIO.succeed(channel)
-        else invalidate(channel) *> release *> ZIO.fail(None)
+        else invalidate(channel) *> release.forkDaemon *> ZIO.fail(None)
       }
-        .retry(retrySchedule(nRetries(key)))
+        .retry(retrySchedule(key))
         .catchAll {
           case None         => pool.get(key) // We did all we could, let the caller handle it
           case e: Throwable => ZIO.fail(e)
@@ -221,11 +223,11 @@ object NettyConnectionPool {
 
     override def enableKeepAlive: Boolean = true
 
-    private def retrySchedule[E](nRetries: Int)(implicit trace: Trace) =
+    private def retrySchedule[E](key: PoolKey)(implicit trace: Trace) =
       Schedule.recurWhile[E] {
         case None => true
         case _    => false
-      } && Schedule.recurs(nRetries)
+      } && Schedule.recurs(maxItems(key))
   }
 
   def fromConfig(
