@@ -70,7 +70,7 @@ object WebSocketConfigSpec extends HttpRunnableSpec {
           .forwardCloseFrames(true),
       ),
     ) ++
-      ZLayer.succeed(NettyConfig.default) ++
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown) ++
       DnsResolver.default >>>
       Client.live
 

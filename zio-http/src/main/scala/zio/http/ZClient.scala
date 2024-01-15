@@ -740,7 +740,7 @@ object ZClient {
                   _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
                       if (exit.isInterrupted) {
-                        channelInterface.interrupt
+                        channelInterface.interrupt.ignore
                           .zipRight(connectionPool.invalidate(connection))
                           .uninterruptible
                       } else {

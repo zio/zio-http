@@ -47,11 +47,7 @@ final class ClientResponseStreamHandler(
         )
       else {
         rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-          NettyFutureExecutor
-            .executed(ctx.close())
-            .as(ChannelState.Invalid)
-            .exit
-            .flatMap(onComplete.done(_)),
+          onComplete.succeed(ChannelState.Invalid) *> NettyFutureExecutor.executed(ctx.close()),
         )(unsafeClass, trace)
       }
     }

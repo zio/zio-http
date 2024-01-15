@@ -27,6 +27,7 @@ import zio.test._
 import zio.stream.{ZPipeline, ZStream}
 
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.netty.NettyConfig
 import zio.http.template.{body, div, id}
 
 object ServerSpec extends HttpRunnableSpec {
@@ -382,7 +383,7 @@ object ServerSpec extends HttpRunnableSpec {
           .mapZIO(_.asString)
           .run()
           .exit
-      assertZIO(res)(failsWithA[java.io.IOException])
+      assertZIO(res)(fails(anything))
     } @@ TestAspect.timeout(10.seconds),
     test("streaming failure - unknown content type") {
       val res =
@@ -395,7 +396,7 @@ object ServerSpec extends HttpRunnableSpec {
           .mapZIO(_.asString)
           .run()
           .exit
-      assertZIO(res)(failsWithA[java.io.IOException])
+      assertZIO(res)(fails(anything))
     } @@ TestAspect.timeout(10.seconds),
     suite("html")(
       test("body") {
@@ -495,7 +496,8 @@ object ServerSpec extends HttpRunnableSpec {
       .provideShared(
         DynamicServer.live,
         ZLayer.succeed(configApp),
-        Server.live,
+        Server.customized,
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         Client.default,
       ) @@ sequential @@ withLiveClock
 

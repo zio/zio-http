@@ -308,7 +308,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       ),
     ).provide(
       DnsResolver.default,
-      ZLayer.succeed(NettyConfig.default),
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
       Client.live,
       Scope.default,
@@ -322,7 +322,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         .intoPromise(portPromise)
         .zipRight(ZIO.never)
         .provide(
-          ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
+          ZLayer.succeed(NettyConfig.defaultWithFastShutdown.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(
             Server.Config.default.onAnyOpenPort
               .requestStreaming(

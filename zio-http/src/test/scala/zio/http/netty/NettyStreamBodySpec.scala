@@ -35,7 +35,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
         .intoPromise(portPromise)
         .zipRight(ZIO.never)
         .provide(
-          ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
+          ZLayer.succeed(NettyConfig.defaultWithFastShutdown.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(Server.Config.default.onAnyOpenPort),
           Server.customized,
         )
@@ -46,7 +46,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
   val singleConnectionClient: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     (ZLayer.succeed(Config.default.copy(connectionPool = ConnectionPoolConfig.Fixed(1))) ++ ZLayer.succeed(
-      NettyConfig.default,
+      NettyConfig.defaultWithFastShutdown,
     ) ++
       DnsResolver.default) >>> Client.live
   }
