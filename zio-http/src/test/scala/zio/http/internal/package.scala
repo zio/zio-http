@@ -28,7 +28,11 @@ package object internal {
     ZLayer.succeed(Server.Config.default.onAnyOpenPort)
 
   val testNettyServerConfig: ZLayer[Any, Nothing, NettyConfig] =
-    ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID))
+    ZLayer.succeed(
+      NettyConfig.defaultWithFastShutdown
+        .copy(shutdownQuietPeriodDuration = zio.Duration.fromSeconds(0))
+        .leakDetection(LeakDetectionLevel.PARANOID),
+    )
 
   val serverTestLayer: ZLayer[Any, Throwable, Server.Config with Server] =
     ZLayer.make[Server.Config with Server](

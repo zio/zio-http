@@ -21,6 +21,7 @@ import zio.test._
 import zio.{Chunk, Scope, ZIO, ZLayer}
 
 import zio.http.URL.Location
+import zio.http.netty.NettyConfig
 
 object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
@@ -100,7 +101,8 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       ),
     ).provide(
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
-      Server.live,
+      Server.customized,
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Client.default,
       Scope.default,
     ) @@ withLiveClock

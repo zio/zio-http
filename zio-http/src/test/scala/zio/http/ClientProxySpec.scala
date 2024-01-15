@@ -45,7 +45,7 @@ object ClientProxySpec extends HttpRunnableSpec {
               ZLayer.succeed(ZClient.Config.default.proxy(Proxy(proxyUrl))),
               NettyClientDriver.live,
               DnsResolver.default,
-              ZLayer.succeed(NettyConfig.default),
+              ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
               Scope.default,
             )
         } yield out
@@ -87,7 +87,7 @@ object ClientProxySpec extends HttpRunnableSpec {
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
               NettyClientDriver.live,
               DnsResolver.default,
-              ZLayer.succeed(NettyConfig.default),
+              ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
               Scope.default,
             )
         } yield out
@@ -121,7 +121,7 @@ object ClientProxySpec extends HttpRunnableSpec {
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
               NettyClientDriver.live,
               DnsResolver.default,
-              ZLayer.succeed(NettyConfig.default),
+              ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
               Scope.default,
             )
         } yield out

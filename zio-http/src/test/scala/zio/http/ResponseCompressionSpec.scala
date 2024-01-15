@@ -25,6 +25,8 @@ import zio.{Chunk, Scope, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
+import zio.http.netty.NettyConfig
+
 object ResponseCompressionSpec extends ZIOHttpSpec {
 
   private val text: HttpApp[Any] =
@@ -93,7 +95,8 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       },
     ).provide(
       ZLayer.succeed(serverConfig),
-      Server.live,
+      Server.customized,
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Client.default,
       Scope.default,
     ) @@ withLiveClock
