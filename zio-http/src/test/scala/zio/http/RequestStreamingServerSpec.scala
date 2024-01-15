@@ -18,11 +18,12 @@ package zio.http
 
 import zio._
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, sequential, shrinks, timeout, withLiveClock}
-import zio.test.{assertCompletes, assertTrue, assertZIO}
+import zio.test.TestAspect.{diagnose, sequential, shrinks, withLiveClock}
+import zio.test.{assertTrue, assertZIO}
 
 import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.netty.NettyConfig
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   def extractStatus(res: Response): Status = res.status
@@ -113,7 +114,8 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       .provideShared(
         DynamicServer.live,
         ZLayer.succeed(configAppWithRequestStreaming),
-        Server.live,
+        Server.customized,
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         Client.default,
       ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
 

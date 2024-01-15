@@ -119,6 +119,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpBenchmarks,
       zioHttpCli,
       zioHttpGen,
+      zioHttpHtmx,
       zioHttpExample,
       zioHttpTestkit,
       docs,
@@ -212,8 +213,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
       "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.1",
       "com.softwaremill.sttp.client3" %% "core"                % "3.9.1",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
-      "org.slf4j"                      % "slf4j-api"           % "2.0.9",
-      "org.slf4j"                      % "slf4j-simple"        % "2.0.9",
+      "org.slf4j"                      % "slf4j-api"           % "2.0.11",
+      "org.slf4j"                      % "slf4j-simple"        % "2.0.11",
     ),
   )
   .dependsOn(zioHttp)
@@ -230,6 +231,13 @@ lazy val zioHttpCli = (project in file("zio-http-cli"))
   )
   .dependsOn(zioHttp)
   .dependsOn(zioHttpTestkit % Test)
+
+lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
+  .settings(
+    stdSettings("zio-http-htmx"),
+    publishSetting(true),
+  )
+  .dependsOn(zioHttp)
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))

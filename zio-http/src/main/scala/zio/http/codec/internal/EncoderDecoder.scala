@@ -385,7 +385,7 @@ private[codec] object EncoderDecoder {
     private def processStreamingForm(form: StreamingForm, inputs: Array[Any])(implicit
       trace: Trace,
     ): ZIO[Any, Throwable, Unit] =
-      Promise.make[HttpCodecError, Unit].flatMap { ready =>
+      Promise.make[Throwable, Unit].flatMap { ready =>
         form.fields.mapZIO { field =>
           indexByName.get(field.name) match {
             case Some(idx) =>
@@ -404,20 +404,19 @@ private[codec] object EncoderDecoder {
                   ZIO.unit
                 case _                                                          =>
                   formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
-              }) *>
-                ready
-                  .succeed(())
-                  .unless(
-                    inputs.exists(_ == null),
-                  ) // Marking as ready so the handler can start consuming the streaming field before this stream ends
+              })
+                .zipRight(
+                  ready
+                    .succeed(())
+                    .unless(
+                      inputs.exists(_ == null),
+                    ), // Marking as ready so the handler can start consuming the streaming field before this stream ends
+                )
             case None      =>
               ready.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
           }
         }.runDrain
-          .zipRight(
-            ready
-              .succeed(()),
-          )
+          .intoPromise(ready)
           .forkDaemon
           .zipRight(
             ready.await,
