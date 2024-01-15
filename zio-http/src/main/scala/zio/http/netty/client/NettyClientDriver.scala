@@ -28,6 +28,7 @@ import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
+import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 
@@ -50,7 +51,7 @@ final case class NettyClientDriver private[netty] (
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
-    NettyRequestEncoder.encode(req).flatMap { jReq =>
+    val f = NettyRequestEncoder.encode(req).flatMap { jReq =>
       for {
         _     <- Scope.addFinalizer {
           ZIO.attempt {
@@ -152,6 +153,27 @@ final case class NettyClientDriver private[netty] (
         }
       }
     }
+
+    f.ensuring(
+      ZIO
+        .unless(location.scheme.isWebSocket) {
+          // If the channel was closed and the promises were not completed, this will lead to the request hanging so we need
+          // to listen to the close future and complete the promises
+          NettyFutureExecutor
+            .executed(channel.closeFuture())
+            .interruptible
+            .zipRight(
+              // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
+              // so we don't need to fulfill `onResponse`
+              onComplete.interrupt && onResponse.fail(
+                new PrematureChannelClosureException(
+                  "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+                ),
+              ),
+            )
+        }
+        .forkScoped,
+    )
   }
 
   override def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
