@@ -58,7 +58,7 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
             NettyClientDriver.live,
             DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
           // Unfortunately if the channel closes before we create the request, we can't extract the DecoderException
@@ -81,7 +81,7 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL2)),
             NettyClientDriver.live,
             DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
           test("succeed when client has default SSL") {
@@ -94,7 +94,7 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.Default)),
             NettyClientDriver.live,
             DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
           test("Https Redirect when client makes http request") {
@@ -107,13 +107,14 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
             NettyClientDriver.live,
             DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
         ),
       ),
   ).provideShared(
-    Server.live,
+    Server.customized,
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
     ZLayer.succeed(config),
   )
 
