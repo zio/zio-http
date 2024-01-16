@@ -85,17 +85,41 @@ private[zio] final case class ServerInboundHandler(
           ()
         }
 
-        ensureHasApp()
-        val exit =
-          if (jReq.decoderResult().isFailure) {
-            val throwable = jReq.decoderResult().cause()
-            Exit.succeed(Response.fromThrowable(throwable))
-          } else
-            app(req)
-        if (!attemptImmediateWrite(ctx, exit)) {
-          writeResponse(ctx, env, exit, jReq)(releaseRequest)
-        } else {
-          releaseRequest()
+        try {
+          ensureHasApp()
+          val exit =
+            if (jReq.decoderResult().isFailure) {
+              val throwable = jReq.decoderResult().cause()
+              Exit.succeed(Response.fromThrowable(throwable))
+            } else {
+              app(req)
+            }
+
+          if (!attemptImmediateWrite(ctx, exit)) {
+            writeResponse(ctx, env, exit, jReq)(releaseRequest)
+          } else {
+            releaseRequest()
+          }
+        } catch {
+          case error: Throwable => {
+
+            val logLogic = for {
+              _ <- ZIO.logCause(Cause.fail(error))
+            } yield ()
+
+            val runtime = Runtime(ZEnvironment[Any](env), FiberRefs.empty, RuntimeFlags.default)
+
+            Unsafe.unsafe { implicit unsafe =>
+              runtime.unsafe
+                .run(
+                  logLogic,
+                )
+                .getOrThrowFiberFailure()
+            }
+
+            val exit = Exit.succeed(Response.fromThrowable(error))
+            writeResponse(ctx, env, exit, jReq)(releaseRequest)
+          }
         }
 
       case msg: HttpContent =>
@@ -323,13 +347,11 @@ private[zio] final case class ServerInboundHandler(
             }
             None
           }
-        }.foldCauseZIO(
-          cause => ZIO.attempt(attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash))),
-          {
-            case None       => ZIO.unit
-            case Some(task) => task.orElse(ZIO.attempt(ctx.close()))
-          },
-        )
+        }.flatMap(_.getOrElse(ZIO.unit)).catchSomeCause { case cause =>
+          ZIO.attempt(
+            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash)),
+          )
+        }
       }
 
       pgm.provideEnvironment(env)

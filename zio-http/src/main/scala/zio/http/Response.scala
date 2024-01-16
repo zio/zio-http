@@ -154,13 +154,14 @@ object Response {
    * failure inside the cause, if any.
    */
   def fromCause(cause: Cause[Any]): Response = {
+
     cause.failureOrCause match {
       case Left(failure: Response)  => failure
       case Left(failure: Throwable) => fromThrowable(failure)
       case Left(failure: Cause[_])  => fromCause(failure)
       case _                        =>
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
-        else error(Status.InternalServerError, cause.prettyPrint.take(100))
+        else throw new Exception(cause.prettyPrint)
     }
   }
 
@@ -210,7 +211,9 @@ object Response {
       case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage)
       case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
       case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
-      case _                                  => error(Status.InternalServerError, throwable.getMessage)
+      case _                                  => {
+        error(Status.InternalServerError, throwable.getMessage)
+      }
     }
   }
 
