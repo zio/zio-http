@@ -25,7 +25,7 @@ import zio.stream.ZStream
 
 import zio.http._
 import zio.http.codec.PathCodec.trailing
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal._
 import zio.http.netty.NettyConfig
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
@@ -168,6 +168,38 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       },
     )
 
+  private def connectionPoolTimeoutTest =
+    test("client connection timeouts while in connection pool") {
+      def executeRequest(idx: Int) =
+        app
+          .deploy(
+            Request(
+              method = Method.POST,
+              body = Body.fromString(idx.toString),
+              headers = Headers.empty,
+            ),
+          )
+          .flatMap(_.body.asString)
+
+      val init =
+        ZIO.foreachPar((1 to N).toList)(executeRequest)
+
+      val res =
+        init *> ZIO.foreach((1 to N).toList)(executeRequest).delay(1.seconds)
+
+      assertZIO(res)(
+        equalTo(
+          (1 to N).map(_.toString).toList,
+        ),
+      )
+    }.provideSome[Client & Scope](
+      ZLayer(appKeepAliveEnabled.unit),
+      DynamicServer.live,
+      ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort),
+      testNettyServerConfig,
+      Server.customized,
+    ) @@ withLiveClock
+
   def connectionPoolSpec: Spec[Any, Throwable] =
     suite("ConnectionPool")(
       suite("fixed")(
@@ -185,15 +217,16 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
+        connectionPoolTimeoutTest,
       ).provide(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         serverTestLayer,
         Client.customized,
-        ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(2)),
+        ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(10)),
         NettyClientDriver.live,
         DnsResolver.default,
-        ZLayer.succeed(NettyConfig.default),
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         Scope.default,
       ),
       suite("dynamic")(
@@ -211,15 +244,16 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
+        connectionPoolTimeoutTest,
       ).provide(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         serverTestLayer,
         Client.customized,
-        ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(4, 16, 100.millis)),
+        ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(10, 100, 100.millis)),
         NettyClientDriver.live,
         DnsResolver.default,
-        ZLayer.succeed(NettyConfig.default),
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         Scope.default,
       ),
     )

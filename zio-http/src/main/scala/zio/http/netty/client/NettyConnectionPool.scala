@@ -24,19 +24,14 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.URL.Location
 import zio.http._
-import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy}
+import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy, NettyRuntime}
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  ChannelOption,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup, _}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.proxy.HttpProxyHandler
-import io.netty.handler.timeout.ReadTimeoutHandler
+import io.netty.handler.timeout.{ReadTimeoutException, ReadTimeoutHandler}
+
 trait NettyConnectionPool extends ConnectionPool[JChannel]
 
 object NettyConnectionPool {
@@ -44,6 +39,7 @@ object NettyConnectionPool {
   protected def createChannel(
     channelFactory: JChannelFactory[JChannel],
     eventLoopGroup: JEventLoopGroup,
+    nettyRuntime: NettyRuntime,
     location: URL.Location.Absolute,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
@@ -83,6 +79,8 @@ object NettyConnectionPool {
         idleTimeout.foreach { timeout =>
           pipeline.addLast(Names.ReadTimeoutHandler, new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS))
         }
+
+        pipeline.addLast(Names.ClientReadTimeoutErrorHandler, new ReadTimeoutErrorHandler(nettyRuntime))
 
         // Adding default client channel handlers
         // Defaults from netty:
@@ -127,9 +125,24 @@ object NettyConnectionPool {
     } yield result
   }
 
+  private final class ReadTimeoutErrorHandler(nettyRuntime: NettyRuntime)(implicit trace: Trace)
+      extends ChannelInboundHandlerAdapter {
+
+    implicit private val unsafe: Unsafe = Unsafe.unsafe
+
+    override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
+      cause match {
+        case _: ReadTimeoutException =>
+          nettyRuntime.run(ctx, () => {}) { ZIO.logDebug("ReadTimeoutException caught") }
+        case _                       => super.exceptionCaught(ctx, cause)
+      }
+    }
+  }
+
   private final class NoNettyConnectionPool(
     channelFactory: JChannelFactory[JChannel],
     eventLoopGroup: JEventLoopGroup,
+    nettyRuntime: NettyRuntime,
     dnsResolver: DnsResolver,
   ) extends NettyConnectionPool {
     override def get(
@@ -146,6 +159,7 @@ object NettyConnectionPool {
       createChannel(
         channelFactory,
         eventLoopGroup,
+        nettyRuntime,
         location,
         proxy,
         sslOptions,
@@ -178,6 +192,7 @@ object NettyConnectionPool {
 
   private final class ZioNettyConnectionPool(
     pool: ZKeyedPool[Throwable, PoolKey, JChannel],
+    maxItems: PoolKey => Int,
   ) extends NettyConnectionPool {
     override def get(
       location: Location.Absolute,
@@ -189,30 +204,51 @@ object NettyConnectionPool {
       idleTimeout: Option[Duration],
       connectionTimeout: Option[Duration],
       localAddress: Option[InetSocketAddress] = None,
-    )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] =
-      pool
-        .get(
-          PoolKey(
-            location,
-            proxy,
-            sslOptions,
-            maxInitialLineLength,
-            maxHeaderSize,
-            decompression,
-            idleTimeout,
-            connectionTimeout,
-          ),
-        )
+    )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] = ZIO.uninterruptibleMask { restore =>
+      val key = PoolKey(
+        location,
+        proxy,
+        sslOptions,
+        maxInitialLineLength,
+        maxHeaderSize,
+        decompression,
+        idleTimeout,
+        connectionTimeout,
+      )
+
+      restore(pool.get(key)).withEarlyRelease.flatMap { case (release, channel) =>
+        // Channel might have closed while in the pool, either because of a timeout or because of a connection error
+        // We retry a few times hoping to obtain an open channel
+        // NOTE: We need to release the channel before retrying, so that it can be closed and removed from the pool
+        // We do that in a forked fiber so that we don't "block" the current fiber while the new resource is obtained
+        if (channel.isOpen) ZIO.succeed(channel)
+        else invalidate(channel) *> release.forkDaemon *> ZIO.fail(None)
+      }
+        .retry(retrySchedule(key))
+        .catchAll {
+          case None         => pool.get(key) // We did all we could, let the caller handle it
+          case e: Throwable => ZIO.fail(e)
+        }
+        .withFinalizer(c => ZIO.unless(c.isOpen)(invalidate(c)))
+    }
 
     override def invalidate(channel: JChannel)(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
       pool.invalidate(channel)
 
     override def enableKeepAlive: Boolean = true
+
+    private def retrySchedule[E](key: PoolKey)(implicit trace: Trace) =
+      Schedule.recurWhile[E] {
+        case None => true
+        case _    => false
+      } && Schedule.recurs(maxItems(key))
   }
 
   def fromConfig(
     config: ConnectionPoolConfig,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
+  )(implicit
+    trace: Trace,
+  ): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     for {
       pool <- config match {
         case ConnectionPoolConfig.Disabled                         =>
@@ -238,7 +274,7 @@ object NettyConnectionPool {
     for {
       driver      <- ZIO.service[NettyClientDriver]
       dnsResolver <- ZIO.service[DnsResolver]
-    } yield new NoNettyConnectionPool(driver.channelFactory, driver.eventLoopGroup, dnsResolver)
+    } yield new NoNettyConnectionPool(driver.channelFactory, driver.eventLoopGroup, driver.nettyRuntime, dnsResolver)
 
   private def createFixed(size: Int)(implicit
     trace: Trace,
@@ -251,11 +287,11 @@ object NettyConnectionPool {
     for {
       driver      <- ZIO.service[NettyClientDriver]
       dnsResolver <- ZIO.service[DnsResolver]
-      poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       poolFn = (key: PoolKey) =>
         createChannel(
           driver.channelFactory,
           driver.eventLoopGroup,
+          driver.nettyRuntime,
           key.location,
           key.proxy,
           key.sslOptions,
@@ -266,20 +302,10 @@ object NettyConnectionPool {
           key.connectionTimeout,
           None,
           dnsResolver,
-        ).tap { channel =>
-          NettyFutureExecutor
-            .executed(channel.closeFuture())
-            .interruptible
-            .zipRight(
-              poolPromise.await.flatMap(_.invalidate(channel)),
-            )
-            .forkDaemon
-        }.uninterruptible
-      keyedPool <- ZKeyedPool
-        .make(poolFn, (key: PoolKey) => size(key.location))
-        .tap(poolPromise.succeed)
-        .tapErrorCause(poolPromise.failCause)
-    } yield new ZioNettyConnectionPool(keyedPool)
+        ).uninterruptible
+      _size  = (key: PoolKey) => size(key.location)
+      keyedPool <- ZKeyedPool.make(poolFn, _size)
+    } yield new ZioNettyConnectionPool(keyedPool, _size)
 
   private def createDynamic(
     min: Int,
@@ -296,11 +322,11 @@ object NettyConnectionPool {
     for {
       driver      <- ZIO.service[NettyClientDriver]
       dnsResolver <- ZIO.service[DnsResolver]
-      poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       poolFn = (key: PoolKey) =>
         createChannel(
           driver.channelFactory,
           driver.eventLoopGroup,
+          driver.nettyRuntime,
           key.location,
           key.proxy,
           key.sslOptions,
@@ -311,20 +337,13 @@ object NettyConnectionPool {
           key.connectionTimeout,
           None,
           dnsResolver,
-        ).tap { channel =>
-          NettyFutureExecutor
-            .executed(channel.closeFuture())
-            .interruptible
-            .zipRight(
-              poolPromise.await.flatMap(_.invalidate(channel)),
-            )
-            .forkDaemon
-        }.uninterruptible
-      keyedPool <- ZKeyedPool
-        .make(poolFn, (key: PoolKey) => min(key.location) to max(key.location), (key: PoolKey) => ttl(key.location))
-        .tap(poolPromise.succeed)
-        .tapErrorCause(poolPromise.failCause)
-    } yield new ZioNettyConnectionPool(keyedPool)
+        ).uninterruptible
+      keyedPool <- ZKeyedPool.make(
+        poolFn,
+        (key: PoolKey) => min(key.location) to max(key.location),
+        (key: PoolKey) => ttl(key.location),
+      )
+    } yield new ZioNettyConnectionPool(keyedPool, key => max(key.location))
 
   implicit final class BootstrapSyntax(val bootstrap: Bootstrap) extends AnyVal {
     def withOption[T](option: ChannelOption[T], value: Option[T]): Bootstrap =

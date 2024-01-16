@@ -22,6 +22,7 @@ import zio.test._
 import zio.{Scope, ZIO, ZLayer}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.netty.NettyConfig
 
 object ServerStartSpec extends HttpRunnableSpec {
 
@@ -31,14 +32,24 @@ object ServerStartSpec extends HttpRunnableSpec {
       val config = Server.Config.default.port(port)
       serve(HttpApp.empty).flatMap { port =>
         assertZIO(ZIO.attempt(port))(equalTo(port))
-      }.provide(ZLayer.succeed(config), DynamicServer.live, Server.live)
+      }.provide(
+        ZLayer.succeed(config),
+        DynamicServer.live,
+        Server.customized,
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+      )
     },
     test("available port") {
       val port   = 0
       val config = Server.Config.default.port(port)
       serve(HttpApp.empty).flatMap { bindPort =>
         assertZIO(ZIO.attempt(bindPort))(not(equalTo(port)))
-      }.provide(ZLayer.succeed(config), DynamicServer.live, Server.live)
+      }.provide(
+        ZLayer.succeed(config),
+        DynamicServer.live,
+        Server.customized,
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+      )
     },
   )
 

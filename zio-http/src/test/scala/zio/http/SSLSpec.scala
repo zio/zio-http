@@ -17,9 +17,8 @@
 package zio.http
 
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{Gen, assertZIO, check}
-import zio.{Scope, ZIO, ZLayer, durationInt}
+import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
+import zio.{Scope, ZLayer}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
@@ -59,23 +58,30 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
             NettyClientDriver.live,
             DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
-          test("fail with DecoderException when client doesn't have the server certificate") {
-            val actual = Client
+          // Unfortunately if the channel closes before we create the request, we can't extract the DecoderException
+          test(
+            "fail with DecoderException or PrematureChannelClosureException when client doesn't have the server certificate",
+          ) {
+            Client
               .request(Request.get(httpsUrl))
-              .catchSome {
-                case e if e.getClass.getSimpleName == "DecoderException" =>
-                  ZIO.succeed("DecoderException")
-              }
-            assertZIO(actual)(equalTo("DecoderException"))
+              .fold(
+                { e =>
+                  val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
+                  val errorType      = e.getClass.getSimpleName
+                  if (expectedErrors.contains(errorType)) assertCompletes
+                  else assertNever(s"request failed with unexpected error type: $errorType")
+                },
+                _ => assertNever("expected request to fail"),
+              )
           }.provide(
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL2)),
             NettyClientDriver.live,
             DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
           test("succeed when client has default SSL") {
@@ -88,7 +94,7 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.Default)),
             NettyClientDriver.live,
             DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
           test("Https Redirect when client makes http request") {
@@ -101,13 +107,14 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
             NettyClientDriver.live,
             DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
         ),
       ),
   ).provideShared(
-    Server.live,
+    Server.customized,
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
     ZLayer.succeed(config),
   )
 

@@ -16,33 +16,33 @@
 
 package zio.http.endpoint
 
-import java.time.Instant
-
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-import zio.stream.{Take, ZStream}
+import zio.stream.ZStream
 
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{authorization, query}
+import zio.http.codec.HttpCodec.authorization
 import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
 import zio.http.endpoint.EndpointSpec.ImageMetadata
+import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
 
 object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
     ZLayer.make[Server & Client & Scope](
-      Server.live,
+      Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get @@ ZClientAspect.debug)),
       ClientDriver.shared,
-      NettyDriver.live,
+      NettyDriver.customized,
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
       Scope.default,
@@ -530,11 +530,12 @@ object RoundtripSpec extends ZIOHttpSpec {
           }
       },
     ).provide(
-      Server.live,
+      Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)),
       ClientDriver.shared,
-      NettyDriver.live,
+      NettyDriver.customized,
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
       Scope.default,

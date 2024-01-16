@@ -3,6 +3,7 @@ package zio.http
 import zio._
 import zio.test._
 
+import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
 
 object TestServerSpec extends ZIOHttpSpec {
@@ -114,7 +115,8 @@ object TestServerSpec extends ZIOHttpSpec {
   ).provide(
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,
-    NettyDriver.live,
+    NettyDriver.customized,
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
 
   private def requestToCorrectPort =
