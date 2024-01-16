@@ -34,6 +34,7 @@ package object netty {
     val HttpServerFlushConsolidation   = "HTTP_SERVER_FLUSH_CONSOLIDATION"
     val ClientInboundHandler           = "CLIENT_INBOUND_HANDLER"
     val ClientFailureHandler           = "CLIENT_FAILURE_HANDLER"
+    val ClientReadTimeoutErrorHandler  = "CLIENT_READ_TIMEOUT_ERROR_HANDLER"
     val ClientStreamingBodyHandler     = "CLIENT_STREAMING_BODY_HANDLER"
     val WebSocketClientProtocolHandler = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
     val HttpRequestDecompression       = "HTTP_REQUEST_DECOMPRESSION"
