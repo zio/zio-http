@@ -1,29 +1,31 @@
 package zio.http.internal
 
-import org.scalajs.dom
-import org.scalajs.dom.BodyInit
-import zio._
-import zio.http._
-
 import scala.scalajs.js
 import scala.scalajs.js.typedarray.Uint8Array
+
+import zio._
+
+import zio.http._
+
+import org.scalajs.dom
+import org.scalajs.dom.BodyInit
 
 final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
   override def request(
     version: Version,
-    method: Method,
+    requestMethod: Method,
     url: URL,
-    headers: Headers,
-    body: Body,
+    requestHeaders: Headers,
+    requestBody: Body,
     sslConfig: Option[ClientSSLConfig],
     proxy: Option[Proxy],
   )(implicit trace: Trace): ZIO[Any & Scope, Throwable, Response] = {
     for {
-      jsBody   <- fromZBody(body)
+      jsBody   <- fromZBody(requestBody)
       response <-
         ZIO.fromFuture { implicit ec =>
-          val jsMethod  = fromZMethod(method)
-          val jsHeaders = js.Dictionary(headers.map(h => h.headerName -> h.renderedValue).toSeq: _*)
+          val jsMethod  = fromZMethod(requestMethod)
+          val jsHeaders = js.Dictionary(requestHeaders.map(h => h.headerName -> h.renderedValue).toSeq: _*)
           for {
             response <- dom
               .fetch(
@@ -67,7 +69,9 @@ final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
 
   override def socket[Env1 <: Any](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit
     trace: Trace,
-  ): ZIO[Env1 & Scope, Throwable, Response] = ???
+  ): ZIO[Env1 & Scope, Throwable, Response] =
+    throw new UnsupportedOperationException("WebSockets are not supported in the js client yet.")
+
 }
 
 object FetchDriver {

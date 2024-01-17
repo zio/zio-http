@@ -1,7 +1,8 @@
 package zio.http
 
-import zio.http.internal.FetchDriver
 import zio._
+
+import zio.http.internal.FetchDriver
 
 trait ZClientPlatformSpecific {
 

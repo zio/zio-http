@@ -36,7 +36,7 @@ object BuildHelper extends ScalaSettings {
       case _             => Seq.empty
     }
 
-  def settingsWithHeaderLicense =
+  def settingsWithHeaderLicense() =
     headerLicense := Some(HeaderLicense.ALv2("2021 - 2023", "Sporta Technologies PVT LTD & the ZIO HTTP contributors."))
 
   def publishSetting(publishArtifacts: Boolean) = {
@@ -151,8 +151,6 @@ object BuildHelper extends ScalaSettings {
         List("2.12", "2.11+", "2.12+", "2.11-2.12", "2.12-2.13", "2.x")
       case Some((2, 13)) =>
         List("2.13", "2.11+", "2.12+", "2.13+", "2.12-2.13", "2.x")
-      case Some((3,_)) =>
-        List("3")
       case _ =>
         List()
     }

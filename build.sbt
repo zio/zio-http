@@ -110,28 +110,12 @@ ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 lazy val aggregatedProjects: Seq[ProjectReference] =
   if (Shading.shadingEnabled) {
     Seq(
-      zioHttpCommonJVM,
-      zioHttpCommonJS,
-      zioHttpServerJVM,
-      zioHttpServerJS,
-      zioHttpClientJVM,
-      zioHttpClientJS,
-      zioHttpEndpointJVM,
-      zioHttpEndpointJS,
       zioHttpJVM,
       zioHttpJS,
       zioHttpTestkit,
     )
   } else {
     Seq(
-      zioHttpCommonJVM,
-      zioHttpCommonJS,
-      zioHttpServerJVM,
-      zioHttpServerJS,
-      zioHttpClientJVM,
-      zioHttpClientJS,
-      zioHttpEndpointJVM,
-      zioHttpEndpointJS,
       zioHttpJVM,
       zioHttpJS,
       zioHttpBenchmarks,
@@ -147,161 +131,28 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
-  .aggregate(aggregatedProjects*)
-
-lazy val zioHttpCommon = crossProject(JSPlatform, JVMPlatform)
-  .in(file("zio-http-common"))
-  .settings(stdSettings("zio-http-common"))
-  .settings(publishSetting(true))
-  .settings(settingsWithHeaderLicense)
-  .settings(meta)
-  .settings(crossProjectSettings)
-  .settings(`zio`, `zio-schema`, `zio-schema-json`)
-  .settings(libraryDependencies ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) =>
-        Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value)
-      case _            => Seq.empty
-    }
-  })
-
-lazy val zioHttpCommonJS = zioHttpCommon.js
-
-lazy val zioHttpCommonJVM = zioHttpCommon.jvm
-
-lazy val zioHttpServer = crossProject(JSPlatform, JVMPlatform)
-  .in(file("zio-http-server"))
-  .settings(stdSettings("zio-http-server"))
-  .settings(publishSetting(true))
-  .settings(settingsWithHeaderLicense)
-  .settings(meta)
-  .settings(crossProjectSettings)
-  .dependsOn(zioHttpCommon)
-  .settings(
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    `zio`,
-    `zio-schema`,
-    `zio-schema-json`,
-    `zio-schema-protobuf`,
-  )
-
-lazy val zioHttpServerJS = zioHttpServer.js
-
-lazy val zioHttpServerJVM = zioHttpServer.jvm
-
-lazy val zioHttpClient = crossProject(JSPlatform, JVMPlatform)
-  .in(file("zio-http-client"))
-  .settings(stdSettings("zio-http-client"))
-  .settings(publishSetting(true))
-  .settings(settingsWithHeaderLicense)
-  .settings(meta)
-  .settings(crossProjectSettings)
-  .dependsOn(zioHttpCommon)
-  .settings(
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    `zio`,
-    `zio-schema`,
-    `zio-schema-json`,
-    `zio-schema-protobuf`,
-  )
-
-lazy val zioHttpClientJS = zioHttpClient.js
-
-lazy val zioHttpClientJVM = zioHttpClient.jvm
-
-lazy val zioHttpEndpoint = crossProject(JSPlatform, JVMPlatform)
-  .in(file("zio-http-endpoint"))
-  .settings(stdSettings("zio-http-endpoint"))
-  .settings(publishSetting(true))
-  .settings(settingsWithHeaderLicense)
-  .settings(meta)
-  .settings(crossProjectSettings)
-  .dependsOn(zioHttpCommon, zioHttpServer, zioHttpClient)
-  .settings(
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    `zio`,
-    `zio-schema`,
-    `zio-schema-json`,
-    `zio-schema-protobuf`,
-  )
-
-lazy val zioHttpEndpointJS = zioHttpEndpoint.js
-
-lazy val zioHttpEndpointJVM = zioHttpEndpoint.jvm
-
-lazy val zioHttpNettyCommon = project
-  .in(file("zio-http-netty-common"))
-  .settings(stdSettings("zio-http-netty-common"))
-  .settings(publishSetting(true))
-  .settings(settingsWithHeaderLicense)
-  .settings(meta)
-  .dependsOn(zioHttpCommonJVM)
-  .settings(
-    `zio`,
-    libraryDependencies ++= netty ++ Seq(`netty-incubator`),
-  )
-
-lazy val zioHttpServerNetty = project
-  .in(file("zio-http-server-netty"))
-  .settings(stdSettings("zio-http-server-netty"))
-  .settings(publishSetting(true))
-  .settings(settingsWithHeaderLicense)
-  .settings(meta)
-  .dependsOn(zioHttpServerJVM, zioHttpNettyCommon)
-  .settings(
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    `zio`,
-    `zio-schema`,
-    libraryDependencies ++= netty ++ Seq(`netty-incubator`),
-  )
-
-lazy val zioHttpClientNetty = project
-  .in(file("zio-http-client-netty"))
-  .settings(stdSettings("zio-http-client-netty"))
-  .settings(publishSetting(true))
-  .settings(settingsWithHeaderLicense)
-  .settings(meta)
-  .dependsOn(zioHttpClientJVM, zioHttpNettyCommon)
-  .settings(
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    `zio`,
-    `zio-schema`,
-    libraryDependencies ++= netty ++ Seq(`netty-incubator`),
-  )
-
-lazy val zioHttpClientFetch = crossProject(JSPlatform)
-  .in(file("zio-http-client-fetch"))
-  .settings(stdSettings("zio-http-client-fetch"))
-  .settings(publishSetting(true))
-  .settings(settingsWithHeaderLicense)
-  .settings(meta)
-  .settings(crossProjectSettings)
-  .dependsOn(zioHttpClient)
-  .settings(
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    `zio`,
-    `zio-schema`,
-    `zio-schema-json`,
-    `zio-schema-protobuf`,
-  )
-  .js
+  .aggregate(aggregatedProjects: _*)
 
 lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-http"))
-  .enablePlugins(Shading.plugins()*)
+  .enablePlugins(Shading.plugins(): _*)
   .settings(stdSettings("zio-http"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
   .settings(meta)
   .settings(crossProjectSettings)
   .settings(Shading.shadingSettings())
-  .dependsOn(zioHttpEndpoint)
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    `zio`,
-    `zio-schema`,
-    `zio-schema-json`,
-    `zio-schema-protobuf`,
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-schema`,
+      `zio-schema-json`,
+      `zio-schema-protobuf`,
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, n)) if n <= 12 =>
@@ -317,30 +168,29 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       }
     },
   )
-//  .jsSettings(
-//    testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
-//    libraryDependencies ++= Seq(
-//      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-//      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0",
-//      "org.scala-js"      %%% "scalajs-dom"          % "2.8.0",
-//      "dev.zio"           %%% "zio-test"             % ZioVersion % "test",
-//      "dev.zio"           %%% "zio-test-sbt"         % ZioVersion % "test",
-//      "dev.zio"           %%% "zio"                  % ZioVersion,
-//      "dev.zio"           %%% "zio-cli"              % ZioCliVersion,
-//      "dev.zio"           %%% "zio-streams"          % ZioVersion,
-//      "dev.zio"           %%% "zio-schema"           % ZioSchemaVersion,
-//      "dev.zio"           %%% "zio-schema-json"      % ZioSchemaVersion,
-//      "dev.zio"           %%% "zio-schema-protobuf"  % ZioSchemaVersion,
-//      "dev.zio"           %%% "zio-prelude"          % "1.0.0-RC21",
-//    ),
-//  )
+  .jvmSettings(
+    libraryDependencies ++= netty ++ Seq(`netty-incubator`),
+  )
+  .jsSettings(
+    testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+    libraryDependencies ++= Seq(
+      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0",
+      "org.scala-js"      %%% "scalajs-dom"          % "2.8.0",
+      "dev.zio"           %%% "zio-test"             % ZioVersion % "test",
+      "dev.zio"           %%% "zio-test-sbt"         % ZioVersion % "test",
+      "dev.zio"           %%% "zio"                  % ZioVersion,
+      "dev.zio"           %%% "zio-streams"          % ZioVersion,
+      "dev.zio"           %%% "zio-schema"           % ZioSchemaVersion,
+      "dev.zio"           %%% "zio-schema-json"      % ZioSchemaVersion,
+      "dev.zio"           %%% "zio-schema-protobuf"  % ZioSchemaVersion,
+    ),
+  )
 
 lazy val zioHttpJS = zioHttp.js
   .settings(scalaJSUseMainModuleInitializer := true)
-  .dependsOn(zioHttpClientFetch)
 
 lazy val zioHttpJVM = zioHttp.jvm
-  .dependsOn(zioHttpServerNetty, zioHttpClientNetty)
 
 /**
  * Special subproject to sanity test the shaded version of zio-http. Run using
@@ -362,6 +212,8 @@ lazy val zioHttpShadedTests = if (Shading.shadingEnabled) {
       Test / resourceDirectory := (baseDirectory.value / ".." / "zio-http" / "src" / "test" / "resources"),
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
       libraryDependencies ++= Seq(
+        `zio-test-sbt`,
+        `zio-test`,
         "dev.zio" %% "zio-http-shaded" % version.value,
       ),
     )
@@ -396,9 +248,12 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 lazy val zioHttpCli = (project in file("zio-http-cli"))
   .settings(stdSettings("zio-http-cli"))
   .settings(
-    `zio`,
-    `zio-cli`,
+    libraryDependencies ++= Seq(`zio-cli`),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
   )
   .dependsOn(zioHttpJVM)
   .dependsOn(zioHttpTestkit % Test)
@@ -408,7 +263,7 @@ lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
     stdSettings("zio-http-htmx"),
     publishSetting(true),
   )
-  .dependsOn(zioHttp)
+  .dependsOn(zioHttpJVM)
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
@@ -417,25 +272,31 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zioHttpJVM, zioHttpCli)
 
-lazy val zioHttpGen = project
-  .in(file("zio-http-gen"))
+lazy val zioHttpGen = (project in file("zio-http-gen"))
   .settings(stdSettings("zio-http-gen"))
   .settings(publishSetting(true))
   .settings(
-    `zio`,
-    libraryDependencies += scalafmt.cross(CrossVersion.for3Use2_13),
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-test`,
+      `zio-test-sbt`,
+      scalafmt.cross(CrossVersion.for3Use2_13),
+    ),
   )
   .dependsOn(zioHttpJVM)
 
-lazy val zioHttpTestkit = project
-  .in(file("zio-http-testkit"))
-  .enablePlugins(Shading.plugins()*)
+lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
+  .enablePlugins(Shading.plugins(): _*)
   .settings(stdSettings("zio-http-testkit"))
   .settings(publishSetting(true))
   .settings(Shading.shadingSettings())
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    `zio`,
+    libraryDependencies ++= netty ++ Seq(
+      `zio`,
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
   )
   .dependsOn(zioHttpJVM)
 

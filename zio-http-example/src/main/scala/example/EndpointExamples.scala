@@ -5,8 +5,8 @@ import zio._
 import zio.http.Header.Authorization
 import zio.http._
 import zio.http.codec.{HttpCodec, PathCodec}
+import zio.http.endpoint.openapi.{OpenAPIGen, SwaggerUI}
 import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
-import zio.http.openapi.{OpenAPIGen, SwaggerUI}
 
 object EndpointExamples extends ZIOAppDefault {
   import HttpCodec.query

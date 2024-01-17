@@ -1,10 +1,11 @@
 package zio.http
 
-import zio.stream.ZStream
-import zio.{Trace, ZIO}
-
 import java.io.{File, FileNotFoundException}
 import java.util.zip.ZipFile
+
+import zio.{Trace, ZIO}
+
+import zio.stream.ZStream
 
 trait HandlerPlatformSpecific {
   self: Handler.type =>
@@ -27,14 +28,14 @@ trait HandlerPlatformSpecific {
   )(implicit trace: Trace): Handler[Any, Throwable, Any, Response] = {
     url.getProtocol match {
       case "file" => Handler.fromFile(new File(url.getPath))
-      case "jar" =>
-        val path = new java.net.URI(url.getPath).getPath // remove "file:" prefix and normalize whitespace
-        val bangIndex = path.indexOf('!')
-        val filePath = path.substring(0, bangIndex)
+      case "jar"  =>
+        val path         = new java.net.URI(url.getPath).getPath // remove "file:" prefix and normalize whitespace
+        val bangIndex    = path.indexOf('!')
+        val filePath     = path.substring(0, bangIndex)
         val resourcePath = path.substring(bangIndex + 2)
-        val mediaType = determineMediaType(resourcePath)
-        val openZip = ZIO.attemptBlockingIO(new ZipFile(filePath))
-        val closeZip = (jar: ZipFile) => ZIO.attemptBlocking(jar.close()).ignoreLogged
+        val mediaType    = determineMediaType(resourcePath)
+        val openZip      = ZIO.attemptBlockingIO(new ZipFile(filePath))
+        val closeZip     = (jar: ZipFile) => ZIO.attemptBlocking(jar.close()).ignoreLogged
 
         def fileNotFound = new FileNotFoundException(s"Resource $resourcePath not found")
 
@@ -47,13 +48,13 @@ trait HandlerPlatformSpecific {
                 entry <- ZIO
                   .attemptBlocking(Option(jar.getEntry(resourcePath)))
                   .collect(fileNotFound) { case Some(e) => e }
-                _ <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
+                _     <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
                 contentLength = entry.getSize
-                inZStream = ZStream
+                inZStream     = ZStream
                   .acquireReleaseWith(openZip)(closeZip)
                   .mapZIO(jar => ZIO.attemptBlocking(jar.getEntry(resourcePath) -> jar))
                   .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
-                response = Response(body = Body.fromStream(inZStream, contentLength))
+                response      = Response(body = Body.fromStream(inZStream, contentLength))
               } yield mediaType.fold(response) { t =>
                 response
                   .addHeader(Header.ContentType(t))

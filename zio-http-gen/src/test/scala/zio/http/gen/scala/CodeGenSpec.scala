@@ -12,9 +12,9 @@ import zio.test._
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
+import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.EndpointGen
-import zio.http.openapi.{OpenAPI, OpenAPIGen}
 
 object CodeGenSpec extends ZIOSpecDefault {
 

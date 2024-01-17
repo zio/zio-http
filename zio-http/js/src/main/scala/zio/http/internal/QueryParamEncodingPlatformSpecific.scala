@@ -1,10 +1,10 @@
 package zio.http.internal
-import zio.http.QueryParams
-
 import java.nio.charset.Charset
 
+import zio.http.QueryParams
+
 private[http] trait QueryParamEncodingPlatformSpecific {
-  val default: QueryParamEncoding = //throw new NotImplementedError("No version implemented for Scala.js yet.")
+  val default: QueryParamEncoding = // throw new NotImplementedError("No version implemented for Scala.js yet.")
     new QueryParamEncoding {
       override def decode(queryStringFragment: String, charset: Charset): QueryParams = QueryParams.empty
 

@@ -1,11 +1,14 @@
 package zio.http.internal
 
-import org.scalajs.dom.ReadableStream
+import scala.scalajs.js.typedarray.Uint8Array
+
 import zio._
-import zio.http._
+
 import zio.stream.ZStream
 
-import scala.scalajs.js.typedarray.Uint8Array
+import zio.http._
+
+import org.scalajs.dom.ReadableStream
 
 case class FetchBody(
   content: ReadableStream[Uint8Array],
@@ -75,7 +78,6 @@ object FetchBody {
     val mediaType =
       if (result.headers.has("Content-Type")) MediaType.forContentType(result.headers.get("Content-Type"))
       else None
-    println("creating body")
     FetchBody(result.body, mediaType, None)
   }
 }

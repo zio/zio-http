@@ -9,10 +9,10 @@ import zio.http._
 import zio.http.codec.HeaderCodec
 import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.endpoint._
-import zio.http.openapi.JsonSchema.SchemaStyle.Inline
+import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.Inline
+import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.scala.Code
-import zio.http.openapi.{OpenAPI, OpenAPIGen}
 
 object EndpointGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =

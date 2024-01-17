@@ -5,10 +5,10 @@ import scala.annotation.tailrec
 import zio.Chunk
 
 import zio.http.Method
-import zio.http.openapi.OpenAPI.ReferenceOr
+import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
+import zio.http.endpoint.openapi.{JsonSchema, OpenAPI}
 import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.ScalaType
-import zio.http.openapi.{JsonSchema, OpenAPI}
 
 object EndpointGen {
 
