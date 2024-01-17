@@ -1,5 +1,6 @@
-import sbt._
-import sbt.Keys.scalaVersion
+import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport.*
+import sbt.*
+import sbt.Keys.libraryDependencies
 
 object Dependencies {
   val JwtCoreVersion                = "9.1.1"
@@ -8,7 +9,7 @@ object Dependencies {
   val ScalaCompactCollectionVersion = "2.11.0"
   val ZioVersion                    = "2.0.21"
   val ZioCliVersion                 = "0.5.0"
-  val ZioSchemaVersion              = "0.4.17"
+  val ZioSchemaVersion              = "0.4.17+4-0acf5af7-SNAPSHOT"
   val SttpVersion                   = "3.3.18"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
@@ -31,13 +32,16 @@ object Dependencies {
   val `netty-incubator` =
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
 
-  val zio                   = "dev.zio" %% "zio"                 % ZioVersion
-  val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
-  val `zio-streams`         = "dev.zio" %% "zio-streams"         % ZioVersion
-  val `zio-schema`          = "dev.zio" %% "zio-schema"          % ZioSchemaVersion
-  val `zio-schema-json`     = "dev.zio" %% "zio-schema-json"     % ZioSchemaVersion
-  val `zio-schema-protobuf` = "dev.zio" %% "zio-schema-protobuf" % ZioSchemaVersion
-  val `zio-test`            = "dev.zio" %% "zio-test"            % ZioVersion % "test"
-  val `zio-test-sbt`        = "dev.zio" %% "zio-test-sbt"        % ZioVersion % "test"
+  val zio = libraryDependencies ++= Seq(
+    "dev.zio" %%% "zio"          % ZioVersion,
+    "dev.zio" %%% "zio-streams"  % ZioVersion,
+    "dev.zio" %%% "zio-test"     % ZioVersion % "test",
+    "dev.zio" %%% "zio-test-sbt" % ZioVersion % "test",
+  )
+
+  val `zio-cli`             = libraryDependencies += "dev.zio" %%% "zio-cli"             % ZioCliVersion
+  val `zio-schema`          = libraryDependencies += "dev.zio" %%% "zio-schema"          % ZioSchemaVersion
+  val `zio-schema-json`     = libraryDependencies += "dev.zio" %%% "zio-schema-json"     % ZioSchemaVersion
+  val `zio-schema-protobuf` = libraryDependencies += "dev.zio" %%% "zio-schema-protobuf" % ZioSchemaVersion
 
 }

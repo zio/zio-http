@@ -17,14 +17,6 @@
 package zio.http.endpoint
 
 import zio._
-import zio.test.Assertion._
-import zio.test.TestAspect._
-import zio.test._
-
-import zio.stream.ZStream
-
-import zio.schema.{DeriveSchema, Schema}
-
 import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
@@ -33,6 +25,11 @@ import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
+import zio.schema.{DeriveSchema, Schema}
+import zio.stream.ZStream
+import zio.test.Assertion._
+import zio.test.TestAspect._
+import zio.test._
 
 object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =

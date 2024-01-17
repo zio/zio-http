@@ -1,8 +1,9 @@
-import sbt.Keys._
-import sbt._
-import scalafix.sbt.ScalafixPlugin.autoImport._
-import xerial.sbt.Sonatype.autoImport._
-import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{headerLicense, HeaderLicense}
+import sbt.Keys.*
+import sbt.*
+import scalafix.sbt.ScalafixPlugin.autoImport.*
+import xerial.sbt.Sonatype.autoImport.*
+import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{HeaderLicense, headerLicense}
+import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.18"
@@ -35,7 +36,7 @@ object BuildHelper extends ScalaSettings {
       case _             => Seq.empty
     }
 
-  def settingsWithHeaderLicense() =
+  def settingsWithHeaderLicense =
     headerLicense := Some(HeaderLicense.ALv2("2021 - 2023", "Sporta Technologies PVT LTD & the ZIO HTTP contributors."))
 
   def publishSetting(publishArtifacts: Boolean) = {
@@ -83,7 +84,7 @@ object BuildHelper extends ScalaSettings {
       "-Dio.netty.leakDetectionLevel=paranoid",
       s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
     ),
-    ThisBuild / fork               := true,
+    ThisBuild / fork               := false,
     libraryDependencies ++= {
       if (scalaVersion.value == Scala3)
         Seq(
@@ -133,4 +134,48 @@ object BuildHelper extends ScalaSettings {
       ),
     ),
   )
+
+  def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*): Seq[File] =
+    for {
+      platform <- List("shared", platform)
+      version  <- "scala" :: versions.toList.map("scala-" + _)
+      result   = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
+      if result.exists
+    } yield result
+
+  def crossPlatformSources(scalaVer: String, platform: String, conf: String, baseDir: File): Seq[sbt.File] = {
+    val versions = CrossVersion.partialVersion(scalaVer) match {
+      case Some((2, 11)) =>
+        List("2.11", "2.11+", "2.11-2.12", "2.x")
+      case Some((2, 12)) =>
+        List("2.12", "2.11+", "2.12+", "2.11-2.12", "2.12-2.13", "2.x")
+      case Some((2, 13)) =>
+        List("2.13", "2.11+", "2.12+", "2.13+", "2.12-2.13", "2.x")
+      case Some((3,_)) =>
+        List("3")
+      case _ =>
+        List()
+    }
+    platformSpecificSources(platform, conf, baseDir)(versions: _*)
+  }
+
+  lazy val crossProjectSettings = Seq(
+    Compile / unmanagedSourceDirectories ++= {
+      crossPlatformSources(
+        scalaVersion.value,
+        crossProjectPlatform.value.identifier,
+        "main",
+        baseDirectory.value
+        )
+    },
+    Test / unmanagedSourceDirectories ++= {
+      crossPlatformSources(
+        scalaVersion.value,
+        crossProjectPlatform.value.identifier,
+        "test",
+        baseDirectory.value
+        )
+    }
+    )
+
 }
