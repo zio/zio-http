@@ -15,19 +15,41 @@
  */
 
 package zio.http.codec
+import zio.NonEmptyChunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 private[codec] trait QueryCodecs {
+
   def query(name: String): QueryCodec[String] =
-    HttpCodec.Query(name, TextCodec.string)
+    HttpCodec
+      .Query(name, TextCodec.string)
+      .transform[String] { c: NonEmptyChunk[String] => c.head }(s => NonEmptyChunk(s))
 
   def queryBool(name: String): QueryCodec[Boolean] =
-    HttpCodec.Query(name, TextCodec.boolean)
+    HttpCodec
+      .Query(name, TextCodec.boolean)
+      .transform { c: NonEmptyChunk[Boolean] => c.head }(s => NonEmptyChunk(s))
 
   def queryInt(name: String): QueryCodec[Int] =
-    HttpCodec.Query(name, TextCodec.int)
+    HttpCodec
+      .Query(name, TextCodec.int)
+      .transform { c: NonEmptyChunk[Int] => c.head }(s => NonEmptyChunk(s))
 
   def queryTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
+    HttpCodec
+      .Query(name, codec)
+      .transform { c: NonEmptyChunk[A] => c.head }(s => NonEmptyChunk(s))
+
+  def queryMultiValue(name: String): QueryCodec[NonEmptyChunk[String]] =
+    HttpCodec.Query(name, TextCodec.string)
+
+  def queryMultiValueBool(name: String): QueryCodec[NonEmptyChunk[Boolean]] =
+    HttpCodec.Query(name, TextCodec.boolean)
+
+  def queryMultiValueInt(name: String): QueryCodec[NonEmptyChunk[Int]] =
+    HttpCodec.Query(name, TextCodec.int)
+
+  def queryMultiValueTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[NonEmptyChunk[A]] =
     HttpCodec.Query(name, codec)
 
 }
