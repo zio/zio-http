@@ -29,6 +29,7 @@ import zio.schema.codec.BinaryCodec
 
 import zio.http.internal.BodyEncoding
 
+
 /**
  * Represents the body of a request or response. The body can be a fixed chunk
  * of bytes, a stream of bytes, or form data, or any type that can be encoded
