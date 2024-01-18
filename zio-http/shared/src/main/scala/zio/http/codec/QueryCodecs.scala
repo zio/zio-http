@@ -23,22 +23,22 @@ private[codec] trait QueryCodecs {
   def query(name: String): QueryCodec[String] =
     HttpCodec
       .Query(name, TextCodec.string)
-      .transform[String] { c: NonEmptyChunk[String] => c.head }(s => NonEmptyChunk(s))
+      .transform[String] { (c: NonEmptyChunk[String]) => c.head }(s => NonEmptyChunk(s))
 
   def queryBool(name: String): QueryCodec[Boolean] =
     HttpCodec
       .Query(name, TextCodec.boolean)
-      .transform { c: NonEmptyChunk[Boolean] => c.head }(s => NonEmptyChunk(s))
+      .transform { (c: NonEmptyChunk[Boolean]) => c.head }(s => NonEmptyChunk(s))
 
   def queryInt(name: String): QueryCodec[Int] =
     HttpCodec
       .Query(name, TextCodec.int)
-      .transform { c: NonEmptyChunk[Int] => c.head }(s => NonEmptyChunk(s))
+      .transform { (c: NonEmptyChunk[Int]) => c.head }(s => NonEmptyChunk(s))
 
   def queryTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
     HttpCodec
       .Query(name, codec)
-      .transform { c: NonEmptyChunk[A] => c.head }(s => NonEmptyChunk(s))
+      .transform { (c: NonEmptyChunk[A]) => c.head }(s => NonEmptyChunk(s))
 
   def queryMultiValue(name: String): QueryCodec[NonEmptyChunk[String]] =
     HttpCodec.Query(name, TextCodec.string)
