@@ -143,6 +143,15 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(crossProjectSettings)
   .settings(Shading.shadingSettings())
   .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) =>
+          Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value)
+        case _            => Seq.empty
+      }
+    },
+  )
+  .jvmSettings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       `zio`,
@@ -160,18 +169,10 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
         case _                       => Seq.empty
       }
     },
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, _)) =>
-          Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value)
-        case _            => Seq.empty
-      }
-    },
-  )
-  .jvmSettings(
     libraryDependencies ++= netty ++ Seq(`netty-incubator`),
   )
   .jsSettings(
+    ThisProject / fork := false,
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",

@@ -203,7 +203,7 @@ jobs:
 
       - name: Run Coverage
         id: run_coverage
-        run: sbt 'coverage; project zioHttp; test; coverageReport'
+        run: sbt 'coverage; project zioHttpJVM; test; coverageReport'
 
       - name: Push Codecov
         id: push_codecov

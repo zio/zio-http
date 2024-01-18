@@ -3,15 +3,13 @@ package zio.http
 import zio._
 import zio.test._
 
-import zio.http.ChannelEvent.Read
-
 object JSClientSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("ClientSpec")(
       suite("HTTP")(
         test("Get") {
           for {
-            response <- ZIO.serviceWithZIO[Client] { _.get("https://www.google.com") }
+            response <- ZIO.serviceWithZIO[Client] { _.url(url"https://www.google.com").get("") }
             string   <- response.body.asString
           } yield assertTrue(response.status.isSuccess, string.startsWith("<!doctype html>"))
         },

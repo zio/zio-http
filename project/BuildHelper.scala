@@ -1,8 +1,8 @@
-import sbt.Keys.*
+import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{HeaderLicense, headerLicense}
 import sbt.*
+import sbt.Keys.*
 import scalafix.sbt.ScalafixPlugin.autoImport.*
 import xerial.sbt.Sonatype.autoImport.*
-import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{HeaderLicense, headerLicense}
 import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 
 object BuildHelper extends ScalaSettings {
@@ -72,7 +72,7 @@ object BuildHelper extends ScalaSettings {
     name                           := s"$prjName$shadedSuffix",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, Scala3),
     ThisBuild / scalaVersion       := Scala213,
-    scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value),
+    scalacOptions                  ++= stdOptions ++ extraOptions(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
         "com.github.vovapolu" %% "scaluzzi" % "0.1.23",
@@ -84,7 +84,7 @@ object BuildHelper extends ScalaSettings {
       "-Dio.netty.leakDetectionLevel=paranoid",
       s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
     ),
-    ThisBuild / fork               := false,
+    ThisBuild / fork               := true,
     libraryDependencies ++= {
       if (scalaVersion.value == Scala3)
         Seq(
@@ -121,16 +121,22 @@ object BuildHelper extends ScalaSettings {
       ),
     ThisBuild / developers := List(
       Developer(
-        "tusharmath",
-        "Tushar Mathur",
-        "tusharmath@gmail.com",
-        new URL("https://github.com/tusharmath"),
+        "jdegoes",
+        "John De Goes",
+        "john@degoes.net",
+        url("http://degoes.net"),
       ),
       Developer(
-        "amitksingh1490",
-        "Amit Kumar Singh",
-        "amitksingh1490@gmail.com",
-        new URL("https://github.com/amitksingh1490"),
+        "vigoo",
+        "Daniel Vigovszky",
+        "daniel.vigovszky@gmail.com",
+        url("https://vigoo.github.io/"),
+      ),
+      Developer(
+        "987Nabil",
+        "Nabil Abdel-Hafeez",
+        "987.nabil@gmail.com",
+        url("https://github.com/987Nabil"),
       ),
     ),
   )
@@ -145,12 +151,12 @@ object BuildHelper extends ScalaSettings {
 
   def crossPlatformSources(scalaVer: String, platform: String, conf: String, baseDir: File): Seq[sbt.File] = {
     val versions = CrossVersion.partialVersion(scalaVer) match {
-      case Some((2, 11)) =>
-        List("2.11", "2.11+", "2.11-2.12", "2.x")
       case Some((2, 12)) =>
-        List("2.12", "2.11+", "2.12+", "2.11-2.12", "2.12-2.13", "2.x")
+        List("2.12", "2.12+", "2.12-2.13", "2.x")
       case Some((2, 13)) =>
-        List("2.13", "2.11+", "2.12+", "2.13+", "2.12-2.13", "2.x")
+        List("2.13", "2.12+", "2.13+", "2.12-2.13", "2.x")
+      case Some((3,_)) =>
+        List("3")
       case _ =>
         List()
     }

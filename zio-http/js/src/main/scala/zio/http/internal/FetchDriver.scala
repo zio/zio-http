@@ -48,16 +48,17 @@ final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
   }
 
   private def fromZMethod(method: Method): dom.HttpMethod = method match {
-    case Method.GET     => dom.HttpMethod.GET
-    case Method.POST    => dom.HttpMethod.POST
-    case Method.PUT     => dom.HttpMethod.PUT
-    case Method.PATCH   => dom.HttpMethod.PATCH
-    case Method.DELETE  => dom.HttpMethod.DELETE
-    case Method.HEAD    => dom.HttpMethod.HEAD
-    case Method.OPTIONS => dom.HttpMethod.OPTIONS
-    case Method.ANY     => dom.HttpMethod.POST
-    case Method.TRACE   => throw new IllegalArgumentException("TRACE is not supported")
-    case Method.CONNECT => throw new IllegalArgumentException("CONNECT is not supported")
+    case Method.GET          => dom.HttpMethod.GET
+    case Method.POST         => dom.HttpMethod.POST
+    case Method.PUT          => dom.HttpMethod.PUT
+    case Method.PATCH        => dom.HttpMethod.PATCH
+    case Method.DELETE       => dom.HttpMethod.DELETE
+    case Method.HEAD         => dom.HttpMethod.HEAD
+    case Method.OPTIONS      => dom.HttpMethod.OPTIONS
+    case Method.ANY          => dom.HttpMethod.POST
+    case Method.CUSTOM(name) => throw new IllegalArgumentException(s"Custom method $name is not supported")
+    case Method.TRACE        => throw new IllegalArgumentException("TRACE is not supported")
+    case Method.CONNECT      => throw new IllegalArgumentException("CONNECT is not supported")
   }
 
   private def fromZBody(body: Body): ZIO[Any, Throwable, js.UndefOr[BodyInit]] =
