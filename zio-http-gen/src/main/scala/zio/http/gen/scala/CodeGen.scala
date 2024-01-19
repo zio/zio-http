@@ -135,7 +135,6 @@ object CodeGen {
       name
 
     case scalaType =>
-      println(s"Unknown ScalaType: $scalaType")
       throw new Exception(s"Unknown ScalaType: $scalaType")
   }
 
