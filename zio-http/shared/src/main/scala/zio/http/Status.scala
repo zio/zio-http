@@ -176,7 +176,7 @@ object Status {
     Try(code.toInt).toOption.map(fromInt)
 
   def fromInt(code: Int): Status = {
-    code match {
+    (code: @annotation.switch) match {
       case 100 => Status.Continue
       case 101 => Status.SwitchingProtocols
       case 102 => Status.Processing
