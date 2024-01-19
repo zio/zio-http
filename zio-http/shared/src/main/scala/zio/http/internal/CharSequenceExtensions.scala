@@ -19,7 +19,7 @@ package zio.http.internal
 private[http] object CharSequenceExtensions {
 
   def equals(left: CharSequence, right: CharSequence, caseMode: CaseMode = CaseMode.Sensitive): Boolean =
-    compare(left, right, caseMode) == 0
+    left.length == right.length && compare(left, right, caseMode) == 0
 
   /**
    * Lexicographically compares two `CharSequence`s.
@@ -30,43 +30,39 @@ private[http] object CharSequenceExtensions {
    *   is greater than the right `CharSequence`.
    */
   def compare(left: CharSequence, right: CharSequence, caseMode: CaseMode = CaseMode.Sensitive): Int = {
-    if (left == right) {
+    if (left eq right) {
       0
     } else {
       val leftLength  = left.length
       val rightLength = right.length
 
-      if (leftLength == rightLength) {
-        caseMode match {
-          case CaseMode.Sensitive   =>
-            var i = 0
-            while (i < leftLength) {
-              val leftChar  = left.charAt(i)
-              val rightChar = right.charAt(i)
-              if (leftChar != rightChar) {
-                return leftChar - rightChar
-              }
-              i += 1
+      caseMode match {
+        case CaseMode.Sensitive   =>
+          var i = 0
+          while (i < leftLength && i < rightLength) {
+            val leftChar  = left.charAt(i)
+            val rightChar = right.charAt(i)
+            if (leftChar != rightChar) {
+              return leftChar - rightChar
             }
-          case CaseMode.Insensitive =>
-            var i = 0
-            while (i < leftLength) {
-              val leftChar  = left.charAt(i)
-              val rightChar = right.charAt(i)
-              if (leftChar != rightChar) {
-                val lLower = leftChar.toLower
-                val rLower = rightChar.toLower
-                if (lLower != rLower) {
-                  return lLower - rLower
-                }
+            i += 1
+          }
+        case CaseMode.Insensitive =>
+          var i = 0
+          while (i < leftLength && i < rightLength) {
+            val leftChar  = left.charAt(i)
+            val rightChar = right.charAt(i)
+            if (leftChar != rightChar) {
+              val lLower = leftChar.toLower
+              val rLower = rightChar.toLower
+              if (lLower != rLower) {
+                return lLower - rLower
               }
-              i += 1
             }
-        }
-        0
-      } else {
-        leftLength.compare(rightLength)
+            i += 1
+          }
       }
+      leftLength.compare(rightLength)
     }
   }
 
