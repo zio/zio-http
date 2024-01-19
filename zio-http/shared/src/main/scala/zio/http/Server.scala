@@ -58,6 +58,7 @@ object Server extends ServerPlatformSpecific {
     gracefulShutdownTimeout: Duration,
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
+    logStartingServer: Boolean,
   ) {
     self =>
 
@@ -158,6 +159,9 @@ object Server extends ServerPlatformSpecific {
 
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
+
+    def logStartingServer(log: Boolean): Config = 
+      self.copy(logStartingServer = log)
   }
 
   object Config {
@@ -332,10 +336,18 @@ object Server extends ServerPlatformSpecific {
   def serve[R](
     httpApp: HttpApp[R],
   )(implicit trace: Trace): URIO[R with Server, Nothing] =
-    install(httpApp) *> ZIO.never
+    install(httpApp).flatMap { port =>
+      ZIO.when(logStartingServer)(ZIO.logInfo(s"ZIO HTTP server is running at port $port")) *>
+      ZIO.never
+    }
 
   def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
+    ZIO.serviceWithZIO[Server] { server =>
+      server.install(httpApp).flatMap { port =>
+        ZIO.when(server.config.logStartingServer)(ZIO.logInfo(s"Starting server on port $port ...")) *>
+        ZIO.succeed(port)
+      }
+    }
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
