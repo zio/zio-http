@@ -96,7 +96,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       _ <- driver.addApp(app, r)
     } yield ()
 
-  override def install[R](httpApp: HttpApp[R])(implicit
+  override def install[R](httpApp: HttpApp[R], logStartingServer: Boolean)(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
     ZIO

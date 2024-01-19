@@ -33,7 +33,8 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R, Unit]
+  def install[R](httpApp: HttpApp[R], logStartingServer: Boolean = true)(implicit trace: Trace): URIO[R, Unit]
+  def logStartMessage(port: Int): UIO[Unit] = ZIO.unit
 
   /**
    * The port on which the server is listening.
@@ -58,7 +59,7 @@ object Server extends ServerPlatformSpecific {
     gracefulShutdownTimeout: Duration,
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
-    logStartingServer: Boolean,
+    logStartingServer: Boolean = true,
   ) {
     self =>
 
@@ -160,7 +161,7 @@ object Server extends ServerPlatformSpecific {
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
 
-    def logStartingServer(log: Boolean): Config = 
+    def logStartingServer(log: Boolean): Config =
       self.copy(logStartingServer = log)
   }
 
@@ -335,18 +336,17 @@ object Server extends ServerPlatformSpecific {
 
   def serve[R](
     httpApp: HttpApp[R],
+    logStartingServer: Boolean = true,
   )(implicit trace: Trace): URIO[R with Server, Nothing] =
-    install(httpApp).flatMap { port =>
-      ZIO.when(logStartingServer)(ZIO.logInfo(s"ZIO HTTP server is running at port $port")) *>
-      ZIO.never
-    }
+    install(httpApp) *> ZIO.never
 
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
+  def install[R](httpApp: HttpApp[R], logStartingServer: Boolean = true)(implicit
+    trace: Trace,
+  ): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server] { server =>
-      server.install(httpApp).flatMap { port =>
-        ZIO.when(server.config.logStartingServer)(ZIO.logInfo(s"Starting server on port $port ...")) *>
-        ZIO.succeed(port)
-      }
+      val logMessage = ZIO.when(logStartingServer)(ZIO.logInfo(s"ZIO HTTP server is running at port ${server.port}"))
+
+      logMessage *> server.install(httpApp).tap(_ => logMessage).as(0)
     }
   }
 
@@ -400,10 +400,11 @@ object Server extends ServerPlatformSpecific {
     driver: Driver,
     bindPort: Int,
   ) extends Server {
-    override def install[R](httpApp: HttpApp[R])(implicit
+    override def install[R](httpApp: HttpApp[R], logStartingServer: Boolean)(implicit
       trace: Trace,
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
+      ZIO.when(logStartingServer)(ZIO.logInfo(s"ZIO HTTP server is running at port $bindPort")) *>
+        ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
 
     override def port: Int = bindPort
   }
