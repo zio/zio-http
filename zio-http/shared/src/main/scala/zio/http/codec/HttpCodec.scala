@@ -54,31 +54,31 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   private lazy val defaultEncoderDecoder: EncoderDecoder[AtomTypes, Value]                              =
     EncoderDecoder(self, None)
-  private def encoderDecoder(mediaTypes: Chunk[MediaTypeWithQFactor]): EncoderDecoder[AtomTypes, Value] =
+  private def encoderDecoder(mediaTypes: Chunk[MediaTypeWithQFactor]): EncoderDecoder[AtomTypes, Value] = {
     if (mediaTypes.isEmpty) defaultEncoderDecoder
     else {
-      var mediaType: Option[MediaTypeWithQFactor] = None
-      var i                                       = 0
-      while (i < mediaTypes.length) {
-        if (mediaTypes(i).qFactor.getOrElse(1.0) > mediaType.map(_.qFactor.getOrElse(1.0)).getOrElse(0.0)) {
-          mediaType = Some(mediaTypes(i))
-        }
-        i += 1
-      }
-      mediaType match {
-        case Some(mediaType) =>
+      val mts                                      = mediaTypes.sortBy(mt => -mt.qFactor.getOrElse(1.0))
+      var i                                        = 0
+      val size                                     = mts.length
+      var encDec: EncoderDecoder[AtomTypes, Value] = null
+      while (i < size) {
+        val encDec0 =
           encoderDecoders
             .computeIfAbsent(
-              mediaType.mediaType.fullType,
+              mts(i).mediaType.fullType,
               mediaType => {
                 EncoderDecoder(self, Some(mediaType))
               },
             )
             .asInstanceOf[EncoderDecoder[AtomTypes, Value]]
-        case None            =>
-          throw new IllegalArgumentException("No supported media type provided") // TODO: Better error handling
+
+        if (encDec eq null) encDec = encDec0
+        else encDec = encDec.orElse(encDec0)
+        i += 1
       }
+      encDec
     }
+  }
 
   /**
    * Returns a new codec that is the same as this one, but has attached docs,

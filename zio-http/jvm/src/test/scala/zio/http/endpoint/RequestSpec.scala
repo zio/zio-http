@@ -95,6 +95,28 @@ object RequestSpec extends ZIOHttpSpec {
             assertTrue(contentType == Some(ContentType(MediaType.text.`plain`)))
         }
       },
+      test("multiple Accept headers") {
+        check(Gen.int) { id =>
+          val endpoint =
+            Endpoint(GET / "posts")
+              .query(query("id"))
+              .out[Int](MediaType.text.`plain`)
+          val routes   =
+            endpoint.implement {
+              Handler.succeed(id)
+            }
+
+          for {
+            response <- routes.toHttpApp.runZIO(
+              Request
+                .get(URL.decode(s"/posts?id=$id").toOption.get)
+                .addHeader(Header.Accept(MediaType.application.`json`, MediaType.text.`plain`)),
+            )
+            contentType = response.header(Header.ContentType)
+          } yield assertTrue(extractStatus(response).code == 200) &&
+            assertTrue(contentType == Some(ContentType(MediaType.text.`plain`)))
+        }
+      },
       test("custom status code") {
         check(Gen.int) { id =>
           val endpoint =

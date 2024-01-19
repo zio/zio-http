@@ -151,10 +151,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
 
     val handlers = self.alternatives.map { case (endpoint, condition) =>
       Handler.fromFunctionZIO { (request: zio.http.Request) =>
-        val outputMediaTypes = request.headers
-          .get(Header.Accept)
-          .map(_.mimeTypes)
-          .getOrElse(defaultMediaTypes)
+        val outputMediaTypes =
+          NonEmptyChunk
+            .fromChunk(
+              request.headers
+                .getAll(Header.Accept)
+                .flatMap(_.mimeTypes),
+            )
+            .getOrElse(defaultMediaTypes)
         endpoint.input.decodeRequest(request).orDie.flatMap { value =>
           original(value).map(endpoint.output.encodeResponse(_, outputMediaTypes)).catchAll { error =>
             ZIO.succeed(endpoint.error.encodeResponse(error, outputMediaTypes))

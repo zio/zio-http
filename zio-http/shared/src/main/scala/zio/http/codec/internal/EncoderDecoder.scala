@@ -27,12 +27,17 @@ import zio.schema.codec.{BinaryCodec, Codec}
 import zio.http._
 import zio.http.codec._
 
-private[codec] trait EncoderDecoder[-AtomTypes, Value] {
+private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value]
 
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
+
+  final def orElse[AtomTypes1 <: AtomTypes](
+    fallback: EncoderDecoder[AtomTypes1, Value],
+  ): EncoderDecoder[AtomTypes1, Value] =
+    EncoderDecoder.OrElse(self, fallback)
 
 }
 private[codec] object EncoderDecoder {
@@ -46,6 +51,31 @@ private[codec] object EncoderDecoder {
       case 0 => Undefined()
       case 1 => Single(flattened.head._1, mediaType)
       case _ => Multiple(flattened)
+    }
+  }
+
+  private final case class OrElse[-AtomTypes, Value](
+    preferred: EncoderDecoder[AtomTypes, Value],
+    fallback: EncoderDecoder[AtomTypes, Value],
+  ) extends EncoderDecoder[AtomTypes, Value] {
+
+    def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+      trace: Trace,
+    ): Task[Value] =
+      preferred.decode(url, status, method, headers, body).orElse(fallback.decode(url, status, method, headers, body))
+
+    def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
+      try {
+        preferred.encodeWith(value)(f)
+      } catch {
+        case e: HttpCodecError =>
+          try {
+            fallback.encodeWith(value)(f)
+          } catch {
+            // Keep rethrowing until we reach back to the first one
+            case _: HttpCodecError => throw e
+          }
+      }
     }
   }
 
