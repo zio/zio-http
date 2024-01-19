@@ -59,7 +59,7 @@ object Server extends ServerPlatformSpecific {
     gracefulShutdownTimeout: Duration,
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
-    logStartingServer: Boolean = true,
+    logStartingServer: Boolean,
   ) {
     self =>
 
