@@ -1,23 +1,21 @@
 package zio.http.endpoint.openapi
 
-import java.util.UUID
-
-import scala.annotation.tailrec
-import scala.collection.{immutable, mutable}
-
 import zio.Chunk
-import zio.json.EncoderOps
-import zio.json.ast.Json
-
-import zio.schema.Schema.Record
-import zio.schema.codec.JsonCodec
-import zio.schema.{Schema, TypeId}
-
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
+import zio.http.endpoint.openapi.OpenAPIGen.AtomizedMetaCodecs.reduceExamplesLeft
+import zio.json.EncoderOps
+import zio.json.ast.Json
+import zio.schema.Schema.Record
+import zio.schema.codec.JsonCodec
+import zio.schema.{Schema, TypeId}
+
+import java.util.UUID
+import scala.annotation.tailrec
+import scala.collection.{immutable, mutable}
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -133,13 +131,9 @@ object OpenAPIGen {
     def contentExamples: Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       content.flatMap {
         case mc @ MetaCodec(HttpCodec.Content(schema, _, _, _), _)       =>
-          mc.examples.map { case (name, value) =>
-            name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(toJsonAst(schema, value)))
-          }
+          mc.examples(schema)
         case mc @ MetaCodec(HttpCodec.ContentStream(schema, _, _, _), _) =>
-          mc.examples.map { case (name, value) =>
-            name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(toJsonAst(schema, value)))
-          }
+          mc.examples(schema)
         case _                                                           =>
           Map.empty[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]]
       }.toMap
@@ -194,16 +188,43 @@ object OpenAPIGen {
       annotations: Chunk[HttpCodec.Metadata[Any]] = Chunk.empty,
     ): Chunk[MetaCodec[_]] =
       in match {
-        case HttpCodec.Combine(left, right, _) =>
-          flattenedAtoms(left, annotations) ++ flattenedAtoms(right, annotations)
-        case path: HttpCodec.Path[_]           => Chunk.fromIterable(path.pathCodec.segments.map(metaCodecFromSegment))
-        case atom: HttpCodec.Atom[_, _]        => Chunk(MetaCodec(atom, annotations))
+        case HttpCodec.Combine(left, right, combiner) =>
+          flattenedAtoms(left, reduceExamplesLeft(annotations, combiner)) ++
+            flattenedAtoms(right, reduceExamplesRight(annotations, combiner))
+        case path: HttpCodec.Path[_]    => Chunk.fromIterable(path.pathCodec.segments.map(metaCodecFromSegment))
+        case atom: HttpCodec.Atom[_, _] => Chunk(MetaCodec(atom, annotations))
         case map: HttpCodec.TransformOrFail[_, _, _] => flattenedAtoms(map.api, annotations)
         case HttpCodec.Empty                         => Chunk.empty
         case HttpCodec.Halt                          => Chunk.empty
         case _: HttpCodec.Fallback[_, _, _]       => in.alternatives.map(_._1).flatMap(flattenedAtoms(_, annotations))
         case HttpCodec.Annotated(api, annotation) =>
           flattenedAtoms(api, annotations :+ annotation.asInstanceOf[HttpCodec.Metadata[Any]])
+      }
+
+    def reduceExamplesLeft(
+      annotations: Chunk[HttpCodec.Metadata[Any]],
+      combiner: Combiner[_, _],
+    ): Chunk[HttpCodec.Metadata[Any]] =
+      annotations.map {
+        case HttpCodec.Metadata.Examples(examples) =>
+          HttpCodec.Metadata.Examples(examples.map { case (name, value) =>
+            name -> combiner.separate(value.asInstanceOf[combiner.Out])._1
+          })
+        case other                                 =>
+          other
+      }
+
+    def reduceExamplesRight(
+      annotations: Chunk[HttpCodec.Metadata[Any]],
+      combiner: Combiner[_, _],
+    ): Chunk[HttpCodec.Metadata[Any]] =
+      annotations.map {
+        case HttpCodec.Metadata.Examples(examples) =>
+          HttpCodec.Metadata.Examples(examples.map { case (name, value) =>
+            name -> combiner.separate(value.asInstanceOf[combiner.Out])._2
+          })
+        case other                                 =>
+          other
       }
   }
 

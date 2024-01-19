@@ -4,15 +4,16 @@ import zio.json.ast.Json
 import zio.json.{EncoderOps, JsonEncoder}
 import zio.test._
 import zio.{Scope, ZIO}
-
 import zio.schema.annotation.{caseName, discriminatorName, noDiscriminator, optionalField, transientField}
 import zio.schema.codec.JsonCodec
 import zio.schema.{DeriveSchema, Schema}
-
 import zio.http.Method.{GET, POST}
 import zio.http._
+import zio.http.codec.PathCodec.string
 import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.endpoint._
+
+import scala.util.chaining.scalaUtilChainingOps
 
 object OpenAPIGenSpec extends ZIOSpecDefault {
 
@@ -114,6 +115,12 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     case class NestedThree(name: String) extends SimpleNestedSealedTrait
   }
 
+  case class Payload(content: String)
+
+  object Payload {
+    implicit val schema: Schema[Payload] = DeriveSchema.gen[Payload]
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
@@ -139,7 +146,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       .outError[NotFoundError](Status.NotFound)
 
   def toJsonAst(str: String): Json =
-    Json.decoder.decodeJson(str).toOption.get
+    Json.decoder.decodeJson(str).tap(println).toOption.get
 
   def toJsonAst(api: OpenAPI): Json =
     toJsonAst(api.toJson)
@@ -2357,6 +2364,95 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           )(buf => ZIO.attemptBlockingIO(buf.close()).orDie)(buf => ZIO.attemptBlockingIO(buf.mkString))
         } yield assertTrue(json == toJsonAst(expectedJson))
       },
+      test("examples for combined input"){
+
+        val endpoint =
+          Endpoint(Method.GET / "root" / string("name"))
+            .in[Payload]
+            .out[String]
+            .examplesIn("hi" -> ("name_value", Payload("input")))
+
+        val openApi =
+          OpenAPIGen.fromEndpoints(
+            title = "Combined input examples",
+            version = "1.0",
+            endpoint,
+            )
+        val json = toJsonAst(openApi)
+        val expectedJson = """"{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Combined input examples",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/root/{name}": {
+                             |      "get": {
+                             |        "parameters": [
+                             |          {
+                             |            "name": "name",
+                             |            "in": "path",
+                             |            "required": true,
+                             |            "deprecated": false,
+                             |            "schema": {
+                             |              "type": "string"
+                             |            },
+                             |            "explode": false,
+                             |            "style": "simple"
+                             |          }
+                             |        ],
+                             |        "requestBody": {
+                             |          "content": {
+                             |            "application/json": {
+                             |              "schema": {
+                             |                "$ref": "#/components/schemas/Payload"
+                             |              },
+                             |              "examples": {
+                             |                "hi": {
+                             |                  "value": {
+                             |                    "content": "input"
+                             |                  }
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "required": true
+                             |        },
+                             |        "responses": {
+                             |          "200": {
+                             |            "description": "",
+                             |            "content": {
+                             |              "application/json": {
+                             |                "schema": {
+                             |                  "type": "string"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        },
+                             |        "deprecated": false
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "schemas": {
+                             |      "Payload": {
+                             |        "type": "object",
+                             |        "properties": {
+                             |          "content": {
+                             |            "type": "string"
+                             |          }
+                             |        },
+                             |        "additionalProperties": true,
+                             |        "required": [
+                             |          "content"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      }
     )
 
 }
