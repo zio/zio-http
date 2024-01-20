@@ -7,9 +7,7 @@ import zio.cli._
 import zio.schema._
 
 import zio.http._
-import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
-import zio.http.codec.internal._
 import zio.http.endpoint._
 
 /**
@@ -90,16 +88,16 @@ private[cli] object CliEndpoint {
 
   def fromCodec[Input](input: HttpCodec[_, Input]): CliEndpoint = {
     input match {
-      case atom: HttpCodec.Atom[_, _]           => fromAtom(atom)
-      case HttpCodec.TransformOrFail(api, _, _) => fromCodec(api)
-      case HttpCodec.Annotated(in, metadata)    =>
+      case atom: HttpCodec.Atom[_, _]            => fromAtom(atom)
+      case HttpCodec.TransformOrFail(api, _, _)  => fromCodec(api)
+      case HttpCodec.Annotated(in, metadata)     =>
         metadata match {
           case HttpCodec.Metadata.Documented(doc) => fromCodec(in) describeOptions doc
           case _                                  => fromCodec(in)
         }
-      case HttpCodec.Fallback(left, right, _)   => fromCodec(left) ++ fromCodec(right)
-      case HttpCodec.Combine(left, right, _)    => fromCodec(left) ++ fromCodec(right)
-      case _                                    => CliEndpoint.empty
+      case HttpCodec.Fallback(left, right, _, _) => fromCodec(left) ++ fromCodec(right)
+      case HttpCodec.Combine(left, right, _)     => fromCodec(left) ++ fromCodec(right)
+      case _                                     => CliEndpoint.empty
     }
   }
 
