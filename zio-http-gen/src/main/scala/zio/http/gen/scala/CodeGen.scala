@@ -97,7 +97,7 @@ object CodeGen {
     case col: Code.Collection =>
       col match {
         case Code.Collection.Seq(elementType) =>
-          s"Seq[${render(basePackage)(elementType)}]"
+          s"Chunk[${render(basePackage)(elementType)}]"
         case Code.Collection.Set(elementType) =>
           s"Set[${render(basePackage)(elementType)}]"
         case Code.Collection.Map(elementType) =>

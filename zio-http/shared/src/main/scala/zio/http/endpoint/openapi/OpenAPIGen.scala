@@ -1,23 +1,20 @@
 package zio.http.endpoint.openapi
 
-import java.util.UUID
-
-import scala.annotation.tailrec
-import scala.collection.{immutable, mutable}
-
 import zio.Chunk
-import zio.json.EncoderOps
-import zio.json.ast.Json
-
-import zio.schema.Schema.Record
-import zio.schema.codec.JsonCodec
-import zio.schema.{Schema, TypeId}
-
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
+import zio.json.EncoderOps
+import zio.json.ast.Json
+import zio.schema.Schema.Record
+import zio.schema.codec.JsonCodec
+import zio.schema.{Schema, TypeId}
+
+import java.util.UUID
+import scala.annotation.tailrec
+import scala.collection.{immutable, mutable}
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -662,12 +659,43 @@ object OpenAPIGen {
       (endpoint.input.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)
         ++ endpoint.error.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)
         ++ endpoint.output.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)).collect {
-        case MetaCodec(HttpCodec.Content(schema, _, _, _), _) if nominal(schema, referenceType).isDefined       =>
+        case MetaCodec(HttpCodec.Content(schema, _, _, _), _) if nominal(schema, referenceType).isDefined =>
           val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
           schemas.children.map { case (key, schema) =>
             OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
           } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
+
+        case MetaCodec(HttpCodec.Content(setSchema, _, _, _), _)
+            if setSchema.isInstanceOf[Schema.Set[_]]
+              && nominal(setSchema.asInstanceOf[Schema.Set[_]].elementSchema, referenceType).isDefined =>
+          val schema  = setSchema.asInstanceOf[Schema.Set[_]].elementSchema
+          val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+          schemas.children.map { case (key, schema) =>
+            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
+            OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
+
+        case MetaCodec(HttpCodec.Content(seqSchema, _, _, _), _)
+            if seqSchema.isInstanceOf[Schema.Sequence[_, _, _]]
+              && nominal(seqSchema.asInstanceOf[Schema.Sequence[_, _, _]].elementSchema, referenceType).isDefined =>
+          val schema  = seqSchema.asInstanceOf[Schema.Sequence[_, _, _]].elementSchema
+          val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+          schemas.children.map { case (key, schema) =>
+            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
+            OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
+
+        case MetaCodec(HttpCodec.Content(mapSchema, _, _, _), _)
+            if mapSchema.isInstanceOf[Schema.Map[_, _]]
+              && nominal(mapSchema.asInstanceOf[Schema.Map[_, _]].valueSchema, referenceType).isDefined =>
+          val schema  = mapSchema.asInstanceOf[Schema.Map[_, _]].valueSchema
+          val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+          schemas.children.map { case (key, schema) =>
+            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
+            OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
+
         case MetaCodec(HttpCodec.ContentStream(schema, _, _, _), _) if nominal(schema, referenceType).isDefined =>
           val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
           schemas.children.map { case (key, schema) =>
