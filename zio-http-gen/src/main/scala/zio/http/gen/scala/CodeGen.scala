@@ -69,7 +69,7 @@ object CodeGen {
 
     case Code.CaseClass(name, fields, companionObject) =>
       s"case class $name(\n" +
-        fields.map(render(basePackage)).mkString(",\n").replace("val", "") +
+        fields.map(render(basePackage)).mkString(",\n").replace("val ", " ") +
         "\n)" + companionObject.map(render(basePackage)).map("\n" + _).getOrElse("")
 
     case Code.Enum(name, cases, caseNames, discriminator, noDiscriminator, schema) =>
@@ -135,7 +135,6 @@ object CodeGen {
       name
 
     case scalaType =>
-      println(s"Unknown ScalaType: $scalaType")
       throw new Exception(s"Unknown ScalaType: $scalaType")
   }
 

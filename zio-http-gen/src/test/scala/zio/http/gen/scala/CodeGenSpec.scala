@@ -200,5 +200,19 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/GeneratedPaymentNoDiscriminator.scala",
         )
       },
+      test("Endpoint with case class with field named 'value'") {
+        val endpoint = Endpoint(Method.POST / "values").out[Values]
+        val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
+        val code     = EndpointGen.fromOpenAPI(openAPI)
+
+        val tempDir = Files.createTempDirectory("codegen")
+        CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
+
+        fileShouldBe(
+          tempDir,
+          "test/component/Values.scala",
+          "/GeneratedValues.scala",
+        )
+      },
     ) @@ java11OrNewer @@ flaky // Downloading scalafmt on CI is flaky
 }
