@@ -41,6 +41,7 @@ jobs:
         with:
           java-version: 17
           distribution: graalvm
+          components: native-image
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: sbt
 
