@@ -19,7 +19,6 @@
         },
         "responses": {
           "200": {
-            "description": "",
             "content": {
               "text/plain": {
                 "schema": {
@@ -44,7 +43,6 @@
         },
         "responses": {
           "201": {
-            "description": "",
             "content": {
               "text/plain": {
                 "schema": {

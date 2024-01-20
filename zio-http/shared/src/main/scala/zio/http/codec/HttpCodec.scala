@@ -16,18 +16,22 @@
 
 package zio.http.codec
 
+import java.util.concurrent.ConcurrentHashMap
+
+import scala.annotation.tailrec
+import scala.language.implicitConversions
+import scala.reflect.ClassTag
+
 import zio._
+
+import zio.stream.ZStream
+
+import zio.schema.Schema
+
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec.HttpCodec.{Annotated, Metadata}
 import zio.http.codec.internal.EncoderDecoder
-import zio.schema.Schema
-import zio.stream.ZStream
-
-import java.util.concurrent.ConcurrentHashMap
-import scala.annotation.tailrec
-import scala.language.implicitConversions
-import scala.reflect.ClassTag
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -740,7 +744,15 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
             }
 
         case transform @ HttpCodec.TransformOrFail(codec, f, g) =>
-          rewrite[T, transform.In](codec, annotations.map(_.transform(g))).map { case (codec, condition) =>
+          rewrite[T, transform.In](
+            codec,
+            annotations.map(_.transform { v =>
+              g(v) match {
+                case Left(error)  => throw new Exception(error)
+                case Right(value) => value
+              }
+            }),
+          ).map { case (codec, condition) =>
             HttpCodec.TransformOrFail(codec, f, g) -> condition
           }
 
@@ -783,10 +795,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   ): Chunk[HttpCodec.Metadata[L]] =
     annotations.map {
       case HttpCodec.Metadata.Examples(examples) =>
-        HttpCodec.Metadata.Examples(examples.map { case (name, value) =>
-          name -> alternator
-            .unleft(value.asInstanceOf[alternator.Out])
-            .getOrElse(throw new Exception("Unexpected error: Could not take left of alternating example."))
+        HttpCodec.Metadata.Examples(examples.flatMap { case (name, value) =>
+          alternator.unleft(value.asInstanceOf[alternator.Out]).map(name -> _)
         })
       case other                                 =>
         other.asInstanceOf[HttpCodec.Metadata[L]]
@@ -811,10 +821,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   ): Chunk[HttpCodec.Metadata[R]] =
     annotations.map {
       case HttpCodec.Metadata.Examples(examples) =>
-        HttpCodec.Metadata.Examples(examples.map { case (name, value) =>
-          name -> alternator
-            .unright(value.asInstanceOf[alternator.Out])
-            .getOrElse(throw new Exception("Unexpected error: Could not take right of alternating example."))
+        HttpCodec.Metadata.Examples(examples.flatMap { case (name, value) =>
+          alternator.unright(value.asInstanceOf[alternator.Out]).map(name -> _)
         })
       case other                                 =>
         other.asInstanceOf[HttpCodec.Metadata[R]]

@@ -20,18 +20,16 @@ import zio.http.endpoint.cli.EndpointGen._
 object CommandGen {
 
   def getSegment(segment: SegmentCodec[_]): (String, String) = {
-    @tailrec
     def fromSegment[A](segment: SegmentCodec[A]): (String, String) =
       segment match {
-        case SegmentCodec.UUID(name)          => (name, "text")
-        case SegmentCodec.Text(name)          => (name, "text")
-        case SegmentCodec.IntSeg(name)        => (name, "integer")
-        case SegmentCodec.LongSeg(name)       => (name, "integer")
-        case SegmentCodec.BoolSeg(name)       => (name, "boolean")
-        case SegmentCodec.Literal(_)          => ("", "")
-        case SegmentCodec.Trailing            => ("", "")
-        case SegmentCodec.Empty               => ("", "")
-        case SegmentCodec.Annotated(codec, _) => fromSegment(codec)
+        case SegmentCodec.UUID(name)    => (name, "text")
+        case SegmentCodec.Text(name)    => (name, "text")
+        case SegmentCodec.IntSeg(name)  => (name, "integer")
+        case SegmentCodec.LongSeg(name) => (name, "integer")
+        case SegmentCodec.BoolSeg(name) => (name, "boolean")
+        case SegmentCodec.Literal(_)    => ("", "")
+        case SegmentCodec.Trailing      => ("", "")
+        case SegmentCodec.Empty         => ("", "")
       }
 
     fromSegment(segment)

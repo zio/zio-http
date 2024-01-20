@@ -992,7 +992,7 @@ object OpenAPI {
    *   of the names for Component Objects.
    */
   final case class Response(
-    description: Doc = Doc.Empty,
+    description: Option[Doc] = None,
     headers: Map[String, ReferenceOr[Header]] = Map.empty,
     content: Map[String, MediaType] = Map.empty,
     links: Map[String, ReferenceOr[Link]] = Map.empty,

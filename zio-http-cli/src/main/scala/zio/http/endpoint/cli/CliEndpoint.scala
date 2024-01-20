@@ -1,11 +1,5 @@
 package zio.http.endpoint.cli
 
-import scala.util.Try
-
-import zio.cli._
-
-import zio.schema._
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
@@ -103,21 +97,19 @@ private[cli] object CliEndpoint {
 
   private def fromAtom[Input](input: HttpCodec.Atom[_, Input]): CliEndpoint = {
     input match {
-      case HttpCodec.Content(schema, mediaType, nameOption, _) => {
+      case HttpCodec.Content(schema, mediaType, nameOption, _) =>
         val name = nameOption match {
           case Some(x) => x
           case None    => ""
         }
         CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
-      }
 
-      case HttpCodec.ContentStream(schema, mediaType, nameOption, _) => {
+      case HttpCodec.ContentStream(schema, mediaType, nameOption, _) =>
         val name = nameOption match {
           case Some(x) => x
           case None    => ""
         }
         CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
-      }
 
       case HttpCodec.Header(name, textCodec, _) =>
         CliEndpoint(headers = HttpOptions.Header(name, textCodec) :: List())

@@ -1,20 +1,22 @@
 package zio.http.endpoint.openapi
 
+import java.util.UUID
+
+import scala.collection.{immutable, mutable}
+
 import zio.Chunk
+import zio.json.EncoderOps
+import zio.json.ast.Json
+
+import zio.schema.Schema.Record
+import zio.schema.codec.JsonCodec
+import zio.schema.{Schema, TypeId}
+
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
-import zio.json.EncoderOps
-import zio.json.ast.Json
-import zio.schema.Schema.Record
-import zio.schema.codec.JsonCodec
-import zio.schema.{Schema, TypeId}
-
-import java.util.UUID
-import scala.annotation.tailrec
-import scala.collection.{immutable, mutable}
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -37,7 +39,7 @@ object OpenAPIGen {
     result.built
   }
 
-  final case class MetaCodec[T](codec: T, annotations: Chunk[HttpCodec.Metadata[Any]]) {
+  final case class MetaCodec[T](codec: T, annotations: Chunk[HttpCodec.Metadata[_]]) {
     lazy val docs: Doc = {
       val annotatedDoc    = annotations.foldLeft(Doc.empty) {
         case (doc, HttpCodec.Metadata.Documented(nextDoc)) => doc + nextDoc
@@ -187,33 +189,74 @@ object OpenAPIGen {
       annotations: Chunk[HttpCodec.Metadata[Any]] = Chunk.empty,
     ): Chunk[MetaCodec[_]] =
       in match {
-        case HttpCodec.Combine(left, right, combiner) =>
-          flattenedAtoms(left, HttpCodec.reduceExamplesLeft(annotations, combiner)) ++
-            flattenedAtoms(right, HttpCodec.reduceExamplesRight(annotations, combiner))
-        case path: HttpCodec.Path[_]    => Chunk.fromIterable(path.pathCodec.segments.map(metaCodecFromSegment))
-        case atom: HttpCodec.Atom[_, _] => Chunk(MetaCodec(atom, annotations))
-        case map: HttpCodec.TransformOrFail[_, _, _] => flattenedAtoms(map.api, annotations)
-        case HttpCodec.Empty                         => Chunk.empty
-        case HttpCodec.Halt                          => Chunk.empty
+        case codec @ HttpCodec.Combine(left, right, combiner) =>
+          flattenedAtoms(
+            left,
+            HttpCodec
+              .reduceExamplesLeft[A, codec.Left, codec.Right](
+                annotations.asInstanceOf[Chunk[HttpCodec.Metadata[A]]],
+                combiner,
+              )
+              .asInstanceOf[Chunk[HttpCodec.Metadata[Any]]],
+          ) ++
+            flattenedAtoms(
+              right,
+              HttpCodec
+                .reduceExamplesRight[A, codec.Left, codec.Right](
+                  annotations.asInstanceOf[Chunk[HttpCodec.Metadata[A]]],
+                  combiner,
+                )
+                .asInstanceOf[Chunk[HttpCodec.Metadata[Any]]],
+            )
+        case path: HttpCodec.Path[_]                          => metaCodecFromPathCodec(path.pathCodec, annotations)
+        case atom: HttpCodec.Atom[_, A]                       => Chunk(MetaCodec(atom, annotations))
+        case map: HttpCodec.TransformOrFail[_, _, _]          => flattenedAtoms(map.api, annotations)
+        case HttpCodec.Empty                                  => Chunk.empty
+        case HttpCodec.Halt                                   => Chunk.empty
         case _: HttpCodec.Fallback[_, _, _]       => in.alternatives.map(_._1).flatMap(flattenedAtoms(_, annotations))
         case HttpCodec.Annotated(api, annotation) =>
           flattenedAtoms(api, annotations :+ annotation.asInstanceOf[HttpCodec.Metadata[Any]])
       }
   }
 
-  private def metaCodecFromSegment(segment: SegmentCodec[_]) = {
-    segment match {
-      case SegmentCodec.Annotated(codec, annotations) =>
-        MetaCodec(
-          codec,
-          annotations.map {
-            case SegmentCodec.MetaData.Documented(value)  => HttpCodec.Metadata.Documented(value)
-            case SegmentCodec.MetaData.Examples(examples) => HttpCodec.Metadata.Examples(examples)
-          }.asInstanceOf[Chunk[HttpCodec.Metadata[Any]]],
+  def metaCodecFromPathCodec(
+    codec: PathCodec[_],
+    annotations: Chunk[HttpCodec.Metadata[_]],
+  ): Chunk[MetaCodec[SegmentCodec[_]]] = {
+    def loop(
+      path: PathCodec[_],
+      annotations: Chunk[HttpCodec.Metadata[_]],
+    ): Chunk[(SegmentCodec[_], Chunk[HttpCodec.Metadata[_]])] = path match {
+      case PathCodec.Annotated(codec, newAnnotations) =>
+        loop(codec, newAnnotations.map(toHttpCodecAnnotations) ++ annotations)
+      case PathCodec.Segment(segment)                 => Chunk(segment -> annotations)
+
+      case PathCodec.Concat(left, right, combiner) =>
+        loop(left, HttpCodec.reduceExamplesLeft(annotations.asInstanceOf[Chunk[HttpCodec.Metadata[Any]]], combiner)) ++
+          loop(right, HttpCodec.reduceExamplesRight(annotations.asInstanceOf[Chunk[HttpCodec.Metadata[Any]]], combiner))
+
+      case codec @ PathCodec.TransformOrFail(api, _, g) =>
+        loop(
+          api,
+          annotations.map(_.transform { v =>
+            g(v.asInstanceOf[codec.Out]) match {
+              case Left(error)  => throw new Exception(error)
+              case Right(value) => value
+            }
+          }),
         )
-      case other                                      => MetaCodec(other, Chunk.empty)
     }
+
+    loop(codec, annotations).map { case (sc, annotations) =>
+      MetaCodec(sc.asInstanceOf[SegmentCodec[_]], annotations.asInstanceOf[Chunk[HttpCodec.Metadata[Any]]])
+    }.asInstanceOf[Chunk[MetaCodec[SegmentCodec[_]]]]
   }
+
+  def toHttpCodecAnnotations(annotation: PathCodec.MetaData[_]): HttpCodec.Metadata[_] =
+    annotation match {
+      case PathCodec.MetaData.Documented(value)  => HttpCodec.Metadata.Documented(value)
+      case PathCodec.MetaData.Examples(examples) => HttpCodec.Metadata.Examples(examples)
+    }
 
   def contentAsJsonSchema[R, A](
     codec: HttpCodec[R, A],
@@ -491,11 +534,12 @@ object OpenAPIGen {
         .getOrElse(throw new Exception("No method specified"))
     }
 
-    def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation =
+    def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
+      val maybeDoc = Some(endpoint.doc + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
         tags = Nil,
         summary = None,
-        description = Some(endpoint.doc + pathDoc).filter(!_.isEmpty),
+        description = maybeDoc,
         externalDocs = None,
         operationId = None,
         parameters = parameters,
@@ -505,19 +549,32 @@ object OpenAPIGen {
         security = Nil,
         servers = Nil,
       )
-
-    def pathDoc: Doc = {
-      def loop(codec: PathCodec[_]): Doc = codec match {
-        case PathCodec.Segment(_)                 =>
-          // segment docs are used in path parameters
-          Doc.empty
-        case PathCodec.Concat(left, right, _, _)  =>
-          loop(left) + loop(right)
-        case PathCodec.TransformOrFail(api, _, _) =>
-          loop(api)
-      }
-      loop(endpoint.route.pathCodec)
     }
+
+    def pathDoc: Doc =
+      inAtoms.path
+        .flatMap(_.docsOpt)
+        .map(_.flattened)
+        .reduceOption(_ intersect _)
+        .flatMap(_.reduceOption(_ + _))
+        .getOrElse(Doc.empty)
+//    {
+//      def loop(codec: PathCodec[_]): Doc = codec match {
+//        case PathCodec.Annotated(codec, annotations) =>
+//          annotations
+//            .collect { case PathCodec.MetaData.Documented(doc) => doc }
+//            .reduceOption(_ + _)
+//            .getOrElse(Doc.empty) + loop(codec)
+//        case PathCodec.Segment(_) =>
+//          Doc.empty
+//        case PathCodec.Concat(left, right, _) =>
+//          loop(left) + loop(right)
+//        case PathCodec.TransformOrFail(api, _, _) =>
+//          loop(api)
+//      }
+//
+//      loop(endpoint.route.pathCodec)
+//    }
 
     def requestBody: Option[OpenAPI.ReferenceOr[OpenAPI.RequestBody]] =
       ins.map { mediaTypes =>
@@ -569,7 +626,7 @@ object OpenAPIGen {
           OpenAPI.ReferenceOr.Or(
             OpenAPI.Parameter.pathParameter(
               name = mc.name.getOrElse(throw new Exception("Path parameter must have a name")),
-              description = mc.docsOpt,
+              description = mc.docsOpt.flatMap(_.flattened.filterNot(_ == pathDoc).reduceOption(_ + _)),
               definition = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromSegmentCodec(codec))),
               deprecated = mc.deprecated,
               style = OpenAPI.Parameter.Style.Simple,
@@ -637,18 +694,16 @@ object OpenAPIGen {
       callbacks = Map.empty,
     )
 
-    @tailrec
     def segmentToJson(codec: SegmentCodec[_], value: Any): Json = {
       codec match {
-        case SegmentCodec.Empty               => throw new Exception("Empty segment not allowed")
-        case SegmentCodec.Literal(_)          => throw new Exception("Literal segment not allowed")
-        case SegmentCodec.BoolSeg(_)          => Json.Bool(value.asInstanceOf[Boolean])
-        case SegmentCodec.IntSeg(_)           => Json.Num(value.asInstanceOf[Int])
-        case SegmentCodec.LongSeg(_)          => Json.Num(value.asInstanceOf[Long])
-        case SegmentCodec.Text(_)             => Json.Str(value.asInstanceOf[String])
-        case SegmentCodec.UUID(_)             => Json.Str(value.asInstanceOf[UUID].toString)
-        case SegmentCodec.Annotated(codec, _) => segmentToJson(codec, value)
-        case SegmentCodec.Trailing            => throw new Exception("Trailing segment not allowed")
+        case SegmentCodec.Empty      => throw new Exception("Empty segment not allowed")
+        case SegmentCodec.Literal(_) => throw new Exception("Literal segment not allowed")
+        case SegmentCodec.BoolSeg(_) => Json.Bool(value.asInstanceOf[Boolean])
+        case SegmentCodec.IntSeg(_)  => Json.Num(value.asInstanceOf[Int])
+        case SegmentCodec.LongSeg(_) => Json.Num(value.asInstanceOf[Long])
+        case SegmentCodec.Text(_)    => Json.Str(value.asInstanceOf[String])
+        case SegmentCodec.UUID(_)    => Json.Str(value.asInstanceOf[UUID].toString)
+        case SegmentCodec.Trailing   => throw new Exception("Trailing segment not allowed")
       }
     }
 
