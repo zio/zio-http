@@ -32,21 +32,21 @@ private[codec] trait QueryCodecs {
   def queryTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
     toSingleValue(name, HttpCodec.Query(name, codec))
 
-  def queryMultiValue(name: String): QueryCodec[Chunk[String]] =
+  def queryAll(name: String): QueryCodec[Chunk[String]] =
     HttpCodec.Query(name, TextCodec.string)
 
-  def queryMultiValueBool(name: String): QueryCodec[Chunk[Boolean]] =
+  def queryAllBool(name: String): QueryCodec[Chunk[Boolean]] =
     HttpCodec.Query(name, TextCodec.boolean)
 
-  def queryMultiValueInt(name: String): QueryCodec[Chunk[Int]] =
+  def queryAllInt(name: String): QueryCodec[Chunk[Int]] =
     HttpCodec.Query(name, TextCodec.int)
 
-  def queryMultiValueTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[Chunk[A]] =
+  def queryAllTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[Chunk[A]] =
     HttpCodec.Query(name, codec)
 
   private def toSingleValue[A](name: String, queryCodec: QueryCodec[Chunk[A]]): QueryCodec[A] =
     queryCodec.transformOrFail {
-      case chunk: Chunk[A] if chunk.size == 1 => Right(chunk.head)
+      case chunk if chunk.size == 1 => Right(chunk.head)
       case chunk => Left(s"Expected single value for query parameter $name, but got ${chunk.size} instead")
     }(s => Right(Chunk(s)))
 }

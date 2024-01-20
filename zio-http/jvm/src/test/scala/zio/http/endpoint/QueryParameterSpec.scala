@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt, queryMultiValue, queryMultiValueBool, queryMultiValueInt}
+import zio.http.codec.HttpCodec.{query, queryInt, queryAll, queryAllBool, queryAllInt}
 import zio.http.endpoint.EndpointSpec.testEndpoint
 
 object QueryParameterSpec extends ZIOHttpSpec {
@@ -101,7 +101,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
         val testRoutes = testEndpoint(
           Routes(
             Endpoint(GET / "users" / int("userId"))
-              .query(queryMultiValue("key"))
+              .query(queryAll("key"))
               .out[String]
               .implement {
                 Handler.fromFunction { case (userId, keys) =>
@@ -130,7 +130,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
         val testRoutes = testEndpoint(
           Routes(
             Endpoint(GET / "users" / int("userId"))
-              .query(queryMultiValue("key").optional)
+              .query(queryAll("key").optional)
               .out[String]
               .implement {
                 Handler.fromFunction { case (userId, keys) =>
@@ -160,7 +160,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
           val testRoutes = testEndpoint(
             Routes(
               Endpoint(GET / "users" / int("userId"))
-                .query(queryMultiValue("key") & queryMultiValue("value"))
+                .query(queryAll("key") & queryAll("value"))
                 .out[String]
                 .implement {
                   Handler.fromFunction { case (userId, keys, values) =>
@@ -185,7 +185,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
         val testRoutes = testEndpoint(
           Routes(
             Endpoint(GET / "users" / int("userId"))
-              .query(queryMultiValue("multi") & query("single"))
+              .query(queryAll("multi") & query("single"))
               .out[String]
               .implement {
                 Handler.fromFunction { case (userId, multi, single) =>
@@ -206,7 +206,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
         val testRoutes = testEndpoint(
           Routes(
             Endpoint(GET / "users" / int("userId"))
-              .query(queryMultiValue("left") | queryMultiValueBool("right"))
+              .query(queryAll("left") | queryAllBool("right"))
               .out[String]
               .implement {
                 Handler.fromFunction { case (userId, eitherOfParameters) =>
@@ -236,7 +236,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
           val testRoutes = testEndpoint(
             Routes(
               Endpoint(GET / "users" / int("userId"))
-                .query(queryMultiValue("left") | queryMultiValue("right"))
+                .query(queryAll("left") | queryAll("right"))
                 .out[String]
                 .implement {
                   Handler.fromFunction { case (userId, queryParams) =>
@@ -265,7 +265,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
         val testRoutes = testEndpoint(
           Routes(
             Endpoint(GET / "users" / int("userId"))
-              .query(queryMultiValue("left") | query("right"))
+              .query(queryAll("left") | query("right"))
               .out[String]
               .implement {
                 Handler.fromFunction { case (userId, queryParams) =>
@@ -293,7 +293,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
       val testRoutes = testEndpoint(
         Routes(
           Endpoint(GET / "users")
-            .query(queryMultiValueInt("ints"))
+            .query(queryAllInt("ints"))
             .out[String]
             .implement {
               Handler.fromFunction { case queryParams =>
@@ -311,7 +311,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("no specified query parameters for multi value query") {
       val testRoutes = Routes(
         Endpoint(GET / "users")
-          .query(queryMultiValueInt("ints"))
+          .query(queryAllInt("ints"))
           .out[String]
           .implement {
             Handler.fromFunction { case queryParams =>
