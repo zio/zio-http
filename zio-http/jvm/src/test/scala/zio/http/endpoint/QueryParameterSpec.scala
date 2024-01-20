@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt, queryAll, queryAllBool, queryAllInt}
+import zio.http.codec.HttpCodec.{query, queryAll, queryAllBool, queryAllInt, queryInt}
 import zio.http.endpoint.EndpointSpec.testEndpoint
 
 object QueryParameterSpec extends ZIOHttpSpec {
