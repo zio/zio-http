@@ -591,7 +591,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
   private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Query, NonEmptyChunk[A]] {
+      extends Atom[HttpCodecType.Query, Chunk[A]] {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 

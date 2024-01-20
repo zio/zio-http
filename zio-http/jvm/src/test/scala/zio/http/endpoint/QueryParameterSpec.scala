@@ -17,20 +17,16 @@
 package zio.http.endpoint
 
 import java.time.Instant
-
 import zio._
 import zio.test._
-
 import zio.stream.ZStream
-
 import zio.schema.annotation.validate
 import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
-
 import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt, queryMultiValue, queryMultiValueBool}
+import zio.http.codec.HttpCodec.{query, queryInt, queryMultiValue, queryMultiValueBool, queryMultiValueInt}
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.testEndpoint
 import zio.http.forms.Fixtures.formField
@@ -151,7 +147,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
         testRoutes(
           s"/users/$userId?key=${keys(0)}&key=${keys(1)}&key=${keys(2)}",
-          s"path(users, $userId, Some(${NonEmptyChunk.fromIterable(keys.head, keys.tail)}))",
+          s"path(users, $userId, Some(${Chunk.fromIterable(keys)}))",
         ) &&
         testRoutes(
           s"/users/$userId",
@@ -159,7 +155,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
         ) &&
         testRoutes(
           s"/users/$userId?key=",
-          s"path(users, $userId, Some(NonEmptyChunk()))",
+          s"path(users, $userId, Some(${Chunk.empty}))",
         )
       }
     },
@@ -181,11 +177,11 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
           testRoutes(
             s"/users/$userId?key=${keys(0)}&key=${keys(1)}&key=${keys(2)}&value=${values(0)}&value=${values(1)}",
-            s"path(users, $userId, NonEmptyChunk(${keys(0)}, ${keys(1)}, ${keys(2)}), NonEmptyChunk(${values(0)}, ${values(1)}))",
+            s"path(users, $userId, ${Chunk.fromIterable(keys)}, ${Chunk.fromIterable(values)})",
           ) &&
           testRoutes(
             s"/users/$userId?key=${keys(0)}&key=${keys(1)}&value=${values(0)}",
-            s"path(users, $userId, NonEmptyChunk(${keys(0)}, ${keys(1)}), NonEmptyChunk(${values(0)}))",
+            s"path(users, $userId, ${Chunk(keys(0), keys(1))}, ${Chunk(values(0))})",
           )
       }
     },
@@ -206,7 +202,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
         testRoutes(
           s"/users/$userId?multi=${multi(0)}&multi=${multi(1)}&single=$single",
-          s"path(users, $userId, NonEmptyChunk(${multi(0)}, ${multi(1)}), $single)",
+          s"path(users, $userId, ${Chunk.fromIterable(multi)}, $single)",
         )
       }
     },
@@ -227,15 +223,15 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
         testRoutes(
           s"/users/$userId?left=${left(0)}&left=${left(1)}",
-          s"path(users, $userId, Left(NonEmptyChunk(${left(0)}, ${left(1)})))",
+          s"path(users, $userId, Left(${Chunk.fromIterable(left)}))",
         ) &&
         testRoutes(
           s"/users/$userId?right=${right(0)}&right=${right(1)}",
-          s"path(users, $userId, Right(NonEmptyChunk(${right(0)}, ${right(1)})))",
+          s"path(users, $userId, Right(${Chunk.fromIterable(right)}))",
         ) &&
         testRoutes(
           s"/users/$userId?right=${right(0)}&right=${right(1)}&left=${left(0)}&left=${left(1)}",
-          s"path(users, $userId, Left(NonEmptyChunk(${left(0)}, ${left(1)})))",
+          s"path(users, $userId, Left(${Chunk.fromIterable(left)}))",
         )
       }
     },
@@ -257,15 +253,15 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
           testRoutes(
             s"/users/$userId?left=${left(0)}&left=${left(1)}",
-            s"path(users, $userId, NonEmptyChunk(${left(0)}, ${left(1)}))",
+            s"path(users, $userId, ${Chunk.fromIterable(left)})",
           ) &&
           testRoutes(
             s"/users/$userId?right=${right(0)}&right=${right(1)}",
-            s"path(users, $userId, NonEmptyChunk(${right(0)}, ${right(1)}))",
+            s"path(users, $userId, ${Chunk.fromIterable(right)})",
           ) &&
           testRoutes(
             s"/users/$userId?right=${right(0)}&right=${right(1)}&left=${left(0)}&left=${left(1)}",
-            s"path(users, $userId, NonEmptyChunk(${left(0)}, ${left(1)}))",
+            s"path(users, $userId, ${Chunk.fromIterable(left)})",
           )
       }
     },
@@ -286,7 +282,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
         testRoutes(
           s"/users/$userId?left=${left(0)}&left=${left(1)}",
-          s"path(users, $userId, Left(NonEmptyChunk(${left(0)}, ${left(1)})))",
+          s"path(users, $userId, Left(${Chunk.fromIterable(left)}))",
         ) &&
         testRoutes(
           s"/users/$userId?right=$right",
@@ -294,9 +290,44 @@ object QueryParameterSpec extends ZIOHttpSpec {
         ) &&
         testRoutes(
           s"/users/$userId?right=$right&left=${left(0)}&left=${left(1)}",
-          s"path(users, $userId, Left(NonEmptyChunk(${left(0)}, ${left(1)})))",
+          s"path(users, $userId, Left(${Chunk.fromIterable(left)}))",
         )
       }
+    },
+    test("query parameters keys without values for multi value query") {
+      val testRoutes = testEndpoint(
+        Routes(
+          Endpoint(GET / "users")
+            .query(queryMultiValueInt("ints"))
+            .out[String]
+            .implement {
+              Handler.fromFunction { case queryParams =>
+                s"path(users, $queryParams)"
+              }
+            },
+        ),
+      ) _
+
+      testRoutes(
+        s"/users?ints",
+        s"path(users, ${Chunk.empty})",
+      )
+    },
+    test("no specified query parameters for multi value query") {
+      val testRoutes = Routes(
+        Endpoint(GET / "users")
+          .query(queryMultiValueInt("ints"))
+          .out[String]
+          .implement {
+            Handler.fromFunction { case queryParams =>
+              s"path(users, $queryParams)"
+            }
+          },
+      )
+
+      testRoutes.toHttpApp
+        .runZIO(Request.get("/users"))
+        .map(resp => assertTrue(resp.status == Status.BadRequest))
     },
   )
 }
