@@ -509,7 +509,6 @@ private[codec] object EncoderDecoder {
         val input = inputs(i)
 
         val inputCoerced = input.asInstanceOf[Chunk[Any]]
-        pprint.pprintln(inputCoerced)
 
         if (inputCoerced.isEmpty)
           queryParams.addAll(query.name, Chunk.empty[String])

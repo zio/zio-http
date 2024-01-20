@@ -553,7 +553,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   }
 
   private[http] final case class Status[A](codec: SimpleCodec[zio.http.Status, A], index: Int = 0)
-      extends Atom[HttpCodecType.Status, A]               {
+      extends Atom[HttpCodecType.Status, A]       {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 

@@ -15,22 +15,22 @@
  */
 
 package zio.http.codec
-import zio.{Chunk, NonEmptyChunk}
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Chunk, NonEmptyChunk}
 
 private[codec] trait QueryCodecs {
 
   def query(name: String): QueryCodec[String] =
-    toSingleValue(HttpCodec.Query(name, TextCodec.string))
+    toSingleValue(name, HttpCodec.Query(name, TextCodec.string))
 
   def queryBool(name: String): QueryCodec[Boolean] =
-    toSingleValue(HttpCodec.Query(name, TextCodec.boolean))
+    toSingleValue(name, HttpCodec.Query(name, TextCodec.boolean))
 
   def queryInt(name: String): QueryCodec[Int] =
-    toSingleValue(HttpCodec.Query(name, TextCodec.int))
+    toSingleValue(name, HttpCodec.Query(name, TextCodec.int))
 
   def queryTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
-    toSingleValue(HttpCodec.Query(name, codec))
+    toSingleValue(name, HttpCodec.Query(name, codec))
 
   def queryMultiValue(name: String): QueryCodec[Chunk[String]] =
     HttpCodec.Query(name, TextCodec.string)
@@ -44,7 +44,9 @@ private[codec] trait QueryCodecs {
   def queryMultiValueTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[Chunk[A]] =
     HttpCodec.Query(name, codec)
 
-  private def toSingleValue[A](queryCodec: QueryCodec[Chunk[A]]): QueryCodec[A] =
-    queryCodec.transform { (c: Chunk[A]) => c.head }(s => NonEmptyChunk(s))
-
+  private def toSingleValue[A](name: String, queryCodec: QueryCodec[Chunk[A]]): QueryCodec[A] =
+    queryCodec.transformOrFail {
+      case chunk: Chunk[A] if chunk.size == 1 => Right(chunk.head)
+      case chunk => Left(s"Expected single value for query parameter $name, but got ${chunk.size} instead")
+    }(s => Right(Chunk(s)))
 }
