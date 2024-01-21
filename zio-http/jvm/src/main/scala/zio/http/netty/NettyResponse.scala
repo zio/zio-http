@@ -34,7 +34,7 @@ object NettyResponse {
     val status       = Conversions.statusFromNetty(jRes.status())
     val headers      = Conversions.headersFromNetty(jRes.headers())
     val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
-    val data         = NettyBody.fromByteBuf(copiedBuffer, headers.header(Header.ContentType))
+    val data         = NettyBody.fromByteBufLazy(copiedBuffer, () => headers.header(Header.ContentType))
 
     Response(status, headers, data)
   }
