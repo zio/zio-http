@@ -44,7 +44,8 @@ object CodeGen {
       throw new Exception("Files should be rendered separately")
 
     case Code.File(_, path, imports, objects, caseClasses, enums) =>
-      s"package $basePackage.${path.mkString(".")}\n\n" +
+      s"package $basePackage${if (path.exists(_.nonEmpty)) path.mkString(if (basePackage.isEmpty) "" else ".", ".", "")
+        else ""}\n\n" +
         s"${imports.map(render(basePackage)).mkString("\n")}\n\n" +
         objects.map(render(basePackage)).mkString("\n") +
         caseClasses.map(render(basePackage)).mkString("\n") +
@@ -58,7 +59,11 @@ object CodeGen {
 
     case Code.Object(name, schema, endpoints, objects, caseClasses, enums) =>
       s"object $name {\n" +
-        (if (endpoints.nonEmpty) EndpointImports.map(render(basePackage)).mkString("", "\n", "\n") else "") +
+        (if (endpoints.nonEmpty)
+           (EndpointImports ++ (if (endpointWithChunk(endpoints)) List(Code.Import("zio.http._")) else Nil))
+             .map(render(basePackage))
+             .mkString("", "\n", "\n")
+         else "") +
         endpoints.map { case (k, v) => s"${render(basePackage)(k)}=${render(basePackage)(v)}" }
           .mkString("\n") +
         (if (schema) s"\n\n implicit val codec: Schema[$name] = DeriveSchema.gen[$name]" else "") +
@@ -137,6 +142,12 @@ object CodeGen {
     case scalaType =>
       throw new Exception(s"Unknown ScalaType: $scalaType")
   }
+
+  private def endpointWithChunk(endpoints: Map[Code.Field, Code.EndpointCode]) =
+    endpoints.exists { case (_, code) =>
+      code.inCode.inType.contains("Chunk[") ||
+      (code.outCodes ++ code.errorsCode).exists(_.outType.contains("Chunk["))
+    }
 
   def renderSegment(segment: Code.PathSegmentCode): String = segment match {
     case Code.PathSegmentCode(name, segmentType) =>
