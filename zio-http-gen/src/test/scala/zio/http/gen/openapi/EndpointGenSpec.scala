@@ -594,6 +594,68 @@ object EndpointGenSpec extends ZIOSpecDefault {
           )
           assertTrue(scala.files.head == expected)
         },
+        test("seq request") {
+          val endpoint = Endpoint(Method.GET / "api" / "v1" / "users").in[Chunk[User]]
+          val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
+          val scala    = EndpointGen.fromOpenAPI(openAPI)
+          val expected = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Chunk[User]"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          assertTrue(scala.files.head == expected)
+        },
+        test("seq response") {
+          val endpoint = Endpoint(Method.GET / "api" / "v1" / "users").out[Chunk[User]]
+          val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
+          val scala    = EndpointGen.fromOpenAPI(openAPI)
+          val expected = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = List(Code.OutCode.json("Chunk[User]", Status.Ok)),
+                    errorsCode = Nil,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          assertTrue(scala.files.head == expected)
+        },
       ),
       suite("data gen spec")(
         test("generates case class, companion object and schema") {
@@ -651,7 +713,10 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val expected = Code.File(
             List("component", "Payment.scala"),
             pkgPath = List("component"),
-            imports = List(Code.Import(name = "zio.schema._"), Code.Import(name = "zio.schema.annotation._")),
+            imports = List(
+              Code.Import(name = "zio.schema._"),
+              Code.Import(name = "zio.schema.annotation._"),
+            ),
             objects = List.empty,
             caseClasses = List.empty,
             enums = List(
@@ -688,7 +753,10 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val expected = Code.File(
             List("component", "PaymentNamedDiscriminator.scala"),
             pkgPath = List("component"),
-            imports = List(Code.Import(name = "zio.schema._"), Code.Import(name = "zio.schema.annotation._")),
+            imports = List(
+              Code.Import(name = "zio.schema._"),
+              Code.Import(name = "zio.schema.annotation._"),
+            ),
             objects = List.empty,
             caseClasses = List.empty,
             enums = List(
@@ -727,7 +795,10 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val expected = Code.File(
             List("component", "PaymentNoDiscriminator.scala"),
             pkgPath = List("component"),
-            imports = List(Code.Import(name = "zio.schema._"), Code.Import(name = "zio.schema.annotation._")),
+            imports = List(
+              Code.Import(name = "zio.schema._"),
+              Code.Import(name = "zio.schema.annotation._"),
+            ),
             objects = List.empty,
             caseClasses = List.empty,
             enums = List(
@@ -927,6 +998,116 @@ object EndpointGenSpec extends ZIOSpecDefault {
             enums = Nil,
           )
 
+          assertTrue(scala.files.head == expected)
+        },
+        test("generates case class with seq field for request") {
+          val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
+          val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)
+          val scala    = EndpointGen.fromOpenAPI(openAPI)
+          println(openAPI.toJsonPretty)
+          val expected = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                schema = false,
+                endpoints = Map(
+                  Code.Field("post") -> Code.EndpointCode(
+                    Method.POST,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("UserNameArray"),
+                    outCodes = List(Code.OutCode.json("User", Status.Ok)),
+                    errorsCode = Nil,
+                  ),
+                ),
+                objects = Nil,
+                caseClasses = Nil,
+                enums = Nil,
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          assertTrue(scala.files.head == expected)
+        },
+        test("generates code from openapi with examples") {
+          val openapiJson = """{
+                              |  "openapi": "3.0.3",
+                              |  "info": {
+                              |    "title": "Example",
+                              |    "description": "Example API documentation",
+                              |    "version": "1.0.0"
+                              |  },
+                              |  "paths": {
+                              |    "/foo": {
+                              |      "post": {
+                              |        "requestBody": {
+                              |          "content": {
+                              |            "application/json": {
+                              |              "schema": {
+                              |                "$ref": "#/components/schemas/Bar"
+                              |              }
+                              |            }
+                              |          }
+                              |        },
+                              |        "responses": {
+                              |          "200": {
+                              |            "description": "Success"
+                              |          }
+                              |        }
+                              |      }
+                              |    }
+                              |  },
+                              |  "components": {
+                              |    "schemas": {
+                              |      "Bar": {
+                              |        "type": "object",
+                              |        "properties": {
+                              |          "stringField": {
+                              |            "type": "string",
+                              |            "example": "abc"
+                              |          }
+                              |        }
+                              |      }
+                              |    }
+                              |  }
+                              |}
+  """.stripMargin
+          val openAPI     = OpenAPI.fromJson(openapiJson).toOption.get
+          val scala       = EndpointGen.fromOpenAPI(openAPI)
+          val expected    = Code.File(
+            List("", "Foo.scala"),
+            pkgPath = List(""),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Foo",
+                schema = false,
+                endpoints = Map(
+                  Code.Field("post") -> Code.EndpointCode(
+                    Method.POST,
+                    Code.PathPatternCode(segments = List(Code.PathSegmentCode("foo"))),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Bar"),
+                    outCodes = List(Code.OutCode.json("Unit", Status.Ok)),
+                    errorsCode = Nil,
+                  ),
+                ),
+                objects = Nil,
+                caseClasses = Nil,
+                enums = Nil,
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
           assertTrue(scala.files.head == expected)
         },
       ),
