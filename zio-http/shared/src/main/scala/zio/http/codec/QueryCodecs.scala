@@ -15,38 +15,37 @@
  */
 
 package zio.http.codec
+import zio.Chunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, NonEmptyChunk}
+
+import zio.http.codec.HttpCodec.Query.QueryParamHint
 
 private[codec] trait QueryCodecs {
 
-  def query(name: String): QueryCodec[String] =
-    toSingleValue(name, HttpCodec.Query(name, TextCodec.string))
+  def query(name: String): QueryCodec[String] = singleValueCodec(name, TextCodec.string)
 
-  def queryBool(name: String): QueryCodec[Boolean] =
-    toSingleValue(name, HttpCodec.Query(name, TextCodec.boolean))
+  def queryBool(name: String): QueryCodec[Boolean] = singleValueCodec(name, TextCodec.boolean)
 
-  def queryInt(name: String): QueryCodec[Int] =
-    toSingleValue(name, HttpCodec.Query(name, TextCodec.int))
+  def queryInt(name: String): QueryCodec[Int] = singleValueCodec(name, TextCodec.int)
 
-  def queryTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
-    toSingleValue(name, HttpCodec.Query(name, codec))
+  def queryTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] = singleValueCodec(name, codec)
 
-  def queryAll(name: String): QueryCodec[Chunk[String]] =
-    HttpCodec.Query(name, TextCodec.string)
+  def queryAll(name: String): QueryCodec[Chunk[String]] = multiValueCodec(name, TextCodec.string)
 
-  def queryAllBool(name: String): QueryCodec[Chunk[Boolean]] =
-    HttpCodec.Query(name, TextCodec.boolean)
+  def queryAllBool(name: String): QueryCodec[Chunk[Boolean]] = multiValueCodec(name, TextCodec.boolean)
 
-  def queryAllInt(name: String): QueryCodec[Chunk[Int]] =
-    HttpCodec.Query(name, TextCodec.int)
+  def queryAllInt(name: String): QueryCodec[Chunk[Int]] = multiValueCodec(name, TextCodec.int)
 
-  def queryAllTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[Chunk[A]] =
-    HttpCodec.Query(name, codec)
+  def queryAllTo[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[Chunk[A]] = multiValueCodec(name, codec)
 
-  private def toSingleValue[A](name: String, queryCodec: QueryCodec[Chunk[A]]): QueryCodec[A] =
-    queryCodec.transformOrFail {
-      case chunk if chunk.size == 1 => Right(chunk.head)
-      case chunk => Left(s"Expected single value for query parameter $name, but got ${chunk.size} instead")
-    }(s => Right(Chunk(s)))
+  private def singleValueCodec[A](name: String, textCodec: TextCodec[A]): QueryCodec[A] =
+    HttpCodec
+      .Query(name, textCodec, QueryParamHint.One)
+      .transformOrFail {
+        case chunk if chunk.size == 1 => Right(chunk.head)
+        case chunk => Left(s"Expected single value for query parameter $name, but got ${chunk.size} instead")
+      }(s => Right(Chunk(s)))
+
+  private def multiValueCodec[A](name: String, textCodec: TextCodec[A]): QueryCodec[Chunk[A]] =
+    HttpCodec.Query(name, textCodec, QueryParamHint.Many)
 }
