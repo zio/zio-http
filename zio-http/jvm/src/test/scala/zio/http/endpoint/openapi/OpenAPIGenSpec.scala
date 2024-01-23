@@ -1,17 +1,16 @@
 package zio.http.endpoint.openapi
 
 import zio.json.ast.Json
-import zio.json.{EncoderOps, JsonEncoder}
 import zio.test._
 import zio.{Scope, ZIO}
 
 import zio.schema.annotation.{caseName, discriminatorName, noDiscriminator, optionalField, transientField}
-import zio.schema.codec.JsonCodec
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Method.{GET, POST}
 import zio.http._
-import zio.http.codec.{Doc, HttpCodec, QueryCodec}
+import zio.http.codec.PathCodec.string
+import zio.http.codec.{ContentCodec, Doc, HttpCodec, QueryCodec}
 import zio.http.endpoint._
 
 object OpenAPIGenSpec extends ZIOSpecDefault {
@@ -114,6 +113,12 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     case class NestedThree(name: String) extends SimpleNestedSealedTrait
   }
 
+  case class Payload(content: String)
+
+  object Payload {
+    implicit val schema: Schema[Payload] = DeriveSchema.gen[Payload]
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
@@ -158,6 +163,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths" : {
                              |    "/static/{id}/{uuid}/{name}" : {
                              |      "get" : {
+                             |        "description" : "get path\n\n",
                              |        "parameters" : [
                              |
                              |            {
@@ -183,7 +189,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "deprecated" : false,
                              |            "schema" :
                              |              {
-                             |              "type" : "string",
+                             |              "type" :
+                             |                "string",
                              |              "format" : "uuid"
                              |            },
                              |            "explode" : false,
@@ -208,9 +215,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          {
                              |          "content" : {
                              |            "application/json" : {
-                             |              "schema" : {
-                             |              "$ref": "#/components/schemas/SimpleInputBody",
-                             |              "description" : "input body\n\n"
+                             |              "schema" :
+                             |                {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody",
+                             |                "description" : "input body\n\n"
                              |              }
                              |            }
                              |          },
@@ -219,32 +227,32 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |        "responses" : {
                              |          "200" :
                              |            {
-                             |            "description" : "",
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" : {
-                             |                "$ref": "#/components/schemas/SimpleOutputBody",
-                             |                "description" : "output body\n\n"
+                             |                "schema" :
+                             |                  {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody",
+                             |                  "description" : "output body\n\n"
                              |                }
                              |              }
                              |            }
                              |          },
                              |          "404" :
                              |            {
-                             |            "description" : "",
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" : {
-                             |                "$ref": "#/components/schemas/NotFoundError",
-                             |                "description" : "not found\n\n"
+                             |                "schema" :
+                             |                  {
+                             |                  "$ref" : "#/components/schemas/NotFoundError",
+                             |                  "description" : "not found\n\n"
+                             |                }
                              |              }
                              |            }
                              |          }
-                             |        }
-                             |      },
-                             |      "deprecated" : false
+                             |        },
+                             |        "deprecated" : false
+                             |      }
                              |    }
-                             |  }
                              |  },
                              |  "components" : {
                              |    "schemas" : {
@@ -353,7 +361,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |        "responses" : {
                              |          "200" :
                              |            {
-                             |            "description" : "",
                              |            "content" : {
                              |              "application/json" : {
                              |                "schema" : {"$ref": "#/components/schemas/SimpleOutputBody"}
@@ -362,7 +369,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          },
                              |          "404" :
                              |            {
-                             |            "description" : "",
                              |            "content" : {
                              |              "application/json" : {
                              |                "schema" : {"$ref": "#/components/schemas/NotFoundError"}
@@ -478,7 +484,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "200" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" : {"$ref": "#/components/schemas/SimpleOutputBody"}
@@ -487,7 +492,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          },
             |          "404" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" : {"$ref": "#/components/schemas/NotFoundError"}
@@ -620,7 +624,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "default" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" : { "anyOf" : [
@@ -770,7 +773,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "default" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
@@ -953,7 +955,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "default" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
@@ -1071,7 +1072,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
         val endpoint  = Endpoint(GET / "test-form")
           .outCodec(
             (HttpCodec.contentStream[Byte]("image", MediaType.image.png) ++
-              HttpCodec.content[String]("title").optional) ?? Doc.p("Test doc") ++
+              HttpCodec.content[String]("title").optional ?? Doc.p("Test doc")) ++
               HttpCodec.content[Int]("width") ++
               HttpCodec.content[Int]("height") ++
               HttpCodec.content[ImageMetadata]("metadata"),
@@ -1103,7 +1104,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |        "responses" : {
                          |          "default" :
                          |            {
-                         |            "description" : "",
                          |            "content" : {
                          |              "multipart/form-data" : {
                          |                "schema" :
@@ -1130,7 +1130,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |                        [
                          |                        "string",
                          |                        "null"
-                         |                      ]
+                         |                      ],
+                         |                      "description" : "Test doc\n\n"
                          |                    },
                          |                    "width" : {
                          |                      "type" :
@@ -1205,6 +1206,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  "paths" : {
             |    "/static/{id}/{uuid}/{name}" : {
             |      "get" : {
+            |        "description": "get path\n\n",
             |        "parameters" : [
             |
             |            {
@@ -1267,7 +1269,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "200" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
@@ -1280,7 +1281,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          },
             |          "404" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
@@ -1329,7 +1329,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "200" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
@@ -1341,7 +1340,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          },
             |          "404" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
@@ -1382,7 +1380,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "200" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
@@ -1394,7 +1391,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          },
             |          "404" :
             |            {
-            |            "description" : "",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
@@ -2356,6 +2352,220 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             ZIO.attemptBlockingIO(scala.io.Source.fromResource("endpoint/openapi/multiple-methods-on-same-path.json")),
           )(buf => ZIO.attemptBlockingIO(buf.close()).orDie)(buf => ZIO.attemptBlockingIO(buf.mkString))
         } yield assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("examples for combined input") {
+        val endpoint =
+          Endpoint(Method.GET / "root" / string("name"))
+            .in[Payload]
+            .out[String]
+            .examplesIn("hi" -> ("name_value", Payload("input")))
+
+        val openApi      =
+          OpenAPIGen.fromEndpoints(
+            title = "Combined input examples",
+            version = "1.0",
+            endpoint,
+          )
+        val json         = toJsonAst(openApi)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Combined input examples",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/root/{name}": {
+                             |      "get": {
+                             |        "parameters": [
+                             |          {
+                             |            "name": "name",
+                             |            "in": "path",
+                             |            "required": true,
+                             |            "deprecated": false,
+                             |            "schema": {
+                             |              "type": "string"
+                             |            },
+                             |            "explode": false,
+                             |            "examples": {
+                             |              "hi": {
+                             |                "value": "name_value"
+                             |              }
+                             |            },
+                             |            "style": "simple"
+                             |          }
+                             |        ],
+                             |        "requestBody": {
+                             |          "content": {
+                             |            "application/json": {
+                             |              "schema": {
+                             |                "$ref": "#/components/schemas/Payload"
+                             |              },
+                             |              "examples": {
+                             |                "hi": {
+                             |                  "value": {
+                             |                    "content": "input"
+                             |                  }
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "required": true
+                             |        },
+                             |        "responses": {
+                             |          "200": {
+                             |            "content": {
+                             |              "application/json": {
+                             |                "schema": {
+                             |                  "type": "string"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        },
+                             |        "deprecated": false
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "schemas": {
+                             |      "Payload": {
+                             |        "type": "object",
+                             |        "properties": {
+                             |          "content": {
+                             |            "type": "string"
+                             |          }
+                             |        },
+                             |        "additionalProperties": true,
+                             |        "required": [
+                             |          "content"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("example for alternated input") {
+        val endpoint     =
+          Endpoint(Method.GET / "root" / string("name"))
+            .inCodec(ContentCodec.content[Payload] | ContentCodec.content[String])
+            .out[String]
+            .examplesIn("hi" -> ("name_value", Left(Payload("input"))), "ho" -> ("name_value2", Right("input")))
+        val openApi      =
+          OpenAPIGen.fromEndpoints(
+            title = "Alternated input examples",
+            version = "1.0",
+            endpoint,
+          )
+        val json         = toJsonAst(openApi)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Alternated input examples",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/root/{name}" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |
+                             |            {
+                             |            "name" : "name",
+                             |            "in" : "path",
+                             |            "required" : true,
+                             |            "deprecated" : false,
+                             |            "schema" :
+                             |              {
+                             |              "type" :
+                             |                "string"
+                             |            },
+                             |            "explode" : false,
+                             |            "examples" : {
+                             |              "hi" :
+                             |                {
+                             |                "value" : "name_value"
+                             |              },
+                             |              "ho" :
+                             |                {
+                             |                "value" : "name_value2"
+                             |              }
+                             |            },
+                             |            "style" : "simple"
+                             |          }
+                             |        ],
+                             |        "requestBody" :
+                             |          {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" :
+                             |                {
+                             |                "anyOf" : [
+                             |                  {
+                             |                    "$ref" : "#/components/schemas/Payload"
+                             |                  },
+                             |                  {
+                             |                    "type" :
+                             |                      "string"
+                             |                  }
+                             |                ],
+                             |                "description" : ""
+                             |              },
+                             |              "examples" : {
+                             |                "hi" :
+                             |                  {
+                             |                  "value" : {
+                             |                    "content" : "input"
+                             |                  }
+                             |                },
+                             |                "ho" :
+                             |                  {
+                             |                  "value" : "input"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" :
+                             |            {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" :
+                             |                  {
+                             |                  "type" :
+                             |                    "string"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        },
+                             |        "deprecated" : false
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "Payload" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "content" : {
+                             |            "type" :
+                             |              "string"
+                             |          }
+                             |        },
+                             |        "additionalProperties" :
+                             |          true,
+                             |        "required" : [
+                             |          "content"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
       },
     )
 

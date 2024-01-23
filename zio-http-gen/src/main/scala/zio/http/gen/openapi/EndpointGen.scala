@@ -7,8 +7,8 @@ import zio.Chunk
 import zio.http.Method
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPI}
-import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.ScalaType
+import zio.http.gen.scala.{Code, CodeGen}
 
 object EndpointGen {
 
@@ -156,11 +156,13 @@ final case class EndpointGen() {
               mt.schema match {
                 case ReferenceOr.Or(s)                                   =>
                   s.withoutAnnotations match {
-                    case JsonSchema.Null                      => Inline.Null
-                    case JsonSchema.RefSchema(SchemaRef(ref)) => ref
-                    case schema if schema.isPrimitive         =>
-                      schemaToField(schema, openAPI, "unused", Chunk.empty).get.fieldType.toString
-                    case schema                               =>
+                    case JsonSchema.Null                                     =>
+                      Inline.Null
+                    case JsonSchema.RefSchema(SchemaRef(ref))                =>
+                      ref
+                    case schema if schema.isPrimitive || schema.isCollection =>
+                      CodeGen.render("")(schemaToField(schema, openAPI, "unused", Chunk.empty).get.fieldType)
+                    case schema                                              =>
                       val code = schemaToCode(schema, openAPI, Inline.RequestBodyType, Chunk.empty)
                         .getOrElse(
                           throw new Exception(s"Could not generate code for request body $schema"),
@@ -195,11 +197,11 @@ final case class EndpointGen() {
                 mt.schema match {
                   case ReferenceOr.Or(s)                                   =>
                     s.withoutAnnotations match {
-                      case JsonSchema.Null                      => Inline.Null
-                      case JsonSchema.RefSchema(SchemaRef(ref)) => ref
-                      case schema if schema.isPrimitive         =>
-                        schemaToField(schema, openAPI, "unused", Chunk.empty).get.fieldType.toString
-                      case schema                               =>
+                      case JsonSchema.Null                                     => Inline.Null
+                      case JsonSchema.RefSchema(SchemaRef(ref))                => ref
+                      case schema if schema.isPrimitive || schema.isCollection =>
+                        CodeGen.render("")(schemaToField(schema, openAPI, "unused", Chunk.empty).get.fieldType)
+                      case schema                                              =>
                         val code = schemaToCode(schema, openAPI, Inline.ResponseBodyType, Chunk.empty)
                           .getOrElse(
                             throw new Exception(s"Could not generate code for request body $schema"),
@@ -238,11 +240,11 @@ final case class EndpointGen() {
                 mt.schema match {
                   case ReferenceOr.Or(s)                                   =>
                     s.withoutAnnotations match {
-                      case JsonSchema.Null                      => Inline.Null
-                      case JsonSchema.RefSchema(SchemaRef(ref)) => ref
-                      case schema if schema.isPrimitive         =>
-                        schemaToField(schema, openAPI, "unused", Chunk.empty).get.fieldType.toString
-                      case schema                               =>
+                      case JsonSchema.Null                                     => Inline.Null
+                      case JsonSchema.RefSchema(SchemaRef(ref))                => ref
+                      case schema if schema.isPrimitive || schema.isCollection =>
+                        CodeGen.render("")(schemaToField(schema, openAPI, "unused", Chunk.empty).get.fieldType)
+                      case schema                                              =>
                         val code = schemaToCode(schema, openAPI, Inline.ResponseBodyType, Chunk.empty)
                           .getOrElse(
                             throw new Exception(s"Could not generate code for request body $schema"),
@@ -518,7 +520,7 @@ final case class EndpointGen() {
           Code.File(
             List("component", name.capitalize + ".scala"),
             pkgPath = List("component"),
-            imports = DataImports ++
+            imports = dataImports(caseClasses.flatMap(_.fields)) ++
               (if (noDiscriminator || caseNames.nonEmpty) List(Code.Import("zio.schema.annotation._")) else Nil),
             objects = Nil,
             caseClasses = Nil,
@@ -565,7 +567,7 @@ final case class EndpointGen() {
           Code.File(
             List("component", name.capitalize + ".scala"),
             pkgPath = List("component"),
-            imports = DataImports,
+            imports = dataImports(fields),
             objects = Nil,
             caseClasses = List(
               Code.CaseClass(
@@ -619,7 +621,7 @@ final case class EndpointGen() {
           Code.File(
             List("component", name.capitalize + ".scala"),
             pkgPath = List("component"),
-            imports = DataImports,
+            imports = dataImports(caseClasses.flatMap(_.fields)),
             objects = Nil,
             caseClasses = Nil,
             enums = List(
@@ -636,9 +638,10 @@ final case class EndpointGen() {
         )
       case JsonSchema.Number(_)                                             => None
       case JsonSchema.ArrayType(None)                                       => None
-      case JsonSchema.ArrayType(Some(schema)) => schemaToCode(schema, openAPI, name, annotations)
+      case JsonSchema.ArrayType(Some(schema))                               =>
+        schemaToCode(schema, openAPI, name, annotations)
       // TODO use additionalProperties
-      case JsonSchema.Object(properties, additionalProperties, required) =>
+      case JsonSchema.Object(properties, additionalProperties, required)    =>
         val fields            = properties.map { case (name, schema) =>
           val field = schemaToField(schema, openAPI, name, annotations)
             .getOrElse(
@@ -647,20 +650,24 @@ final case class EndpointGen() {
             .asInstanceOf[Code.Field]
           if (required.contains(name)) field else field.copy(fieldType = field.fieldType.opt)
         }.toList
-        val nested            = properties.collect {
-          case (name, schema) if !schema.isInstanceOf[JsonSchema.RefSchema] && !schema.isPrimitive =>
-            schemaToCode(schema, openAPI, name.capitalize, Chunk.empty)
-              .getOrElse(
-                throw new Exception(s"Could not generate code for field $name of object $name"),
-              )
-        }
+        val nested            =
+          properties.map { case (name, schema) => name -> schema.withoutAnnotations }.collect {
+            case (name, schema)
+                if !schema.isInstanceOf[JsonSchema.RefSchema]
+                  && !schema.isPrimitive
+                  && !schema.isCollection =>
+              schemaToCode(schema, openAPI, name.capitalize, Chunk.empty)
+                .getOrElse(
+                  throw new Exception(s"Could not generate code for field $name of object $name"),
+                )
+          }
         val nestedObjects     = nested.flatMap(_.objects)
         val nestedCaseClasses = nested.flatMap(_.caseClasses)
         Some(
           Code.File(
             List("component", name.capitalize + ".scala"),
             pkgPath = List("component"),
-            imports = DataImports,
+            imports = dataImports(fields),
             objects = nestedObjects.toList,
             caseClasses = List(
               Code.CaseClass(
@@ -770,4 +777,9 @@ final case class EndpointGen() {
         Some(Code.Field(name, ScalaType.JsonAST))
     }
   }
+
+  private def dataImports(fields: Iterable[Code.Field]) = {
+    if (fields.exists(_.fieldType.isInstanceOf[Code.Collection.Seq])) List(Code.Import("zio._"))
+    else Nil
+  } ++ DataImports
 }

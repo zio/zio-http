@@ -42,10 +42,10 @@ private[http] object Mechanic {
         val (api2, resultIndices) = indexedImpl(api, indices)
         (TransformOrFail(api2, f, g).asInstanceOf[HttpCodec[R, A]], resultIndices)
 
-      case Annotated(api, _) => indexedImpl(api.asInstanceOf[HttpCodec[R, A]], indices)
-      case Empty             => (Empty.asInstanceOf[HttpCodec[R, A]], indices)
-      case Halt              => (Halt.asInstanceOf[HttpCodec[R, A]], indices)
-      case Fallback(_, _, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
+      case Annotated(api, _)    => indexedImpl(api.asInstanceOf[HttpCodec[R, A]], indices)
+      case Empty                => (Empty.asInstanceOf[HttpCodec[R, A]], indices)
+      case Halt                 => (Halt.asInstanceOf[HttpCodec[R, A]], indices)
+      case Fallback(_, _, _, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
 
   def makeConstructor[R, A](
@@ -101,7 +101,7 @@ private[http] object Mechanic {
 
       case Halt => throw HaltException
 
-      case Fallback(_, _, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
+      case Fallback(_, _, _, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
   }
 
@@ -143,7 +143,7 @@ private[http] object Mechanic {
 
       case Halt => (_, _) => ()
 
-      case Fallback(_, _, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
+      case Fallback(_, _, _, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
   }
 }

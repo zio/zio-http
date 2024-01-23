@@ -20,7 +20,6 @@ import scala.language.implicitConversions
 import zio.Chunk
 
 import zio.http.Path
-import zio.http.codec.SegmentCodec.{Annotated, MetaData}
 
 sealed trait SegmentCodec[A] { self =>
   private var _hashCode: Int  = 0
@@ -28,24 +27,7 @@ sealed trait SegmentCodec[A] { self =>
 
   final type Type = A
 
-  def ??(doc: Doc): SegmentCodec[A] =
-    SegmentCodec.Annotated(self, Chunk(MetaData.Documented(doc)))
-
-  def example(name: String, example: A): SegmentCodec[A] =
-    SegmentCodec.Annotated(self, Chunk(MetaData.Examples(Map(name -> example))))
-
-  def examples(examples: (String, A)*): SegmentCodec[A] =
-    SegmentCodec.Annotated(self, Chunk(MetaData.Examples(examples.toMap)))
-
-  lazy val doc: Doc = self.asInstanceOf[SegmentCodec[_]] match {
-    case SegmentCodec.Annotated(_, annotations) =>
-      annotations.collectFirst { case MetaData.Documented(doc) => doc }.getOrElse(Doc.Empty)
-    case _                                      =>
-      Doc.Empty
-  }
-
   override def equals(that: Any): Boolean = that match {
-    case Annotated(codec, _)   => codec == this
     case that: SegmentCodec[_] => (this.getClass == that.getClass) && (this.render == that.render)
     case _                     => false
   }
@@ -69,15 +51,14 @@ sealed trait SegmentCodec[A] { self =>
 
   final def render: String = {
     if (_render == "") _render = self.asInstanceOf[SegmentCodec[_]] match {
-      case _: SegmentCodec.Empty.type       => s""
-      case SegmentCodec.Literal(value)      => s"/$value"
-      case SegmentCodec.IntSeg(name)        => s"/{$name}"
-      case SegmentCodec.LongSeg(name)       => s"/{$name}"
-      case SegmentCodec.Text(name)          => s"/{$name}"
-      case SegmentCodec.BoolSeg(name)       => s"/{$name}"
-      case SegmentCodec.UUID(name)          => s"/{$name}"
-      case _: SegmentCodec.Trailing.type    => s"/..."
-      case SegmentCodec.Annotated(codec, _) => codec.render
+      case _: SegmentCodec.Empty.type    => s""
+      case SegmentCodec.Literal(value)   => s"/$value"
+      case SegmentCodec.IntSeg(name)     => s"/{$name}"
+      case SegmentCodec.LongSeg(name)    => s"/{$name}"
+      case SegmentCodec.Text(name)       => s"/{$name}"
+      case SegmentCodec.BoolSeg(name)    => s"/{$name}"
+      case SegmentCodec.UUID(name)       => s"/{$name}"
+      case _: SegmentCodec.Trailing.type => s"/..."
     }
     _render
   }
@@ -111,31 +92,6 @@ object SegmentCodec          {
   def trailing: SegmentCodec[Path] = SegmentCodec.Trailing
 
   def uuid(name: String): SegmentCodec[java.util.UUID] = SegmentCodec.UUID(name)
-
-  final case class Annotated[A](codec: SegmentCodec[A], annotations: Chunk[MetaData[A]]) extends SegmentCodec[A] {
-
-    override def equals(that: Any): Boolean =
-      codec.equals(that)
-    override def ??(doc: Doc): Annotated[A] =
-      copy(annotations = annotations :+ MetaData.Documented(doc))
-
-    override def example(name: String, example: A): Annotated[A] =
-      copy(annotations = annotations :+ MetaData.Examples(Map(name -> example)))
-
-    override def examples(examples: (String, A)*): Annotated[A] =
-      copy(annotations = annotations :+ MetaData.Examples(examples.toMap))
-
-    def format(value: A): Path = codec.format(value)
-
-    def matches(segments: Chunk[String], index: Int): Int = codec.matches(segments, index)
-  }
-
-  sealed trait MetaData[A] extends Product with Serializable
-
-  object MetaData {
-    final case class Documented[A](value: Doc)             extends MetaData[A]
-    final case class Examples[A](examples: Map[String, A]) extends MetaData[A]
-  }
 
   private[http] case object Empty extends SegmentCodec[Unit] { self =>
 

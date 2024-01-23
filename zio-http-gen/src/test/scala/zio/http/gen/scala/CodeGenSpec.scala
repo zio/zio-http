@@ -12,6 +12,7 @@ import zio.test._
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
+import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.Inline
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.EndpointGen
@@ -149,6 +150,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
         val tempDir = Files.createTempDirectory("codegen")
+        println(tempDir)
         CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(
@@ -206,12 +208,27 @@ object CodeGenSpec extends ZIOSpecDefault {
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
         val tempDir = Files.createTempDirectory("codegen")
+        println(tempDir)
         CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(
           tempDir,
           "test/component/Values.scala",
           "/GeneratedValues.scala",
+        )
+      },
+      test("Endpoint with array field in input") {
+        val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
+        val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)
+        val code     = EndpointGen.fromOpenAPI(openAPI)
+
+        val tempDir = Files.createTempDirectory("codegen")
+        CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
+
+        fileShouldBe(
+          tempDir,
+          "test/component/UserNameArray.scala",
+          "/GeneratedUserNameArray.scala",
         )
       },
     ) @@ java11OrNewer @@ flaky // Downloading scalafmt on CI is flaky

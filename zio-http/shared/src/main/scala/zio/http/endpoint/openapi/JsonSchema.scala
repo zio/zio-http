@@ -191,6 +191,11 @@ sealed trait JsonSchema extends Product with Serializable { self =>
     case _                     => false
   }
 
+  def isCollection: Boolean = self match {
+    case _: JsonSchema.ArrayType => true
+    case _                       => false
+  }
+
 }
 
 object JsonSchema {
@@ -297,39 +302,15 @@ object JsonSchema {
 
   def fromSegmentCodec(codec: SegmentCodec[_]): JsonSchema =
     codec match {
-      case SegmentCodec.BoolSeg(_)                    => JsonSchema.Boolean
-      case SegmentCodec.IntSeg(_)                     => JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)
-      case SegmentCodec.LongSeg(_)                    => JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)
-      case SegmentCodec.Text(_)                       => JsonSchema.String()
-      case SegmentCodec.UUID(_)                       => JsonSchema.String(JsonSchema.StringFormat.UUID)
-      case SegmentCodec.Annotated(codec, annotations) =>
-        fromSegmentCodec(codec).description(segmentDoc(annotations)).examples(segmentExamples(codec, annotations))
+      case SegmentCodec.BoolSeg(_) => JsonSchema.Boolean
+      case SegmentCodec.IntSeg(_)  => JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)
+      case SegmentCodec.LongSeg(_) => JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)
+      case SegmentCodec.Text(_)    => JsonSchema.String()
+      case SegmentCodec.UUID(_)    => JsonSchema.String(JsonSchema.StringFormat.UUID)
       case SegmentCodec.Literal(_) => throw new IllegalArgumentException("Literal segment is not supported.")
       case SegmentCodec.Empty      => throw new IllegalArgumentException("Empty segment is not supported.")
       case SegmentCodec.Trailing   => throw new IllegalArgumentException("Trailing segment is not supported.")
     }
-
-  private def segmentDoc(annotations: Chunk[SegmentCodec.MetaData[_]]) =
-    annotations.collect { case SegmentCodec.MetaData.Documented(doc) => doc }.reduceOption(_ + _).map(_.toCommonMark)
-
-  private def segmentExamples(codec: SegmentCodec[_], annotations: Chunk[SegmentCodec.MetaData[_]]) =
-    Chunk.fromIterable(
-      annotations.collect { case SegmentCodec.MetaData.Examples(example) => example.values }.flatten.map { value =>
-        codec match {
-          case SegmentCodec.Empty           => throw new IllegalArgumentException("Empty segment is not supported.")
-          case SegmentCodec.Literal(_)      => throw new IllegalArgumentException("Literal segment is not supported.")
-          case SegmentCodec.BoolSeg(_)      => Json.Bool(value.asInstanceOf[Boolean])
-          case SegmentCodec.IntSeg(_)       => Json.Num(value.asInstanceOf[Int])
-          case SegmentCodec.LongSeg(_)      => Json.Num(value.asInstanceOf[Long])
-          case SegmentCodec.Text(_)         => Json.Str(value.asInstanceOf[java.lang.String])
-          case SegmentCodec.UUID(_)         => Json.Str(value.asInstanceOf[java.util.UUID].toString)
-          case SegmentCodec.Trailing        =>
-            throw new IllegalArgumentException("Trailing segment is not supported.")
-          case SegmentCodec.Annotated(_, _) =>
-            throw new IllegalStateException("Annotated SegmentCodec should never be nested.")
-        }
-      },
-    )
 
   def fromZSchemaMulti(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchemas = {
     val ref = nominal(schema, refType)

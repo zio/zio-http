@@ -23,7 +23,6 @@ import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -93,7 +92,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     if (self eq HttpCodec.Halt) that.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
     else {
       HttpCodec
-        .Fallback(self, that, HttpCodec.Fallback.Condition.IsHttpCodecError)
+        .Fallback(self, that, alternator, HttpCodec.Fallback.Condition.IsHttpCodecError)
         .transform[alternator.Out](either => either.fold(alternator.left(_), alternator.right(_)))(value =>
           alternator
             .unleft(value)
@@ -288,7 +287,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       if (self eq HttpCodec.Halt) HttpCodec.empty.asInstanceOf[HttpCodec[AtomTypes, Option[Value]]]
       else {
         HttpCodec
-          .Fallback(self, HttpCodec.empty, HttpCodec.Fallback.Condition.isMissingDataOnly)
+          .Fallback(self, HttpCodec.empty, Alternator.either, HttpCodec.Fallback.Condition.isMissingDataOnly)
           .transform[Option[Value]](either => either.fold(Some(_), _ => None))(_.toLeft(()))
       },
       Metadata.Optional(),
@@ -633,12 +632,21 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       }
   }
 
-  sealed trait Metadata[Value]
+  sealed trait Metadata[Value] {
+    def transform[Value2](f: Value => Value2): Metadata[Value2] =
+      this match {
+        case Metadata.Named(name)     => Metadata.Named(name)
+        case Metadata.Optional()      => Metadata.Optional()
+        case Metadata.Examples(ex)    => Metadata.Examples(ex.map { case (k, v) => k -> f(v) })
+        case Metadata.Documented(doc) => Metadata.Documented(doc)
+        case Metadata.Deprecated(doc) => Metadata.Deprecated(doc)
+      }
+  }
 
   object Metadata {
     final case class Named[A](name: String) extends Metadata[A]
 
-    final case class Optional[A]() extends Metadata[Option[A]]
+    final case class Optional[A]() extends Metadata[A]
 
     final case class Examples[A](examples: Map[String, A]) extends Metadata[A]
 
@@ -673,6 +681,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   private[http] final case class Fallback[AtomType, A, B](
     left: HttpCodec[AtomType, A],
     right: HttpCodec[AtomType, B],
+    alternator: Alternator[A, B],
     condition: Fallback.Condition,
   ) extends HttpCodec[AtomType, Either[A, B]] {
     type Left  = A
@@ -720,37 +729,102 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   private[http] def flattenFallbacks[AtomTypes, A](
     api: HttpCodec[AtomTypes, A],
   ): Chunk[(HttpCodec[AtomTypes, A], Fallback.Condition)] = {
-    def rewrite[T, B](api: HttpCodec[T, B]): Chunk[(HttpCodec[T, B], Fallback.Condition)] =
+
+    def rewrite[T, B](
+      api: HttpCodec[T, B],
+      annotations: Chunk[HttpCodec.Metadata[B]],
+    ): Chunk[(HttpCodec[T, B], Fallback.Condition)] =
       api match {
-        case fallback @ HttpCodec.Fallback(left, right, condition) =>
-          rewrite[T, fallback.Left](left).map { case (codec, condition) =>
+        case fallback @ HttpCodec.Fallback(left, right, alternator, condition) =>
+          rewrite[T, fallback.Left](left, reduceExamplesLeft(annotations, alternator)).map { case (codec, condition) =>
             codec.toLeft[fallback.Right] -> condition
           } ++
-            rewrite[T, fallback.Right](right).map { case (codec, _) =>
+            rewrite[T, fallback.Right](right, reduceExamplesRight(annotations, alternator)).map { case (codec, _) =>
               codec.toRight[fallback.Left] -> condition
             }
 
         case transform @ HttpCodec.TransformOrFail(codec, f, g) =>
-          rewrite[T, transform.In](codec).map { case (codec, condition) =>
+          rewrite[T, transform.In](
+            codec,
+            annotations.map(_.transform { v =>
+              g(v) match {
+                case Left(error)  => throw new Exception(error)
+                case Right(value) => value
+              }
+            }),
+          ).map { case (codec, condition) =>
             HttpCodec.TransformOrFail(codec, f, g) -> condition
           }
 
         case combine @ HttpCodec.Combine(left, right, combiner) =>
           for {
-            (l, lCondition) <- rewrite[T, combine.Left](left)
-            (r, rCondition) <- rewrite[T, combine.Right](right)
+            (l, lCondition) <- rewrite[T, combine.Left](left, reduceExamplesLeft(annotations, combiner))
+            (r, rCondition) <- rewrite[T, combine.Right](right, reduceExamplesRight(annotations, combiner))
           } yield HttpCodec.Combine(l, r, combiner) -> lCondition.combine(rCondition)
 
         case HttpCodec.Annotated(in, metadata) =>
-          rewrite[T, B](in).map { case (codec, missingDataOnly) => codec.annotate(metadata) -> missingDataOnly }
+          rewrite[T, B](in, metadata +: annotations)
 
         case HttpCodec.Empty => Chunk.single(HttpCodec.Empty -> Fallback.Condition.IsHttpCodecError)
 
         case HttpCodec.Halt => Chunk.empty
 
-        case atom: Atom[_, _] => Chunk.single(atom -> Fallback.Condition.IsHttpCodecError)
+        case atom: Atom[_, _] =>
+          Chunk.single(annotations.foldLeft[HttpCodec[T, B]](atom)(_ annotate _) -> Fallback.Condition.IsHttpCodecError)
       }
 
-    rewrite(api)
+    rewrite(api, Chunk.empty)
   }
+
+  private[http] def reduceExamplesLeft[T, L, R](
+    annotations: Chunk[HttpCodec.Metadata[T]],
+    combiner: Combiner[L, R],
+  ): Chunk[HttpCodec.Metadata[L]] =
+    annotations.map {
+      case HttpCodec.Metadata.Examples(examples) =>
+        HttpCodec.Metadata.Examples(examples.map { case (name, value) =>
+          name -> combiner.separate(value.asInstanceOf[combiner.Out])._1
+        })
+      case other                                 =>
+        other.asInstanceOf[HttpCodec.Metadata[L]]
+    }
+
+  private[http] def reduceExamplesLeft[T, L, R](
+    annotations: Chunk[HttpCodec.Metadata[T]],
+    alternator: Alternator[L, R],
+  ): Chunk[HttpCodec.Metadata[L]] =
+    annotations.map {
+      case HttpCodec.Metadata.Examples(examples) =>
+        HttpCodec.Metadata.Examples(examples.flatMap { case (name, value) =>
+          alternator.unleft(value.asInstanceOf[alternator.Out]).map(name -> _)
+        })
+      case other                                 =>
+        other.asInstanceOf[HttpCodec.Metadata[L]]
+    }
+
+  private[http] def reduceExamplesRight[T, L, R](
+    annotations: Chunk[HttpCodec.Metadata[T]],
+    combiner: Combiner[L, R],
+  ): Chunk[HttpCodec.Metadata[R]] =
+    annotations.map {
+      case HttpCodec.Metadata.Examples(examples) =>
+        HttpCodec.Metadata.Examples(examples.map { case (name, value) =>
+          name -> combiner.separate(value.asInstanceOf[combiner.Out])._2
+        })
+      case other                                 =>
+        other.asInstanceOf[HttpCodec.Metadata[R]]
+    }
+
+  private[http] def reduceExamplesRight[T, L, R](
+    annotations: Chunk[HttpCodec.Metadata[T]],
+    alternator: Alternator[L, R],
+  ): Chunk[HttpCodec.Metadata[R]] =
+    annotations.map {
+      case HttpCodec.Metadata.Examples(examples) =>
+        HttpCodec.Metadata.Examples(examples.flatMap { case (name, value) =>
+          alternator.unright(value.asInstanceOf[alternator.Out]).map(name -> _)
+        })
+      case other                                 =>
+        other.asInstanceOf[HttpCodec.Metadata[R]]
+    }
 }
