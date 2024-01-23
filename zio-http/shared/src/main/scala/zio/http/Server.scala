@@ -391,8 +391,11 @@ object Server extends ServerPlatformSpecific {
     override def install[R](httpApp: HttpApp[R])(implicit
       trace: Trace,
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
-
+      ZIO.environment[R].flatMap{environment =>
+      ZIO.logInfo(s"Starting ZIO HTTP server on port $bindPort...") *>
+        driver.addApp(httpApp, environment) <* // Existing installation logic
+        ZIO.logInfo(s"ZIO HTTP server started on port $bindPort")
+    }
     override def port: Int = bindPort
   }
 }
