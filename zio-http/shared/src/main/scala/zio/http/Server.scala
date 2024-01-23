@@ -329,10 +329,13 @@ object Server extends ServerPlatformSpecific {
       }
   }
 
-  def serve[R](
-    httpApp: HttpApp[R],
-  )(implicit trace: Trace): URIO[R with Server, Nothing] =
-    install(httpApp) *> ZIO.never
+ def serve[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Nothing] =
+  ZIO.logInfo("Starting the server...") *>
+    install(httpApp) <* 
+    ZIO.service[Server].flatMap { server =>
+      ZIO.logInfo(s"ZIO HTTP server is running at port ${server.port}") *>
+        ZIO.never
+    }
 
   def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
@@ -391,11 +394,8 @@ object Server extends ServerPlatformSpecific {
     override def install[R](httpApp: HttpApp[R])(implicit
       trace: Trace,
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap{environment =>
-      ZIO.logInfo(s"Starting ZIO HTTP server on port $bindPort...") *>
-        driver.addApp(httpApp, environment) <* // Existing installation logic
-        ZIO.logInfo(s"ZIO HTTP server started on port $bindPort")
-    }
+      ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
+
     override def port: Int = bindPort
   }
 }
