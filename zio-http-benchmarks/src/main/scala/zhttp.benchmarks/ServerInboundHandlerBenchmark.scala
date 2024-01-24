@@ -48,6 +48,8 @@ class ServerInboundHandlerBenchmark {
   private val testUrl      = s"$baseUrl/$testEndPoint"
   private val testRequest  = basicRequest.get(uri"$testUrl")
 
+  private val testContentTypeRequest = testRequest.contentType("application/json; charset=utf8")
+
   private val shutdownResponse = Response.text("shutting down")
   private val shutdownEndpoint = "shutdown"
   private val shutdownUrl      = s"http://localhost:8080/$shutdownEndpoint"
@@ -104,6 +106,13 @@ class ServerInboundHandlerBenchmark {
   @Benchmark
   def benchmarkSimple(): Unit = {
     val statusCode = testRequest.send(backend).code
+    if (!statusCode.isSuccess)
+      throw new RuntimeException(s"Received unexpected status code ${statusCode.code}")
+  }
+
+  @Benchmark
+  def benchmarkSimpleContentType(): Unit = {
+    val statusCode = testContentTypeRequest.send(backend).code
     if (!statusCode.isSuccess)
       throw new RuntimeException(s"Received unexpected status code ${statusCode.code}")
   }
