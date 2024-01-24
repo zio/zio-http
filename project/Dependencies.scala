@@ -8,7 +8,7 @@ object Dependencies {
   val ScalaCompactCollectionVersion = "2.11.0"
   val ZioVersion                    = "2.0.21"
   val ZioCliVersion                 = "0.5.0"
-  val ZioSchemaVersion              = "0.4.16"
+  val ZioSchemaVersion              = "0.4.17"
   val SttpVersion                   = "3.3.18"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
@@ -35,8 +35,8 @@ object Dependencies {
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
   val `zio-streams`         = "dev.zio" %% "zio-streams"         % ZioVersion
   val `zio-schema`          = "dev.zio" %% "zio-schema"          % ZioSchemaVersion
-  val `zio-schema-json`     = "dev.zio" %% "zio-schema-json"     % ZioSchemaVersion
-  val `zio-schema-protobuf` = "dev.zio" %% "zio-schema-protobuf" % ZioSchemaVersion
+  val `zio-schema-json`     = "dev.zio" %% "zio-schema-json"     % "0.4.16"
+  val `zio-schema-protobuf` = "dev.zio" %% "zio-schema-protobuf" % "0.4.16"
   val `zio-test`            = "dev.zio" %% "zio-test"            % ZioVersion % "test"
   val `zio-test-sbt`        = "dev.zio" %% "zio-test-sbt"        % ZioVersion % "test"
 
