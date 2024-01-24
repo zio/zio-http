@@ -183,8 +183,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       "dev.zio"           %%% "zio"                  % ZioVersion,
       "dev.zio"           %%% "zio-streams"          % ZioVersion,
       "dev.zio"           %%% "zio-schema"           % ZioSchemaVersion,
-      "dev.zio"           %%% "zio-schema-json"      % "0.4.16",
-      "dev.zio"           %%% "zio-schema-protobuf"  % "0.4.16",
+      "dev.zio"           %%% "zio-schema-json"      % ZioSchemaVersion,
+      "dev.zio"           %%% "zio-schema-protobuf"  % ZioSchemaVersion,
     ),
   )
 
