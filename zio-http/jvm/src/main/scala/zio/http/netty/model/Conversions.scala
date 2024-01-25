@@ -59,10 +59,10 @@ private[netty] object Conversions {
 
   def headersToNetty(headers: Headers): HttpHeaders =
     headers match {
-      case Headers.FromIterable(_)     => encodeHeaderListToNetty(headers)
-      case Headers.Native(value, _, _) => value.asInstanceOf[HttpHeaders]
-      case Headers.Concat(_, _)        => encodeHeaderListToNetty(headers)
-      case Headers.Empty               => new DefaultHttpHeaders()
+      case Headers.FromIterable(_)        => encodeHeaderListToNetty(headers)
+      case Headers.Native(value, _, _, _) => value.asInstanceOf[HttpHeaders]
+      case Headers.Concat(_, _)           => encodeHeaderListToNetty(headers)
+      case Headers.Empty                  => new DefaultHttpHeaders()
     }
 
   private def nettyHeadersIterator(headers: HttpHeaders): Iterator[Header] =
@@ -83,6 +83,7 @@ private[netty] object Conversions {
       (headers: HttpHeaders) => nettyHeadersIterator(headers),
       // NOTE: Netty's headers.get is case-insensitive
       (headers: HttpHeaders, key: CharSequence) => headers.get(key),
+      (headers: HttpHeaders, key: CharSequence) => headers.contains(key),
     )
 
   private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {

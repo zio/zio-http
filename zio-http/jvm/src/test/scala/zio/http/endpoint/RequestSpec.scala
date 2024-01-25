@@ -16,15 +16,11 @@
 
 package zio.http.endpoint
 
-import java.time.Instant
-
 import zio._
 import zio.test._
 
 import zio.stream.ZStream
 
-import zio.schema.annotation.validate
-import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Header.ContentType
@@ -33,8 +29,6 @@ import zio.http._
 import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.{extractStatus, testEndpoint, testEndpointWithHeaders}
-import zio.http.endpoint._
-import zio.http.forms.Fixtures.formField
 
 object RequestSpec extends ZIOHttpSpec {
   def spec = suite("RequestSpec")(

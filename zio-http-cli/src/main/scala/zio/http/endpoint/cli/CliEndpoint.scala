@@ -97,23 +97,27 @@ private[cli] object CliEndpoint {
 
   private def fromAtom[Input](input: HttpCodec.Atom[_, Input]): CliEndpoint = {
     input match {
-      case HttpCodec.Content(schema, mediaType, nameOption, _) =>
+      case HttpCodec.Content(codec, nameOption, _) =>
         val name = nameOption match {
           case Some(x) => x
           case None    => ""
         }
-        CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
+        CliEndpoint(body = HttpOptions.Body(name, codec.defaultMediaType, codec.schema) :: List())
 
-      case HttpCodec.ContentStream(schema, mediaType, nameOption, _) =>
+      case HttpCodec.ContentStream(codec, nameOption, _) =>
         val name = nameOption match {
           case Some(x) => x
           case None    => ""
         }
-        CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
+        CliEndpoint(body = HttpOptions.Body(name, codec.defaultMediaType, codec.schema) :: List())
 
-      case HttpCodec.Header(name, textCodec, _) =>
+      case HttpCodec.Header(name, textCodec, _) if textCodec.isInstanceOf[TextCodec.Constant] =>
+        CliEndpoint(headers =
+          HttpOptions.HeaderConstant(name, textCodec.asInstanceOf[TextCodec.Constant].string) :: List(),
+        )
+      case HttpCodec.Header(name, textCodec, _)                                               =>
         CliEndpoint(headers = HttpOptions.Header(name, textCodec) :: List())
-      case HttpCodec.Method(codec, _)           =>
+      case HttpCodec.Method(codec, _)                                                         =>
         codec.asInstanceOf[SimpleCodec[_, _]] match {
           case SimpleCodec.Specified(method: Method) =>
             CliEndpoint(methods = method)

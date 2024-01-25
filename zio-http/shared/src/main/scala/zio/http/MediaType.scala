@@ -28,12 +28,17 @@ final case class MediaType(
   parameters: Map[String, String] = Map.empty,
 ) {
   lazy val fullType: String = s"$mainType/$subType"
+
+  def matches(other: MediaType): Boolean =
+    (mainType == "*" || other.mainType == "*" || mainType.equalsIgnoreCase(other.mainType)) &&
+      (subType == "*" || other.subType == "*" || subType.equalsIgnoreCase(other.subType)) &&
+      parameters.forall { case (key, value) => other.parameters.get(key).contains(value) }
 }
 
 object MediaType extends MediaTypes {
-  private val extensionMap: Map[String, MediaType]   = allMediaTypes.flatMap(m => m.fileExtensions.map(_ -> m)).toMap
-  private val contentTypeMap: Map[String, MediaType] = allMediaTypes.map(m => m.fullType -> m).toMap
-  val mainTypeMap                                    = allMediaTypes.map(m => m.mainType -> m).toMap
+  private val extensionMap: Map[String, MediaType] = allMediaTypes.flatMap(m => m.fileExtensions.map(_ -> m)).toMap
+  private[http] val contentTypeMap: Map[String, MediaType] = allMediaTypes.map(m => m.fullType -> m).toMap
+  val mainTypeMap                                          = allMediaTypes.map(m => m.mainType -> m).toMap
 
   def forContentType(contentType: String): Option[MediaType] = {
     val index = contentType.indexOf(';')
@@ -66,6 +71,20 @@ object MediaType extends MediaTypes {
         )
       } else None
     } else None
+  }
+
+  private[http] def unsafeParseCustomMediaType(customMediaType: String): MediaType = {
+    val contentTypeParts = customMediaType.split('/')
+    if (contentTypeParts.length == 2) {
+      val subtypeParts = contentTypeParts(1).split(';')
+      if (subtypeParts.length >= 1) {
+        MediaType(
+          mainType = contentTypeParts.head,
+          subType = subtypeParts.head,
+          parameters = if (subtypeParts.length >= 2) parseOptionalParameters(subtypeParts.tail) else Map.empty,
+        )
+      } else throw new IllegalArgumentException(s"Invalid media type $customMediaType")
+    } else throw new IllegalArgumentException(s"Invalid media type $customMediaType")
   }
 
   private def parseOptionalParameters(parameters: Array[String]): Map[String, String] = {

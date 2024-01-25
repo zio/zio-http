@@ -1,10 +1,7 @@
 package zio.http.endpoint.cli
 
 import zio.ZNothing
-import zio.cli._
 import zio.test._
-
-import zio.schema._
 
 import zio.http._
 import zio.http.codec.HttpCodec.Query.QueryParamHint
@@ -48,23 +45,25 @@ object EndpointGen {
   lazy val anyContent: Gen[Any, CliReprOf[Codec[_]]] =
     anySchema
       .zip(Gen.option(Gen.alphaNumericStringBounded(1, 30)))
-      .zip(Gen.option(anyMediaType))
-      .map { case (schema, name, mediaType) =>
-        CliRepr(
-          HttpCodec.Content(schema, mediaType, name),
-          CliEndpoint(HttpOptions.Body(name.getOrElse(""), mediaType, schema) :: Nil),
-        )
+      .zip(anyMediaType)
+      .collect {
+        case (schema, name, mediaType) if HttpContentCodec.fromSchema(schema).lookup(mediaType).isDefined =>
+          CliRepr(
+            HttpCodec.Content(HttpContentCodec.fromSchema(schema).only(mediaType), name),
+            CliEndpoint(HttpOptions.Body(name.getOrElse(""), mediaType, schema) :: Nil),
+          )
       }
 
   lazy val anyContentStream: Gen[Any, CliReprOf[Codec[_]]] =
     anySchema
       .zip(Gen.option(Gen.alphaNumericStringBounded(1, 30)))
-      .zip(Gen.option(anyMediaType))
-      .map { case (schema, name, mediaType) =>
-        CliRepr(
-          HttpCodec.ContentStream(schema, mediaType, name),
-          CliEndpoint(HttpOptions.Body(name.getOrElse(""), mediaType, schema) :: Nil),
-        )
+      .zip(anyMediaType)
+      .collect {
+        case (schema, name, mediaType) if HttpContentCodec.fromSchema(schema).lookup(mediaType).isDefined =>
+          CliRepr(
+            HttpCodec.ContentStream(HttpContentCodec.fromSchema(schema).only(mediaType), name),
+            CliEndpoint(HttpOptions.Body(name.getOrElse(""), mediaType, schema) :: Nil),
+          )
       }
 
   lazy val anyHeader: Gen[Any, CliReprOf[Codec[_]]] =
@@ -87,7 +86,7 @@ object EndpointGen {
     )
 
   lazy val anyPath: Gen[Any, CliReprOf[Codec[_]]] =
-    anyPathCodec.map { case codec =>
+    anyPathCodec.map { codec =>
       CliRepr(HttpCodec.Path(codec), CliEndpoint(url = HttpOptions.Path(codec) :: Nil))
     }
 
@@ -112,7 +111,7 @@ object EndpointGen {
   )
 
   def withDoc[A] = Mapper[CliReprOf[Codec[A]], Doc](
-    (repr, doc) => CliRepr(repr.value ?? doc, repr.repr ?? doc),
+    (repr, doc) => CliRepr(repr.value ?? doc, repr.repr.copy(body = repr.repr.body.map(_ ?? doc))),
     anyDoc,
   )
 
