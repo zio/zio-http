@@ -36,15 +36,17 @@ object MediaType extends MediaTypes {
   val mainTypeMap                                    = allMediaTypes.map(m => m.mainType -> m).toMap
 
   def forContentType(contentType: String): Option[MediaType] = {
-    val index = contentType.indexOf(";")
-    if (index == -1)
-      contentTypeMap.get(contentType).orElse(parseCustomMediaType(contentType))
-    else {
+    val index = contentType.indexOf(';')
+    if (index == -1) {
+      val contentTypeLC = contentType.toLowerCase
+      contentTypeMap.get(contentTypeLC).orElse(parseCustomMediaType(contentTypeLC))
+    } else {
       val (contentType1, parameter) = contentType.splitAt(index)
+      val contentTypeLC             = contentType1.toLowerCase
       contentTypeMap
-        .get(contentType1)
-        .orElse(parseCustomMediaType(contentType1))
-        .map(_.copy(parameters = parseOptionalParameters(parameter.split(";"))))
+        .get(contentTypeLC)
+        .orElse(parseCustomMediaType(contentTypeLC))
+        .map(_.copy(parameters = parseOptionalParameters(parameter.split(';'))))
     }
   }
 
@@ -67,17 +69,15 @@ object MediaType extends MediaTypes {
   }
 
   private def parseOptionalParameters(parameters: Array[String]): Map[String, String] = {
-    @tailrec
-    def loop(parameters: Seq[String], parameterMap: Map[String, String]): Map[String, String] = parameters match {
-      case Seq(parameter, tail @ _*) =>
-        val parameterParts = parameter.split("=")
-        val newMap         =
-          if (parameterParts.length == 2) parameterMap + (parameterParts.head -> parameterParts(1))
-          else parameterMap
-        loop(tail, newMap)
-      case _                         => parameterMap
+    val builder = Map.newBuilder[String, String]
+    val size    = parameters.length
+    var i       = 0
+    while (i < size) {
+      val parameter = parameters(i)
+      val parts     = parameter.split('=')
+      if (parts.length == 2) builder += ((parts(0).trim.toLowerCase, parts(1).trim))
+      i += 1
     }
-
-    loop(parameters.toIndexedSeq, Map.empty).map { case (key, value) => key.trim -> value.trim }
+    builder.result()
   }
 }

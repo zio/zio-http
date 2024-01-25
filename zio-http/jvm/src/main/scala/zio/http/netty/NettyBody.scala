@@ -40,19 +40,30 @@ object NettyBody extends BodyEncoding {
   private[zio] def fromAsync(
     unsafeAsync: UnsafeAsync => Unit,
     knownContentLength: Option[Long],
-    contentTypeHeader: Option[Header.ContentType] = None,
-  ): Body = AsyncBody(
-    unsafeAsync,
-    knownContentLength,
-    contentTypeHeader.map(_.mediaType),
-    contentTypeHeader.flatMap(_.boundary),
-  )
+    contentTypeHeader: Option[String] = None,
+  ): Body = {
+    val (mediaType, boundary) = mediaTypeAndBoundary(contentTypeHeader)
+    AsyncBody(
+      unsafeAsync,
+      knownContentLength,
+      mediaType,
+      boundary,
+    )
+  }
 
   /**
    * Helper to create Body from ByteBuf
    */
-  def fromByteBuf(byteBuf: ByteBuf, contentTypeHeader: Option[Header.ContentType] = None): Body =
-    ByteBufBody(byteBuf, contentTypeHeader.map(_.mediaType), contentTypeHeader.flatMap(_.boundary))
+  private[zio] def fromByteBuf(byteBuf: ByteBuf, contentTypeHeader: Option[String]): Body = {
+    val (mediaType, boundary) = mediaTypeAndBoundary(contentTypeHeader)
+    ByteBufBody(byteBuf, mediaType, boundary)
+  }
+
+  private def mediaTypeAndBoundary(contentTypeHeader: Option[String]) = {
+    val mediaType = contentTypeHeader.flatMap(MediaType.forContentType)
+    val boundary  = mediaType.flatMap(_.parameters.get("boundary")).map(Boundary(_))
+    (mediaType, boundary)
+  }
 
   override def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
@@ -84,7 +95,7 @@ object NettyBody extends BodyEncoding {
     override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
 
     override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+      copy(mediaType = Some(newMediaType), boundary = Some(newBoundary))
 
     override def knownContentLength: Option[Long] = Some(asciiString.length().toLong)
   }
@@ -116,7 +127,7 @@ object NettyBody extends BodyEncoding {
     override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
 
     override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+      copy(mediaType = Some(newMediaType), boundary = Some(newBoundary))
 
     override def knownContentLength: Option[Long] = Some(byteBuf.readableBytes().toLong)
   }
@@ -162,7 +173,7 @@ object NettyBody extends BodyEncoding {
     override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
 
     override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+      copy(mediaType = Some(newMediaType), boundary = Some(newBoundary))
   }
 
   private[zio] trait UnsafeAsync {
