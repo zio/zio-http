@@ -601,7 +601,7 @@ object OpenAPIGen {
       queryParams ++ pathParams ++ headerParams
 
     def queryParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] = {
-      inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(name, codec, _), _) =>
+      inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(name, codec, _, _), _) =>
         OpenAPI.ReferenceOr.Or(
           OpenAPI.Parameter.queryParameter(
             name = name,

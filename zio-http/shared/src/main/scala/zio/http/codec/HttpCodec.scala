@@ -590,14 +590,33 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
-  private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Query, A]  {
+  private[http] final case class Query[A](
+    name: String,
+    textCodec: TextCodec[A],
+    hint: Query.QueryParamHint,
+    index: Int = 0,
+  ) extends Atom[HttpCodecType.Query, Chunk[A]] {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 
     def tag: AtomTag = AtomTag.Query
 
     def index(index: Int): Query[A] = copy(index = index)
+  }
+
+  private[http] object Query {
+
+    // Hint on how many query parameters codec expects
+    sealed trait QueryParamHint
+    object QueryParamHint {
+      case object One extends QueryParamHint
+
+      case object Many extends QueryParamHint
+
+      case object Zero extends QueryParamHint
+
+      case object Any extends QueryParamHint
+    }
   }
 
   private[http] final case class Method[A](codec: SimpleCodec[zio.http.Method, A], index: Int = 0)
