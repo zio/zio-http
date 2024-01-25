@@ -25,6 +25,24 @@ class ProbeContentTypeBenchmark {
   }
 
   @Benchmark
+  def benchmarkParseMediaTypeSimple(): Unit = {
+    MediaType.forContentType("application/json")
+    ()
+  }
+
+  @Benchmark
+  def benchmarkParseMediaTypeNotLowerCase(): Unit = {
+    MediaType.forContentType("Application/json")
+    ()
+  }
+
+  @Benchmark
+  def benchmarkParseMediaTypeWithParams(): Unit = {
+    MediaType.forContentType("application/json; charset=utf-8")
+    ()
+  }
+
+  @Benchmark
   def benchmarkParseContentType(): Unit = {
     ContentType.parse("application/json; charset=utf-8")
     ()
