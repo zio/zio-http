@@ -25,6 +25,17 @@ object MediaTypeSpec extends ZIOHttpSpec {
     test("predefined mime type parsing") {
       assertTrue(MediaType.forContentType("application/json").contains(application.`json`))
     },
+    test("with boundary") {
+      // NOTE: Testing with non-lowercase values on purpose as spec requires MIME type and param keys to be case-insensitive,and param values case-sensitive
+      MediaType.forContentType("Multipart/form-data; Boundary=-A-") match {
+        case None     => assertNever("failed to parse media type")
+        case Some(mt) =>
+          assertTrue(
+            mt.fullType == "multipart/form-data",
+            mt.parameters.get("boundary").contains("-A-"),
+          )
+      }
+    },
     test("custom mime type parsing") {
       assertTrue(MediaType.parseCustomMediaType("custom/mime").contains(MediaType("custom", "mime")))
     },

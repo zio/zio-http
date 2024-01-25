@@ -7,6 +7,7 @@ import zio.test._
 import zio.schema._
 
 import zio.http._
+import zio.http.codec.HttpCodec.Query.QueryParamHint
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.cli.AuxGen._
@@ -93,7 +94,7 @@ object EndpointGen {
   lazy val anyQuery: Gen[Any, CliReprOf[Codec[_]]] =
     Gen.alphaNumericStringBounded(1, 30).zip(anyTextCodec).map { case (name, codec) =>
       CliRepr(
-        HttpCodec.Query(name, codec),
+        HttpCodec.Query(name, codec, QueryParamHint.Any),
         codec match {
           case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: Nil)
           case _                         => CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil)
