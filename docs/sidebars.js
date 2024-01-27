@@ -44,6 +44,7 @@ const sidebars = {
               label: "Basic Examples",
               collapsed: false,
               items: [
+                "examples/basic/hello-world",
                 "examples/basic/http-client",
                 "examples/basic/https-client",
                 "examples/basic/http-server",
