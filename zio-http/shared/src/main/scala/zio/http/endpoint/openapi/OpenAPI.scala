@@ -277,6 +277,12 @@ object OpenAPI {
    *   The version of the OpenAPI document (which is distinct from the OpenAPI
    *   Specification version or the API implementation version).
    */
+
+  object ExternalDoc {
+    implicit val schema: Schema[ExternalDoc] =
+      DeriveSchema.gen[ExternalDoc]
+  }
+
   final case class Info(
     title: String,
     description: Option[Doc],
@@ -287,7 +293,8 @@ object OpenAPI {
   )
 
   object Info {
-    implicit val schema: Schema[Info] = DeriveSchema.gen[Info]
+    implicit val schema: Schema[Info] =
+      DeriveSchema.gen[Info]
   }
 
   /**
@@ -1344,6 +1351,11 @@ object OpenAPI {
 
     }
 
+    object Http {
+      implicit val schema: Schema[Http] =
+        DeriveSchema.gen[Http]
+    }
+
     /**
      * @param description
      *   A short description for security scheme.
@@ -1410,6 +1422,11 @@ object OpenAPI {
       final case class Implicit(authorizationUrl: URI, refreshUrl: Option[URI], scopes: Map[String, String])
           extends OAuthFlow
 
+      object Implicit {
+        implicit val schema: Schema[Implicit] =
+          DeriveSchema.gen[Implicit]
+      }
+
       /**
        * Configuration for the OAuth Authorization Code flow. Previously called
        * accessCode in OpenAPI 2.0.
@@ -1431,6 +1448,11 @@ object OpenAPI {
         tokenUrl: URI,
       ) extends OAuthFlow
 
+      object AuthorizationCode {
+        implicit val schema: Schema[AuthorizationCode] =
+          DeriveSchema.gen[AuthorizationCode]
+      }
+
       /**
        * Configuration for the OAuth Resource Owner Password flow.
        *
@@ -1444,6 +1466,10 @@ object OpenAPI {
        */
       final case class Password(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI) extends OAuthFlow
 
+      object Password {
+        implicit val schema: Schema[Password] =
+          DeriveSchema.gen[Password]
+      }
       /**
        * Configuration for the OAuth Client Credentials flow. Previously called
        * application in OpenAPI 2.0.
@@ -1458,7 +1484,14 @@ object OpenAPI {
        */
       final case class ClientCredentials(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI)
           extends OAuthFlow {}
+
+      object ClientCredentials {
+        implicit val schema: Schema[ClientCredentials] =
+          DeriveSchema.gen[ClientCredentials]
+      }
     }
+
+
 
     /**
      * Lists the required security schemes to execute this operation. The name
@@ -1481,5 +1514,12 @@ object OpenAPI {
      *   other security scheme types, the List MUST be empty.
      */
     final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
+
+    object SecurityRequirement {
+      implicit val schema: Schema[SecurityRequirement] =
+        DeriveSchema.gen[SecurityRequirement]
+    }
+
+
   }
 }
