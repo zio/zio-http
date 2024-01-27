@@ -1,6 +1,7 @@
 ---
 id: hello-world
 title: "Hello World"
+sidebar_label: "Hello World Example"
 ---
 
 ```scala mdoc:passthrough
