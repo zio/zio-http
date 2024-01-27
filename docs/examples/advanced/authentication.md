@@ -17,3 +17,10 @@ printSource("zio-http-example/src/main/scala/example/AuthenticationServer.scala"
 import utils._
 printSource("zio-http-example/src/main/scala/example/AuthenticationClient.scala")
 ```
+
+## Basic Authentication Example
+
+```scala mdoc:passthrough
+import utils._
+printSource("zio-http-example/src/main/scala/example/BasicAuth.scala")
+```
