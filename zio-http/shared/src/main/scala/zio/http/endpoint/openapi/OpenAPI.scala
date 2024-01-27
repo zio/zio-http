@@ -286,6 +286,10 @@ object OpenAPI {
     version: String,
   )
 
+  object Info {
+    implicit val schema: Schema[Info] = DeriveSchema.gen[Info]
+  }
+
   /**
    * Contact information for the exposed API.
    *
@@ -299,6 +303,11 @@ object OpenAPI {
    */
   final case class Contact(name: Option[String], url: Option[URI], email: Option[String])
 
+  object Contact {
+    implicit val schema: Schema[Contact] =
+      DeriveSchema.gen[Contact]
+  }
+
   /**
    * License information for the exposed API.
    *
@@ -308,6 +317,11 @@ object OpenAPI {
    *   A URL to the license used for the API.
    */
   final case class License(name: String, url: Option[URI])
+
+  object License {
+    implicit val schema: Schema[License] =
+      DeriveSchema.gen[License]
+  }
 
   /**
    * An object representing a Server.
@@ -328,6 +342,11 @@ object OpenAPI {
     description: Option[Doc],
     variables: Map[String, ServerVariable] = Map.empty,
   )
+
+  object Server {
+    implicit val schema: Schema[Server] =
+      DeriveSchema.gen[Server]
+  }
 
   /**
    * An object representing a Server Variable for server URL template
@@ -399,6 +418,11 @@ object OpenAPI {
       links = links ++ other.links,
       callbacks = callbacks ++ other.callbacks,
     )
+  }
+
+  object Components {
+    implicit val schema: Schema[Components] =
+      DeriveSchema.gen[Components]
   }
 
   sealed abstract case class Key private (name: String)
@@ -626,6 +650,11 @@ object OpenAPI {
     security: List[SecurityRequirement] = List.empty,
     servers: List[Server] = List.empty,
   )
+
+  object Operation {
+    implicit val schema: Schema[Operation] =
+      DeriveSchema.gen[Operation]
+  }
 
   /**
    * Describes a single operation parameter.
@@ -1167,6 +1196,10 @@ object OpenAPI {
    *   The reference string.
    */
 
+  object Tag                   {
+    implicit val schema: Schema[Tag] =
+      DeriveSchema.gen[Tag]
+  }
   @noDiscriminator
   sealed trait ReferenceOr[+T] {
     def asJsonSchema(implicit ev: T <:< JsonSchema): JsonSchema = this match {
