@@ -69,8 +69,7 @@ const sidebars = {
                 "examples/advanced/middleware-basic-authentication",
                 "examples/advanced/middleware-cors-handling",
                 "examples/advanced/server",
-                "examples/advanced/streaming-file",
-                "examples/advanced/streaming-response",
+                "examples/advanced/streaming",
                 "examples/advanced/websocket"
               ]
             }
