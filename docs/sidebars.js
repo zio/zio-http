@@ -46,6 +46,7 @@ const sidebars = {
             "examples/graceful-shutdown",
             "examples/html-templating",
             "examples/multipart-form-data",
+            "examples/server-sent-events-in-endpoints",
             {
               type: "category",
               label: "Basic Examples",
