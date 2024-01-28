@@ -39,6 +39,7 @@ const sidebars = {
           collapsed: false,
           link: { type: "doc", id: "index" },
           items: [
+            "examples/cli",
             {
               type: "category",
               label: "Basic Examples",
