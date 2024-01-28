@@ -40,6 +40,9 @@ const sidebars = {
           link: { type: "doc", id: "index" },
           items: [
             "examples/cli",
+            "examples/cookies",
+            "examples/concrete-entity"
+            "examples/endpoint",
             {
               type: "category",
               label: "Basic Examples",

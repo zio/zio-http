@@ -7,5 +7,5 @@ sidebar_label: "CLI"
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/CliExamples.scala")
+printSource("zio-http-example/src/main/scala/example/ConcreteEntity.scala")
 ```
