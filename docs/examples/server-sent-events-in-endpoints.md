@@ -1,6 +1,6 @@
 ---
 id: server-sent-events-in-endpoints
-title: "Server Sent Events in Endpoints Example
+title: "Server Sent Events in Endpoints Example"
 sidebar_label: "Server Sent Events in Endpoints"
 ---
 
