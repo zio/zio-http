@@ -45,6 +45,7 @@ const sidebars = {
             "examples/endpoint",
             "examples/graceful-shutdown",
             "examples/html-templating",
+            "examples/multipart-form-data",
             {
               type: "category",
               label: "Basic Examples",
