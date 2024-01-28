@@ -40,6 +40,21 @@ final case class EndpointGen() {
 
   def fromOpenAPI(openAPI: OpenAPI): Code.Files =
     Code.Files {
+      val componentsCode = openAPI.components.toList.flatMap { components =>
+        components.schemas.flatMap { case (OpenAPI.Key(name), refOrSchema) =>
+          var annotations: Chunk[JsonSchema.MetaData] = Chunk.empty
+          val schema                                  = refOrSchema match {
+            case ReferenceOr.Or(schema: JsonSchema) =>
+              annotations = schema.annotations
+              schema.withoutAnnotations
+            case ReferenceOr.Reference(ref, _, _)   =>
+              val schema = resolveSchemaRef(openAPI, ref)
+              annotations = schema.annotations
+              schema.withoutAnnotations
+          }
+          schemaToCode(schema, openAPI, name, annotations)
+        }
+      }
       openAPI.paths.map { case (path, pathItem) =>
         val pathSegments = path.name.tail.replace('-', '_').split('/').toList
         val packageName  = pathSegments.init.mkString(".").replace("{", "").replace("}", "")
@@ -103,22 +118,7 @@ final case class EndpointGen() {
           caseClasses = Nil,
           enums = Nil,
         )
-      }.toList ++
-        openAPI.components.toList.flatMap { components =>
-          components.schemas.flatMap { case (OpenAPI.Key(name), refOrSchema) =>
-            var annotations: Chunk[JsonSchema.MetaData] = Chunk.empty
-            val schema                                  = refOrSchema match {
-              case ReferenceOr.Or(schema: JsonSchema) =>
-                annotations = schema.annotations
-                schema.withoutAnnotations
-              case ReferenceOr.Reference(ref, _, _)   =>
-                val schema = resolveSchemaRef(openAPI, ref)
-                annotations = schema.annotations
-                schema.withoutAnnotations
-            }
-            schemaToCode(schema, openAPI, name, annotations)
-          }
-        }
+      }.toList ++ componentsCode
     }
 
   private def fieldName(op: OpenAPI.Operation, fallback: String) =
@@ -617,11 +617,13 @@ final case class EndpointGen() {
               throw new Exception(s"Unexpected subtype $other for anyOf schema $schema")
           }
           .toList
+        val noDiscriminator                      = caseNames.isEmpty
         Some(
           Code.File(
             List("component", name.capitalize + ".scala"),
             pkgPath = List("component"),
-            imports = dataImports(caseClasses.flatMap(_.fields)),
+            imports = dataImports(caseClasses.flatMap(_.fields)) ++
+              (if (noDiscriminator || caseNames.nonEmpty) List(Code.Import("zio.schema.annotation._")) else Nil),
             objects = Nil,
             caseClasses = Nil,
             enums = List(
@@ -630,7 +632,7 @@ final case class EndpointGen() {
                 cases = caseClasses,
                 caseNames = caseNames,
                 discriminator = discriminator,
-                noDiscriminator = caseNames.isEmpty,
+                noDiscriminator = noDiscriminator,
                 schema = true,
               ),
             ),
