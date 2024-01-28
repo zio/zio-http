@@ -41,7 +41,7 @@ const sidebars = {
           items: [
             "examples/cli",
             "examples/cookies",
-            "examples/concrete-entity"
+            "examples/concrete-entity",
             "examples/endpoint",
             "examples/graceful-shutdown",
             "examples/html-templating",
