@@ -44,6 +44,7 @@ const sidebars = {
             "examples/concrete-entity"
             "examples/endpoint",
             "examples/graceful-shutdown",
+            "examples/html-templating",
             {
               type: "category",
               label: "Basic Examples",
