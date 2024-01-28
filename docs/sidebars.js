@@ -43,6 +43,7 @@ const sidebars = {
             "examples/cookies",
             "examples/concrete-entity"
             "examples/endpoint",
+            "examples/graceful-shutdown",
             {
               type: "category",
               label: "Basic Examples",
