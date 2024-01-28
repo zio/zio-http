@@ -4,20 +4,8 @@ title: "Serving Static Files"
 sidebar_label: "Static Files"
 ---
 
-```scala mdoc:silent
-import zio._
-import zio.http._
+```scala mdoc:passthrough
+import utils._
 
-object StaticFiles extends ZIOAppDefault {
-
-  /**
-   * Creates an HTTP app that only serves static files from resources via
-   * "/static". For paths other than the resources directory, see
-   * [[Middleware.serveDirectory]].
-   */
-  val app = Routes.empty.toHttpApp @@ Middleware.serveResources(Path.empty / "static")
-
-  override def run = Server.serve(app).provide(Server.default)
-}
-
+printSource("zio-http-example/src/main/scala/example/StaticFiles.scala")
 ```
