@@ -13,7 +13,7 @@ object utils {
         source  = Source.fromFile("../" + path)
         content = source.getLines().toArray[String]
       } yield content.slice(from - 1, to).mkString("\n")
-      
+
       chunks.mkString("\n\n")
     }
   }
