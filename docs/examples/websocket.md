@@ -8,7 +8,7 @@ This example shows how to create a WebSocket server using ZIO Http and how to wr
 
 ## Server
 
-First we define a `WebSocketApp` that will handle the WebSocket connection. 
+First we define a `WebSocketApp` that will handle the WebSocket connection.
 The `Handler.webSocket` constructor gives access to the `WebSocketChannel`. The channel can be used to receive messages from the client and send messages back.
 We use the `receiveAll` method, to pattern match on the different channel events that could occur.
 The most important events are `Read` and `UserEventTriggered`. The `Read` event is triggered when the client sends a message to the server. The `UserEventTriggered` event is triggered when the connection is established.
@@ -30,8 +30,8 @@ printSource("zio-http-example/src/main/scala/example/WebSocketAdvanced.scala", l
 ```
 
 A few things worth noting:
- * `Server.default` starts a server on port 8080.
- * `socketApp.toResponse` converts the `WebSocketApp` to a `Response`, so we can serve it with `handler`.
+* `Server.default` starts a server on port 8080.
+* `socketApp.toResponse` converts the `WebSocketApp` to a `Response`, so we can serve it with `handler`.
 
 
 ## Client
@@ -52,3 +52,12 @@ printSource("zio-http-example/src/main/scala/example/WebSocketAdvanced.scala", l
 
 While we access here `Queue[String]` via the ZIO environment, you should use a service in a real world application, that requires a queue as one of its constructor dependencies.
 See [ZIO Services](https://zio.dev/reference/service-pattern/) for more information.
+
+
+## WebSocket Echo
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/WebSocketEcho.scala")
+```

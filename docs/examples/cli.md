@@ -1,6 +1,6 @@
 ---
 id: cli
-title: "CLI Client/Server Examples"
+title: "CLI Client-Server Examples"
 sidebar_label: "CLI"
 ---
 

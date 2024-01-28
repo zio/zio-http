@@ -1,5 +1,5 @@
 ---
-id: authentication-server
+id: authentication
 title: "Authentication Example"
 sidebar_label: "Authentication"
 ---
@@ -18,7 +18,7 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/AuthenticationClient.scala")
 ```
 
-## Basic Authentication Example
+## Middleware Basic Authentication Example
 
 ```scala mdoc:passthrough
 import utils._

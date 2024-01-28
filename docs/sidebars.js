@@ -39,42 +39,22 @@ const sidebars = {
           collapsed: false,
           link: { type: "doc", id: "index" },
           items: [
-            "examples/cli",
-            "examples/cookies",
-            "examples/concrete-entity",
-            "examples/endpoint",
-            "examples/graceful-shutdown",
+            "examples/hello-world",
+            "examples/http-client-server",
+            "examples/https-client-server",
+            "examples/serving-static-files",
             "examples/html-templating",
+            "examples/websocket",
+            "examples/streaming",
+            "examples/endpoint",
+            "examples/middleware-cors-handling",
+            "examples/authentication",
+            "examples/cookies",
+            "examples/graceful-shutdown",
+            "examples/cli",
+            "examples/concrete-entity",
             "examples/multipart-form-data",
             "examples/server-sent-events-in-endpoints",
-            "examples/serving-static-files",
-            {
-              type: "category",
-              label: "Basic Examples",
-              collapsed: false,
-              items: [
-                "examples/basic/hello-world",
-                "examples/basic/http-client",
-                "examples/basic/https-client",
-                "examples/basic/http-server",
-                "examples/basic/https-server",
-                "examples/basic/websocket",
-              ]
-            },
-            {
-              type: "category",
-              label: "Advanced Examples",
-              collapsed: false,
-              items: [
-                "examples/advanced/authentication-server",
-                "examples/advanced/concrete-entity",
-                "examples/advanced/middleware-basic-authentication",
-                "examples/advanced/middleware-cors-handling",
-                "examples/advanced/server",
-                "examples/advanced/streaming",
-                "examples/advanced/websocket"
-              ]
-            }
           ]
         }
       ]
