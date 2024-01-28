@@ -47,6 +47,7 @@ const sidebars = {
             "examples/html-templating",
             "examples/multipart-form-data",
             "examples/server-sent-events-in-endpoints",
+            "examples/serving-static-files",
             {
               type: "category",
               label: "Basic Examples",
