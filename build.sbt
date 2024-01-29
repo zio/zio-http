@@ -303,6 +303,7 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
 
 lazy val docs = project
   .in(file("zio-http-docs"))
+  .settings(stdSettings("zio-http-docs"))
   .settings(
     moduleName                                 := "zio-http-docs",
     scalacOptions -= "-Yno-imports",
