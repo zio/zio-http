@@ -1,7 +1,7 @@
 ---
 id: http-client-server
 title: HTTP Client-Server Example
-sidebar_label: Client-Server
+sidebar_label: HTTP Client-Server
 ---
 
 ## Client and Server Example
