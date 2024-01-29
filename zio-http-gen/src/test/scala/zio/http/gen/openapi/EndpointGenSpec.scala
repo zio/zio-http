@@ -13,6 +13,7 @@ import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.Inline
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.scala.Code
+import zio.http.gen.scala.Code.Collection.Opt
 
 object EndpointGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -1109,6 +1110,112 @@ object EndpointGenSpec extends ZIOSpecDefault {
             enums = Nil,
           )
           assertTrue(scala.files.head == expected)
+        },
+        test("generates code for oneOf schemas read from json") {
+          val openapiJson = """
+                              |{
+                              |  "openapi": "3.0.3",
+                              |  "info": {
+                              |    "title": "Example",
+                              |    "description": "Example API documentation",
+                              |    "version": "1.0.0"
+                              |  },
+                              |  "paths": {
+                              |    "/foo": {
+                              |      "post": {
+                              |        "requestBody": {
+                              |          "content": {
+                              |            "application/json": {
+                              |              "schema": {
+                              |                "$ref": "#/components/schemas/Bar"
+                              |              }
+                              |            }
+                              |          }
+                              |        },
+                              |        "responses": {
+                              |          "200": {
+                              |            "description": "Success"
+                              |          }
+                              |        }
+                              |      }
+                              |    }
+                              |  },
+                              |  "components": {
+                              |    "schemas": {
+                              |      "Bar": {
+                              |        "type": "object",
+                              |        "properties": {
+                              |          "field": {
+                              |            "oneOf": [
+                              |              {
+                              |                "$ref": "#/components/schemas/Baz"
+                              |              },
+                              |              {
+                              |                "$ref": "#/components/schemas/Qux"
+                              |              }
+                              |            ]
+                              |          }
+                              |        }
+                              |      },
+                              |      "Baz": {
+                              |        "type": "object",
+                              |        "properties": {
+                              |          "stringField": {
+                              |            "type": "string"
+                              |          }
+                              |        }
+                              |      },
+                              |      "Qux": {
+                              |        "type": "object",
+                              |        "properties": {
+                              |          "stringField": {
+                              |            "type": "string"
+                              |          }
+                              |        }
+                              |      }
+                              |    }
+                              |  }
+                              |} """.stripMargin
+
+          val openAPI = OpenAPI.fromJson(openapiJson).toOption.get
+          val scala   = EndpointGen.fromOpenAPI(openAPI)
+
+          val expected = Code.File(
+            path = List("component", "Bar.scala"),
+            pkgPath = List("component"),
+            imports = List(Code.Import.Absolute(path = "zio.schema._")),
+            objects = Nil,
+            caseClasses = List(
+              Code.CaseClass(
+                name = "Bar",
+                fields = List(
+                  Code.Field(
+                    name = "field",
+                    fieldType = Opt(
+                      elementType = Code.ScalaType.Or(
+                        Code.TypeRef("Baz"),
+                        Code.TypeRef("Qux"),
+                      ),
+                    ),
+                  ),
+                ),
+                companionObject = Some(
+                  Code.Object(
+                    name = "Bar",
+                    schema = true,
+                    endpoints = Map(
+                    ),
+                    objects = Nil,
+                    caseClasses = Nil,
+                    enums = Nil,
+                  ),
+                ),
+              ),
+            ),
+            enums = Nil,
+          )
+
+          assertTrue(scala.files.tail.head == expected)
         },
       ),
     )
