@@ -33,7 +33,7 @@ object utils {
     lines: Seq[(Int, Int)] = Seq.empty,
     comment: Boolean = true,
     showLineNumbers: Boolean = true,
-  ) {
+  ) = {
     val title     = if (comment) s"""title="$path"""" else ""
     val showLines = if (showLineNumbers) "showLineNumbers" else ""
     println(s"""```${fileExtension(path)} ${title} ${showLines}"""")
