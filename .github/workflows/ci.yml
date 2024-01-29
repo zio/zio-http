@@ -47,7 +47,7 @@ jobs:
 
       - name: Setup Java (temurin@8)
         if: matrix.java == 'temurin@8'
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 8
@@ -74,10 +74,10 @@ jobs:
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
 
       - name: Compress target directories
-        run: tar cf targets.tar zio-http-cli/target target zio-http/target zio-http-docs/target zio-http-gen/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
+        run: tar cf targets.tar zio-http-cli/target target zio-http/jvm/target zio-http-docs/target zio-http-gen/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
 
       - name: Upload target directories
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: target-${{ matrix.os }}-${{ matrix.scala }}-${{ matrix.java }}
           path: targets.tar
@@ -110,14 +110,14 @@ jobs:
 
       - name: Setup Java (temurin@8)
         if: matrix.java == 'temurin@8'
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 8
           cache: sbt
 
       - name: Download target directories (2.12.18)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: target-${{ matrix.os }}-2.12.18-${{ matrix.java }}
 
@@ -127,7 +127,7 @@ jobs:
           rm targets.tar
 
       - name: Download target directories (2.13.12)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: target-${{ matrix.os }}-2.13.12-${{ matrix.java }}
 
@@ -137,7 +137,7 @@ jobs:
           rm targets.tar
 
       - name: Download target directories (3.3.1)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: target-${{ matrix.os }}-3.3.1-${{ matrix.java }}
 
@@ -203,7 +203,7 @@ jobs:
 
       - name: Run Coverage
         id: run_coverage
-        run: sbt 'coverage; project zioHttp; test; coverageReport'
+        run: sbt 'coverage; project zioHttpJVM; test; coverageReport'
 
       - name: Push Codecov
         id: push_codecov

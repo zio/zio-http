@@ -44,7 +44,8 @@ object CodeGen {
       throw new Exception("Files should be rendered separately")
 
     case Code.File(_, path, imports, objects, caseClasses, enums) =>
-      s"package $basePackage.${path.mkString(".")}\n\n" +
+      s"package $basePackage${if (path.exists(_.nonEmpty)) path.mkString(if (basePackage.isEmpty) "" else ".", ".", "")
+        else ""}\n\n" +
         s"${imports.map(render(basePackage)).mkString("\n")}\n\n" +
         objects.map(render(basePackage)).mkString("\n") +
         caseClasses.map(render(basePackage)).mkString("\n") +
@@ -58,7 +59,11 @@ object CodeGen {
 
     case Code.Object(name, schema, endpoints, objects, caseClasses, enums) =>
       s"object $name {\n" +
-        (if (endpoints.nonEmpty) EndpointImports.map(render(basePackage)).mkString("", "\n", "\n") else "") +
+        (if (endpoints.nonEmpty)
+           (EndpointImports ++ (if (endpointWithChunk(endpoints)) List(Code.Import("zio.http._")) else Nil))
+             .map(render(basePackage))
+             .mkString("", "\n", "\n")
+         else "") +
         endpoints.map { case (k, v) => s"${render(basePackage)(k)}=${render(basePackage)(v)}" }
           .mkString("\n") +
         (if (schema) s"\n\n implicit val codec: Schema[$name] = DeriveSchema.gen[$name]" else "") +
@@ -69,7 +74,7 @@ object CodeGen {
 
     case Code.CaseClass(name, fields, companionObject) =>
       s"case class $name(\n" +
-        fields.map(render(basePackage)).mkString(",\n").replace("val", "") +
+        fields.map(render(basePackage)).mkString(",\n").replace("val ", " ") +
         "\n)" + companionObject.map(render(basePackage)).map("\n" + _).getOrElse("")
 
     case Code.Enum(name, cases, caseNames, discriminator, noDiscriminator, schema) =>
@@ -97,7 +102,7 @@ object CodeGen {
     case col: Code.Collection =>
       col match {
         case Code.Collection.Seq(elementType) =>
-          s"Seq[${render(basePackage)(elementType)}]"
+          s"Chunk[${render(basePackage)(elementType)}]"
         case Code.Collection.Set(elementType) =>
           s"Set[${render(basePackage)(elementType)}]"
         case Code.Collection.Map(elementType) =>
@@ -135,9 +140,14 @@ object CodeGen {
       name
 
     case scalaType =>
-      println(s"Unknown ScalaType: $scalaType")
       throw new Exception(s"Unknown ScalaType: $scalaType")
   }
+
+  private def endpointWithChunk(endpoints: Map[Code.Field, Code.EndpointCode]) =
+    endpoints.exists { case (_, code) =>
+      code.inCode.inType.contains("Chunk[") ||
+      (code.outCodes ++ code.errorsCode).exists(_.outType.contains("Chunk["))
+    }
 
   def renderSegment(segment: Code.PathSegmentCode): String = segment match {
     case Code.PathSegmentCode(name, segmentType) =>
@@ -172,6 +182,7 @@ object CodeGen {
       case "allow"                            => "HeaderCodec.allow"
       case "authorization"                    => "HeaderCodec.authorization"
       case "cache-control"                    => "HeaderCodec.cacheControl"
+      case "clear-site-data"                  => "HeaderCodec.clearSiteData"
       case "connection"                       => "HeaderCodec.connection"
       case "content-base"                     => "HeaderCodec.contentBase"
       case "content-encoding"                 => "HeaderCodec.contentEncoding"
@@ -190,6 +201,7 @@ object CodeGen {
       case "etag"                             => "HeaderCodec.etag"
       case "expect"                           => "HeaderCodec.expect"
       case "expires"                          => "HeaderCodec.expires"
+      case "forwarded"                        => "HeaderCodec.forwarded"
       case "from"                             => "HeaderCodec.from"
       case "host"                             => "HeaderCodec.host"
       case "if-match"                         => "HeaderCodec.ifMatch"
@@ -198,6 +210,7 @@ object CodeGen {
       case "if-range"                         => "HeaderCodec.ifRange"
       case "if-unmodified-since"              => "HeaderCodec.ifUnmodifiedSince"
       case "last-modified"                    => "HeaderCodec.lastModified"
+      case "link"                             => "HeaderCodec.link"
       case "location"                         => "HeaderCodec.location"
       case "max-forwards"                     => "HeaderCodec.maxForwards"
       case "origin"                           => "HeaderCodec.origin"
@@ -246,7 +259,7 @@ object CodeGen {
         case Code.CodecType.UUID    => "UUID"
         case Code.CodecType.Literal => throw new Exception("Literal query params are not supported")
       }
-      s""".query(QueryCodec.queryAs[$tpe]("$name"))"""
+      s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
   }
 
   def renderInCode(inCode: Code.InCode): String = inCode match {

@@ -17,7 +17,7 @@ object FileStreaming extends ZIOAppDefault {
 
     // Read the file as ZStream
     // Uses the blocking version of ZStream.fromFile
-    Method.GET / "blocking" -> Handler.fromStream(ZStream.fromPath(Paths.get("README.md"))),
+    Method.GET / "blocking" -> Handler.fromStreamChunked(ZStream.fromPath(Paths.get("README.md"))),
 
     // Uses netty's capability to write file content to the Channel
     // Content-type response headers are automatically identified and added

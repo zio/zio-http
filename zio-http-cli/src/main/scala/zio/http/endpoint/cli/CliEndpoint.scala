@@ -1,15 +1,7 @@
 package zio.http.endpoint.cli
 
-import scala.util.Try
-
-import zio.cli._
-
-import zio.schema._
-
 import zio.http._
-import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
-import zio.http.codec.internal._
 import zio.http.endpoint._
 
 /**
@@ -90,36 +82,34 @@ private[cli] object CliEndpoint {
 
   def fromCodec[Input](input: HttpCodec[_, Input]): CliEndpoint = {
     input match {
-      case atom: HttpCodec.Atom[_, _]           => fromAtom(atom)
-      case HttpCodec.TransformOrFail(api, _, _) => fromCodec(api)
-      case HttpCodec.Annotated(in, metadata)    =>
+      case atom: HttpCodec.Atom[_, _]            => fromAtom(atom)
+      case HttpCodec.TransformOrFail(api, _, _)  => fromCodec(api)
+      case HttpCodec.Annotated(in, metadata)     =>
         metadata match {
           case HttpCodec.Metadata.Documented(doc) => fromCodec(in) describeOptions doc
           case _                                  => fromCodec(in)
         }
-      case HttpCodec.Fallback(left, right, _)   => fromCodec(left) ++ fromCodec(right)
-      case HttpCodec.Combine(left, right, _)    => fromCodec(left) ++ fromCodec(right)
-      case _                                    => CliEndpoint.empty
+      case HttpCodec.Fallback(left, right, _, _) => fromCodec(left) ++ fromCodec(right)
+      case HttpCodec.Combine(left, right, _)     => fromCodec(left) ++ fromCodec(right)
+      case _                                     => CliEndpoint.empty
     }
   }
 
   private def fromAtom[Input](input: HttpCodec.Atom[_, Input]): CliEndpoint = {
     input match {
-      case HttpCodec.Content(schema, mediaType, nameOption, _) => {
+      case HttpCodec.Content(schema, mediaType, nameOption, _) =>
         val name = nameOption match {
           case Some(x) => x
           case None    => ""
         }
         CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
-      }
 
-      case HttpCodec.ContentStream(schema, mediaType, nameOption, _) => {
+      case HttpCodec.ContentStream(schema, mediaType, nameOption, _) =>
         val name = nameOption match {
           case Some(x) => x
           case None    => ""
         }
         CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
-      }
 
       case HttpCodec.Header(name, textCodec, _) =>
         CliEndpoint(headers = HttpOptions.Header(name, textCodec) :: List())
@@ -133,7 +123,7 @@ private[cli] object CliEndpoint {
       case HttpCodec.Path(pathCodec, _) =>
         CliEndpoint(url = HttpOptions.Path(pathCodec) :: List())
 
-      case HttpCodec.Query(name, textCodec, _) =>
+      case HttpCodec.Query(name, textCodec, _, _) =>
         textCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: List())
           case _                         => CliEndpoint(url = HttpOptions.Query(name, textCodec) :: List())

@@ -103,9 +103,33 @@ const sidebars = {
             },
           ]
         },
+        {
+          type: "category",
+          label: "Examples",
+          collapsed: false,
+          link: { type: "doc", id: "index" },
+          items: [
+            "examples/hello-world",
+            "examples/http-client-server",
+            "examples/https-client-server",
+            "examples/serving-static-files",
+            "examples/html-templating",
+            "examples/websocket",
+            "examples/streaming",
+            "examples/endpoint",
+            "examples/middleware-cors-handling",
+            "examples/authentication",
+            "examples/cookies",
+            "examples/graceful-shutdown",
+            "examples/cli",
+            "examples/concrete-entity",
+            "examples/multipart-form-data",
+            "examples/server-sent-events-in-endpoints",
+          ]
+        }
       ]
-    }
-      ] 
     }
   ]
 };
+
+module.exports = sidebars;

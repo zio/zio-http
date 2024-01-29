@@ -29,7 +29,7 @@ object ScoverageWorkFlow {
             name = Some("Update Build Definition"),
           ),
           WorkflowStep.Sbt(
-            commands = List(s"coverage; project zioHttp; test; coverageReport"),
+            commands = List(s"coverage; project zioHttpJVM; test; coverageReport"),
             id = Some("run_coverage"),
             name = Some("Run Coverage"),
           ),

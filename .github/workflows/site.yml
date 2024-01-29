@@ -29,8 +29,6 @@ jobs:
         check-latest: true
     - name: Check if the README file is up to date
       run: sbt  docs/checkReadme
-    - name: Check if the site workflow is up to date
-      run: sbt  docs/checkGithubWorkflow
     - name: Check artifacts build process
       run: sbt  +publishLocal
     - name: Check website build process

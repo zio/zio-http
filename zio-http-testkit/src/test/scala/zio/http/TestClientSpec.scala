@@ -35,14 +35,14 @@ object TestClientSpec extends ZIOHttpSpec {
         test("all")(
           for {
             client   <- ZIO.service[Client]
-            _        <- TestClient.addHandler { case _ => ZIO.succeed(Response.ok) }
+            _        <- TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
             response <- client(Request.get(URL.root))
           } yield assertTrue(extractStatus(response) == Status.Ok),
         ),
         test("partial")(
           for {
-            client <- ZIO.service[Client]
-            _      <- TestClient.addHandler { case request if request.method == Method.GET => ZIO.succeed(Response.ok) }
+            client   <- ZIO.service[Client]
+            _        <- TestClient.addRoute { Method.GET / trailing -> handler(Response.ok) }
             response <- client(Request.get(URL.root))
           } yield assertTrue(extractStatus(response) == Status.Ok),
         ),
@@ -50,12 +50,27 @@ object TestClientSpec extends ZIOHttpSpec {
           for {
             client       <- ZIO.service[Client]
             requestCount <- Ref.make(0)
-            _            <- TestClient.addHandler { case _ => requestCount.update(_ + 1) *> ZIO.succeed(Response.ok) }
-            response     <- client(Request.get(URL.root))
-            finalCount   <- requestCount.get
+            _ <- TestClient.addRoute { Method.ANY / trailing -> handler(requestCount.update(_ + 1).as(Response.ok)) }
+            response   <- client(Request.get(URL.root))
+            finalCount <- requestCount.get
           } yield assertTrue(extractStatus(response) == Status.Ok) && assertTrue(finalCount == 1),
         ),
       ),
+      test("addRoutes") {
+        for {
+          client           <- ZIO.service[Client]
+          _                <- TestClient.addRoutes {
+            Routes(
+              Method.GET / trailing          -> handler { Response.text("fallback") },
+              Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
+            )
+          }
+          helloResponse    <- client(Request.get(URL.root / "hello" / "world"))
+          helloBody        <- helloResponse.body.asString
+          fallbackResponse <- client(Request.get(URL.root / "any"))
+          fallbackBody     <- fallbackResponse.body.asString
+        } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
+      },
       suite("sad paths")(
         test("error when submitting a request to a blank TestServer")(
           for {
