@@ -40,7 +40,7 @@ private[openapi] case class SerializableJsonSchema(
     else if (nullable && oneOf.isDefined)
       copy(oneOf = Some(oneOf.get :+ SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))))
     else if (nullable && allOf.isDefined)
-      SerializableJsonSchema(oneOf =
+      SerializableJsonSchema(allOf =
         Some(Chunk(this, SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null"))))),
       )
     else if (nullable && anyOf.isDefined)
@@ -233,14 +233,6 @@ object JsonSchema {
         JsonSchema.Boolean
       case schema if schema.schemaType.contains(TypeOrTypes.Type("array"))                               =>
         JsonSchema.ArrayType(schema.items.map(fromSerializableSchema))
-      case schema if schema.schemaType.contains(TypeOrTypes.Type("object")) || schema.schemaType.isEmpty =>
-        JsonSchema.Object(
-          schema.properties
-            .map(_.map { case (name, schema) => name -> fromSerializableSchema(schema) })
-            .getOrElse(Map.empty),
-          additionalProperties,
-          schema.required.getOrElse(Chunk.empty),
-        )
       case schema if schema.enumValues.isDefined                                                         =>
         JsonSchema.Enum(schema.enumValues.get.map(EnumValue.fromJson))
       case schema if schema.oneOf.isDefined                                                              =>
@@ -251,6 +243,14 @@ object JsonSchema {
         AnyOfSchema(schema.anyOf.get.map(fromSerializableSchema))
       case schema if schema.schemaType.contains(TypeOrTypes.Type("null"))                                =>
         JsonSchema.Null
+      case schema if schema.schemaType.contains(TypeOrTypes.Type("object")) || schema.schemaType.isEmpty =>
+        JsonSchema.Object(
+          schema.properties
+            .map(_.map { case (name, schema) => name -> fromSerializableSchema(schema) })
+            .getOrElse(Map.empty),
+          additionalProperties,
+          schema.required.getOrElse(Chunk.empty),
+        )
       case _                                                                                             =>
         throw new IllegalArgumentException(s"Can't convert $schema")
     }
