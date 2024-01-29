@@ -6,6 +6,8 @@ sidebar_label: "Serving Static Files"
 
 ## Serving Static Files
 
+This example shows how to host static resources like images, CSS and JavaScript files using ZIO HTTP's built-in middleware:
+
 ```scala mdoc:passthrough
 import utils._
 
