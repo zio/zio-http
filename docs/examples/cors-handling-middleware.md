@@ -1,7 +1,7 @@
 ---
-id: middleware-cors-handling
-title: "Middleware CORS Handling Example"
-sidebar_label: "Middleware CORS Handling"
+id: cors-handling-middleware
+title: "CORS Handling Middleware Example"
+sidebar_label: "CORS Handling Middleware"
 ---
 
 CORS is a mechanism that allows web browsers to safely access resources from different origins.
