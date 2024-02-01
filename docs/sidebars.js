@@ -65,7 +65,6 @@ const sidebars = {
               label: "DSL",
               link: { type: "doc", id: "index" },
               items: [
-                "reference/dsl/server",
                 "reference/dsl/routes",
                 "reference/dsl/request",
                 "reference/dsl/response",
