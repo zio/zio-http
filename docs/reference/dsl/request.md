@@ -13,7 +13,7 @@ Creating requests using `Request` is useful while writing unit tests.
 
 The below snippet creates a request with default params, `headers` as `Headers.empty`, `data` as `Body.Empty`, `remoteAddress` as `None`:
 
-```scala mdoc:compile-only
+```scala mdoc
 import zio.http._
 
 Request(method = Method.GET, url = URL(Root))
@@ -34,7 +34,7 @@ Query params can be added in the request using `url` in `Request`, `URL` stores 
 
 The below snippet creates a request with query params: `?q=a&q=b&q=c` 
 
-```scala mdoc
+```scala mdoc:compile-only
 import zio._
 import zio.http._
 
