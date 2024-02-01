@@ -3,11 +3,11 @@ id: cookies
 title: Cookies
 ---
 
-**ZIO HTTP** has special support for Cookie headers using the `Cookie` Domain to add and invalidate cookies. Adding a
-cookie will generate the correct [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
-headers
+**ZIO HTTP** has special support for Cookie headers using the `Cookie` Domain to add and invalidate cookies. Adding a cookie will generate the correct [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie) headers
 
-## Create a Request Cookie
+## Request Cookie
+
+### Creating a Request Cookie
 
 A request cookie consists of `name` and `content` and can be created with `Cookie.Request`:
 
@@ -18,80 +18,79 @@ import zio.http._
 val cookie: Cookie = Cookie.Request("id", "abc")
 ```
 
-### Updating a request cookie
+### Updating a Request Cookie
 
-- `content` updates the content of cookie
+The `Cookie#content` method updates the content of cookie:
 
 ```scala mdoc
 cookie.content("def")
 ```
 
-- `name` updates the name of cookie
+The `Cookie#name` method updates the name of cookie:
 
 ```scala mdoc
 cookie.name("id2")
 ```
 
-## Create a Response Cookie
+## Response Cookie
 
-A Response `Cookie` can be created with
-params `name`, `content`, `expires`, `domain`, `path`, `isSecure`, `isHttpOnly`, `maxAge`, `sameSite` and `secret`
-according to HTTP [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
+### Creating a Response Cookie
+
+A Response `Cookie` can be created with params `name`, `content`, `expires`, `domain`, `path`, `isSecure`, `isHttpOnly`, `maxAge`, `sameSite` and `secret` according to HTTP [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
 
 The below snippet creates a response cookie from the above request cookie:
 
-```scala mdoc
+```scala mdoc:silent
 val responseCookie = cookie.toResponse
 ```
 
-### Update a Response Cookie
+### Updating a Response Cookie
 
-`Cookie.Response` is a case class so it can be updated by its `copy` method: 
+`Cookie.Response` is a case class, so it can be updated by its `copy` method: 
 
 - `maxAge` updates the max-age of the cookie
 
-```scala mdoc
+```scala mdoc:compile-only
 responseCookie.copy(maxAge = Some(5.days))
 ```
 
 - `domain` updates the host to which the cookie will be sent
 
-```scala mdoc
+```scala mdoc:compile-only
 responseCookie.copy(domain = Some("example.com"))
 ```
 
 - `path` updates the path of the cookie
 
-```scala mdoc
+```scala mdoc:compile-only
 responseCookie.copy(path = Some(Root / "cookie"))
 ```
 
 - `isSecure` enables cookie only on https server
 
-```scala mdoc
+```scala mdoc:compile-only
 responseCookie.copy(isSecure = true)
 ```
 
 - `isHttpOnly` forbids JavaScript from accessing the cookie
 
-```scala mdoc
+```scala mdoc:compile-only
 responseCookie.copy(isHttpOnly = true)
 ```
 
 - `sameSite` updates whether or not a cookie is sent with cross-origin requests
 
-```scala mdoc
+```scala mdoc:compile-only
 responseCookie.copy(sameSite = Some(Cookie.SameSite.Strict))
 ```
 
-## Sign a Cookie
+## Signing a Cookie
 
 The cookies can be signed with a signature:
 
-- Using `sign`
-  To sign a cookie, you can use `sign`
+- Using `Response#sign`:
 
-```scala mdoc
+```scala mdoc:silent
 val cookie2 = Cookie.Response("key", "hello", maxAge = Some(5.days))
 val app = 
   Routes(
