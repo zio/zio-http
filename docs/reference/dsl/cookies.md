@@ -48,37 +48,37 @@ val responseCookie = cookie.toResponse
 
 `Cookie.Response` is a case class, so it can be updated by its `copy` method: 
 
-- `maxAge` updates the max-age of the cookie
+- `maxAge` updates the max-age of the cookie:
 
 ```scala mdoc:compile-only
 responseCookie.copy(maxAge = Some(5.days))
 ```
 
-- `domain` updates the host to which the cookie will be sent
+- `domain` updates the host to which the cookie will be sent:
 
 ```scala mdoc:compile-only
 responseCookie.copy(domain = Some("example.com"))
 ```
 
-- `path` updates the path of the cookie
+- `path` updates the path of the cookie:
 
 ```scala mdoc:compile-only
 responseCookie.copy(path = Some(Root / "cookie"))
 ```
 
-- `isSecure` enables cookie only on https server
+- `isSecure` enables cookie only on https server:
 
 ```scala mdoc:compile-only
 responseCookie.copy(isSecure = true)
 ```
 
-- `isHttpOnly` forbids JavaScript from accessing the cookie
+- `isHttpOnly` forbids JavaScript from accessing the cookie:
 
 ```scala mdoc:compile-only
 responseCookie.copy(isHttpOnly = true)
 ```
 
-- `sameSite` updates whether or not a cookie is sent with cross-origin requests
+- `sameSite` updates whether or not a cookie is sent with cross-origin requests:
 
 ```scala mdoc:compile-only
 responseCookie.copy(sameSite = Some(Cookie.SameSite.Strict))
@@ -86,7 +86,7 @@ responseCookie.copy(sameSite = Some(Cookie.SameSite.Strict))
 
 ## Signing a Cookie
 
-The cookies can be signed with a signature:
+The cookies can be signed with a signature.
 
 - Using `Response#sign`:
 
@@ -98,11 +98,11 @@ val app =
   ).toHttpApp
 ```
 
-- Using `signCookies` middleware
+- Using `signCookies` middleware:
 
 To sign all the cookies in your routes, you can use `signCookies` middleware:
 
-```scala mdoc
+```scala mdoc:compile-only
 import Middleware.signCookies
 
 private val app2 = Routes(
@@ -120,7 +120,7 @@ def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
 
 The cookies can be added in `Response` headers:
 
-```scala mdoc
+```scala mdoc:compile-only
 val res = Response.ok.addCookie(responseCookie)
 ```
 
@@ -130,7 +130,7 @@ It updates the response header `Set-Cookie` as ```Set-Cookie: <cookie-name>=<coo
 
 From HTTP requests, a single cookie can be retrieved with `cookie`.
 
-```scala mdoc
+```scala mdoc:compile-only
  private val app4 = 
   Routes(
     Method.GET / "cookie" -> handler { (req: Request) =>
@@ -144,7 +144,7 @@ From HTTP requests, a single cookie can be retrieved with `cookie`.
 
 In HTTP requests, cookies are stored in the `cookie` header.
 
-```scala mdoc
+```scala mdoc:compile-only
  private val app3 = 
   Routes(
     Method.GET / "cookie" -> handler { (req: Request) =>
