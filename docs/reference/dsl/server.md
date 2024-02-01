@@ -44,7 +44,7 @@ Server.serve(app).provide(
 
 The `live` layer expects a `Server.Config` holding the custom configuration for the server.
 
-```scala mdoc:silent:crash
+```scala mdoc:compile-only
 Server
   .serve(app)
   .provide(
@@ -57,7 +57,7 @@ The `configured` layer loads the server configuration using the application's _Z
 is using the environment by default but can be attached to a different backends using
 the [ZIO Config library](https://zio.github.io/zio-config/).
 
-```scala mdoc:silent:crash
+```scala mdoc:compile-only
 Server
   .serve(app)
   .provide(
