@@ -9,8 +9,8 @@ Middleware plays a crucial role in addressing cross-cutting concerns without clu
 
 Before introducing middleware, let's understand the challenges that arise when dealing with cross-cutting concerns in our application. Consider the following example, where we have two endpoints within an `HttpApp`:
 
-1. GET a single user by id
-2. GET all users
+1. `GET /users/<user_id>` - Retrieve a single user based on their ID.
+2. `GET /users` - Retrieve a list of all users.
 
 ```scala mdoc:invisible
 import zio._
@@ -52,7 +52,7 @@ val routes = Routes(
 )
 ```
 
-For both of our example endpoints, our core business logic gets buried under boilerplate like this:
+For both of these endpoints, our core business logic gets buried under boilerplate like this:
 
 ```scala mdoc:invisible
 import zio.http._
