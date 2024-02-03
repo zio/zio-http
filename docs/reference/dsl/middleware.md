@@ -37,39 +37,91 @@ f3(f2(f1(http)))
 - `when` applies middleware only if the condition function evaluates to true
 - `whenZIO` applies middleware only if the condition function(with effect) evaluates
 
-## Example
+## Built-in Middlewares
+
+ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and customize the handling of HTTP requests and responses. These middlewares can be easily integrated into your application to provide various functionalities. Below is a comprehensive list of ZIO HTTP middlewares along with brief descriptions:
+
+| Number | Description                                            |  Middleware                                                  |
+|--------|--------------------------------------------------------|----------------------------------------------------|
+| 1      | Cross-Origin Resource Sharing (CORS) Middleware        | `Middleware.cors`, `Middleware.corsHeaders`        |
+| 2      | Log Annotations Middleware                             | `Middleware.logAnnotate`, `Middleware.logAnnotateHeaders`|
+| 3      | Timeout Middleware                                     | `Middleware.timeout`                               |
+| 4      | Metrics Middleware                                     | `Middleware.metrics`                               |
+| 5      | Serving Static Files Middleware                        | `Middleware.serveResources`, `Middleware.serveDirectory`|
+| 6      | Managing The Flash Scope                               | `Middleware.flashScopeHandling`                    |
+| 7      | Basic Authentication                                   | `Middleware.basicAuth`, `Middleware.basicAuthZIO`  |
+| 8      | Bearer Authentication                                  | `Middleware.bearerAuth`, `bearerAuthZIO`            |
+| 9      | Custom Authentication                                  | `Middleware.customAuth`, `Middleware.customAuthZIO`, `Middleware.customAuthProviding`, `Middleware.customAuthProvidingZIO`|
+| 10     | Beautify Error Response                                | `Middleware.beautifyErrors`                         |
+| 11     | Debugging Requests and Responses                       | `Middleware.debug`                                 |
+| 12     | Drop Trailing Slash                                    | `Middleware.dropTrailingSlash`                     |
+| 13     | Aborting Requests with Specified Response              | `Middleware.fail`, `Middleware.failWith`            |
+| 14     | Identity Middleware (No effect on request or response) | `Middleware.identity`                          |
+| 15     | Conditional Middlewares                                | `Middleware.ifHeaderThenElse`, `Middleware.ifMethodThenElse`, `Middleware.ifRequestThenElse`, `Middleware.ifRequestThenElseZIO`, `Middleware.whenHeader`, `Middleware.whenResponse`, `Middleware.whenResponseZIO`, `Middleware.when`, `Middleware.whenZIO`|
+| 16     | Intercept Middleware                                   | `Middleware.intercept`, `Middleware.interceptHandler`, `Middleware.interceptHandlerStateful`, `Middleware.interceptIncomingHandler`, `Middleware.interceptOutgoingHandler`, `Middleware.interceptPatch`, `Middleware.interceptPatchZIO`|
+| 17     | Patch Middleware                                       | `Middleware.patch`, `Middleware.patchZIO`          |
+| 18     | Redirect Middleware                                    | `Middleware.redirect`, `Middleware.redirectTrailingSlash`|
+| 19     | Request Logging Middleware                             | `Middleware.requestLogging`                         |
+| 20     | Running Effect Before/After Every Request              | `Middleware.runBefore`, `Middleware.runAfter`      |
+| 21     | Add Cookie                                             | `Middleware.addCookie`, `Middleware.addCookieZIO`  |
+| 22     | Sign Cookies                                           | `Middleware.signCookies`                           |
+| 23     | Update Response Status                                 | `Middleware.status`                                |
+| 24     | Update Response Headers                                | `Middleware.updateHeaders`                         |
+| 25     | Update Request's Method                                | `Middleware.updateMethod`                          |
+| 26     | Update Request's Path                                  | `Middleware.updatePath`                            |
+| 27     | Update Request                                         | `Middleware.updateRequest`, `Middleware.updateRequestZIO`|
+| 28     | Update Response                                        | `Middleware.updateResponse`, `Middleware.updateResponseZIO`|
+| 29     | Update Request's URL                                   | `Middleware.updateURL`                             |
+| 30     | Allow/Disallow Accessing to an HTTP                    | `Middleware.allow`                                 |
+
+## Examples
+
+### Hello World Example
 
 Detailed example showing "debug" and "addHeader" middlewares
 
-```scala mdoc:silent:reset
-import zio.http._
-import zio._
+```scala mdoc:passthrough
+import utils._
 
-import java.io.IOException
-import java.util.concurrent.TimeUnit
-
-object Example extends ZIOAppDefault {
-  val app: HttpApp[Any] =
-    Routes(
-      // this will return result instantly
-      Method.GET / "text" -> handler(Response.text("Hello World!")),
-      // this will return result after 5 seconds, so with 3 seconds timeout it will fail
-      Method.GET / "long-running" -> handler(ZIO.succeed(Response.text("Hello World!")).delay(5.seconds))
-    ).toHttpApp
-
-  val middlewares =
-    Middleware.debug ++ // print debug info about request and response 
-      Middleware.addHeader("X-Environment", "Dev") // add static header   
-
-  override def run =
-    Server.serve(app @@ middlewares).provide(Server.default)
-}
+printSource("zio-http-example/src/main/scala/example/HelloWorldWithMiddlewares.scala")
 ```
 
-## Built-in Middlewares
+### CORS Example
 
-ZIO HTTP provides a set of built-in middlewares that can be used out of the box. To learm more please refer to the following examples:
+```scala mdoc:passthrough
+import utils._
 
-- [Basic Auth](../../examples/authentication.md#basic-authentication-middleware-example) 
-- [CORS](../../examples/middleware-cors-handling.md)
+printSource("zio-http-example/src/main/scala/example/HelloWorldWithCORS.scala")
+```
 
+### Bearer Authentication Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/AuthenticationServer.scala")
+```
+
+### Basic Authentication Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/BasicAuth.scala")
+```
+
+### Endpoint Middleware Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/EndpointExamples.scala")
+```
+
+### Serving Static Files Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/StaticFiles.scala")
+```
