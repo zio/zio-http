@@ -170,14 +170,12 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "name" : "id",
                              |            "in" : "path",
                              |            "required" : true,
-                             |            "deprecated" : false,
                              |            "schema" :
                              |              {
                              |              "type" :
                              |                "integer",
                              |              "format" : "int32"
                              |            },
-                             |            "explode" : false,
                              |            "style" : "simple"
                              |          },
                              |
@@ -186,14 +184,12 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "in" : "path",
                              |            "description" : "user id\n\n",
                              |            "required" : true,
-                             |            "deprecated" : false,
                              |            "schema" :
                              |              {
                              |              "type" :
                              |                "string",
                              |              "format" : "uuid"
                              |            },
-                             |            "explode" : false,
                              |            "style" : "simple"
                              |          },
                              |
@@ -201,13 +197,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "name" : "name",
                              |            "in" : "path",
                              |            "required" : true,
-                             |            "deprecated" : false,
                              |            "schema" :
                              |              {
                              |              "type" :
                              |                "string"
                              |            },
-                             |            "explode" : false,
                              |            "style" : "simple"
                              |          }
                              |        ],
@@ -249,13 +243,26 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |              }
                              |            }
                              |          }
-                             |        },
-                             |        "deprecated" : false
+                             |        }
                              |      }
                              |    }
                              |  },
                              |  "components" : {
                              |    "schemas" : {
+                             |      "NotFoundError" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" :
+                             |              "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
                              |      "SimpleInputBody" :
                              |        {
                              |        "type" :
@@ -271,27 +278,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "format" : "int32"
                              |          }
                              |        },
-                             |        "additionalProperties" :
-                             |          true,
                              |        "required" : [
                              |          "name",
                              |          "age"
-                             |        ]
-                             |      },
-                             |      "NotFoundError" :
-                             |        {
-                             |        "type" :
-                             |          "object",
-                             |        "properties" : {
-                             |          "message" : {
-                             |            "type" :
-                             |              "string"
-                             |          }
-                             |        },
-                             |        "additionalProperties" :
-                             |          true,
-                             |        "required" : [
-                             |          "message"
                              |        ]
                              |      },
                              |      "SimpleOutputBody" :
@@ -309,8 +298,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "format" : "int32"
                              |          }
                              |        },
-                             |        "additionalProperties" :
-                             |          true,
                              |        "required" : [
                              |          "userName",
                              |          "score"
@@ -334,17 +321,16 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    "/withQuery" : {
                              |      "get" : {
                              |        "parameters" : [
-                             |          {
+                             |
+                             |            {
                              |            "name" : "query",
                              |            "in" : "query",
                              |            "required" : true,
-                             |            "deprecated" : false,
                              |            "schema" :
                              |              {
-                             |                "type" :
-                             |                  "string"
-                             |              },
-                             |            "explode" : false,
+                             |              "type" :
+                             |                "string"
+                             |            },
                              |            "allowReserved" : false,
                              |            "style" : "form"
                              |          }
@@ -353,7 +339,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          {
                              |          "content" : {
                              |            "application/json" : {
-                             |              "schema" : {"$ref": "#/components/schemas/SimpleInputBody"}
+                             |              "schema" :
+                             |                {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
+                             |              }
                              |            }
                              |          },
                              |          "required" : true
@@ -363,7 +352,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            {
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" : {"$ref": "#/components/schemas/SimpleOutputBody"}
+                             |                "schema" :
+                             |                  {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
                              |              }
                              |            }
                              |          },
@@ -371,17 +363,33 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            {
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" : {"$ref": "#/components/schemas/NotFoundError"}
+                             |                "schema" :
+                             |                  {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
                              |            }
                              |          }
                              |        }
-                             |      },
-                             |      "deprecated" : false
+                             |      }
                              |    }
-                             |  }
                              |  },
                              |  "components" : {
                              |    "schemas" : {
+                             |      "NotFoundError" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" :
+                             |              "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
                              |      "SimpleInputBody" :
                              |        {
                              |        "type" :
@@ -397,27 +405,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "format" : "int32"
                              |          }
                              |        },
-                             |        "additionalProperties" :
-                             |          true,
                              |        "required" : [
                              |          "name",
                              |          "age"
-                             |        ]
-                             |      },
-                             |      "NotFoundError" :
-                             |        {
-                             |        "type" :
-                             |          "object",
-                             |        "properties" : {
-                             |          "message" : {
-                             |            "type" :
-                             |              "string"
-                             |          }
-                             |        },
-                             |        "additionalProperties" :
-                             |          true,
-                             |        "required" : [
-                             |          "message"
                              |        ]
                              |      },
                              |      "SimpleOutputBody" :
@@ -435,8 +425,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "format" : "int32"
                              |          }
                              |        },
-                             |        "additionalProperties" :
-                             |          true,
                              |        "required" : [
                              |          "userName",
                              |          "score"
@@ -464,19 +452,20 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          {
             |          "content" : {
             |            "application/json" : {
-            |              "schema" : {
-            |               "anyOf" : [
-            |               {
-            |               "$ref": "#/components/schemas/OtherSimpleInputBody",
-            |               "description" : "other input\n\n"
-            |               },
-            |               {
-            |               "$ref": "#/components/schemas/SimpleInputBody",
-            |               "description" : "simple input\n\n"
-            |               }
-            |               ],
-            |               "description" : "takes either of the two input bodies\n\n"
-            |               }
+            |              "schema" :
+            |                {
+            |                "anyOf" : [
+            |                  {
+            |                    "$ref" : "#/components/schemas/OtherSimpleInputBody",
+            |                    "description" : "other input\n\n"
+            |                  },
+            |                  {
+            |                    "$ref" : "#/components/schemas/SimpleInputBody",
+            |                    "description" : "simple input\n\n"
+            |                  }
+            |                ],
+            |                "description" : "takes either of the two input bodies\n\n"
+            |              }
             |            }
             |          },
             |          "required" : true
@@ -486,7 +475,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            {
             |            "content" : {
             |              "application/json" : {
-            |                "schema" : {"$ref": "#/components/schemas/SimpleOutputBody"}
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+            |                }
             |              }
             |            }
             |          },
@@ -494,17 +486,33 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            {
             |            "content" : {
             |              "application/json" : {
-            |                "schema" : {"$ref": "#/components/schemas/NotFoundError"}
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/NotFoundError"
+            |                }
+            |              }
             |            }
             |          }
             |        }
-            |      },
-            |      "deprecated" : false
+            |      }
             |    }
-            |  }
             |  },
             |  "components" : {
             |    "schemas" : {
+            |      "NotFoundError" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "message" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "message"
+            |        ]
+            |      },
             |      "OtherSimpleInputBody" :
             |        {
             |        "type" :
@@ -520,8 +528,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "fullName",
             |          "shoeSize"
@@ -542,27 +548,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name",
             |          "age"
-            |        ]
-            |      },
-            |      "NotFoundError" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "message" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "message"
             |        ]
             |      },
             |      "SimpleOutputBody" :
@@ -580,8 +568,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "userName",
             |          "score"
@@ -616,7 +602,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          {
             |          "content" : {
             |            "application/json" : {
-            |              "schema" : {"$ref": "#/components/schemas/SimpleInputBody"}
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/SimpleInputBody"
+            |              }
             |            }
             |          },
             |          "required" : true
@@ -626,28 +615,43 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            {
             |            "content" : {
             |              "application/json" : {
-            |                "schema" : { "anyOf" : [
-            |                 {
-            |                 "$ref": "#/components/schemas/SimpleOutputBody",
-            |                 "description" : "simple output\n\n"
-            |                 },
-            |                 {
-            |                 "$ref": "#/components/schemas/NotFoundError",
-            |                 "description" : "not found\n\n"
-            |                 }
-            |                 ],
-            |                 "description" : "alternative outputs\n\n"
-            |                 }
+            |                "schema" :
+            |                  {
+            |                  "anyOf" : [
+            |                    {
+            |                      "$ref" : "#/components/schemas/SimpleOutputBody",
+            |                      "description" : "simple output\n\n"
+            |                    },
+            |                    {
+            |                      "$ref" : "#/components/schemas/NotFoundError",
+            |                      "description" : "not found\n\n"
+            |                    }
+            |                  ],
+            |                  "description" : "alternative outputs\n\n"
+            |                }
             |              }
             |            }
             |          }
-            |        },
-            |        "deprecated" : false
+            |        }
             |      }
             |    }
             |  },
             |  "components" : {
             |    "schemas" : {
+            |      "NotFoundError" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "message" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "message"
+            |        ]
+            |      },
             |      "SimpleInputBody" :
             |        {
             |        "type" :
@@ -663,8 +667,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name",
             |          "age"
@@ -685,27 +687,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "userName",
             |          "score"
-            |        ]
-            |      },
-            |      "NotFoundError" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "message" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "message"
             |        ]
             |      }
             |    }
@@ -812,13 +796,26 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              }
             |            }
             |          }
-            |        },
-            |        "deprecated" : false
+            |        }
             |      }
             |    }
             |  },
             |  "components" : {
             |    "schemas" : {
+            |      "NotFoundError" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "message" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "message"
+            |        ]
+            |      },
             |      "SimpleInputBody" :
             |        {
             |        "type" :
@@ -834,8 +831,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name",
             |          "age"
@@ -856,27 +851,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "userName",
             |          "score"
-            |        ]
-            |      },
-            |      "NotFoundError" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "message" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "message"
             |        ]
             |      }
             |    }
@@ -897,8 +874,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             .outCodec(
               HttpCodec
                 .content[SimpleOutputBody] ?? Doc.p("simple output") |
-                HttpCodec
-                  .content[NotFoundError] ?? Doc.p("not found"),
+                HttpCodec.content[NotFoundError] ?? Doc.p("not found"),
             )
 
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
@@ -919,13 +895,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "name" : "query",
             |            "in" : "query",
             |            "required" : true,
-            |            "deprecated" : false,
             |            "schema" :
             |              {
             |              "type" :
             |                "string"
             |            },
-            |            "explode" : false,
             |            "allowReserved" : false,
             |            "style" : "form"
             |          }
@@ -974,13 +948,26 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              }
             |            }
             |          }
-            |        },
-            |        "deprecated" : false
+            |        }
             |      }
             |    }
             |  },
             |  "components" : {
             |    "schemas" : {
+            |      "NotFoundError" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "message" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "message"
+            |        ]
+            |      },
             |      "OtherSimpleInputBody" :
             |        {
             |        "type" :
@@ -996,8 +983,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "fullName",
             |          "shoeSize"
@@ -1018,8 +1003,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name",
             |          "age"
@@ -1040,27 +1023,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "userName",
             |          "score"
-            |        ]
-            |      },
-            |      "NotFoundError" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "message" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "message"
             |        ]
             |      }
             |    }
@@ -1152,8 +1117,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |              }
                          |            }
                          |          }
-                         |        },
-                         |        "deprecated" : false
+                         |        }
                          |      }
                          |    }
                          |  },
@@ -1174,8 +1138,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            "format" : "int32"
                          |          }
                          |        },
-                         |        "additionalProperties" :
-                         |          true,
                          |        "required" : [
                          |          "name",
                          |          "size"
@@ -1204,155 +1166,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |    "version" : "1.0"
             |  },
             |  "paths" : {
-            |    "/static/{id}/{uuid}/{name}" : {
-            |      "get" : {
-            |        "description": "get path\n\n",
-            |        "parameters" : [
-            |
-            |            {
-            |            "name" : "id",
-            |            "in" : "path",
-            |            "required" : true,
-            |            "deprecated" : false,
-            |            "schema" :
-            |              {
-            |              "type" :
-            |                "integer",
-            |              "format" : "int32"
-            |            },
-            |            "explode" : false,
-            |            "style" : "simple"
-            |          },
-            |
-            |            {
-            |            "name" : "uuid",
-            |            "in" : "path",
-            |            "description" : "user id\n\n",
-            |            "required" : true,
-            |            "deprecated" : false,
-            |            "schema" :
-            |              {
-            |              "type" : "string",
-            |              "format" : "uuid"
-            |            },
-            |            "explode" : false,
-            |            "style" : "simple"
-            |          },
-            |
-            |            {
-            |            "name" : "name",
-            |            "in" : "path",
-            |            "required" : true,
-            |            "deprecated" : false,
-            |            "schema" :
-            |              {
-            |              "type" :
-            |                "string"
-            |            },
-            |            "explode" : false,
-            |            "style" : "simple"
-            |          }
-            |        ],
-            |        "requestBody" :
-            |          {
-            |          "content" : {
-            |            "application/json" : {
-            |              "schema" :
-            |                {
-            |                "$ref" : "#/components/schemas/SimpleInputBody",
-            |                "description" : "input body\n\n"
-            |              }
-            |            }
-            |          },
-            |          "required" : true
-            |        },
-            |        "responses" : {
-            |          "200" :
-            |            {
-            |            "content" : {
-            |              "application/json" : {
-            |                "schema" :
-            |                  {
-            |                  "$ref" : "#/components/schemas/SimpleOutputBody",
-            |                  "description" : "output body\n\n"
-            |                }
-            |              }
-            |            }
-            |          },
-            |          "404" :
-            |            {
-            |            "content" : {
-            |              "application/json" : {
-            |                "schema" :
-            |                  {
-            |                  "$ref" : "#/components/schemas/NotFoundError",
-            |                  "description" : "not found\n\n"
-            |                }
-            |              }
-            |            }
-            |          }
-            |        },
-            |        "deprecated" : false
-            |      }
-            |    },
-            |    "/withQuery" : {
-            |      "get" : {
-            |        "parameters" : [
-            |
-            |            {
-            |            "name" : "query",
-            |            "in" : "query",
-            |            "required" : true,
-            |            "deprecated" : false,
-            |            "schema" :
-            |              {
-            |              "type" :
-            |                "string"
-            |            },
-            |            "explode" : false,
-            |            "allowReserved" : false,
-            |            "style" : "form"
-            |          }
-            |        ],
-            |        "requestBody" :
-            |          {
-            |          "content" : {
-            |            "application/json" : {
-            |              "schema" :
-            |                {
-            |                "$ref" : "#/components/schemas/SimpleInputBody"
-            |              }
-            |            }
-            |          },
-            |          "required" : true
-            |        },
-            |        "responses" : {
-            |          "200" :
-            |            {
-            |            "content" : {
-            |              "application/json" : {
-            |                "schema" :
-            |                  {
-            |                  "$ref" : "#/components/schemas/SimpleOutputBody"
-            |                }
-            |              }
-            |            }
-            |          },
-            |          "404" :
-            |            {
-            |            "content" : {
-            |              "application/json" : {
-            |                "schema" :
-            |                  {
-            |                  "$ref" : "#/components/schemas/NotFoundError"
-            |                }
-            |              }
-            |            }
-            |          }
-            |        },
-            |        "deprecated" : false
-            |      }
-            |    },
             |    "/inputAlternative" : {
             |      "get" : {
             |        "requestBody" :
@@ -1400,35 +1213,152 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              }
             |            }
             |          }
+            |        }
+            |      }
+            |    },
+            |    "/static/{id}/{uuid}/{name}" : {
+            |      "get" : {
+            |        "description" : "get path\n\n",
+            |        "parameters" : [
+            |
+            |            {
+            |            "name" : "id",
+            |            "in" : "path",
+            |            "required" : true,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "integer",
+            |              "format" : "int32"
+            |            },
+            |            "style" : "simple"
+            |          },
+            |
+            |            {
+            |            "name" : "uuid",
+            |            "in" : "path",
+            |            "description" : "user id\n\n",
+            |            "required" : true,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "string",
+            |              "format" : "uuid"
+            |            },
+            |            "style" : "simple"
+            |          },
+            |
+            |            {
+            |            "name" : "name",
+            |            "in" : "path",
+            |            "required" : true,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "string"
+            |            },
+            |            "style" : "simple"
+            |          }
+            |        ],
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/SimpleInputBody",
+            |                "description" : "input body\n\n"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
             |        },
-            |        "deprecated" : false
+            |        "responses" : {
+            |          "200" :
+            |            {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody",
+            |                  "description" : "output body\n\n"
+            |                }
+            |              }
+            |            }
+            |          },
+            |          "404" :
+            |            {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/NotFoundError",
+            |                  "description" : "not found\n\n"
+            |                }
+            |              }
+            |            }
+            |          }
+            |        }
+            |      }
+            |    },
+            |    "/withQuery" : {
+            |      "get" : {
+            |        "parameters" : [
+            |
+            |            {
+            |            "name" : "query",
+            |            "in" : "query",
+            |            "required" : true,
+            |            "schema" :
+            |              {
+            |              "type" :
+            |                "string"
+            |            },
+            |            "allowReserved" : false,
+            |            "style" : "form"
+            |          }
+            |        ],
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/SimpleInputBody"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "responses" : {
+            |          "200" :
+            |            {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+            |                }
+            |              }
+            |            }
+            |          },
+            |          "404" :
+            |            {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/NotFoundError"
+            |                }
+            |              }
+            |            }
+            |          }
+            |        }
             |      }
             |    }
             |  },
             |  "components" : {
             |    "schemas" : {
-            |      "SimpleInputBody" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "name" : {
-            |            "type" :
-            |              "string"
-            |          },
-            |          "age" : {
-            |            "type" :
-            |              "integer",
-            |            "format" : "int32"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "name",
-            |          "age"
-            |        ]
-            |      },
             |      "NotFoundError" :
             |        {
             |        "type" :
@@ -1439,32 +1369,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              "string"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "message"
-            |        ]
-            |      },
-            |      "SimpleOutputBody" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "userName" : {
-            |            "type" :
-            |              "string"
-            |          },
-            |          "score" : {
-            |            "type" :
-            |              "integer",
-            |            "format" : "int32"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "userName",
-            |          "score"
             |        ]
             |      },
             |      "OtherSimpleInputBody" :
@@ -1482,11 +1388,49 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "fullName",
             |          "shoeSize"
+            |        ]
+            |      },
+            |      "SimpleInputBody" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "age" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name",
+            |          "age"
+            |        ]
+            |      },
+            |      "SimpleOutputBody" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "userName" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "score" : {
+            |            "type" :
+            |              "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "required" : [
+            |          "userName",
+            |          "score"
             |        ]
             |      }
             |    }
@@ -1518,8 +1462,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            }
                          |          },
                          |          "required" : true
-                         |        },
-                         |        "deprecated" : false
+                         |        }
                          |      }
                          |    }
                          |  },
@@ -1535,8 +1478,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |              "string"
                          |          }
                          |        },
-                         |        "additionalProperties" :
-                         |          true,
                          |        "required" : [
                          |          "name"
                          |        ]
@@ -1571,8 +1512,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            }
             |          },
             |          "required" : true
-            |        },
-            |        "deprecated" : false
+            |        }
             |      }
             |    }
             |  },
@@ -1590,9 +1530,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "description" : "If not set, this field defaults to the value of the default annotation.",
             |            "default" : 42
             |          }
-            |        },
-            |        "additionalProperties" :
-            |          true
+            |        }
             |      }
             |    }
             |  }
@@ -1624,8 +1562,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            }
             |          },
             |          "required" : true
-            |        },
-            |        "deprecated" : false
+            |        }
             |      }
             |    }
             |  },
@@ -1646,8 +1583,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "format" : "int32"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name",
             |          "size"
@@ -1666,9 +1601,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              "size" : 42
             |            }
             |          }
-            |        },
-            |        "additionalProperties" :
-            |          true
+            |        }
             |      }
             |    }
             |  }
@@ -1699,8 +1632,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            }
                          |          },
                          |          "required" : true
-                         |        },
-                         |        "deprecated" : false
+                         |        }
                          |      }
                          |    }
                          |  },
@@ -1721,8 +1653,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            "format" : "int32"
                          |          }
                          |        },
-                         |        "additionalProperties" :
-                         |          true,
                          |        "required" : [
                          |          "name"
                          |        ]
@@ -1756,8 +1686,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            }
                          |          },
                          |          "required" : true
-                         |        },
-                         |        "deprecated" : false
+                         |        }
                          |      }
                          |    }
                          |  },
@@ -1778,11 +1707,26 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            "format" : "int32"
                          |          }
                          |        },
-                         |        "additionalProperties" :
-                         |          true,
                          |        "required" : [
                          |          "name",
                          |          "size"
+                         |        ]
+                         |      },
+                         |      "NestedProduct" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "imageMetadata" : {
+                         |            "$ref" : "#/components/schemas/ImageMetadata"
+                         |          },
+                         |          "withOptionalField" : {
+                         |            "$ref" : "#/components/schemas/WithOptionalField"
+                         |          }
+                         |        },
+                         |        "required" : [
+                         |          "imageMetadata",
+                         |          "withOptionalField"
                          |        ]
                          |      },
                          |      "WithOptionalField" :
@@ -1800,29 +1744,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            "format" : "int32"
                          |          }
                          |        },
-                         |        "additionalProperties" :
-                         |          true,
                          |        "required" : [
                          |          "name"
-                         |        ]
-                         |      },
-                         |      "NestedProduct" :
-                         |        {
-                         |        "type" :
-                         |          "object",
-                         |        "properties" : {
-                         |          "imageMetadata" : {
-                         |            "$ref" : "#/components/schemas/ImageMetadata"
-                         |          },
-                         |          "withOptionalField" : {
-                         |            "$ref" : "#/components/schemas/WithOptionalField"
-                         |          }
-                         |        },
-                         |        "additionalProperties" :
-                         |          true,
-                         |        "required" : [
-                         |          "imageMetadata",
-                         |          "withOptionalField"
                          |        ]
                          |      }
                          |    }
@@ -1854,8 +1777,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            }
                          |          },
                          |          "required" : true
-                         |        },
-                         |        "deprecated" : false
+                         |        }
                          |      }
                          |    }
                          |  },
@@ -1901,8 +1823,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            }
             |          },
             |          "required" : true
-            |        },
-            |        "deprecated" : false
+            |        }
             |      }
             |    }
             |  },
@@ -1912,41 +1833,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        {
             |        "type" :
             |          "object",
-            |        "properties" : {},
-            |        "additionalProperties" :
-            |          true
-            |      },
-            |      "Two" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "name" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "name"
-            |        ]
-            |      },
-            |      "Three" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "name" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "name"
-            |        ]
+            |        "properties" : {}
             |      },
             |      "SealedTraitDefaultDiscriminator" :
             |        {
@@ -1994,6 +1881,34 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            ]
             |          }
             |        ]
+            |      },
+            |      "Three" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "Two" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
             |      }
             |    }
             |  }
@@ -2025,8 +1940,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            }
             |          },
             |          "required" : true
-            |        },
-            |        "deprecated" : false
+            |        }
             |      }
             |    }
             |  },
@@ -2036,41 +1950,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        {
             |        "type" :
             |          "object",
-            |        "properties" : {},
-            |        "additionalProperties" :
-            |          true
-            |      },
-            |      "Two" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "name" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "name"
-            |        ]
-            |      },
-            |      "Three" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "name" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "additionalProperties" :
-            |          true,
-            |        "required" : [
-            |          "name"
-            |        ]
+            |        "properties" : {}
             |      },
             |      "SealedTraitCustomDiscriminator" :
             |        {
@@ -2093,6 +1973,34 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "three" : "#/components/schemas/Three}"
             |          }
             |        }
+            |      },
+            |      "Three" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "Two" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
             |      }
             |    }
             |  }
@@ -2123,8 +2031,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            }
                          |          },
                          |          "required" : true
-                         |        },
-                         |        "deprecated" : false
+                         |        }
                          |      }
                          |    }
                          |  },
@@ -2134,41 +2041,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |        {
                          |        "type" :
                          |          "object",
-                         |        "properties" : {},
-                         |        "additionalProperties" :
-                         |          true
-                         |      },
-                         |      "Two" :
-                         |        {
-                         |        "type" :
-                         |          "object",
-                         |        "properties" : {
-                         |          "name" : {
-                         |            "type" :
-                         |              "string"
-                         |          }
-                         |        },
-                         |        "additionalProperties" :
-                         |          true,
-                         |        "required" : [
-                         |          "name"
-                         |        ]
-                         |      },
-                         |      "Three" :
-                         |        {
-                         |        "type" :
-                         |          "object",
-                         |        "properties" : {
-                         |          "name" : {
-                         |            "type" :
-                         |              "string"
-                         |          }
-                         |        },
-                         |        "additionalProperties" :
-                         |          true,
-                         |        "required" : [
-                         |          "name"
-                         |        ]
+                         |        "properties" : {}
                          |      },
                          |      "SealedTraitNoDiscriminator" :
                          |        {
@@ -2183,11 +2056,38 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |            "$ref" : "#/components/schemas/Three"
                          |          }
                          |        ]
+                         |      },
+                         |      "Three" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "name" : {
+                         |            "type" :
+                         |              "string"
+                         |          }
+                         |        },
+                         |        "required" : [
+                         |          "name"
+                         |        ]
+                         |      },
+                         |      "Two" :
+                         |        {
+                         |        "type" :
+                         |          "object",
+                         |        "properties" : {
+                         |          "name" : {
+                         |            "type" :
+                         |              "string"
+                         |          }
+                         |        },
+                         |        "required" : [
+                         |          "name"
+                         |        ]
                          |      }
                          |    }
                          |  }
-                         |}
-                         |""".stripMargin
+                         |}""".stripMargin
         assertTrue(json == toJsonAst(expected))
       },
       test("sealed trait with nested sealed trait") {
@@ -2215,8 +2115,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            }
             |          },
             |          "required" : true
-            |        },
-            |        "deprecated" : false
+            |        }
             |      }
             |    }
             |  },
@@ -2240,9 +2139,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        {
             |        "type" :
             |          "object",
-            |        "properties" : {},
-            |        "additionalProperties" :
-            |          true
+            |        "properties" : {}
             |      },
             |      "NestedThree" :
             |        {
@@ -2254,8 +2151,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              "string"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name"
             |        ]
@@ -2269,8 +2164,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "$ref" : "#/components/schemas/SealedTraitNoDiscriminator"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name"
             |        ]
@@ -2285,8 +2178,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              "string"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name"
             |        ]
@@ -2301,8 +2192,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              "string"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          true,
             |        "required" : [
             |          "name"
             |        ]
@@ -2311,9 +2200,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        {
             |        "type" :
             |          "object",
-            |        "properties" : {},
-            |        "additionalProperties" :
-            |          true
+            |        "properties" : {}
             |      },
             |      "SimpleNestedSealedTrait" :
             |        {
@@ -2368,75 +2255,84 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           )
         val json         = toJsonAst(openApi)
         val expectedJson = """{
-                             |  "openapi": "3.1.0",
-                             |  "info": {
-                             |    "title": "Combined input examples",
-                             |    "version": "1.0"
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Combined input examples",
+                             |    "version" : "1.0"
                              |  },
-                             |  "paths": {
-                             |    "/root/{name}": {
-                             |      "get": {
-                             |        "parameters": [
-                             |          {
-                             |            "name": "name",
-                             |            "in": "path",
-                             |            "required": true,
-                             |            "deprecated": false,
-                             |            "schema": {
-                             |              "type": "string"
+                             |  "paths" : {
+                             |    "/root/{name}" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |
+                             |            {
+                             |            "name" : "name",
+                             |            "in" : "path",
+                             |            "required" : true,
+                             |            "schema" :
+                             |              {
+                             |              "type" :
+                             |                "string"
                              |            },
-                             |            "explode": false,
-                             |            "examples": {
-                             |              "hi": {
-                             |                "value": "name_value"
+                             |            "examples" : {
+                             |              "hi" :
+                             |                {
+                             |                "value" : "name_value"
                              |              }
                              |            },
-                             |            "style": "simple"
+                             |            "style" : "simple"
                              |          }
                              |        ],
-                             |        "requestBody": {
-                             |          "content": {
-                             |            "application/json": {
-                             |              "schema": {
-                             |                "$ref": "#/components/schemas/Payload"
+                             |        "requestBody" :
+                             |          {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" :
+                             |                {
+                             |                "$ref" : "#/components/schemas/Payload"
                              |              },
-                             |              "examples": {
-                             |                "hi": {
-                             |                  "value": {
-                             |                    "content": "input"
+                             |              "examples" : {
+                             |                "hi" :
+                             |                  {
+                             |                  "value" : {
+                             |                    "content" : "input"
                              |                  }
                              |                }
                              |              }
                              |            }
                              |          },
-                             |          "required": true
+                             |          "required" : true
                              |        },
-                             |        "responses": {
-                             |          "200": {
-                             |            "content": {
-                             |              "application/json": {
-                             |                "schema": {
-                             |                  "type": "string"
+                             |        "responses" : {
+                             |          "200" :
+                             |            {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" :
+                             |                  {
+                             |                  "type" :
+                             |                    "string"
                              |                }
                              |              }
                              |            }
                              |          }
-                             |        },
-                             |        "deprecated": false
+                             |        }
                              |      }
                              |    }
                              |  },
-                             |  "components": {
-                             |    "schemas": {
-                             |      "Payload": {
-                             |        "type": "object",
-                             |        "properties": {
-                             |          "content": {
-                             |            "type": "string"
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "Payload" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "content" : {
+                             |            "type" :
+                             |              "string"
                              |          }
                              |        },
-                             |        "additionalProperties": true,
-                             |        "required": [
+                             |        "required" : [
                              |          "content"
                              |        ]
                              |      }
@@ -2473,13 +2369,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "name" : "name",
                              |            "in" : "path",
                              |            "required" : true,
-                             |            "deprecated" : false,
                              |            "schema" :
                              |              {
                              |              "type" :
                              |                "string"
                              |            },
-                             |            "explode" : false,
                              |            "examples" : {
                              |              "hi" :
                              |                {
@@ -2539,8 +2433,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |              }
                              |            }
                              |          }
-                             |        },
-                             |        "deprecated" : false
+                             |        }
                              |      }
                              |    }
                              |  },
@@ -2556,8 +2449,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |              "string"
                              |          }
                              |        },
-                             |        "additionalProperties" :
-                             |          true,
                              |        "required" : [
                              |          "content"
                              |        ]
