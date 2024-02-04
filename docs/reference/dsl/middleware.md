@@ -5,11 +5,23 @@ title: Middleware
 
 A middleware helps in addressing common crosscutting concerns without duplicating boilerplate code.
 
+## Definition
+
+Middleware can be conceptualized as a functional component that accepts a `Routes` and produces a new `Routes`. The defined trait, `Middleware`, is parameterized by a contravariant type `UpperEnv` which denotes it can access the environment of the `HttpApp`:
+
+```scala
+trait Middleware[-UpperEnv] { self =>
+  def apply[Env1 <: UpperEnv, Err](routes: Routes[Env1, Err]): Routes[Env1, Err]
+} 
+```
+
+This abstraction allows middleware to engage with the `HttpApp` environment, and also the ability to tweak existing routes or add/remove routes as needed.
+
 ## Applying `Middleware` to `HttpApp`
 
 The `@@` operator is used to attach a middleware to routes and HTTP applications. Example below shows a middleware attached to an `HttpApp`:
 
-```scala mdoc:silent
+```scala mdoc:compile-only
 import zio.http._
 
 val app = Routes(
