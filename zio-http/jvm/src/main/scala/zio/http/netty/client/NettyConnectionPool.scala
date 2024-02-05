@@ -122,7 +122,7 @@ object NettyConnectionPool {
       }
       _             <- NettyFutureExecutor.executed(channelFuture)
       ch            <- ZIO.attempt(channelFuture.channel())
-      _             <- Scope.addFinalizer(NettyFutureExecutor.executed(ch.disconnect()).when(ch.isOpen).ignoreLogged)
+      _             <- Scope.addFinalizer(NettyFutureExecutor.executed(ch.close()).when(ch.isOpen).ignoreLogged)
     } yield ch
   }
 
