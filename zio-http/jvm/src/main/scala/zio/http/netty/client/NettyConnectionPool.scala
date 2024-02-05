@@ -50,7 +50,7 @@ object NettyConnectionPool {
     connectionTimeout: Option[Duration],
     localAddress: Option[InetSocketAddress],
     dnsResolver: DnsResolver,
-  )(implicit trace: Trace): ZIO[Any, Throwable, JChannel] = {
+  )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] = {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
         val pipeline = ch.pipeline()
@@ -121,8 +121,9 @@ object NettyConnectionPool {
         }).connect()
       }
       _             <- NettyFutureExecutor.executed(channelFuture)
-      result        <- ZIO.attempt(channelFuture.channel())
-    } yield result
+      ch            <- ZIO.attempt(channelFuture.channel())
+      _             <- Scope.addFinalizer(NettyFutureExecutor.executed(ch.disconnect()).when(ch.isOpen).ignoreLogged)
+    } yield ch
   }
 
   private final class ReadTimeoutErrorHandler(nettyRuntime: NettyRuntime)(implicit trace: Trace)

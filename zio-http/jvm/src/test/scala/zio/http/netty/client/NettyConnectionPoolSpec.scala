@@ -200,6 +200,36 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       Server.customized,
     ) @@ withLiveClock
 
+  private def connectionPoolShutdownSpec =
+    test("connections are closed when pool is closed") {
+      ZIO
+        .scoped(for {
+          cfg   <- ZIO.service[ZClient.Config]
+          _     <- serve
+          port  <- DynamicServer.port
+          pool  <- NettyConnectionPool.fromConfig(cfg.connectionPool)
+          conn1 <- ZIO.scoped(
+            pool.get(
+              URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port)),
+              proxy = None,
+              sslOptions = ClientSSLConfig.Default,
+              maxInitialLineLength = 4096,
+              maxHeaderSize = 8192,
+              decompression = Decompression.No,
+              idleTimeout = None,
+              connectionTimeout = None,
+            ),
+          )
+        } yield conn1)
+        .map(conn => assertTrue(!conn.isOpen))
+    }.provideSome[ZClient.Config](
+      DynamicServer.live,
+      NettyClientDriver.live.asInstanceOf[ZLayer[NettyConfig, Throwable, NettyClientDriver]],
+      DnsResolver.default,
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+      serverTestLayer,
+    ) @@ withLiveClock @@ nonFlaky(10)
+
   def connectionPoolSpec: Spec[Any, Throwable] =
     suite("ConnectionPool")(
       suite("fixed")(
@@ -218,6 +248,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           ),
         ),
         connectionPoolTimeoutTest,
+        connectionPoolShutdownSpec,
       ).provide(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
@@ -245,6 +276,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           ),
         ),
         connectionPoolTimeoutTest,
+        connectionPoolShutdownSpec,
       ).provide(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
