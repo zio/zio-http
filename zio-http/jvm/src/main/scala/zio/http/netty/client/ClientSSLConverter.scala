@@ -27,6 +27,7 @@ import zio.http.ClientSSLConfig
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
+
 object ClientSSLConverter {
   private def trustStoreToSslContext(trustStoreStream: InputStream, trustStorePassword: Secret): SslContext = {
     val trustStore          = KeyStore.getInstance("JKS")
@@ -41,14 +42,14 @@ object ClientSSLConverter {
   }
 
   private def keyManagerTrustManagerToSslContext(
-    keyManagerInfo: Option[(String, InputStream, Option[String])],
-    trustManagerInfo: Option[(String, InputStream, Option[String])],
+    keyManagerInfo: Option[(String, InputStream, Option[Secret])],
+    trustManagerInfo: Option[(String, InputStream, Option[Secret])],
   ): SslContext = {
     val mkeyManagerFactory =
       keyManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
         val keyStore          = KeyStore.getInstance(keyStoreType)
         val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
-        val password          = maybePassword.map(_.toCharArray).orNull
+        val password          = maybePassword.map(_.value.toArray).orNull
 
         keyStore.load(inputStream, password)
         keyManagerFactory.init(keyStore, password)
@@ -59,7 +60,7 @@ object ClientSSLConverter {
       trustManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
         val keyStore            = KeyStore.getInstance(keyStoreType)
         val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
-        val password            = maybePassword.map(_.toCharArray).orNull
+        val password            = maybePassword.map(_.value.toArray).orNull
 
         keyStore.load(inputStream, password)
         trustManagerFactory.init(keyStore)

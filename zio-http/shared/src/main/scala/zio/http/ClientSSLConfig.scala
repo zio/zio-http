@@ -58,19 +58,27 @@ object ClientSSLConfig {
         )
         .zip(trustManagerPassword.optional)
         .map { case (kmkst, kmf, kmr, kmpass, tmkst, (tmf, tmr), tmpass) =>
-          List[(Option[String], FromJavaxNetSsl => String => FromJavaxNetSsl)](
-            (kmkst, b => b.keyManagerKeyStoreType(_)),
-            (kmf, b => b.keyManagerFile),
-            (kmr, b => b.keyManagerResource),
+          val bldr0 =
+            List[(Option[String], FromJavaxNetSsl => String => FromJavaxNetSsl)](
+              (kmkst, b => b.keyManagerKeyStoreType(_)),
+              (kmf, b => b.keyManagerFile),
+              (kmr, b => b.keyManagerResource),
+              (tmkst, b => b.trustManagerKeyStoreType(_)),
+              (tmf, b => b.trustManagerFile),
+              (tmr, b => b.trustManagerResource),
+            )
+              // Use an empty FromJavaxNetSsl as a builder.  Config validation above
+              // ensures we will create a valid result.
+              .foldLeft(FromJavaxNetSsl()) { case (bldr, (maybe, lens)) =>
+                maybe.fold(bldr)(s => lens(bldr)(s))
+              }
+
+          List[(Option[Secret], FromJavaxNetSsl => Secret => FromJavaxNetSsl)](
             (kmpass, b => b.keyManagerPassword(_)),
-            (tmkst, b => b.trustManagerKeyStoreType(_)),
-            (tmf, b => b.trustManagerFile),
-            (tmr, b => b.trustManagerResource),
             (tmpass, b => b.trustManagerPassword(_)),
           )
-            // Use an empty FromJavaxNetSsl as a builder.  Config validation above
-            // ensures we will create a valid result.
-            .foldLeft(FromJavaxNetSsl()) { case (bldr, (maybe, lens)) =>
+            // Use our earlier builder that consumed all string inputs
+            .foldLeft(bldr0) { case (bldr, (maybe, lens)) =>
               maybe.fold(bldr)(s => lens(bldr)(s))
             }
             .build()
@@ -121,21 +129,21 @@ object ClientSSLConfig {
   final case class FromJavaxNetSsl(
     keyManagerKeyStoreType: String = "JKS",
     keyManagerSource: FromJavaxNetSsl.Source = FromJavaxNetSsl.Empty,
-    keyManagerPassword: Option[String] = None,
+    keyManagerPassword: Option[Secret] = None,
     trustManagerKeyStoreType: String = "JKS",
     trustManagerSource: FromJavaxNetSsl.Source = FromJavaxNetSsl.Empty,
-    trustManagerPassword: Option[String] = None,
+    trustManagerPassword: Option[Secret] = None,
   ) extends ClientSSLConfig { self =>
-
-    /**
-     * Indicate if the build is invalid.
-     */
-    def isInvalidBuild: Boolean = trustManagerSource == FromJavaxNetSsl.Empty
 
     /**
      * Indicate if the build is valid.
      */
-    def isValidBuild: Boolean = !isInvalidBuild
+    def isValidBuild: Boolean = trustManagerSource != FromJavaxNetSsl.Empty
+
+    /**
+     * Indicate if the build is invalid.
+     */
+    def isInvalidBuild: Boolean = !isValidBuild
 
     /**
      * Finalize the build of this FromJavaNetSsl.
@@ -171,23 +179,41 @@ object ClientSSLConfig {
     /**
      * Specify the password associated with the source that will be used to load
      * the Keystore to be used by the KeyManagerFactory.
-     * @param password
-     * @return
      */
-    def keyManagerPassword(password: String): FromJavaxNetSsl = self.copy(keyManagerPassword = Some(password))
+    def keyManagerPassword(password: Secret): FromJavaxNetSsl = self.copy(keyManagerPassword = Some(password))
+
+    def keyManagerPassword(password: String): FromJavaxNetSsl = keyManagerPassword(Secret(password))
 
     def trustManagerKeyStoreType(tpe: String): FromJavaxNetSsl = self.copy(trustManagerKeyStoreType = tpe)
 
+    /**
+     * Specify the path to be used to load the KeyStore to be used by the
+     * TrustManagerFactory.
+     *
+     * @note
+     *   If a trustManagerResource has been specified it will take precedence
+     *   over a path.
+     */
     def trustManagerFile(file: String): FromJavaxNetSsl =
       trustManagerSource match {
         case FromJavaxNetSsl.Resource(_) => this
         case _                           => self.copy(trustManagerSource = FromJavaxNetSsl.File(file))
       }
 
+    /**
+     * Specify the resource to be used to load the KeyStore to be used by the
+     * TrustManagerFactory.
+     */
     def trustManagerResource(path: String): FromJavaxNetSsl =
       self.copy(trustManagerSource = FromJavaxNetSsl.Resource(path))
 
-    def trustManagerPassword(password: String): FromJavaxNetSsl = self.copy(trustManagerPassword = Some(password))
+    /**
+     * Specify the password associated with the source that will be used to load
+     * the Keystore to be used by the TrustManagerFactory.
+     */
+    def trustManagerPassword(password: Secret): FromJavaxNetSsl = self.copy(trustManagerPassword = Some(password))
+
+    def trustManagerPassword(password: String): FromJavaxNetSsl = trustManagerPassword(Secret(password))
   }
 
   object FromJavaxNetSsl {
