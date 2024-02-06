@@ -99,12 +99,12 @@ Creates a `Handler` that always fails with the given error.
 Handler.error(Status.Forbidden)
 ```
 
-### Handler.response
+### Handler.fromResponse
 
 Creates an `Handler` that always responds with the same `Response`.
 
 ```scala mdoc:silent
-Handler.response(Response.ok)
+Handler.fromResponse(Response.ok)
 ```
 
 ## Special operators on Handler
@@ -125,7 +125,7 @@ handler11.method(Method.POST)
 Patches the response produced by the request handler using a `Patch`.
 
 ```scala mdoc:silent
-val handler12 = Handler.response(Response.text("Hello World!"))
+val handler12 = Handler.fromResponse(Response.text("Hello World!"))
 val handler13 = handler12.patch(Response.Patch.status(Status.Accepted))
 ```
 
