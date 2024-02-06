@@ -450,7 +450,13 @@ object ServerSpec extends HttpRunnableSpec {
         val server = "ZIO-Http"
         val res    = Response.text("abc")
         for {
-          actual <- Handler.fromResponse(res).addHeader(Header.Server(server)).toHttpApp.deploy.header(Header.Server).run()
+          actual <- Handler
+            .fromResponse(res)
+            .addHeader(Header.Server(server))
+            .toHttpApp
+            .deploy
+            .header(Header.Server)
+            .run()
         } yield assertTrue(actual.get == Header.Server(server))
       },
     ),
