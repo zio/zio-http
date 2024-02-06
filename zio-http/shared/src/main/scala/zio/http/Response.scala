@@ -71,7 +71,7 @@ final case class Response(
   /**
    * Creates an Http from a Response
    */
-  def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
+  def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.fromResponse(self)
 
   /**
    * Updates the current Headers with new one, using the provided update

@@ -141,7 +141,7 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
-        val app = Handler.response(Response(status = Status.Ok, body = Body.fromString("abc"))).toHttpApp
+        val app = Handler.fromResponse(Response(status = Status.Ok, body = Body.fromString("abc"))).toHttpApp
         test("body is set") {
           val res = app.deploy.body.mapZIO(_.asString).run()
           assertZIO(res)(equalTo("abc"))
@@ -443,14 +443,14 @@ object ServerSpec extends HttpRunnableSpec {
         val expected = (0 to size) map (_ => Status.Ok)
         val response = Response.text("abc")
         for {
-          actual <- ZIO.foreachPar(0 to size)(_ => Handler.response(response).toHttpApp.deploy.status.run())
+          actual <- ZIO.foreachPar(0 to size)(_ => Handler.fromResponse(response).toHttpApp.deploy.status.run())
         } yield assertTrue(actual == expected)
       },
       test("update after cache") {
         val server = "ZIO-Http"
         val res    = Response.text("abc")
         for {
-          actual <- Handler.response(res).addHeader(Header.Server(server)).toHttpApp.deploy.header(Header.Server).run()
+          actual <- Handler.fromResponse(res).addHeader(Header.Server(server)).toHttpApp.deploy.header(Header.Server).run()
         } yield assertTrue(actual.get == Header.Server(server))
       },
     ),
