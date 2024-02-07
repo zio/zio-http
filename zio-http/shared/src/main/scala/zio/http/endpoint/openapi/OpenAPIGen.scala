@@ -2,6 +2,7 @@ package zio.http.endpoint.openapi
 
 import java.util.UUID
 
+import scala.collection.immutable.ListMap
 import scala.collection.{immutable, mutable}
 
 import zio.Chunk
@@ -17,6 +18,7 @@ import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
+import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -482,7 +484,7 @@ object OpenAPIGen {
     // there is no status for inputs. So we just take the first one (default)
     val ins = schemaByStatusAndMediaType(endpoint.input.alternatives.map(_._1), referenceType).values.headOption
 
-    def path: OpenAPI.Paths = {
+    def path: Map[Path, PathItem] = {
       val path           = buildPath(endpoint.input)
       val method0        = method(inAtoms.method)
       // Endpoint has only one doc. But open api has a summery and a description
@@ -558,23 +560,6 @@ object OpenAPIGen {
         .reduceOption(_ intersect _)
         .flatMap(_.reduceOption(_ + _))
         .getOrElse(Doc.empty)
-//    {
-//      def loop(codec: PathCodec[_]): Doc = codec match {
-//        case PathCodec.Annotated(codec, annotations) =>
-//          annotations
-//            .collect { case PathCodec.MetaData.Documented(doc) => doc }
-//            .reduceOption(_ + _)
-//            .getOrElse(Doc.empty) + loop(codec)
-//        case PathCodec.Segment(_) =>
-//          Doc.empty
-//        case PathCodec.Concat(left, right, _) =>
-//          loop(left) + loop(right)
-//        case PathCodec.TransformOrFail(api, _, _) =>
-//          loop(api)
-//      }
-//
-//      loop(endpoint.route.pathCodec)
-//    }
 
     def requestBody: Option[OpenAPI.ReferenceOr[OpenAPI.RequestBody]] =
       ins.map { mediaTypes =>
@@ -683,15 +668,15 @@ object OpenAPIGen {
     }
 
     def components = OpenAPI.Components(
-      schemas = componentSchemas,
-      responses = Map.empty,
-      parameters = Map.empty,
-      examples = Map.empty,
-      requestBodies = Map.empty,
-      headers = Map.empty,
-      securitySchemes = Map.empty,
-      links = Map.empty,
-      callbacks = Map.empty,
+      schemas = ListMap(componentSchemas.toSeq.sortBy(_._1.name): _*),
+      responses = ListMap.empty,
+      parameters = ListMap.empty,
+      examples = ListMap.empty,
+      requestBodies = ListMap.empty,
+      headers = ListMap.empty,
+      securitySchemes = ListMap.empty,
+      links = ListMap.empty,
+      callbacks = ListMap.empty,
     )
 
     def segmentToJson(codec: SegmentCodec[_], value: Any): Json = {
@@ -767,7 +752,7 @@ object OpenAPIGen {
         version = "",
       ),
       servers = Nil,
-      paths = path,
+      paths = ListMap(path.toSeq.sortBy(_._1.name): _*),
       components = Some(components),
       security = Nil,
       tags = Nil,
