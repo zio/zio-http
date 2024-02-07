@@ -1036,7 +1036,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       test("multipart") {
         val endpoint  = Endpoint(GET / "test-form")
           .outCodec(
-            (HttpCodec.contentStream[Byte]("image", MediaType.image.png) ++
+            (HttpCodec.binaryStream("image", MediaType.image.png) ++
               HttpCodec.content[String]("title").optional ?? Doc.p("Test doc")) ++
               HttpCodec.content[Int]("width") ++
               HttpCodec.content[Int]("height") ++

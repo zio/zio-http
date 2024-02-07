@@ -204,10 +204,11 @@ object Form {
   def fromMultipartBytes(
     bytes: Chunk[Byte],
     charset: Charset = Charsets.Utf8,
+    boundary: Option[Boundary] = None,
   )(implicit trace: Trace): ZIO[Any, Throwable, Form] =
     for {
       boundary <- ZIO
-        .fromOption(Boundary.fromContent(bytes, charset))
+        .fromOption(boundary.orElse(Boundary.fromContent(bytes, charset)))
         .orElseFail(FormDecodingError.BoundaryNotFoundInContent.asException)
       form     <- StreamingForm(ZStream.fromChunk(bytes), boundary).collectAll
     } yield form

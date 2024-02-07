@@ -202,62 +202,54 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema.
    */
-  def in[Input2](implicit
-    schema: Schema[Input2],
+  def in[Input2: HttpContentCodec](implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
-    copy(input = input ++ HttpCodec.content(schema))
+    copy(input = input ++ HttpCodec.content[Input2])
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema and is documented.
    */
-  def in[Input2](doc: Doc)(implicit
-    schema: Schema[Input2],
+  def in[Input2: HttpContentCodec](doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
-    copy(input = input ++ HttpCodec.content(schema) ?? doc)
+    copy(input = input ++ HttpCodec.content[Input2] ?? doc)
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema and is documented.
    */
-  def in[Input2](name: String)(implicit
-    schema: Schema[Input2],
+  def in[Input2: HttpContentCodec](name: String)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
-    copy(input = input ++ HttpCodec.content(name)(schema))
+    copy(input = input ++ HttpCodec.content[Input2](name))
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema and is documented.
    */
-  def in[Input2](name: String, doc: Doc)(implicit
-    schema: Schema[Input2],
+  def in[Input2: HttpContentCodec](name: String, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
-    copy(input = input ++ (HttpCodec.content(name)(schema) ?? doc))
+    copy(input = input ++ (HttpCodec.content[Input2](name) ?? doc))
 
-  def in[Input2](mediaType: MediaType)(implicit
-    schema: Schema[Input2],
+  def in[Input2: HttpContentCodec](mediaType: MediaType)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
-    copy(input = input ++ HttpCodec.content(mediaType)(schema))
+    copy(input = input ++ HttpCodec.content[Input2](mediaType))
 
-  def in[Input2](mediaType: MediaType, doc: Doc)(implicit
-    schema: Schema[Input2],
+  def in[Input2: HttpContentCodec](mediaType: MediaType, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = input ++ (HttpCodec.content(mediaType) ?? doc))
 
-  def in[Input2](mediaType: MediaType, name: String)(implicit
-    schema: Schema[Input2],
+  def in[Input2: HttpContentCodec](mediaType: MediaType, name: String)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = input ++ HttpCodec.content(name, mediaType))
 
-  def in[Input2](mediaType: MediaType, name: String, doc: Doc)(implicit
-    schema: Schema[Input2],
+  def in[Input2: HttpContentCodec](mediaType: MediaType, name: String, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = input ++ (HttpCodec.content(name, mediaType) ?? doc))
@@ -275,7 +267,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose input type is a stream
    * of the specified typ.
    */
-  def inStream[Input2: Schema](implicit
+  def inStream[Input2: HttpContentCodec](implicit
     combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     Endpoint(
@@ -291,7 +283,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose input type is a stream
    * of the specified type and is documented.
    */
-  def inStream[Input2: Schema](doc: Doc)(implicit
+  def inStream[Input2: HttpContentCodec](doc: Doc)(implicit
     combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     Endpoint(
@@ -307,7 +299,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose input type is a stream
    * of the specified type.
    */
-  def inStream[Input2: Schema](name: String)(implicit
+  def inStream[Input2: HttpContentCodec](name: String)(implicit
     combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     Endpoint(
@@ -323,7 +315,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose input type is a stream
    * of the specified type and is documented.
    */
-  def inStream[Input2: Schema](name: String, doc: Doc)(implicit
+  def inStream[Input2: HttpContentCodec](name: String, doc: Doc)(implicit
     combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     Endpoint(
@@ -355,13 +347,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the ok status code.
    */
-  def out[Output2: Schema](implicit
+  def out[Output2: HttpContentCodec](implicit
     alt: Alternator[Output, Output2],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(Status.Ok)),
+      output = self.output | (HttpCodec.content[Output2] ++ StatusCodec.status(Status.Ok)),
       error,
       doc,
       mw,
@@ -371,7 +363,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the ok status code and is documented.
    */
-  def out[Output2: Schema](doc: Doc)(implicit
+  def out[Output2: HttpContentCodec](doc: Doc)(implicit
     alt: Alternator[Output, Output2],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     out[Output2](Status.Ok, doc)
@@ -380,7 +372,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the ok status code.
    */
-  def out[Output2: Schema](
+  def out[Output2: HttpContentCodec](
     mediaType: MediaType,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     out[Output2](Status.Ok, mediaType)
@@ -389,13 +381,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the specified status code.
    */
-  def out[Output2: Schema](
+  def out[Output2: HttpContentCodec](
     status: Status,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)),
+      output = self.output | (HttpCodec.content[Output2] ++ StatusCodec.status(status)),
       error,
       doc,
       mw,
@@ -405,14 +397,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the specified status code and is documented.
    */
-  def out[Output2: Schema](
+  def out[Output2: HttpContentCodec](
     status: Status,
     doc: Doc,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | ((HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)) ?? doc),
+      output = self.output | ((HttpCodec.content[Output2] ++ StatusCodec.status(status)) ?? doc),
       error,
       Doc.empty,
       mw,
@@ -422,14 +414,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the ok status code and is documented.
    */
-  def out[Output2: Schema](
+  def out[Output2: HttpContentCodec](
     mediaType: MediaType,
     doc: Doc,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ++ StatusCodec.Ok ?? doc),
+      output = self.output | (HttpCodec.content[Output2](mediaType) ++ StatusCodec.Ok ?? doc),
       error,
       doc,
       mw,
@@ -439,7 +431,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the specified status code and is documented.
    */
-  def out[Output2: Schema](
+  def out[Output2: HttpContentCodec](
     status: Status,
     mediaType: MediaType,
     doc: Doc,
@@ -448,7 +440,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       route,
       input,
       output = self.output |
-        ((HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)) ?? doc),
+        ((HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) ?? doc),
       error,
       doc,
       mw,
@@ -458,14 +450,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the specified status code.
    */
-  def out[Output2: Schema](
+  def out[Output2: HttpContentCodec](
     status: Status,
     mediaType: MediaType,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)),
+      output = self.output | (HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)),
       error,
       doc,
       mw,
@@ -475,8 +467,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint that can fail with the specified error type for the
    * specified status code.
    */
-  def outError[Err2](status: Status)(implicit
-    schema: Schema[Err2],
+  def outError[Err2: HttpContentCodec](status: Status)(implicit
     alt: Alternator[Err, Err2],
   ): Endpoint[PathInput, Input, alt.Out, Output, Middleware] =
     copy[PathInput, Input, alt.Out, Output, Middleware](
@@ -487,8 +478,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint that can fail with the specified error type for the
    * specified status code and is documented.
    */
-  def outError[Err2](status: Status, doc: Doc)(implicit
-    schema: Schema[Err2],
+  def outError[Err2: HttpContentCodec](status: Status, doc: Doc)(implicit
     alt: Alternator[Err, Err2],
   ): Endpoint[PathInput, Input, alt.Out, Output, Middleware] =
     copy[PathInput, Input, alt.Out, Output, Middleware](
@@ -510,61 +500,79 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Returns a new endpoint derived from this one, whose output type is a stream
    * of the specified type for the ok status code.
    */
-  def outStream[Output2: Schema](implicit
+  def outStream[Output2: HttpContentCodec](implicit
     alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
-  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
+    val contentCodec =
+      if (implicitly[HttpContentCodec[Output2]].schema == Schema[Byte])
+        ContentCodec
+          .binaryStream(MediaType.application.`octet-stream`)
+          .asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
+      else ContentCodec.contentStream[Output2]
     Endpoint(
       route,
       input,
-      output = self.output | (ContentCodec.contentStream[Output2] ++ StatusCodec.status(Status.Ok)),
+      output = self.output | (contentCodec ++ StatusCodec.status(Status.Ok)),
       error,
       doc,
       mw,
     )
+  }
 
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream
    * of the specified type for the ok status code.
    */
-  def outStream[Output2: Schema](doc: Doc)(implicit
+  def outStream[Output2: HttpContentCodec](doc: Doc)(implicit
     alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
-  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
+    val contentCodec =
+      if (implicitly[HttpContentCodec[Output2]].schema == Schema[Byte])
+        ContentCodec
+          .binaryStream(MediaType.application.`octet-stream`)
+          .asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
+      else ContentCodec.contentStream[Output2]
     Endpoint(
       route,
       input,
-      output = self.output | (ContentCodec.contentStream[Output2] ++ StatusCodec.status(Status.Ok) ?? doc),
+      output = self.output | (contentCodec ++ StatusCodec.status(Status.Ok) ?? doc),
       error,
       doc,
       mw,
     )
+  }
 
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream
    * of the specified type for the specified status code and is documented.
    */
-  def outStream[Output2: Schema](
-    status: Status,
-    doc: Doc,
-  )(implicit
+  def outStream[Output2: HttpContentCodec](status: Status, doc: Doc)(implicit
     alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
-  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
+    val contentCodec =
+      if (implicitly[HttpContentCodec[Output2]].schema == Schema[Byte])
+        ContentCodec
+          .binaryStream(MediaType.application.`octet-stream`)
+          .asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
+      else ContentCodec.contentStream[Output2]
     Endpoint(
       route,
       input,
-      output = self.output | (ContentCodec.contentStream[Output2] ++ StatusCodec.status(status) ?? doc),
+      output = self.output | (contentCodec ++ StatusCodec.status(status) ?? doc),
       error,
       doc,
       mw,
     )
+  }
 
-  def outStream[Output2: Schema](
+  def outStream[Output2: HttpContentCodec](
     mediaType: MediaType,
   )(implicit
     alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     outStream(Status.Ok, mediaType)
 
-  def outStream[Output2: Schema](
+  def outStream[Output2: HttpContentCodec](
     mediaType: MediaType,
     doc: Doc,
   )(implicit
@@ -572,36 +580,42 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     outStream(Status.Ok, mediaType, doc)
 
-  def outStream[Output2: Schema](
+  def outStream[Output2: HttpContentCodec](
     status: Status,
     mediaType: MediaType,
   )(implicit
     alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
-  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
+    val contentCodec =
+      if (mediaType.binary)
+        ContentCodec.binaryStream(mediaType).asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
+      else ContentCodec.contentStream[Output2](mediaType)
     Endpoint(
       route,
       input,
-      output = self.output | (ContentCodec.contentStream[Output2](mediaType) ++ StatusCodec.status(status)),
+      output = self.output | (contentCodec ++ StatusCodec.status(status)),
       error,
       doc,
       mw,
     )
+  }
 
-  def outStream[Output2: Schema](
-    status: Status,
-    mediaType: MediaType,
-    doc: Doc,
-  )(implicit
+  def outStream[Output2: HttpContentCodec](status: Status, mediaType: MediaType, doc: Doc)(implicit
     alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
-  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
+    val contentCodec =
+      if (implicitly[HttpContentCodec[Output2]].schema == Schema[Byte])
+        ContentCodec.binaryStream(mediaType).asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
+      else ContentCodec.contentStream[Output2](mediaType)
     Endpoint(
       route,
       input,
-      output = self.output | ((ContentCodec.contentStream[Output2](mediaType) ++ StatusCodec.status(status)) ?? doc),
+      output = self.output | ((contentCodec ++ StatusCodec.status(status)) ?? doc),
       error,
       doc,
       mw,
     )
+  }
 
   /**
    * Returns a new endpoint that requires the specified query.

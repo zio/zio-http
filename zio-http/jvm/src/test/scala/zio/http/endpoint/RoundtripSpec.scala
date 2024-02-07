@@ -29,7 +29,8 @@ import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
 import zio.http.codec.HttpCodec.authorization
-import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
+import zio.http.codec.HttpContentCodec.protobuf
+import zio.http.codec.{Doc, HeaderCodec, HttpCodec, HttpContentCodec, QueryCodec}
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
@@ -159,8 +160,29 @@ object RoundtripSpec extends ZIOHttpSpec {
           Post(20, "title", "body", 10),
         )
       },
-      test("simple get with protobuf encoding") {
+      test("simple get with protobuf encoding via explicit media type") {
         val usersPostAPI =
+          Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
+            .out[Post](MediaType.parseCustomMediaType("application/protobuf").get)
+            .header(HeaderCodec.accept)
+
+        val usersPostHandler =
+          usersPostAPI.implement {
+            Handler.fromFunction { case (userId, postId, _) =>
+              Post(postId, "title", "body", userId)
+            }
+          }
+
+        testEndpoint(
+          usersPostAPI,
+          Routes(usersPostHandler),
+          (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
+          Post(20, "title", "body", 10),
+        ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
+      },
+      test("simple get with only protobuf encoding") {
+        implicit def postCodec[T: Schema]: HttpContentCodec[T] = protobuf.only[T]
+        val usersPostAPI                                       =
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
             .out[Post]
             .header(HeaderCodec.accept)
