@@ -16,40 +16,48 @@
 
 package zio.http.codec
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.stream.ZStream
-
-import zio.schema.Schema
 
 import zio.http.MediaType
 
 private[codec] trait ContentCodecs {
-  def content[A](name: String)(implicit schema: Schema[A]): ContentCodec[A] =
-    HttpCodec.Content(schema, mediaType = None, Some(name))
+  def content[A](name: String)(implicit codec: HttpContentCodec[A]): ContentCodec[A] =
+    HttpCodec.Content(codec, Some(name))
 
-  def content[A](implicit schema: Schema[A]): ContentCodec[A] =
-    HttpCodec.Content(schema, mediaType = None, None)
+  def content[A](implicit codec: HttpContentCodec[A]): ContentCodec[A] =
+    HttpCodec.Content(codec, None)
 
-  def content[A](name: String, mediaType: MediaType)(implicit schema: Schema[A]): ContentCodec[A] =
-    HttpCodec.Content(schema, mediaType = Some(mediaType), Some(name))
+  def content[A](name: String, mediaType: MediaType)(implicit codec: HttpContentCodec[A]): ContentCodec[A] =
+    HttpCodec.Content(codec.only(mediaType), Some(name))
 
-  def content[A](mediaType: MediaType)(implicit schema: Schema[A]): ContentCodec[A] =
-    HttpCodec.Content(schema, mediaType = Some(mediaType), None)
+  def content[A](mediaType: MediaType)(implicit codec: HttpContentCodec[A]): ContentCodec[A] =
+    HttpCodec.Content(codec.only(mediaType), None)
 
-  def contentStream[A](name: String)(implicit schema: Schema[A]): ContentCodec[ZStream[Any, Nothing, A]] =
-    HttpCodec.ContentStream(schema, mediaType = None, Some(name))
+  def contentStream[A](name: String)(implicit codec: HttpContentCodec[A]): ContentCodec[ZStream[Any, Nothing, A]] =
+    HttpCodec.ContentStream(codec, Some(name))
 
-  def contentStream[A](implicit schema: Schema[A]): ContentCodec[ZStream[Any, Nothing, A]] =
-    HttpCodec.ContentStream(schema, mediaType = None, None)
+  def contentStream[A](implicit codec: HttpContentCodec[A]): ContentCodec[ZStream[Any, Nothing, A]] =
+    HttpCodec.ContentStream(codec, None)
 
   def contentStream[A](name: String, mediaType: MediaType)(implicit
-    schema: Schema[A],
+    codec: HttpContentCodec[A],
   ): ContentCodec[ZStream[Any, Nothing, A]] =
-    HttpCodec.ContentStream(schema, mediaType = Some(mediaType), Some(name))
+    HttpCodec.ContentStream(codec.only(mediaType), Some(name))
 
   def contentStream[A](mediaType: MediaType)(implicit
-    schema: Schema[A],
+    codec: HttpContentCodec[A],
   ): ContentCodec[ZStream[Any, Nothing, A]] =
-    HttpCodec.ContentStream(schema, mediaType = Some(mediaType), None)
+    HttpCodec.ContentStream(codec.only(mediaType), None)
+
+  def binaryStream(name: String): ContentCodec[ZStream[Any, Nothing, Byte]] =
+    HttpCodec.ContentStream(HttpContentCodec.byteCodec, Some(name))
+
+  def binaryStream: ContentCodec[ZStream[Any, Nothing, Byte]] =
+    HttpCodec.ContentStream(HttpContentCodec.byteCodec, None)
+
+  def binaryStream(name: String, mediaType: MediaType): ContentCodec[ZStream[Any, Nothing, Byte]] =
+    HttpCodec.ContentStream(HttpContentCodec.byteCodec.only(mediaType), Some(name))
+
+  def binaryStream(mediaType: MediaType): ContentCodec[ZStream[Any, Nothing, Byte]] =
+    HttpCodec.ContentStream(HttpContentCodec.byteCodec.only(mediaType), None)
 }

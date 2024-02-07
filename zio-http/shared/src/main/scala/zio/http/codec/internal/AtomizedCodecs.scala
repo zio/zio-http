@@ -36,10 +36,10 @@ private[http] final case class AtomizedCodecs(
     case query0: Query[_]          => self.copy(query = query :+ query0)
     case header0: Header[_]        => self.copy(header = header :+ header0)
     case content0: Content[_]      =>
-      self.copy(content = content :+ BodyCodec.Single(content0.schema, content0.mediaType, content0.name))
+      self.copy(content = content :+ BodyCodec.Single(content0.codec, content0.name))
     case status0: Status[_]        => self.copy(status = status :+ status0.codec)
     case stream0: ContentStream[_] =>
-      self.copy(content = content :+ BodyCodec.Multiple(stream0.schema, stream0.mediaType, stream0.name))
+      self.copy(content = content :+ BodyCodec.Multiple(stream0.codec, stream0.name))
   }
 
   def makeInputsBuilder(): Mechanic.InputsBuilder = {

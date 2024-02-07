@@ -16,17 +16,14 @@
 
 package zio.http.codec.internal
 
-import java.nio.charset.Charset
-
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.{ZPipeline, ZStream}
 
 import zio.schema._
-import zio.schema.codec.{BinaryCodec, Codec}
 
-import zio.http.codec.HttpCodecError
+import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http.codec.{HttpCodecError, HttpContentCodec}
 import zio.http.{Body, MediaType}
 
 /**
@@ -45,22 +42,12 @@ private[http] sealed trait BodyCodec[A] { self =>
   /**
    * Attempts to decode the `A` from a body using the given codec.
    */
-  def decodeFromBody(body: Body, codec: BinaryCodec[Element])(implicit trace: Trace): IO[Throwable, A]
-
-  /**
-   * Attempts to decode the `A` from a body using the given codec.
-   */
-  def decodeFromBody(body: Body, codec: Codec[String, Char, Element])(implicit trace: Trace): IO[Throwable, A]
+  def decodeFromBody(body: Body)(implicit trace: Trace): IO[Throwable, A]
 
   /**
    * Encodes the `A` to a body in the given codec.
    */
-  def encodeToBody(value: A, codec: BinaryCodec[Element])(implicit trace: Trace): Body
-
-  /**
-   * Encodes the `A` to a body in the given codec.
-   */
-  def encodeToBody(value: A, codec: Codec[String, Char, Element])(implicit trace: Trace): Body
+  def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor])(implicit trace: Trace): Body
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -92,14 +79,9 @@ private[http] object BodyCodec {
   case object Empty extends BodyCodec[Unit] {
     type Element = Unit
 
-    def decodeFromBody(body: Body, codec: BinaryCodec[Unit])(implicit trace: Trace): IO[Nothing, Unit] = ZIO.unit
+    def decodeFromBody(body: Body)(implicit trace: Trace): IO[Nothing, Unit] = ZIO.unit
 
-    def decodeFromBody(body: Body, codec: Codec[String, Char, Unit])(implicit trace: Trace): IO[Nothing, Unit] =
-      ZIO.unit
-
-    def encodeToBody(value: Unit, codec: BinaryCodec[Unit])(implicit trace: Trace): Body = Body.empty
-
-    def encodeToBody(value: Unit, codec: Codec[String, Char, Unit])(implicit trace: Trace): Body = Body.empty
+    def encodeToBody(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor])(implicit trace: Trace): Body = Body.empty
 
     def schema: Schema[Unit] = Schema[Unit]
 
@@ -108,47 +90,60 @@ private[http] object BodyCodec {
     def name: Option[String] = None
   }
 
-  final case class Single[A](schema: Schema[A], mediaType: Option[MediaType], name: Option[String])
-      extends BodyCodec[A] {
-    def decodeFromBody(body: Body, codec: BinaryCodec[A])(implicit trace: Trace): IO[Throwable, A] =
+  final case class Single[A](codec: HttpContentCodec[A], name: Option[String]) extends BodyCodec[A] {
+
+    def schema: Schema[A] = codec.schema
+
+    def mediaType: Option[MediaType] = Some(codec.defaultMediaType) // TODO: Is this correct?
+
+    def decodeFromBody(body: Body)(implicit trace: Trace): IO[Throwable, A] =
       if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
       else
         body.asChunk.flatMap { chunk =>
-          ZIO.fromEither(codec.decode(chunk))
+          ZIO.fromEither(codecForBody(codec, body).flatMap(_.decode(chunk)))
         }.flatMap(validateZIO(schema))
 
-    def decodeFromBody(body: Body, codec: Codec[String, Char, A])(implicit trace: Trace): IO[Throwable, A] =
-      if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
-      else body.asString.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
-
-    def encodeToBody(value: A, codec: BinaryCodec[A])(implicit trace: Trace): Body =
-      Body.fromChunk(codec.encode(value))
-
-    def encodeToBody(value: A, codec: Codec[String, Char, A])(implicit trace: Trace): Body =
-      Body.fromString(codec.encode(value))
+    def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor])(implicit trace: Trace): Body = {
+      val (mediaType, encoder) = codec.chooseFirst(mediaTypes)
+      Body.fromChunk(encoder.encode(value)).contentType(mediaType)
+    }
 
     type Element = A
   }
 
-  final case class Multiple[E](schema: Schema[E], mediaType: Option[MediaType], name: Option[String])
+  final case class Multiple[E](codec: HttpContentCodec[E], name: Option[String])
       extends BodyCodec[ZStream[Any, Nothing, E]] {
-    def decodeFromBody(body: Body, codec: BinaryCodec[E])(implicit
+
+    def schema: Schema[E] = codec.schema
+
+    def mediaType: Option[MediaType] = Some(codec.defaultMediaType) // TODO: Is this correct?
+
+    def decodeFromBody(body: Body)(implicit
       trace: Trace,
-    ): IO[Throwable, ZStream[Any, Nothing, E]] =
-      ZIO.succeed((body.asStream >>> codec.streamDecoder >>> validateStream(schema)).orDie)
+    ): IO[Throwable, ZStream[Any, Nothing, E]] = {
+      ZIO.fromEither {
+        codecForBody(codec, body).map { codec =>
+          (body.asStream >>> codec.streamDecoder >>> validateStream(schema)).orDie
+        }
+      }
+    }
 
-    def decodeFromBody(body: Body, codec: Codec[String, Char, E])(implicit
+    def encodeToBody(value: ZStream[Any, Nothing, E], mediaTypes: Chunk[MediaTypeWithQFactor])(implicit
       trace: Trace,
-    ): IO[Throwable, ZStream[Any, Nothing, E]] =
-      ZIO.succeed((body.asStream >>> ZPipeline.decodeCharsWith(Charset.defaultCharset()) >>> codec.streamDecoder).orDie)
-
-    def encodeToBody(value: ZStream[Any, Nothing, E], codec: BinaryCodec[E])(implicit trace: Trace): Body =
-      Body.fromStreamChunked(value >>> codec.streamEncoder)
-
-    def encodeToBody(value: ZStream[Any, Nothing, E], codec: Codec[String, Char, E])(implicit trace: Trace): Body =
-      Body.fromStreamChunked(value >>> codec.streamEncoder.map(_.toByte))
+    ): Body = {
+      val (mediaType, codec0) = codec.chooseFirst(mediaTypes)
+      Body.fromStreamChunked(value >>> codec0.streamEncoder).contentType(mediaType)
+    }
 
     type Element = E
+  }
+
+  private def codecForBody[E](codec: HttpContentCodec[E], body: Body) = {
+    val mediaType = body.mediaType.getOrElse(codec.defaultMediaType)
+    val codec0    = codec
+      .lookup(mediaType)
+      .toRight(HttpCodecError.CustomError(s"Unsupported MediaType ${body.mediaType}"))
+    codec0
   }
 
   private[internal] def validateZIO[A](schema: Schema[A])(e: A)(implicit trace: Trace): ZIO[Any, HttpCodecError, A] = {

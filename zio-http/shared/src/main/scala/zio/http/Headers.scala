@@ -40,6 +40,8 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
   final def combineIf(cond: Boolean)(other: Headers): Headers =
     if (cond) self ++ other else self
 
+  def contains(key: CharSequence): Boolean
+
   final def get(key: CharSequence): Option[String] = Option(getUnsafe(key))
 
   final def get(headerType: Header.HeaderType): Option[headerType.HeaderValue] = header(headerType)
@@ -71,6 +73,11 @@ object Headers {
   private[zio] final case class FromIterable(iter: Iterable[Header]) extends Headers {
     self =>
 
+    override def contains(key: CharSequence): Boolean =
+      iter.exists { entry =>
+        CharSequenceExtensions.equals(entry.headerName, key, CaseMode.Insensitive)
+      }
+
     override def iterator: Iterator[Header] =
       iter.iterator
 
@@ -92,7 +99,10 @@ object Headers {
     value: T,
     iterate: T => Iterator[Header],
     unsafeGet: (T, CharSequence) => String,
+    contains: (T, CharSequence) => Boolean,
   ) extends Headers {
+    override def contains(key: CharSequence): Boolean = contains(value, key)
+
     override def iterator: Iterator[Header] = iterate(value)
 
     override private[http] def getUnsafe(key: CharSequence): String = unsafeGet(value, key)
@@ -100,6 +110,9 @@ object Headers {
 
   private[zio] final case class Concat(first: Headers, second: Headers) extends Headers {
     self =>
+
+    override def contains(key: CharSequence): Boolean =
+      first.contains(key) || second.contains(key)
 
     override def iterator: Iterator[Header] =
       first.iterator ++ second.iterator
@@ -111,6 +124,8 @@ object Headers {
   }
 
   private[zio] case object Empty extends Headers {
+
+    override def contains(key: CharSequence): Boolean = false
 
     override def iterator: Iterator[Header] =
       Iterator.empty

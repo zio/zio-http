@@ -16,24 +16,15 @@
 
 package zio.http.endpoint
 
-import java.time.Instant
-
 import zio._
 import zio.test._
 
 import zio.stream.ZStream
 
-import zio.schema.annotation.validate
-import zio.schema.validation.Validation
-import zio.schema.{DeriveSchema, Schema}
-
-import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.ImageMetadata
-import zio.http.endpoint._
 import zio.http.forms.Fixtures.formField
 
 object MultipartSpec extends ZIOHttpSpec {
@@ -52,10 +43,10 @@ object MultipartSpec extends ZIOHttpSpec {
             route =
               Endpoint(GET / "test-form")
                 .outCodec(
-                  HttpCodec.contentStream[Byte]("image", MediaType.image.png) ++
-                    HttpCodec.content[String]("title") ++
-                    HttpCodec.content[Int]("width") ++
-                    HttpCodec.content[Int]("height") ++
+                  HttpCodec.binaryStream("image", MediaType.image.png) ++
+                    HttpCodec.content[String]("title", MediaType.text.`plain`) ++
+                    HttpCodec.content[Int]("width", MediaType.text.`plain`) ++
+                    HttpCodec.content[Int]("height", MediaType.text.`plain`) ++
                     HttpCodec.content[ImageMetadata]("metadata"),
                 )
                 .implement {
@@ -108,10 +99,10 @@ object MultipartSpec extends ZIOHttpSpec {
             route =
               Endpoint(GET / "test-form")
                 .outCodec(
-                  HttpCodec.contentStream[Byte](MediaType.image.png) ++
-                    HttpCodec.content[String] ++
-                    HttpCodec.content[Int] ++
-                    HttpCodec.content[Int] ++
+                  HttpCodec.binaryStream(MediaType.image.png) ++
+                    HttpCodec.content[String](MediaType.text.`plain`) ++
+                    HttpCodec.content[Int](MediaType.text.`plain`) ++
+                    HttpCodec.content[Int](MediaType.text.`plain`) ++
                     HttpCodec.content[ImageMetadata],
                 )
                 .implement {
@@ -204,22 +195,22 @@ object MultipartSpec extends ZIOHttpSpec {
               Endpoint(POST / "test-form")
                 .copy(output = HttpCodec.status(Status.Ok))
                 .asInstanceOf[Endpoint[Any, Any, Any, Any, EndpointMiddleware.None]],
-            ) { case (ep, (_, schema, name, isStreaming)) =>
+            ) { case (ep, (ff, schema, name, isStreaming)) =>
               if (isStreaming)
                 name match {
                   case Some(name) =>
                     ep.copy(
-                      input = (ep.input ++ HttpCodec.contentStream(name)(schema))
+                      input = (ep.input ++ HttpCodec.binaryStream(name, ff.contentType))
                         .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]],
                       output = (ep.output ++ HttpCodec
-                        .contentStream(name)(schema))
+                        .binaryStream(name, ff.contentType))
                         .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
                     )
                   case None       =>
                     ep.copy(
-                      input = (ep.input ++ HttpCodec.contentStream(schema))
+                      input = (ep.input ++ HttpCodec.binaryStream(ff.contentType))
                         .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]],
-                      output = (ep.output ++ HttpCodec.contentStream(schema))
+                      output = (ep.output ++ HttpCodec.binaryStream(ff.contentType))
                         .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
                     )
                 }
@@ -227,16 +218,17 @@ object MultipartSpec extends ZIOHttpSpec {
                 name match {
                   case Some(name) =>
                     ep.copy(
-                      input = (ep.input ++ HttpCodec.content(name)(schema))
+                      input = (ep.input ++ HttpCodec.content(name, ff.contentType)(HttpContentCodec.fromSchema(schema)))
                         .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]],
-                      output = (ep.output ++ HttpCodec.content(name)(schema))
-                        .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
+                      output =
+                        (ep.output ++ HttpCodec.content(name, ff.contentType)(HttpContentCodec.fromSchema(schema)))
+                          .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
                     )
                   case None       =>
                     ep.copy(
-                      input = (ep.input ++ HttpCodec.content(schema))
+                      input = (ep.input ++ HttpCodec.content(ff.contentType)(HttpContentCodec.fromSchema(schema)))
                         .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]],
-                      output = (ep.output ++ HttpCodec.content(schema))
+                      output = (ep.output ++ HttpCodec.content(ff.contentType)(HttpContentCodec.fromSchema(schema)))
                         .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
                     )
                 }
