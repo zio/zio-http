@@ -44,7 +44,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           )
 
           checkAll(gens) { case (initialQueryParams, keyToRemove, expectedResult) =>
-            val actualResult = initialQueryParams.remove(keyToRemove)
+            val actualResult = initialQueryParams.removeQueryParam(keyToRemove)
             assert(actualResult)(equalTo(expectedResult))
           }
         },
@@ -71,7 +71,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           )
 
           checkAll(gens) { case (initialQueryParams, key1, key2, otherKeysToRemove, expectedResult) =>
-            val actualResult = initialQueryParams.removeAll(key1 :: key2 :: (otherKeysToRemove.toList))
+            val actualResult = initialQueryParams.removeQueryParams(key1 :: key2 :: (otherKeysToRemove.toList))
             assert(actualResult)(equalTo(expectedResult))
           }
         },
@@ -114,7 +114,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           )
 
           checkAll(gens) { case (initial, key, value, expected) =>
-            val actual = initial.add(key, value)
+            val actual = initial.addQueryParam(key, value)
             assert(actual)(equalTo(expected))
           }
         },
@@ -137,7 +137,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           )
 
           checkAll(gens) { case (initial, key, value, expected) =>
-            val actual = initial.addAll(key, value)
+            val actual = initial.addQueryParams(key, value)
             assert(actual)(equalTo(expected))
           }
         },
@@ -239,14 +239,14 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val unknown     = "non-existent"
           val queryParams = QueryParams(name -> "a", name -> "b")
           assertTrue(
-            queryParams.get(name).get == "a",
-            queryParams.get(unknown).isEmpty,
-            queryParams.getOrElse(name, default) == "a",
-            queryParams.getOrElse(unknown, default) == default,
-            queryParams.getAll(name).get.length == 2,
-            queryParams.getAll(unknown).isEmpty,
-            queryParams.getAllOrElse(name, Chunk(default)).length == 2,
-            queryParams.getAllOrElse(unknown, Chunk(default)).length == 1,
+            queryParams.queryParam(name).get == "a",
+            queryParams.queryParam(unknown).isEmpty,
+            queryParams.queryParamOrElse(name, default) == "a",
+            queryParams.queryParamOrElse(unknown, default) == default,
+            queryParams.queryParams(name).length == 2,
+            queryParams.queryParams(unknown).isEmpty,
+            queryParams.queryParamsOrElse(name, Chunk(default)).length == 2,
+            queryParams.queryParamsOrElse(unknown, Chunk(default)).length == 1,
           )
         },
       ),
@@ -258,25 +258,25 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val unknown      = "non-existent"
           val queryParams  = QueryParams(typed -> "1", typed -> "2", invalidTyped -> "str")
           assertTrue(
-            queryParams.getTo[Int](typed) == Right(1),
-            queryParams.getTo[Int](invalidTyped).isLeft,
-            queryParams.getTo[Int](unknown).isLeft,
-            queryParams.getToOrElse[Int](typed, default) == 1,
-            queryParams.getToOrElse[Int](invalidTyped, default) == default,
-            queryParams.getToOrElse[Int](unknown, default) == default,
-            queryParams.getAllTo[Int](typed).map(_.length) == Right(2),
-            queryParams.getAllTo[Int](invalidTyped).isLeft,
-            queryParams.getAllTo[Int](unknown).isLeft,
-            queryParams.getAllToOrElse[Int](typed, Chunk(default)).length == 2,
-            queryParams.getAllToOrElse[Int](invalidTyped, Chunk(default)).length == 1,
-            queryParams.getAllToOrElse[Int](unknown, Chunk(default)).length == 1,
+            queryParams.queryParamTo[Int](typed) == Right(1),
+            queryParams.queryParamTo[Int](invalidTyped).isLeft,
+            queryParams.queryParamTo[Int](unknown).isLeft,
+            queryParams.queryParamToOrElse[Int](typed, default) == 1,
+            queryParams.queryParamToOrElse[Int](invalidTyped, default) == default,
+            queryParams.queryParamToOrElse[Int](unknown, default) == default,
+            queryParams.queryParamsTo[Int](typed).map(_.length) == Right(2),
+            queryParams.queryParamsTo[Int](invalidTyped).isLeft,
+            queryParams.queryParamsTo[Int](unknown).isLeft,
+            queryParams.queryParamsToOrElse[Int](typed, Chunk(default)).length == 2,
+            queryParams.queryParamsToOrElse[Int](invalidTyped, Chunk(default)).length == 1,
+            queryParams.queryParamsToOrElse[Int](unknown, Chunk(default)).length == 1,
           )
-          assertZIO(queryParams.getToZIO[Int](typed))(equalTo(1)) &&
-          assertZIO(queryParams.getToZIO[Int](invalidTyped).exit)(fails(anything)) &&
-          assertZIO(queryParams.getToZIO[Int](unknown).exit)(fails(anything)) &&
-          assertZIO(queryParams.getAllToZIO[Int](typed))(hasSize(equalTo(2))) &&
-          assertZIO(queryParams.getAllToZIO[Int](invalidTyped).exit)(fails(anything)) &&
-          assertZIO(queryParams.getAllToZIO[Int](unknown).exit)(fails(anything))
+          assertZIO(queryParams.queryParamToZIO[Int](typed))(equalTo(1)) &&
+          assertZIO(queryParams.queryParamToZIO[Int](invalidTyped).exit)(fails(anything)) &&
+          assertZIO(queryParams.queryParamToZIO[Int](unknown).exit)(fails(anything)) &&
+          assertZIO(queryParams.queryParamsToZIO[Int](typed))(hasSize(equalTo(2))) &&
+          assertZIO(queryParams.queryParamsToZIO[Int](invalidTyped).exit)(fails(anything)) &&
+          assertZIO(queryParams.queryParamsToZIO[Int](unknown).exit)(fails(anything))
         },
       ),
       suite("encode - decode")(
