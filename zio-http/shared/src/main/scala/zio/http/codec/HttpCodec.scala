@@ -48,36 +48,7 @@ import zio.http.codec.internal.EncoderDecoder
 sealed trait HttpCodec[-AtomTypes, Value] {
   self =>
 
-  private lazy val encoderDecoders: ConcurrentHashMap[String, EncoderDecoder[_, _]] =
-    new ConcurrentHashMap[String, EncoderDecoder[_, _]]()
-
-  private lazy val defaultEncoderDecoder: EncoderDecoder[AtomTypes, Value]                              =
-    EncoderDecoder(self, None)
-  private def encoderDecoder(mediaTypes: Chunk[MediaTypeWithQFactor]): EncoderDecoder[AtomTypes, Value] = {
-    if (mediaTypes.isEmpty) defaultEncoderDecoder
-    else {
-      val mts                                      = mediaTypes.sortBy(mt => -mt.qFactor.getOrElse(1.0))
-      var i                                        = 0
-      val size                                     = mts.length
-      var encDec: EncoderDecoder[AtomTypes, Value] = null
-      while (i < size) {
-        val encDec0 =
-          encoderDecoders
-            .computeIfAbsent(
-              mts(i).mediaType.fullType,
-              mediaType => {
-                EncoderDecoder(self, Some(mediaType))
-              },
-            )
-            .asInstanceOf[EncoderDecoder[AtomTypes, Value]]
-
-        if (encDec eq null) encDec = encDec0
-        else encDec = encDec.orElse(encDec0)
-        i += 1
-      }
-      encDec
-    }
-  }
+  private lazy val encoderDecoder: EncoderDecoder[AtomTypes, Value] = EncoderDecoder(self)
 
   /**
    * Returns a new codec that is the same as this one, but has attached docs,
@@ -190,7 +161,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value] =
-    encoderDecoder(Chunk.empty).decode(url, status, method, headers, body)
+    encoderDecoder.decode(url, status, method, headers, body)
 
   def doc: Option[Doc] = {
     @tailrec
@@ -249,7 +220,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   private final def encodeWith[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder(outputTypes).encodeWith(value)(f)
+    encoderDecoder.encodeWith(value, outputTypes.sortBy(mt => -mt.qFactor.getOrElse(1.0)))(f)
 
   def examples(examples: Iterable[(String, Value)]): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Examples(Chunk.fromIterable(examples).toMap))
@@ -570,8 +541,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def index(index: Int): Path[A] = copy(index = index)
   }
   private[http] final case class Content[A](
-    schema: Schema[A],
-    mediaType: Option[MediaType],
+    codec: HttpContentCodec[A],
     name: Option[String],
     index: Int = 0,
   ) extends Atom[HttpCodecType.Content, A] {
@@ -581,8 +551,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def index(index: Int): Content[A] = copy(index = index)
   }
   private[http] final case class ContentStream[A](
-    schema: Schema[A],
-    mediaType: Option[MediaType],
+    codec: HttpContentCodec[A],
     name: Option[String],
     index: Int = 0,
   ) extends Atom[HttpCodecType.Content, ZStream[Any, Nothing, A]] {

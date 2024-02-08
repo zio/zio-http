@@ -33,7 +33,7 @@ object OptionsGen {
   lazy val anyBodyOption: Gen[Any, CliReprOf[Options[Retriever]]] =
     Gen
       .alphaNumericStringBounded(1, 30)
-      .zip(Gen.option(anyMediaType))
+      .zip(anyMediaType)
       .zip(anySchema)
       .map {
         case (name, mediaType, schema) => {

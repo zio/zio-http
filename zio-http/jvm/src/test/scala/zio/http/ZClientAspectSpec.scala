@@ -27,11 +27,11 @@ object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   val app: HttpApp[Any] = {
-    Route.handled(Method.GET / "hello")(Handler.response(Response.text("hello")))
+    Route.handled(Method.GET / "hello")(Handler.fromResponse(Response.text("hello")))
   }.toHttpApp
 
   val redir: HttpApp[Any] = {
-    Route.handled(Method.GET / "redirect")(Handler.response(Response.redirect(URL.empty / "hello")))
+    Route.handled(Method.GET / "redirect")(Handler.fromResponse(Response.redirect(URL.empty / "hello")))
   }.toHttpApp
 
   override def spec: Spec[TestEnvironment with Scope, Any] =

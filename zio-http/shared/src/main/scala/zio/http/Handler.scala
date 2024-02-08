@@ -734,13 +734,13 @@ object Handler extends HandlerPlatformSpecific {
    * Creates a handler with an error and the default error message.
    */
   def error(status: => Status.Error): Handler[Any, Nothing, Any, Response] =
-    response(Response.error(status))
+    fromResponse(Response.error(status))
 
   /**
    * Creates a handler with an error and the specified error message.
    */
   def error(status: => Status.Error, message: => String): Handler[Any, Nothing, Any, Response] =
-    response(Response.error(status, message))
+    fromResponse(Response.error(status, message))
 
   /**
    * Creates a Handler that always fails
@@ -785,7 +785,7 @@ object Handler extends HandlerPlatformSpecific {
    * code
    */
   def fromBody(body: => Body): Handler[Any, Nothing, Any, Response] =
-    response(Response(body = body))
+    fromResponse(Response(body = body))
 
   /**
    * Lifts an `Either` into a `Handler` alue.
@@ -924,7 +924,7 @@ object Handler extends HandlerPlatformSpecific {
    * Creates a handler which always responds with the provided Html page.
    */
   def html(view: => Html): Handler[Any, Nothing, Any, Response] =
-    response(Response.html(view))
+    fromResponse(Response.html(view))
 
   /**
    * Creates a pass thru Handler instance
@@ -983,13 +983,13 @@ object Handler extends HandlerPlatformSpecific {
   /**
    * Creates a handler which always responds with the same value.
    */
-  def response(response: => Response): Handler[Any, Nothing, Any, Response] =
+  def fromResponse(response: => Response): Handler[Any, Nothing, Any, Response] =
     succeed(response)
 
   /**
    * Converts a ZIO to a handler type
    */
-  def responseZIO[R, Err](getResponse: ZIO[R, Err, Response]): Handler[R, Err, Any, Response] =
+  def fromResponseZIO[R, Err](getResponse: ZIO[R, Err, Response]): Handler[R, Err, Any, Response] =
     fromZIO(getResponse)
 
   def stackTrace(implicit trace: Trace): Handler[Any, Nothing, Any, StackTrace] =
@@ -1013,13 +1013,13 @@ object Handler extends HandlerPlatformSpecific {
    * template.
    */
   def template(heading: => CharSequence)(view: Html): Handler[Any, Nothing, Any, Response] =
-    response(Response.html(Template.container(heading)(view)))
+    fromResponse(Response.html(Template.container(heading)(view)))
 
   /**
    * Creates a handler which always responds with the same plain text.
    */
   def text(text: => CharSequence): Handler[Any, Nothing, Any, Response] =
-    response(Response.text(text))
+    fromResponse(Response.text(text))
 
   /**
    * Creates a handler that responds with a 408 status code after the provided
