@@ -48,7 +48,7 @@ sealed trait Html { self =>
 }
 
 object Html {
-  implicit def fromString(string: CharSequence): Html = Html.Single(Dom.text(string))
+  implicit def fromString(string: CharSequence): Html = Html.Single(Dom.raw(string))
 
   implicit def fromSeq(elements: Seq[Dom]): Html = Html.Multiple(elements)
 
