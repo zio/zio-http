@@ -27,6 +27,7 @@ object Dependencies {
       "io.netty" % "netty-transport-native-kqueue" % NettyVersion,
       "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-x86_64",
       "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-aarch_64",
+      "com.aayushatharva.brotli4j" % "brotli4j" % "1.16.0" % "provided",
     )
 
   val `netty-incubator` =
