@@ -331,10 +331,10 @@ object Server extends ServerPlatformSpecific {
 
   def serve[R](
     httpApp: HttpApp[R],
-  )(implicit trace: Trace, server: Server): URIO[R with Server, Nothing] = {
+  )(implicit trace: Trace): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
       install(httpApp) *>
-      ZIO.logInfo(s"HTTP server started at port ${server.port}") *>
+      ZIO.logInfo("Server started") *>
       ZIO.never
   }
 
