@@ -83,19 +83,15 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                               streamingFormData <- FormField
                                 .incomingStreamingBinary(newFormState.tree, newQueue)
                                 .mapError(_.asException)
-                              nextState = state.copy(
-                                formState = newFormState,
-                                currentQueue = Some(newQueue),
-                              )
+                              nextState = state.withCurrentQueue(newQueue)
                             } yield (nextState, Some(streamingFormData))
                           }.getOrThrowFiberFailure()
                         } else {
-                          val nextState = state.copy(formState = newFormState, inNonStreamingPart = true)
+                          val nextState = state.withInNonStreamingPart(true)
                           (nextState, None)
                         }
                       } else {
-                        val nextState = state.copy(formState = newFormState)
-                        (nextState, None)
+                        (state, None)
                       }
                     case FormState.BoundaryEncapsulated(ast)     =>
                       if (state.inNonStreamingPart) {
@@ -164,15 +160,21 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
 }
 
 object StreamingForm {
-  private final case class State(
+  private final class State(
     boundary: Boundary,
-    formState: FormState,
-    currentQueue: Option[Queue[Take[Nothing, Byte]]],
-    inNonStreamingPart: Boolean,
+    val formState: FormState,
+    val currentQueue: Option[Queue[Take[Nothing, Byte]]],
+    val inNonStreamingPart: Boolean,
   ) {
 
+    def withCurrentQueue(queue: Queue[Take[Nothing, Byte]]): State =
+      new State(boundary, formState, Some(queue), inNonStreamingPart)
+
+    def withInNonStreamingPart(value: Boolean): State =
+      new State(boundary, formState, currentQueue, value)
+
     def reset: State =
-      State(
+      new State(
         boundary,
         FormState.fromBoundary(boundary),
         None,
@@ -180,8 +182,9 @@ object StreamingForm {
       )
   }
 
-  private def initialState(boundary: Boundary): State =
-    State(boundary, FormState.fromBoundary(boundary), None, inNonStreamingPart = false)
+  private def initialState(boundary: Boundary): State = {
+    new State(boundary, FormState.fromBoundary(boundary), None, inNonStreamingPart = false)
+  }
 
   private final class Buffer(bufferSize: Int) {
     private val buffer: Array[Byte] = new Array[Byte](bufferSize)

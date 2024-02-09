@@ -213,6 +213,12 @@ object Form {
       form     <- StreamingForm(ZStream.fromChunk(bytes), boundary).collectAll
     } yield form
 
+  def fromMultipartStream(
+    bytes: ZStream[Any, Throwable, Byte],
+    boundary: Boundary,
+  )(implicit trace: Trace): ZIO[Any, Throwable, Form] =
+    StreamingForm(bytes, boundary).collectAll
+
   def fromQueryParams(queryParams: QueryParams): Form = {
     queryParams.seq.foldLeft[Form](Form.empty) { case (acc, entry) =>
       acc + FormField.simpleField(entry.getKey, entry.getValue.asScala.mkString(","))
