@@ -69,7 +69,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                     case newFormState: FormState.FormStateBuffer =>
                       if (
                         state.currentQueue.isEmpty &&
-                        newFormState.phase == FormState.Phase.Part2 &&
+                        (newFormState.phase eq FormState.Phase.Part2) &&
                         !state.inNonStreamingPart
                       ) {
                         val contentType = FormField.getContentType(newFormState.tree)
@@ -161,29 +161,33 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
 
 object StreamingForm {
   private final class State(
-    boundary: Boundary,
     val formState: FormState,
-    val currentQueue: Option[Queue[Take[Nothing, Byte]]],
-    val inNonStreamingPart: Boolean,
+    private var _currentQueue: Option[Queue[Take[Nothing, Byte]]],
+    private var _inNonStreamingPart: Boolean,
   ) {
+    def currentQueue: Option[Queue[Take[Nothing, Byte]]] = _currentQueue
+    def inNonStreamingPart: Boolean                      = _inNonStreamingPart
 
-    def withCurrentQueue(queue: Queue[Take[Nothing, Byte]]): State =
-      new State(boundary, formState, Some(queue), inNonStreamingPart)
+    def withCurrentQueue(queue: Queue[Take[Nothing, Byte]]): State = {
+      _currentQueue = Some(queue)
+      this
+    }
 
-    def withInNonStreamingPart(value: Boolean): State =
-      new State(boundary, formState, currentQueue, value)
+    def withInNonStreamingPart(value: Boolean): State = {
+      _inNonStreamingPart = value
+      this
+    }
 
-    def reset: State =
-      new State(
-        boundary,
-        FormState.fromBoundary(boundary),
-        None,
-        inNonStreamingPart = false,
-      )
+    def reset: State = {
+      _currentQueue = None
+      _inNonStreamingPart = false
+      formState.reset()
+      this
+    }
   }
 
   private def initialState(boundary: Boundary): State = {
-    new State(boundary, FormState.fromBoundary(boundary), None, inNonStreamingPart = false)
+    new State(FormState.fromBoundary(boundary), None, _inNonStreamingPart = false)
   }
 
   private final class Buffer(bufferSize: Int) {

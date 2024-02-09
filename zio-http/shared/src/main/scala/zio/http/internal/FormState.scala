@@ -21,22 +21,22 @@ import zio._
 import zio.http.Boundary
 import zio.http.internal.FormAST._
 
-private[http] sealed trait FormState
+private[http] sealed trait FormState {
+  def reset(): Unit
+}
 
 private[http] object FormState {
 
-  final class FormStateBuffer(
-    private var lastByte: OptionalByte,
-    boundary: Boundary,
-  ) extends FormState { self =>
+  final class FormStateBuffer(boundary: Boundary) extends FormState { self =>
 
     private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make[FormAST]()
     private val buffer: ChunkBuilder.Byte    = new ChunkBuilder.Byte
 
-    private var isBufferEmpty = true
-    private var dropContents  = false
-    private var phase0: Phase = Phase.Part1
-    private var lastTree      = null.asInstanceOf[Chunk[FormAST]]
+    private var lastByte: OptionalByte = OptionalByte.None
+    private var isBufferEmpty          = true
+    private var dropContents           = false
+    private var phase0: Phase          = Phase.Part1
+    private var lastTree               = null.asInstanceOf[Chunk[FormAST]]
 
     private def addToTree(ast: FormAST): Unit = {
       if (lastTree ne null) lastTree = null
@@ -98,14 +98,28 @@ private[http] object FormState {
       if (!dropContents) dropContents = true
       self
     }
+
+    def reset(): Unit = {
+      tree0.clear()
+      buffer.clear()
+      isBufferEmpty = true
+      dropContents = false
+      phase0 = Phase.Part1
+      lastTree = null.asInstanceOf[Chunk[FormAST]]
+      lastByte = OptionalByte.None
+    }
   }
 
-  final case class BoundaryEncapsulated(buffer: Chunk[FormAST]) extends FormState
+  final case class BoundaryEncapsulated(buffer: Chunk[FormAST]) extends FormState {
+    def reset(): Unit = ()
+  }
 
-  final case class BoundaryClosed(buffer: Chunk[FormAST]) extends FormState
+  final case class BoundaryClosed(buffer: Chunk[FormAST]) extends FormState {
+    def reset(): Unit = ()
+  }
 
-  def fromBoundary(boundary: Boundary, lastByte: Option[Byte] = None): FormState = {
-    new FormStateBuffer(lastByte.fold[OptionalByte](OptionalByte.None)(OptionalByte.Some.apply), boundary)
+  def fromBoundary(boundary: Boundary): FormState = {
+    new FormStateBuffer(boundary)
   }
 
   sealed trait Phase
