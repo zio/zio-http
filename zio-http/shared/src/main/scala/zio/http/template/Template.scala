@@ -35,7 +35,7 @@ object Template {
       ),
       body(
         div(
-          styles := Seq("margin" -> "auto", "padding" -> "2em 4em", "max-width" -> "80%"),
+          styles := "margin: auto; padding: 2em 4em; max-width: 80%",
           h1(heading),
           element,
         ),

@@ -62,7 +62,7 @@ object DocSpec extends ZIOHttpSpec {
                        |
                        |[https://www.google.com](https://www.google.com)
                        |
-                       |<span style="color:red">This is an error</span>
+                       |<span style="color: red">This is an error</span>
                        |
                        |`ZIO.succeed(1)`
                        |
@@ -114,7 +114,7 @@ object DocSpec extends ZIOHttpSpec {
                         |  <a href="https://www.google.com">https://www.google.com</a>
                         |</p>
                         |<p>
-                        |  <span style="color:red">This is an error</span>
+                        |  <span style="color: red">This is an error</span>
                         |</p>
                         |<p>
                         |  <code>ZIO.succeed(1)</code>
