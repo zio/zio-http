@@ -30,7 +30,7 @@ private[http] object FormState {
     boundary: Boundary,
   ) extends FormState { self =>
 
-    private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make
+    private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make[FormAST]
     private val buffer: ChunkBuilder.Byte    = new ChunkBuilder.Byte
 
     private var isBufferEmpty = true
