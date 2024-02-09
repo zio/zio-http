@@ -81,8 +81,8 @@ trait Body { self =>
    */
   def asMultipartForm(implicit trace: Trace): Task[Form] = {
     boundary match {
-      case Some(boundary0) => Form.fromMultipartStream(asStream, boundary0)
-      case _               =>
+      case Some(boundary) => StreamingForm(asStream, boundary).collectAll
+      case _              =>
         for {
           bytes <- asChunk
           form  <- Form.fromMultipartBytes(bytes, Charsets.Http, boundary)
