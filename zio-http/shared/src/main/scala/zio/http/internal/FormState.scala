@@ -30,7 +30,7 @@ private[http] object FormState {
     boundary: Boundary,
   ) extends FormState { self =>
 
-    private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make[FormAST]
+    private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make[FormAST]()
     private val buffer: ChunkBuilder.Byte    = new ChunkBuilder.Byte
 
     private var isBufferEmpty = true
@@ -117,7 +117,7 @@ private[http] object FormState {
   }
 
   // Avoids boxing of Byte values
-  private sealed abstract class OptionalByte {
+  sealed abstract class OptionalByte {
     def get: Byte
     final def isEmpty: Boolean = this eq OptionalByte.None
   }
