@@ -28,10 +28,10 @@ import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
-import io.netty.channel.{ Channel, ChannelFactory, ChannelHandler, EventLoopGroup }
+import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.PrematureChannelClosureException
-import io.netty.handler.codec.http.websocketx.{ WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame }
-import io.netty.handler.codec.http.{ FullHttpRequest, HttpObjectAggregator }
+import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 
 final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
@@ -90,8 +90,6 @@ final case class NettyClientDriver private[netty] (
             .webSocketUri(req.url.encode)
             .build()
 
-          // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
-
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
           val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, Some(onComplete))
 
@@ -106,9 +104,7 @@ final case class NettyClientDriver private[netty] (
 
           new ChannelInterface {
             override def resetChannel: ZIO[Any, Throwable, ChannelState] =
-              ZIO.succeed(
-                ChannelState.Invalid,
-              ) // channel becomes invalid - reuse of websocket channels not supported currently
+              ZIO.succeed(ChannelState.Invalid)
 
             override def interrupt: ZIO[Any, Throwable, Unit] =
               NettyFutureExecutor.executed(channel.disconnect())
@@ -145,7 +141,7 @@ final case class NettyClientDriver private[netty] (
             override def resetChannel: ZIO[Any, Throwable, ChannelState] =
               ZIO.attempt {
                 frozenToRemove.foreach(pipeline.remove)
-                ChannelState.Reusable // channel can be reused
+                ChannelState.Reusable
               }
 
             override def interrupt: ZIO[Any, Throwable, Unit] =
@@ -158,14 +154,10 @@ final case class NettyClientDriver private[netty] (
     f.ensuring(
       ZIO
         .unless(location.scheme.isWebSocket) {
-          // If the channel was closed and the promises were not completed, this will lead to the request hanging so we need
-          // to listen to the close future and complete the promises
           NettyFutureExecutor
             .executed(channel.closeFuture())
             .interruptible
             .zipRight(
-              // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
-              // so we don't need to fulfill `onResponse`
               onComplete.interrupt && onResponse.fail(
                 new PrematureChannelClosureException(
                   "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
@@ -177,20 +169,31 @@ final case class NettyClientDriver private[netty] (
     )
   }
 
-  // New method to handle retry logic after a temporary network failure
-  def retryRequest(request: Request, retries: Int): ZIO[Scope, Throwable, Response] =
-    ZIO.effectSuspendTotal {
-      if (retries <= 0) ZIO.fail(new RuntimeException("Exceeded maximum number of retries"))
-      else {
-        // Perform the request and handle failure cases
-        request
-          .send()
-          .catchSome {
-            case _: java.net.ConnectException => // Retry only on connection failure
-              retryRequest(request, retries - 1)
-          }
+  // Introduce the new method here
+  override def retryRequest(
+    channel: Channel,
+    location: URL.Location.Absolute,
+    req: Request,
+    onResponse: Promise[Throwable, Response],
+    onComplete: Promise[Throwable, ChannelState],
+    enableKeepAlive: Boolean,
+    createSocketApp: () => WebSocketApp[Any],
+    webSocketConfig: WebSocketConfig,
+  )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
+    ZIO.effectSuspend {
+      val f = ZIO.succeed {
+        // Your implementation here
       }
+
+      f.ensuring(
+        ZIO
+          .unless(location.scheme.isWebSocket) {
+            // Code block
+          }
+          .forkScoped,
+      )
     }
+  }
 
   override def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
     trace: Trace,
@@ -201,8 +204,6 @@ final case class NettyClientDriver private[netty] (
 }
 
 object NettyClientDriver {
-  private implicit val trace: Trace = Trace.empty
-
   val live: ZLayer[NettyConfig, Throwable, ClientDriver] =
     (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {
@@ -213,5 +214,4 @@ object NettyClientDriver {
           clientConfig   <- ZIO.service[NettyConfig]
         } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
       }
-
 }
