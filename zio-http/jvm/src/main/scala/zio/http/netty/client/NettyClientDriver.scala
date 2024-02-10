@@ -1,4 +1,4 @@
- /*
+/*
  * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 package zio.http.netty.client
 
 import scala.collection.mutable
@@ -90,6 +90,8 @@ final case class NettyClientDriver private[netty] (
             .webSocketUri(req.url.encode)
             .build()
 
+          // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
+
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
           val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, Some(onComplete))
 
@@ -104,7 +106,9 @@ final case class NettyClientDriver private[netty] (
 
           new ChannelInterface {
             override def resetChannel: ZIO[Any, Throwable, ChannelState] =
-              ZIO.succeed(ChannelState.Invalid)
+              ZIO.succeed(
+                ChannelState.Invalid,
+              ) // channel becomes invalid - reuse of websocket channels not supported currently
 
             override def interrupt: ZIO[Any, Throwable, Unit] =
               NettyFutureExecutor.executed(channel.disconnect())
@@ -141,7 +145,7 @@ final case class NettyClientDriver private[netty] (
             override def resetChannel: ZIO[Any, Throwable, ChannelState] =
               ZIO.attempt {
                 frozenToRemove.foreach(pipeline.remove)
-                ChannelState.Reusable
+                ChannelState.Reusable // channel can be reused
               }
 
             override def interrupt: ZIO[Any, Throwable, Unit] =
@@ -154,38 +158,20 @@ final case class NettyClientDriver private[netty] (
     f.ensuring(
       ZIO
         .unless(location.scheme.isWebSocket) {
+          // If the channel was closed and the promises were not completed, this will lead to the request hanging so we need
+          // to listen to the close future and complete the promises
           NettyFutureExecutor
             .executed(channel.closeFuture())
             .interruptible
             .zipRight(
+              // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
+              // so we don't need to fulfill `onResponse`
               onComplete.interrupt && onResponse.fail(
                 new PrematureChannelClosureException(
                   "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
                 ),
               ),
             )
-        }
-        .forkScoped,
-    )
-  }
-
-  // Introduce the new method here
-  override def retryRequest(
-    channel: Channel,
-    location: URL.Location.Absolute,
-    req: Request,
-    onResponse: Promise[Throwable, Response],
-    onComplete: Promise[Throwable, ChannelState],
-    enableKeepAlive: Boolean,
-    createSocketApp: () => WebSocketApp[Any],
-    webSocketConfig: WebSocketConfig,
-  )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
-    ZIO.succeed {
-      // Your implementation here
-    }.ensuring(
-      ZIO
-        .unless(location.scheme.isWebSocket) {
-          // Code block
         }
         .forkScoped,
     )
@@ -200,6 +186,8 @@ final case class NettyClientDriver private[netty] (
 }
 
 object NettyClientDriver {
+  private implicit val trace: Trace = Trace.empty
+
   val live: ZLayer[NettyConfig, Throwable, ClientDriver] =
     (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {
@@ -210,4 +198,5 @@ object NettyClientDriver {
           clientConfig   <- ZIO.service[NettyConfig]
         } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
       }
+
 }
