@@ -112,14 +112,14 @@ More examples:
 ZIO-HTTP provides a simple way to add headers to a client `Request`.
 
 ```scala mdoc:silent
-val headers = Headers(Header.Host("sports.api.decathlon.com"), Header.Accept(MediaType.application.json))
-Client.request(Request.get("http://sports.api.decathlon.com/test").addHeaders(headers))
+val headers = Headers(Header.Host("jsonplaceholder.typicode.com"), Header.Accept(MediaType.application.json))
+Client.request(Request.get("https://jsonplaceholder.typicode.com/todos").addHeaders(headers))
 ```
 
 ### Reading headers from `Response`
 
 ```scala mdoc:silent
-Client.request(Request.get("http://sports.api.decathlon.com/test")).map(_.headers)
+Client.request(Request.get("https://jsonplaceholder.typicode.com/todos")).map(_.headers)
 ```
 
 <details>
@@ -132,9 +132,9 @@ import zio._
 import zio.http._
 
 object SimpleClientJson extends ZIOAppDefault {
-  val url = "http://sports.api.decathlon.com/groups/water-aerobics"
+  val url = "https://jsonplaceholder.typicode.com/todos"
   // Construct headers
-  val headers = Headers(Header.Host("sports.api.decathlon.com"), Header.Accept(MediaType.application.json))
+  val headers = Headers(Header.Host("jsonplaceholder.typicode.com"), Header.Accept(MediaType.application.json))
 
   val program = for {
     // Pass headers to request
