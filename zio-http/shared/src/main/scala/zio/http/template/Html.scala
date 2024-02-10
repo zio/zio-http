@@ -48,8 +48,6 @@ sealed trait Html { self =>
 }
 
 object Html {
-  implicit def raw(string: CharSequence): Html = Html.Single(Dom.raw(string))
-
   implicit def fromString(string: CharSequence): Html = Html.Single(Dom.text(string))
 
   implicit def fromSeq(elements: Seq[Dom]): Html = Html.Multiple(elements)
@@ -63,6 +61,7 @@ object Html {
     val _ = unit
     Html.Empty
   }
+  def raw(content: CharSequence): Html = Html.Raw(content)
 
   private[zio] case class Single(element: Dom) extends Html
 
