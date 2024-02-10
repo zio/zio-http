@@ -4,7 +4,12 @@ import zio._
 import zio.duration._
 import zio.logging._
 import zio.http._
-import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{
+  ExceptionCaught,
+  Read,
+  UserEvent,
+  UserEventTriggered
+}
 
 object WebSocketReconnectingClient extends zio.App {
 
@@ -35,15 +40,19 @@ object WebSocketReconnectingClient extends zio.App {
         p.succeed(f)
       }
 
-  val app: ZIO[Logging with Client with Clock with Promise[Throwable, Throwable], Throwable, Unit] =
+  val app: ZIO[
+    Logging with Client with Clock with Promise[Throwable, Throwable],
+    Throwable,
+    Unit
+  ] =
     for {
       p <- zio.Promise.make[Throwable, Throwable]
       _ <- makeSocketApp(p)
-             .connect(url)
-             .catchAll(t =>
-               // Convert a failed connection attempt to an error to trigger a reconnect
-               p.fail(t)
-             )
+        .connect(url)
+        .catchAll(t =>
+          // Convert a failed connection attempt to an error to trigger a reconnect
+          p.fail(t)
+        )
       f <- p.await
       _ <- log.error(s"App failed: $f")
       _ <- log.error(s"Trying to reconnect...")
@@ -52,6 +61,8 @@ object WebSocketReconnectingClient extends zio.App {
 
   override def run(args: List[String]): ZIO[zio.ZEnv, Nothing, ExitCode] =
     app
-      .provideSomeLayer[zio.ZEnv](Console.live ++ HttpClientZioBackend.layer() ++ Clock.live)
+      .provideSomeLayer[zio.ZEnv](
+        Console.live ++ HttpClientZioBackend.layer() ++ Clock.live
+      )
       .exitCode
 }
