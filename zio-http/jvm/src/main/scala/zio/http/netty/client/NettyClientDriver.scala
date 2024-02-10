@@ -180,19 +180,15 @@ final case class NettyClientDriver private[netty] (
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
-    ZIO.effectSuspend {
-      val f = ZIO.succeed {
-        // Your implementation here
-      }
-
-      f.ensuring(
-        ZIO
-          .unless(location.scheme.isWebSocket) {
-            // Code block
-          }
-          .forkScoped,
-      )
-    }
+    ZIO.succeed {
+      // Your implementation here
+    }.ensuring(
+      ZIO
+        .unless(location.scheme.isWebSocket) {
+          // Code block
+        }
+        .forkScoped,
+    )
   }
 
   override def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
