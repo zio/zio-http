@@ -28,10 +28,10 @@ import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
-import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
+import io.netty.channel.{ Channel, ChannelFactory, ChannelHandler, EventLoopGroup }
 import io.netty.handler.codec.PrematureChannelClosureException
-import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
-import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import io.netty.handler.codec.http.websocketx.{ WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame }
+import io.netty.handler.codec.http.{ FullHttpRequest, HttpObjectAggregator }
 
 final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
@@ -176,6 +176,21 @@ final case class NettyClientDriver private[netty] (
         .forkScoped,
     )
   }
+
+  // New method to handle retry logic after a temporary network failure
+  def retryRequest(request: Request, retries: Int): ZIO[Scope, Throwable, Response] =
+    ZIO.effectSuspendTotal {
+      if (retries <= 0) ZIO.fail(new RuntimeException("Exceeded maximum number of retries"))
+      else {
+        // Perform the request and handle failure cases
+        request
+          .send()
+          .catchSome {
+            case _: java.net.ConnectException => // Retry only on connection failure
+              retryRequest(request, retries - 1)
+          }
+      }
+    }
 
   override def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
     trace: Trace,
