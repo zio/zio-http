@@ -1,10 +1,10 @@
-
+package example
 
 import zio._
 import zio.duration._
 import zio.logging._
 import zio.http._
-import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{ ExceptionCaught, Read, UserEvent, UserEventTriggered }
 
 object WebSocketReconnectingClient extends zio.App {
 
@@ -55,5 +55,3 @@ object WebSocketReconnectingClient extends zio.App {
       .exitCode
   }
 }
-
-
