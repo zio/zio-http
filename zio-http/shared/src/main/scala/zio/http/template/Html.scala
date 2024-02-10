@@ -61,7 +61,7 @@ object Html {
     val _ = unit
     Html.Empty
   }
-  def raw(content: CharSequence): Html = Html.Raw(content)
+  def raw(content: CharSequence): Html    = Html.raw(content)
 
   private[zio] case class Single(element: Dom) extends Html
 
