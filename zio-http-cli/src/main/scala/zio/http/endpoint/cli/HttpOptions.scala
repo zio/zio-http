@@ -40,7 +40,7 @@ private[cli] object HttpOptions {
    */
   final case class Body[A](
     override val name: String,
-    mediaType: Option[MediaType],
+    mediaType: MediaType,
     schema: Schema[A],
     doc: Doc = Doc.empty,
   ) extends HttpOptions {
@@ -60,18 +60,14 @@ private[cli] object HttpOptions {
 
       if (allowJsonInput)
         retrieverWithJson.map {
-          _ match {
-            case Left(Left(file)) => Retriever.File(name, file, mediaType)
-            case Left(Right(url)) => Retriever.URL(name, url, mediaType)
-            case Right(json)      => Retriever.Content(FormField.textField(name, json.toString()))
-          }
+          case Left(Left(file)) => Retriever.File(name, file, mediaType)
+          case Left(Right(url)) => Retriever.URL(name, url, mediaType)
+          case Right(json)      => Retriever.Content(FormField.textField(name, json.toString()))
         }
       else
         retrieverWithoutJson.map {
-          _ match {
-            case Left(file) => Retriever.File(name, file, mediaType)
-            case Right(url) => Retriever.URL(name, url, mediaType)
-          }
+          case Left(file) => Retriever.File(name, file, mediaType)
+          case Right(url) => Retriever.URL(name, url, mediaType)
         }
     }
 

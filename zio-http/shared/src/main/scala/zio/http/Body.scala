@@ -82,7 +82,7 @@ trait Body { self =>
   def asMultipartForm(implicit trace: Trace): Task[Form] =
     for {
       bytes <- asChunk
-      form  <- Form.fromMultipartBytes(bytes, Charsets.Http)
+      form  <- Form.fromMultipartBytes(bytes, Charsets.Http, boundary)
     } yield form
 
   /**
@@ -201,6 +201,12 @@ object Body {
    * Constructs a [[zio.http.Body]] from a chunk of bytes.
    */
   def fromChunk(data: Chunk[Byte]): Body = ChunkBody(data)
+
+  /**
+   * Constructs a [[zio.http.Body]] from a chunk of bytes and sets the media
+   * type.
+   */
+  def fromChunk(data: Chunk[Byte], mediaType: MediaType): Body = ChunkBody(data, mediaType = Some(mediaType))
 
   /**
    * Constructs a [[zio.http.Body]] from an array of bytes.

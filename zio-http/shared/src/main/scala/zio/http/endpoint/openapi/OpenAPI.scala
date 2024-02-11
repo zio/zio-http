@@ -18,6 +18,7 @@ package zio.http.endpoint.openapi
 
 import java.net.URI
 
+import scala.collection.immutable.ListMap
 import scala.util.matching.Regex
 
 import zio.Chunk
@@ -71,7 +72,7 @@ final case class OpenAPI(
   openapi: String,
   info: OpenAPI.Info,
   servers: List[OpenAPI.Server] = List.empty,
-  paths: Map[OpenAPI.Path, OpenAPI.PathItem] = Map.empty,
+  paths: ListMap[OpenAPI.Path, OpenAPI.PathItem] = ListMap.empty,
   components: Option[OpenAPI.Components],
   security: List[SecurityRequirement] = List.empty,
   tags: List[OpenAPI.Tag] = List.empty,
@@ -88,28 +89,31 @@ final case class OpenAPI(
     externalDocs = externalDocs,
   )
 
-  private def mergePaths(paths: Map[OpenAPI.Path, OpenAPI.PathItem]*): Map[OpenAPI.Path, OpenAPI.PathItem] =
-    paths
-      .foldRight[Seq[(OpenAPI.Path, OpenAPI.PathItem)]](Seq.empty)((z, p) => z.toSeq ++ p)
-      .groupBy(_._1)
-      .map { case (path, pathItems) =>
-        val pathItem = pathItems.map(_._2).reduce { (i, j) =>
-          i.copy(
-            get = i.get.orElse(j.get),
-            put = i.put.orElse(j.put),
-            post = i.post.orElse(j.post),
-            delete = i.delete.orElse(j.delete),
-            options = i.options.orElse(j.options),
-            head = i.head.orElse(j.head),
-            patch = i.patch.orElse(j.patch),
-            trace = i.trace.orElse(j.trace),
-          )
+  private def mergePaths(paths: ListMap[OpenAPI.Path, OpenAPI.PathItem]*): ListMap[OpenAPI.Path, OpenAPI.PathItem] =
+    ListMap(
+      paths
+        .flatMap(_.toSeq)
+        .groupBy(_._1)
+        .map { case (path, pathItems) =>
+          val pathItem = pathItems.map(_._2).reduce { (i, j) =>
+            i.copy(
+              get = i.get.orElse(j.get),
+              put = i.put.orElse(j.put),
+              post = i.post.orElse(j.post),
+              delete = i.delete.orElse(j.delete),
+              options = i.options.orElse(j.options),
+              head = i.head.orElse(j.head),
+              patch = i.patch.orElse(j.patch),
+              trace = i.trace.orElse(j.trace),
+            )
+          }
+          (path, pathItem)
         }
-        (path, pathItem)
-      }
+        .toSeq: _*,
+    )
 
   def path(path: OpenAPI.Path, pathItem: OpenAPI.PathItem): OpenAPI =
-    copy(paths = mergePaths(Map(path -> pathItem), paths))
+    copy(paths = mergePaths(ListMap(path -> pathItem), paths))
 
   def toJson: String =
     JsonCodec
@@ -149,7 +153,7 @@ object OpenAPI {
       version = "",
     ),
     servers = List.empty,
-    paths = Map.empty,
+    paths = ListMap.empty,
     components = None,
     security = List.empty,
     tags = List.empty,
@@ -164,14 +168,14 @@ object OpenAPI {
         p => p.text,
       )
 
-  implicit def pathMapSchema: Schema[Map[Path, PathItem]] =
+  implicit def pathMapSchema: Schema[ListMap[Path, PathItem]] =
     DeriveSchema
       .gen[Map[String, PathItem]]
       .transformOrFail(
         m => {
-          val it                                       = m.iterator
-          var transformed                              = Map.empty[Path, PathItem]
-          var error: Left[String, Map[Path, PathItem]] = null
+          val it                                           = m.iterator
+          var transformed                                  = ListMap.empty[Path, PathItem]
+          var error: Left[String, ListMap[Path, PathItem]] = null
           while (it.hasNext && error == null) {
             val (k, v) = it.next()
             Path.fromString(k) match {
@@ -182,30 +186,30 @@ object OpenAPI {
           if (error != null) error
           else Right(transformed)
         },
-        (m: Map[Path, PathItem]) => Right(m.map { case (k, v) => k.name -> v }),
+        (m: Map[Path, PathItem]) => Right(ListMap(m.toSeq.sortBy(_._1.name).map { case (k, v) => k.name -> v }: _*)),
       )
 
   implicit def keyMapSchema[T](implicit
     schema: Schema[T],
-  ): Schema[Map[Key, T]] =
+  ): Schema[ListMap[Key, T]] =
     Schema
       .map[String, T]
       .transformOrFail(
         m => {
-          val it                               = m.iterator
-          var transformed                      = Map.empty[Key, T]
-          var error: Left[String, Map[Key, T]] = null
+          val it                                   = m.iterator
+          var transformed                          = Vector.empty[(Key, T)]
+          var error: Left[String, ListMap[Key, T]] = null
           while (it.hasNext && error == null) {
             val (k, v) = it.next()
             Key.fromString(k) match {
-              case Some(key) => transformed += key -> v
+              case Some(key) => transformed :+= key -> v
               case None      => error = Left(s"Invalid key: $k")
             }
           }
           if (error != null) error
-          else Right(transformed)
+          else Right(ListMap(transformed.sortBy(_._1.name): _*))
         },
-        (m: Map[Key, T]) => Right(m.map { case (k, v) => k.name -> v }),
+        (m: Map[Key, T]) => Right(ListMap(m.toSeq.sortBy(_._1.name).map { case (k, v) => k.name -> v }: _*)),
       )
 
   implicit def statusMapSchema[T](implicit
@@ -378,15 +382,15 @@ object OpenAPI {
    *   An object to hold reusable Callback Objects.
    */
   final case class Components(
-    schemas: Map[Key, ReferenceOr[JsonSchema]] = Map.empty,
-    responses: Map[Key, ReferenceOr[Response]] = Map.empty,
-    parameters: Map[Key, ReferenceOr[Parameter]] = Map.empty,
-    examples: Map[Key, ReferenceOr[Example]] = Map.empty,
-    requestBodies: Map[Key, ReferenceOr[RequestBody]] = Map.empty,
-    headers: Map[Key, ReferenceOr[Header]] = Map.empty,
-    securitySchemes: Map[Key, ReferenceOr[SecurityScheme]] = Map.empty,
-    links: Map[Key, ReferenceOr[Link]] = Map.empty,
-    callbacks: Map[Key, ReferenceOr[Callback]] = Map.empty,
+    schemas: ListMap[Key, ReferenceOr[JsonSchema]] = ListMap.empty,
+    responses: ListMap[Key, ReferenceOr[Response]] = ListMap.empty,
+    parameters: ListMap[Key, ReferenceOr[Parameter]] = ListMap.empty,
+    examples: ListMap[Key, ReferenceOr[Example]] = ListMap.empty,
+    requestBodies: ListMap[Key, ReferenceOr[RequestBody]] = ListMap.empty,
+    headers: ListMap[Key, ReferenceOr[Header]] = ListMap.empty,
+    securitySchemes: ListMap[Key, ReferenceOr[SecurityScheme]] = ListMap.empty,
+    links: ListMap[Key, ReferenceOr[Link]] = ListMap.empty,
+    callbacks: ListMap[Key, ReferenceOr[Callback]] = ListMap.empty,
   ) {
     def ++(other: Components): Components = Components(
       schemas = schemas ++ other.schemas,
@@ -423,13 +427,6 @@ object OpenAPI {
       case _           => None
     }
   }
-
-  /**
-   * Holds the relative paths to the individual endpoints and their operations.
-   * The path is appended to the URL from the Server Object in order to
-   * construct the full URL. The Paths MAY be empty, due to ACL constraints.
-   */
-  type Paths = Map[Path, PathItem]
 
   /**
    * The path is appended (no relative URL resolution) to the expanded URL from
@@ -622,7 +619,7 @@ object OpenAPI {
     requestBody: Option[ReferenceOr[RequestBody]],
     responses: Map[StatusOrDefault, ReferenceOr[Response]] = Map.empty,
     callbacks: Map[String, ReferenceOr[Callback]] = Map.empty,
-    deprecated: Boolean = false,
+    deprecated: Option[Boolean] = None,
     security: List[SecurityRequirement] = List.empty,
     servers: List[Server] = List.empty,
   )
@@ -634,10 +631,10 @@ object OpenAPI {
     name: String,
     in: String,
     description: Option[Doc],
-    required: Boolean = false,
-    deprecated: Boolean = false,
+    required: Option[Boolean] = None,
+    deprecated: Option[Boolean] = None,
     schema: Option[ReferenceOr[JsonSchema]],
-    explode: Boolean = false,
+    explode: Option[Boolean] = None,
     examples: Map[String, ReferenceOr[Example]] = Map.empty,
     allowReserved: Option[Boolean],
     style: Option[String],
@@ -701,10 +698,10 @@ object OpenAPI {
       name,
       "query",
       description,
-      required,
-      deprecated,
+      if (required) Some(required) else None,
+      if (deprecated) Some(deprecated) else None,
       schema,
-      explode,
+      if (explode) Some(explode) else None,
       examples,
       Some(allowReserved),
       style = Some(style match {
@@ -742,10 +739,10 @@ object OpenAPI {
       name,
       "header",
       description,
-      required,
-      deprecated,
+      if (required) Some(required) else None,
+      if (deprecated) Some(deprecated) else None,
       definition,
-      explode,
+      if (explode) Some(explode) else None,
       examples,
       allowReserved = None,
       style = Some("simple"),
@@ -778,10 +775,10 @@ object OpenAPI {
       name,
       "path",
       description,
-      required = true,
-      deprecated,
+      required = Some(true),
+      if (deprecated) Some(deprecated) else None,
       definition,
-      explode,
+      if (explode) Some(explode) else None,
       examples,
       allowReserved = None,
       style = Some(style match {
@@ -817,10 +814,10 @@ object OpenAPI {
       name,
       "cookie",
       description,
-      required,
-      deprecated,
+      if (required) Some(required) else None,
+      if (deprecated) Some(deprecated) else None,
       definition,
-      explode,
+      if (explode) Some(explode) else None,
       examples,
       allowReserved = None,
       style = Some("form"),
@@ -830,13 +827,26 @@ object OpenAPI {
 
   final case class Header(
     description: Option[Doc],
-    required: Boolean = false,
-    deprecated: Boolean = false,
-    allowEmptyValue: Boolean = false,
+    required: Option[Boolean] = None,
+    deprecated: Option[Boolean] = None,
+    allowEmptyValue: Option[Boolean] = None,
     schema: Option[JsonSchema],
   )
 
   object Header {
+    def apply(
+      description: Option[Doc],
+      required: Boolean,
+      deprecated: Boolean,
+      allowEmptyValue: Boolean,
+      schema: Option[JsonSchema],
+    ): Header = Header(
+      description,
+      if (required) Some(required) else None,
+      if (deprecated) Some(deprecated) else None,
+      if (allowEmptyValue) Some(allowEmptyValue) else None,
+      schema,
+    )
     implicit val schema: Schema[Header] =
       DeriveSchema.gen[Header]
   }

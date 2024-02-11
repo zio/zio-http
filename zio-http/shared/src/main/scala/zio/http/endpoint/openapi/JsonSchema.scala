@@ -159,7 +159,8 @@ sealed trait JsonSchema extends Product with Serializable { self =>
   def description: Option[String] = self.toSerializableSchema.description
 
   def nullable(nullable: Boolean): JsonSchema =
-    JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Nullable(nullable))
+    if (nullable) JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Nullable(true))
+    else self
 
   def discriminator(discriminator: OpenAPI.Discriminator): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Discriminator(discriminator))
@@ -896,7 +897,7 @@ object JsonSchema {
 
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema = {
       val additionalProperties = this.additionalProperties match {
-        case Left(true)    => Some(BoolOrSchema.BooleanWrapper(true))
+        case Left(true)    => None
         case Left(false)   => Some(BoolOrSchema.BooleanWrapper(false))
         case Right(schema) => Some(BoolOrSchema.SchemaWrapper(schema.toSerializableSchema))
       }
