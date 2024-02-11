@@ -156,12 +156,12 @@ Handler.fromZIO(Random.nextUUID)
 
 ### From Response
 
-To create a handler that always returns a specific response, we can use the `Handler.response` constructor, or if we have a `ZIO` effect that produces a response, we can use the `Handler.responseZIO` constructor:
+To create a handler that always returns a specific response, we can use the `Handler.fromResponse` constructor, or if we have a `ZIO` effect that produces a response, we can use the `Handler.fromResponseZIO` constructor:
 
 ```scala mdoc
-Handler.response(Response.text("Hello, World!"))
+Handler.fromResponse(Response.text("Hello, World!"))
 
-Handler.responseZIO(Random.nextUUID.map(u => Response.text(u.toString)))
+Handler.fromResponseZIO(Random.nextUUID.map(u => Response.text(u.toString)))
 ```
 
 ### From ZIO Stream
