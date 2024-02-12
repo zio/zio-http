@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+import zio.test.TestAspect._
 import zio.test._
 
 object JSClientSpec extends ZIOSpecDefault {
@@ -12,7 +13,8 @@ object JSClientSpec extends ZIOSpecDefault {
             response <- ZIO.serviceWithZIO[Client] { _.url(url"https://www.google.com").get("") }
             string   <- response.body.asString
           } yield assertTrue(response.status.isSuccess, string.startsWith("<!doctype html>"))
-        },
+        } @@ flaky, // calling a real website is not the best idea.
+        // Should be replaced with a local server, as soon as we have js server support
       ),
 //      suite("WebSocket")(
 //        test("Echo") {
