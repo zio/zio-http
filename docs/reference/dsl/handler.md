@@ -248,7 +248,7 @@ In this example, when the client sends a GET request to `/stream`, the server re
 
 ### From HTML, Text, and Template
 
-##### Creating a Text Response
+#### Creating a Text Response
 
 The `Handler.text` constructor takes a `String` and produces a `Handler` that returns a response with the given plain text content and the `Content-Type` header set to `text/plain`:
 
@@ -256,7 +256,7 @@ The `Handler.text` constructor takes a `String` and produces a `Handler` that re
 Handler.text("Hello world!")
 ```
 
-##### Creating an HTML Response
+#### Creating an HTML Response
 
 ZIO HTTP has a DSL for creating HTML responses. To use it, we need to import the `zio.http.template._` package. The `Handler.html` constructor takes an `Html` element and produces a `Handler` that returns a response with the given HTML content and the `Content-Type` header set to `text/html`:
 
@@ -541,3 +541,23 @@ Returning a full stack trace in the body of an HTTP response is generally not re
 
 A better practice is to log the stack trace on the server side for debugging purposes and return a more user-friendly error message to the client. This approach provides clients with a clear understanding of what went wrong. We will delve into error handling in a separate section.
 :::
+
+## Handler Operators
+
+Like`ZIO` data type, the `Handler` has various operators for various operators for handling errors, timing out, combining handlers, maping 
+
+### Handler Aspect
+
+To attach a handler aspect to a handler, we use the `@@` operator. For instance, the following code shows an example where we attach a logging handler to the echo handler:
+
+```scala mdoc:compile-only
+import zio.http._
+
+Routes(
+  Method.GET / "echo" -> handler { req: Request =>
+    Handler.fromBody(req.body)
+  }.flatten @@ HandlerAspect.requestLogging()
+)
+```
+
+This will log every request coming to these handlers. ZIO HTTP supports various `HandlerAspects` that you can learn about in the [Middleware](middleware.md) section.
