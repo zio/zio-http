@@ -589,3 +589,19 @@ Routes(
 In this example, the type of the handler before applying the `sandbox` operator is `Handler[Any, Throwable, Any, Response]`. After applying the `sandbox` operator, the type of the handler becomes `Handler[Any, Response, Any, Response]`.
 
 Without the `sandbox` operator, the compiler would complain about the unhandled `Throwable` error.
+
+### Converting a `Handler` to an `HttpApp`
+
+The `Handler#toHttpApp` operator, converts a handler to an `HttpApp` to be served by the `Server`. The following example, shows an HTTP application that serves a simple "Hello, World!" response for all types of incoming requests:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object HelloWorldServer extends ZIOAppDefault {
+  def run =
+    Server
+      .serve(Handler.fromResponse(Response.text("Hello, world!")).toHttpApp)
+      .provide(Server.default)
+}
+```
