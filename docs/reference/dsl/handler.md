@@ -19,7 +19,13 @@ sealed trait Handler[-R, +Err, -In, +Out] {
 }
 ```
 
-It has four type parameters. The first two parameters `R` and `Err` are the environment and error type of the underlying effect that the handler represents. The third and fourth parameters `In` and `Out` are the input and output types of the handler. In most cases, `In` is `Request` and `Out` is `Response`.
+It has four type parameters. The first two parameters `R` and `Err` are the environment and error type of the underlying effect that the handler represents. The third and fourth parameters `In` and `Out` are the input and output types of the handler.
+
+If the input type of the handler is `Request` and the output type is `Response`, we call that handler a **request handler**:
+
+```scala
+type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
+```
 
 ## Creating a Handler
 
