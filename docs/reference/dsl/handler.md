@@ -79,8 +79,6 @@ As we can see, the `handler` constructor is quite versatile and can be used to c
 
 As mentioned earlier, it is advisable to use the `handler` smart constructor for convenience. However, in some cases, we might use lower-level handler constructors. Let's look at some of the most commonly used handlers:
 
-**Handler.identity**
-
 ### Succeed/Fail/Die
 
 Like the `ZIO` effect, we can create handlers that `succeed`, `fail`, or `die` using the following constructors:
