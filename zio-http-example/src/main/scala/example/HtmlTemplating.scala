@@ -21,11 +21,11 @@ object HtmlTemplating extends ZIOAppDefault {
         body(
           div(
             // Support for css class names
-            css := "container" :: "text-align-left" :: Nil,
+            css := "container text-align-left",
             h1("Hello World"),
             ul(
               // Support for inline css
-              styles := Seq("list-style" -> "none"),
+              styles := "list-style: none",
               li(
                 // Support for attributes
                 a(href := "/hello/world", "Hello World"),

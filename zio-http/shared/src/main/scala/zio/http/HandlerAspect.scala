@@ -840,8 +840,8 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
       val data            = Template.container(s"${response.status}") {
         div(
           div(
-            styles := Seq("text-align" -> "center"),
-            div(s"${response.status.code}", styles := Seq("font-size" -> "20em")),
+            styles := "text-align: center",
+            div(s"${response.status.code}", styles := "font-size: 20em"),
             div(message),
           ),
         )

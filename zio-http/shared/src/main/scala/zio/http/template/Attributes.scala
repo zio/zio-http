@@ -49,7 +49,7 @@ trait Attributes {
 
   final def citeAttr: PartialAttribute[String] = PartialAttribute("cite")
 
-  final def classAttr: PartialAttribute[List[String]] = PartialAttribute("class")
+  final def classAttr: PartialAttribute[String] = PartialAttribute("class")
 
   final def colSpanAttr: PartialAttribute[String] = PartialAttribute("colspan")
 
@@ -65,7 +65,7 @@ trait Attributes {
 
   final def coordsAttr: PartialAttribute[String] = PartialAttribute("coords")
 
-  final def css: PartialAttribute[List[String]] = classAttr
+  final def css: PartialAttribute[String] = classAttr
 
   final def dataAttr(name: String): PartialAttribute[String] = PartialAttribute("data-" + name)
 
@@ -337,9 +337,9 @@ trait Attributes {
 
   final def stepAttr: PartialAttribute[String] = PartialAttribute("step")
 
-  final def styleAttr: PartialAttribute[Seq[(String, String)]] = PartialAttribute("style")
+  final def styleAttr: PartialAttribute[String] = PartialAttribute("style")
 
-  final def styles: PartialAttribute[Seq[(String, String)]] = styleAttr
+  final def styles: PartialAttribute[String] = styleAttr
 
   final def tabIndexAttr: PartialAttribute[String] = PartialAttribute("tabindex")
 
