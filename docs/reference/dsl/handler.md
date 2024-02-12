@@ -561,3 +561,31 @@ Routes(
 ```
 
 This will log every request coming to these handlers. ZIO HTTP supports various `HandlerAspects` that you can learn about in the [Middleware](middleware.md) section.
+
+### Sandboxing Errors
+
+The `Handler#sandbox` operator described is a potentially time-saving solution for managing errors within an HTTP application. Its primary function is the elimination of errors by translating them into an error of type `Response`, allowing developers to transition into a controlled environment where errors are effectively mitigated:
+
+```scala
+sealed trait Handler[-R, +Err, -In, +Out] { self =>
+  def sandbox: Handler[R, Response, In, Out]
+}
+```
+
+This tool could serve as a shortcut for developers who wish to bypass the complication of error handling, enabling them to focus more on other aspects of their code.
+
+Let's see an example:
+
+```scala mdoc:compile-only
+import zio.http._
+import java.nio.file._
+
+Routes(
+  Method.GET / "file" ->
+    Handler.fromFile(Paths.get("file.txt").toFile).sandbox,
+)
+```
+
+In this example, the type of the handler before applying the `sandbox` operator is `Handler[Any, Throwable, Any, Response]`. After applying the `sandbox` operator, the type of the handler becomes `Handler[Any, Response, Any, Response]`.
+
+Without the `sandbox` operator, the compiler would complain about the unhandled `Throwable` error.
