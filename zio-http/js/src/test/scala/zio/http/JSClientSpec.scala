@@ -10,7 +10,7 @@ object JSClientSpec extends ZIOSpecDefault {
       suite("HTTP")(
         test("Get") {
           for {
-            response <- ZIO.serviceWithZIO[Client] { _.url(url"https://www.google.com").get("") }
+            response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").get("") }
             string   <- response.body.asString
           } yield assertTrue(response.status.isSuccess, string.startsWith("<!doctype html>"))
         } @@ flaky, // calling a real website is not the best idea.
