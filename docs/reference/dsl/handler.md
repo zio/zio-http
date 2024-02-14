@@ -627,3 +627,28 @@ trait Handler[-R, +Err, -In, +Out] {
   def headers(implicit ev: Out <:< Response): Handler[R, Err, In, Headers]
 }
 ```
+
+### Running Handler
+
+We know that a handler is just a function that takes an input and returns an output:
+
+```scala
+trait Handler[-R, +Err, -In, +Out] {
+  def apply(in: In): ZIO[R, Err, Out]
+}
+```
+
+So, to run a handler, we just need to call the `apply` method with the required input, and it will return a `ZIO` effect. The `Handler#runZIO` is an alternative to the `Handler#apply` method.
+
+In cases where the input type of handler is `Request`, we can use the `Handler#run` method:
+
+```scala
+trait Handler[-R, +Err, -In, +Out] {
+  def run(
+    method: Method = Method.GET,
+    path: Path = Path.root,
+    headers: Headers = Headers.empty,
+    body: Body = Body.empty,
+  )(implicit ev: Request <:< In): ZIO[R, Err, Out]
+}
+```
