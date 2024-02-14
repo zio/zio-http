@@ -659,3 +659,24 @@ Like `ZIO` data type, the `Handler` has various operators for mapping the input 
 :::note
 If you're unfamiliar with these operators, it's recommended to explore the [core ZIO documentation](https://zio.dev/reference/) for a deeper understanding of their functionality.
 :::
+
+### Composing Handlers
+
+1. **flatMap** — This function is utilized to compose two handlers in scenarios where we aim to employ monadic composition. It combines the output of the first handler with the input of the second handler. The `>>=` operator serves as an alias for `flatMap`.
+
+2. **andThen** — Employed to sequentially compose a handler with another handler, without the need for monadic composition. Given two handlers, `h1: A => B` and `h2: B => C`, the resulting function `A => C` is achieved through `h1 andThen h2`. The `>>>` operator acts as an alias for `andThen`.
+
+3. **compose** — This function functions as the inverse of `andThen`. When provided with two handlers, `h1: B => C` and `h2: A => B`, it returns the function `A => C` via `h1 compose h2`. The `<<<` operator is an alias for `compose`.
+
+4. **zip** — Utilized to merge two handlers into a singular handler, producing a tuple comprising the outputs of both handlers. `zipLeft` and `zipRight` are utilized when only one handler's output is of interest. The `zip` operator is alias for `zip`, while `<*` and `*>` serve as aliases for `zipLeft` and `zipRight` respectively.
+
+5. **orElse** — This function combines two handlers into one, attempting the first handler and proceeding to the second if the first one fails. The `<>` operator is an alias for `orElse`.
+
+
+| Operator | Explanation                                                        | Variations                                     |
+|----------|--------------------------------------------------------------------|------------------------------------------------|
+| flatMap  | Used to compose two handlers using monadic composition.            | `flatMap`, `>>=`                               |
+| andThen  | Feed the output of the first handler to input of the next handler. | `andThen`, `>>>`                               |
+| compose  | Feed the output of the next handler to input of the first handler. | `compose`, `<<<`                               |
+| zip      | Combines two handlers into one returning a tuple of outputs.       | `zip`, `zipLeft`, `zipRight`, `<*>` `<*`, `*>` |
+| orElse   | Combines two handlers, trying the first and then the second.       | `orElse`, `<>`                                 |
