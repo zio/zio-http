@@ -645,3 +645,17 @@ trait Handler[-R, +Err, -In, +Out] {
   )(implicit ev: Request <:< In): ZIO[R, Err, Out]
 }
 ```
+
+### Mapping
+
+Like `ZIO` data type, the `Handler` has various operators for mapping the input and output types, and error types:
+
+| Operator              | Explanation                                                    | Variations                                                           |
+|-----------------------|----------------------------------------------------------------|----------------------------------------------------------------------|
+| `Handler#map*`        | Used to transform the output of a handler.                     | `map`, `mapError`, `mapErrorCause`, `mapZIO`, `mapErrorZIO`, `mapErrorCauseZIO` |
+| `Handler#contramap*`  | Used to transform the input of a handler.                      | `contramap`, `contramapZIO` |
+| `Handler#mapError*`   | Used to transform the error type of a handler.                 | `mapError`, `mapErrorCause`, `mapErrorZIO`, `mapErrorCauseZIO` |
+
+:::note
+If you're unfamiliar with these operators, it's recommended to explore the [core ZIO documentation](https://zio.dev/reference/) for a deeper understanding of their functionality.
+:::
