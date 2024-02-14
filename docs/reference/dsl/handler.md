@@ -686,3 +686,11 @@ If you're unfamiliar with these operators, it's recommended to explore the [core
 Like `ZIO` data type, the `Handler` has various operators for handling errors, such as `orDie*`, `refineOrDie`, `catchAll*`, `unrefine*`.
 
 The are similar to the `ZIO` ones, but they are specialized for the `Handler` type. If you're unfamiliar with these operators, it's recommended to explore the [Error Management](https://zio.dev/reference/error-management/) section in the core ZIO documentation.
+
+### Working with Environment and Layers
+
+The first type parameter of the `Handler` is the environment type. This means that a `Handler` can require an environment to run, like a `ZIO` effect. When we create a `Handler`, we can get access to the environment using `ZIO.service*` methods, and finally, we can provide the environment using `Handler#provide*` methods.
+
+:::note
+Please note that in most cases, we are not required to provide the environment of the handler in the middle of the routes definition. It is usually done at the end when we are creating the `HttpApp` using the `Server#serve` method.
+:::
