@@ -605,3 +605,25 @@ object HelloWorldServer extends ZIOAppDefault {
       .provide(Server.default)
 }
 ```
+
+### Extracting Headers
+
+To extract a specific header, use the `Handler#header` method:
+
+```scala
+trait Handler[-R, +Err, -In, +Out] {
+  def header(headerType: HeaderType)(
+    implicit ev: Out <:< Response
+  ): Handler[R, Err, In, Option[headerType.HeaderValue]]
+}
+```
+
+It takes a `HeaderType` and returns a `Handler` that extracts that header from the output of the handler. If the header is not present, it returns `None`. Please note that the output type of handler should be a `Response` or a subtype of `Response`.
+
+To extract all headers, use the `Handler#headers` method:
+
+```scala
+trait Handler[-R, +Err, -In, +Out] {
+  def headers(implicit ev: Out <:< Response): Handler[R, Err, In, Headers]
+}
+```
