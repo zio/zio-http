@@ -680,3 +680,9 @@ If you're unfamiliar with these operators, it's recommended to explore the [core
 | compose  | Feed the output of the next handler to input of the first handler. | `compose`, `<<<`                               |
 | zip      | Combines two handlers into one returning a tuple of outputs.       | `zip`, `zipLeft`, `zipRight`, `<*>` `<*`, `*>` |
 | orElse   | Combines two handlers, trying the first and then the second.       | `orElse`, `<>`                                 |
+
+### Error Management
+
+Like `ZIO` data type, the `Handler` has various operators for handling errors, such as `orDie*`, `refineOrDie`, `catchAll*`, `unrefine*`.
+
+The are similar to the `ZIO` ones, but they are specialized for the `Handler` type. If you're unfamiliar with these operators, it's recommended to explore the [Error Management](https://zio.dev/reference/error-management/) section in the core ZIO documentation.
