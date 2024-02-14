@@ -695,6 +695,10 @@ The first type parameter of the `Handler` is the environment type. This means th
 Please note that in most cases, we are not required to provide the environment of the handler in the middle of the routes definition. It is usually done at the end when we are creating the `HttpApp` using the `Server#serve` method.
 :::
 
+:::note
+If you are not familiar with the concept of environment and layers in ZIO, it is recommended to explore the [Introduction to the ZIO's Contextual Data Types](https://zio.dev/reference/contextual/) section in the core ZIO documentation.
+:::
+
 ### Adding Delays
 
 When we have andler of type `In => Out`, we can delay the consumption of the input by using the `Handler#delayBefore` and delay the production of the output by using the `Handler#delayAfter`.
