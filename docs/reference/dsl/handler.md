@@ -698,3 +698,9 @@ Please note that in most cases, we are not required to provide the environment o
 ### Adding Delays
 
 When we have andler of type `In => Out`, we can delay the consumption of the input by using the `Handler#delayBefore` and delay the production of the output by using the `Handler#delayAfter`.
+
+### Converting to Constant Values/Types
+
+To convert a `Handler` to a constant value, we can use the `Handler#as` method. It takes a value of type `Out` and returns a `Handler` that always returns the given value.
+
+We can also narrow or widen the type of environment, error, input, or output of a `Handler` using the `Handler#asEnvType`, `Handler#asErrorType`, `Handler#asInType`, and `Handler#asOutType` methods.
