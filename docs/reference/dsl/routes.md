@@ -121,7 +121,7 @@ Since routes are just a collection of individual routes, we can transform them i
 Takes a function of type `Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response]` and applies it to all routes:
 
 ```scala
-class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Err]]) { self =>
+trait Routes[-Env, +Err] {
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
   ): Routes[Env1, Err] = ???
@@ -151,9 +151,8 @@ routes.transform[Any] { handle =>
 One of the most common ways to transform routes is to apply a middleware to them. A middleware is a function that takes a collection of routes and returns a new collection of routes. To apply a middleware to `Routes` we can use the `Routes#@@` method:
 
 ```scala
-final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Err]]) { self =>
-  def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
-    aspect(self)
+trait Routes[-Env, +Err] {
+  def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err]
 }
 ```
 
