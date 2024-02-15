@@ -16,10 +16,6 @@ Routes(
 )
 ```
 
-When we are done building a collection of routes, we typically convert the routes into an HTTP application, which we can then execute with the server.
-
-Routes may have handled or unhandled errors. A route of type `Route[Env, Throwable]`, for example, has not handled its errors by converting them into responses. Such unfinished routes cannot yet be converted into HTTP applications. First, we must handle errors with the `handleError` or `handleErrorCause` methods.
-
 ## Building Routes
 
 To build empty routes we have `Routes.empty` constructor:
@@ -199,14 +195,17 @@ val handler13 = handler12.patch(Response.Patch.status(Status.Accepted))
 
 ## Converting `Routes` to `HttpApp`
 
-If you want to deploy your routes on the ZIO HTTP server, you first need to convert it to `HttpApp[R]` using
-`Routes#toHttpApp`.
+When we are done building a collection of routes, our next step is typically to convert these routes into an HTTP application (`HttpApp[Env]`) using the `Routes#toHttpApp` method, which we can then execute with the server.
 
-Before you do this, you must first handle any typed errors produced by your routes by using `Routes#handleError`.
+Routes may have handled or unhandled errors.  If the error type of `Routes[Env, Err]` is equal to or a subtype of `Response`, we call this a route where all errors are handled. Otherwise, it's a route where some errors are unhandled.
 
-Handling your errors ensures that the clients of your API will not encounter strange and unexpected responses, but will always be able to usefully interact with your web service, even in exceptional cases.
+For instance, a route of type `Route[Env, Throwable]` has not handled its errors by converting them into responses. Consequently, such unfinished routes cannot be converted into HTTP applications. We must first handle errors using the `handleError` or `handleErrorCause` methods.
 
-If you wish to convert your failures automatically into suitable responses, without leaking any details on the specific nature of the errors, you can use `Routes#sandbox`, and after dealing with your errors in this way, you can convert your routes into an HTTP application.
+By handling our errors, we ensure that clients interacting with our API will not encounter strange or unexpected responses, but will always be able to interact effectively with our web service, even in exceptional cases.
+
+:::note
+If we aim to automatically convert our failures into suitable responses, without revealing details about the specific nature of the errors, we can utilize `Routes#sandbox`. After addressing our errors in this manner, we can proceed to convert our routes into an HTTP application.
+:::
 
 ## Running an App
 
