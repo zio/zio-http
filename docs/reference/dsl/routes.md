@@ -194,6 +194,7 @@ trait Routes[-Env, +Err] {
   def handleErrorRequestCause(f: (Request, Cause[Err]) => Response): Routes[Env, Nothing]
   def handleErrorRequestCauseZIO(f: (Request, Cause[Err]) => ZIO[Any, Nothing, Response]): Routes[Env, Nothing]
 }
+```
 
 ## Converting `Routes` to `HttpApp`
 
