@@ -3,16 +3,22 @@ id: routes
 title: Routes
 ---
 
-`Routes` models a collection of routes, each of which is defined by a pattern and a handler. 
-This data type can be thought of as modeling a routing table,  which decides where to direct 
-every endpoint in an API based on both method and path of the request.
+`Routes` models a collection of routes, each of which is defined by a pattern and a handler. This data type can be thought of as modeling a routing table, which decides where to direct every endpoint in an API based on both method and path of the request.
 
-When you are done building a collection of routes, you typically convert the routes into an 
-HTTP application, which you can then execute with the server.
+Let's see an example of a simple `Routes` that has two routes:
 
-Routes may have handled or unhandled errors. A route of type `Route[Env, Throwable]`, for example, 
-has not handled its errors by converting them into* responses. Such unfinished routes cannot yet 
-be converted into HTTP applications. First, you must handle errors with the `handleError` or `handleErrorCause` methods.
+```scala mdoc:compile-only
+import zio.http._
+
+Routes(
+  Method.GET / "hello"        -> Handler.text("hello"),
+  Method.GET / "health-check" -> Handler.ok,
+)
+```
+
+When we are done building a collection of routes, we typically convert the routes into an HTTP application, which we can then execute with the server.
+
+Routes may have handled or unhandled errors. A route of type `Route[Env, Throwable]`, for example, has not handled its errors by converting them into responses. Such unfinished routes cannot yet be converted into HTTP applications. First, we must handle errors with the `handleError` or `handleErrorCause` methods.
 
 ## Building Routes
 
