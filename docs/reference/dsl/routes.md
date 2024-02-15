@@ -73,6 +73,38 @@ val routes2 =
 
 Using the `Routes.fromIterable` constructor, we can build routes from an iterable of individual routes.
 
+## Nested Routes
+
+Routes can be nested, which means that we can have routes that are themselves collections of other routes. This is useful for organizing routes into hierarchical structures, and for sharing common paths accross routes.
+
+Let's see an example of nested routes:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.codec.PathCodec._
+
+
+val routes = 
+  literal("nest1") /
+    Routes.fromIterable(
+      Chunk(
+        Method.GET / "foo" -> Handler.text("foo"),
+        Method.GET / "bar" -> Handler.text("bar"),
+      ) ++
+        Chunk(
+          literal("nest2") / Routes(
+            Method.GET / "baz" -> Handler.text("baz"),
+            Method.GET / "qux" -> Handler.text("qux"),
+          ),
+          literal("nest2") / Routes(
+            Method.GET / "quux" -> Handler.text("quux"),
+            Method.GET / "corge" -> Handler.text("corge"),
+          ),
+        ).map(_.routes).flatten,
+    )
+```
+
 ## Combining Routes
 
 The only way to combine two routes collections is to concatenate them using the `++` operator:
