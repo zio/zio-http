@@ -22,18 +22,46 @@ Routes may have handled or unhandled errors. A route of type `Route[Env, Throwab
 
 ## Building Routes
 
-You can build routes with the `Routes.apply` constructor, which takes varargs of individual `Route` values, or you can build empty routes with `Routes.empty`:
+To build empty routes we have `Routes.empty` constructor:
 
 ```scala mdoc:silent
-import zio._
 import zio.http._ 
 
 val routes1 = Routes.empty
 ```
 
-Although you can build `Route` values by using the constructors of `Route`, you may prefer to use the DSL for constructing routes which starts in `Method`.
+We can build routes with the `Routes.apply` constructor, which takes varargs of individual `Route` values:
 
-Using the `/` operator of `Method`, you can construct route patterns, which can then be bound to handlers, to create a fully formed route.
+```scala
+object Routes {
+  def apply[Env, Err](
+    route : Route[Env, Err],
+    routes: Route[Env, Err]*,
+  ): Routes[Env, Err] = ???
+}
+```
+
+Example:
+
+```scala mdoc:compile-only
+Routes(
+  Method.GET / "hello"        -> Handler.text("hello"),
+  Method.GET / "health-check" -> Handler.ok,
+  Method.POST / "echo"        ->
+    handler { req: Request =>
+      req.body.asString.map(Response.text(_))
+    }.sandbox,
+)
+```
+
+Please note that in this example, we have used the DSL for constructing routes, which consists of two parts, the route pattern and the handler:
+
+1. `RoutePattern`- The route pattern is responsible for matching the method and path of the incoming request.
+2. `Handler`- The handler is responsible for producing a response to the matched request.
+
+Although we can build `Route` values by using the constructors of `Route`, we may prefer to use the DSL for constructing routes which starts in `Method`.
+
+Using the `/` operator of `Method`, we can construct route patterns, which can then be bound to handlers, to create a fully formed route:
 
 ```scala mdoc:silent
 val routes2 = 
@@ -42,6 +70,8 @@ val routes2 =
     Method.GET / "goodbye" -> Handler.ok
   )
 ```
+
+Using the `Routes.fromIterable` constructor, we can build routes from an iterable of individual routes.
 
 ## Combining Routes
 
@@ -152,6 +182,8 @@ ZIO HTTP server needs an `HttpApp[R]` for running. We can use `Server.serve()` m
 an `HttpApp[R]`:
 
 ```scala mdoc:silent
+import zio._
+
 object HelloWorld extends ZIOAppDefault {
   val app: HttpApp[Any] = Handler.ok.toHttpApp
 
