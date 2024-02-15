@@ -85,6 +85,14 @@ As we can see, the `handler` constructor is quite versatile and can be used to c
 
 As mentioned earlier, it is advisable to use the `handler` smart constructor for convenience. However, in some cases, we might use lower-level handler constructors. Let's look at some of the most commonly used handlers:
 
+### Handler.ok
+
+Creates a `Handler` that always responds with a 200 status code.
+
+```scala mdoc:silent
+Handler.ok
+```
+
 ### Succeed/Fail/Die
 
 Like the `ZIO` effect, we can create handlers that `succeed`, `fail`, or `die` using the following constructors:
@@ -248,7 +256,7 @@ In this example, when the client sends a GET request to `/stream`, the server re
 
 ### From HTML, Text, and Template
 
-#### Creating a Text Response
+#### Creating a Plain Text Response
 
 The `Handler.text` constructor takes a `String` and produces a `Handler` that returns a response with the given plain text content and the `Content-Type` header set to `text/plain`:
 
@@ -360,6 +368,20 @@ ZIO HTTP provides a set of constructors for creating handlers that return respon
 | `Handler.internalServerError` | 500              |
 
 If we need to create a handler that returns a response with a specific status code other than the ones listed above, we can use the `Handler.status` constructor.
+
+The `Handler.status` constructor creates a `Handler` that always responds with the same status code and empty data:
+
+```scala mdoc:silent
+Handler.status(Status.Ok)
+```
+
+### Handler.error
+
+Creates a `Handler` that always fails with the given error.
+
+```scala mdoc:silent
+Handler.error(Status.Forbidden)
+```
 
 ### Creating a Handler From Body
 
@@ -708,3 +730,21 @@ When we have andler of type `In => Out`, we can delay the consumption of the inp
 To convert a `Handler` to a constant value, we can use the `Handler#as` method. It takes a value of type `Out` and returns a `Handler` that always returns the given value.
 
 We can also narrow or widen the type of environment, error, input, or output of a `Handler` using the `Handler#asEnvType`, `Handler#asErrorType`, `Handler#asInType`, and `Handler#asOutType` methods.
+
+### Overwriting the `Method`
+
+The `Handler.method` overwrites the method in the incoming request to the `Handler`:
+
+```scala mdoc:silent
+val handler11 = Handler.fromFunction((request: Request) => Response.text(request.method.toString))
+handler11.method(Method.POST)
+```
+
+### Patching the `Response`
+
+The `Handler.patch` patches the response produced by the request handler using a `Patch`:
+
+```scala mdoc:silent
+val handler12 = Handler.fromResponse(Response.text("Hello World!"))
+val handler13 = handler12.patch(Response.Patch.status(Status.Accepted))
+```

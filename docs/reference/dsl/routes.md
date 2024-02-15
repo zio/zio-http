@@ -123,79 +123,11 @@ this for you:
  - `Routes#timeout` - Times out all routes
  - `Routes#@@` -- Transforms all routes
 
-# What is HttpApp?
+## Converting `Routes` to `HttpApp`
 
 `HttpApp[-R]` represents a fully-specified HTTP application that can be executed by the server.
 
-## Special Constructors Handler
-
-These are some special constructors for `HttpApp` and `Handler`:
-
-### Handler.ok
-
-Creates a `Handler` that always responds with a 200 status code.
-
-```scala mdoc:silent
-Handler.ok
-```
-
-### Handler.text
-
-Creates a `Handler` that always responds with the same plain text.
-
-```scala mdoc:silent
-Handler.text("Text Response")
-```
-
-### Handler.status
-
-Creates a `Handler` that always responds with the same status code and empty data.
-
-```scala mdoc:silent
-Handler.status(Status.Ok)
-```
-
-### Handler.error
-
-Creates a `Handler` that always fails with the given error.
-
-```scala mdoc:silent
-Handler.error(Status.Forbidden)
-```
-
-### Handler.fromResponse
-
-Creates an `Handler` that always responds with the same `Response`.
-
-```scala mdoc:silent
-Handler.fromResponse(Response.ok)
-```
-
-## Special operators on Handler
-
-These are some special operators for `Handler`s.
-
-### method
-
-Overwrites the method in the incoming request to the `Handler`
-
-```scala mdoc:silent
-val handler11 = Handler.fromFunction((request: Request) => Response.text(request.method.toString))
-handler11.method(Method.POST)
-```
-
-### patch
-
-Patches the response produced by the request handler using a `Patch`.
-
-```scala mdoc:silent
-val handler12 = Handler.fromResponse(Response.text("Hello World!"))
-val handler13 = handler12.patch(Response.Patch.status(Status.Accepted))
-```
-
-## Converting `Routes` to `HttpApp`
-
-When we are done building a collection of routes, our next step is typically to convert these routes into an HTTP application (`HttpApp[Env]`) using the `Routes#toHttpApp` method, which we can then execute with the server.
+When we are done building a collection of routes, our next step is typically to convert these routes into an HTTP application using the `Routes#toHttpApp` method, which we can then execute with the server.
 
 Routes may have handled or unhandled errors.  If the error type of `Routes[Env, Err]` is equal to or a subtype of `Response`, we call this a route where all errors are handled. Otherwise, it's a route where some errors are unhandled.
 
