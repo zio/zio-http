@@ -116,7 +116,7 @@ precedence over those on the right-hand side.
 
 Since routes are just a collection of individual routes, we can transform them in all the same ways that we can transform an individual route. We could do this manually, by building new routes from the old collection of routes, but several convenient methods do this:
 
-### `Routes#transform`
+### By Transforming Handlers
 
 Takes a function of type `Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response]` and applies it to all routes:
 
@@ -124,7 +124,8 @@ Takes a function of type `Handler[Env, Response, Request, Response] => Handler[E
 class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Err]]) { self =>
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
-  ): Routes[Env1, Err] =
+  ): Routes[Env1, Err] = ???
+}  
 ```
 
 Let's add a delay to all routes:
@@ -145,7 +146,7 @@ routes.transform[Any] { handle =>
 }
 ```
 
-### Applying Middlewares
+### By Applying Middlewares
 
 One of the most common ways to transform routes is to apply a middleware to them. A middleware is a function that takes a collection of routes and returns a new collection of routes. To apply a middleware to `Routes` we can use the `Routes#@@` method:
 
@@ -168,6 +169,31 @@ val newRoutes = routes @@ HandlerAspect.dropTrailingSlash
 ```
 
 To learn more about middlewares, see the [Middleware](middleware.md) section.
+
+## Handling Errors in Routes
+
+Like `ZIO` data type, we can handle errors in `Routes`. When we handle errors at the `Routes` level, we are handling errors that occur in any of the routes within the `Routes` data type.
+
+The following methods are available for error handling:
+
+```scala
+trait Routes[-Env, +Err] {
+  def handleError(f: Err => Response): Routes[Env, Nothing]
+  def handleErrorCause(f: Cause[Err] => Response): Routes[Env, Nothing]
+  def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response]): Routes[Env, Nothing]
+}
+```
+
+All of these methods are similar to their `ZIO` counterparts, i.e. `ZIO#catch*`, but they are applied to the routes.
+
+If we need to take into account what request caused the error, we can use the following methods, instead:
+
+```scala
+trait Routes[-Env, +Err] {
+  def handleErrorRequest(f: (Err, Request) => Response): Routes[Env, Nothing]
+  def handleErrorRequestCause(f: (Request, Cause[Err]) => Response): Routes[Env, Nothing]
+  def handleErrorRequestCauseZIO(f: (Request, Cause[Err]) => ZIO[Any, Nothing, Response]): Routes[Env, Nothing]
+}
 
 ## Converting `Routes` to `HttpApp`
 
