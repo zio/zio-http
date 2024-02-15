@@ -114,14 +114,60 @@ precedence over those on the right-hand side.
 
 ## Transforming Routes
 
-Since routes are just a collection of individual routes, you can transform them in all the same
-ways that you can transform an individual route. You could do this manually, by building new 
-routes from the old collection of routes, but there are several convenient methods that do 
-this for you:
+Since routes are just a collection of individual routes, we can transform them in all the same ways that we can transform an individual route. We could do this manually, by building new routes from the old collection of routes, but several convenient methods do this:
 
- - `Routes#handleError` - Handles the error of all routes
- - `Routes#timeout` - Times out all routes
- - `Routes#@@` -- Transforms all routes
+### `Routes#transform`
+
+Takes a function of type `Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response]` and applies it to all routes:
+
+```scala
+class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Err]]) { self =>
+  def transform[Env1](
+    f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
+  ): Routes[Env1, Err] =
+```
+
+Let's add a delay to all routes:
+
+```scala mdoc:reset
+```
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+val routes: Routes[Any, Response] = ???
+
+routes.transform[Any] { handle =>
+   handler { (request: Request) => 
+     ZIO.sleep(1.second) *> handle(request)
+   }
+}
+```
+
+### Applying Middlewares
+
+One of the most common ways to transform routes is to apply a middleware to them. A middleware is a function that takes a collection of routes and returns a new collection of routes. To apply a middleware to `Routes` we can use the `Routes#@@` method:
+
+```scala
+final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Err]]) { self =>
+  def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
+    aspect(self)
+}
+```
+
+Let's add a logging middleware to all routes:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+val routes: Routes[Any, Response] = ???
+
+val newRoutes = routes @@ HandlerAspect.dropTrailingSlash
+```
+
+To learn more about middlewares, see the [Middleware](middleware.md) section.
 
 ## Converting `Routes` to `HttpApp`
 
@@ -144,8 +190,9 @@ If we aim to automatically convert our failures into suitable responses, without
 ZIO HTTP server needs an `HttpApp[R]` for running. We can use `Server.serve()` method to bootstrap the server with
 an `HttpApp[R]`:
 
-```scala mdoc:silent
+```scala mdoc:compile-only
 import zio._
+import zio.http._
 
 object HelloWorld extends ZIOAppDefault {
   val app: HttpApp[Any] = Handler.ok.toHttpApp
