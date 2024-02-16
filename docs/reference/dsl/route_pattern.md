@@ -23,10 +23,9 @@ Routes(
 
 In the above example, `Method.Get / "health-check"` represents a `RoutePattern` used to match incoming requests with the appropriate path and method.
 
-## Building Route Patterns
+## Building RoutePatterns
 
-Typically, the entry point constructor for a route pattern is `Method`:
-
+Typically, the entry point for creating a route pattern is `Method`:
 
 ```scala mdoc:compile-only
 // GET /users
@@ -55,4 +54,4 @@ val pattern2: RoutePattern[(Int, String)] =
   Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 ```
 
-With more path segments, the type of the RoutePattern becomes a tuple of the types of the path segments, in this case, (Int, String).
+With more path segments, the type of the `RoutePattern` becomes a tuple of the types of the path segments, in this case, (Int, String).
