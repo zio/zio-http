@@ -82,6 +82,51 @@ trait PathCodec[A] {
 }
 ```
 
+Here is a complete example:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.Cause.{Die, Stackless}
+import zio.http.codec.PathCodec
+
+object Main extends ZIOAppDefault {
+
+  import zio.http.codec.PathCodec
+  import PathCodec._
+
+  case class UserId private (value: Int)
+
+  object UserId {
+    def apply(value: Int): Either[String, UserId] =
+      if (value > 0)
+        Right(new UserId(value))
+      else
+        Left("User id must be greater than zero")
+  }
+
+  val userId: PathCodec[UserId] = int("user-id").transformOrFailLeft(UserId.apply)(_.value)
+
+  val httpApp: HttpApp[Any] =
+    Routes(
+      Method.GET / "users" / userId ->
+        Handler.fromFunctionHandler[(UserId, Request)] { case (userId: UserId, request: Request) =>
+          Handler.text(userId.value.toString)
+        },
+    ).handleErrorCause { case Stackless(cause, _) =>
+      cause match {
+        case Die(value, _) =>
+          if (value.getMessage == "User id must be greater than zero")
+            Response.badRequest(value.getMessage)
+          else
+            Response.internalServerError
+      }
+    }.toHttpApp
+
+  def run = Server.serve(httpApp).provide(Server.default)
+}
+```
+
 ## Trailing Path Segments
 
 Sometimes, there may be a need to match a path with a trailing segment, regardless of the number of segments it contains. This is where the trailing codec comes into play:
