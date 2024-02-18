@@ -5,6 +5,8 @@ title: PathCodec
 
 `PathCodec[A]` represents a codec for paths of type `A`, comprising segments where each segment can be a literal, an integer, a long, a string, a UUID, or the trailing path.
 
+## Building PathCodecs
+
 The `PathCodec` data type offers several predefined codecs for common types:
 
 - `PathCodec.bool` - A codec for a boolean path segment.
@@ -24,6 +26,63 @@ val pathCodec = empty / "users" / int("user-id") / "posts" / string("post-id")
 ```
 
 By combining `PathCodec` values, the resulting `PathCodec` type reflects the types of the path segments it matches. In the provided example, the type of `pathCodec` is `(Int, String)` because it matches a path with two segments of type `Int` and `String`, respectively.
+
+## Using Value Objects with PathCodecs
+
+Other than the common `PathCodec` constructors, it's also possible to transform a `PathCodec` into a more specific data type using the `transform` method.
+
+This becomes particularly useful when adhering to domain-driven design principles and opting for value objects instead of primitive types:
+
+```scala mdoc:compile-only
+import zio.http.codec.PathCodec
+import PathCodec._
+
+case class UserId private(value: Int)
+
+object UserId {
+  def apply(value: Int): UserId =
+    if (value > 0) 
+      new UserId(value)
+    else 
+      throw new IllegalArgumentException("User id must be positive")
+}
+
+
+val userIdPathCodec: PathCodec[UserId] = int("user-id").transform(UserId.apply)(_.value)
+```
+
+This approach enables us to utilize the `UserId` value object in our routes, and the `PathCodec` will take care of the conversion between the path segment and the value object.
+
+In the previous example, instead of throwing an exception, we can model the failure using the `Either` data type and then use the `transformOrFailLeft` to create a `PathCodec`:
+
+```scala mdoc:compile-only
+import zio.http.codec.PathCodec
+import PathCodec._
+
+case class UserId private(value: Int)
+object UserId {
+  def apply(value: Int): Either[String, UserId] =
+    if (value > 0) 
+      Right(new UserId(value))
+    else 
+      Left("User id must be positive")
+}
+
+val userIdPathCodec: PathCodec[UserId] = int("user-id").transformOrFailLeft(UserId.apply)(_.value)
+```
+
+Here is a list of the available transformation methods:
+
+```scala
+trait PathCodec[A] {
+  def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2]
+  def transformOrFail[A2](f: A => Either[String, A2])(g: A2 => Either[String, A]): PathCodec[A2]
+  def transformOrFailLeft[A2](f: A => Either[String, A2])(g: A2 => A): PathCodec[A2]
+  def transformOrFailRight[A2](f: A => A2)(g: A2 => Either[String, A]): PathCodec[A2]
+}
+```
+
+## Trailing Path Segments
 
 Sometimes, there may be a need to match a path with a trailing segment, regardless of the number of segments it contains. This is where the trailing codec comes into play:
 
