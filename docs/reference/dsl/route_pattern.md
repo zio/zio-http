@@ -55,3 +55,9 @@ val pattern2: RoutePattern[(Int, String)] =
 ```
 
 With more path segments, the type of the `RoutePattern` becomes a tuple of the types of the path segments, in this case, (Int, String).
+
+## Matching Methods
+
+The `Method` data type represent an HTTP method, and it offers the following predefined HTTP methods: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `DELETE`, `TRACE`, `OPTIONS`, `HEAD`, `TRACE` and `CONNECT`.
+
+The `METHOD.ANY` is a wildcard method that matches any method.
