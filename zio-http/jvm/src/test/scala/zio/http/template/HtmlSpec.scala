@@ -30,36 +30,36 @@ case object HtmlSpec extends ZIOHttpSpec {
         assert(view.encode)(equalTo(expected.stripMargin))
       },
       test("tags with attributes") {
-        val view     = html(body(div(css := "container" :: Nil, "Hello!")))
+        val view     = html(body(div(css := "container", "Hello!")))
         val expected = """<html><body><div class="container">Hello!</div></body></html>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       },
       test("tags with children") {
-        val view     = html(body(div(css := "container" :: Nil, "Hello!", span("World!"))))
+        val view     = html(body(div(css := "container", "Hello!", span("World!"))))
         val expected =
           """<html><body><div class="container">Hello!<span>World!</span></div></body></html>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       },
       test("tags with attributes and children") {
-        val view     = html(body(div(css := "container" :: Nil, "Hello!", span("World!"))))
+        val view     = html(body(div(css := "container", "Hello!", span("World!"))))
         val expected =
           """<html><body><div class="container">Hello!<span>World!</span></div></body></html>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       },
       test("tags with attributes and children") {
-        val view     = html(body(div(css := "container" :: Nil, "Hello!", span("World!"))))
+        val view     = html(body(div(css := "container", "Hello!", span("World!"))))
         val expected =
           """<html><body><div class="container">Hello!<span>World!</span></div></body></html>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       },
       test("tags with attributes and children") {
-        val view     = html(body(div(css := "container" :: Nil, "Hello!", span("World!"))))
+        val view     = html(body(div(css := "container", "Hello!", span("World!"))))
         val expected =
           """<html><body><div class="container">Hello!<span>World!</span></div></body></html>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       },
       test("tags with attributes and children") {
-        val view     = div("Hello!", css := "container" :: Nil)
+        val view     = div("Hello!", css := "container")
         val expected = """<div class="container">Hello!</div>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       },

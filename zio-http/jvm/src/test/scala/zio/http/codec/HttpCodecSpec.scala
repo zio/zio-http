@@ -39,7 +39,7 @@ object HttpCodecSpec extends ZIOHttpSpec {
 
   val isAge                           = "isAge"
   val codecBool                       = QueryCodec.queryBool(isAge)
-  def makeRequest(paramValue: String) = Request.get(googleUrl.queryParams(QueryParams(isAge -> paramValue)))
+  def makeRequest(paramValue: String) = Request.get(googleUrl.setQueryParams(QueryParams(isAge -> paramValue)))
 
   def spec = suite("HttpCodecSpec")(
     suite("fallback") {
@@ -161,8 +161,8 @@ object HttpCodecSpec extends ZIOHttpSpec {
         test("paramBool encoding") {
           val requestTrue  = codecBool.encodeRequest(true)
           val requestFalse = codecBool.encodeRequest(false)
-          assert(requestTrue.url.queryParams.get(isAge).get)(Assertion.equalTo("true")) &&
-          assert(requestFalse.url.queryParams.get(isAge).get)(Assertion.equalTo("false"))
+          assert(requestTrue.url.queryParams.queryParam(isAge).get)(Assertion.equalTo("true")) &&
+          assert(requestFalse.url.queryParams.queryParam(isAge).get)(Assertion.equalTo("false"))
         },
       ) +
       suite("Codec with examples") {

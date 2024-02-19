@@ -161,8 +161,8 @@ final case class Form(formData: Chunk[FormField]) {
 
   def toQueryParams: QueryParams =
     formData.foldLeft(QueryParams.empty) {
-      case (acc, FormField.Text(k, v, _, _)) => acc.add(k, v)
-      case (acc, FormField.Simple(k, v))     => acc.add(k, v)
+      case (acc, FormField.Text(k, v, _, _)) => acc.addQueryParam(k, v)
+      case (acc, FormField.Simple(k, v))     => acc.addQueryParam(k, v)
       case (acc, _)                          => acc
     }
 

@@ -1005,7 +1005,6 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
           val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
-          println(openAPI.toJsonPretty)
           val expected = Code.File(
             List("api", "v1", "Users.scala"),
             pkgPath = List("api", "v1"),
