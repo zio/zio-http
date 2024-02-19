@@ -58,7 +58,7 @@ We can access the request's details using the below fields:
 - `version` to access the HTTP version
 
 :::note
-Please note that usually, we don't create requests manually, and creating requests is useful while writing unit tests.
+Please note that usually, we don't create requests on server-side. Creating requests is useful while writing unit tests or when we call other services using the ZIO HTTP Client.
 :::
 
 ## Request with Query Params
@@ -75,3 +75,21 @@ Request.get(url = URL(Root, queryParams = QueryParams("q" -> Chunk("a","b","c"))
 ```
 
 The `Request#url.queryParams` can be used to read query params from the request.
+
+## Client-side Example
+
+In the below example, we are creating a `Request` using the `Request.get` method and then calling the `Client.request` method to send the request to the servers:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object ClientExample extends ZIOAppDefault {
+  def run = Client
+    .request(Request.get("http://localhost:8080/users/2"))
+    .flatMap(_.body.asString)
+    .debug("Response Body: ")
+    .provide(Client.default, Scope.default)
+
+}
+```
