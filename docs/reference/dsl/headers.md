@@ -3,20 +3,17 @@ id: headers
 title: Headers
 ---
 
-**ZIO HTTP** provides support for all HTTP headers (as defined
-in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) along with custom headers.
+**ZIO HTTP** provides support for all HTTP headers (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) along with custom headers.
 
 ## Server-side
 
 ### Attaching Headers to `Response`
 
-On the server-side, `ZIO-HTTP` is adding a collection of pre-defined headers to the response, according to the HTTP
-specification, additionally, users may add other headers, including custom headers.
+On the server-side, ZIO HTTP is adding a collection of pre-defined headers to the response, according to the HTTP specification, additionally, users may add other headers, including custom headers.
 
-There are multiple ways to attach headers to a response:
+There are multiple ways to attach headers to a `Response`:
 
-Using `addHeaders` helper on response:
-- 
+1. Using `addHeaders` helper on response:
 
 ```scala mdoc
 import zio._
@@ -25,7 +22,7 @@ import zio.http._
 Response.ok.addHeader(Header.ContentLength(0L))
 ```
 
-Through `Response` constructors:
+2. Through `Response` constructors:
 
 ```scala mdoc
 Response(
@@ -36,7 +33,7 @@ Response(
 )
 ```
 
-Using `Middlewares`:
+3. Using `Middlewares`:
 
 ```scala mdoc
 import Middleware.addHeader
@@ -46,7 +43,7 @@ Routes(Method.GET / "hello" -> Handler.ok) @@ addHeader(Header.ContentLength(0L)
 
 ### Reading Headers from `Request`
 
-On the Server-side you can read Request headers as given below
+On the Server-side we can read Request headers as given below:
 
 ```scala mdoc
 Routes(
@@ -59,8 +56,7 @@ Routes(
 <details>
 <summary><b>Detailed examples </b></summary>
 
-Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom
-header is added to `Response` through `addHeader`:
+Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom header is added to `Response` through `addHeader`:
 
 ```scala mdoc:silent
 import zio._
@@ -109,7 +105,7 @@ More examples:
 
 ### Adding headers to `Request`
 
-ZIO-HTTP provides a simple way to add headers to a client `Request`.
+ZIO HTTP provides a simple way to add headers to a client `Request`:
 
 ```scala mdoc:silent
 val headers = Headers(Header.Host("sports.api.decathlon.com"), Header.Accept(MediaType.application.json))
