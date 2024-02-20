@@ -317,6 +317,7 @@ lazy val docs = project
       `jwt-core`,
       "dev.zio" %% "zio-test" % ZioVersion,
     ),
+    publish / skip                             := true,
   )
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)
