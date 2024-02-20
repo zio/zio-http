@@ -17,6 +17,7 @@ const sidebars = {
             "dsl/routes",
             "dsl/request",
             "dsl/response",
+            "dsl/handler",
             "dsl/body",
             "dsl/headers",
             "dsl/cookies",
