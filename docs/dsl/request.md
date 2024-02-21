@@ -2,8 +2,8 @@
 id: request
 title: Request
 ---
- 
-**ZIO HTTP** `Request` is designed in the simplest way possible to decode HTTP Request into a ZIO HTTP request. It supports all HTTP request methods (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) and headers along with custom methods and headers.
+
+**ZIO HTTP** `Request` is designed in the simplest way possible to decode an HTTP Request into a ZIO HTTP request. It supports all HTTP request methods (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) and headers along with custom methods and headers.
 
 ## Accessing Incoming Request
 
@@ -46,26 +46,26 @@ import zio.http._
 Request(method = Method.GET, url = URL(Root))
 ```
 
-There are also some helper methods to create requests for different HTTP methods inside the `Request`'s companion object: `delete`, `get`, `head`, `options`, `patch`, `post`, `put`.
+There are also some helper methods to create requests for different HTTP methods inside the `Request`'s companion object: `delete`, `get`, `head`, `options`, `patch`, `post`, and `put`.
 
 We can access the request's details using the below fields:
 
 - `method` to access request method
 - `headers` to get all the headers in the Request
-- `body` to access the content of request as a `Body`
+- `body` to access the content of the request as a `Body`
 - `url` to access request URL
-- `remoteAddress` to access request's remote address if available
+- `remoteAddress` to access the request's remote address if available
 - `version` to access the HTTP version
 
 :::note
-Please note that usually, we don't create requests on server-side. Creating requests is useful while writing unit tests or when we call other services using the ZIO HTTP Client.
+Please note that usually, we don't create requests on the server-side. Creating requests is useful while writing unit tests or when we call other services using the ZIO HTTP Client.
 :::
 
 ## Request with Query Params
 
 Query params can be added in the request using `url` in `Request`, `URL` stores query params as `Map[String, List[String]]`.
 
-The below snippet creates a request with query params: `?q=a&q=b&q=c` 
+The below snippet creates a request with query params: `?q=a&q=b&q=c`
 
 ```scala mdoc:compile-only
 import zio._
@@ -110,10 +110,10 @@ Request
 There are several methods available to get, update, and remove headers from a `Request`:
 
 1. To access headers, we can use the following methods:
-   - `Request#header` to get a single header
-   - `Request#headerOrFail` to get a single header or fail if it doesn't exist
-   - `Request#headers` to get all headers
-   - `Request#rawHeader` to get a single header as a string
+    - `Request#header` to get a single header
+    - `Request#headerOrFail` to get a single header or fail if it doesn't exist
+    - `Request#headers` to get all headers
+    - `Request#rawHeader` to get a single header as a string
 
 2. To update headers, the `Request#updateHeaders` takes a `Headers => Headers` function as input and returns a new `Request` with updated headers.
 
@@ -133,7 +133,8 @@ There are several methods available to get, update, and remove body from a `Requ
 - The `Request#collect` collects the streaming body of the request and returns a new `Request` with the collected body.
 - The `Request#ignoreBody` consumes the streaming body fully and returns a new `Request` with an empty body.
 
-### Request Query Parameters
+
+### Retrieving Query Parameters
 
 There are several methods available to access query parameters from a `Request`.
 
@@ -227,13 +228,37 @@ All the above methods also have `OrElse` versions which take a default value as 
 
 Using the `Request#queryParameters` method, we can access the query parameters of the request which returns a `QueryParams` object.
 
-### Request URL/Path
+### Modifying Query Parameters
+
+When we are working with ZIO HTTP‌ Client, we need to create a new `Request` and may need to set/update/remove query parameters. In such cases, we have the following methods available: `addQueryParam`, `addQueryParams`, `removeQueryParam`, `removeQueryParams`, `setQueryParams`, and `updateQueryParams`.
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object QueryParamClientExample extends ZIOAppDefault {
+  def run =
+    Client.request(
+      Request
+        .get("http://localhost:8080/search")
+        .addQueryParam("language", "scala")
+        .addQueryParam("q", "How to Write HTTP App")
+        .addQueryParams("tag", Chunk("zio", "http", "scala")),
+    ).provide(Client.default, Scope.default)
+}
+```
+
+The above example sends a GET request to `http://localhost:8080/search?language=scala&q=How+to+Write+HTTP+App&tag=zio&tag=http&tag=scala`.
+
+### Retrieving URL/Path
 
 To access the URL of the request, we can utilize the `Request#url` method, which yields a `URL` object. For updating the URL of the request, we can use the `Request#updateURL` method, which takes a `URL => URL` function as input. This function allows us to update the URL and return a new `Request` object with the updated URL.
 
 If we want to access the path of the request, we can use the `Request#path` method which returns a `Path` object. Also, we can use the `Request#path` method which takes a `Path` and returns a new `Request` with the updated path.
 
-### Cookies and Flashes
+### Retrieving Cookies and Flashes
+
+Cookies and Flashes
 
 ```scala mdoc:invisible
 import zio._
@@ -259,7 +284,7 @@ To access all cookies in the request, we can use the `Request#cookies` method wh
 val cookies = request.cookies
 ```
 
- To access a single cookie, we can use the `Request#cookie` method which takes the name of the cookie as input and returns an `Option[Cookie]`.
+To access a single cookie, we can use the `Request#cookie` method which takes the name of the cookie as input and returns an `Option[Cookie]`.
 
 ```scala mdoc
 val cookie = request.cookie("key1")
