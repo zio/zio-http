@@ -8,7 +8,7 @@ It supports all HTTP status codes and headers along with custom methods and head
 
 ## Creating a Response
 
-A `Response` can be created with `status`, `headers` and `data` using the default constructor:
+A `Response` can be created with `status`, `headers`, and `data` using the default constructor:
 
 ```scala
 case class Response(
@@ -62,7 +62,7 @@ Response.notFound
 Response.notFound("The requested resource could not be found!")
 ```
 
-If we want to create a response with more specific status code, we can use the `status` method. It takes a `Status` as a parameter and returns a new `Response` with the corresponding status code:
+If we want to create a response with a more specific status code, we can use the `status` method. It takes a `Status` as a parameter and returns a new `Response` with the corresponding status code:
 
 ```scala mdoc:compile-only
 Response.status(Status.Continue)
@@ -70,27 +70,82 @@ Response.status(Status.Continue)
 
 To learn more about status codes, see [Status](status.md) page.
 
-### Specialized Response Constructors
+### From Plain Text, JSON, and HTML
 
-`text` creates a response with data as text, content-type header set to text/plain and status code 200 
+**`Response.text`** creates a response with data as text, content-type header set to text/plain, and status code 200:
 
 ```scala mdoc
 Response.text("hey")
 ```
 
-`json` creates a response with data as json, content-type header set to application/json and status code 200 
+**`Response.json`** creates a response with data as JSON, content-type header set to `application/json`, and status code 200:
 
 ```scala mdoc
 Response.json("""{"greetings": "Hello World!"}""")
 ```
 
-`html` creates a response with data as html, content-type header set to text/html and status code 200
+**`Response.html`** creates a response with data as HTML, content-type header set to `text/html`, and status code 200.
 
 ```scala mdoc
 import zio.http.template._
 
 Response.html(Html.fromString("html text"))
 ```
+
+### Converting Failures to Responses
+
+The `Response` companion object provides some constructors to convert exceptions into responses. These constructors are useful for error handling by converting failures into appropriate HTTP responses:
+
+**`Response.fromThrowable`** Creates a new HTTP response based on the type of throwable provided. This method facilitates the conversion of various types of exceptions into appropriate HTTP responses, making error handling more streamlined:
+
+```scala
+object Response {
+  def fromThrowable(throwable: Throwable): Response = ???
+}
+```
+
+Here is the table of exceptions and their corresponding status code:
+
+| Throwable Type                      | Status Class       | Status Code | Description                                    |
+|-------------------------------------|--------------------|-------------|------------------------------------------------|
+| `AccessDeniedException`             | `Forbidden`        | 403         | Access to a resource is denied.               |
+| `IllegalAccessException`           | `Forbidden`        | 403         | Illegal access to a resource is attempted.    |
+| `IllegalAccessError`                | `Forbidden`        | 403         | Illegal access to a resource occurs.          |
+| `NotDirectoryException`             | `BadRequest`       | 400         | The specified path is not a directory.        |
+| `IllegalArgumentException`          | `BadRequest`       | 400         | An invalid argument is provided.              |
+| `java.io.FileNotFoundException`     | `NotFound`         | 404         | The specified file or resource is not found.  |
+| `java.net.ConnectException`         | `ServiceUnavailable` | 503     | Unable to connect to a service.               |
+| `java.net.SocketTimeoutException`   | `GatewayTimeout`   | 504         | Connection or read operation timed out.       |
+| Others (unrecognized throwable)    | `InternalServerError` | 500 | An unexpected error occurred.                 |
+
+Another low-level method for error handling is `Response.fromCause` which creates a response from a `Cause`:
+
+```scala
+object Response {
+  def fromCause(cause: Cause[Any]): Response = ???
+}
+```
+
+This constructor is similar to `Response.fromThrowable`, but it also captures the interruption of the fiber. If the provided `Cause` is a failure due to interruption, the status code of the response will be `Status.RequestTimeout`.
+
+We can use `Response.fromCause` in combination with the `Handler#mapErrorCause`, `Route#handleErrorCause`, and `Routes#handleErrorCause` methods. These methods take a function that maps the `Cause[Err] => Err` and return a `Handler`, `Route` or a `Routes` with the error handling logic applied:
+
+```scala mdoc
+import zio.http._
+import java.io.IOException
+
+val failedHandler = Handler.fail(new IOException())
+
+failedHandler.mapErrorCause(Response.fromCause)
+```
+
+:::note
+In many cases, it is more convenient to use the `sandbox` method to automatically convert all failures into a corresponding `Response`. But in some cases, to have more granular control over the error handling, we may want to use `Response.fromCause` and `Response.fromThrowable` directly.
+:::
+
+:::info
+The `Cause` is a data structure that represents the result of a failed computation in ZIO. To learn more about `Cause`, see the [Cause](https://zio.dev/reference/core/cause) page on the ZIO core documentation.
+:::
 
 ### Specialized Response Operators
 
@@ -106,7 +161,7 @@ Response.text("Hello World!").status(Status.NOT_FOUND)
 Response.ok.updateHeaders(_ => Headers("key", "value"))
 ```
 
-### Response from Http Errors
+### Response from HTTP Errors
 
 `error` creates a response with a provided status code and message.
 
