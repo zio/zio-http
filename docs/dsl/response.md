@@ -152,7 +152,7 @@ The `Cause` is a data structure that represents the result of a failed computati
 `status` to update the `status` of `Response`
 
 ```scala mdoc
-Response.text("Hello World!").status(Status.NOT_FOUND)
+Response.text("Hello World!").status(Status.NotFound)
 ```
 
 `updateHeaders` to update the `headers` of `Response`
