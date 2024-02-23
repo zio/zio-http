@@ -225,6 +225,58 @@ data: 13:51:34.041464
 ...
 ```
 
+### Creating a Response from a WebSocketApp
+
+The `Response.fromWebSocketApp` constructor takes a `WebSocketApp` and creates a `Response` with a WebSocket connection:
+
+```scala
+object Response {
+  def fromWebSocketApp[R](app: WebSocketApp[R]): ZIO[R, Nothing, Response] = ???
+}
+```
+
+Let's try an echo server which sends back the received messages:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object WebsocketExample extends ZIOAppDefault {
+
+  val app: HttpApp[Any] = {
+    Routes(
+      Method.GET / "echo" -> handler {
+        Response.fromSocketApp(
+          WebSocketApp(
+            handler { (channel: WebSocketChannel) =>
+              channel.receiveAll {
+                case ChannelEvent.Read(message) =>
+                  channel.send(ChannelEvent.read(message))
+                case other                      =>
+                  ZIO.debug(other)
+              }
+            },
+          ),
+        )
+      },
+    ).toHttpApp
+  }
+
+  def run =
+    Server.serve(app).provide(Server.default)
+}
+```
+
+To test this example, we can use the `websocat` command-line tool:
+
+```bash
+> websocat ws://localhost:8080/echo
+hello
+hello
+bye
+bye
+```
+
 ## Adding Cookie to Response
 
 `addCookie` adds cookies in the headers of the response.
