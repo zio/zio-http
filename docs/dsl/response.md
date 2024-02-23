@@ -18,7 +18,7 @@ case class Response(
 )
 ```
 
-The below snippet creates a response with default params, `status` as `Status.OK`, `headers` as `Headers.empty` and `data` as `Body.Empty`:
+The below snippet creates a response with default params, `status` as `Status.OK`, `headers` as `Headers.empty`, and `data` as `Body.Empty`:
 
 ```scala mdoc
 import zio.http._
@@ -151,7 +151,7 @@ The `Cause` is a data structure that represents the result of a failed computati
 
 `status` to update the `status` of `Response`
 
-```scal mdoca
+```scala mdoc
 Response.text("Hello World!").status(Status.NOT_FOUND)
 ```
 
@@ -184,6 +184,9 @@ Let's try a complete example:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.stream._
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter.ISO_LOCAL_TIME
 
 object ServerSentExample extends ZIOAppDefault {
 
@@ -277,11 +280,91 @@ bye
 bye
 ```
 
-## Adding Cookie to Response
+## Operations
 
-`addCookie` adds cookies in the headers of the response.
+### Adding Cookies and Flashes to Response
 
-```scala mdoc
+**`addCookie`** adds cookies in the headers of the response:
+
+```scala mdoc:compile-only
+import zio.http._
+
 val cookie = Cookie.Response("key", "value")
 Response.ok.addCookie(cookie)
 ```
+
+**`addFlash`** adds flash messages in the headers of the response:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val flash = Flash.setValue("key1", "value1")
+Response.ok.addFlash(flash)
+```
+
+### Getting Headers from Response
+
+To get headers from a response, we can use the `header` method:
+
+```scala mdoc:invisible
+val response = Response.ok.addHeader("Content-Type", "application/json; charset=utf-8")
+```
+
+```scala mdoc
+response.header(Header.ContentType)
+```
+
+List of methods available to get headers from a `Response`:
+
+| Method                            | Description                                                                                                                               | Return Type                                |
+|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------|
+| `header(headerType: HeaderType)` | Gets a header or returns `None` if not present or unparsable.                                                                             | `Option[headerType.HeaderValue]`          |
+| `headers(headerType: HeaderType)`| Gets multiple headers of the specified type.                                                                                             | `Chunk[headerType.HeaderValue]`           |
+| `headerOrFail(headerType: HeaderType)`| Gets a header, returning `None` if absent, or an `Either` with parsing error or parsed value.                                         | `Option[Either[String, headerType.HeaderValue]]`|
+| `headers`                         | Returns all headers.                                                                                                                     | `Headers`                                  |
+| `rawHeader(name: CharSequence)`  | Gets the raw unparsed value of a header by name.                                                                                         | `Option[String]`                           |
+| `rawHeader(headerType: HeaderType)`| Gets the raw unparsed value of a header by type.                                                                                         | `Option[String]`                           |
+
+
+### Modifying Headers in Response
+
+To add headers to a response, we can use the `Response#addHeader` method:
+
+```scala mdoc
+Response.ok.addHeader("Content-Type", "application/json; charset=utf-8")
+
+Response.ok.addHeader(Header.ContentType(MediaType.application.json))
+```
+
+Here are the methods available to modify headers in a `Response`:
+
+| Method                             | Description                                                                                      |
+|------------------------------------|--------------------------------------------------------------------------------------------------|
+| `addHeader`                        | Adds a header or a header with the given name and value, returning a new `Response` instance.   |
+| `addHeaders`                       | Adds multiple headers, returning a new `Response` instance.                                     |
+| `removeHeader`                     | Removes a specified header, returning a new `Response` instance.                                 |
+| `removeHeaders`                    | Removes multiple specified headers, returning a new `Response` instance.                          |
+| `setHeaders`                       | Sets the headers to the provided headers, returning a new `Response` instance.                    |
+| `updateHeaders`                    | Updates the current headers using a provided update function, returning a new `Response` instance.|
+
+### Checking for Headers in Response
+
+The `Response` class provides methods that allow us to check if the headers meet certain conditions:
+
+```scala mdoc
+response.hasContentType(MediaType.application.json.fullType)
+```
+
+There are several such methods available in the `Response` class:
+
+| Method                      | Description                                      |
+|-----------------------------|--------------------------------------------------|
+| `hasContentType`            | Check the presence of the specified content type.        |
+| `hasFormUrlencodedContentType` | Check if the content type is URL-encoded form data. |
+| `hasFormMultipartContentType` | Check if the content type is multipart form data.   |
+| `hasHeader`                 | Check the presence of the given header.             |
+| `hasJsonContentType`        | Check if the content type is JSON.                  |
+| `hasMediaType`              | Check the presence of the given media type.         |
+| `hasTextPlainContentType`   | Check if the content type is plain text.            |
+| `hasXhtmlXmlContentType`    | Check if the content type is XHTML/XML.             |
+| `hasXmlContentType`         | Check if the content type is XML.                   |
