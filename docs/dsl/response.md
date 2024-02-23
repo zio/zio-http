@@ -169,6 +169,62 @@ Response.ok.updateHeaders(_ => Headers("key", "value"))
  Response.error(Status.BadRequest, "It's not good!")
 ```
 
+### Creating a Response from Server-Sent Events
+
+The `Response.fromServerSentEvents` method creates a response with a stream of server-sent events:
+
+```scala
+object Response {
+  def fromServerSentEvents(stream: ZStream[Any, Nothing, ServerSentEvent]): Response = ???
+}
+```
+
+Let's try a complete example:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object ServerSentExample extends ZIOAppDefault {
+
+  val stream: ZStream[Any, Nothing, ServerSentEvent] =
+    ZStream.repeatWithSchedule(
+      ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now)),
+      Schedule.spaced(1.second),
+    )
+
+  val app =
+    Routes(
+      Method.GET / "events" -> handler {
+        Response.fromServerSentEvents(stream)
+      },
+    ).toHttpApp
+  def run = Server.serve(app).provide(Server.default)
+}
+```
+
+After running the above example, we can open the browser and navigate to `http://localhost:8080/events` to see the server-sent events in action. The browser will display the time every second.
+
+Also, we can use the `curl` command to see the server-sent events:
+
+```bash
+curl -N http://localhost:8080/events
+```
+
+This will display the time every second in the terminal:
+
+```bash
+data: 13:51:31.036249
+
+data: 13:51:32.037663
+
+data: 13:51:33.039565
+
+data: 13:51:34.041464
+
+...
+```
+
 ## Adding Cookie to Response
 
 `addCookie` adds cookies in the headers of the response.
