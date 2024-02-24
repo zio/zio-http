@@ -7,16 +7,6 @@
   "paths": {
     "/test": {
       "get": {
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "null"
-              }
-            }
-          },
-          "required": false
-        },
         "responses": {
           "200": {
             "content": {
@@ -27,8 +17,7 @@
               }
             }
           }
-        },
-        "deprecated": false
+        }
       },
       "post": {
         "requestBody": {
@@ -51,10 +40,10 @@
               }
             }
           }
-        },
-        "deprecated": false
+        }
       }
     }
   },
-  "components": {}
+  "components": {
+  }
 }

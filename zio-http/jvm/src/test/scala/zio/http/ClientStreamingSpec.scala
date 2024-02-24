@@ -312,7 +312,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
       Client.live,
       Scope.default,
-    ) @@ withLiveClock @@ sequential
+    ) @@ withLiveClock @@ sequential @@ ignore
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =
     for {

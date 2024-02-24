@@ -161,8 +161,8 @@ final case class Form(formData: Chunk[FormField]) {
 
   def toQueryParams: QueryParams =
     formData.foldLeft(QueryParams.empty) {
-      case (acc, FormField.Text(k, v, _, _)) => acc.add(k, v)
-      case (acc, FormField.Simple(k, v))     => acc.add(k, v)
+      case (acc, FormField.Text(k, v, _, _)) => acc.addQueryParam(k, v)
+      case (acc, FormField.Simple(k, v))     => acc.addQueryParam(k, v)
       case (acc, _)                          => acc
     }
 
@@ -204,10 +204,11 @@ object Form {
   def fromMultipartBytes(
     bytes: Chunk[Byte],
     charset: Charset = Charsets.Utf8,
+    boundary: Option[Boundary] = None,
   )(implicit trace: Trace): ZIO[Any, Throwable, Form] =
     for {
       boundary <- ZIO
-        .fromOption(Boundary.fromContent(bytes, charset))
+        .fromOption(boundary.orElse(Boundary.fromContent(bytes, charset)))
         .orElseFail(FormDecodingError.BoundaryNotFoundInContent.asException)
       form     <- StreamingForm(ZStream.fromChunk(bytes), boundary).collectAll
     } yield form

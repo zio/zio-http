@@ -173,7 +173,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   )
   .jsSettings(
     ThisProject / fork := false,
-    testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+    testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
       "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0",
@@ -240,8 +240,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
       "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.1",
       "com.softwaremill.sttp.client3" %% "core"                % "3.9.1",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
-      "org.slf4j"                      % "slf4j-api"           % "2.0.11",
-      "org.slf4j"                      % "slf4j-simple"        % "2.0.11",
+      "org.slf4j"                      % "slf4j-api"           % "2.0.12",
+      "org.slf4j"                      % "slf4j-simple"        % "2.0.12",
     ),
   )
   .dependsOn(zioHttpJVM)
@@ -303,7 +303,9 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
 
 lazy val docs = project
   .in(file("zio-http-docs"))
+  .settings(stdSettings("zio-http-docs"))
   .settings(
+    fork := false,
     moduleName                                 := "zio-http-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
@@ -316,6 +318,7 @@ lazy val docs = project
       `jwt-core`,
       "dev.zio" %% "zio-test" % ZioVersion,
     ),
+    publish / skip                             := true,
   )
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)

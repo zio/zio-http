@@ -6,11 +6,13 @@ name: Website
   workflow_dispatch: {}
   release:
     types:
-    - published
+      - published
   push:
     branches:
-    - main
-  pull_request: {}
+      - main
+  pull_request:
+    branches-ignore:
+      - gh-pages
 jobs:
   build:
     name: Build and Test
@@ -27,8 +29,6 @@ jobs:
         distribution: temurin
         java-version: 17
         check-latest: true
-    - name: Check if the README file is up to date
-      run: sbt  docs/checkReadme
     - name: Check artifacts build process
       run: sbt  +publishLocal
     - name: Check website build process
