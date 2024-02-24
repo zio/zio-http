@@ -18,19 +18,16 @@ package zio.http
 
 import java.net.{MalformedURLException, URI}
 
-import scala.util.Try
-
-import zio.Chunk
-
 import zio.http.URL.{Fragment, Location}
-import zio.http.internal.QueryParamEncoding
+import zio.http.internal._
 
 final case class URL(
   path: Path,
   kind: URL.Location = URL.Location.Relative,
   queryParams: QueryParams = QueryParams.empty,
   fragment: Option[Fragment] = None,
-) extends URLPlatformSpecific { self =>
+) extends URLPlatformSpecific
+    with QueryOps[URL] { self =>
 
   /**
    * A right-biased way of combining two URLs. Where it makes sense, information
@@ -167,17 +164,8 @@ final case class URL(
     case abs: URL.Location.Absolute => abs.portIfNotDefault
   }
 
-  def queryParams(queryParams: QueryParams): URL =
-    copy(queryParams = queryParams)
-
-  def queryParams(queryParams: Map[String, Chunk[String]]): URL =
-    copy(queryParams = QueryParams(queryParams))
-
-  def queryParams(queryParams: (String, Chunk[String])*): URL =
-    copy(queryParams = QueryParams(queryParams: _*))
-
-  def queryParams(query: String): URL =
-    copy(queryParams = QueryParams.decode(query))
+  override def queryParameters: QueryParams =
+    queryParams
 
   def relative: URL = self.kind match {
     case URL.Location.Relative => self
@@ -280,6 +268,9 @@ final case class URL(
    * Returns a new java.net.URI representing this URL.
    */
   def toJavaURI: java.net.URI = new URI(encode)
+
+  override def updateQueryParams(f: QueryParams => QueryParams): URL =
+    copy(queryParams = f(queryParams))
 
 }
 

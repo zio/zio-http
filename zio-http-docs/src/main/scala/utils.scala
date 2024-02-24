@@ -3,16 +3,24 @@ import scala.io.Source
 object utils {
 
   def readSource(path: String, lines: Seq[(Int, Int)]): String = {
+    def readFile(path: String) =
+      try {
+        Source.fromFile("../" + path)
+      } catch {
+        case _ => Source.fromFile(path)
+      }
+
     if (lines.isEmpty) {
-      val source  = Source.fromFile("../" + path)
-      val content = source.getLines().mkString("\n")
+      val content = readFile(path).getLines().mkString("\n")
       content
     } else {
       val chunks = for {
         (from, to) <- lines
-        source  = Source.fromFile("../" + path)
-        content = source.getLines().toArray[String]
-      } yield content.slice(from - 1, to).mkString("\n")
+      } yield readFile(path)
+        .getLines()
+        .toArray[String]
+        .slice(from - 1, to)
+        .mkString("\n")
 
       chunks.mkString("\n\n")
     }

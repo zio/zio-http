@@ -21,73 +21,106 @@ import zio._
 import zio.http.Boundary
 import zio.http.internal.FormAST._
 
-private[http] sealed trait FormState
+private[http] sealed trait FormState {
+  def reset(): Unit
+}
 
 private[http] object FormState {
 
-  final case class FormStateBuffer(
-    tree: Chunk[FormAST],
-    phase: FormState.Phase,
-    buffer: Chunk[Byte],
-    lastByte: Option[Byte],
-    boundary: Boundary,
-    dropContents: Boolean,
-  ) extends FormState { self =>
+  final class FormStateBuffer(boundary: Boundary) extends FormState { self =>
+
+    private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make[FormAST]()
+    private val buffer: ChunkBuilder.Byte    = new ChunkBuilder.Byte
+
+    private var lastByte: OptionalByte = OptionalByte.None
+    private var isBufferEmpty          = true
+    private var dropContents           = false
+    private var phase0: Phase          = Phase.Part1
+    private var lastTree               = null.asInstanceOf[Chunk[FormAST]]
+
+    private def addToTree(ast: FormAST): Unit = {
+      if (lastTree ne null) lastTree = null
+      tree0 += ast
+    }
+
+    def tree: Chunk[FormAST] = {
+      if (lastTree eq null) lastTree = tree0.result()
+      lastTree
+    }
+
+    def phase: Phase = phase0
 
     def append(byte: Byte): FormState = {
 
-      val crlf = lastByte.contains('\r') && byte == '\n'
+      val crlf = byte == '\n' && !lastByte.isEmpty && lastByte.get == '\r'
 
-      val phase0 =
-        if (crlf && buffer.isEmpty && phase == Phase.Part1) Phase.Part2
-        else phase
+      def flush(ast: FormAST): Unit = {
+        buffer.clear()
+        lastByte = OptionalByte.None
+        if (crlf && isBufferEmpty && (phase eq Phase.Part1)) phase0 = Phase.Part2
+        if (ast.isContent && dropContents) () else addToTree(ast)
+        isBufferEmpty = true
+      }
 
-      def flush(ast: FormAST): FormStateBuffer =
-        self.copy(
-          tree = if (ast.isContent && dropContents) tree else tree :+ ast,
-          buffer = Chunk.empty,
-          lastByte = None,
-          phase = phase0,
-        )
-
-      if (crlf && phase == Phase.Part1) {
-        val ast = FormAST.makePart1(buffer, boundary)
+      if (crlf && (phase eq Phase.Part1)) {
+        val ast = FormAST.makePart1(buffer.result(), boundary)
 
         ast match {
-          case content: Content         => flush(content)
-          case header: Header           => flush(header)
+          case content: Content         => flush(content); self
+          case header: Header           => flush(header); self
           case EncapsulatingBoundary(_) => BoundaryEncapsulated(tree)
           case ClosingBoundary(_)       => BoundaryClosed(tree)
         }
 
-      } else if (crlf && phase == Phase.Part2) {
-        val ast = FormAST.makePart2(buffer, boundary)
+      } else if (crlf && (phase eq Phase.Part2)) {
+        val ast = FormAST.makePart2(buffer.result(), boundary)
 
         ast match {
           case content: Content         =>
-            val next = flush(content)
-            next.copy(tree = next.tree :+ EoL) // preserving EoL for multiline content
+            flush(content)
+            addToTree(EoL) // preserving EoL for multiline content
+            self
           case EncapsulatingBoundary(_) => BoundaryEncapsulated(tree)
           case ClosingBoundary(_)       => BoundaryClosed(tree)
         }
       } else {
-        self.copy(
-          buffer = lastByte.map(buffer :+ _).getOrElse(buffer),
-          lastByte = Some(byte),
-        )
+        if (!lastByte.isEmpty) {
+          if (isBufferEmpty) isBufferEmpty = false
+          buffer += lastByte.get
+        }
+        lastByte = OptionalByte.Some(byte)
+        self
       }
 
     }
 
-    def startIgnoringContents: FormStateBuffer = self.copy(dropContents = true)
+    def startIgnoringContents: FormStateBuffer = {
+      if (!dropContents) dropContents = true
+      self
+    }
+
+    def reset(): Unit = {
+      tree0.clear()
+      buffer.clear()
+      isBufferEmpty = true
+      dropContents = false
+      phase0 = Phase.Part1
+      lastTree = null.asInstanceOf[Chunk[FormAST]]
+      lastByte = OptionalByte.None
+    }
   }
 
-  final case class BoundaryEncapsulated(buffer: Chunk[FormAST]) extends FormState
+  final case class BoundaryEncapsulated(buffer: Chunk[FormAST]) extends FormState {
+    def reset(): Unit = ()
+  }
 
-  final case class BoundaryClosed(buffer: Chunk[FormAST]) extends FormState
+  final case class BoundaryClosed(buffer: Chunk[FormAST]) extends FormState {
+    def reset(): Unit = ()
+  }
 
-  def fromBoundary(boundary: Boundary, lastByte: Option[Byte] = None): FormState =
-    FormStateBuffer(Chunk.empty, Phase.Part1, Chunk.empty, lastByte, boundary, dropContents = false)
+  def fromBoundary(boundary: Boundary): FormState = {
+    new FormStateBuffer(boundary)
+  }
 
   sealed trait Phase
 
@@ -95,6 +128,19 @@ private[http] object FormState {
 
     case object Part1 extends Phase
     case object Part2 extends Phase
+  }
+
+  // Avoids boxing of Byte values
+  sealed abstract class OptionalByte {
+    def get: Byte
+    final def isEmpty: Boolean = this eq OptionalByte.None
+  }
+
+  private object OptionalByte {
+    case object None                 extends OptionalByte {
+      def get: Byte = throw new NoSuchElementException("None.get")
+    }
+    final case class Some(get: Byte) extends OptionalByte
   }
 
 }

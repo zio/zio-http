@@ -51,7 +51,7 @@ are suffixed `attr` to easily distinguish those from html elements:
 import zio.http.template._
 
 val divHtml3: Html = div(
-  classAttr := "container1" :: "container2" :: Nil,
+  classAttr := "container1 container2",
   a(hrefAttr := "http://zio.dev", "ZIO Homepage")
 )
 ```
