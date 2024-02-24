@@ -79,11 +79,16 @@ trait Body { self =>
    * Note that attempting to decode a large stream of bytes into a form could
    * result in an out of memory error.
    */
-  def asMultipartForm(implicit trace: Trace): Task[Form] =
-    for {
-      bytes <- asChunk
-      form  <- Form.fromMultipartBytes(bytes, Charsets.Http, boundary)
-    } yield form
+  def asMultipartForm(implicit trace: Trace): Task[Form] = {
+    boundary match {
+      case Some(boundary) => StreamingForm(asStream, boundary).collectAll
+      case _              =>
+        for {
+          bytes <- asChunk
+          form  <- Form.fromMultipartBytes(bytes, Charsets.Http, boundary)
+        } yield form
+    }
+  }
 
   /**
    * Returns an effect that decodes the streaming body as a multipart form.

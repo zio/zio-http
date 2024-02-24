@@ -69,7 +69,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
     copy(url = url.addLeadingSlash)
 
   def addQueryParam(key: String, value: String): ZClient[Env, In, Err, Out] =
-    copy(url = url.copy(queryParams = url.queryParams.add(key, value)))
+    copy(url = url.copy(queryParams = url.queryParams.addQueryParam(key, value)))
 
   def addQueryParams(params: QueryParams): ZClient[Env, In, Err, Out] =
     copy(url = url.copy(queryParams = url.queryParams ++ params))

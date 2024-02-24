@@ -19,55 +19,18 @@ package zio.http
 import java.nio.charset.Charset
 import java.util
 
-import scala.collection.compat._
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 
-import zio.{Chunk, IO, NonEmptyChunk, ZIO}
+import zio._
 
-import zio.http.codec.TextCodec
-import zio.http.internal.QueryParamEncoding
+import zio.http.internal._
 
 /**
  * A collection of query parameters.
  */
-trait QueryParams {
+trait QueryParams extends QueryOps[QueryParams] {
   self: QueryParams =>
-
-  /**
-   * Internal representation of query parameters
-   */
-  private[http] def seq: Seq[util.Map.Entry[String, util.List[String]]]
-
-  /**
-   * All query parameters as a map. Note that by default this method constructs
-   * the map on access from the underlying storage implementation, so should be
-   * used with care. Prefer to use `getAll` and friends if all you need is to
-   * access the values by a known key.
-   */
-  def map: Map[String, Chunk[String]] = ListMap.from(seq.map { entry =>
-    (entry.getKey, Chunk.fromIterable(entry.getValue.asScala))
-  })
-
-  /**
-   * Combines two collections of query parameters together. If there are
-   * duplicate keys, the values from both sides are preserved, in order from
-   * left-to-right.
-   */
-  def ++(that: QueryParams): QueryParams =
-    QueryParams.fromEntries(seq ++ that.seq: _*)
-
-  /**
-   * Adds the specified key/value pair to the query parameters.
-   */
-  def add(key: String, value: String): QueryParams =
-    addAll(key, Chunk(value))
-
-  /**
-   * Adds the specified key/value pairs to the query parameters.
-   */
-  def addAll(key: String, value: Chunk[String]): QueryParams =
-    self ++ QueryParams(key -> value)
 
   /**
    * Encodes the query parameters into a string.
@@ -90,77 +53,12 @@ trait QueryParams {
   def filter(p: (String, Chunk[String]) => Boolean): QueryParams =
     QueryParams.fromEntries(seq.filter { entry => p(entry.getKey, Chunk.fromIterable(entry.getValue.asScala)) }: _*)
 
+  def getAll(key: String): Chunk[String] =
+    seq.find(_.getKey == key).map(e => Chunk.fromIterable(e.getValue.asScala)).getOrElse(Chunk.empty)
+
   /**
    * Retrieves all query parameter values having the specified name.
    */
-  def getAll(key: String): Option[Chunk[String]] =
-    seq.find(_.getKey == key).map(e => Chunk.fromIterable(e.getValue.asScala))
-
-  /**
-   * Retrieves all typed query parameter values having the specified name.
-   */
-  def getAllTo[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, Chunk[A]] = for {
-    params <- getAll(key).toRight(QueryParamsError.Missing(key))
-    (failed, typed) = params.partitionMap(p => codec.decode(p).toRight(p))
-    result <- NonEmptyChunk
-      .fromChunk(failed)
-      .map(fails => QueryParamsError.Malformed(key, codec, fails))
-      .toLeft(typed)
-  } yield result
-
-  /**
-   * Retrieves all typed query parameter values having the specified name as
-   * ZIO.
-   */
-  def getAllToZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, Chunk[A]] =
-    ZIO.fromEither(getAllTo[A](key))
-
-  /**
-   * Retrieves the first query parameter value having the specified name.
-   */
-  def get(key: String): Option[String] = getAll(key).flatMap(_.headOption)
-
-  /**
-   * Retrieves the first typed query parameter value having the specified name.
-   */
-  def getTo[A](key: String)(implicit codec: TextCodec[A]): Either[QueryParamsError, A] = for {
-    param      <- get(key).toRight(QueryParamsError.Missing(key))
-    typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, codec, NonEmptyChunk(param)))
-  } yield typedParam
-
-  /**
-   * Retrieves the first typed query parameter value having the specified name
-   * as ZIO.
-   */
-  def getToZIO[A](key: String)(implicit codec: TextCodec[A]): IO[QueryParamsError, A] = ZIO.fromEither(getTo[A](key))
-
-  /**
-   * Retrieves all query parameter values having the specified name, or else
-   * uses the default iterable.
-   */
-  def getAllOrElse(key: String, default: => Iterable[String]): Chunk[String] =
-    getAll(key).getOrElse(Chunk.fromIterable(default))
-
-  /**
-   * Retrieves all query parameter values having the specified name, or else
-   * uses the default iterable.
-   */
-  def getAllToOrElse[A](key: String, default: => Iterable[A])(implicit codec: TextCodec[A]): Chunk[A] =
-    getAllTo[A](key).getOrElse(Chunk.fromIterable(default))
-
-  /**
-   * Retrieves the first query parameter value having the specified name, or
-   * else uses the default value.
-   */
-  def getOrElse(key: String, default: => String): String =
-    get(key).getOrElse(default)
-
-  /**
-   * Retrieves the first typed query parameter value having the specified name,
-   * or else uses the default value.
-   */
-  def getToOrElse[A](key: String, default: => A)(implicit codec: TextCodec[A]): A =
-    getTo[A](key).getOrElse(default)
 
   override def hashCode: Int = normalize.seq.hashCode
 
@@ -168,6 +66,16 @@ trait QueryParams {
    * Determines if the query parameters are empty.
    */
   def isEmpty: Boolean = seq.isEmpty
+
+  /**
+   * All query parameters as a map. Note that by default this method constructs
+   * the map on access from the underlying storage implementation, so should be
+   * used with care. Prefer to use `getAll` and friends if all you need is to
+   * access the values by a known key.
+   */
+  def map: Map[String, Chunk[String]] = ListMap(seq.map { entry =>
+    (entry.getKey, Chunk.fromIterable(entry.getValue.asScala))
+  }: _*)
 
   /**
    * Determines if the query parameters are non-empty.
@@ -182,19 +90,13 @@ trait QueryParams {
       entry.getKey.nonEmpty && entry.getValue.asScala.nonEmpty
     }: _*)
 
-  /**
-   * Removes the specified key from the query parameters.
-   */
-  def remove(key: String): QueryParams =
-    QueryParams.fromEntries(seq.filter { entry => entry.getKey != key }: _*)
+  override def queryParameters: QueryParams =
+    self
 
   /**
-   * Removes the specified keys from the query parameters.
+   * Internal representation of query parameters
    */
-  def removeAll(keys: Iterable[String]): QueryParams = {
-    val keysToRemove = keys.toSet
-    QueryParams.fromEntries(seq.filterNot { entry => keysToRemove.contains(entry.getKey) }: _*)
-  }
+  private[http] def seq: Seq[util.Map.Entry[String, util.List[String]]]
 
   /**
    * Converts the query parameters into a form.
@@ -206,18 +108,9 @@ trait QueryParams {
 object QueryParams {
   private final case class JavaLinkedHashMapQueryParams(
     private val underlying: java.util.LinkedHashMap[String, java.util.List[String]],
-  ) extends QueryParams {
+  ) extends QueryParams { self =>
     override private[http] def seq: Seq[util.Map.Entry[String, util.List[String]]] =
       underlying.entrySet.asScala.toSeq
-
-    /**
-     * Retrieves all query parameter values having the specified name. Override
-     * takes advantage of LinkedHashMap implementation for O(1) lookup and
-     * avoids conversion to Chunk.
-     */
-    override def getAll(key: String): Option[Chunk[String]] = Option(underlying.get(key))
-      .map(_.asScala)
-      .map(Chunk.fromIterable)
 
     /**
      * Determines if the query parameters are empty. Override avoids conversion
@@ -225,6 +118,21 @@ object QueryParams {
      */
     override def isEmpty: Boolean = underlying.isEmpty
 
+    /**
+     * Retrieves all query parameter values having the specified name. Override
+     * takes advantage of LinkedHashMap implementation for O(1) lookup and
+     * avoids conversion to Chunk.
+     */
+    override def getAll(key: String): Chunk[String] = Option(underlying.get(key))
+      .map(_.asScala)
+      .map(Chunk.fromIterable)
+      .getOrElse(Chunk.empty)
+
+    override def hasQueryParam(name: CharSequence): Boolean =
+      underlying.containsKey(name.toString)
+
+    override def updateQueryParams(f: QueryParams => QueryParams): QueryParams =
+      f(self)
   }
 
   private def javaMapAsLinkedHashMap(
