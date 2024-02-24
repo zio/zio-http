@@ -213,30 +213,22 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
 }
 object Routes {
 
+  case class Builder[Env, Ctx, Err](routes: Seq[Route.Builder[Env, _, Ctx, _, Err]]) {
+    def @@(aspect: HandlerAspect[Env, Ctx]): Routes[Env, Err] =
+      new Routes(Chunk.fromIterable(routes.map(_ @@ aspect)))
+  }
+
   /**
    * Constructs new routes from a varargs of individual routes.
    */
   def apply[Env, Err](route: zio.http.Route[Env, Err], routes: zio.http.Route[Env, Err]*): Routes[Env, Err] =
     new Routes(Chunk(route) ++ Chunk.fromIterable(routes))
 
-  def apply[Env, Err, Ctx](aspect: HandlerAspect[Env, Ctx])(
-    route: Route.PartialRoute[_, Ctx, _, _, Env, Err],
-    routes: Route.PartialRoute[_, Ctx, _, _, Env, Err]*,
-  ): Routes[Env, Err] =
-    new Routes(
-      Chunk.fromIterable(
-        (route +: routes).map(route => {
-          val zippable = route.zippable1.asInstanceOf[Zippable[Any, Ctx]]
-          route.routePattern
-            .asInstanceOf[RoutePattern[Any]]
-            .->(aspect)(zippable)
-            .->(route.handler.asInstanceOf[Handler[Env, Err, Any, Response]])(
-              RequestHandlerInput(route.zippable.asInstanceOf[Zippable.Out[zippable.Out, Request, Any]]),
-              route.trace,
-            )
-        }),
-      ),
-    )
+  def build[Env, Err, Ctx](
+    route: Route.Builder[Env, _, Ctx, _, Err],
+    routes: Route.Builder[Env, _, Ctx, _, Err]*,
+  ): Routes.Builder[Env, Ctx, Err] =
+    Routes.Builder[Env, Ctx, Err](route +: routes)
 
   /**
    * A empty routes value that contains no routes inside it.

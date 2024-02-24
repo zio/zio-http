@@ -19,9 +19,10 @@ import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
-import zio.{Chunk, NonEmptyChunk, Zippable}
+import zio.{=!=, Chunk, NonEmptyChunk, Zippable}
 
 import zio.http.codec._
+import zio.http.endpoint.EndpointMiddleware.None.Err
 
 /**
  * A pattern for matching routes that examines both HTTP method and path. In
@@ -58,18 +59,17 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   /**
    * Creates a route from this pattern and the specified handler.
    */
-  def ->[Env, Err, I](handler: Handler[Env, Err, I, Response])(implicit
-    zippable: RequestHandlerInput[A, I],
+  def ->[Env, Err, In](handler: Handler[Env, Err, In, Response])(implicit
+    zippable: RequestHandlerInput[A, In],
     trace: zio.Trace,
   ): Route[Env, Err] =
-    Route.route(Route.Builder(self, HandlerAspect.identity))(handler)(zippable.zippable, trace)
+    Route.Builder(self, handler) @@ HandlerAspect.identity
 
-  def -->[Env, Err, I, Ctx, In](handler: Handler[Env, Err, I, Response])(implicit
-    zippable: RequestHandlerInput[In, I],
-    trace: zio.Trace,
-    context: Zippable.Out[A, Ctx, In],
-  ): Route.PartialRoute[A, Ctx, In, I, Env, Err] =
-    Route.PartialRoute(self, handler, context, zippable.zippable, trace)
+  def ->[Env, Err, In, Ctx, PC](handler: Handler[Env, Err, In, Response])(implicit
+    zippable: RequestHandlerInput[PC, In],
+    z: Zippable.Out[A, Ctx, PC],
+  ): Route.Builder[Env, PC, Ctx, In, Err] =
+    Route.Builder(self, handler)
 
   /**
    * Creates a route from this pattern and the specified handler, which ignores
@@ -81,15 +81,6 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
     trace: zio.Trace,
   ): Route[Env, Err] =
     Route.handled(self)(handler)
-
-  /**
-   * Combines this route pattern with the specified middleware, which can be
-   * used to build a route by providing a handler.
-   */
-  def ->[Env, Context](middleware: HandlerAspect[Env, Context])(implicit
-    zippable: Zippable[A, Context],
-  ): Route.Builder[Env, zippable.Out] =
-    Route.Builder(self, middleware)(zippable)
 
   /**
    * Reinteprets the type parameter, given evidence it is equal to some other

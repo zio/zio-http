@@ -81,8 +81,10 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       test("Extract username via context with Routes") {
         val app = {
           Routes(
-            Method.GET / "context" -> basicAuthContextM ->
-              Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) => Response.text(c.value) },
+            Method.GET / "context" ->
+              Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) =>
+                Response.text(c.value)
+              } @@ basicAuthContextM,
           )
         }.toHttpApp
         assertZIO(
@@ -106,15 +108,15 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
       },
       test("Provide for multiple routes") {
-        val secureRoutes = Routes(basicAuthContextM)(
-          Method.GET / "a" --> handler((ctx: AuthContext, _: Request) => Response.text(ctx.value)),
-          Method.GET / "b" / int("id") --> handler((id: Int, ctx: AuthContext, _: Request) =>
+        val secureRoutes = Routes.build(
+          Method.GET / "a"                  -> handler((ctx: AuthContext, _: Request) => Response.text(ctx.value)),
+          Method.GET / "b" / int("id")      -> handler((id: Int, ctx: AuthContext, _: Request) =>
             Response.text(s"for id: $id: ${ctx.value}"),
           ),
-          Method.GET / "c" / string("name") --> handler((name: String, ctx: AuthContext, _: Request) =>
+          Method.GET / "c" / string("name") -> handler((name: String, ctx: AuthContext, _: Request) =>
             Response.text(s"for name: $name: ${ctx.value}"),
           ),
-        )
+        ) @@ basicAuthContextM
         val app          = secureRoutes.toHttpApp
         for {
           s1     <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = successBasicHeader))
