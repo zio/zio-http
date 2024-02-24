@@ -20,7 +20,7 @@ import java.net.InetAddress
 
 import zio._
 
-import zio.http.internal.HeaderOps
+import zio.http.internal.{HeaderOps, QueryOps}
 
 final case class Request(
   version: Version = Version.Default,
@@ -29,7 +29,8 @@ final case class Request(
   headers: Headers = Headers.empty,
   body: Body = Body.empty,
   remoteAddress: Option[InetAddress] = None,
-) extends HeaderOps[Request] { self =>
+) extends HeaderOps[Request]
+    with QueryOps[Request] { self =>
 
   /**
    * A right-biased way of combining two requests. Most information will be
@@ -91,11 +92,17 @@ final case class Request(
 
   def path(path: Path): Request = updateURL(_.path(path))
 
+  override def queryParameters: QueryParams =
+    url.queryParams
+
   /**
    * Updates the headers using the provided function
    */
   override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request =
     self.copy(headers = update(self.headers))
+
+  override def updateQueryParams(f: QueryParams => QueryParams): Request =
+    copy(url = url.updateQueryParams(f))
 
   def updateURL(f: URL => URL): Request = copy(url = f(url))
 

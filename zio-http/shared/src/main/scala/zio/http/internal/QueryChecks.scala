@@ -14,32 +14,10 @@
  * limitations under the License.
  */
 
-package zio.http.template
+package zio.http.internal
 
-/**
- * A ZIO Http styled general purpose templates
- */
-object Template {
+trait QueryChecks[+A] { self: QueryOps[A] with A =>
 
-  def container(heading: CharSequence)(element: Html): Html = {
-    html(
-      head(
-        title(s"ZIO Http - ${heading}"),
-        style("""
-                | body {
-                |   font-family: monospace;
-                |   font-size: 16px;
-                |   background-color: #edede0;
-                | }
-                |""".stripMargin),
-      ),
-      body(
-        div(
-          styles := "margin: auto; padding: 2em 4em; max-width: 80%",
-          h1(heading),
-          element,
-        ),
-      ),
-    )
-  }
+  def hasQueryParam(name: CharSequence): Boolean =
+    queryParameters.seq.exists(_.getKey == name)
 }

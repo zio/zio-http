@@ -92,8 +92,8 @@ object FlashSpec extends ZIOHttpSpec {
         object ui {
           def flashEmpty                                 = Html.fromString("no-flash")
           def flashBoth(notice: Html, alert: Html): Html = notice ++ alert
-          def flashNotice(html: Html): Html              = div(styleAttr := Seq("background" -> "green"), html)
-          def flashAlert(html: Html): Html               = div(styleAttr := Seq("background" -> "red"), html)
+          def flashNotice(html: Html): Html              = div(styleAttr := "background: green", html)
+          def flashAlert(html: Html): Html               = div(styleAttr := "background: red", html)
         }
 
         val routeUserSavePath = Method.POST / "users" / "save"

@@ -70,7 +70,7 @@ sealed trait Doc { self =>
         case Span.Italic(value)                 =>
           s"${render("*")}${renderSpan(value, indent).trim}${render("*")}"
         case Span.Error(value)                  =>
-          s"${render(s"""<span style="color:red">""")}${render(value)}${render("</span>")}"
+          s"${render(s"""<span style="color: red">""")}${render(value)}${render("</span>")}"
         case Span.Sequence(left, right)         =>
           val l = renderSpan(left, indent)
           val r = renderSpan(right, indent)
@@ -408,7 +408,7 @@ object Doc {
         case Span.Text(value)                   => value
         case Span.Code(value, CodeStyle.Block)  => pre(code(value))
         case Span.Code(value, CodeStyle.Inline) => code(value)
-        case Span.Error(value)                  => span(styleAttr := ("color", "red") :: Nil, value)
+        case Span.Error(value)                  => span(styleAttr := "color: red", value)
         case Span.Bold(value)                   => b(value.toHtml)
         case Span.Italic(value)                 => i(value.toHtml)
         case Span.Link(value, text)             =>

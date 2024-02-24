@@ -1053,19 +1053,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |  "paths" : {
                          |    "/test-form" : {
                          |      "get" : {
-                         |        "requestBody" :
-                         |          {
-                         |          "content" : {
-                         |            "application/json" : {
-                         |              "schema" :
-                         |                {
-                         |                "type" :
-                         |                  "null"
-                         |              }
-                         |            }
-                         |          },
-                         |          "required" : false
-                         |        },
                          |        "responses" : {
                          |          "default" :
                          |            {
