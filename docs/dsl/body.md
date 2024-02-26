@@ -3,42 +3,71 @@ id: body
 title: Body
 ---
 
-`Body` is a domain to model content for `Request` and `Response`. ZIO HTTP uses Netty at its core and Netty handles content as `ByteBuf`. `Body` helps you decode and encode this content into simpler, easier to use data types while creating a Request or Response.
+`Body` is a domain to model content for `Request` and `Response`. ZIO HTTP uses Netty at its core and Netty handles content as `ByteBuf`. `Body` helps you decode and encode this content into simpler, easier-to-use data types while creating a Request or Response.
 
-## Server-side usage of `Body`
+## Usages
 
-On the server-side, `ZIO-HTTP` models content in `Request` and `Response` as `Body` with `Body.empty` as the default value. To add content while creating a `Response` you can use the `Response` constructor:
+The `Body` is used on both the server and client side.
 
-```scala mdoc:silent
-  import zio._
-  import zio.http._
-  import zio.stream._
+### Server-side
 
-  val res: Response = Response(body = Body.fromString("Some String"))
+On the server side, `ZIO-HTTP` models content in `Request` and `Response` as `Body` with `Body.empty` as the default value. To add content while creating a `Response` you can use the `Response` constructor:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object HelloExample extends ZIOAppDefault {
+  val app: HttpApp[Any] =
+    Routes(
+      Method.GET / "hello" ->
+        handler { req: Request =>
+          for {
+            name <- req.body.asString
+          } yield Response(body = Body.fromString(s"Hello $name!"))
+        }.sandbox,
+    ).toHttpApp
+
+  override val run = Server.serve(app).provide(Server.default)
+}
 ```
 
-To add content while creating a `Request` for unit tests, you can use the `Request` constructor:
+### Client-side
 
-```scala mdoc:silent
-  val req: Request = Request.post(URL(Root / "save"), Body.fromString("Some String"))
-```
-
-## Client-side usage of `Body`
-
-On the client-side, `ZIO-HTTP` models content in `Client` as `Body` with `Body.Empty` as the default value.
+On the client side, `ZIO-HTTP` models content in `Client` as `Body` with `Body.Empty` as the default value.
 
 To add content while making a request using ZIO HTTP you can use the `Client.request` method:
 
 ```scala mdoc:silent
-  val actual: ZIO[Client with Scope, Throwable, Response] = 
-    Client.request(Request.post("https://localhost:8073/success", Body.fromString("Some string")))
+import zio._
+import zio.stream._
+import zio.http._
+
+object HelloClientExample extends ZIOAppDefault {
+  val app: ZIO[Client & Scope, Throwable, Unit] =
+    for {
+      name <- Console.readLine("What is your name? ")
+      resp <- Client.request(Request.post("http://localhost:8080/hello", Body.fromString(name)))
+      body <- resp.body.asString
+      _    <- Console.printLine(s"Response: $body")
+    } yield ()
+
+  def run = app.provide(Client.default, Scope.default)
+}
+```
+
+In the above example, we are making a `POST` request to the `/hello` endpoint with a `Body` containing the name of the user. Then we read the response body as a `String` and printed it:
+
+```
+What is your name? John
+Response: Hello John!
 ```
 
 ## Creating a Body
 
 ### Creating a Body from a `String`
 
-To create an `Body` that encodes a String you can use `Body.fromString`:
+To create a `Body` that encodes a String you can use `Body.fromString`:
 
 ```scala mdoc:silent
   val textHttpData: Body = Body.fromString("any string", Charsets.Http)
@@ -46,7 +75,7 @@ To create an `Body` that encodes a String you can use `Body.fromString`:
 
 ### Creating a Body from `Chunk of Bytes`
 
-To create an `Body` that encodes chunk of bytes you can use `Body.fromChunk`:
+To create a `Body` that encodes a chunk of bytes you can use `Body.fromChunk`:
 
 ```scala mdoc:silent
   val chunkHttpData: Body = Body.fromChunk(Chunk.fromArray("Some Sting".getBytes(Charsets.Http)))
