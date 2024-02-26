@@ -31,22 +31,22 @@ Response()
 
 ZIO HTTP has several constructors for the most common status codes:
 
-| Method                                | Description                                 | Status Code        |
-|---------------------------------------|---------------------------------------------|--------------------|
-| `Response.ok`                         | Successful request                          | 200 OK             |
-| `Response.badRequest`                 | The server cannot or will not process the request due to an apparent client error | 400 Bad Request    |
-| `Response.unauthorized`               | Similar to 403 Forbidden, but specifically for use when authentication is required and has failed or has not yet been provided | 401 Unauthorized  |
-| `Response.forbidden`                  | The client does not have access rights to the content; that is, it is unauthorized | 403 Forbidden     |
-| `Response.notFound`                   | The requested resource could not be found but may be available in the future | 404 Not Found     |
-| `Response.internalServerError`        | A generic error message, given when an unexpected condition was encountered and no more specific message is suitable | 500 Internal Server Error |
-| `Response.serviceUnavailable`         | The server cannot handle the request (because it is overloaded or down for maintenance) | 503 Service Unavailable |
-| `Response.redirect`                   | Used to inform the client that the resource they're requesting is located at a different URI | 302 Found (Moved Temporarily) |
-| `Response.seeOther`                   | Tells the client to look at a different URL for the requested resource | 303 See Other      |
-| `Response.gatewayTimeout`             | The server was acting as a gateway or proxy and did not receive a timely response from the upstream server | 504 Gateway Timeout |
-| `Response.httpVersionNotSupported`    | The server does not support the HTTP protocol version that was used in the request | 505 HTTP Version Not Supported |
-| `Response.networkAuthenticationRequired` | The client needs to authenticate to gain network access | 511 Network Authentication Required |
-| `Response.notExtended`                | Further extensions to the request are required for the server to fulfill it | 510 Not Extended   |
-| `Response.notImplemented`             | The server either does not recognize the request method, or it lacks the ability to fulfill the request | 501 Not Implemented |
+| Method                                   | Description                                                                                                                    | Status Code                         |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
+| `Response.ok`                            | Successful request                                                                                                             | 200 OK                              |
+| `Response.badRequest`                    | The server cannot or will not process the request due to an apparent client error                                              | 400 Bad Request                     |
+| `Response.unauthorized`                  | Similar to 403 Forbidden, but specifically for use when authentication is required and has failed or has not yet been provided | 401 Unauthorized                    |
+| `Response.forbidden`                     | The client does not have access rights to the content; that is, it is unauthorized                                             | 403 Forbidden                       |
+| `Response.notFound`                      | The requested resource could not be found but may be available in the future                                                   | 404 Not Found                       |
+| `Response.internalServerError`           | A generic error message, given when an unexpected condition was encountered and no more specific message is suitable           | 500 Internal Server Error           |
+| `Response.serviceUnavailable`            | The server cannot handle the request (because it is overloaded or down for maintenance)                                        | 503 Service Unavailable             |
+| `Response.redirect`                      | Used to inform the client that the resource they're requesting is located at a different URI                                   | 302 Found (Moved Temporarily)       |
+| `Response.seeOther`                      | Tells the client to look at a different URL for the requested resource                                                         | 303 See Other                       |
+| `Response.gatewayTimeout`                | The server was acting as a gateway or proxy and did not receive a timely response from the upstream server                     | 504 Gateway Timeout                 |
+| `Response.httpVersionNotSupported`       | The server does not support the HTTP protocol version that was used in the request                                             | 505 HTTP Version Not Supported      |
+| `Response.networkAuthenticationRequired` | The client needs to authenticate to gain network access                                                                        | 511 Network Authentication Required |
+| `Response.notExtended`                   | Further extensions to the request are required for the server to fulfill it                                                    | 510 Not Extended                    |
+| `Response.notImplemented`                | The server either does not recognize the request method, or it lacks the ability to fulfill the request                        | 501 Not Implemented                 |
 
 For example, to create a response with status code 200, we can use `Response.ok`:
 
@@ -106,17 +106,17 @@ object Response {
 
 Here is the table of exceptions and their corresponding status code:
 
-| Throwable Type                      | Status Class       | Status Code | Description                                    |
-|-------------------------------------|--------------------|-------------|------------------------------------------------|
-| `AccessDeniedException`             | `Forbidden`        | 403         | Access to a resource is denied.               |
-| `IllegalAccessException`           | `Forbidden`        | 403         | Illegal access to a resource is attempted.    |
-| `IllegalAccessError`                | `Forbidden`        | 403         | Illegal access to a resource occurs.          |
-| `NotDirectoryException`             | `BadRequest`       | 400         | The specified path is not a directory.        |
-| `IllegalArgumentException`          | `BadRequest`       | 400         | An invalid argument is provided.              |
-| `java.io.FileNotFoundException`     | `NotFound`         | 404         | The specified file or resource is not found.  |
-| `java.net.ConnectException`         | `ServiceUnavailable` | 503     | Unable to connect to a service.               |
-| `java.net.SocketTimeoutException`   | `GatewayTimeout`   | 504         | Connection or read operation timed out.       |
-| Others (unrecognized throwable)    | `InternalServerError` | 500 | An unexpected error occurred.                 |
+| Throwable Type                    | Status Class          | Status Code | Description                                  |
+|-----------------------------------|-----------------------|-------------|----------------------------------------------|
+| `AccessDeniedException`           | `Forbidden`           | 403         | Access to a resource is denied.              |
+| `IllegalAccessException`          | `Forbidden`           | 403         | Illegal access to a resource is attempted.   |
+| `IllegalAccessError`              | `Forbidden`           | 403         | Illegal access to a resource occurs.         |
+| `NotDirectoryException`           | `BadRequest`          | 400         | The specified path is not a directory.       |
+| `IllegalArgumentException`        | `BadRequest`          | 400         | An invalid argument is provided.             |
+| `java.io.FileNotFoundException`   | `NotFound`            | 404         | The specified file or resource is not found. |
+| `java.net.ConnectException`       | `ServiceUnavailable`  | 503         | Unable to connect to a service.              |
+| `java.net.SocketTimeoutException` | `GatewayTimeout`      | 504         | Connection or read operation timed out.      |
+| Others (unrecognized throwable)   | `InternalServerError` | 500         | An unexpected error occurred.                |
 
 Another low-level method for error handling is `Response.fromCause` which creates a response from a `Cause`:
 
@@ -316,15 +316,14 @@ response.header(Header.ContentType)
 
 List of methods available to get headers from a `Response`:
 
-| Method                            | Description                                                                                                                               | Return Type                                |
-|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------|
-| `header(headerType: HeaderType)` | Gets a header or returns `None` if not present or unparsable.                                                                             | `Option[headerType.HeaderValue]`          |
-| `headers(headerType: HeaderType)`| Gets multiple headers of the specified type.                                                                                             | `Chunk[headerType.HeaderValue]`           |
-| `headerOrFail(headerType: HeaderType)`| Gets a header, returning `None` if absent, or an `Either` with parsing error or parsed value.                                         | `Option[Either[String, headerType.HeaderValue]]`|
-| `headers`                         | Returns all headers.                                                                                                                     | `Headers`                                  |
-| `rawHeader(name: CharSequence)`  | Gets the raw unparsed value of a header by name.                                                                                         | `Option[String]`                           |
-| `rawHeader(headerType: HeaderType)`| Gets the raw unparsed value of a header by type.                                                                                         | `Option[String]`                           |
-
+| Method                                 | Description                                                                                   | Return Type                                      |
+|----------------------------------------|-----------------------------------------------------------------------------------------------|--------------------------------------------------|
+| `header(headerType: HeaderType)`       | Gets a header or returns `None` if not present or unparsable.                                 | `Option[headerType.HeaderValue]`                 |
+| `headers(headerType: HeaderType)`      | Gets multiple headers of the specified type.                                                  | `Chunk[headerType.HeaderValue]`                  |
+| `headerOrFail(headerType: HeaderType)` | Gets a header, returning `None` if absent, or an `Either` with parsing error or parsed value. | `Option[Either[String, headerType.HeaderValue]]` |
+| `headers`                              | Returns all headers.                                                                          | `Headers`                                        |
+| `rawHeader(name: CharSequence)`        | Gets the raw unparsed value of a header by name.                                              | `Option[String]`                                 |
+| `rawHeader(headerType: HeaderType)`    | Gets the raw unparsed value of a header by type.                                              | `Option[String]`                                 |
 
 ### Modifying Headers in Response
 
@@ -338,14 +337,14 @@ Response.ok.addHeader(Header.ContentType(MediaType.application.json))
 
 Here are the methods available to modify headers in a `Response`:
 
-| Method                             | Description                                                                                      |
-|------------------------------------|--------------------------------------------------------------------------------------------------|
-| `addHeader`                        | Adds a header or a header with the given name and value, returning a new `Response` instance.   |
-| `addHeaders`                       | Adds multiple headers, returning a new `Response` instance.                                     |
-| `removeHeader`                     | Removes a specified header, returning a new `Response` instance.                                 |
-| `removeHeaders`                    | Removes multiple specified headers, returning a new `Response` instance.                          |
-| `setHeaders`                       | Sets the headers to the provided headers, returning a new `Response` instance.                    |
-| `updateHeaders`                    | Updates the current headers using a provided update function, returning a new `Response` instance.|
+| Method          | Description                                                                                        |
+|-----------------|----------------------------------------------------------------------------------------------------|
+| `addHeader`     | Adds a header or a header with the given name and value, returning a new `Response` instance.      |
+| `addHeaders`    | Adds multiple headers, returning a new `Response` instance.                                        |
+| `removeHeader`  | Removes a specified header, returning a new `Response` instance.                                   |
+| `removeHeaders` | Removes multiple specified headers, returning a new `Response` instance.                           |
+| `setHeaders`    | Sets the headers to the provided headers, returning a new `Response` instance.                     |
+| `updateHeaders` | Updates the current headers using a provided update function, returning a new `Response` instance. |
 
 ### Checking for Headers in Response
 
@@ -357,14 +356,16 @@ response.hasContentType(MediaType.application.json.fullType)
 
 There are several such methods available in the `Response` class:
 
-| Method                      | Description                                      |
-|-----------------------------|--------------------------------------------------|
-| `hasContentType`            | Check the presence of the specified content type.        |
-| `hasFormUrlencodedContentType` | Check if the content type is URL-encoded form data. |
-| `hasFormMultipartContentType` | Check if the content type is multipart form data.   |
-| `hasHeader`                 | Check the presence of the given header.             |
-| `hasJsonContentType`        | Check if the content type is JSON.                  |
-| `hasMediaType`              | Check the presence of the given media type.         |
-| `hasTextPlainContentType`   | Check if the content type is plain text.            |
-| `hasXhtmlXmlContentType`    | Check if the content type is XHTML/XML.             |
-| `hasXmlContentType`         | Check if the content type is XML.                   |
+| `Method`                              | Description                                                    |
+|---------------------------------------|----------------------------------------------------------------|
+| `hasContentType(value: CharSequence)` | Checks if the headers have the given content type.             |
+| `hasFormUrlencodedContentType`        | Checks if the headers have a form-urlencoded content type.     |
+| `hasFormMultipartContentType`         | Checks if the headers have a multipart/form-data content type. |
+| `hasHeader(name: CharSequence)`       | Checks if the headers contain a header with the given name.    |
+| `hasHeader(headerType: HeaderType)`   | Checks if the headers contain a header of the given type.      |
+| `hasHeader(header: Header)`           | Checks if the headers contain a specific header.               |
+| `hasJsonContentType`                  | Checks if the headers have a JSON content type.                |
+| `hasMediaType(mediaType: MediaType)`  | Checks if the headers have the specified media type.           |
+| `hasTextPlainContentType`             | Checks if the headers have a text/plain content type.          |
+| `hasXhtmlXmlContentType`              | Checks if the headers have an XHTML/XML content type.          |
+| `hasXmlContentType`                   | Checks if the headers have an XML content type.                |
