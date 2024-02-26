@@ -52,7 +52,6 @@ object ClientExample extends ZIOAppDefault {
   } yield ()
 
   override val run = program.provide(Client.default, Scope.default)
-
 }
 ```
 
