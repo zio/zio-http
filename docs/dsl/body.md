@@ -65,15 +65,23 @@ Response: Hello John!
 
 ## Creating a Body
 
-### Creating a Body from a `String`
+### Empty Body
+
+To create an empty body:
+
+```scala mdoc:compile-only
+val emptyBody: Body = Body.empty
+```
+
+### From a `String`
 
 To create a `Body` that encodes a String you can use `Body.fromString`:
 
 ```scala mdoc:silent
-  val textHttpData: Body = Body.fromString("any string", Charsets.Http)
+val textHttpData: Body = Body.fromString("any string", Charsets.Http)
 ```
 
-### Creating a Body from `Chunk of Bytes`
+### From `Chunk of Bytes`
 
 To create a `Body` that encodes a chunk of bytes you can use `Body.fromChunk`:
 
@@ -81,7 +89,33 @@ To create a `Body` that encodes a chunk of bytes you can use `Body.fromChunk`:
   val chunkHttpData: Body = Body.fromChunk(Chunk.fromArray("Some Sting".getBytes(Charsets.Http)))
 ```
 
-### Creating a Body from a `Stream`
+### From a Value with ZIO Schema Binary Codec
+
+We can construct a body from an arbitrary value using zio-schema's binary codec:
+
+```scala
+object Body {
+  def from[A](a: A)(implicit codec: BinaryCodec[A], trace: Trace): Body =
+    fromChunk(codec.encode(a))
+}
+```
+
+For example, if you have a case class Person:
+
+```scala mdoc:compile-only
+import zio.schema.DeriveSchema
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+case class Person(name: String, age: Int)
+implicit val schema = DeriveSchema.gen[Person]
+
+val person = Person("John", 42)
+val body = Body.from(person)
+```
+
+In the above example, we used a JSON codec to encode the person object into a body. Similarly, we can use other codecs like Avro, Protobuf, etc.
+
+### From a `Stream`
 
 To create an `Body` that encodes a Stream you can use `Body.fromStream`.
 
