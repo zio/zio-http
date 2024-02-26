@@ -6,6 +6,56 @@ title: Response
 **ZIO HTTP** `Response` is designed to encode HTTP Response.
 It supports all HTTP status codes and headers along with custom methods and headers (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) )
 
+## Response Usage
+
+In ZIO HTTP, a `Response` is used in two contexts, server-side and client-side.
+
+### Server Side
+
+In the server-side context, a `Response` is created and returned by a `Handler`:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object HelloWorldExample extends ZIOAppDefault {
+  val app: HttpApp[Any] =
+    Routes(
+      Method.GET / "text" ->
+        handler {
+          Response.text("Hello World!")
+        },
+    ).toHttpApp
+
+  override val run = Server.serve(app).provide(Server.default)
+}
+```
+
+### Client Side
+
+In the client-side context, a `Response` is received from the client after making a request to a server:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http.Header.ContentType.render
+import zio.http._
+
+object ClientExample extends ZIOAppDefault {
+  val program = for {
+    res         <- Client.request(Request.get("https://zio.dev/"))
+    contentType <- ZIO.from(res.header(Header.ContentType))
+    _           <- Console.printLine("------Content Type------")
+    _           <- Console.printLine(render(contentType))
+    data        <- res.body.asString
+    _           <- Console.printLine("----------Body----------")
+    _           <- Console.printLine(data)
+  } yield ()
+
+  override val run = program.provide(Client.default, Scope.default)
+
+}
+```
+
 ## Creating a Response
 
 A `Response` can be created with `status`, `headers`, and `data` using the default constructor:
