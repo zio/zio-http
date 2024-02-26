@@ -81,12 +81,13 @@ To create a `Body` that encodes a String you can use `Body.fromString`:
 val textHttpData: Body = Body.fromString("any string", Charsets.Http)
 ```
 
-### From `Chunk of Bytes`
+### From Array/Chunk of Bytes
 
 To create a `Body` that encodes a chunk of bytes you can use `Body.fromChunk`:
 
 ```scala mdoc:silent
-  val chunkHttpData: Body = Body.fromChunk(Chunk.fromArray("Some Sting".getBytes(Charsets.Http)))
+val chunkHttpData: Body = Body.fromChunk(Chunk.fromArray("Some String".getBytes(Charsets.Http)))
+val byteArrayHttpData: Body = Body.fromArray("Some String".getBytes(Charsets.Http))
 ```
 
 ### From a Value with ZIO Schema Binary Codec
