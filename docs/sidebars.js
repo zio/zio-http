@@ -22,6 +22,7 @@ const sidebars = {
             "dsl/headers",
             "dsl/cookies",
             "dsl/middleware",
+            "dsl/status",
             {
               type: "category",
               label: "DSL",
