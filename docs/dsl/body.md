@@ -188,3 +188,13 @@ To create an `Body` that encodes a `File` we can use `Body.fromFile`:
 val fileHttpData: ZIO[Any, Nothing, Body] = 
   Body.fromFile(new java.io.File(getClass.getResource("/fileName.txt").getPath))
 ```
+
+### From WebSocketApp
+
+Any `WebSocketApp[Any]` can be converted to a `Body` using `Body.fromWebSocketApp`:
+
+```scala
+object Body {
+  def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody = ???
+}
+```
