@@ -116,26 +116,75 @@ val body = Body.from(person)
 
 In the above example, we used a JSON codec to encode the person object into a body. Similarly, we can use other codecs like Avro, Protobuf, etc.
 
-### From a `Stream`
+### From ZIO Streams
 
-To create an `Body` that encodes a Stream you can use `Body.fromStream`.
+There are several ways to create a `Body` from a ZIO Stream:
 
-- Using a Stream of Bytes
+#### From Stream of Bytes
 
-```scala mdoc:silent
-  val streamHttpData1: Body = Body.fromStreamChunked(ZStream.fromChunk(Chunk.fromArray("Some String".getBytes(Charsets.Http))))
+To create a `Body` that encodes a stream of bytes, we can utilize the `Body.fromStream` and `Body.fromStreamChunked` constructors:
+
+```scala
+object Body {
+  def fromStream(
+    stream: ZStream[Any, Throwable, Byte],
+    contentLength: Long
+  ): Body = ???
+
+  def fromStreamChunked(
+    stream: ZStream[Any, Throwable, Byte]
+  ): Body = ???
+}
 ```
 
-- Using a Stream of String
+If we know the content length of the stream, we can use `Body.fromStream`. It will set the `content-length` header in the response to the given value:
 
 ```scala mdoc:silent
-  val streamHttpData2: Body = Body.fromCharSequenceStreamChunked(ZStream("a", "b", "c"), Charsets.Http)
+val chunk = Chunk.fromArray("Some String".getBytes(Charsets.Http))
+val streamHttpData1: Body = Body.fromStream(ZStream.fromChunk(chunk), contentLength = chunk.length)
 ```
 
-### Creating a Body from a `File`
+Otherwise, we can use `Body.fromStreamChunked`, which is useful for streams with an unknown content length. Assume we have a service that generates a response to a request in chunks; we can stream the response to the client while we don't know the exact length of the response. Therefore, the `transfer-encoding` header will be set to `chunked` in the response:
 
-To create an `Body` that encodes a File you can use `Body.fromFile`:
+
+#### From Stream of Values with ZIO Schema Binary Codec
+
+To create a `Body` that encodes a stream of values of type `A`, we can use `Body.fromStream` with a `BinaryCodec`:
+
+```scala
+object Body {
+  def fromStream[A](stream: ZStream[Any, Throwable, A])(implicit codec: BinaryCodec[A], trace: Trace): Body = ???
+}
+```
+
+Let's create a `Body` from a stream of `Person`:
+
+```scala mdoc:compile-only
+import zio.schema.DeriveSchema
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+case class Person(name: String, age: Int)
+implicit val schema = DeriveSchema.gen[Person]
+
+val persons: ZStream[Any, Nothing, Person] =
+  ZStream.fromChunk(Chunk(Person("John", 42), Person("Jane", 40)))
+
+val body = Body.fromStream(persons)
+```
+
+The header `transfer-encoding` will be set to `chunked` in the response.
+
+#### From Stream of CharSequence
+
+To create a `Body` that encodes a stream of `CharSequence`, we can use `Body.fromCharSequenceStream` and `Body.fromCharSequenceStreamChunked` constructors.
+
+If we know the content length of the stream, we can use `Body.fromCharSequenceStream`, which will set the `content-length` header in the response to the given value. Otherwise, we can use `Body.fromCharSequenceStreamChunked`, which is useful for streams with an unknown content length. In this case, the `transfer-encoding` header will be set to `chunked` in the response.
+
+### From a File
+
+To create an `Body` that encodes a `File` we can use `Body.fromFile`:
 
 ```scala mdoc:silent:crash
-  val fileHttpData: ZIO[Any, Nothing, Body] = Body.fromFile(new java.io.File(getClass.getResource("/fileName.txt").getPath))
+val fileHttpData: ZIO[Any, Nothing, Body] = 
+  Body.fromFile(new java.io.File(getClass.getResource("/fileName.txt").getPath))
 ```
