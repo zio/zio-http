@@ -73,12 +73,13 @@ To create an empty body:
 val emptyBody: Body = Body.empty
 ```
 
-### From a `String`
+### From a String and CharSequence
 
-To create a `Body` that encodes a String you can use `Body.fromString`:
+To create a `Body` that encodes a `String` or `CharSequence` we can use `Body.fromString` or `Body.fromCharSequence`:
 
 ```scala mdoc:silent
-val textHttpData: Body = Body.fromString("any string", Charsets.Http)
+Body.fromString("any string", Charsets.Http)
+Body.fromCharSequence("any string", Charsets.Http)
 ```
 
 ### From Array/Chunk of Bytes
