@@ -343,3 +343,14 @@ val person        = Person("John", 42)
 val body          = Body.from(person)
 val decodedPerson = body.to[Person]
 ```
+
+### Retrieving Raw Body Content
+
+We can access the content of the body as an array of bytes or a chunk of bytes. This is useful when dealing with binary data. Here's how you can do it:
+
+```scala mdoc:compile-only
+val byteArray = body.asArray
+val byteChunk = body.asChunk
+```
+
+These methods return the body content as an array of bytes or a ZIO chunk of bytes, respectively.
