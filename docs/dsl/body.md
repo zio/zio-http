@@ -316,6 +316,17 @@ URL encoding is primarily useful for encoding data in the query string of a URL 
 
 ## Body Operations
 
+### Decoding Body Content as a String
+
+We can decode the content of the body into a `String` using the `Body#asString` method. It allows decoding with both default and custom charsets:
+
+```scala mdoc:compile-only
+val defaultCharsetString = body.asString
+val customCharsetString = body.asString(Charset.forName("UTF-8"))
+```
+
+These methods return a `Task` representing the decoded string content of the body.
+
 ### Decoding Body Content
 
 By providing a `BinaryCodec[A]` we can decode the body content to a value of type `A`:
