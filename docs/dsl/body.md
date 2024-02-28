@@ -212,9 +212,9 @@ A multipart form consists of multiple parts, each representing a different field
 
 In ZIO HTTP, the `Form` data type is used to represent a form that can be either multipart or URL-encoded. It is a wrapper around `Chunk[FormField]`.
 
-#### Creating a Multipart Form
+#### Creating Response Body from Multipart Form
 
-The `Body.fromMultipartForm` is used to create a `Body` from a `MultipartForm`:
+The `Body.fromMultipartForm` is used to create a `Body` from a multipart form:
 
 ```scala
 object Body {
@@ -222,7 +222,7 @@ object Body {
 }
 ```
 
-Let say we create a body from a `MultipartForm`:
+Let say we create a body from a multipart form:
 
 ```scala mdoc:silent
 val body = 
@@ -246,19 +246,68 @@ val body =
   )
 ```
 
-This will create a `Body` with the following content:
+This will create a `Body` which can be rendered as:
 
-```scala mdoc
-Unsafe.unsafe { 
-  implicit unsafe =>
-    zio.Runtime.default.unsafe.run(body.asString).getOrThrow()
-}
+```scala mdoc:passthrough
+val res =
+  Unsafe.unsafe { 
+    implicit unsafe =>
+      zio.Runtime.default.unsafe.run(body.asString).getOrThrow()
+  }
+println(
+  s"""|```
+      |$res
+      |```""".stripMargin,
+)
 ```
 
 :::note
 When utilizing MultipartForm for the response body, ensure the correct Content-Type header is included in the response, such as `Content-Type: multipart/<proper-subtype>; boundary=boundary123`.
 :::
 
-:::warning
-If intending to use `MultipartForm` for the response body and targeting browsers, ensure proper support for it across different browsers.
+:::note
+Please be aware that utilizing a multipart form for the response body is uncommon and may not be supported by all clients. If you intend to use this method, ensure comprehensive support across various browsers.
+:::
+
+### From a URL-encoded Form
+
+URL encoding is a technique used to convert data into a format that can be transmitted over the internet. This is necessary because URLs have certain restrictions on the characters they can contain. URL encoding replaces unsafe characters with a "%" followed by two hexadecimal digits. For example, a space is encoded as "%20", and special characters like "&" become "%26".
+
+A URL-encoded form consists of key-value pairs, where each pair represents a form field and its corresponding value. These pairs are concatenated together into a query string, separated by "&" symbols.
+
+For instance, consider a simple form with fields for "username" and "password". The URL-encoded form data looks like this:
+
+```
+username=john&password=secretpassword
+```
+
+Similar to `Body.fromMultipartForm`, the `Body.fromURLEncodedForm` is used to create a `Body` from a URL-encoded form:
+
+```scala mdoc:nest:silent
+val body = 
+  Body.fromURLEncodedForm(
+    Form(
+      FormField.simpleField("username", "john"),
+      FormField.simpleField("password", "secretpassword"),
+    )
+  )
+```
+
+This will create a `Body` which can be rendered as:
+
+```scala mdoc:passthrough
+val res =
+  Unsafe.unsafe { 
+    implicit unsafe =>
+      zio.Runtime.default.unsafe.run(body.asString).getOrThrow()
+  }
+println(
+  s"""|```
+      |$res
+      |```""".stripMargin,
+)
+```
+
+:::note
+URL encoding is primarily useful for encoding data in the query string of a URL or for encoding form data in HTTP requests. It is not typically used for the response body.
 :::
