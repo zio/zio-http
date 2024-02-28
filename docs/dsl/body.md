@@ -199,3 +199,65 @@ object Body {
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody = ???
 }
 ```
+
+### From a Multipart Form
+
+Multipart form data is a method for encoding form data within an HTTP request. It allows for the transmission of multiple types of data, including text, files, and binary data, in a single request.
+
+This makes it ideal for scenarios where form submissions require complex data structures, such as file uploads or rich form inputs.
+
+#### Structure of a Multipart Form
+
+A multipart form consists of multiple parts, each representing a different field or file to be transmitted. These parts are separated by a unique boundary string. Each part typically includes headers specifying metadata about the data being transmitted, such as content type and content disposition, followed by the actual data.
+
+In ZIO HTTP, the `Form` data type is used to represent a form that can be either multipart or URL-encoded. It is a wrapper around `Chunk[FormField]`.
+
+#### Creating a Multipart Form
+
+The `Body.fromMultipartForm` is used to create a `Body` from a `MultipartForm`:
+
+```scala
+object Body {
+  def fromMultipartForm(form: Form, specificBoundary: Boundary): Body = ???
+}
+```
+
+Let say we create a body from a `MultipartForm`:
+
+```scala mdoc:silent
+val body = 
+  Body.fromMultipartForm(
+    Form(
+      FormField.simpleField("key1", "value1"),
+      FormField.binaryField(
+        "file1",
+        Chunk.fromArray("Hello, world!".getBytes),
+        MediaType.text.`plain`,
+        filename = Some("hello.txt"),
+      ),
+      FormField.binaryField(
+        "file2",
+        Chunk.fromArray("## Hello, world!".getBytes),
+        MediaType.text.`markdown`,
+        filename = Some("hello.md"),
+      ),
+    ),
+    Boundary("boundary123"),
+  )
+```
+
+This will create a `Body` with the following content:
+
+```scala mdoc
+Unsafe.unsafe { 
+  implicit unsafe =>
+    zio.Runtime.default.unsafe.run(body.asString).getOrThrow()
+}
+```
+:::note
+When utilizing MultipartForm for the response body, ensure the correct Content-Type header is included in the response, such as `Content-Type: multipart/<proper-subtype>; boundary=boundary123`.
+:::
+
+:::warning
+If intending to use `MultipartForm` for the response body and targeting browsers, ensure proper support for it across different browsers.
+:::
