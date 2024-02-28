@@ -254,6 +254,7 @@ Unsafe.unsafe {
     zio.Runtime.default.unsafe.run(body.asString).getOrThrow()
 }
 ```
+
 :::note
 When utilizing MultipartForm for the response body, ensure the correct Content-Type header is included in the response, such as `Content-Type: multipart/<proper-subtype>; boundary=boundary123`.
 :::
