@@ -3,7 +3,9 @@ id: body
 title: Body
 ---
 
-`Body` is a domain to model content for `Request` and `Response`. ZIO HTTP uses Netty at its core and Netty handles content as `ByteBuf`. `Body` helps you decode and encode this content into simpler, easier-to-use data types while creating a Request or Response.
+`Body` is a domain to model content for `Request` and `Response`. The body can be a fixed chunk of bytes, a stream of bytes, or form data, or any type that can be encoded into such representations (such as textual data using some character encoding, the contents of files, JSON, etc.).
+
+ZIO HTTP uses Netty at its core and Netty handles content as `ByteBuf`. `Body` helps you decode and encode this content into simpler, easier-to-use data types while creating a `Request` or `Response`.
 
 ## Usages
 
@@ -311,3 +313,22 @@ println(
 :::note
 URL encoding is primarily useful for encoding data in the query string of a URL or for encoding form data in HTTP requests. It is not typically used for the response body.
 :::
+
+## Body Operations
+
+### Decoding Body Content
+
+By providing a `BinaryCodec[A]` we can decode the body content to a value of type `A`:
+
+```scala mdoc:compile-only
+import zio.schema._
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+case class Person(name: String, age: Int)
+
+implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+
+val person        = Person("John", 42)
+val body          = Body.from(person)
+val decodedPerson = body.to[Person]
+```
