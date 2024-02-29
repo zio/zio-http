@@ -115,16 +115,17 @@ object CodeGen {
       val tpe = render(basePackage)(fieldType)
       if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
 
-    case Code.Primitive.ScalaInt     => "Int"
-    case Code.Primitive.ScalaLong    => "Long"
+    case Code.Primitive.ScalaBoolean => "Boolean"
+    case Code.Primitive.ScalaByte    => "Byte"
+    case Code.Primitive.ScalaChar    => "Char"
     case Code.Primitive.ScalaDouble  => "Double"
     case Code.Primitive.ScalaFloat   => "Float"
-    case Code.Primitive.ScalaChar    => "Char"
-    case Code.Primitive.ScalaByte    => "Byte"
+    case Code.Primitive.ScalaInt     => "Int"
+    case Code.Primitive.ScalaLong    => "Long"
     case Code.Primitive.ScalaShort   => "Short"
-    case Code.Primitive.ScalaBoolean => "Boolean"
-    case Code.Primitive.ScalaUnit    => "Unit"
     case Code.Primitive.ScalaString  => "String"
+    case Code.Primitive.ScalaUnit    => "Unit"
+    case Code.Primitive.ScalaUUID    => "java.util.UUID"
     case Code.ScalaType.Inferred     => ""
 
     case Code.EndpointCode(method, pathPatternCode, queryParamsCode, headersCode, inCode, outCodes, errorsCode) =>
