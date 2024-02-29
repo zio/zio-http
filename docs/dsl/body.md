@@ -321,6 +321,8 @@ URL encoding is primarily useful for encoding data in the query string of a URL 
 We can decode the content of the body into a `String` using the `Body#asString` method. It allows decoding with both default and custom charsets:
 
 ```scala mdoc:compile-only
+import java.nio.charset.Charset
+
 val defaultCharsetString = body.asString
 val customCharsetString = body.asString(Charset.forName("UTF-8"))
 ```
@@ -349,8 +351,8 @@ val decodedPerson = body.to[Person]
 We can access the content of the body as an array of bytes or a chunk of bytes. This is useful when dealing with binary data. Here's how you can do it:
 
 ```scala mdoc:compile-only
-val byteArray = body.asArray
-val byteChunk = body.asChunk
+val byteArray: Task[Array[Byte]] = body.asArray
+val byteChunk: Task[Chunk[Byte]] = body.asChunk
 ```
 
 These methods return the body content as an array of bytes or a ZIO chunk of bytes, respectively.
@@ -359,6 +361,36 @@ These methods return the body content as an array of bytes or a ZIO chunk of byt
 
 We can access the content of the body as a ZIO stream of bytes:
 
-```scala mdoc:compile-only
+```scala mdoc
 val byteStream = body.asStream
+```
+
+### Decoding Multipart Form Data
+
+We can decode the content of the body as multipart form data:
+
+```scala mdoc:compile-only
+val multipartFormData: Task[Form] = body.asMultipartForm
+```
+
+ZIO HTTP supports streaming, allowing us to handle large files using **multipart/form-data**. By utilizing `Body#asMultipartFormStream`, which gives us a `Task` of `StreamingForm`. Using the `StreamingForm#fields` method we can access a stream of `FormField` representing the form's parts:
+
+```scala mdoc:compile-only
+for {
+  form  <- body.asMultipartFormStream
+  count <- form.fields.flatMap {
+    case FormField.Binary(name, data, contentType, transferEncoding, filename) => ???
+    case FormField.StreamingBinary(name, contentType, transferEncoding, filename, data) => ???
+    case FormField.Text(name, value, contentType, filename) => ???
+    case FormField.Simple(name, value) => ???
+  }.run(???)
+} yield ()
+
+```
+
+Also, if there's sufficient memory available, we can execute `StreamingForm#collectAll` method gather all its parts into memory:
+
+```scala mdoc:compile-only
+val streamingForm: Task[StreamingForm] = body.asMultipartFormStream
+val collectedForm: Task[Form] = streamingForm.flatMap(_.collectAll)
 ```
