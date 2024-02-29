@@ -225,3 +225,70 @@ val encodedData: String = "username=johndoe&password=secret"
 val formResult: Either[FormDecodingError, Form] =
   Form.fromURLEncoded(encodedData, Charsets.Utf8)
 ```
+
+## Operations
+
+### Appending Fields to a Form
+
+We can append fields to an existing form using the `+` or `append` operator:
+
+```scala mdoc
+import zio.http._
+
+val form =
+  Form(
+    FormField.simpleField("username", "johndoe"),
+    FormField.simpleField("password", "secretpassword"),
+  ) + FormField.simpleField("age", "42")
+```
+
+### Accessing Fields in a Form
+
+We can access fields in a form using the `get` method, which returns an option containing the first field with the specified name:
+
+```scala mdoc
+form.get("username")
+```
+
+This method allows us to retrieve a specific field from the form by its name.
+
+### Encoding Forms
+
+We can encode forms using multipart encoding or URL encoding.
+
+#### Multipart Encoding
+
+The `Form#multipartBytes` method takes the boundary and encodes the form using multipart encoding and returns the multipart byte stream:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.stream._
+
+val form: Form = ???
+val multipartStream: ZStream[Any, Nothing, Byte] = 
+    form.multipartBytes(Boundary("boundary123"))
+```
+
+#### URL Encoding
+
+The `Form#urlEncoded` method encodes the form using URL encoding and returns the encoded string:
+
+```scala mdoc
+import zio.http._
+
+form.urlEncoded
+
+form.urlEncoded(Charsets.Utf8)
+```
+
+### Converting Form to Query Parameters
+
+The `toQueryParams` method in the Form object allows us to convert a form into query parameters:
+
+```scala mdoc
+import zio.http._
+
+val queryParams: QueryParams = form.toQueryParams
+
+queryParams.encode
+```
