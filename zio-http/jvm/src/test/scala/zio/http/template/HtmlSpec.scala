@@ -82,7 +82,7 @@ case object HtmlSpec extends ZIOHttpSpec {
       },
       test("raw HTML content is not escaped") {
         val view     = Html.raw("<div>Hello, world!</div>")
-        val expected = "<div>Hello, world!</div>"
+        val expected = """<div>Hello, world!</div>"""
         assert(view.encode)(equalTo(expected))
       },
     )
