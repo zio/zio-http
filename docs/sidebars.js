@@ -18,10 +18,12 @@ const sidebars = {
             "dsl/request",
             "dsl/response",
             "dsl/handler",
-            "dsl/body",
             "dsl/headers",
+            "dsl/body",
+            "dsl/form",
             "dsl/cookies",
             "dsl/middleware",
+            "dsl/status",
             {
               type: "category",
               label: "DSL",
