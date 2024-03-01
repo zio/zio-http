@@ -285,11 +285,11 @@ Routes(
         body(
           div(
             // Support for css class names
-            css := "container text-align-left",
+            css := "container" :: "text-align-left" :: Nil,
             h1("Hello World"),
             ul(
               // Support for inline css
-              styles := "list-style: none",
+              styles := Seq("list-style" -> "none"),
               li(
                 // Support for attributes
                 a(href := "/hello/world", "Hello World"),

@@ -5,35 +5,87 @@ const sidebars = {
       label: "ZIO Http",
       collapsed: true,
       link: { type: "doc", id: "index" },
+
       items: [
         "setup",
-        "getting-started",
+        "quickstart",
+        "performance",
         {
           type: "category",
-          label: "DSL",
+          label: "Concepts",
+          collapsed: false,
           link: { type: "doc", id: "index" },
           items: [
-            "dsl/server",
-            "dsl/routes",
-            "dsl/request",
-            "dsl/response",
-            "dsl/handler",
-            "dsl/body",
-            "dsl/headers",
-            "dsl/cookies",
-            "dsl/middleware",
-            "dsl/status",
+            "concepts/routing",
+            "concepts/request-handling",
+            "concepts/server",
+            "concepts/client",
+            "concepts/middleware",
+            "concepts/endpoint",
+          ],
+        },
+        {
+          type: "category",
+          label: "Tutorials",
+          collapsed: false,
+          link: { type: "doc", id: "index" },
+          items: [
+            "tutorials/testing-your-zio-http-app",
+            "tutorials/deeper-dive-into-middleware",
+            "tutorials/deploying-zio-http-application"
+          ],
+        },
+        {
+          type: "category",
+          label: "How-to-guides",
+          collapsed: false,
+          link: { type: "doc", id: "index" },
+          items: [
+            "how-to-guides/endpoint",
+            "how-to-guides/cookie-authentication",
+            "how-to-guides/basic-web-application-with-zio-http",
+            "how-to-guides/multipart-form-data",
+            "how-to-guides/how-to-utilize-signed-cookies",
+            "how-to-guides/how-to-handle-WebSocket-exceptions-and-errors",
+          ],
+        },
+        {
+          type: "category",
+          label: "Reference",
+          collapsed: false,
+          link: { type: "doc", id: "index" },
+          items: [
+            "reference/server-backend",
+            "reference/websockets",
+            "reference/json-handling",
+            "reference/request-logging",
+            "reference/metrics",
             {
               type: "category",
               label: "DSL",
-              collapsed: false,
+              link: { type: "doc", id: "index" },
               items: [
-                "dsl/socket/socket",
-                "dsl/socket/websocketframe"
-              ]
+                "reference/dsl/server",
+                "reference/dsl/routes",
+                "reference/dsl/route_pattern",
+                "reference/dsl/path_codec",
+                "reference/dsl/request",
+                "reference/dsl/response",
+                "reference/dsl/handler",
+                "reference/dsl/body",
+                "reference/dsl/headers",
+                "reference/dsl/cookies",
+                "reference/dsl/middleware",
+                "reference/dsl/template",
+                {
+                  type: "category",
+                  label: "DSL",
+                  collapsed: false,
+                  items: ["reference/dsl/socket/socket", "reference/dsl/socket/websocketframe"],
+                },
+              ],
             },
-            "dsl/template"
-          ]
+          ],
         },
         {
           type: "category",
@@ -49,7 +101,7 @@ const sidebars = {
             "examples/websocket",
             "examples/streaming",
             "examples/endpoint",
-            "examples/middleware-cors-handling",
+            "examples/cors-handling-middleware",
             "examples/authentication",
             "examples/cookies",
             "examples/graceful-shutdown",
@@ -57,11 +109,11 @@ const sidebars = {
             "examples/concrete-entity",
             "examples/multipart-form-data",
             "examples/server-sent-events-in-endpoints",
-          ]
-        }
-      ]
-    }
-  ]
+          ],
+        },
+      ],
+    },
+  ],
 };
 
 module.exports = sidebars;

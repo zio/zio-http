@@ -1,7 +1,9 @@
 ---
-id: getting-started
-title: Getting Started
+id: index
+title: "Introduction to ZIO Http"
+sidebar_label: "ZIO Http"
 ---
+
 
 **ZIO HTTP** is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO and uses [Netty](https://netty.io/) as its core.
 
