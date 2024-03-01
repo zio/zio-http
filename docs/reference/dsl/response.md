@@ -6,51 +6,134 @@ title: Response
 **ZIO HTTP** `Response` is designed to encode HTTP Response.
 It supports all HTTP status codes and headers along with custom methods and headers (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) )
 
+## Response Usage
+
+In ZIO HTTP, a `Response` is used in two contexts, server-side and client-side.
+
+### Server Side
+
+In the server-side context, a `Response` is created and returned by a `Handler`:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object HelloWorldExample extends ZIOAppDefault {
+  val app: HttpApp[Any] =
+    Routes(
+      Method.GET / "text" ->
+        handler {
+          Response.text("Hello World!")
+        },
+    ).toHttpApp
+
+  override val run = Server.serve(app).provide(Server.default)
+}
+```
+
+### Client Side
+
+In the client-side context, a `Response` is received from the client after making a request to a server:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http.Header.ContentType.render
+import zio.http._
+
+object ClientExample extends ZIOAppDefault {
+  val program = for {
+    res         <- Client.request(Request.get("https://zio.dev/"))
+    contentType <- ZIO.from(res.header(Header.ContentType))
+    _           <- Console.printLine("------Content Type------")
+    _           <- Console.printLine(render(contentType))
+    data        <- res.body.asString
+    _           <- Console.printLine("----------Body----------")
+    _           <- Console.printLine(data)
+  } yield ()
+
+  override val run = program.provide(Client.default, Scope.default)
+}
+```
+
 ## Creating a Response
 
-`Response` can be created with `status`, `headers` and `data`.  
+A `Response` can be created with `status`, `headers`, and `data` using the default constructor:
 
-The below snippet creates a response with default params, `status` as `Status.OK`, `headers` as `Headers.empty` and `data` as `Body.Empty`:
+```scala
+case class Response(
+  status: Status = Status.Ok,
+  headers: Headers = Headers.empty,
+  body: Body = Body.empty,
+)
+```
+
+The below snippet creates a response with default params, `status` as `Status.OK`, `headers` as `Headers.empty`, and `data` as `Body.Empty`:
 
 ```scala mdoc
 import zio.http._
+import zio._
 
 Response()
 ```
 
-### Empty Response
+### Status Codes
 
-**`Response.ok`** creates an empty response with status code 200:
+ZIO HTTP has several constructors for the most common status codes:
+
+| Method                                   | Description                                                                                                                    | Status Code                         |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
+| `Response.ok`                            | Successful request                                                                                                             | 200 OK                              |
+| `Response.badRequest`                    | The server cannot or will not process the request due to an apparent client error                                              | 400 Bad Request                     |
+| `Response.unauthorized`                  | Similar to 403 Forbidden, but specifically for use when authentication is required and has failed or has not yet been provided | 401 Unauthorized                    |
+| `Response.forbidden`                     | The client does not have access rights to the content; that is, it is unauthorized                                             | 403 Forbidden                       |
+| `Response.notFound`                      | The requested resource could not be found but may be available in the future                                                   | 404 Not Found                       |
+| `Response.internalServerError`           | A generic error message, given when an unexpected condition was encountered and no more specific message is suitable           | 500 Internal Server Error           |
+| `Response.serviceUnavailable`            | The server cannot handle the request (because it is overloaded or down for maintenance)                                        | 503 Service Unavailable             |
+| `Response.redirect`                      | Used to inform the client that the resource they're requesting is located at a different URI                                   | 302 Found (Moved Temporarily)       |
+| `Response.seeOther`                      | Tells the client to look at a different URL for the requested resource                                                         | 303 See Other                       |
+| `Response.gatewayTimeout`                | The server was acting as a gateway or proxy and did not receive a timely response from the upstream server                     | 504 Gateway Timeout                 |
+| `Response.httpVersionNotSupported`       | The server does not support the HTTP protocol version that was used in the request                                             | 505 HTTP Version Not Supported      |
+| `Response.networkAuthenticationRequired` | The client needs to authenticate to gain network access                                                                        | 511 Network Authentication Required |
+| `Response.notExtended`                   | Further extensions to the request are required for the server to fulfill it                                                    | 510 Not Extended                    |
+| `Response.notImplemented`                | The server either does not recognize the request method, or it lacks the ability to fulfill the request                        | 501 Not Implemented                 |
+
+For example, to create a response with status code 200, we can use `Response.ok`:
 
 ```scala mdoc
 Response.ok
 ```
 
-**`Response.status`** creates an empty response with provided status code:
+And also to create a response with status code 404, we can use `Response.badRequest`:
 
 ```scala mdoc
+Response.notFound
+
+Response.notFound("The requested resource could not be found!")
+```
+
+If we want to create a response with a more specific status code, we can use the `status` method. It takes a `Status` as a parameter and returns a new `Response` with the corresponding status code:
+
+```scala mdoc:compile-only
 Response.status(Status.Continue)
 ```
 
-### `Response.text`
+To learn more about status codes, see [Status](status.md) page.
 
-Creates a response with data as text, content-type header set to text/plain and status code 200:
+### From Plain Text, JSON, and HTML
+
+**`Response.text`** creates a response with data as text, content-type header set to text/plain, and status code 200:
 
 ```scala mdoc
 Response.text("hey")
 ```
 
-### `Response.json`
-
-Creates a response with data as json, content-type header set to application/json and status code 200:
+**`Response.json`** creates a response with data as JSON, content-type header set to `application/json`, and status code 200:
 
 ```scala mdoc
 Response.json("""{"greetings": "Hello World!"}""")
 ```
 
-### `Response.html`
-
-Creates a response with data as html, content-type header set to text/html and status code 200:
+**`Response.html`** creates a response with data as HTML, content-type header set to `text/html`, and status code 200.
 
 ```scala mdoc
 import zio.http.template._
@@ -58,37 +141,280 @@ import zio.http.template._
 Response.html(Html.fromString("html text"))
 ```
 
-### `Response.error`
+### Converting Failures to Responses
 
-Creates a response with a provided status code and message:
+The `Response` companion object provides some constructors to convert exceptions into responses. These constructors are useful for error handling by converting failures into appropriate HTTP responses:
+
+**`Response.fromThrowable`** Creates a new HTTP response based on the type of throwable provided. This method facilitates the conversion of various types of exceptions into appropriate HTTP responses, making error handling more streamlined:
+
+```scala
+object Response {
+  def fromThrowable(throwable: Throwable): Response = ???
+}
+```
+
+Here is the table of exceptions and their corresponding status code:
+
+| Throwable Type                    | Status Class          | Status Code | Description                                  |
+|-----------------------------------|-----------------------|-------------|----------------------------------------------|
+| `AccessDeniedException`           | `Forbidden`           | 403         | Access to a resource is denied.              |
+| `IllegalAccessException`          | `Forbidden`           | 403         | Illegal access to a resource is attempted.   |
+| `IllegalAccessError`              | `Forbidden`           | 403         | Illegal access to a resource occurs.         |
+| `NotDirectoryException`           | `BadRequest`          | 400         | The specified path is not a directory.       |
+| `IllegalArgumentException`        | `BadRequest`          | 400         | An invalid argument is provided.             |
+| `java.io.FileNotFoundException`   | `NotFound`            | 404         | The specified file or resource is not found. |
+| `java.net.ConnectException`       | `ServiceUnavailable`  | 503         | Unable to connect to a service.              |
+| `java.net.SocketTimeoutException` | `GatewayTimeout`      | 504         | Connection or read operation timed out.      |
+| Others (unrecognized throwable)   | `InternalServerError` | 500         | An unexpected error occurred.                |
+
+Another low-level method for error handling is `Response.fromCause` which creates a response from a `Cause`:
+
+```scala
+object Response {
+  def fromCause(cause: Cause[Any]): Response = ???
+}
+```
+
+This constructor is similar to `Response.fromThrowable`, but it also captures the interruption of the fiber. If the provided `Cause` is a failure due to interruption, the status code of the response will be `Status.RequestTimeout`.
+
+We can use `Response.fromCause` in combination with the `Handler#mapErrorCause`, `Route#handleErrorCause`, and `Routes#handleErrorCause` methods. These methods take a function that maps the `Cause[Err] => Err` and return a `Handler`, `Route` or a `Routes` with the error handling logic applied:
 
 ```scala mdoc
-Response.error(Status.BadRequest, "It's not good!")
+import zio.http._
+import java.io.IOException
+
+val failedHandler = Handler.fail(new IOException())
+
+failedHandler.mapErrorCause(Response.fromCause)
 ```
 
-## Operators
+:::note
+In many cases, it is more convenient to use the `sandbox` method to automatically convert all failures into a corresponding `Response`. But in some cases, to have more granular control over the error handling, we may want to use `Response.fromCause` and `Response.fromThrowable` directly.
+:::
 
-### Updating Response Status
+:::info
+The `Cause` is a data structure that represents the result of a failed computation in ZIO. To learn more about `Cause`, see the [Cause](https://zio.dev/reference/core/cause) page on the ZIO core documentation.
+:::
 
-`Response#status` updates the `status` of `Response`:
+### Specialized Response Operators
 
-```scal mdoc
-Response.text("Hello World!").status(Status.NOT_FOUND)
+`status` to update the `status` of `Response`
+
+```scala mdoc
+Response.text("Hello World!").status(Status.NotFound)
 ```
 
-### Updating Response Headers
-
-`Response#updateHeaders` updates the `headers` of `Response`:
+`updateHeaders` to update the `headers` of `Response`
 
 ```scala mdoc
 Response.ok.updateHeaders(_ => Headers("key", "value"))
 ```
 
-### Adding Cookie to Response
+### Response from HTTP Errors
 
-**`Response#addCookie`** adds cookies in the headers of the response:
+`error` creates a response with a provided status code and message.
 
 ```scala mdoc
+ Response.error(Status.BadRequest, "It's not good!")
+```
+
+### Creating a Response from Server-Sent Events
+
+The `Response.fromServerSentEvents` method creates a response with a stream of server-sent events:
+
+```scala
+object Response {
+  def fromServerSentEvents(stream: ZStream[Any, Nothing, ServerSentEvent]): Response = ???
+}
+```
+
+Let's try a complete example:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.stream._
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter.ISO_LOCAL_TIME
+
+object ServerSentExample extends ZIOAppDefault {
+
+  val stream: ZStream[Any, Nothing, ServerSentEvent] =
+    ZStream.repeatWithSchedule(
+      ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now)),
+      Schedule.spaced(1.second),
+    )
+
+  val app =
+    Routes(
+      Method.GET / "events" -> handler {
+        Response.fromServerSentEvents(stream)
+      },
+    ).toHttpApp
+  def run = Server.serve(app).provide(Server.default)
+}
+```
+
+After running the above example, we can open the browser and navigate to `http://localhost:8080/events` to see the server-sent events in action. The browser will display the time every second.
+
+Also, we can use the `curl` command to see the server-sent events:
+
+```bash
+curl -N http://localhost:8080/events
+```
+
+This will display the time every second in the terminal:
+
+```bash
+data: 13:51:31.036249
+
+data: 13:51:32.037663
+
+data: 13:51:33.039565
+
+data: 13:51:34.041464
+
+...
+```
+
+### Creating a Response from a WebSocketApp
+
+The `Response.fromWebSocketApp` constructor takes a `WebSocketApp` and creates a `Response` with a WebSocket connection:
+
+```scala
+object Response {
+  def fromWebSocketApp[R](app: WebSocketApp[R]): ZIO[R, Nothing, Response] = ???
+}
+```
+
+Let's try an echo server which sends back the received messages:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object WebsocketExample extends ZIOAppDefault {
+
+  val app: HttpApp[Any] = {
+    Routes(
+      Method.GET / "echo" -> handler {
+        Response.fromSocketApp(
+          WebSocketApp(
+            handler { (channel: WebSocketChannel) =>
+              channel.receiveAll {
+                case ChannelEvent.Read(message) =>
+                  channel.send(ChannelEvent.read(message))
+                case other                      =>
+                  ZIO.debug(other)
+              }
+            },
+          ),
+        )
+      },
+    ).toHttpApp
+  }
+
+  def run =
+    Server.serve(app).provide(Server.default)
+}
+```
+
+To test this example, we can use the `websocat` command-line tool:
+
+```bash
+> websocat ws://localhost:8080/echo
+hello
+hello
+bye
+bye
+```
+
+## Operations
+
+### Adding Cookies and Flashes to Response
+
+**`addCookie`** adds cookies in the headers of the response:
+
+```scala mdoc:compile-only
+import zio.http._
+
 val cookie = Cookie.Response("key", "value")
 Response.ok.addCookie(cookie)
 ```
+
+**`addFlash`** adds flash messages in the headers of the response:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val flash = Flash.setValue("key1", "value1")
+Response.ok.addFlash(flash)
+```
+
+### Getting Headers from Response
+
+To get headers from a response, we can use the `header` method:
+
+```scala mdoc:invisible
+val response = Response.ok.addHeader("Content-Type", "application/json; charset=utf-8")
+```
+
+```scala mdoc
+response.header(Header.ContentType)
+```
+
+List of methods available to get headers from a `Response`:
+
+| Method                                 | Description                                                                                   | Return Type                                      |
+|----------------------------------------|-----------------------------------------------------------------------------------------------|--------------------------------------------------|
+| `header(headerType: HeaderType)`       | Gets a header or returns `None` if not present or unparsable.                                 | `Option[headerType.HeaderValue]`                 |
+| `headers(headerType: HeaderType)`      | Gets multiple headers of the specified type.                                                  | `Chunk[headerType.HeaderValue]`                  |
+| `headerOrFail(headerType: HeaderType)` | Gets a header, returning `None` if absent, or an `Either` with parsing error or parsed value. | `Option[Either[String, headerType.HeaderValue]]` |
+| `headers`                              | Returns all headers.                                                                          | `Headers`                                        |
+| `rawHeader(name: CharSequence)`        | Gets the raw unparsed value of a header by name.                                              | `Option[String]`                                 |
+| `rawHeader(headerType: HeaderType)`    | Gets the raw unparsed value of a header by type.                                              | `Option[String]`                                 |
+
+### Modifying Headers in Response
+
+To add headers to a response, we can use the `Response#addHeader` method:
+
+```scala mdoc
+Response.ok.addHeader("Content-Type", "application/json; charset=utf-8")
+
+Response.ok.addHeader(Header.ContentType(MediaType.application.json))
+```
+
+Here are the methods available to modify headers in a `Response`:
+
+| Method          | Description                                                                                        |
+|-----------------|----------------------------------------------------------------------------------------------------|
+| `addHeader`     | Adds a header or a header with the given name and value, returning a new `Response` instance.      |
+| `addHeaders`    | Adds multiple headers, returning a new `Response` instance.                                        |
+| `removeHeader`  | Removes a specified header, returning a new `Response` instance.                                   |
+| `removeHeaders` | Removes multiple specified headers, returning a new `Response` instance.                           |
+| `setHeaders`    | Sets the headers to the provided headers, returning a new `Response` instance.                     |
+| `updateHeaders` | Updates the current headers using a provided update function, returning a new `Response` instance. |
+
+### Checking for Headers in Response
+
+The `Response` class provides methods that allow us to check if the headers meet certain conditions:
+
+```scala mdoc
+response.hasContentType(MediaType.application.json.fullType)
+```
+
+There are several such methods available in the `Response` class:
+
+| `Method`                              | Description                                                    |
+|---------------------------------------|----------------------------------------------------------------|
+| `hasContentType(value: CharSequence)` | Checks if the headers have the given content type.             |
+| `hasFormUrlencodedContentType`        | Checks if the headers have a form-urlencoded content type.     |
+| `hasFormMultipartContentType`         | Checks if the headers have a multipart/form-data content type. |
+| `hasHeader(name: CharSequence)`       | Checks if the headers contain a header with the given name.    |
+| `hasHeader(headerType: HeaderType)`   | Checks if the headers contain a header of the given type.      |
+| `hasHeader(header: Header)`           | Checks if the headers contain a specific header.               |
+| `hasJsonContentType`                  | Checks if the headers have a JSON content type.                |
+| `hasMediaType(mediaType: MediaType)`  | Checks if the headers have the specified media type.           |
+| `hasTextPlainContentType`             | Checks if the headers have a text/plain content type.          |
+| `hasXhtmlXmlContentType`              | Checks if the headers have an XHTML/XML content type.          |
+| `hasXmlContentType`                   | Checks if the headers have an XML content type.                |
