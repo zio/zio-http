@@ -84,7 +84,7 @@ case object HtmlSpec extends ZIOHttpSpec {
         val view = Html.raw("<div>Hello, world!</div>")
         val expected = "<div>Hello, world!</div>"
         assert(view.encode)(equalTo(expected))
-     },
+      },
     )
   }
 }
