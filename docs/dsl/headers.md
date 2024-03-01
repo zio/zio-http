@@ -3,20 +3,17 @@ id: headers
 title: Headers
 ---
 
-**ZIO HTTP** provides support for all HTTP headers (as defined
-in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) along with custom headers.
+**ZIO HTTP** provides support for all HTTP headers (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616)) along with custom headers.
 
 ## Server-side
 
-### Attaching Headers to `Response`
+### Attaching Headers to Response
 
-On the server-side, `ZIO-HTTP` is adding a collection of pre-defined headers to the response, according to the HTTP
-specification, additionally, users may add other headers, including custom headers.
+On the server-side, ZIO HTTP is adding a collection of pre-defined headers to the response, according to the HTTP specification, additionally, users may add other headers, including custom headers.
 
 There are multiple ways to attach headers to a response:
 
-Using `addHeaders` helper on response:
-- 
+#### Using `addHeaders` Helper on Response
 
 ```scala mdoc
 import zio._
@@ -25,7 +22,7 @@ import zio.http._
 Response.ok.addHeader(Header.ContentLength(0L))
 ```
 
-Through `Response` constructors:
+#### Through Response Constructors
 
 ```scala mdoc
 Response(
@@ -36,7 +33,7 @@ Response(
 )
 ```
 
-Using `Middlewares`:
+#### Using Middlewares
 
 ```scala mdoc
 import Middleware.addHeader
@@ -44,9 +41,9 @@ import Middleware.addHeader
 Routes(Method.GET / "hello" -> Handler.ok) @@ addHeader(Header.ContentLength(0L))
 ```
 
-### Reading Headers from `Request`
+### Reading Headers from Request
 
-On the Server-side you can read Request headers as given below
+On the Server-side you can read Request headers as given below:
 
 ```scala mdoc
 Routes(
@@ -57,10 +54,9 @@ Routes(
 ```
 
 <details>
-<summary><b>Detailed examples </b></summary>
+<summary><b>Detailed Example</b></summary>
 
-Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom
-header is added to `Response` through `addHeader`:
+Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom header is added to `Response` through `addHeader`:
 
 ```scala mdoc:silent
 import zio._
@@ -97,35 +93,31 @@ object SimpleResponseDispatcher extends ZIOAppDefault {
         }
     ).sandbox.toHttpApp
 }
-
 ```
-More examples:
-
-- [Middleware](https://github.com/zio/zio-http/blob/main/example/src/main/scala/Middleware.scala)
 
 </details>
 
 ## Client-side
 
-### Adding headers to `Request`
+### Adding Headers to Request
 
-ZIO-HTTP provides a simple way to add headers to a client `Request`.
+ZIO HTTP provides a simple way to add headers to a client `Request`.
 
 ```scala mdoc:silent
 val headers = Headers(Header.Host("sports.api.decathlon.com"), Header.Accept(MediaType.application.json))
 Client.request(Request.get("http://sports.api.decathlon.com/test").addHeaders(headers))
 ```
 
-### Reading headers from `Response`
+### Reading Headers from Response
 
 ```scala mdoc:silent
 Client.request(Request.get("http://sports.api.decathlon.com/test")).map(_.headers)
 ```
 
 <details>
-<summary><b>Detailed examples</b> </summary>
+<summary><b>Detailed Example</b> </summary>
 
-- The sample below shows how a header could be added to a client request:
+The sample below shows how a header could be added to a client request:
 
 ```scala mdoc:silent
 import zio._
@@ -168,7 +160,9 @@ APIs could be used on client, server, and middleware.
 
 `Headers` have following type of helpers
 
-Constructors - Provides a list of helpful methods that can create `Headers`.
+### Constructors
+
+Provides a list of helpful methods that can create `Headers`:
 
 ```scala mdoc
 // create a simple Accept header:
@@ -178,29 +172,32 @@ Headers(Header.Accept(MediaType.application.json))
 Headers(Header.Authorization.Basic("username", "password"))
 ```
 
-Getters - Provides a list of operators that parse and extract data from the `Headers`.
+### Getters
+
+Provides a list of operators that parse and extract data from the `Headers`:
 
 ```scala mdoc
-
 // retrieving the value of Accept header value:
 val acceptHeader: Headers = Headers(Header.Accept(MediaType.application.json))
 val acceptHeaderValue: Option[CharSequence] = acceptHeader.header(Header.Accept).map(_.renderedValue)
-
 
 // retrieving a bearer token from Authorization header:
 val authorizationHeader: Headers = Headers(Header.Authorization.Bearer("test"))
 val authorizationHeaderValue: Option[String] = acceptHeader.header(Header.Authorization).map(_.renderedValue)
 ```
 
-Modifiers - Provides a list of operators that modify the current `Headers`. Once modified, a new instance of the same
-type is returned.
+### Modifiers
+
+Provides a list of operators that modify the current `Headers`. Once modified, a new instance of the same type is returned:
 
 ```scala mdoc
 // add Accept header:
 Headers.empty.addHeader(Header.Accept(MediaType.application.json))
 ```
 
-Checks - Provides a list of operators that checks if the `Headers` meet the give constraints.
+### Checks
+
+Provides a list of operators that checks if the `Headers` meet the give constraints:
 
 ```scala mdoc
 val contentTypeHeader: Headers = Headers(Header.ContentType(MediaType.application.json))
