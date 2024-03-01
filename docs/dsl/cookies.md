@@ -46,7 +46,7 @@ val responseCookie = cookie.toResponse
 
 ### Updating a Response Cookie
 
-`Cookie.Response` is a case class, so it can be updated by its `copy` method: 
+`Cookie.Response` is a case class, so it can be updated by its `copy` method:
 
 - `maxAge` updates the max-age of the cookie:
 
@@ -116,7 +116,7 @@ def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
         .provide(Server.default)
 ``` 
 
-## Adding Cookie in Response
+## Adding Cookie in a Response
 
 The cookies can be added in `Response` headers:
 
@@ -126,9 +126,9 @@ val res = Response.ok.addCookie(responseCookie)
 
 It updates the response header `Set-Cookie` as ```Set-Cookie: <cookie-name>=<cookie-value>```
 
-## Getting Cookie from Request
+## Getting Cookie from a Request
 
-From HTTP requests, a single cookie can be retrieved with `cookie`.
+From HTTP requests, a single cookie can be retrieved with `cookie`:
 
 ```scala mdoc:compile-only
  private val app4 = 
@@ -140,9 +140,9 @@ From HTTP requests, a single cookie can be retrieved with `cookie`.
   )
 ```
 
-## Getting Cookie from Header
+## Getting Cookie from a Header
 
-In HTTP requests, cookies are stored in the `cookie` header.
+In HTTP requests, cookies are stored in the `cookie` header:
 
 ```scala mdoc:compile-only
  private val app3 = 
@@ -151,4 +151,24 @@ In HTTP requests, cookies are stored in the `cookie` header.
       Response.text(req.header(Header.Cookie).map(_.value.toChunk).getOrElse(Chunk.empty).mkString(""))
     }
   )
+```
+
+## Examples
+
+Here are some simple examples of using cookies in a ZIO HTTP application.
+
+### Server Side Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/CookieServerSide.scala")
+```
+
+### Signed Cookies
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/SignCookies.scala")
 ```
