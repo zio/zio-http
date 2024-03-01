@@ -5,6 +5,143 @@ title: Headers
 
 **ZIO HTTP** provides support for all HTTP headers (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616)) along with custom headers.
 
+In ZIO HTTP we have two related types of headers:
+
+- `Header` represents a single HTTP header
+- `Headers` represents an immutable collection of headers
+
+## Header
+
+We can think of `Header` as a key-value pair, where the key is the header name and the value is the header value:
+
+```scala
+sealed trait Header {
+  def headerName: String
+  def renderedValue: String
+}
+```
+
+In the companion object of `Header`, we have a collection of predefined headers. They are grouped into sub-objects based on their category, such as `zio.http.Header.Authorization`, `zio.http.Header.CacheControl`, etc. All the headers are subtypes of `zio.http.Header` which is a sealed trait.
+
+By calling `headerName` and `renderedValue` on a header instance, we can access the header name and value, respectively.
+
+## Headers
+
+`Headers` is a collection of `Header` instances which is used to represent the headers of an HTTP message:
+
+```scala mdoc
+import zio.http._
+
+val headers1 = Headers(Header.Accept(MediaType.application.json))
+
+val headers2 = Headers(
+    Header.Accept(MediaType.application.json),
+    Header.Authorization.Basic("username", "password")
+  )
+```
+
+We can use raw strings to create headers:
+
+```scala mdoc
+import zio.http._
+// Creating headers from key-value pair
+val headers4 = Headers("Accept", "application/json")
+
+// Creating headers from tuple of key-value pair
+val headers3 = Headers("Accept" -> "application/json")
+```
+
+## Headers Operations
+
+Headers DSL provides plenty of powerful operators that can be used to add, remove, modify, and verify headers. There are several operations that can be performed on any instance of `Headers`, `Request`, and `Response`.
+
+### Getting Headers
+
+To get headers from a request or response, we can use the `header` method:
+
+```scala mdoc:invisible
+val response = Response.ok.addHeader("Content-Type", "application/json; charset=utf-8")
+
+val request = Request.get("/users").addHeader(Header.Accept(MediaType.application.`json`))
+```
+
+```scala mdoc:compile-only
+response.header(Header.ContentType)
+
+request.header(Header.Authorization)
+```
+
+List of methods available to get headers:
+
+| Method                                 | Description                                                                                   | Return Type                                      |
+|----------------------------------------|-----------------------------------------------------------------------------------------------|--------------------------------------------------|
+| `header(headerType: HeaderType)`       | Gets a header or returns `None` if not present or unparsable.                                 | `Option[headerType.HeaderValue]`                 |
+| `headers(headerType: HeaderType)`      | Gets multiple headers of the specified type.                                                  | `Chunk[headerType.HeaderValue]`                  |
+| `headerOrFail(headerType: HeaderType)` | Gets a header, returning `None` if absent, or an `Either` with parsing error or parsed value. | `Option[Either[String, headerType.HeaderValue]]` |
+| `headers`                              | Returns all headers.                                                                          | `Headers`                                        |
+| `rawHeader(name: CharSequence)`        | Gets the raw unparsed value of a header by name.                                              | `Option[String]`                                 |
+| `rawHeader(headerType: HeaderType)`    | Gets the raw unparsed value of a header by type.                                              | `Option[String]`                                 |
+
+### Modifying Headers
+
+There are several methods available to modify headers. Once modified, a new instance of the same type is returned:
+
+```scala mdoc:compile-only
+Request.get("/users").addHeader(Header.Accept(MediaType.application.`json`))
+
+Response.ok.addHeaders(
+  Headers(
+    Header.ContentType(MediaType.application.json),
+    Header.AccessControlAllowOrigin.All
+  )
+)
+
+Headers.empty.addHeader(Header.Accept(MediaType.application.json))
+```
+
+Here are the methods available to modify headers:
+
+| Method          | Description                                                   |
+|-----------------|---------------------------------------------------------------|
+| `addHeader`     | Adds a header or a header with the given name and value.      |
+| `addHeaders`    | Adds multiple headers.                                        |
+| `removeHeader`  | Removes a specified header.                                   |
+| `removeHeaders` | Removes multiple specified headers.                           |
+| `setHeaders`    | Sets the headers to the provided headers.                     |
+| `updateHeaders` | Updates the current headers using a provided update function. |
+
+### Checking for a Certain Condition
+
+There are methods available that enable us to verify whether the headers meet specific criteria:
+
+```scala mdoc:compile-only
+response.hasContentType(MediaType.application.json.fullType)
+
+request.hasHeader(Header.Accept)
+
+val contentTypeHeader: Headers = Headers(Header.ContentType(MediaType.application.json))
+
+contentTypeHeader.hasHeader(Header.ContentType) 
+
+contentTypeHeader.hasJsonContentType
+```
+
+There are several such methods available to check if the headers meet certain conditions:
+
+| `Method`                              | Description                                                    |
+|---------------------------------------|----------------------------------------------------------------|
+| `hasContentType(value: CharSequence)` | Checks if the headers have the given content type.             |
+| `hasFormUrlencodedContentType`        | Checks if the headers have a form-urlencoded content type.     |
+| `hasFormMultipartContentType`         | Checks if the headers have a multipart/form-data content type. |
+| `hasHeader(name: CharSequence)`       | Checks if the headers contain a header with the given name.    |
+| `hasHeader(headerType: HeaderType)`   | Checks if the headers contain a header of the given type.      |
+| `hasHeader(header: Header)`           | Checks if the headers contain a specific header.               |
+| `hasJsonContentType`                  | Checks if the headers have a JSON content type.                |
+| `hasMediaType(mediaType: MediaType)`  | Checks if the headers have the specified media type.           |
+| `hasTextPlainContentType`             | Checks if the headers have a text/plain content type.          |
+| `hasXhtmlXmlContentType`              | Checks if the headers have an XHTML/XML content type.          |
+| `hasXmlContentType`                   | Checks if the headers have an XML content type.                |
+
 ## Server-side
 
 ### Attaching Headers to Response
@@ -149,58 +286,3 @@ object SimpleClientJson extends ZIOAppDefault {
 ```
 
 </details>
-
-## Headers DSL
-
-Headers DSL provides plenty of powerful operators that can be used to add, remove, modify and verify headers. Headers
-APIs could be used on client, server, and middleware.
-
-`zio.http.Headers` - represents an immutable collection of headers
-`zio.http.Header`  - a collection of all the standard headers
-
-`Headers` have following type of helpers
-
-### Constructors
-
-Provides a list of helpful methods that can create `Headers`:
-
-```scala mdoc
-// create a simple Accept header:
-Headers(Header.Accept(MediaType.application.json))
-
-// create a basic authentication header:
-Headers(Header.Authorization.Basic("username", "password"))
-```
-
-### Getters
-
-Provides a list of operators that parse and extract data from the `Headers`:
-
-```scala mdoc
-// retrieving the value of Accept header value:
-val acceptHeader: Headers = Headers(Header.Accept(MediaType.application.json))
-val acceptHeaderValue: Option[CharSequence] = acceptHeader.header(Header.Accept).map(_.renderedValue)
-
-// retrieving a bearer token from Authorization header:
-val authorizationHeader: Headers = Headers(Header.Authorization.Bearer("test"))
-val authorizationHeaderValue: Option[String] = acceptHeader.header(Header.Authorization).map(_.renderedValue)
-```
-
-### Modifiers
-
-Provides a list of operators that modify the current `Headers`. Once modified, a new instance of the same type is returned:
-
-```scala mdoc
-// add Accept header:
-Headers.empty.addHeader(Header.Accept(MediaType.application.json))
-```
-
-### Checks
-
-Provides a list of operators that checks if the `Headers` meet the give constraints:
-
-```scala mdoc
-val contentTypeHeader: Headers = Headers(Header.ContentType(MediaType.application.json))
-val isHeaderPresent: Boolean   = contentTypeHeader.hasHeader(Header.ContentType) 
-val isJsonContentType: Boolean = contentTypeHeader.hasJsonContentType
-```
