@@ -8,7 +8,7 @@ import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.18"
   val Scala213         = "2.13.12"
-  val Scala3           = "3.3.1"
+  val Scala3           = "3.3.3"
   val ScoverageVersion = "2.0.9"
   val JmhVersion       = "0.4.3"
   val SilencerVersion  = "1.7.14"
@@ -72,7 +72,7 @@ object BuildHelper extends ScalaSettings {
     name                           := s"$prjName$shadedSuffix",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, Scala3),
     ThisBuild / scalaVersion       := Scala213,
-    scalacOptions                  ++= stdOptions ++ extraOptions(scalaVersion.value),
+    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
         "com.github.vovapolu" %% "scaluzzi" % "0.1.23",
@@ -145,7 +145,7 @@ object BuildHelper extends ScalaSettings {
     for {
       platform <- List("shared", platform)
       version  <- "scala" :: versions.toList.map("scala-" + _)
-      result   = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
+      result = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
       if result.exists
     } yield result
 
@@ -155,9 +155,9 @@ object BuildHelper extends ScalaSettings {
         List("2.12", "2.12+", "2.12-2.13", "2.x")
       case Some((2, 13)) =>
         List("2.13", "2.12+", "2.13+", "2.12-2.13", "2.x")
-      case Some((3,_)) =>
+      case Some((3, _))  =>
         List("3")
-      case _ =>
+      case _             =>
         List()
     }
     platformSpecificSources(platform, conf, baseDir)(versions: _*)
@@ -169,17 +169,17 @@ object BuildHelper extends ScalaSettings {
         scalaVersion.value,
         crossProjectPlatform.value.identifier,
         "main",
-        baseDirectory.value
-        )
+        baseDirectory.value,
+      )
     },
     Test / unmanagedSourceDirectories ++= {
       crossPlatformSources(
         scalaVersion.value,
         crossProjectPlatform.value.identifier,
         "test",
-        baseDirectory.value
-        )
-    }
-    )
+        baseDirectory.value,
+      )
+    },
+  )
 
 }
