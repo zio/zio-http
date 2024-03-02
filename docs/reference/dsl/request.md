@@ -21,7 +21,7 @@ Routes(
 )
 ```
 
-To learn more about handlers, please refer to the [Handler](./handler.md) section.
+To learn more about handlers, please refer to the [Handler](./reference/dsl/handler.md) section.
 
 ## Creating a Request
 
