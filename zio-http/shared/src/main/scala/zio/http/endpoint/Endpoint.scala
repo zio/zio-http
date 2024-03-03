@@ -50,6 +50,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   input: HttpCodec[HttpCodecType.RequestType, Input],
   output: HttpCodec[HttpCodecType.ResponseType, Output],
   error: HttpCodec[HttpCodecType.ResponseType, Err],
+  codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   doc: Doc,
   middleware: Middleware,
 ) { self =>
@@ -128,6 +129,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   ): Invocation[PathInput, Input, Err, Output, Middleware] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i, j, k, l)))
 
+  /**
+   * Hides any details of codec errors from the user.
+   */
+  def emptyErrorResponse: Endpoint[PathInput, Input, Err, Output, Middleware] =
+    self.copy(codecError =
+      StatusCodec.BadRequest
+        .transformOrFail[HttpCodecError](_ => Right(HttpCodecError.CustomError("Empty", "empty")))(_ => Right(())),
+    )
+
   def examplesIn(examples: (String, Input)*): Endpoint[PathInput, Input, Err, Output, Middleware] =
     copy(input = self.input.examples(examples))
 
@@ -190,9 +200,23 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
         }
         .catchAllCause {
           case cause if isHttpCodecError(cause) =>
-            Handler.succeed(zio.http.Response(status = Status.BadRequest))
-
-          case cause => Handler.failCause(cause)
+            Handler.fromFunctionZIO { (request: zio.http.Request) =>
+              val error    = cause.defects.head.asInstanceOf[HttpCodecError]
+              val log      = ZIO.unit
+              val response = {
+                val outputMediaTypes =
+                  NonEmptyChunk
+                    .fromChunk(
+                      request.headers
+                        .getAll(Header.Accept)
+                        .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0)),
+                    )
+                    .getOrElse(defaultMediaTypes)
+                codecError.encodeResponse(error, outputMediaTypes)
+              }
+              log.as(response)
+            }
+          case cause                            => Handler.failCause(cause)
         }
 
     Route.handled(self.route)(handler)
@@ -275,6 +299,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input = self.input ++ ContentCodec.contentStream[Input2],
       output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -291,6 +316,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input = self.input ++ (ContentCodec.contentStream[Input2] ?? doc),
       output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -307,6 +333,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input = self.input ++ ContentCodec.contentStream[Input2](name),
       output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -323,9 +350,16 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input = self.input ++ (ContentCodec.contentStream[Input2](name) ?? doc),
       output,
       error,
+      codecError,
       doc,
       mw,
     )
+
+//  /**
+//   * If a codec error occurs, log the error using the specified function.
+//   */
+//  def logCodecError(log: HttpCodecError => String): Endpoint[PathInput, Input, Err, Output, Middleware] =
+//    self.copy(codecError = self.codecError.copy(log = Some(log)))
 
   /**
    * Returns a new endpoint derived from this one whose middleware is composed
@@ -341,20 +375,21 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     errAlternator.Out,
     outCombiner.Out,
   ]] =
-    Endpoint(route, input, output, error, doc, mw ++ that)
+    Endpoint(route, input, output, error, codecError, doc, mw ++ that)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the ok status code.
    */
   def out[Output2: HttpContentCodec](implicit
-    alt: Alternator[Output, Output2],
+    alt: Alternator[Output2, Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content[Output2] ++ StatusCodec.status(Status.Ok)),
+      output = (HttpCodec.content[Output2] ++ StatusCodec.status(Status.Ok)) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -364,7 +399,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * specified type for the ok status code and is documented.
    */
   def out[Output2: HttpContentCodec](doc: Doc)(implicit
-    alt: Alternator[Output, Output2],
+    alt: Alternator[Output2, Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     out[Output2](Status.Ok, doc)
 
@@ -374,7 +409,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    */
   def out[Output2: HttpContentCodec](
     mediaType: MediaType,
-  )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  )(implicit alt: Alternator[Output2, Output]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     out[Output2](Status.Ok, mediaType)
 
   /**
@@ -383,12 +418,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    */
   def out[Output2: HttpContentCodec](
     status: Status,
-  )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  )(implicit alt: Alternator[Output2, Output]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content[Output2] ++ StatusCodec.status(status)),
+      output = (HttpCodec.content[Output2] ++ StatusCodec.status(status)) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -400,12 +436,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   def out[Output2: HttpContentCodec](
     status: Status,
     doc: Doc,
-  )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  )(implicit alt: Alternator[Output2, Output]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | ((HttpCodec.content[Output2] ++ StatusCodec.status(status)) ?? doc),
+      output = ((HttpCodec.content[Output2] ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
+      codecError,
       Doc.empty,
       mw,
     )
@@ -417,12 +454,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   def out[Output2: HttpContentCodec](
     mediaType: MediaType,
     doc: Doc,
-  )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  )(implicit alt: Alternator[Output2, Output]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content[Output2](mediaType) ++ StatusCodec.Ok ?? doc),
+      output = (HttpCodec.content[Output2](mediaType) ++ StatusCodec.Ok ?? doc) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -435,13 +473,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     status: Status,
     mediaType: MediaType,
     doc: Doc,
-  )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  )(implicit alt: Alternator[Output2, Output]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output |
-        ((HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) ?? doc),
+      output = ((HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -453,25 +491,35 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   def out[Output2: HttpContentCodec](
     status: Status,
     mediaType: MediaType,
-  )(implicit alt: Alternator[Output, Output2]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
+  )(implicit alt: Alternator[Output2, Output]): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     Endpoint(
       route,
       input,
-      output = self.output | (HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)),
+      output = (HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
+
+  /**
+   * Converts a codec error into a specific error type. The given media types
+   * are sorted by q-factor. Beginning with the highest q-factor.
+   */
+  def outCodecError(
+    codec: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
+  ): Endpoint[PathInput, Input, Err, Output, Middleware] =
+    self.copy(codecError = codec | self.codecError)
 
   /**
    * Returns a new endpoint that can fail with the specified error type for the
    * specified status code.
    */
   def outError[Err2: HttpContentCodec](status: Status)(implicit
-    alt: Alternator[Err, Err2],
+    alt: Alternator[Err2, Err],
   ): Endpoint[PathInput, Input, alt.Out, Output, Middleware] =
     copy[PathInput, Input, alt.Out, Output, Middleware](
-      error = self.error | (ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)),
+      error = (ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)) | self.error,
     )
 
   /**
@@ -479,10 +527,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * specified status code and is documented.
    */
   def outError[Err2: HttpContentCodec](status: Status, doc: Doc)(implicit
-    alt: Alternator[Err, Err2],
+    alt: Alternator[Err2, Err],
   ): Endpoint[PathInput, Input, alt.Out, Output, Middleware] =
     copy[PathInput, Input, alt.Out, Output, Middleware](
-      error = self.error | ((ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)) ?? doc),
+      error = ((ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)) ?? doc) | self.error,
     )
 
   def outErrors[Err2]: OutErrors[PathInput, Input, Err, Output, Middleware, Err2] = OutErrors(self)
@@ -492,19 +540,19 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * the specified codec.
    */
   def outCodec[Output2](codec: HttpCodec[HttpCodecType.ResponseType, Output2])(implicit
-    alt: Alternator[Output, Output2],
+    alt: Alternator[Output2, Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
-    copy(output = self.output | codec)
+    copy(output = codec | self.output)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream
    * of the specified type for the ok status code.
    */
   def outStream[Output2: HttpContentCodec](implicit
-    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+    alt: Alternator[ZStream[Any, Nothing, Output2], Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
     val contentCodec =
-      if (implicitly[HttpContentCodec[Output2]].schema == Schema[Byte])
+      if (implicitly[HttpContentCodec[Output2]].choices.forall(_._2.schema == Schema[Byte]))
         ContentCodec
           .binaryStream(MediaType.application.`octet-stream`)
           .asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
@@ -512,8 +560,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     Endpoint(
       route,
       input,
-      output = self.output | (contentCodec ++ StatusCodec.status(Status.Ok)),
+      output = (contentCodec ++ StatusCodec.status(Status.Ok)) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -524,10 +573,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * of the specified type for the ok status code.
    */
   def outStream[Output2: HttpContentCodec](doc: Doc)(implicit
-    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+    alt: Alternator[ZStream[Any, Nothing, Output2], Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
     val contentCodec =
-      if (implicitly[HttpContentCodec[Output2]].schema == Schema[Byte])
+      if (implicitly[HttpContentCodec[Output2]].choices.forall(_._2.schema == Schema[Byte]))
         ContentCodec
           .binaryStream(MediaType.application.`octet-stream`)
           .asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
@@ -535,8 +584,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     Endpoint(
       route,
       input,
-      output = self.output | (contentCodec ++ StatusCodec.status(Status.Ok) ?? doc),
+      output = (contentCodec ++ StatusCodec.status(Status.Ok) ?? doc) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -547,10 +597,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * of the specified type for the specified status code and is documented.
    */
   def outStream[Output2: HttpContentCodec](status: Status, doc: Doc)(implicit
-    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+    alt: Alternator[ZStream[Any, Nothing, Output2], Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
     val contentCodec =
-      if (implicitly[HttpContentCodec[Output2]].schema == Schema[Byte])
+      if (implicitly[HttpContentCodec[Output2]].choices.forall(_._2.schema == Schema[Byte]))
         ContentCodec
           .binaryStream(MediaType.application.`octet-stream`)
           .asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
@@ -558,8 +608,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     Endpoint(
       route,
       input,
-      output = self.output | (contentCodec ++ StatusCodec.status(status) ?? doc),
+      output = (contentCodec ++ StatusCodec.status(status) ?? doc) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -568,7 +619,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   def outStream[Output2: HttpContentCodec](
     mediaType: MediaType,
   )(implicit
-    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+    alt: Alternator[ZStream[Any, Nothing, Output2], Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     outStream(Status.Ok, mediaType)
 
@@ -576,7 +627,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     mediaType: MediaType,
     doc: Doc,
   )(implicit
-    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+    alt: Alternator[ZStream[Any, Nothing, Output2], Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] =
     outStream(Status.Ok, mediaType, doc)
 
@@ -584,7 +635,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     status: Status,
     mediaType: MediaType,
   )(implicit
-    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+    alt: Alternator[ZStream[Any, Nothing, Output2], Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
     val contentCodec =
       if (mediaType.binary)
@@ -593,25 +644,27 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     Endpoint(
       route,
       input,
-      output = self.output | (contentCodec ++ StatusCodec.status(status)),
+      output = (contentCodec ++ StatusCodec.status(status)) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
   }
 
   def outStream[Output2: HttpContentCodec](status: Status, mediaType: MediaType, doc: Doc)(implicit
-    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+    alt: Alternator[ZStream[Any, Nothing, Output2], Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Middleware] = {
     val contentCodec =
-      if (implicitly[HttpContentCodec[Output2]].schema == Schema[Byte])
+      if (implicitly[HttpContentCodec[Output2]].choices.forall(_._2.schema == Schema[Byte]))
         ContentCodec.binaryStream(mediaType).asInstanceOf[ContentCodec[ZStream[Any, Nothing, Output2]]]
       else ContentCodec.contentStream[Output2](mediaType)
     Endpoint(
       route,
       input,
-      output = self.output | ((contentCodec ++ StatusCodec.status(status)) ?? doc),
+      output = ((contentCodec ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
+      codecError,
       doc,
       mw,
     )
@@ -672,6 +725,7 @@ object Endpoint {
       route.toHttpCodec,
       HttpCodec.unused,
       HttpCodec.unused,
+      HttpCodecErrorCodec.default,
       Doc.empty,
       EndpointMiddleware.None,
     )
@@ -683,18 +737,18 @@ object Endpoint {
     def apply[Sub1 <: Err2: ClassTag, Sub2 <: Err2: ClassTag](
       codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
       codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
-    )(implicit alt: Alternator[Err, Err2]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
-      val codec = HttpCodec.enumeration(codec1, codec2)
-      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
+      val codec = HttpCodec.enumeration.f2(codec1, codec2)
+      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = codec | self.error)
     }
 
     def apply[Sub1 <: Err2: ClassTag, Sub2 <: Err2: ClassTag, Sub3 <: Err2: ClassTag](
       codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
       codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
       codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
-    )(implicit alt: Alternator[Err, Err2]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
-      val codec = HttpCodec.enumeration(codec1, codec2, codec3)
-      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
+      val codec = HttpCodec.enumeration.f3(codec1, codec2, codec3)
+      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = codec | self.error)
     }
 
     def apply[Sub1 <: Err2: ClassTag, Sub2 <: Err2: ClassTag, Sub3 <: Err2: ClassTag, Sub4 <: Err2: ClassTag](
@@ -702,9 +756,9 @@ object Endpoint {
       codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
       codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
       codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
-    )(implicit alt: Alternator[Err, Err2]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
-      val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4)
-      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
+      val codec = HttpCodec.enumeration.f4(codec1, codec2, codec3, codec4)
+      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = codec | self.error)
     }
 
     def apply[
@@ -719,9 +773,9 @@ object Endpoint {
       codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
       codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
       codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
-    )(implicit alt: Alternator[Err, Err2]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
-      val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5)
-      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
+      val codec = HttpCodec.enumeration.f5(codec1, codec2, codec3, codec4, codec5)
+      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = codec | self.error)
     }
 
     def apply[
@@ -738,9 +792,9 @@ object Endpoint {
       codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
       codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
       codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
-    )(implicit alt: Alternator[Err, Err2]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
-      val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5, codec6)
-      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
+      val codec = HttpCodec.enumeration.f6(codec1, codec2, codec3, codec4, codec5, codec6)
+      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = codec | self.error)
     }
 
     def apply[
@@ -759,9 +813,9 @@ object Endpoint {
       codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
       codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
       codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
-    )(implicit alt: Alternator[Err, Err2]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
-      val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5, codec6, codec7)
-      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
+      val codec = HttpCodec.enumeration.f7(codec1, codec2, codec3, codec4, codec5, codec6, codec7)
+      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = codec | self.error)
     }
 
     def apply[
@@ -782,9 +836,9 @@ object Endpoint {
       codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
       codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
       codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
-    )(implicit alt: Alternator[Err, Err2]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
-      val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8)
-      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Middleware] = {
+      val codec = HttpCodec.enumeration.f8(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8)
+      self.copy[PathInput, Input, alt.Out, Output, Middleware](error = codec | self.error)
     }
   }
 

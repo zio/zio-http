@@ -14,24 +14,23 @@ import zio.http._
 import zio.http.internal.HeaderOps
 
 final case class HttpContentCodec[A](
-  choices: ListMap[MediaType, BinaryCodec[A]],
-  schema: Schema[A],
+  choices: ListMap[MediaType, BinaryCodecWithSchema[A]],
 ) { self =>
 
-  private var lookupCache: Map[MediaType, Option[BinaryCodec[A]]] = Map.empty
+  private var lookupCache: Map[MediaType, Option[BinaryCodecWithSchema[A]]] = Map.empty
 
   /**
    * A right biased merge of two HttpContentCodecs.
    */
   def ++(that: HttpContentCodec[A]): HttpContentCodec[A] =
-    HttpContentCodec(choices ++ that.choices, schema)
+    HttpContentCodec(choices ++ that.choices)
 
   def decodeRequest(request: Request): Task[A] = {
     val contentType = mediaTypeFromContentTypeHeader(request)
     lookup(contentType) match {
       case Some(codec) =>
         request.body.asChunk.flatMap { bytes =>
-          ZIO.fromEither(codec.decode(bytes))
+          ZIO.fromEither(codec.codec.decode(bytes))
         }
       case None        =>
         ZIO.fail(throw new IllegalArgumentException(s"No codec found for content type $contentType"))
@@ -43,7 +42,7 @@ final case class HttpContentCodec[A](
     lookup(contentType) match {
       case Some(codec) =>
         response.body.asChunk.flatMap { bytes =>
-          ZIO.fromEither(codec.decode(bytes))
+          ZIO.fromEither(codec.codec.decode(bytes))
         }
       case None        =>
         ZIO.fail(throw new IllegalArgumentException(s"No codec found for content type $contentType"))
@@ -67,7 +66,7 @@ final case class HttpContentCodec[A](
     if (choices.isEmpty) {
       Left("No codec defined")
     } else {
-      Right(Body.fromChunk(choices.head._2.encode(value), mediaType = choices.head._1))
+      Right(Body.fromChunk(choices.head._2.codec.encode(value), mediaType = choices.head._1))
     }
   }
 
@@ -79,7 +78,6 @@ final case class HttpContentCodec[A](
             throw new IllegalArgumentException(s"MediaType $mediaType is not supported by $self"),
           ),
       ),
-      schema,
     )
 
   def only(mediaType: Option[MediaType]): HttpContentCodec[A] = {
@@ -92,19 +90,18 @@ final case class HttpContentCodec[A](
                 throw new IllegalArgumentException(s"MediaType $mediaType is not supported by $self"),
               ),
           ),
-          schema,
         )
       case None            =>
         self
     }
   }
 
-  private[http] def chooseFirst(mediaTypes: Chunk[MediaTypeWithQFactor]): (MediaType, BinaryCodec[A]) =
+  private[http] def chooseFirst(mediaTypes: Chunk[MediaTypeWithQFactor]): (MediaType, BinaryCodecWithSchema[A]) =
     if (mediaTypes.isEmpty) {
-      (defaultMediaType, defaultCodec)
+      (defaultMediaType, defaultBinaryCodecWithSchema)
     } else {
-      var i                                   = 0
-      var result: (MediaType, BinaryCodec[A]) = null
+      var i                                             = 0
+      var result: (MediaType, BinaryCodecWithSchema[A]) = null
       while (i < mediaTypes.size && result == null) {
         val mediaType    = mediaTypes(i)
         val lookupResult = lookup(mediaType.mediaType)
@@ -118,7 +115,28 @@ final case class HttpContentCodec[A](
       }
     }
 
-  def lookup(mediaType: MediaType): Option[BinaryCodec[A]] = {
+  private[http] def chooseFirstOrDefault(
+    mediaTypes: Chunk[MediaTypeWithQFactor],
+  ): (MediaType, BinaryCodecWithSchema[A]) =
+    if (mediaTypes.isEmpty) {
+      (defaultMediaType, defaultBinaryCodecWithSchema)
+    } else {
+      var i                                             = 0
+      var result: (MediaType, BinaryCodecWithSchema[A]) = null
+      while (i < mediaTypes.size && result == null) {
+        val mediaType    = mediaTypes(i)
+        val lookupResult = lookup(mediaType.mediaType)
+        if (lookupResult.isDefined) result = (mediaType.mediaType, lookupResult.get)
+        i += 1
+      }
+      if (result == null)
+        (defaultMediaType, defaultBinaryCodecWithSchema)
+      else {
+        result
+      }
+    }
+
+  def lookup(mediaType: MediaType): Option[BinaryCodecWithSchema[A]] = {
     if (lookupCache.contains(mediaType)) {
       lookupCache(mediaType)
     } else {
@@ -133,12 +151,28 @@ final case class HttpContentCodec[A](
       throw new IllegalArgumentException(s"No codec defined")
     }
 
-  val defaultCodec: BinaryCodec[A] = choices.headOption.map(_._2).getOrElse {
+  val defaultCodec: BinaryCodec[A] = choices.headOption.map(_._2.codec).getOrElse {
     throw new IllegalArgumentException(s"No codec defined")
   }
+
+  val defaultSchema: Schema[A] = choices.headOption.map(_._2.schema).getOrElse {
+    throw new IllegalArgumentException(s"No codec defined")
+  }
+
+  val defaultBinaryCodecWithSchema: BinaryCodecWithSchema[A] =
+    choices.headOption.map(_._2).getOrElse {
+      throw new IllegalArgumentException(s"No codec defined")
+    }
 }
 
 object HttpContentCodec {
+
+  def from[A](
+    codec: (MediaType, BinaryCodecWithSchema[A]),
+    codecs: (MediaType, BinaryCodecWithSchema[A])*,
+  ): HttpContentCodec[A] =
+    HttpContentCodec(ListMap((codec +: codecs): _*))
+
   implicit def fromSchema[A](implicit schema: Schema[A]): HttpContentCodec[A] = {
     json.only[A] ++ protobuf.only[A] ++ text.only[A]
   }
@@ -148,9 +182,11 @@ object HttpContentCodec {
       HttpContentCodec(
         ListMap(
           MediaType.application.`json` ->
-            JsonCodec.schemaBasedBinaryCodec[A](JsonCodec.Config(ignoreEmptyCollections = true)),
+            BinaryCodecWithSchema(
+              JsonCodec.schemaBasedBinaryCodec[A](JsonCodec.Config(ignoreEmptyCollections = true)),
+              schema,
+            ),
         ),
-        schema,
       )
     }
   }
@@ -160,9 +196,8 @@ object HttpContentCodec {
       HttpContentCodec(
         ListMap(
           MediaType.parseCustomMediaType("application/protobuf").get ->
-            ProtobufCodec.protobufCodec[A],
+            BinaryCodecWithSchema(ProtobufCodec.protobufCodec[A], schema),
         ),
-        schema,
       )
     }
   }
@@ -172,9 +207,8 @@ object HttpContentCodec {
       HttpContentCodec(
         ListMap(
           MediaType.text.`plain` ->
-            zio.http.codec.internal.TextCodec.fromSchema[A](schema),
+            BinaryCodecWithSchema(zio.http.codec.internal.TextBinaryCodec.fromSchema[A](schema), schema),
         ),
-        schema,
       )
     }
   }
@@ -196,9 +230,10 @@ object HttpContentCodec {
   implicit val byteChunkCodec: HttpContentCodec[Chunk[Byte]] = {
     HttpContentCodec(
       ListMap(
-        MediaType.allMediaTypes.filter(_.binary).map(mt => mt -> ByteChunkBinaryCodec): _*,
+        MediaType.allMediaTypes
+          .filter(_.binary)
+          .map(mt => mt -> BinaryCodecWithSchema(ByteChunkBinaryCodec, Schema.chunk[Byte])): _*,
       ),
-      Schema.chunk[Byte],
     )
   }
 
@@ -219,9 +254,10 @@ object HttpContentCodec {
   implicit val byteCodec: HttpContentCodec[Byte] = {
     HttpContentCodec(
       ListMap(
-        MediaType.allMediaTypes.filter(_.binary).map(mt => mt -> ByteBinaryCodec): _*,
+        MediaType.allMediaTypes
+          .filter(_.binary)
+          .map(mt => mt -> BinaryCodecWithSchema(ByteBinaryCodec, Schema[Byte])): _*,
       ),
-      Schema[Byte],
     )
   }
 }
