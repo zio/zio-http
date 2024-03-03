@@ -3,34 +3,40 @@ id: cookies
 title: Cookies
 ---
 
-**ZIO HTTP** has special support for Cookie headers using the `Cookie` Domain to add and invalidate cookies. Adding a cookie will generate the correct [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie) headers
+Cookies are small pieces of data that websites store on a user's browser. They are sent between the client (browser) and server in HTTP requests and responses. Cookies serve various purposes, including session management, user authentication, personalization, and tracking.
 
-## Request Cookie
+When a user visits a website, the server can send one or more cookies to the browser, which stores them locally. The browser then includes these cookies in subsequent requests to the same website, allowing the server to retrieve and utilize the stored information.
 
-### Creating a Request Cookie
+In ZIO HTTP, cookies are represented by the `Cookie` data type, which encompasses both request cookies and response cookies:
 
-A request cookie consists of `name` and `content` and can be created with `Cookie.Request`:
+We can think of a `Cookie` as an immutable and type-safe representation of HTTP cookies that contains the name, content:
 
-```scala mdoc
-import zio._
-import zio.http._
+```scala
+sealed trait Cookie {
+  def name: String
+  def content: String
+}
 
-val cookie: Cookie = Cookie.Request("id", "abc")
+object Cookie {
+  case class Request(name: String, content: String) extends Cookie { self =>
+    // Request Cookie methods
+  }
+  case class Response(
+    name: String,
+    content: String,
+    domain: Option[String] = None,
+    path: Option[Path] = None,
+    isSecure: Boolean = false,
+    isHttpOnly: Boolean = false,
+    maxAge: Option[Duration] = None,
+    sameSite: Option[SameSite] = None,
+  ) extends Cookie { self =>
+    // Response Cookie methods   
+  }
+}
 ```
 
-### Updating a Request Cookie
-
-The `Cookie#content` method updates the content of cookie:
-
-```scala mdoc
-cookie.content("def")
-```
-
-The `Cookie#name` method updates the name of cookie:
-
-```scala mdoc
-cookie.name("id2")
-```
+Request cookies (`Cookie.Request`) are sent by the client to the server, while response cookies (`Cookie.Response`) are sent by the server to the client.
 
 ## Response Cookie
 
@@ -38,10 +44,49 @@ cookie.name("id2")
 
 A Response `Cookie` can be created with params `name`, `content`, `expires`, `domain`, `path`, `isSecure`, `isHttpOnly`, `maxAge`, `sameSite` and `secret` according to HTTP [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
 
-The below snippet creates a response cookie from the above request cookie:
+```scala mdoc
+import zio._
+import zio.http._
 
-```scala mdoc:silent
-val responseCookie = cookie.toResponse
+val responseCookie = Cookie.Response("user_id", "user123", maxAge = Some(5.days))
+```
+
+By adding the above cookie to a `Response`, it will add a `Set-Cookie` header with the respective cookie name and value and other optional attributes.
+
+Let's write a simple example to see how it works:
+
+```scala mdoc:compile-only
+import zio.http._
+
+object ResponseCookieExample extends ZIOAppDefault {
+  val httpApp = Routes(
+    Method.GET / "cookie" -> handler {
+      Response.ok.addCookie(
+        Cookie.Response(name = "user_id", content = "user123", maxAge = Some(5.days))
+      )
+    },
+  ).toHttpApp
+
+  def run = Server.serve(httpApp).provide(Server.default)
+}
+```
+
+When we call the `/cookie` endpoint, it will return a response with a `Set-Cookie` header:
+
+```
+~> curl -X GET http://127.0.0.1:8080/cookie -i
+HTTP/1.1 200 OK
+set-cookie: user_id=user123; Max-Age=432000; Expires=Fri, 08 Mar 2024 10:41:52 GMT
+content-length: 0
+```
+
+To convert a request cookie to a response cookie, use the `toResponse` method:
+
+```scala mdoc:silent:nest
+import zio.http._
+
+val requestCookie = Cookie.Request("id", "abc")
+val responseCookie = requestCookie.toResponse
 ```
 
 ### Updating a Response Cookie
@@ -82,6 +127,30 @@ responseCookie.copy(isHttpOnly = true)
 
 ```scala mdoc:compile-only
 responseCookie.copy(sameSite = Some(Cookie.SameSite.Strict))
+```
+
+## Request Cookie
+
+### Creating a Request Cookie
+
+A request cookie consists of `name` and `content` and can be created with `Cookie.Request`:
+
+```scala mdoc
+val cookie: Cookie = Cookie.Request("user_id", "user123")
+```
+
+### Updating a Request Cookie
+
+The `Cookie#name` method updates the name of cookie:
+
+```scala mdoc
+cookie.name("session_id")
+```
+
+The `Cookie#content` method updates the content of the cookie:
+
+```scala mdoc
+cookie.content("abc123xyz789")
 ```
 
 ## Signing a Cookie
