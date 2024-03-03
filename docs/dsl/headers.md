@@ -12,14 +12,7 @@ In ZIO HTTP we have two related types of headers:
 
 ## Header
 
-We can think of `Header` as a key-value pair, where the key is the header name and the value is the header value:
-
-```scala
-sealed trait Header {
-  def headerName: String
-  def renderedValue: String
-}
-```
+The `Header` trait outlines the fundamental interface for all HTTP headers. We can think of it as a type-safe representation of an HTTP header, consisting of a key-value pair where the key represents the header name and the value represents the header value.
 
 In the companion object of `Header`, we have a collection of predefined headers. They are grouped into sub-objects based on their category, such as `zio.http.Header.Authorization`, `zio.http.Header.CacheControl`, etc. All the headers are subtypes of `zio.http.Header` which is a sealed trait.
 
