@@ -51,6 +51,16 @@ import zio.http._
 val responseCookie = Cookie.Response("user_id", "user123", maxAge = Some(5.days))
 ```
 
+### Adding Cookie in a Response
+
+The cookies can be added in `Response` headers:
+
+```scala mdoc:compile-only
+val res = Response.ok.addCookie(responseCookie)
+```
+
+It updates the response header `Set-Cookie` as ```Set-Cookie: <cookie-name>=<cookie-value>```
+
 By adding the above cookie to a `Response`, it will add a `Set-Cookie` header with the respective cookie name and value and other optional attributes.
 
 Let's write a simple example to see how it works:
@@ -129,13 +139,49 @@ responseCookie.copy(isHttpOnly = true)
 responseCookie.copy(sameSite = Some(Cookie.SameSite.Strict))
 ```
 
+### Signing a Cookie
+
+Signing a cookie involves appending a cryptographic signature to the cookie data before it is transmitted to the client. This signature is generated using a secret key known only to the server. When the client sends the cookie back to the server in subsequent requests, the server can verify the signature to ensure the integrity and authenticity of the cookie data.
+
+The cookies can be signed with a signature:
+
+- Using `Response#sign`:
+
+```scala mdoc:silent:nest
+val cookie = Cookie.Response("key", "hello", maxAge = Some(5.days))
+val app = 
+  Routes(
+    Method.GET / "cookie" -> handler {
+      Response.ok.addCookie(cookie.sign("secret"))
+    }
+  ).toHttpApp
+```
+
+- Using `signCookies` middleware:
+
+To sign all the cookies in your routes, we can use `signCookies` middleware:
+
+```scala mdoc:silent:nest
+import Middleware.signCookies
+
+val app = Routes(
+  Method.GET / "cookie" -> handler(Response.ok.addCookie(cookie)),
+  Method.GET / "secure-cookie" -> handler(Response.ok.addCookie(cookie.copy(isSecure = true)))
+).toHttpApp
+
+// Run it like any simple app
+def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
+  Server.serve(app @@ signCookies("secret"))
+        .provide(Server.default)
+```
+
 ## Request Cookie
 
 ### Creating a Request Cookie
 
 A request cookie consists of `name` and `content` and can be created with `Cookie.Request`:
 
-```scala mdoc
+```scala mdoc:nest
 val cookie: Cookie = Cookie.Request("user_id", "user123")
 ```
 
@@ -153,51 +199,9 @@ The `Cookie#content` method updates the content of the cookie:
 cookie.content("abc123xyz789")
 ```
 
-## Signing a Cookie
-
-The cookies can be signed with a signature.
-
-- Using `Response#sign`:
-
-```scala mdoc:silent
-val cookie2 = Cookie.Response("key", "hello", maxAge = Some(5.days))
-val app = 
-  Routes(
-    Method.GET / "cookie" -> handler(Response.ok.addCookie(cookie2.sign("secret")))
-  ).toHttpApp
-```
-
-- Using `signCookies` middleware:
-
-To sign all the cookies in your routes, you can use `signCookies` middleware:
-
-```scala mdoc:compile-only
-import Middleware.signCookies
-
-private val app2 = Routes(
-  Method.GET / "cookie" -> handler(Response.ok.addCookie(cookie2)),
-  Method.GET / "secure-cookie" -> handler(Response.ok.addCookie(cookie2.copy(isSecure = true)))
-).toHttpApp
-
-// Run it like any simple app
-def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
-  Server.serve(app2 @@ signCookies("secret"))
-        .provide(Server.default)
-``` 
-
-## Adding Cookie in a Response
-
-The cookies can be added in `Response` headers:
-
-```scala mdoc:compile-only
-val res = Response.ok.addCookie(responseCookie)
-```
-
-It updates the response header `Set-Cookie` as ```Set-Cookie: <cookie-name>=<cookie-value>```
-
 ## Getting Cookie from a Request
 
-From HTTP requests, a single cookie can be retrieved with `cookie`:
+From HTTP requests, a single cookie can be retrieved with `Request#cookie`:
 
 ```scala mdoc:compile-only
  private val app4 = 
@@ -211,13 +215,18 @@ From HTTP requests, a single cookie can be retrieved with `cookie`:
 
 ## Getting Cookie from a Header
 
-In HTTP requests, cookies are stored in the `cookie` header:
+In HTTP requests, cookies are stored in the `Header.cookie` header:
 
 ```scala mdoc:compile-only
  private val app3 = 
   Routes(
     Method.GET / "cookie" -> handler { (req: Request) =>
-      Response.text(req.header(Header.Cookie).map(_.value.toChunk).getOrElse(Chunk.empty).mkString(""))
+      Response.text(
+        req.header(Header.Cookie)
+          .map(_.value.toChunk)
+          .getOrElse(Chunk.empty)
+          .mkString("")
+      )
     }
   )
 ```
