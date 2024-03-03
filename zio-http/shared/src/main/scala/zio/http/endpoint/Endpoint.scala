@@ -50,6 +50,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   input: HttpCodec[HttpCodecType.RequestType, Input],
   output: HttpCodec[HttpCodecType.ResponseType, Output],
   error: HttpCodec[HttpCodecType.ResponseType, Err],
+  codecErrorHandler: CodecErrorHandler[_],
   doc: Doc,
   middleware: Middleware,
 ) { self =>
@@ -128,6 +129,23 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   ): Invocation[PathInput, Input, Err, Output, Middleware] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i, j, k, l)))
 
+  /**
+   * Converts a codec error into a specific error type. The given media types
+   * are sorted by q-factor. Beginning with the highest q-factor.
+   */
+  def codecErrorAs[Err2](f: (HttpCodecError, Chunk[MediaTypeWithQFactor]) => Err2)(
+    codec: HttpCodec[HttpCodecType.ResponseType, Err2],
+  ): Endpoint[PathInput, Input, Err, Output, Middleware] =
+    self.copy(codecErrorHandler = self.codecErrorHandler.copy(mapError = MapError(f, codec)))
+
+  /**
+   * Hides any details of codec errors from the user.
+   */
+  def codecErrorEmptyResponse: Endpoint[PathInput, Input, Err, Output, Middleware] =
+    self.copy(codecErrorHandler =
+      self.codecErrorHandler.copy(mapError = MapError((_, _) => (), StatusCodec.BadRequest)),
+    )
+
   def examplesIn(examples: (String, Input)*): Endpoint[PathInput, Input, Err, Output, Middleware] =
     copy(input = self.input.examples(examples))
 
@@ -190,9 +208,23 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
         }
         .catchAllCause {
           case cause if isHttpCodecError(cause) =>
-            Handler.succeed(zio.http.Response(status = Status.BadRequest))
-
-          case cause => Handler.failCause(cause)
+            Handler.fromFunctionZIO { (request: zio.http.Request) =>
+              val error    = cause.defects.head.asInstanceOf[HttpCodecError]
+              val log      = codecErrorHandler.log.map(log => ZIO.logErrorCause(log(error), cause)).getOrElse(ZIO.unit)
+              val response = {
+                val outputMediaTypes =
+                  NonEmptyChunk
+                    .fromChunk(
+                      request.headers
+                        .getAll(Header.Accept)
+                        .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0)),
+                    )
+                    .getOrElse(defaultMediaTypes)
+                codecErrorHandler.mapError.mapError(error, outputMediaTypes.sortBy(x => -x.qFactor.getOrElse(1.0)))
+              }
+              log.as(response)
+            }
+          case cause                            => Handler.failCause(cause)
         }
 
     Route.handled(self.route)(handler)
@@ -275,6 +307,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input = self.input ++ ContentCodec.contentStream[Input2],
       output,
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -291,6 +324,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input = self.input ++ (ContentCodec.contentStream[Input2] ?? doc),
       output,
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -307,6 +341,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input = self.input ++ ContentCodec.contentStream[Input2](name),
       output,
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -323,9 +358,16 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input = self.input ++ (ContentCodec.contentStream[Input2](name) ?? doc),
       output,
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
+
+  /**
+   * If a codec error occurs, log the error using the specified function.
+   */
+  def logCodecError(log: HttpCodecError => String): Endpoint[PathInput, Input, Err, Output, Middleware] =
+    self.copy(codecErrorHandler = self.codecErrorHandler.copy(log = Some(log)))
 
   /**
    * Returns a new endpoint derived from this one whose middleware is composed
@@ -341,7 +383,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     errAlternator.Out,
     outCombiner.Out,
   ]] =
-    Endpoint(route, input, output, error, doc, mw ++ that)
+    Endpoint(route, input, output, error, codecErrorHandler, doc, mw ++ that)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
@@ -355,6 +397,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | (HttpCodec.content[Output2] ++ StatusCodec.status(Status.Ok)),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -389,6 +432,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | (HttpCodec.content[Output2] ++ StatusCodec.status(status)),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -406,6 +450,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | ((HttpCodec.content[Output2] ++ StatusCodec.status(status)) ?? doc),
       error,
+      codecErrorHandler,
       Doc.empty,
       mw,
     )
@@ -423,6 +468,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | (HttpCodec.content[Output2](mediaType) ++ StatusCodec.Ok ?? doc),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -442,6 +488,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       output = self.output |
         ((HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) ?? doc),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -459,6 +506,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | (HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -514,6 +562,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | (contentCodec ++ StatusCodec.status(Status.Ok)),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -537,6 +586,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | (contentCodec ++ StatusCodec.status(Status.Ok) ?? doc),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -560,6 +610,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | (contentCodec ++ StatusCodec.status(status) ?? doc),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -595,6 +646,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | (contentCodec ++ StatusCodec.status(status)),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -612,6 +664,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       input,
       output = self.output | ((contentCodec ++ StatusCodec.status(status)) ?? doc),
       error,
+      codecErrorHandler,
       doc,
       mw,
     )
@@ -672,6 +725,7 @@ object Endpoint {
       route.toHttpCodec,
       HttpCodec.unused,
       HttpCodec.unused,
+      CodecErrorHandler.default,
       Doc.empty,
       EndpointMiddleware.None,
     )

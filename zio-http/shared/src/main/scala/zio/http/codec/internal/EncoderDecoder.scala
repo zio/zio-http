@@ -119,7 +119,7 @@ private[codec] object EncoderDecoder {
 
     val decodeErrorMessage =
       """
-        |Trying to decode with Undefined codec. That means that encode was invoked for object of type Nothing - which cannot exist.
+        |Trying to decode with Undefined codec. That means that decode was invoked for object of type Nothing - which cannot exist.
         |Verify that middleware and endpoint have proper types or submit bug report at https://github.com/zio/zio-http/issues
     """.stripMargin.trim()
 

@@ -136,18 +136,16 @@ object RequestSpec extends ZIOHttpSpec {
               Endpoint(GET / "posts")
                 .query(queryInt("id"))
                 .out[Int]
-            val routes   =
-              endpoint.implement {
-                Handler.succeed(id)
-              }
-
+            val routes   = endpoint.implement { Handler.succeed(id) }
             for {
               response <- routes.toHttpApp.runZIO(
                 Request.get(URL.decode(s"/posts?id=$notAnId").toOption.get),
               )
               contentType = response.header(Header.ContentType)
-            } yield assertTrue(extractStatus(response).code == 400) &&
-              assertTrue(contentType.isEmpty)
+            } yield assertTrue(
+              extractStatus(response).code == 400,
+              contentType.map(_.mediaType).contains(MediaType.application.`json`),
+            )
           }
         },
         test("header codec") {
