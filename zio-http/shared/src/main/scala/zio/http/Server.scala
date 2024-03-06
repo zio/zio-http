@@ -331,8 +331,12 @@ object Server extends ServerPlatformSpecific {
 
   def serve[R](
     httpApp: HttpApp[R],
-  )(implicit trace: Trace): URIO[R with Server, Nothing] =
-    install(httpApp) *> ZIO.never
+  )(implicit trace: Trace): URIO[R with Server, Nothing] = {
+    ZIO.logInfo("Starting the server...") *>
+      install(httpApp) *>
+      ZIO.logInfo("Server started") *>
+      ZIO.never
+  }
 
   def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
