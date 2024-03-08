@@ -12,7 +12,7 @@ Flash messages are particularly useful in scenarios involving HTTP redirections,
 
 Assume we have a simple web application that allows users to submit a form. After the form is submitted, we want to display a success message to the user. We also want to display an error message if the form submission fails. How can we implement this?
 
-Assume we have a simple form that submits a user's name and age to the /users/save endpoint:
+Assume we have a simple form that submits a user's name and age to the `/users/save` endpoint:
 
 ```html
 <form id="myform" action="/users/save" method="POST">
@@ -441,21 +441,30 @@ request.flash(Flash.get[Int]("quota"))
 request.flash(Flash.get[Notification]("notification"))
 ```
 
-Here is the list of getter methods:
+Let's take a look at list of setter methods:
 
-| Method                        | Output           |
-|-------------------------------|------------------|
-| `get[A: Schema](key: String)` | `Flash[A]`       |
-| `getString(key: String)`      | `Flash[String]`  |
-| `getNotice[A: Schema]`        | `Flash[A]`       |
-| `getAlert[A: Schema]`         | `Flash[A]`       |
-| `getFloat(key: String)`       | `Flash[Float]`   |
-| `getDouble(key: String)`      | `Flash[Double]`  |
-| `getInt(key: String)`         | `Flash[Int]`     |
-| `getLong(key: String)`        | `Flash[Long]`    |
-| `getUUID(key: String)`        | `Flash[UUID]`    |
-| `getBoolean(key: String)`     | `Flash[Boolean]` |
-| `get[A: Schema]`              | `Flash[A]`       |
+| Method                                         | Output         | Description                                                                         |
+|------------------------------------------------|----------------|-------------------------------------------------------------------------------------|
+| `Flash.setValue[A: Schema](key: String, a: A)` | `Setter[A]`    | Sets a flash value of type `A` with the given key in the flash scope.               |
+| `Flash.setNotice[A: Schema](a: A)`             | `Setter[A]`    | Sets a flash notice message with the provided value of type `A` in the flash scope. |
+| `Flash.setAlert[A: Schema](a: A)`              | `Setter[A]`    | Sets a flash alert message with the provided value of type `A` in the flash scope.  |
+| `Flash.setEmpty`                               | `Setter[Unit]` | Clears the flash scope by setting it to empty.                                      |
+
+And here is the list of getter methods:
+
+| Method                              | Output           | Description                                                    |
+|-------------------------------------|------------------|----------------------------------------------------------------|
+| `Flash.get[A: Schema](key: String)` | `Flash[A]`       | Gets any flash value of type `A` with the given key `key`.     |
+| `Flash.getString(key: String)`      | `Flash[String]`  | Gets a flash value of type `String` with the given key `key`.  |
+| `Flash.getNotice[A: Schema]`        | `Flash[A]`       | Gets a flash value of type `A` associated with the notice key. |
+| `Flash.getAlert[A: Schema]`         | `Flash[A]`       | Gets a flash value of type `A` associated with the alert key.  |
+| `Flash.getFloat(key: String)`       | `Flash[Float]`   | Gets a flash value of type `Float` with the given key `key`.   |
+| `Flash.getDouble(key: String)`      | `Flash[Double]`  | Gets a flash value of type `Double` with the given key `key`.  |
+| `Flash.getInt(key: String)`         | `Flash[Int]`     | Gets a flash value of type `Int` with the given key `key`.     |
+| `Flash.getLong(key: String)`        | `Flash[Long]`    | Gets a flash value of type `Long` with the given key `key`.    |
+| `Flash.getUUID(key: String)`        | `Flash[UUID]`    | Gets a flash value of type `UUID` with the given key `key`.    |
+| `Flash.getBoolean(key: String)`     | `Flash[Boolean]` | Gets a flash value of type `Boolean` with the given key `key`. |
+| `Flash.get[A: Schema]`              | `Flash[A]`       | Gets the first flash value of type `A` regardless of any key.  |
 
 ## Setting/Retrieving Multiple Flash Messages
 
