@@ -13,23 +13,23 @@ object CodeGen {
       Code.Import("zio.http.codec._"),
     )
 
-  def format(config: Path)(file: Path, content: String): String = {
+  def makeFormat(config: Path): (Path, String) => String = {
     import org.scalafmt.interfaces.Scalafmt
-
-    val scalafmt: Scalafmt = Scalafmt.create(this.getClass.getClassLoader)
-    scalafmt.format(config, file, content)
+    val scalafmt = Scalafmt.create(this.getClass.getClassLoader).createSession(config)
+    (file: Path, content: String) => scalafmt.format(file, content)
   }
 
-  def writeFiles(files: Code.Files, basePath: Path, basePackage: String, scalafmtPath: Option[Path]): Unit = {
+  def writeFiles(files: Code.Files, basePath: Path, basePackage: String, scalafmtPath: Option[Path]): Iterable[Path] = {
 
-    val formatCode = scalafmtPath.map(format(_: Path) _).getOrElse((_: Path, content: String) => content)
+    val formatCode = scalafmtPath.fold((_: Path, content: String) => content)(makeFormat)
 
     val rendered = renderedFiles(files, basePackage)
-    rendered.map { case (path, content) => path -> formatCode(Paths.get(path), content) }.foreach {
-      case (path, content) =>
-        val filePath = Paths.get(basePath.toString, path)
-        Files.createDirectories(filePath.getParent)
-        Files.write(filePath, content.getBytes(StandardCharsets.UTF_8), CREATE, TRUNCATE_EXISTING)
+    rendered.map { case (path, rawContent) =>
+      val content  = formatCode(Paths.get(path), rawContent)
+      val filePath = Paths.get(basePath.toString, path)
+      Files.createDirectories(filePath.getParent)
+      Files.write(filePath, content.getBytes(StandardCharsets.UTF_8), CREATE, TRUNCATE_EXISTING)
+      filePath
     }
   }
 
