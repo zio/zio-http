@@ -3,31 +3,61 @@ id: routes
 title: Routes
 ---
 
-`Routes` models a collection of routes, each of which is defined by a pattern and a handler. 
-This data type can be thought of as modeling a routing table,  which decides where to direct 
-every endpoint in an API based on both method and path of the request.
+`Routes` models a collection of routes, each of which is defined by a pattern and a handler. This data type can be thought of as modeling a routing table, which decides where to direct every endpoint in an API based on both method and path of the request.
 
-When you are done building a collection of routes, you typically convert the routes into an 
-HTTP application, which you can then execute with the server.
+Let's see an example of a simple `Routes` that has two routes:
 
-Routes may have handled or unhandled errors. A route of type `Route[Env, Throwable]`, for example, 
-has not handled its errors by converting them into* responses. Such unfinished routes cannot yet 
-be converted into HTTP applications. First, you must handle errors with the `handleError` or `handleErrorCause` methods.
+```scala mdoc:compile-only
+import zio.http._
+
+Routes(
+  Method.GET / "hello"        -> Handler.text("hello"),
+  Method.GET / "health-check" -> Handler.ok,
+)
+```
 
 ## Building Routes
 
-You can build routes with the `Routes.apply` constructor, which takes varargs of individual `Route` values, or you can build empty routes with `Routes.empty`:
+To build empty routes we have `Routes.empty` constructor:
 
 ```scala mdoc:silent
-import zio._
 import zio.http._ 
 
 val routes1 = Routes.empty
 ```
 
-Although you can build `Route` values by using the constructors of `Route`, you may prefer to use the DSL for constructing routes which starts in `Method`.
+We can build routes with the `Routes.apply` constructor, which takes varargs of individual `Route` values:
 
-Using the `/` operator of `Method`, you can construct route patterns, which can then be bound to handlers, to create a fully formed route.
+```scala
+object Routes {
+  def apply[Env, Err](
+    route : Route[Env, Err],
+    routes: Route[Env, Err]*,
+  ): Routes[Env, Err] = ???
+}
+```
+
+Example:
+
+```scala mdoc:compile-only
+Routes(
+  Method.GET / "hello"        -> Handler.text("hello"),
+  Method.GET / "health-check" -> Handler.ok,
+  Method.POST / "echo"        ->
+    handler { req: Request =>
+      req.body.asString.map(Response.text(_))
+    }.sandbox,
+)
+```
+
+Please note that in this example, we have used the DSL for constructing routes, which consists of two parts, the route pattern and the handler:
+
+1. `RoutePattern`- The route pattern is responsible for matching the method and path of the incoming request.
+2. `Handler`- The handler is responsible for producing a response to the matched request.
+
+Although we can build `Route` values by using the constructors of `Route`, we may prefer to use the DSL for constructing routes which starts in `Method`.
+
+Using the `/` operator of `Method`, we can construct route patterns, which can then be bound to handlers, to create a fully formed route:
 
 ```scala mdoc:silent
 val routes2 = 
@@ -35,6 +65,40 @@ val routes2 =
     Method.GET / "hello"   -> Handler.ok,
     Method.GET / "goodbye" -> Handler.ok
   )
+```
+
+Using the `Routes.fromIterable` constructor, we can build routes from an iterable of individual routes.
+
+## Nested Routes
+
+Routes can be nested, which means that we can have routes that are themselves collections of other routes. This is useful for organizing routes into hierarchical structures, and for sharing common paths accross routes.
+
+Let's see an example of nested routes:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.codec.PathCodec._
+
+
+val routes = 
+  literal("nest1") /
+    Routes.fromIterable(
+      Chunk(
+        Method.GET / "foo" -> Handler.text("foo"),
+        Method.GET / "bar" -> Handler.text("bar"),
+      ) ++
+        Chunk(
+          literal("nest2") / Routes(
+            Method.GET / "baz" -> Handler.text("baz"),
+            Method.GET / "qux" -> Handler.text("qux"),
+          ),
+          literal("nest2") / Routes(
+            Method.GET / "quux" -> Handler.text("quux"),
+            Method.GET / "corge" -> Handler.text("corge"),
+          ),
+        ).map(_.routes).flatten,
+    )
 ```
 
 ## Combining Routes
@@ -50,102 +114,112 @@ precedence over those on the right-hand side.
 
 ## Transforming Routes
 
-Since routes are just a collection of individual routes, you can transform them in all the same
-ways that you can transform an individual route. You could do this manually, by building new 
-routes from the old collection of routes, but there are several convenient methods that do 
-this for you:
+Since routes are just a collection of individual routes, we can transform them in all the same ways that we can transform an individual route. We could do this manually, by building new routes from the old collection of routes, but several convenient methods do this:
 
- - `Routes#handleError` - Handles the error of all routes
- - `Routes#timeout` - Times out all routes
- - `Routes#@@` -- Transforms all routes
+### Through Handler Transformations
 
-# What is HttpApp?
+Takes a function of type `Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response]` and applies it to all routes:
 
-`HttpApp[-R]` represents a fully-specified HTTP application that can be executed by the server.
-
-## Special Constructors Handler
-
-These are some special constructors for `HttpApp` and `Handler`:
-
-### Handler.ok
-
-Creates a `Handler` that always responds with a 200 status code.
-
-```scala mdoc:silent
-Handler.ok
+```scala
+trait Routes[-Env, +Err] {
+  def transform[Env1](
+    f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
+  ): Routes[Env1, Err] = ???
+}  
 ```
 
-### Handler.text
+Let's add a delay to all routes:
 
-Creates a `Handler` that always responds with the same plain text.
-
-```scala mdoc:silent
-Handler.text("Text Response")
+```scala mdoc:reset
 ```
 
-### Handler.status
+```scala mdoc:compile-only
+import zio._
+import zio.http._
 
-Creates a `Handler` that always responds with the same status code and empty data.
+val routes: Routes[Any, Response] = ???
 
-```scala mdoc:silent
-Handler.status(Status.Ok)
+routes.transform[Any] { handle =>
+   handler { (request: Request) => 
+     ZIO.sleep(1.second) *> handle(request)
+   }
+}
 ```
 
-### Handler.error
+### Through Applying Middlewares
 
-Creates a `Handler` that always fails with the given error.
+One of the most common ways to transform routes is to apply a middleware to them. A middleware is a function that takes a collection of routes and returns a new collection of routes. To apply a middleware to `Routes` we can use the `Routes#@@` method:
 
-```scala mdoc:silent
-Handler.error(Status.Forbidden)
+```scala
+trait Routes[-Env, +Err] {
+  def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err]
+}
 ```
 
-### Handler.fromResponse
+Let's add a logging middleware to all routes:
 
-Creates an `Handler` that always responds with the same `Response`.
+```scala mdoc:compile-only
+import zio._
+import zio.http._
 
-```scala mdoc:silent
-Handler.fromResponse(Response.ok)
+val routes: Routes[Any, Response] = ???
+
+val newRoutes = routes @@ HandlerAspect.dropTrailingSlash
 ```
 
-## Special operators on Handler
+To learn more about middlewares, see the [Middleware](middleware.md) section.
 
-These are some special operators for `Handler`s.
+## Handling Errors in Routes
 
-### method
+Like `ZIO` data type, we can handle errors in `Routes`. When we handle errors at the `Routes` level, we are handling errors that occur in any of the routes within the `Routes` data type.
 
-Overwrites the method in the incoming request to the `Handler`
+The following methods are available for error handling:
 
-```scala mdoc:silent
-val handler11 = Handler.fromFunction((request: Request) => Response.text(request.method.toString))
-handler11.method(Method.POST)
+```scala
+trait Routes[-Env, +Err] {
+  def handleError(f: Err => Response): Routes[Env, Nothing]
+  def handleErrorCause(f: Cause[Err] => Response): Routes[Env, Nothing]
+  def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response]): Routes[Env, Nothing]
+}
 ```
 
-### patch
+All of these methods are similar to their `ZIO` counterparts, i.e. `ZIO#catch*`, but they are applied to the routes.
 
-Patches the response produced by the request handler using a `Patch`.
+If we need to take into account what request caused the error, we can use the following methods, instead:
 
-```scala mdoc:silent
-val handler12 = Handler.fromResponse(Response.text("Hello World!"))
-val handler13 = handler12.patch(Response.Patch.status(Status.Accepted))
+```scala
+trait Routes[-Env, +Err] {
+  def handleErrorRequest(f: (Err, Request) => Response): Routes[Env, Nothing]
+  def handleErrorRequestCause(f: (Request, Cause[Err]) => Response): Routes[Env, Nothing]
+  def handleErrorRequestCauseZIO(f: (Request, Cause[Err]) => ZIO[Any, Nothing, Response]): Routes[Env, Nothing]
+}
 ```
 
 ## Converting `Routes` to `HttpApp`
 
-If you want to deploy your routes on the ZIO HTTP server, you first need to convert it to `HttpApp[R]` using
-`Routes#toHttpApp`.
+`HttpApp[-R]` represents a fully-specified HTTP application that can be executed by the server.
 
-Before you do this, you must first handle any typed errors produced by your routes by using `Routes#handleError`.
+When we are done building a collection of routes, our next step is typically to convert these routes into an HTTP application using the `Routes#toHttpApp` method, which we can then execute with the server.
 
-Handling your errors ensures that the clients of your API will not encounter strange and unexpected responses, but will always be able to usefully interact with your web service, even in exceptional cases.
+Routes may have handled or unhandled errors.  If the error type of `Routes[Env, Err]` is equal to or a subtype of `Response`, we call this a route where all errors are handled. Otherwise, it's a route where some errors are unhandled.
 
-If you wish to convert your failures automatically into suitable responses, without leaking any details on the specific nature of the errors, you can use `Routes#sandbox`, and after dealing with your errors in this way, you can convert your routes into an HTTP application.
+For instance, a route of type `Route[Env, Throwable]` has not handled its errors by converting them into responses. Consequently, such unfinished routes cannot be converted into HTTP applications. We must first handle errors using the `handleError` or `handleErrorCause` methods.
+
+By handling our errors, we ensure that clients interacting with our API will not encounter strange or unexpected responses, but will always be able to interact effectively with our web service, even in exceptional cases.
+
+:::note
+If we aim to automatically convert our failures into suitable responses, without revealing details about the specific nature of the errors, we can utilize `Routes#sandbox`. After addressing our errors in this manner, we can proceed to convert our routes into an HTTP application.
+:::
 
 ## Running an App
 
 ZIO HTTP server needs an `HttpApp[R]` for running. We can use `Server.serve()` method to bootstrap the server with
 an `HttpApp[R]`:
 
-```scala mdoc:silent
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
 object HelloWorld extends ZIOAppDefault {
   val app: HttpApp[Any] = Handler.ok.toHttpApp
 
