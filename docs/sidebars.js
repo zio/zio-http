@@ -32,7 +32,6 @@ const sidebars = {
           items: [
             "tutorials/testing-your-zio-http-app",
             "tutorials/deeper-dive-into-middleware",
-            "tutorials/deploying-zio-http-application"
           ],
         },
         {

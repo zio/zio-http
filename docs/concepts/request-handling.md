@@ -11,8 +11,6 @@ Here's an overview of the request handling process in ZIO HTTP:
 
 - **Defining an `HttpApp`**: To handle requests, you define one or more `HttpApp` values. Each `HttpApp` is responsible for processing a specific type of request or a specific path pattern.
 
-- **Request Matching**: The `Http.collect` or `Http.collectM` combinator is used to pattern match on the incoming `Request`. It allows you to define matching criteria based on HTTP method, path, headers, etc.
-
 - **Request Processing**: Once a matching rule is found, you can perform any required processing on the request. This can include extracting information from the request, validating inputs, invoking other services, or performing any necessary business logic. The processing typically results in the creation of a `Response`.
 
 - **Generating the Response**: The processing logic within the `HttpApp` should construct an appropriate Response based on the request and any additional computation. The Response type encapsulates the HTTP status, headers, and body.
