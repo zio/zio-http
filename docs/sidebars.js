@@ -24,6 +24,7 @@ const sidebars = {
             "dsl/body",
             "dsl/form",
             "dsl/cookies",
+            "dsl/flash",
             "dsl/middleware",
             "dsl/status",
             {
