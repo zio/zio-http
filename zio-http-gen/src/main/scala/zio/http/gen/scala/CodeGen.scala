@@ -35,120 +35,152 @@ object CodeGen {
 
   def renderedFiles(files: Code.Files, basePackage: String): Map[String, String] =
     files.files.map { file =>
-      val rendered = render(basePackage)(file)
+      val (_, rendered) = render(basePackage)(file)
       file.path.mkString("/") -> rendered
     }.toMap
 
-  def render(basePackage: String)(structure: Code): String = structure match {
+  def render(basePackage: String)(structure: Code): (List[Code.Import], String) = structure match {
     case Code.Files(_) =>
       throw new Exception("Files should be rendered separately")
 
     case Code.File(_, path, imports, objects, caseClasses, enums) =>
-      s"package $basePackage${if (path.exists(_.nonEmpty)) path.mkString(if (basePackage.isEmpty) "" else ".", ".", "")
-        else ""}\n\n" +
-        s"${imports.map(render(basePackage)).mkString("\n")}\n\n" +
-        objects.map(render(basePackage)).mkString("\n") +
-        caseClasses.map(render(basePackage)).mkString("\n") +
-        enums.map(render(basePackage)).mkString("\n")
+      val (objImports, objContent)   = objects.map(render(basePackage)).unzip
+      val (ccImports, ccContent)     = caseClasses.map(render(basePackage)).unzip
+      val (enumImports, enumContent) = enums.map(render(basePackage)).unzip
+      val allImports = (imports ++ objImports.flatten ++ ccImports.flatten ++ enumImports.flatten).distinct
+      val content    =
+        s"package $basePackage${if (path.exists(_.nonEmpty)) path.mkString(if (basePackage.isEmpty) "" else ".", ".", "")
+          else ""}\n\n" +
+          s"${allImports.map(render(basePackage)(_)._2).mkString("\n")}\n\n" +
+          objContent.mkString("\n") +
+          ccContent.mkString("\n") +
+          enumContent.mkString("\n")
+      Nil -> content
 
     case Code.Import.Absolute(path) =>
-      s"import $path"
+      Nil -> s"import $path"
 
     case Code.Import.FromBase(path) =>
-      s"import $basePackage.$path"
+      Nil -> s"import $basePackage.$path"
 
     case Code.Object(name, schema, endpoints, objects, caseClasses, enums) =>
-      s"object $name {\n" +
-        (if (endpoints.nonEmpty)
-           (EndpointImports ++ (if (endpointWithChunk(endpoints)) List(Code.Import("zio.http._")) else Nil))
-             .map(render(basePackage))
-             .mkString("", "\n", "\n")
-         else "") +
-        endpoints.map { case (k, v) => s"${render(basePackage)(k)}=${render(basePackage)(v)}" }
-          .mkString("\n") +
-        (if (schema) s"\n\n implicit val codec: Schema[$name] = DeriveSchema.gen[$name]" else "") +
-        "\n" + objects.map(render(basePackage)).mkString("\n") +
-        "\n" + caseClasses.map(render(basePackage)).mkString("\n") +
-        "\n" + enums.map(render(basePackage)).mkString("\n") +
-        "\n}"
+      val baseImports                      = if (endpoints.nonEmpty) EndpointImports else Nil
+      val (epImports, epContent)           = endpoints.map { case (k, v) =>
+        val (kImports, kContent) = render(basePackage)(k)
+        val (vImports, vContent) = render(basePackage)(v)
+        (kImports ++ vImports, s"$kContent=$vContent")
+      }.unzip
+      val (objectsImports, objectsContent) = objects.map(render(basePackage)).unzip
+      val (ccImports, ccContent)           = caseClasses.map(render(basePackage)).unzip
+      val (enumImports, enumContent)       = enums.map(render(basePackage)).unzip
+      val allImports                       =
+        (baseImports ++ epImports.flatten ++ objectsImports.flatten ++ ccImports.flatten ++ enumImports.flatten).distinct
+      val content                          =
+        s"object $name {\n" +
+          allImports.map(render(basePackage)(_)._2).mkString("", "\n", "\n") +
+          epContent.mkString("\n") +
+          (if (schema) s"\n\n implicit val codec: Schema[$name] = DeriveSchema.gen[$name]" else "") +
+          "\n" + objectsContent.mkString("\n") +
+          "\n" + ccContent.mkString("\n") +
+          "\n" + enumContent.mkString("\n") +
+          "\n}"
+      Nil -> content
 
     case Code.CaseClass(name, fields, companionObject) =>
-      s"case class $name(\n" +
-        fields.map(render(basePackage)).mkString(",\n").replace("val ", " ") +
-        "\n)" + companionObject.map(render(basePackage)).map("\n" + _).getOrElse("")
+      val (imports, contents)    = fields.map(render(basePackage)).unzip
+      val (coImports, coContent) =
+        companionObject.map { co =>
+          val (coImports, coContent) = render(basePackage)(co)
+          (coImports, s"\n$coContent")
+        }.getOrElse(Nil -> "")
+      val content                =
+        s"case class $name(\n" +
+          contents.mkString(",\n").replace("val ", " ") +
+          "\n)" + coContent
+      (imports.flatten ++ coImports).distinct -> content
 
     case Code.Enum(name, cases, caseNames, discriminator, noDiscriminator, schema) =>
-      val discriminatorAnnotation     =
+      val discriminatorAnnotation      =
         if (noDiscriminator) "@noDiscriminator\n" else ""
-      val discriminatorNameAnnotation =
+      val discriminatorNameAnnotation  =
         if (discriminator.isDefined) s"""@discriminatorName("${discriminator.get}")\n""" else ""
-      discriminatorAnnotation +
-        discriminatorNameAnnotation +
-        s"sealed trait $name\n" +
-        s"object $name {\n" +
-        (if (schema) s"\n\n implicit val codec: Schema[$name] = DeriveSchema.gen[$name]\n" else "") + {
-          if (caseNames.nonEmpty) {
-            cases
-              .map(render(basePackage))
-              .zipWithIndex
-              .map { case (c, i) => s"""@caseName("${caseNames(i)}")\n$c""" }
+      val (casesImports, casesContent) =
+        if (caseNames.nonEmpty) {
+          val (imports, contents) = cases.map(render(basePackage)).unzip
+          val content             =
+            contents
+              .zip(caseNames)
+              .map { case (content, name) => s"""@caseName("$name")\n$content""" }
               .mkString("\n")
-          } else {
-            cases.map(render(basePackage)).mkString("\n")
-          }
-        } +
-        "\n}"
+          imports -> content
+        } else {
+          val (imports, contents) = cases.map(render(basePackage)).unzip
+          imports -> contents.mkString("\n")
+        }
+
+      val content =
+        discriminatorAnnotation +
+          discriminatorNameAnnotation +
+          s"sealed trait $name\n" +
+          s"object $name {\n" +
+          (if (schema) s"\n\n implicit val codec: Schema[$name] = DeriveSchema.gen[$name]\n" else "") +
+          casesContent +
+          "\n}"
+      casesImports.flatten.distinct -> content
 
     case col: Code.Collection =>
       col match {
         case Code.Collection.Seq(elementType) =>
-          s"Chunk[${render(basePackage)(elementType)}]"
+          val (imports, tpe) = render(basePackage)(elementType)
+          (Code.Import("zio.Chunk") :: imports) -> s"Chunk[$tpe]"
         case Code.Collection.Set(elementType) =>
-          s"Set[${render(basePackage)(elementType)}]"
+          val (imports, tpe) = render(basePackage)(elementType)
+          imports -> s"Set[$tpe]"
         case Code.Collection.Map(elementType) =>
-          s"Map[String, ${render(basePackage)(elementType)}]"
+          val (imports, tpe) = render(basePackage)(elementType)
+          imports -> s"Map[String, $tpe]"
         case Code.Collection.Opt(elementType) =>
-          s"Option[${render(basePackage)(elementType)}]"
+          val (imports, tpe) = render(basePackage)(elementType)
+          imports -> s"Option[$tpe]"
       }
 
     case Code.Field(name, fieldType) =>
-      val tpe = render(basePackage)(fieldType)
-      if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
+      val (imports, tpe) = render(basePackage)(fieldType)
+      val content        = if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
+      imports -> content
 
-    case Code.Primitive.ScalaBoolean => "Boolean"
-    case Code.Primitive.ScalaByte    => "Byte"
-    case Code.Primitive.ScalaChar    => "Char"
-    case Code.Primitive.ScalaDouble  => "Double"
-    case Code.Primitive.ScalaFloat   => "Float"
-    case Code.Primitive.ScalaInt     => "Int"
-    case Code.Primitive.ScalaLong    => "Long"
-    case Code.Primitive.ScalaShort   => "Short"
-    case Code.Primitive.ScalaString  => "String"
-    case Code.Primitive.ScalaUnit    => "Unit"
-    case Code.Primitive.ScalaUUID    => "java.util.UUID"
-    case Code.ScalaType.Inferred     => ""
+    case Code.Primitive.ScalaBoolean => Nil                                 -> "Boolean"
+    case Code.Primitive.ScalaByte    => Nil                                 -> "Byte"
+    case Code.Primitive.ScalaChar    => Nil                                 -> "Char"
+    case Code.Primitive.ScalaDouble  => Nil                                 -> "Double"
+    case Code.Primitive.ScalaFloat   => Nil                                 -> "Float"
+    case Code.Primitive.ScalaInt     => Nil                                 -> "Int"
+    case Code.Primitive.ScalaLong    => Nil                                 -> "Long"
+    case Code.Primitive.ScalaShort   => Nil                                 -> "Short"
+    case Code.Primitive.ScalaString  => Nil                                 -> "String"
+    case Code.Primitive.ScalaUnit    => Nil                                 -> "Unit"
+    case Code.Primitive.ScalaUUID    => List(Code.Import("java.util.UUID")) -> "UUID"
+    case Code.ScalaType.Inferred     => Nil                                 -> ""
 
     case Code.EndpointCode(method, pathPatternCode, queryParamsCode, headersCode, inCode, outCodes, errorsCode) =>
-      s"""Endpoint(Method.$method / ${pathPatternCode.segments.map(renderSegment).mkString(" / ")})
-         |  ${queryParamsCode.map(renderQueryCode).mkString("\n")}
-         |  ${headersCode.headers.map(renderHeader).mkString("\n")}
-         |  ${renderInCode(inCode)}
-         |  ${outCodes.map(renderOutCode).mkString("\n")}
-         |  ${errorsCode.map(renderOutErrorCode).mkString("\n")}
-         |""".stripMargin
+      val (queryImports, queryContent) = queryParamsCode.map(renderQueryCode).unzip
+      val allImports                   = queryImports.flatten.toList.distinct
+      val content                      =
+        s"""Endpoint(Method.$method / ${pathPatternCode.segments.map(renderSegment).mkString(" / ")})
+           |  ${queryContent.mkString("\n")}
+           |  ${headersCode.headers.map(renderHeader).mkString("\n")}
+           |  ${renderInCode(inCode)}
+           |  ${outCodes.map(renderOutCode).mkString("\n")}
+           |  ${errorsCode.map(renderOutErrorCode).mkString("\n")}
+           |""".stripMargin
+      allImports -> content
 
     case Code.TypeRef(name) =>
-      name
+      Nil -> name
 
     case scalaType =>
       throw new Exception(s"Unknown ScalaType: $scalaType")
   }
-
-  private def endpointWithChunk(endpoints: Map[Code.Field, Code.EndpointCode]) =
-    endpoints.exists { case (_, code) =>
-      code.inCode.inType.contains("Chunk[") ||
-      (code.outCodes ++ code.errorsCode).exists(_.outType.contains("Chunk["))
-    }
 
   def renderSegment(segment: Code.PathSegmentCode): String = segment match {
     case Code.PathSegmentCode(name, segmentType) =>
@@ -250,17 +282,17 @@ object CodeGen {
     s""".header($headerSelector)"""
   }
 
-  def renderQueryCode(queryCode: Code.QueryParamCode): String = queryCode match {
+  def renderQueryCode(queryCode: Code.QueryParamCode): (List[Code.Import], String) = queryCode match {
     case Code.QueryParamCode(name, queryType) =>
-      val tpe = queryType match {
-        case Code.CodecType.Boolean => "Boolean"
-        case Code.CodecType.Int     => "Int"
-        case Code.CodecType.Long    => "Long"
-        case Code.CodecType.String  => "String"
-        case Code.CodecType.UUID    => "UUID"
+      val (imports, tpe) = queryType match {
+        case Code.CodecType.Boolean => Nil                                 -> "Boolean"
+        case Code.CodecType.Int     => Nil                                 -> "Int"
+        case Code.CodecType.Long    => Nil                                 -> "Long"
+        case Code.CodecType.String  => Nil                                 -> "String"
+        case Code.CodecType.UUID    => List(Code.Import("java.util.UUID")) -> "UUID"
         case Code.CodecType.Literal => throw new Exception("Literal query params are not supported")
       }
-      s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
+      imports -> s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
   }
 
   def renderInCode(inCode: Code.InCode): String = inCode match {

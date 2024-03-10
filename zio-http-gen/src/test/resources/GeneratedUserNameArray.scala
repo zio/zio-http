@@ -1,7 +1,7 @@
 package test.component
 
-import zio._
 import zio.schema._
+import zio.Chunk
 
 case class UserNameArray(
   id: Int,
