@@ -15,6 +15,8 @@ const sidebars = {
           items: [
             "dsl/server",
             "dsl/routes",
+            "dsl/route_pattern",
+            "dsl/path_codec",
             "dsl/request",
             "dsl/response",
             "dsl/handler",
@@ -22,6 +24,7 @@ const sidebars = {
             "dsl/body",
             "dsl/form",
             "dsl/cookies",
+            "dsl/flash",
             "dsl/middleware",
             "dsl/status",
             {
