@@ -33,7 +33,8 @@ const sidebars = {
                 "dsl/socket/websocketframe"
               ]
             },
-            "dsl/template"
+            "dsl/template",
+            "dsl/client"
           ]
         },
         {
