@@ -365,3 +365,15 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/ClientWithDecompression.scala")
 ```
+
+## Examples
+
+### Reconnecting WebSocket Client
+
+This example represents a WebSocket client application that automatically attempts to reconnect upon encountering errors or disconnections. It uses the `Promise` to notify about WebSocket errors:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/WebSocketReconnectingClient.scala")
+```
