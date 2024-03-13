@@ -332,3 +332,36 @@ for {
   _        <- response.body.asString.debug
 } yield ()
 ```
+
+## Enabling Response Decompression
+
+When making HTTP requests using a client, such as a web browser or a custom HTTP client, it's essential to optimize data transfer for efficiency and performance. 
+
+By default, most HTTP clients do not advertise compression support when making requests to web servers. However, servers often compress response bodies when they detect that the client supports compression. To enable response compression, we need to add the `Accept-Encoding` header to our HTTP requests. The `Accept-Encoding` header specifies the compression algorithms supported by the client. Common values include `gzip` and `deflate`. When a server receives a request with the `Accept-Encoding` header, it may compress the response body using one of the specified algorithms.
+
+Here's an example of an HTTP request with the Accept-Encoding header:
+
+```http
+GET https://example.com/
+Accept-Encoding: gzip, deflate
+```
+
+When a server responds with a compressed body, it includes the Content-Encoding header to specify the compression algorithm used. The client then needs to decompress the body before processing its contents.
+
+For example, a compressed response might look like this:
+
+```http
+200 OK
+content-encoding: gzip
+content-type: application/json; charset=utf-8
+
+<compressed-body>
+```
+
+To decompress the response body with `ZClient`, we need to enable response decompression by using the `ZClient.Config#requestDecompression` method:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/ClientWithDecompression.scala")
+```
