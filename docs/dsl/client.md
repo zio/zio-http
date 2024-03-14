@@ -386,6 +386,18 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/ClientWithConnectionPooling.scala")
 ```
 
+## Configuring SSL
+
+The default SSL configuration of `ZClient.Config.default` is `None`. To enable and configure SSL for the client, we can use the `ZClient.Config#ssl` method. This method takes a config of type `ClientSSLConfig` which supports different SSL configurations such as `Default`, `FromCertFile`, `FromCertResource`, `FromTrustStoreFile`, and `FromTrustStoreResource.
+
+Let's see an example of how to configure SSL for the client:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HttpsClient.scala")
+```
+
 ## Examples
 
 ### Reconnecting WebSocket Client
