@@ -366,6 +366,26 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/ClientWithDecompression.scala")
 ```
 
+## Connection Pooling
+
+Connection pooling is a crucial mechanism in ZIO HTTP for optimizing the management of HTTP connections. By default, ZIO HTTP uses a fixed-size connection pool with a capacity of 10 connections. This means that the client can maintain up to 10 idle connections to the server for reuse. When the client makes a request, it checks the connection pool for an available connection to the server. If a connection is available, it reuses it for the request. If no connection is available, it creates a new connection and adds it to the pool.
+
+To configure the connection pool, we have to update the `ZClient.Config#connectionPool` field with the preferred configuration. The `ConnectionPoolConfig` trait serves as a base trait for different connection pool configurations. It is a sealed trait with five different implementations:
+
+- `Disabled`: Indicates that connection pooling is disabled.
+- `Fixed`: Takes a single parameter, `size`, which specifies a fixed size connection pool.
+- `FixedPerHost`: Takes a map of `URL.Location.Absolute` to `Fixed` to specify a fixed size connection pool per host.
+- `Dynamic`: Takes three parameters, `minimum`, `maximum`, and `ttl`, to configure a dynamic connection pool with minimum and maximum sizes and a time-to-live (TTL) duration.
+- `DynamicPerHost`: Similar to Dynamic, but with configurations per host.
+
+Also the `ZClient.Config` has some utility methods to update the connection pool configuration, e.g. `ZClient.Config#fixedConnectionPool` and `ZClient.Config#dynamicConnectionPool`. Let's see an example of how to configure the connection pool:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/ClientWithConnectionPooling.scala")
+```
+
 ## Examples
 
 ### Reconnecting WebSocket Client
