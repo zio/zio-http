@@ -287,10 +287,11 @@ object Example extends ZIOAppDefault {
 
 ## Handler Aspects
 
-Ordinary Middlewares are intended to bracket a request's execution by intercepting the request, possibly modifying it or short-circuiting its execution (for example if it fails authentication).
+Ordinary Middlewares are intended to bracket a request's execution by intercepting the request, possibly modifying it or short-circuiting its execution
+(for example if it fails authentication), and then performing some post-processing on the response.
 However, we sometimes want to gather some contextual information about a request and pass it alongside to the request's handler.
 This can be achieved with the `HandlerAspect[Env, CtxOut]` type, which extends `Middleware[Env]`.
-This middleware produces a value of type `CtxOut` on each request, which the routing DSL will accept just like a path component or query parameter:
+This middleware produces a value of type `CtxOut` on each request, which the routing DSL will accept just like a path component:
 
 ```scala
 val sessionMiddleware: HandlerAspect[Env, Session] = createSessionMiddleware()
