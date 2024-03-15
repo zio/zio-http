@@ -95,6 +95,59 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/ServerConfigurationExample.scala")
 ```
 
+## Enabling Response Compression
+
+Response compression is a crucial technique for optimizing data transfer efficiency and improving performance in web applications. By compressing response bodies, servers can significantly reduce the amount of data sent over the network, leading to faster loading times and better user experiences.
+
+To enable response compression, it's essential to configure both the server and the client correctly. On the server side, we need to ensure that our web server is properly configured to compress outgoing responses. 
+
+On the client side, we need to indicate to the server that we support response compression by including the `Accept-Encoding` header in our HTTP requests. The `Accept-Encoding` header specifies the compression algorithms that the client can handle, such as `gzip` or `deflate`. When the server receives a request with the `Accept-Encoding` header, it can compress the response body using one of the supported algorithms before sending it back to the client.
+
+Here's an example of how to include the `Accept-Encoding` header in an HTTP request:
+
+```http
+GET https://example.com/
+Accept-Encoding: gzip, deflate
+```
+
+When the server responds with a compressed body, it includes the `Content-Encoding` header in the response to indicate the compression algorithm used. The client then needs to decompress the response body before processing its contents.
+
+For instance, a compressed response might have headers like this:
+
+```http
+200 OK
+Content-Encoding: gzip
+Content-Type: application/json; charset=utf-8
+<compressed-body>
+```
+
+In ZIO HTTP, response compression is disabled by default. To enable it, we need to update the server config, i.e. `Server.Config`, and use the `responseCompression` field to specify the compression configuration:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config = 
+  Server.Config.default.copy(
+    responseCompression = Some(Server.Config.ResponseCompressionConfig.default),
+  )
+```
+
+Here is the full example of how to enable response compression:
+
+```scala mdoc:passthrough
+import zio.http._
+
+printSource("zio-http-example/src/main/scala/example/ServerResponseCompression.scala")
+```
+
+After running the server, we can test it using the following `curl` command:
+
+```bash
+ curl -X GET http://localhost:8080/hello -H "Accept-Encoding: gzip" -i --output response.bin
+```
+
+The `response.bin` file will contain the compressed response body.
+
 ## Netty Configuration
 
 In order to customize Netty-specific properties, the `customized` layer can be used, providing not only `Server.Config`
