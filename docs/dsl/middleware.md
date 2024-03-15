@@ -285,3 +285,36 @@ object Example extends ZIOAppDefault {
 - [CORS](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_cors)
 - [CSRF](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_csrf)
 
+## Handler Aspects
+
+Ordinary Middlewares are intended to bracket a request's execution by intercepting the request, possibly modifying it or short-circuiting its execution (for example if it fails authentication).
+However, we sometimes want to gather some contextual information about a request and pass it alongside to the request's handler.
+This can be achieved with the `HandlerAspect[Env, CtxOut]` type, which extends `Middleware[Env]`.
+This middleware produces a value of type `CtxOut` on each request, which the routing DSL will accept just like a path component or query parameter:
+
+```scala
+val sessionMiddleware: HandlerAspect[Env, Session] = createSessionMiddleware()
+Routes(
+  Method.GET / "user" / int("userId") -> sessionMiddleware -> handler { (userId: Int, session: Session, request: Request) =>
+    UserRepository.getUser(session.organizationId, userId)
+  }
+)
+```
+
+In order to implement `createSessionMiddleware` in our example, we will need one or more `Handler`s:
+```scala
+def createSessionMiddleware[Env](): HandlerAspect[Env, Session] = {
+  val incomingHandler: Handler[Env, Response, Request, (Request, Session)] = 
+    // session lookup logic here
+  
+  HandlerAspect.interceptIncomingHandler(incomingHandler)
+  
+  // or, if post-processing of the response is needed,
+  val outgoingHandler: Handler[Env, Nothing, Response, Response] =
+    // post-processing logic here
+  HandlerAspect.interceptHandler(incomingHandler)(outgoingHandler)
+}
+```
+Note the asymmetry of the type parameters of these two handlers:
+In the incoming case, the `Err` parameter is `Response`; if the handler cannot produce a `Session`, then it is responsible for generating an error `Response` which will be returned to the client (possibly with modifications by other middlewares).
+The outgoing handler, by contrast, has `Nothing` as its `Err` type, meaning that it **cannot** fail and must always produce a `Response`.
