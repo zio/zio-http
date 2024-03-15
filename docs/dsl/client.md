@@ -11,7 +11,7 @@ title: Client
 
 **Type-Safe**: ZClient's API is designed to be type-safe, leveraging Scala's type system to catch errors at compile time and provide a seamless development experience. This helps prevent common runtime errors and enables developers to write robust and reliable HTTP client code.
 
-**Asynchronous & Non-blocking**: ZClient is fully asynchronous and non-blocking, allowing you to perform multiple HTTP requests concurrently without blocking threads. This ensures optimal resource utilization and scalability, making it suitable for high-performance applications.
+**Asynchronous & Non-blocking**: ZClient is fully asynchronous and non-blocking, allowing us to perform multiple HTTP requests concurrently without blocking threads. This ensures optimal resource utilization and scalability, making it suitable for high-performance applications.
 
 **Middleware Support**: ZClient provides support for middleware, allowing us to customize and extend its behavior to suit our specific requirements. We can easily plug in middleware to add functionalities such as logging, debugging, caching, and more.
 
@@ -113,10 +113,9 @@ We can also think of a client as a function that takes a `WebSocketApp` and retu
 object ZClient {
   def socket[R](socketApp: WebSocketApp[R]): ZIO[R with Client & Scope, Throwable, Response] = ???
 }
-```composability
+```
 
 Here is a simple example of how to use the `ZClient#socket` method to perform a WebSocket connection:
-
 
 ```scala mdoc:compile-only
 import zio._
@@ -170,21 +169,6 @@ object WebSocketSimpleClient extends ZIOAppDefault {
 
 In the above example, we defined a WebSocket client that connects to a mirror server and sends and receives messages. When the connection is established, it receives the `UserEvent.HandshakeComplete` event and then it sends a "foo" message to the server. Consequently, the server sends a "foo" message, and the client responds with a "bar" message. Finally, the server sends a "bar" message, and the client closes the connection.
 
-## Configuring Proxy
-
-To configure a proxy for the client, we can use the `Client#proxy` method. This method takes a `Proxy` and updates the client's configuration to use the specified proxy for all requests:
-
-```scala mdoc:compile-only
-import zio._
-import zio.http._
-
-val program = for {
-  proxyUrl <- ZIO.fromEither(URL.decode("http://localhost:8123"))
-  client   <- ZIO.serviceWith[Client](_.proxy(Proxy(url = proxyUrl)))
-  res      <- client.request(Request.get("https://jsonplaceholder.typicode.com/todos"))
-} yield ()
-```
-
 ## Configuring Headers
 
 By default, the client adds the `User-Agent` header to all requests. Additionally, as the `ZClient` extends the `HeaderOps` trait, we have access to all operations that can be performed on headers inside the client.
@@ -209,7 +193,6 @@ To learn more about headers and how they work, check out our dedicated section c
 ## Composable URLs
 
 In ZIO HTTP, URLs are composable. This means that if we have two URLs, we can combine them to create a new URL. This is useful when we want to prevent duplication of the base URL in our code. For example, assume we have a base URL `http://localhost:8080` and we want to make several requests to different endpoints and query parameters under this base URL. We can configure the client with this URL using the `Client#url` and then every request will be made can be relative to this base URL:
-
 
 ```scala mdoc:compile-only
 import zio._
@@ -333,9 +316,76 @@ for {
 } yield ()
 ```
 
-## Enabling Response Decompression
+## Configuring ZIO HTTP Client
 
-When making HTTP requests using a client, such as a web browser or a custom HTTP client, it's essential to optimize data transfer for efficiency and performance. 
+The ZIO HTTP Client provides a flexible configuration mechanism through the `ZClient.Config` class. This class allows us to customize various aspects of the HTTP client, including SSL settings, proxy configuration, connection pool size, timeouts, and more. The `ZClient.Config.default` provides a default configuration that can be customized using `copy` method or by using the utility methods provided by the `ZClient.Config` class.
+
+Let's take a look at the available configuration options:
+
+- **SSL Configuration**: Allows us to specify SSL settings for secure connections.
+- **Proxy Configuration**: Enables us to configure a proxy server for outgoing HTTP requests.
+- **Connection Pool Configuration**: Defines the size of the connection pool.
+- **Max Initial Line Length**: Sets the maximum length of the initial line in an HTTP request or response. The default is set to 4096 characters.
+- **Max Header Size**: Specifies the maximum size of HTTP headers in bytes. The default is set to 8192 bytes.
+- **Request Decompression**: Specifies whether the client should decompress the response body if it's compressed.
+- **Local Address**: Specifies the local network interface or address to use for outgoing connections. It's set to None, indicating that the client will use the default local address.
+- **Add User-Agent Header**: Indicates whether the client should automatically add a User-Agent header to outgoing requests. It's set to true in the default configuration.
+- **WebSocket Configuration**: Configures settings specific to WebSocket connections. In this example, the default WebSocket configuration is used.
+- **Idle Timeout**: Specifies the maximum idle time for persistent connections in seconds. The default is set to 50 seconds.
+- **Connection Timeout**: Specifies the maximum time to wait for establishing a connection in seconds. By default, the client has no connection timeout.
+
+Here are some of the above configuration options in more detail:
+
+### Configuring SSL
+
+The default SSL configuration of `ZClient.Config.default` is `None`. To enable and configure SSL for the client, we can use the `ZClient.Config#ssl` method. This method takes a config of type `ClientSSLConfig` which supports different SSL configurations such as `Default`, `FromCertFile`, `FromCertResource`, `FromTrustStoreFile`, and `FromTrustStoreResource.
+
+Let's see an example of how to configure SSL for the client:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HttpsClient.scala")
+```
+
+### Configuring Proxy
+
+To configure a proxy for the client, we can use the `Client#proxy` method. This method takes a `Proxy` and updates the client's configuration to use the specified proxy for all requests:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+val program = for {
+  proxyUrl <- ZIO.fromEither(URL.decode("http://localhost:8123"))
+  client   <- ZIO.serviceWith[Client](_.proxy(Proxy(url = proxyUrl)))
+  res      <- client.request(Request.get("https://jsonplaceholder.typicode.com/todos"))
+} yield ()
+```
+
+### Connection Pooling
+
+Connection pooling is a crucial mechanism in ZIO HTTP for optimizing the management of HTTP connections. By default, ZIO HTTP uses a fixed-size connection pool with a capacity of 10 connections. This means that the client can maintain up to 10 idle connections to the server for reuse. When the client makes a request, it checks the connection pool for an available connection to the server. If a connection is available, it reuses it for the request. If no connection is available, it creates a new connection and adds it to the pool.
+
+To configure the connection pool, we have to update the `ZClient.Config#connectionPool` field with the preferred configuration. The `ConnectionPoolConfig` trait serves as a base trait for different connection pool configurations. It is a sealed trait with five different implementations:
+
+- `Disabled`: Indicates that connection pooling is disabled.
+- `Fixed`: Takes a single parameter, `size`, which specifies a fixed size connection pool.
+- `FixedPerHost`: Takes a map of `URL.Location.Absolute` to `Fixed` to specify a fixed size connection pool per host.
+- `Dynamic`: Takes three parameters, `minimum`, `maximum`, and `ttl`, to configure a dynamic connection pool with minimum and maximum sizes and a time-to-live (TTL) duration.
+- `DynamicPerHost`: Similar to Dynamic, but with configurations per host.
+
+Also the `ZClient.Config` has some utility methods to update the connection pool configuration, e.g. `ZClient.Config#fixedConnectionPool` and `ZClient.Config#dynamicConnectionPool`. Let's see an example of how to configure the connection pool:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/ClientWithConnectionPooling.scala")
+```
+
+### Enabling Response Decompression
+
+When making HTTP requests using a client, such as a web browser or a custom HTTP client, it's essential to optimize data transfer for efficiency and performance.
 
 By default, most HTTP clients do not advertise compression support when making requests to web servers. However, servers often compress response bodies when they detect that the client supports compression. To enable response compression, we need to add the `Accept-Encoding` header to our HTTP requests. The `Accept-Encoding` header specifies the compression algorithms supported by the client. Common values include `gzip` and `deflate`. When a server receives a request with the `Accept-Encoding` header, it may compress the response body using one of the specified algorithms.
 
@@ -366,41 +416,35 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/ClientWithDecompression.scala")
 ```
 
-## Connection Pooling
-
-Connection pooling is a crucial mechanism in ZIO HTTP for optimizing the management of HTTP connections. By default, ZIO HTTP uses a fixed-size connection pool with a capacity of 10 connections. This means that the client can maintain up to 10 idle connections to the server for reuse. When the client makes a request, it checks the connection pool for an available connection to the server. If a connection is available, it reuses it for the request. If no connection is available, it creates a new connection and adds it to the pool.
-
-To configure the connection pool, we have to update the `ZClient.Config#connectionPool` field with the preferred configuration. The `ConnectionPoolConfig` trait serves as a base trait for different connection pool configurations. It is a sealed trait with five different implementations:
-
-- `Disabled`: Indicates that connection pooling is disabled.
-- `Fixed`: Takes a single parameter, `size`, which specifies a fixed size connection pool.
-- `FixedPerHost`: Takes a map of `URL.Location.Absolute` to `Fixed` to specify a fixed size connection pool per host.
-- `Dynamic`: Takes three parameters, `minimum`, `maximum`, and `ttl`, to configure a dynamic connection pool with minimum and maximum sizes and a time-to-live (TTL) duration.
-- `DynamicPerHost`: Similar to Dynamic, but with configurations per host.
-
-Also the `ZClient.Config` has some utility methods to update the connection pool configuration, e.g. `ZClient.Config#fixedConnectionPool` and `ZClient.Config#dynamicConnectionPool`. Let's see an example of how to configure the connection pool:
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/ClientWithConnectionPooling.scala")
-```
-
-## Configuring SSL
-
-The default SSL configuration of `ZClient.Config.default` is `None`. To enable and configure SSL for the client, we can use the `ZClient.Config#ssl` method. This method takes a config of type `ClientSSLConfig` which supports different SSL configurations such as `Default`, `FromCertFile`, `FromCertResource`, `FromTrustStoreFile`, and `FromTrustStoreResource.
-
-Let's see an example of how to configure SSL for the client:
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/HttpsClient.scala")
-```
-
 ## Examples
 
-### Reconnecting WebSocket Client
+### Simple Client Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/SimpleClient.scala")
+```
+
+### ClientServer Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/ClientServer.scala")
+```
+
+### Authentication Client Example
+
+This example code demonstrates accessing a protected route in an [authentication server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/AuthenticationClient.scala) by first obtaining a JWT token through a login request and then using that token to access the protected route:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/AuthenticationClient.scala")
+```
+
+### Reconnecting WebSocket Client Example
 
 This example represents a WebSocket client application that automatically attempts to reconnect upon encountering errors or disconnections. It uses the `Promise` to notify about WebSocket errors:
 
