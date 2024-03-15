@@ -402,10 +402,10 @@ object JsonSchema {
           ref,
           leftSchema.children ++ rightSchema.children,
         )
-      case Schema.Fallback(left, right, fullDecode, _)                                                     =>
+      case Schema.Fallback(left, right, fullDecode, _)                                       =>
         val leftSchema  = fromZSchemaMulti(left, refType)
         val rightSchema = fromZSchemaMulti(right, refType)
-        val innerSchema = 
+        val innerSchema =
           if (fullDecode)
             AnyOfSchema(Chunk(leftSchema.root, rightSchema.root))
           else
@@ -566,10 +566,12 @@ object JsonSchema {
       case Schema.Fail(_, _)             => throw new IllegalArgumentException("Fail schema is not supported.")
       case Schema.Tuple2(left, right, _) => AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Either(left, right, _) => OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
-      case Schema.Fallback(left, right, true, _) => AnyOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
-      case Schema.Fallback(left, right, _, _) => OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
-      case Schema.Lazy(schema0)          => fromZSchema(schema0(), refType)
-      case Schema.Dynamic(_)             => AnyJson
+      case Schema.Fallback(left, right, true, _) =>
+        AnyOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
+      case Schema.Fallback(left, right, _, _)    =>
+        OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
+      case Schema.Lazy(schema0)                  => fromZSchema(schema0(), refType)
+      case Schema.Dynamic(_)                     => AnyJson
 
     }
 
