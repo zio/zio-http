@@ -271,6 +271,10 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
+  .settings(
+    libraryDependencies += "dev.zio" %% "zio-config"          % "4.0.1",
+    libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "4.0.1",
+  )
   .dependsOn(zioHttpJVM, zioHttpCli)
 
 lazy val zioHttpGen = (project in file("zio-http-gen"))
@@ -316,7 +320,8 @@ lazy val docs = project
     ciWorkflowName                             := "Continuous Integration",
     libraryDependencies ++= Seq(
       `jwt-core`,
-      "dev.zio" %% "zio-test" % ZioVersion,
+      "dev.zio" %% "zio-test"   % ZioVersion,
+      "dev.zio" %% "zio-config" % "4.0.1",
     ),
     publish / skip                             := true,
   )
