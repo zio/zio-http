@@ -293,7 +293,7 @@ However, we sometimes want to gather some contextual information about a request
 This can be achieved with the `HandlerAspect[Env, CtxOut]` type, which extends `Middleware[Env]`.
 This middleware produces a value of type `CtxOut` on each request, which the routing DSL will accept just like a path component:
 
-```scala
+```scala mdoc:silent:fail
 val sessionMiddleware: HandlerAspect[Env, Session] = createSessionMiddleware()
 Routes(
   Method.GET / "user" / int("userId") -> sessionMiddleware -> handler { (userId: Int, session: Session, request: Request) =>
@@ -303,7 +303,7 @@ Routes(
 ```
 
 In order to implement `createSessionMiddleware` in our example, we will need one or more `Handler`s:
-```scala
+```scala mdoc:silent:fail
 def createSessionMiddleware[Env](): HandlerAspect[Env, Session] = {
   val incomingHandler: Handler[Env, Response, Request, (Request, Session)] = 
     // session lookup logic here
