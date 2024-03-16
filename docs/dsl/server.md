@@ -177,6 +177,16 @@ After running the server, we can test it using the following `curl` command:
 
 The `response.bin` file will contain the compressed response body.
 
+## Serving on Any Open Port
+
+If we want to start the server on any open port, we can use the `Server.Config#onAnyOpenPort` method:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/ServeOnAnyOpenPort.scala")
+```
+
 ## Netty Configuration
 
 In order to customize Netty-specific properties, the `customized` layer can be used, providing not only `Server.Config`
