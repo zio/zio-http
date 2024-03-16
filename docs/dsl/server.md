@@ -59,7 +59,7 @@ Server
 
 ## Integration with ZIO Config
 
-The `Server` module has a predefined config description, i.e. [`Server.Config.config`](server_config.md), that can be used to load the server configuration from the environment, system properties, or any other configuration source.
+The `Server` module has a predefined config description, i.e. [`Server.Config.config`](dsl/server_config), that can be used to load the server configuration from the environment, system properties, or any other configuration source.
 
 The `configured` layer loads the server configuration using the application's _ZIO configuration provider_, which is using the environment by default but can be attached to a different backends using the [ZIO Config library](https://zio.github.io/zio-config/).
 
