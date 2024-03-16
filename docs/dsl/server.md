@@ -44,6 +44,10 @@ Server.serve(app).provide(
 )
 ```
 
+:::note
+Sometimes we may want to have more control over installation of the http application into the server. In such cases, we may want to use the `Server.install` method. This method only installs the `HttpApp` into the server, and the lifecycle of the server can be managed separately.
+:::
+
 ## Starting a Server with Custom Configurations
 
 The `live` layer expects a `Server.Config` holding the custom configuration for the server:
@@ -59,7 +63,7 @@ Server
 
 ## Integration with ZIO Config
 
-The `Server` module has a predefined config description, i.e. [`Server.Config.config`](../dsl/server_config), that can be used to load the server configuration from the environment, system properties, or any other configuration source.
+The `Server` module has a predefined config description, i.e. `Server.Config.config`, that can be used to load the server configuration from the environment, system properties, or any other configuration source.
 
 The `configured` layer loads the server configuration using the application's _ZIO configuration provider_, which is using the environment by default but can be attached to a different backends using the [ZIO Config library](https://zio.github.io/zio-config/).
 
@@ -93,6 +97,31 @@ Then we can load the server configuration from the `application.conf` file using
 import utils._
 
 printSource("zio-http-example/src/main/scala/example/ServerConfigurationExample.scala")
+```
+
+## Configuring SSL
+
+By default, the server is not configured to use SSL. To enable it, we need to update the server config, and use the `Server.Config#ssl` field to specify the SSL configuration:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val sslConfig = SSLConfig.fromResource(
+  behaviour = SSLConfig.HttpBehaviour.Accept,
+  certPath = "server.crt",
+  keyPath = "server.key",
+)
+
+val config = Server.Config.default
+  .ssl(sslConfig)
+```
+
+Here is the full example of how to configure SSL:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HttpsHelloWorld.scala")
 ```
 
 ## Enabling Response Compression
