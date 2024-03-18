@@ -177,6 +177,139 @@ After running the server, we can test it using the following `curl` command:
 
 The `response.bin` file will contain the compressed response body.
 
+## Enabling Streaming of Request Bodies
+
+Enabling streaming of request bodies in the ZIO HTTP server typically involves configuring the server to handle incoming requests asynchronously and process request bodies as they arrive, rather than waiting for the entire request body to be received before processing begins. 
+
+There are two streaming methods available on request bodies: `Body#asStream` and `Body#asMultipartFormStream`. When we receive a request with a streaming body, whether it's a single part or a multipart form, if the server is configured to handle request streaming, we can process the body as a stream of bytes, which allows us to handle large request bodies more efficiently.
+
+By default, request streaming is disabled in ZIO HTTP. To enable it, we need to update the server config with the `Server.Config#enableRequestStreaming` method.
+
+The following example demonstrates a server that handles streaming request bodies:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.stream.{ZSink, ZStream}
+
+object RequestStreamingServerExample extends ZIOAppDefault {
+  def logBytes = (b: Byte) => ZIO.log(s"received byte: $b")
+
+  private val app: HttpApp[Any] =
+    Routes(
+      Method.POST / "upload-stream" / "simple"     -> handler { (req: Request) =>
+        for {
+          count <- req.body.asStream.tap(logBytes).run(ZSink.count)
+          _     <- ZIO.debug(s"Read $count bytes")
+        } yield Response.text(count.toString)
+      },
+      Method.POST / "upload-stream" / "form-field" -> handler { (req: Request) =>
+        if (req.header(Header.ContentType).exists(_.mediaType == MediaType.multipart.`form-data`))
+          for {
+            _     <- ZIO.debug("Starting to read multipart/form stream")
+            form  <- req.body.asMultipartFormStream
+              .mapError(ex =>
+                Response(
+                  Status.InternalServerError,
+                  body = Body.fromString(s"Failed to decode body as multipart/form-data (${ex.getMessage}"),
+                ),
+              )
+            count <- form.fields
+              .tap(f => ZIO.log(s"started reading new field: ${f.name}"))
+              .flatMap {
+                case sb: FormField.StreamingBinary =>
+                  sb.data.tap(logBytes)
+                case _                             =>
+                  ZStream.empty
+              }
+              .run(ZSink.count)
+
+            _ <- ZIO.debug(s"Finished reading multipart/form stream, received $count bytes of data")
+          } yield Response.text(count.toString)
+        else ZIO.succeed(Response(status = Status.NotFound))
+      },
+    ).sandbox.toHttpApp @@ Middleware.debug
+
+  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
+    Server
+      .serve(app)
+      .provide(
+        ZLayer.succeed(Server.Config.default.enableRequestStreaming),
+        Server.live,
+      )
+}
+```
+
+To test the 'upload-stream/simple' endpoint, let's run the following client code:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.stream.ZStream
+
+object SimpleStreamingClientExample extends ZIOAppDefault {
+  val app = for {
+    url    <- ZIO.fromEither(URL.decode("http://localhost:8080/upload-stream"))
+    client <- ZIO.serviceWith[Client](_.url(url) @@ ZClientAspect.requestLogging())
+    res    <- client.request(
+      Request.post(
+        path = "simple",
+        body = Body.fromStreamChunked(
+          ZStream.fromIterable("Let's send this text as a byte array".getBytes()),
+        ),
+      ),
+    )
+    _      <- ZIO.debug(res.status)
+
+  } yield ()
+
+  def run = app.provide(Client.default, Scope.default)
+}
+```
+
+We will see that the server logs the received bytes as they arrive, and the client will receive the response with the number of bytes received.
+
+The `upload-stream/form-field` endpoint is designed to handle multipart form data. To test it, we can use the following client code:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.stream.ZStream
+
+object FormFieldStreamingClientExample extends ZIOAppDefault {
+  val app = for {
+    url    <- ZIO.fromEither(URL.decode("http://localhost:8080/upload-stream"))
+    client <- ZIO.serviceWith[Client](_.url(url) @@ ZClientAspect.requestLogging())
+    form = Form(
+      Chunk(
+        ("foo", "This is the first part of the foo form field."),
+        ("foo", "This is the second part of the foo form field."),
+        ("bar", "This is the body of the bar form field."),
+      ).map { case (name, data) =>
+        FormField.streamingBinaryField(
+          name = name,
+          data = ZStream.fromChunk(Chunk.fromArray(data.getBytes)).schedule(Schedule.fixed(200.milli)),
+          mediaType = MediaType.application.`octet-stream`,
+        )
+      },
+    )
+    res <- client.request(
+      Request
+        .post(
+          path = "form-field",
+          body = Body.fromMultipartForm(form, Boundary("boundary123")),
+        ),
+    )
+    _ <- ZIO.debug(res.status)
+
+  } yield ()
+
+  def run = app.provide(Client.default, Scope.default)
+}
+```
+
+The server will log the received form fields as they arrive, and the client will receive the response with the number of bytes received.
+
 ## Serving on Any Open Port
 
 If we want to start the server on any open port, we can use the `Server.Config#onAnyOpenPort` method:
