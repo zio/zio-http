@@ -320,6 +320,30 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/ServeOnAnyOpenPort.scala")
 ```
 
+## Graceful Shutdown Configuration
+
+When a ZIO HTTP server is running, it handles incoming requests from clients, processes them, and sends back appropriate responses. In-flight requests are requests that have been received by the server but have not yet been fully processed or responded to. These requests might be in various stages of processing, such as waiting for database queries to complete or for resources to become available.
+
+When we're shutting down the server, it's important to handle these in-flight requests gracefully. ZIO‌ HTTP has a built-in mechanism to allow in-flight requests to finalize before shutting down the server. The default behavior is to wait for 10 seconds for in-flight requests to finalize before shutting down the server. During this time, the server will not accept new requests, but it will continue to process existing requests until they're fully completed.
+
+To change the default graceful shutdown timeout, we can use the `Server.Config#gracefulShutdownTimeout` method. It takes a `Duration` as an argument, and returns a new `Server.Config` with the specified graceful shutdown timeout:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config = Server.Config.default.gracefulShutdownTimeout(20.seconds)
+```
+
+In the following example, we can test such behavior by sending a request to the server and while the server is processing the request, we interrupt the server, and we will see that the server will wait for the request to be processed before shutting down:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/GracefulShutdown.scala")
+```
+
+This approach ensures that clients receive appropriate responses for their requests, rather than encountering errors or abrupt disconnections. It helps maintain the integrity of the communication between clients and the server, providing a smoother experience for users and preventing potential data loss or corruption.
+
 ## Netty Configuration
 
 In order to customize Netty-specific properties, the `customized` layer can be used, providing not only `Server.Config`
