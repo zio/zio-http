@@ -344,6 +344,20 @@ printSource("zio-http-example/src/main/scala/example/GracefulShutdown.scala")
 
 This approach ensures that clients receive appropriate responses for their requests, rather than encountering errors or abrupt disconnections. It helps maintain the integrity of the communication between clients and the server, providing a smoother experience for users and preventing potential data loss or corruption.
 
+## Idle Timeout Configuration
+
+The idle timeout is a mechanism by which the server automatically terminates an inactive connection after a certain period of inactivity. When a client connects to the server, it establishes a connection to request and receive responses. However, there may be instances where the client becomes slow, inactive, or unresponsive, and the server needs to reclaim resources associated with idle connections to optimize server performance and resource utilization.
+
+By default, ZIO HTTP does not have an idle timeout configured. To enable it, we can use the `Server.Config#idleTimeout` method. It takes a `Duration` as an argument, and returns a new `Server.Config` with the specified idle timeout:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config = Server.Config.default.idleTimeout(60.seconds)
+```
+
+For example, if a server has an idle timeout set to 60 seconds, any connection that remains idle (i.e., without any data being sent or received) for more than 60 seconds will be automatically terminated by the server.
+
 ## Netty Configuration
 
 In order to customize Netty-specific properties, the `customized` layer can be used, providing not only `Server.Config`
