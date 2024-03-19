@@ -358,6 +358,72 @@ val config = Server.Config.default.idleTimeout(60.seconds)
 
 For example, if a server has an idle timeout set to 60 seconds, any connection that remains idle (i.e., without any data being sent or received) for more than 60 seconds will be automatically terminated by the server.
 
+## Keep-Alive Configuration
+
+Typically, in HTTP 1.0, each request/response pair requires a separate TCP connection, which can lead to increased overhead due to the establishment and teardown of connections for each interaction. So assuming the following HTTP Application:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object KeepAliveExample extends ZIOAppDefault {
+  val httpApp = handler(Response.text("Hello World!")).toHttpApp
+
+  override val run =
+    Server.serve(httpApp).provide(Server.default)
+}
+```
+
+When we send the following request to the server, the server will respond with `Connection: close` header:
+
+```bash
+$ curl --http1.0 localhost:8080 -i
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 12
+connection: close
+
+Hello World!⏎
+```
+
+However, with the `Connection: Keep-Alive` header, the client can request that the connection remain open after the initial request, allowing for subsequent requests to be sent over the same connection without needing to establish a new one each time.
+
+```bash
+$ curl --http1.0 localhost:8080 -i -H "connection: keep-alive"
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 12
+```
+
+In HTTP 1.1, persistent connections are the default behavior, so the `Connection: Keep-Alive` header is often unnecessary:
+
+```bash
+$ curl --http1.1 localhost:8080 -i
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 12
+```
+
+However, it can still be used to override the default behavior or to provide additional parameters related to connection management. In the following example, we are going to ask the server to close the connection after serving the request:
+
+```bash
+$ curl --http1.1 localhost:8080 -i -H "Connection: close"
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 12
+connection: close
+
+Hello World!⏎
+```
+
+The‌ ZIO HTTP server by default supports keep-alive connections. To disable it, we can use the `Server.Config#keepAlive` method, by setting it to `false`:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config = Server.Config.default.keepAlive(false)
+```
+
 ## Netty Configuration
 
 In order to customize Netty-specific properties, the `customized` layer can be used, providing not only `Server.Config`
