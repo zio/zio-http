@@ -61,6 +61,16 @@ Server
   )
 ```
 
+## Binding to Specific Host and Port
+
+By default, the server binds to the `0.0.0.0` address and listens on port `8080`. We can customize the address and port using the `Server.Config#binding` methods, for example:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config = Server.Config.default.binding("example.com", 80)
+```
+
 ## Integration with ZIO Config
 
 The `Server` module has a predefined config description, i.e. `Server.Config.config`, that can be used to load the server configuration from the environment, system properties, or any other configuration source.
