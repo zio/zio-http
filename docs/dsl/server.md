@@ -358,6 +358,43 @@ val config = Server.Config.default.idleTimeout(60.seconds)
 
 For example, if a server has an idle timeout set to 60 seconds, any connection that remains idle (i.e., without any data being sent or received) for more than 60 seconds will be automatically terminated by the server.
 
+## Websocket Configuration
+
+ZIO HTTP supports WebSockets, which is a communication protocol that provides full-duplex communication channels over a single TCP connection. To configure the WebSocket settings, we can use the `Server.Config#webSocketConfig` method. It takes a `WebSocketConfig` as an argument, and returns a new `Server.Config` with the specified WebSocket configuration.
+
+Let's break down the structure of the `WebSocketConfig` case class:
+
+```scala
+case class WebSocketConfig(
+  subprotocols: Option[String] = None,
+  handshakeTimeoutMillis: Long = 10000L,
+  forceCloseTimeoutMillis: Long = -1L,
+  handleCloseFrames: Boolean = true,
+  sendCloseFrame: WebSocketConfig.CloseStatus = WebSocketConfig.CloseStatus.NormalClosure,
+  dropPongFrames: Boolean = true,
+  decoderConfig: SocketDecoder = SocketDecoder.default,
+)
+```
+
+- **subprotocols**: Optional sub-protocol for WebSocket communication. This is an optional feature in WebSocket communication that allows the client and server to negotiate and agree upon a specific sub-protocol during the WebSocket handshake process.
+- **handshakeTimeoutMillis**: Timeout for the WebSocket handshake process, defaulting to 10 seconds (10,000 milliseconds). This parameter sets the maximum duration, in milliseconds, for completing the WebSocket handshake process. If the handshake exceeds this limit, the server aborts the connection attempt, ensuring timely resource management and handling of potential issues like unresponsive clients or network delays.
+- **forceCloseTimeoutMillis**: When a WebSocket connection is established, it remains open until either the client or the server explicitly closes it or until it times out due to inactivity. This parameter allows the server to set a timeout period after which it will forcibly close the WebSocket connection if no activity is detected within that time frame.
+- **handleCloseFrames**: When set to `true`, indicates that close frames in WebSocket communication are solely handled by ZIO HTTP. If set to `false`, it signifies that close frames should be forwarded instead of being solely managed by ZIO HTTP, which means that they're handled by the WebSocket application itself. This parameter allows for flexibility in how WebSocket close frames are managed, giving control over whether ZIO HTTP or the application handles them.
+- **sendCloseFrame**: This parameter which is type of `WebSocketConfig.CloseStatus`, defines the close status to be sent when a close frame is not manually transmitted. This parameter allows the WebSocket server to specify the reason for closing the connection, such as indicating a normal closure or providing a custom close status code and reason. By default, if no close frame is sent manually, the server sends a close frame indicating a normal closure.
+- **dropPongFrames**: Determines whether the WebSocket server drops pong frames. If set to `true`, pong frames are dropped, meaning the server does not respond to ping frames with pong frames. Conversely, setting it to `false` means pong frames are not dropped, and the server responds to ping frames with pong frames, adhering to the WebSocket protocol's requirement for maintaining the connection's liveliness.
+- **decoderConfig**: This parameter allows for fine-grained control over the WebSocket frame decoding process, including settings such as the maximum frame payload length, whether to expect masked frames, whether to allow mask mismatch and so on. The `SocketDecoder` case class contains all the configuration options for the WebSocket frame decoder:
+
+```scala
+final case class SocketDecoder(
+  maxFramePayloadLength: Int = 65536,
+  expectMaskedFrames: Boolean = true,
+  allowMaskMismatch: Boolean = false,
+  allowExtensions: Boolean = false,
+  closeOnProtocolViolation: Boolean = true,
+  withUTF8Validator: Boolean = true,
+)
+```
+
 ## Keep-Alive Configuration
 
 Typically, in HTTP 1.0, each request/response pair requires a separate TCP connection, which can lead to increased overhead due to the establishment and teardown of connections for each interaction. So assuming the following HTTP Application:
