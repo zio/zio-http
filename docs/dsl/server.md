@@ -61,52 +61,36 @@ Server
   )
 ```
 
-## Binding to Specific Host and Port
+The `Server.Config` class provides a wide range of configuration options, including SSL/TLS, address binding, request decompression and response compression, request streaming, and more. Here is the full list of available configurations:
 
-By default, the server binds to the `0.0.0.0` address and listens on port `8080`. We can customize the address and port using the `Server.Config#binding` methods, for example:
+```
+case class Config(
+  sslConfig: Option[SSLConfig],
+  address: InetSocketAddress,
+  acceptContinue: Boolean,
+  keepAlive: Boolean,
+  requestDecompression: Decompression,
+  responseCompression: Option[ResponseCompressionConfig],
+  requestStreaming: RequestStreaming,
+  maxInitialLineLength: Int,
+  maxHeaderSize: Int,
+  logWarningOnFatalError: Boolean,
+  gracefulShutdownTimeout: Duration,
+  webSocketConfig: WebSocketConfig,
+  idleTimeout: Option[Duration],
+)
+```
+
+There is also the default configuration, which can be used as a starting point for custom configurations. Then we can use the `Server.Config#copy` method or its builder methods to customize the configuration:
 
 ```scala mdoc:compile-only
 import zio.http._
 
-val config = Server.Config.default.binding("example.com", 80)
-```
-
-## Integration with ZIO Config
-
-The `Server` module has a predefined config description, i.e. `Server.Config.config`, that can be used to load the server configuration from the environment, system properties, or any other configuration source.
-
-The `configured` layer loads the server configuration using the application's _ZIO configuration provider_, which is using the environment by default but can be attached to a different backends using the [ZIO Config library](https://zio.github.io/zio-config/).
-
-```scala mdoc:compile-only
-Server
-  .serve(app)
-  .provide(
-    Server.configured()
-  )
-```
-
-For example, to load the server configuration from the hocon file, we should add the `zio-config-typesafe` dependency to our `build.sbt` file:
-
-```scala
-libraryDependencies += "dev.zio" %% "zio-config"          % "<version>",
-libraryDependencies += "dev.zio" %% "zio-config-magnolia" % "<version>",
-libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "<version>",
-```
-
-And put the `application.conf` file in the `src/main/resources` directory:
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/resources/application.conf")
-```
-
-Then we can load the server configuration from the `application.conf` file using the `ConfigProvider.fromResourcePath()` method:
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/ServerConfigurationExample.scala")
+val config =
+  Server.Config.default
+    .idleTimeout(60.seconds)
+    .gracefulShutdownTimeout(20.seconds)
+    .requestDecompression(true)
 ```
 
 ## Configuring SSL
@@ -132,6 +116,38 @@ Here is the full example of how to configure SSL:
 import utils._
 
 printSource("zio-http-example/src/main/scala/example/HttpsHelloWorld.scala")
+```
+
+## Binding to Specific Host and Port
+
+By default, the server binds to the `0.0.0.0` address and listens on port `8080`. We can customize the address and port using the `Server.Config#binding` methods, for example:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config1 = Server.Config.default.binding("example.com", 80)
+
+val config2 = Server.Config.default.port(80)
+```
+
+## Accepting Continue
+
+Sometimes, a client may need to send a large request to the server and want to check if the server is willing to accept the request before sending the entire request body. This is especially useful when the request body is large, and the client wants to avoid sending the data if the server isn't ready to accept it. This approach helps optimize network utilization and resource consumption by avoiding unnecessary data transmissions.
+
+Here's how it typically works:
+
+1. The client sends a request to the server with the "Expect: 100-continue" header included.
+2. Upon receiving such a request, the server checks if it can handle the request and if it's willing to accept the incoming data.
+3. If the server is ready to accept the data, it responds with a "100 Continue" status code.
+4. Upon receiving the "100 Continue" response, the client knows it's safe to proceed sending the request body.
+5. The client then sends the request body.
+
+By default, this feature is disabled in ZIO HTTP. To enable it, we can use the `Server.Config#acceptContinue` method:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config = Server.Config.default.acceptContinue(true)
 ```
 
 ## Enabling Response Compression
@@ -470,6 +486,45 @@ import zio.http._
 
 val config = Server.Config.default.keepAlive(false)
 ```
+
+## Integration with ZIO Config
+
+The `Server` module has a predefined config description, i.e. `Server.Config.config`, that can be used to load the server configuration from the environment, system properties, or any other configuration source.
+
+The `configured` layer loads the server configuration using the application's _ZIO configuration provider_, which is using the environment by default but can be attached to a different backends using the [ZIO Config library](https://zio.github.io/zio-config/).
+
+```scala mdoc:compile-only
+Server
+  .serve(app)
+  .provide(
+    Server.configured()
+  )
+```
+
+For example, to load the server configuration from the hocon file, we should add the `zio-config-typesafe` dependency to our `build.sbt` file:
+
+```scala
+libraryDependencies += "dev.zio" %% "zio-config"          % "<version>",
+libraryDependencies += "dev.zio" %% "zio-config-magnolia" % "<version>",
+libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "<version>",
+```
+
+And put the `application.conf` file in the `src/main/resources` directory:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/resources/application.conf")
+```
+
+Then we can load the server configuration from the `application.conf` file using the `ConfigProvider.fromResourcePath()` method:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/ServerConfigurationExample.scala")
+```
+
 
 ## Netty Configuration
 
