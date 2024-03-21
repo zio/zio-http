@@ -150,6 +150,190 @@ import zio.http._
 val config = Server.Config.default.acceptContinue(true)
 ```
 
+## Keep-Alive Configuration
+
+Typically, in HTTP 1.0, each request/response pair requires a separate TCP connection, which can lead to increased overhead due to the establishment and teardown of connections for each interaction. So assuming the following HTTP Application:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object KeepAliveExample extends ZIOAppDefault {
+  val httpApp = handler(Response.text("Hello World!")).toHttpApp
+
+  override val run =
+    Server.serve(httpApp).provide(Server.default)
+}
+```
+
+When we send the following request to the server, the server will respond with `Connection: close` header:
+
+```bash
+$ curl --http1.0 localhost:8080 -i
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 12
+connection: close
+
+Hello World!⏎
+```
+
+However, with the `Connection: Keep-Alive` header, the client can request that the connection remain open after the initial request, allowing for subsequent requests to be sent over the same connection without needing to establish a new one each time.
+
+```bash
+$ curl --http1.0 localhost:8080 -i -H "connection: keep-alive"
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 12
+```
+
+In HTTP 1.1, persistent connections are the default behavior, so the `Connection: Keep-Alive` header is often unnecessary:
+
+```bash
+$ curl --http1.1 localhost:8080 -i
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 12
+```
+
+However, it can still be used to override the default behavior or to provide additional parameters related to connection management. In the following example, we are going to ask the server to close the connection after serving the request:
+
+```bash
+$ curl --http1.1 localhost:8080 -i -H "Connection: close"
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 12
+connection: close
+
+Hello World!⏎
+```
+
+The‌ ZIO HTTP server by default supports keep-alive connections. To disable it, we can use the `Server.Config#keepAlive` method, by setting it to `false`:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config = Server.Config.default.keepAlive(false)
+```
+
+## Integration with ZIO Config
+
+The `Server` module has a predefined config description, i.e. `Server.Config.config`, that can be used to load the server configuration from the environment, system properties, or any other configuration source.
+
+The `configured` layer loads the server configuration using the application's _ZIO configuration provider_, which is using the environment by default but can be attached to a different backends using the [ZIO Config library](https://zio.github.io/zio-config/).
+
+```scala mdoc:compile-only
+Server
+  .serve(app)
+  .provide(
+    Server.configured()
+  )
+```
+
+For example, to load the server configuration from the hocon file, we should add the `zio-config-typesafe` dependency to our `build.sbt` file:
+
+```scala
+libraryDependencies += "dev.zio" %% "zio-config"          % "<version>",
+libraryDependencies += "dev.zio" %% "zio-config-magnolia" % "<version>",
+libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "<version>",
+```
+
+And put the `application.conf` file in the `src/main/resources` directory:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/resources/application.conf")
+```
+
+Then we can load the server configuration from the `application.conf` file using the `ConfigProvider.fromResourcePath()` method:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/ServerConfigurationExample.scala")
+```
+
+## Enabling Request Decompression
+
+By default, ZIO HTTP does not decompress incoming request bodies. But we can enable it by updating the `Server.Config#requestDecompression` field to any of the `Decompression.Strict` and `Decompression.NonStrict` modes:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config1 = Server.Config.default.requestDecompression(true) // strict mode
+
+val config2 = Server.Config.default.requestDecompression(false) // non-strict mode
+```
+
+Let's try an example server with enabled request decompression:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object EchoServerWithDecompression extends ZIOAppDefault {
+  override val run =
+    Server
+      .serve(
+        handler { (req: Request) =>
+          req.body.asString.map(Response.text)
+        }.sandbox.toHttpApp,
+      )
+      .provide(Server.live, ZLayer.succeed(Server.Config.default.requestDecompression(true)))
+}
+```
+
+To send a compressed request body, first, we need to compress the request body using the `gzip` command:
+
+```bash
+echo "Hello, World!" | gzip > body.gz
+```
+
+Now we are ready to send the compressed body to the server:
+
+```http
+$ curl --compressed -X POST -H "Content-Encoding: gzip" --data-binary @body.gz http://localhost:8080/ -i
+HTTP/1.1 200 OK
+content-type: text/plain
+content-length: 14
+
+Hello, World!
+```
+
+We can do the same with the ZIO HTTP client:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
+
+object ClientWithRequestCompression extends ZIOAppDefault {
+  def compressStringToGzip(input: String): Chunk[Byte] = {
+    val outputStream     = new ByteArrayOutputStream()
+    val gzipOutputStream = new GZIPOutputStream(outputStream)
+    gzipOutputStream.write(input.getBytes("UTF-8"))
+    gzipOutputStream.close()
+    Chunk.fromArray(outputStream.toByteArray)
+  }
+
+  val app =
+    for {
+      url <- ZIO.from(URL.decode("http://localhost:8080"))
+      res <-
+        Client.request(
+          Request
+            .post(url, Body.fromChunk(compressStringToGzip("Hello, World!")))
+            .addHeader(Header.ContentEncoding.GZip),
+        )
+      _   <- res.body.asString.debug("response: ")
+    } yield ()
+
+  override val run = app.provide(Client.default, Scope.default)
+}
+```
+
 ## Enabling Response Compression
 
 Response compression is a crucial technique for optimizing data transfer efficiency and improving performance in web applications. By compressing response bodies, servers can significantly reduce the amount of data sent over the network, leading to faster loading times and better user experiences.
@@ -420,111 +604,6 @@ final case class SocketDecoder(
   withUTF8Validator: Boolean = true,
 )
 ```
-
-## Keep-Alive Configuration
-
-Typically, in HTTP 1.0, each request/response pair requires a separate TCP connection, which can lead to increased overhead due to the establishment and teardown of connections for each interaction. So assuming the following HTTP Application:
-
-```scala mdoc:compile-only
-import zio._
-import zio.http._
-
-object KeepAliveExample extends ZIOAppDefault {
-  val httpApp = handler(Response.text("Hello World!")).toHttpApp
-
-  override val run =
-    Server.serve(httpApp).provide(Server.default)
-}
-```
-
-When we send the following request to the server, the server will respond with `Connection: close` header:
-
-```bash
-$ curl --http1.0 localhost:8080 -i
-HTTP/1.1 200 OK
-content-type: text/plain
-content-length: 12
-connection: close
-
-Hello World!⏎
-```
-
-However, with the `Connection: Keep-Alive` header, the client can request that the connection remain open after the initial request, allowing for subsequent requests to be sent over the same connection without needing to establish a new one each time.
-
-```bash
-$ curl --http1.0 localhost:8080 -i -H "connection: keep-alive"
-HTTP/1.1 200 OK
-content-type: text/plain
-content-length: 12
-```
-
-In HTTP 1.1, persistent connections are the default behavior, so the `Connection: Keep-Alive` header is often unnecessary:
-
-```bash
-$ curl --http1.1 localhost:8080 -i
-HTTP/1.1 200 OK
-content-type: text/plain
-content-length: 12
-```
-
-However, it can still be used to override the default behavior or to provide additional parameters related to connection management. In the following example, we are going to ask the server to close the connection after serving the request:
-
-```bash
-$ curl --http1.1 localhost:8080 -i -H "Connection: close"
-HTTP/1.1 200 OK
-content-type: text/plain
-content-length: 12
-connection: close
-
-Hello World!⏎
-```
-
-The‌ ZIO HTTP server by default supports keep-alive connections. To disable it, we can use the `Server.Config#keepAlive` method, by setting it to `false`:
-
-```scala mdoc:compile-only
-import zio.http._
-
-val config = Server.Config.default.keepAlive(false)
-```
-
-## Integration with ZIO Config
-
-The `Server` module has a predefined config description, i.e. `Server.Config.config`, that can be used to load the server configuration from the environment, system properties, or any other configuration source.
-
-The `configured` layer loads the server configuration using the application's _ZIO configuration provider_, which is using the environment by default but can be attached to a different backends using the [ZIO Config library](https://zio.github.io/zio-config/).
-
-```scala mdoc:compile-only
-Server
-  .serve(app)
-  .provide(
-    Server.configured()
-  )
-```
-
-For example, to load the server configuration from the hocon file, we should add the `zio-config-typesafe` dependency to our `build.sbt` file:
-
-```scala
-libraryDependencies += "dev.zio" %% "zio-config"          % "<version>",
-libraryDependencies += "dev.zio" %% "zio-config-magnolia" % "<version>",
-libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "<version>",
-```
-
-And put the `application.conf` file in the `src/main/resources` directory:
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/resources/application.conf")
-```
-
-Then we can load the server configuration from the `application.conf` file using the `ConfigProvider.fromResourcePath()` method:
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/ServerConfigurationExample.scala")
-```
-
 
 ## Netty Configuration
 
