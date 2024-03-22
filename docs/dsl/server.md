@@ -620,4 +620,38 @@ final case class SocketDecoder(
 ## Netty Configuration
 
 In order to customize Netty-specific properties, the `customized` layer can be used, providing not only `Server.Config`
-but also `NettyConfig`.
+but also `NettyConfig`:
+
+```scala
+object Server {
+  val customized: ZLayer[Config & NettyConfig, Throwable, Server] = ???
+}
+```
+
+The `NettyConfig` class provides a more low-level configuration, such as channel type, number of threads, shutdown quiet period, and shutdown timeout. Here is the full list of available configurations:
+
+```scala
+final case class NettyConfig(
+  leakDetectionLevel: LeakDetectionLevel,
+  channelType: ChannelType,
+  nThreads: Int,
+  shutdownQuietPeriodDuration: Duration,
+  shutdownTimeoutDuration: Duration,
+)
+```
+
+The companion object of `NettyConfig` class provides a default configuration that can be used as a starting point for custom configurations:
+
+```scala mdoc:compile-only
+import zio.http.netty._
+
+val nettyConfig = NettyConfig.default.channelType(ChannelType.URING)
+```
+
+Let's try an example server with a custom Netty configuration:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HelloWorldAdvanced.scala")
+```
