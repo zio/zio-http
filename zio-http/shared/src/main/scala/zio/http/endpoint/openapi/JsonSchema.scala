@@ -407,9 +407,20 @@ object JsonSchema {
         val rightSchema = fromZSchemaMulti(right, refType)
         val innerSchema =
           if (fullDecode)
-            AnyOfSchema(Chunk(leftSchema.root, rightSchema.root))
+            OneOfSchema(
+              Chunk(
+                AllOfSchema(Chunk(leftSchema.root, rightSchema.root)),
+                leftSchema.root,
+                rightSchema.root
+              )
+            )
           else
-            OneOfSchema(Chunk(leftSchema.root, rightSchema.root))
+            AnyOfSchema(
+              Chunk(
+                leftSchema.root,
+                rightSchema.root
+              )
+            )
 
         JsonSchemas(
           innerSchema,
@@ -567,9 +578,15 @@ object JsonSchema {
       case Schema.Tuple2(left, right, _) => AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Either(left, right, _) => OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Fallback(left, right, true, _) =>
-        AnyOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
+        OneOfSchema(
+          Chunk(
+            AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType))),
+            fromZSchema(left, refType),
+            fromZSchema(right, refType)
+          )
+        )
       case Schema.Fallback(left, right, _, _)    =>
-        OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
+        AnyOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Lazy(schema0)                  => fromZSchema(schema0(), refType)
       case Schema.Dynamic(_)                     => AnyJson
 
