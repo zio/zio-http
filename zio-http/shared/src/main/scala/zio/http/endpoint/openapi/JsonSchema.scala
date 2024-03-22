@@ -411,15 +411,15 @@ object JsonSchema {
               Chunk(
                 AllOfSchema(Chunk(leftSchema.root, rightSchema.root)),
                 leftSchema.root,
-                rightSchema.root
-              )
+                rightSchema.root,
+              ),
             )
           else
             AnyOfSchema(
               Chunk(
                 leftSchema.root,
-                rightSchema.root
-              )
+                rightSchema.root,
+              ),
             )
 
         JsonSchemas(
@@ -582,8 +582,8 @@ object JsonSchema {
           Chunk(
             AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType))),
             fromZSchema(left, refType),
-            fromZSchema(right, refType)
-          )
+            fromZSchema(right, refType),
+          ),
         )
       case Schema.Fallback(left, right, _, _)    =>
         AnyOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
