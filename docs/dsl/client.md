@@ -416,6 +416,18 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/ClientWithDecompression.scala")
 ```
 
+## Customizing `ClientDriver` and `DnsResolver`
+
+Rather than utilizing the default layer, `Client.default`, we have the option to employ the `Client.customized` layer. This layer requires `ClientDriver`, `DnsResolver`, and the `Client.Config` layers:
+
+```scala
+object Client {
+  val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = ???
+}
+```
+
+This empowers us to interchange the client driver with alternatives beyond the default Netty driver or to customize it to our specific requirements. Also, we can customize the DNS resolver to use a different DNS resolution mechanism.
+
 ## Examples
 
 ### Simple Client Example
