@@ -1,6 +1,6 @@
 import BuildHelper.*
 import Dependencies.{scalafmt, *}
-
+ 
 import scala.concurrent.duration.*
 
 val releaseDrafterVersion = "5"
