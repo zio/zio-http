@@ -520,6 +520,18 @@ object FormFieldStreamingClientExample extends ZIOAppDefault {
 
 The server will log the received form fields as they arrive, and the client will receive the response with the number of bytes received.
 
+## Logging on Fatal Errors
+
+When we are writing an API, it is essential to handle expected errors with proper error-handling mechanisms. However, there may be unexpected or fatal errors that can occur during the execution of the server. In such cases, if the `Server.Config#logWarningOnFatalError` is enabled, the server will log the errors at the warning log lever.
+
+By default, the feature is enabled. To disable that, we can make it to `false`:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config = Server.Config.default.logWarningOnFatalError(false)
+```
+
 ## Serving on Any Open Port
 
 If we want to start the server on any open port, we can use the `Server.Config#onAnyOpenPort` method:
