@@ -5,18 +5,20 @@ title: PathCodec
 
 `PathCodec[A]` represents a codec for paths of type `A`, comprising segments where each segment can be a literal, an integer, a long, a string, a UUID, or the trailing path.
 
-The two basic operations that `PathCodec` supports are:
+The three basic operations that `PathCodec` supports are:
 
 - **decode**: converting a path into a value of type `A`.
+- **format**: converting a value of type `A` into a path.
 - **++ or /**: combining two `PathCodec` values to create a new `PathCodec` that matches both paths, so the resulting of the decoding operation will be a tuple of the two values.
 
 So we can think of `PathCodec` as the following simplified trait:
 
 ```scala
-sealed trait PathCodec[A] {
-  final def /[B](that: PathCodec[B]): PathCodec[(A, B)] =
+trait PathCodec[A] {
+  def /[B](that: PathCodec[B]): PathCodec[(A, B)]
 
   def decode(path: Path): Either[String, A]
+  def format(value: A): : Either[String, Path]
 }
 ```
 
@@ -43,6 +45,22 @@ val pathCodec = empty / "users" / int("user-id") / "posts" / string("post-id")
 ```
 
 By combining `PathCodec` values, the resulting `PathCodec` type reflects the types of the path segments it matches. In the provided example, the type of `pathCodec` is `(Int, String)` because it matches a path with two segments of type `Int` and `String`, respectively.
+
+## Decoding and Formatting PathCodecs
+
+To decode a path into a value of type `A`, we can use the `PathCodec#decode` method:
+
+```scala mdoc
+import zio.http._
+
+pathCodec.decode(Path("users/123/posts/abc"))
+```
+
+To format (encode) a value of type `A` into a path, we can use the `PathCodec#format` method:
+
+```scala mdoc
+pathCodec.format((123, "abc"))
+```
 
 ## Rendering PathCodecs
 
