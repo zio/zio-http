@@ -59,10 +59,22 @@ pathCodec.toString
 The `PathCodec#??` operator, takes a `Doc` and annotate the `PathCodec` with it. It is useful for generating developer-friendly documentation for the API:
 
 ```scala mdoc
+import zio.http.codec._
+
 val users = PathCodec.literal("users") ?? (Doc.p("Managing users including CRUD operations"))
 ```
 
 When generating OpenAPI documentation, these annotations will be used to generate the API documentation.
+
+## Attaching Examples to PathCodecs
+
+Similarly to attaching documentation, we can attach examples to `PathCodec` using the `PathCodec#example` operator:
+
+```scala mdoc
+import zio.http.codec._
+
+val userId = PathCodec.int("user-id") ?? (Doc.p("The user id")) example ("user-id", 123)
+```
 
 ## Using Value Objects with PathCodecs
 
