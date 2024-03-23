@@ -54,6 +54,16 @@ pathCodec.render
 pathCodec.toString
 ```
 
+## Attaching Documentation to PathCodecs
+
+The `PathCodec#??` operator, takes a `Doc` and annotate the `PathCodec` with it. It is useful for generating developer-friendly documentation for the API:
+
+```scala mdoc
+val users = PathCodec.literal("users") ?? (Doc.p("Managing users including CRUD operations"))
+```
+
+When generating OpenAPI documentation, these annotations will be used to generate the API documentation.
+
 ## Using Value Objects with PathCodecs
 
 Other than the common `PathCodec` constructors, it's also possible to transform a `PathCodec` into a more specific data type using the `transform` method.
