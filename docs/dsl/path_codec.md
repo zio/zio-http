@@ -5,6 +5,21 @@ title: PathCodec
 
 `PathCodec[A]` represents a codec for paths of type `A`, comprising segments where each segment can be a literal, an integer, a long, a string, a UUID, or the trailing path.
 
+The two basic operations that `PathCodec` supports are:
+
+- **decode**: converting a path into a value of type `A`.
+- **++ or /**: combining two `PathCodec` values to create a new `PathCodec` that matches both paths, so the resulting of the decoding operation will be a tuple of the two values.
+
+So we can think of `PathCodec` as the following simplified trait:
+
+```scala
+sealed trait PathCodec[A] {
+  final def /[B](that: PathCodec[B]): PathCodec[(A, B)] =
+
+  def decode(path: Path): Either[String, A]
+}
+```
+
 ## Building PathCodecs
 
 The `PathCodec` data type offers several predefined codecs for common types:
