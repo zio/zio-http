@@ -35,7 +35,7 @@ The `PathCodec` data type offers several predefined codecs for common types:
 
 Complex `PathCodecs` can be constructed by combining them using the `/` operator:
 
-```scala mdoc:compile-only
+```scala mdoc:silent
 import zio.http.codec.PathCodec
 import PathCodec._
 
@@ -43,6 +43,16 @@ val pathCodec = empty / "users" / int("user-id") / "posts" / string("post-id")
 ```
 
 By combining `PathCodec` values, the resulting `PathCodec` type reflects the types of the path segments it matches. In the provided example, the type of `pathCodec` is `(Int, String)` because it matches a path with two segments of type `Int` and `String`, respectively.
+
+## Rendering PathCodecs
+
+If we render the previous `PathCodec` to a string using `PathCodec#render` or `PathCodec#toString`, we get the following result:
+
+```scala mdoc
+pathCodec.render
+
+pathCodec.toString
+```
 
 ## Using Value Objects with PathCodecs
 
