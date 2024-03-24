@@ -136,7 +136,7 @@ object JmhBenchmarkWorkflow {
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
       cond = Some(
-        "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}",
+        "github.event_name == 'pull_request'",
       ),
       steps = List(
         WorkflowStep.Use(
