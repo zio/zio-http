@@ -238,7 +238,8 @@ jobs:
           cat > Current_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_CookieDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_CookieDecodeBenchmark
           path: Current_CookieDecodeBenchmark.txt
@@ -254,7 +255,8 @@ jobs:
           cat > Main_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_CookieDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_CookieDecodeBenchmark
           path: Main_CookieDecodeBenchmark.txt
@@ -288,7 +290,8 @@ jobs:
           cat > Current_HttpCollectEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpCollectEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpCollectEval
           path: Current_HttpCollectEval.txt
@@ -304,7 +307,8 @@ jobs:
           cat > Main_HttpCollectEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCollectEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpCollectEval
           path: Main_HttpCollectEval.txt
@@ -338,7 +342,8 @@ jobs:
           cat > Current_HttpCombineEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpCombineEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpCombineEval
           path: Current_HttpCombineEval.txt
@@ -354,7 +359,8 @@ jobs:
           cat > Main_HttpCombineEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCombineEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpCombineEval
           path: Main_HttpCombineEval.txt
@@ -388,7 +394,8 @@ jobs:
           cat > Current_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpNestedFlatMapEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
           path: Current_HttpNestedFlatMapEval.txt
@@ -404,7 +411,8 @@ jobs:
           cat > Main_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpNestedFlatMapEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
           path: Main_HttpNestedFlatMapEval.txt
@@ -438,7 +446,8 @@ jobs:
           cat > Current_HttpRouteTextPerf.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Current_HttpRouteTextPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpRouteTextPerf
           path: Current_HttpRouteTextPerf.txt
@@ -454,7 +463,8 @@ jobs:
           cat > Main_HttpRouteTextPerf.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Main_HttpRouteTextPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpRouteTextPerf
           path: Main_HttpRouteTextPerf.txt
@@ -488,7 +498,8 @@ jobs:
           cat > Current_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
           path: Current_ProbeContentTypeBenchmark.txt
@@ -504,7 +515,8 @@ jobs:
           cat > Main_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
           path: Main_ProbeContentTypeBenchmark.txt
@@ -538,7 +550,8 @@ jobs:
           cat > Current_SchemeDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_SchemeDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_SchemeDecodeBenchmark
           path: Current_SchemeDecodeBenchmark.txt
@@ -554,7 +567,8 @@ jobs:
           cat > Main_SchemeDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_SchemeDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_SchemeDecodeBenchmark
           path: Main_SchemeDecodeBenchmark.txt
@@ -588,7 +602,8 @@ jobs:
           cat > Current_ServerInboundHandlerBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_ServerInboundHandlerBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_ServerInboundHandlerBenchmark
           path: Current_ServerInboundHandlerBenchmark.txt
@@ -604,7 +619,8 @@ jobs:
           cat > Main_ServerInboundHandlerBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ServerInboundHandlerBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_ServerInboundHandlerBenchmark
           path: Main_ServerInboundHandlerBenchmark.txt
@@ -638,7 +654,8 @@ jobs:
           cat > Current_UtilBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_UtilBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_UtilBenchmark
           path: Current_UtilBenchmark.txt
@@ -654,7 +671,8 @@ jobs:
           cat > Main_UtilBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_UtilBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: ${{ success() }}
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_UtilBenchmark
           path: Main_UtilBenchmark.txt
@@ -674,47 +692,136 @@ jobs:
         with:
           name: Jmh_Current_CookieDecodeBenchmark
 
+      - name: Save Result Current CookieDecodeBenchmark
+        run: cat Jmh_Current_CookieDecodeBenchmark.txt >> Jmh_Current_results.txt
+
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpCollectEval
+
+      - name: Save Result Current HttpCollectEval
+        run: cat Jmh_Current_HttpCollectEval.txt >> Jmh_Current_results.txt
 
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpCombineEval
 
+      - name: Save Result Current HttpCombineEval
+        run: cat Jmh_Current_HttpCombineEval.txt >> Jmh_Current_results.txt
+
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
+
+      - name: Save Result Current HttpNestedFlatMapEval
+        run: cat Jmh_Current_HttpNestedFlatMapEval.txt >> Jmh_Current_results.txt
 
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpRouteTextPerf
 
+      - name: Save Result Current HttpRouteTextPerf
+        run: cat Jmh_Current_HttpRouteTextPerf.txt >> Jmh_Current_results.txt
+
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
+
+      - name: Save Result Current ProbeContentTypeBenchmark
+        run: cat Jmh_Current_ProbeContentTypeBenchmark.txt >> Jmh_Current_results.txt
 
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_SchemeDecodeBenchmark
 
+      - name: Save Result Current SchemeDecodeBenchmark
+        run: cat Jmh_Current_SchemeDecodeBenchmark.txt >> Jmh_Current_results.txt
+
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_ServerInboundHandlerBenchmark
+
+      - name: Save Result Current ServerInboundHandlerBenchmark
+        run: cat Jmh_Current_ServerInboundHandlerBenchmark.txt >> Jmh_Current_results.txt
 
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_UtilBenchmark
 
-      - name: Result Current 
-        id: Result_Current
-        run: |
-           cat  Current_ServerInboundHandlerBenchmark.txt
-           cat  Current_UtilBenchmark.txt
-           cat Current_SchemeDecodeBenchmark.txt
-           cat Current_ProbeContentTypeBenchmark.txt
-           cat Current_HttpRouteTextPerf.txt
-           cat  Current_HttpCombineEval.txt
-           cat  Current_HttpNestedFlatMapEval.txt           
-           cat  Current_HttpCollectEval.txt
-           cat  Current_CookieDecodeBenchmark.txt
+      - name: Save Result Current UtilBenchmark
+        run: cat Jmh_Current_UtilBenchmark.txt >> Jmh_Current_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_CookieDecodeBenchmark
+
+      - name: Save Result Main CookieDecodeBenchmark
+        run: cat Jmh_Main_CookieDecodeBenchmark.txt >> Jmh_Main_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_HttpCollectEval
+
+      - name: Save Result Main HttpCollectEval
+        run: cat Jmh_Main_HttpCollectEval.txt >> Jmh_Main_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_HttpCombineEval
+
+      - name: Save Result Main HttpCombineEval
+        run: cat Jmh_Main_HttpCombineEval.txt >> Jmh_Main_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_HttpNestedFlatMapEval
+
+      - name: Save Result Main HttpNestedFlatMapEval
+        run: cat Jmh_Main_HttpNestedFlatMapEval.txt >> Jmh_Main_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_HttpRouteTextPerf
+
+      - name: Save Result Main HttpRouteTextPerf
+        run: cat Jmh_Main_HttpRouteTextPerf.txt >> Jmh_Main_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_ProbeContentTypeBenchmark
+
+      - name: Save Result Main ProbeContentTypeBenchmark
+        run: cat Jmh_Main_ProbeContentTypeBenchmark.txt >> Jmh_Main_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_SchemeDecodeBenchmark
+
+      - name: Save Result Main SchemeDecodeBenchmark
+        run: cat Jmh_Main_SchemeDecodeBenchmark.txt >> Jmh_Main_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_ServerInboundHandlerBenchmark
+
+      - name: Save Result Main ServerInboundHandlerBenchmark
+        run: cat Jmh_Main_ServerInboundHandlerBenchmark.txt >> Jmh_Main_results.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_UtilBenchmark
+
+      - name: Save Result Main UtilBenchmark
+        run: cat Jmh_Main_UtilBenchmark.txt >> Jmh_Main_results.txt
+
+      - uses: peter-evans/commit-comment@v1
+        with:
+          sha: ${{github.sha}}
+          body: |
+
+            **🚀 Jmh Benchmark:**
+
+            |Name |Current| Main|
+            |-----|----| ----|
+             ${{steps.fomat_output.outputs.body}}
+             
