@@ -287,35 +287,43 @@ object Example extends ZIOAppDefault {
 
 ## Handler Aspects
 
-Ordinary Middlewares are intended to bracket a request's execution by intercepting the request, possibly modifying it or short-circuiting its execution
-(for example if it fails authentication), and then performing some post-processing on the response.
+Ordinary Middlewares are intended to bracket a request's execution by intercepting the request, possibly modifying it or short-circuiting its execution, and then performing some post-processing on the response.
 However, we sometimes want to gather some contextual information about a request and pass it alongside to the request's handler.
 This can be achieved with the `HandlerAspect[Env, CtxOut]` type, which extends `Middleware[Env]`.
-This middleware produces a value of type `CtxOut` on each request, which the routing DSL will accept just like a path component:
+This middleware produces a value of type `CtxOut` on each request, which the routing DSL will accept just like a path component.
+For example, to look up a `Session`, we might use a `sessionMiddleware` with type `HandlerAspect[Env, Session]`:
 
-```scala mdoc:silent:fail
-val sessionMiddleware: HandlerAspect[Env, Session] = createSessionMiddleware()
+[//]: # (Invisible name declarations to get MDoc to compile)
+```scala mdoc:invisible:reset
+import zio.ZIO
+import zio.http._
+type Env = Any
+
+case class Session(organizationId: Int)
+val sessionMiddleware: HandlerAspect[Any, Session] = HandlerAspect.identity.map(_ => Session(0))
+
+object UserRepository {
+  def getUser(organizationId: Int, userId: Int): ZIO[Any, Throwable, Response] = ??? 
+}
+```
+
+```scala mdoc:silent
 Routes(
-  Method.GET / "user" / int("userId") -> sessionMiddleware -> handler { (userId: Int, session: Session, request: Request) =>
-    UserRepository.getUser(session.organizationId, userId)
+  Method.GET / "user" / int("userId") -> sessionMiddleware -> handler { 
+    (userId: Int, session: Session, request: Request) =>
+      UserRepository.getUser(session.organizationId, userId)
   }
 )
 ```
-
-In order to implement `createSessionMiddleware` in our example, we will need one or more `Handler`s:
-```scala mdoc:silent:fail
-def createSessionMiddleware[Env](): HandlerAspect[Env, Session] = {
-  val incomingHandler: Handler[Env, Response, Request, (Request, Session)] = 
-    // session lookup logic here
-  
-  HandlerAspect.interceptIncomingHandler(incomingHandler)
-  
-  // or, if post-processing of the response is needed,
-  val outgoingHandler: Handler[Env, Nothing, Response, Response] =
-    // post-processing logic here
-  HandlerAspect.interceptHandler(incomingHandler)(outgoingHandler)
-}
+The `HandlerAspect` companion object provides a number of helpful constructors for these middlewares.
+For this example, we would probably use `HandlerAspect.interceptHandler`, which wraps an incoming-request handler
+as well as one which performs any necessary post-processing on the outgoing response:
+```scala mdoc:compile-only
+val incomingHandler: Handler[Env, Response, Request, (Request, Session)] = ???
+val outgoingHandler: Handler[Env, Nothing, Response, Response] = ???
+HandlerAspect.interceptHandler(incomingHandler)(outgoingHandler)
 ```
-Note the asymmetry of the type parameters of these two handlers:
-In the incoming case, the `Err` parameter is `Response`; if the handler cannot produce a `Session`, then it is responsible for generating an error `Response` which will be returned to the client (possibly with modifications by other middlewares).
-The outgoing handler, by contrast, has `Nothing` as its `Err` type, meaning that it **cannot** fail and must always produce a `Response`.
+
+Note the asymmetry in the type parameters of these two handlers:
+in the incoming case, the handler emits a `Response` on the error-channel whenever the service cannot produce a `Session`, effectively short-circuiting the processing of this request.
+The outgoing handler, by contrast, has `Nothing` as its `Err` type, meaning that it **cannot** fail and must always produce a `Response` on the success channel.
