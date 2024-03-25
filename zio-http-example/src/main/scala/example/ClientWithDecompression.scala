@@ -7,7 +7,7 @@ import zio.http._
 import zio.http.netty.NettyConfig
 
 object ClientWithDecompression extends ZIOAppDefault {
-  val url = URL.decode("http://sports.api.decathlon.com/groups/water-aerobics").toOption.get
+  val url = URL.decode("https://jsonplaceholder.typicode.com/todos").toOption.get
 
   val program = for {
     client <- ZIO.service[Client]

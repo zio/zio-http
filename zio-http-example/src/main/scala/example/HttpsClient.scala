@@ -7,8 +7,8 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 object HttpsClient extends ZIOAppDefault {
-  val url     = URL.decode("https://sports.api.decathlon.com/groups/water-aerobics").toOption.get
-  val headers = Headers(Header.Host("sports.api.decathlon.com"))
+  val url     = URL.decode("https://jsonplaceholder.typicode.com/todos").toOption.get
+  val headers = Headers(Header.Host("jsonplaceholder.typicode.com"))
 
   val sslConfig = ClientSSLConfig.FromTrustStoreResource(
     trustStorePath = "truststore.jks",
