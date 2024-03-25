@@ -7,7 +7,7 @@ object JmhBenchmarkWorkflow {
 
   val jmhPlugin                = s"""addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "$JmhVersion")"""
   val scalaSources: PathFilter = ** / "*.scala"
-  val files = FileTreeView.default.list(Glob("./zio-http-benchmarks/src/main/**"), scalaSources)
+  val files = FileTreeView.default.list(Glob("./zio-http-benchmarks/src/main/scala/**"), scalaSources)
 
   /**
    * Get zioHttpBenchmark file names
@@ -18,6 +18,7 @@ object JmhBenchmarkWorkflow {
       path.replaceAll("^.*[\\/\\\\]", "").replaceAll(".scala", "")
     })
     .sorted
+
   /**
    * Run jmh benchmarks and store result
    */
@@ -47,71 +48,24 @@ object JmhBenchmarkWorkflow {
         ),
       ),
       WorkflowStep.Run(
-        commands = List(s"""cat Jmh_${branch}_${l.head}.txt >> Jmh_${branch}_results.txt""".stripMargin),
-        name = Some(s"Save Result $branch ${l.head}"),
-    ),
+          commands = List(
+            s"""cat zio-http/${branch}_${l.head}.txt >> ${branch}_benchmarks.txt""".stripMargin,
+          ),
+          name = Some(s"Format_${branch}_${l.head}"),
+      ),
     )
   })
 
-  /**
-   * Download Artifacts and parse result
-   */
-  def parse_and_cache(branch: String, batchSize: Int) = groupedBenchmarks(batchSize).flatMap(l => {
-    Seq(
-      WorkflowStep.Run(
+  def parse_results(branch: String) = WorkflowStep.Run(
         commands = List(s"""while IFS= read -r line; do
                            |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
                            |   echo $${PARSED_RESULT[1]} >> parsed_$branch.txt
                            |   B_VALUE=$$(echo $${PARSED_RESULT[1]}": "$${PARSED_RESULT[4]}" ops/sec")
                            |   echo $$B_VALUE >> $branch.txt
-                           | done < Jmh_results.txt""".stripMargin),
-        id = Some(s"Result_${branch}_${l.head}"),
-        name = Some(s"Result $branch ${l.head}"),
-      ),
-        WorkflowStep.Use(
-          UseRef.Public("actions", "cache", "v4"),
-          Map(
-            "name" -> s"Cache Jmh",
-            "path" -> s"zio-http-benchmarks/src/main/scala/zhttp.benchmarks/Main.txt",
-          ),
-        ),
-    )
-  })
-
-  /**
-   * Format result and set output
-   */
-  // def formatOutput() = WorkflowStep.Run(
-  //   commands = List(
-  //     s"""cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
-  //        |          while IFS= read -r line; do
-  //        |          if grep -q "$$line" Current.txt
-  //        |          then
-  //        |          grep "$$line" Current.txt | sed 's/^.*: //' >> finalCurrent.txt;
-  //        |          else
-  //        |          echo "" >> finalCurrent.txt;
-  //        |          fi
-  //        |            if grep -q "$$line" Main.txt
-  //        |          then
-  //        |          grep "$$line" Main.txt | sed 's/^.*: //' >> finalMain.txt;
-  //        |          else
-  //        |          echo "" >> finalMain.txt;
-  //        |          fi
-  //        |           done < c.txt
-  //        |paste -d '|' c.txt finalCurrent.txt finalMain.txt > FinalOutput.txt
-  //        | sed -i -e 's/^/|/' FinalOutput.txt
-  //        | sed -i -e 's/$$/|/' FinalOutput.txt
-  //        | body=$$(cat FinalOutput.txt)
-  //        | body="$${body//'%'/'%25'}"
-  //        | body="$${body//$$'\\n'/'%0A'}"
-  //        | body="$${body//$$'\\r'/'%0D'}"
-  //        | echo $$body
-  //        | echo ::set-output name=body::$$(echo $$body)
-  //        | """.stripMargin,
-  //   ),
-  //   id = Some(s"fomat_output"),
-  //   name = Some(s"Format Output"),
-  // )
+                           | done < ${branch}_benchmarks.txt""".stripMargin),
+        id = Some(s"${branch}_Result"),
+        name = Some(s"$branch Result"),
+      )
 
   /**
    * Workflow Job to publish benchmark results in the comment
@@ -127,7 +81,16 @@ object JmhBenchmarkWorkflow {
       needs = dependencies(batchSize),
       steps = downloadArtifacts("Current", batchSize) ++ downloadArtifacts("Main", batchSize) ++
         Seq(
-          //formatOutput(),
+          parse_results("Current"),
+          parse_results("Main"),
+          WorkflowStep.Run(
+              commands = List(
+                s"""bash a.sh Maib.txt Current.txt
+                |cat benchmarks.md""".stripMargin,
+              ),
+              id = Some(s"Create_md"),
+              name = Some(s"Create md"),
+          ),
           WorkflowStep.Use(
             ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
             params = Map(
@@ -154,6 +117,9 @@ object JmhBenchmarkWorkflow {
       id = s"Jmh_${l.head}",
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
+      cond = Some(
+        "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}",
+      ),
       steps = List(
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v2"),
@@ -169,7 +135,6 @@ object JmhBenchmarkWorkflow {
           ),
         ),
         WorkflowStep.Run(
-          cond = Option("${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}"),   
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           commands = List(
             "cd zio-http",
@@ -185,10 +150,15 @@ object JmhBenchmarkWorkflow {
             "name" -> s"Jmh_Current_${l.head}",
             "path" -> s"Current_${l.head}.txt",
           ),
-          cond = Option("${{ success() }}"),
+        ),
+        WorkflowStep.Use(
+          UseRef.Public("actions", "checkout", "v2"),
+          Map(
+            "path" -> "zio-http",
+            "ref"  -> "main",
+          ),
         ),
         WorkflowStep.Run(
-          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           commands = List(
             "cd zio-http",
@@ -204,12 +174,11 @@ object JmhBenchmarkWorkflow {
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt",
           ),
-          cond = Option("${{ success() }}"),
         ),
       ),
     )
   })
 
-  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ publish(batchSize)
+  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize) ++ publish(batchSize)
 
 }
