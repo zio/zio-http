@@ -47,15 +47,34 @@ object JmhBenchmarkWorkflow {
         ),
       ),
       WorkflowStep.Run(
+        commands = List(s"""cat Jmh_${branch}_${l.head}.txt >> Jmh_${branch}_results.txt""".stripMargin),
+        name = Some(s"Save Result $branch ${l.head}"),
+    ),
+    )
+  })
+
+  /**
+   * Download Artifacts and parse result
+   */
+  def parse_and_cache(branch: String, batchSize: Int) = groupedBenchmarks(batchSize).flatMap(l => {
+    Seq(
+      WorkflowStep.Run(
         commands = List(s"""while IFS= read -r line; do
                            |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
                            |   echo $${PARSED_RESULT[1]} >> parsed_$branch.txt
                            |   B_VALUE=$$(echo $${PARSED_RESULT[1]}": "$${PARSED_RESULT[4]}" ops/sec")
                            |   echo $$B_VALUE >> $branch.txt
-                           | done < ${branch}_${l.head}.txt""".stripMargin),
+                           | done < Jmh_results.txt""".stripMargin),
         id = Some(s"Result_${branch}_${l.head}"),
         name = Some(s"Result $branch ${l.head}"),
       ),
+        WorkflowStep.Use(
+          UseRef.Public("actions", "cache", "v4"),
+          Map(
+            "name" -> s"Cache Jmh",
+            "path" -> s"zio-http-benchmarks/src/main/scala/zhttp.benchmarks/Main.txt",
+          ),
+        ),
     )
   })
 
@@ -166,6 +185,7 @@ object JmhBenchmarkWorkflow {
             "name" -> s"Jmh_Current_${l.head}",
             "path" -> s"Current_${l.head}.txt",
           ),
+          cond = Option("${{ success() }}"),
         ),
         WorkflowStep.Run(
           cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
@@ -184,6 +204,7 @@ object JmhBenchmarkWorkflow {
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt",
           ),
+          cond = Option("${{ success() }}"),
         ),
       ),
     )
