@@ -794,7 +794,7 @@ jobs:
              echo ${PARSED_RESULT[1]} >> parsed_Current.txt
              B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
              echo $B_VALUE >> Current.txt
-             cat current.txt
+             cat Current.txt
            done < Current_UtilBenchmark.txt
 
       # - uses: actions/download-artifact@v3
