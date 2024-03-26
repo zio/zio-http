@@ -7,7 +7,7 @@ object JmhBenchmarkWorkflow {
 
   val jmhPlugin                = s"""addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "$JmhVersion")"""
   val scalaSources: PathFilter = ** / "*.scala"
-  val files = FileTreeView.default.list(Glob("./zio-http-benchmarks/src/main/scala/**"), scalaSources)
+  val files = FileTreeView.default.list(Glob("./zio-http-benchmarks/src/main/**"), scalaSources)
 
   /**
    * Get zioHttpBenchmark file names
@@ -39,7 +39,7 @@ object JmhBenchmarkWorkflow {
   /**
    * Download Artifacts and parse result
    */
-  def downloadArtifacts(branch: String, batchSize: Int) = groupedBenchmarks(batchSize).flatMap(l => {
+ def downloadArtifacts(branch: String, batchSize: Int) = groupedBenchmarks(batchSize).flatMap(l => {
     Seq(
       WorkflowStep.Use(
         ref = UseRef.Public("actions", "download-artifact", "v3"),
@@ -68,46 +68,67 @@ object JmhBenchmarkWorkflow {
       )
 
   /**
-   * Workflow Job to publish benchmark results in the comment
+   * Workflow Job to cache benchmark results
    */
-  def publish(batchSize: Int) = Seq(
+  def cache(batchSize: Int) = Seq(
     WorkflowJob(
-      id = "Jmh_publish",
-      name = "Jmh Publish",
-      scalas = List(Scala213),
+      id = "Jmh_cache",
+      name = "Cache Jmh benchmarks",
       cond = Some(
-        "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}",
+        "${{ github.event_name == 'push' && github.ref == 'main'  }}",
       ),
       needs = dependencies(batchSize),
-      steps = downloadArtifacts("Current", batchSize) ++ downloadArtifacts("Main", batchSize) ++
+      steps = downloadArtifacts("Main", batchSize) ++
         Seq(
-          parse_results("Current"),
           parse_results("Main"),
-          WorkflowStep.Run(
-              commands = List(
-                s"""bash a.sh Maib.txt Current.txt
-                |cat benchmarks.md""".stripMargin,
-              ),
-              id = Some(s"Create_md"),
-              name = Some(s"Create md"),
-          ),
           WorkflowStep.Use(
-            ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
-            params = Map(
-              "sha"  -> "${{github.sha}}",
-              "body" ->
-                """
-                  |**\uD83D\uDE80 Jmh Benchmark:**
-                  |
-                  ||Name |Current| Main|
-                  ||-----|----| ----|
-                  | ${{steps.fomat_output.outputs.body}}
-                  | """.stripMargin,
-            ),
+          UseRef.Public("actions", "cache", "v4"),
+          Map(
+            "path" -> "Main.txt",
+            "key" -> "criterion_benchmarks_${{ github.sha }}"
           ),
+        ),
         ),
     ),
   )
+
+  /**
+   * Workflow Job to compare and publish benchmark results in the comment
+   */
+def jmh_compare(batchSize: Int) = Seq(
+  WorkflowJob(
+    id = "Comapre_jmh",
+    name = "Compare Jmh",
+    needs = dependencies(batchSize),
+    steps = downloadArtifacts("Current", batchSize) ++
+      Seq(
+        parse_results("Current"),
+        WorkflowStep.Use(
+          ref = UseRef.Public("actions", "cache", "v4"),
+          params = Map(
+            "path" -> "benches/main_benchmarks.json",
+            "key" -> "criterion_benchmarks_${{ github.event.pull_request.base.sha }}"
+          )
+        ),
+        WorkflowStep.Run(
+          commands = List(
+            """bash zio-http/a.sh Main.txt Current.txt""",
+            "cat benchmarks.md"
+          ),
+          id = Some("Create_md"),
+          name = Some("Create md")
+        ),
+        WorkflowStep.Use(
+          ref = UseRef.Public("peter-evans", "commit-comment", "v3"),
+          params = Map(
+            "sha" -> "${{github.sha}}",
+            "body-path" -> "zio-http/benchmarks.md"
+          )
+        )
+      )
+  )
+)
+
 
   /**
    * Workflow Job to run jmh benchmarks in batches parallelly
@@ -117,9 +138,6 @@ object JmhBenchmarkWorkflow {
       id = s"Jmh_${l.head}",
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
-      cond = Some(
-        "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}",
-      ),
       steps = List(
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v2"),
@@ -159,6 +177,7 @@ object JmhBenchmarkWorkflow {
           ),
         ),
         WorkflowStep.Run(
+//          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           commands = List(
             "cd zio-http",
@@ -174,11 +193,12 @@ object JmhBenchmarkWorkflow {
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt",
           ),
+//          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
         ),
       ),
     )
   })
 
-  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize) ++ publish(batchSize)
+  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize) ++ jmh_compare(batchSize)
 
 }
