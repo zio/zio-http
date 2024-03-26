@@ -229,7 +229,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -238,7 +238,7 @@ jobs:
           cat > Main_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_CookieDecodeBenchmark.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_CookieDecodeBenchmark
@@ -264,7 +264,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -273,7 +273,7 @@ jobs:
           cat > Main_EndpointBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 EndpointBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_EndpointBenchmark.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_EndpointBenchmark
@@ -299,7 +299,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -308,7 +308,7 @@ jobs:
           cat > Main_HttpCollectEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCollectEval.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpCollectEval
@@ -334,7 +334,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -343,7 +343,7 @@ jobs:
           cat > Main_HttpCombineEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCombineEval.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpCombineEval
@@ -369,7 +369,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -378,7 +378,7 @@ jobs:
           cat > Main_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpNestedFlatMapEval.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
@@ -404,7 +404,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -413,7 +413,7 @@ jobs:
           cat > Main_HttpRouteTextPerf.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Main_HttpRouteTextPerf.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpRouteTextPerf
@@ -439,7 +439,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -448,7 +448,7 @@ jobs:
           cat > Main_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ProbeContentTypeBenchmark.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
@@ -474,7 +474,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -483,7 +483,7 @@ jobs:
           cat > Main_SchemeDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_SchemeDecodeBenchmark.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_SchemeDecodeBenchmark
@@ -509,7 +509,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -518,7 +518,7 @@ jobs:
           cat > Main_ServerInboundHandlerBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ServerInboundHandlerBenchmark.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_ServerInboundHandlerBenchmark
@@ -544,7 +544,7 @@ jobs:
 
       - name: Benchmark_Main
         id: Benchmark_Main
-        if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+        if: github.ref == 'main'
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -553,7 +553,7 @@ jobs:
           cat > Main_UtilBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_UtilBenchmark.txt
 
-      - if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+      - if: github.ref == 'main'
         uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_UtilBenchmark
@@ -562,7 +562,7 @@ jobs:
   Jmh_cache:
     name: Cache Jmh benchmarks
     needs: [Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
-    if: ${{ github.event_name == 'push' && github.ref == 'main'  }}
+    if: github.ref == 'main'
     strategy:
       matrix:
         os: [ubuntu-latest]
