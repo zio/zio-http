@@ -54,7 +54,7 @@ object JmhBenchmarkWorkflow {
           commands = List(
             s"""cat ${branch}_${l.head}.txt >> ${branch}_benchmarks.txt""".stripMargin,
           ),
-          name = Some(s"Format_${branch}_${l.head}"),
+          name = Some(s"Collect_${branch}_${l.head}"),
       ),
     )
   })
@@ -77,9 +77,9 @@ object JmhBenchmarkWorkflow {
     WorkflowJob(
       id = "Jmh_cache",
       name = "Cache Jmh benchmarks",
-      // cond = Some(
-      //  "${{ github.event_name == 'push' && github.ref == 'main'  }}",
-      // ),
+       cond = Some(
+        "${{ ${{ github.event_name == 'push' }} }}",
+       ),
       needs = dependencies(batchSize),
       steps =  downloadArtifacts("Main", batchSize) ++
         Seq(
@@ -94,51 +94,12 @@ object JmhBenchmarkWorkflow {
           UseRef.Public("actions", "cache", "v4"),
           Map(
             "path" -> "Main.txt",
-            "key" -> "criterion_benchmarks_${{ github.sha }}"
+            "key" -> "jmh_benchmarks_${{ github.sha }}"
           ),
         ),
         ),
     ),
   )
-
-
-  /**
-   * Workflow Job to compare and publish benchmark results in the comment
-   */
-// def jmh_compare(batchSize: Int) = Seq(
-//   WorkflowJob(
-//     id = "Comapre_jmh",
-//     name = "Compare Jmh",
-//     needs = dependencies(batchSize),
-//     steps = downloadArtifacts("Current", batchSize) ++
-//       Seq(
-//         parse_results("Current"),
-//         WorkflowStep.Use(
-//           ref = UseRef.Public("actions", "cache", "v4"),
-//           params = Map(
-//             "path" -> "benches/main_benchmarks.json",
-//             "key" -> "criterion_benchmarks_${{ github.event.pull_request.base.sha }}"
-//           )
-//         ),
-//         WorkflowStep.Run(
-//           commands = List(
-//             """bash zio-http/a.sh Main.txt Current.txt""",
-//             "cat benchmarks.md"
-//           ),
-//           id = Some("Create_md"),
-//           name = Some("Create md")
-//         ),
-//         WorkflowStep.Use(
-//           ref = UseRef.Public("peter-evans", "commit-comment", "v3"),
-//           params = Map(
-//             "sha" -> "${{github.sha}}",
-//             "body-path" -> "zio-http/benchmarks.md"
-//           )
-//         )
-//       )
-//   )
-// )
-
 
   /**
    * Workflow Job to run jmh benchmarks in batches parallelly
@@ -148,6 +109,9 @@ object JmhBenchmarkWorkflow {
       id = s"Jmh_${l.head}",
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
+      cond = Some(
+        "${{ ${{ github.event_name == 'push' }} }}",
+      ),
       steps = List(
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v2"),
@@ -162,25 +126,8 @@ object JmhBenchmarkWorkflow {
             "java-version" -> "11",
           ),
         ),
-        // WorkflowStep.Run(
-        //   env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
-        //   commands = List(
-        //     "cd zio-http",
-        //     s"sed -i -e '$$a${jmhPlugin}' project/plugins.sbt",
-        //     s"cat > Current_${l.head}.txt",
-        //   ) ++ runSBT(l, "Current"),
-        //   id = Some("Benchmark_Current"),
-        //   name = Some("Benchmark_Current"),
-        // ),
-        // WorkflowStep.Use(
-        //   UseRef.Public("actions", "upload-artifact", "v3"),
-        //   Map(
-        //     "name" -> s"Jmh_Current_${l.head}",
-        //     "path" -> s"Current_${l.head}.txt",
-        //   ),
-        // ),
+
         WorkflowStep.Run(
-//          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           commands = List(
             "cd zio-http",
@@ -196,11 +143,10 @@ object JmhBenchmarkWorkflow {
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt",
           ),
-//          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
         ),
       ),
     )
   })
 
-  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize) // ++ jmh_compare(batchSize)
+  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize)
 }
