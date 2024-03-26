@@ -78,7 +78,7 @@ object JmhBenchmarkWorkflow {
       id = "Jmh_cache",
       name = "Cache Jmh benchmarks",
        cond = Some(
-        "${{ github.event_name == 'push' && github.ref == 'main'  }}",
+          "github.ref == 'main'"
        ),
       needs = dependencies(batchSize),
       steps =  downloadArtifacts("Main", batchSize) ++
@@ -125,7 +125,7 @@ object JmhBenchmarkWorkflow {
         ),
 
         WorkflowStep.Run(
-          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
+          cond = Option("github.ref == 'main'"),
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           commands = List(
             "cd zio-http",
@@ -141,7 +141,7 @@ object JmhBenchmarkWorkflow {
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt",
           ),
-          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
+          cond = Option("github.ref == 'main'"),
         ),
       ),
     )
