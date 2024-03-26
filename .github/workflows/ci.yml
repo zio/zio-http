@@ -227,26 +227,6 @@ jobs:
           distribution: temurin
           java-version: 11
 
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_CookieDecodeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_CookieDecodeBenchmark.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_CookieDecodeBenchmark
-          path: Current_CookieDecodeBenchmark.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
-
       - name: Benchmark_Main
         id: Benchmark_Main
         env:
@@ -261,6 +241,39 @@ jobs:
         with:
           name: Jmh_Main_CookieDecodeBenchmark
           path: Main_CookieDecodeBenchmark.txt
+
+  Jmh_EndpointBenchmark:
+    name: Jmh EndpointBenchmark
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.12]
+        java: [temurin@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Main_EndpointBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 EndpointBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_EndpointBenchmark.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Main_EndpointBenchmark
+          path: Main_EndpointBenchmark.txt
 
   Jmh_HttpCollectEval:
     name: Jmh HttpCollectEval
@@ -279,26 +292,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 11
-
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_HttpCollectEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpCollectEval.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_HttpCollectEval
-          path: Current_HttpCollectEval.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -333,26 +326,6 @@ jobs:
           distribution: temurin
           java-version: 11
 
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_HttpCombineEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpCombineEval.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_HttpCombineEval
-          path: Current_HttpCombineEval.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
-
       - name: Benchmark_Main
         id: Benchmark_Main
         env:
@@ -385,26 +358,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 11
-
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_HttpNestedFlatMapEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpNestedFlatMapEval.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_HttpNestedFlatMapEval
-          path: Current_HttpNestedFlatMapEval.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -439,26 +392,6 @@ jobs:
           distribution: temurin
           java-version: 11
 
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_HttpRouteTextPerf.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Current_HttpRouteTextPerf.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_HttpRouteTextPerf
-          path: Current_HttpRouteTextPerf.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
-
       - name: Benchmark_Main
         id: Benchmark_Main
         env:
@@ -491,26 +424,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 11
-
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_ProbeContentTypeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_ProbeContentTypeBenchmark.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_ProbeContentTypeBenchmark
-          path: Current_ProbeContentTypeBenchmark.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -545,26 +458,6 @@ jobs:
           distribution: temurin
           java-version: 11
 
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_SchemeDecodeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_SchemeDecodeBenchmark.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_SchemeDecodeBenchmark
-          path: Current_SchemeDecodeBenchmark.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
-
       - name: Benchmark_Main
         id: Benchmark_Main
         env:
@@ -597,26 +490,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 11
-
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_ServerInboundHandlerBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_ServerInboundHandlerBenchmark.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_ServerInboundHandlerBenchmark
-          path: Current_ServerInboundHandlerBenchmark.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -651,26 +524,6 @@ jobs:
           distribution: temurin
           java-version: 11
 
-      - name: Benchmark_Current
-        id: Benchmark_Current
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_UtilBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_UtilBenchmark.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_UtilBenchmark
-          path: Current_UtilBenchmark.txt
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: main
-
       - name: Benchmark_Main
         id: Benchmark_Main
         env:
@@ -688,7 +541,7 @@ jobs:
 
   Jmh_cache:
     name: Cache Jmh benchmarks
-    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    needs: [Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -702,6 +555,13 @@ jobs:
 
       - name: Format_Main_CookieDecodeBenchmark
         run: cat Main_CookieDecodeBenchmark.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_EndpointBenchmark
+
+      - name: Format_Main_EndpointBenchmark
+        run: cat Main_EndpointBenchmark.txt >> Main_benchmarks.txt
 
       - uses: actions/download-artifact@v3
         with:
@@ -777,102 +637,3 @@ jobs:
         with:
           path: Main.txt
           key: criterion_benchmarks_${{ github.sha }}
-
-  Comapre_jmh:
-    name: Compare Jmh
-    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.10]
-        java: [temurin@8]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_CookieDecodeBenchmark
-
-      - name: Format_Current_CookieDecodeBenchmark
-        run: cat Current_CookieDecodeBenchmark.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_HttpCollectEval
-
-      - name: Format_Current_HttpCollectEval
-        run: cat Current_HttpCollectEval.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_HttpCombineEval
-
-      - name: Format_Current_HttpCombineEval
-        run: cat Current_HttpCombineEval.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_HttpNestedFlatMapEval
-
-      - name: Format_Current_HttpNestedFlatMapEval
-        run: cat Current_HttpNestedFlatMapEval.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_HttpRouteTextPerf
-
-      - name: Format_Current_HttpRouteTextPerf
-        run: cat Current_HttpRouteTextPerf.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_ProbeContentTypeBenchmark
-
-      - name: Format_Current_ProbeContentTypeBenchmark
-        run: cat Current_ProbeContentTypeBenchmark.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_SchemeDecodeBenchmark
-
-      - name: Format_Current_SchemeDecodeBenchmark
-        run: cat Current_SchemeDecodeBenchmark.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_ServerInboundHandlerBenchmark
-
-      - name: Format_Current_ServerInboundHandlerBenchmark
-        run: cat Current_ServerInboundHandlerBenchmark.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_UtilBenchmark
-
-      - name: Format_Current_UtilBenchmark
-        run: cat Current_UtilBenchmark.txt >> Current_benchmarks.txt
-
-      - name: Current Result
-        id: Current_Result
-        run: |
-          while IFS= read -r line; do
-             IFS=' ' read -ra PARSED_RESULT <<< "$line"
-             echo ${PARSED_RESULT[1]} >> parsed_Current.txt
-             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
-             echo $B_VALUE >> Current.txt
-           done < Current_benchmarks.txt
-
-      - uses: actions/cache@v4
-        with:
-          path: benches/main_benchmarks.json
-          key: criterion_benchmarks_${{ github.event.pull_request.base.sha }}
-
-      - name: Create md
-        id: Create_md
-        run: |
-          bash zio-http/a.sh Main.txt Current.txt
-          cat benchmarks.md
-
-      - uses: peter-evans/commit-comment@v3
-        with:
-          sha: ${{github.sha}}
-          body-path: zio-http/benchmarks.md
