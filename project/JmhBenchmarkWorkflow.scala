@@ -49,7 +49,7 @@ object JmhBenchmarkWorkflow {
       ),
       WorkflowStep.Run(
           commands = List(
-            s"""cat zio-http/${branch}_${l.head}.txt >> ${branch}_benchmarks.txt""".stripMargin,
+            s"""cat Jmh_${branch}_${l.head}.txt >> ${branch}_benchmarks.txt""".stripMargin,
           ),
           name = Some(s"Format_${branch}_${l.head}"),
       ),
