@@ -855,6 +855,7 @@ jobs:
       - name: Create md
         id: Create_md
         run: |
+          cd zio-http
           bash a.sh Maib.txt Current.txt
           cat benchmarks.md
 
