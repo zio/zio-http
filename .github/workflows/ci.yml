@@ -211,7 +211,6 @@ jobs:
 
   Jmh_CookieDecodeBenchmark:
     name: Jmh CookieDecodeBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -265,7 +264,6 @@ jobs:
 
   Jmh_HttpCollectEval:
     name: Jmh HttpCollectEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -319,7 +317,6 @@ jobs:
 
   Jmh_HttpCombineEval:
     name: Jmh HttpCombineEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -373,7 +370,6 @@ jobs:
 
   Jmh_HttpNestedFlatMapEval:
     name: Jmh HttpNestedFlatMapEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -427,7 +423,6 @@ jobs:
 
   Jmh_HttpRouteTextPerf:
     name: Jmh HttpRouteTextPerf
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -481,7 +476,6 @@ jobs:
 
   Jmh_ProbeContentTypeBenchmark:
     name: Jmh ProbeContentTypeBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -535,7 +529,6 @@ jobs:
 
   Jmh_SchemeDecodeBenchmark:
     name: Jmh SchemeDecodeBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -589,7 +582,6 @@ jobs:
 
   Jmh_ServerInboundHandlerBenchmark:
     name: Jmh ServerInboundHandlerBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -643,7 +635,6 @@ jobs:
 
   Jmh_UtilBenchmark:
     name: Jmh UtilBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -695,84 +686,17 @@ jobs:
           name: Jmh_Main_UtilBenchmark
           path: Main_UtilBenchmark.txt
 
-  Jmh_publish:
-    name: Jmh Publish
+  Jmh_cache:
+    name: Cache Jmh benchmarks
     needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'main'  }}
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.10]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_CookieDecodeBenchmark
-
-      - name: Format_Current_CookieDecodeBenchmark
-        run: cat Current_CookieDecodeBenchmark.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_HttpCollectEval
-
-      - name: Format_Current_HttpCollectEval
-        run: cat Current_HttpCollectEval.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_HttpCombineEval
-
-      - name: Format_Current_HttpCombineEval
-        run: cat Current_HttpCombineEval.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_HttpNestedFlatMapEval
-
-      - name: Format_Current_HttpNestedFlatMapEval
-        run: cat Current_HttpNestedFlatMapEval.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_HttpRouteTextPerf
-
-      - name: Format_Current_HttpRouteTextPerf
-        run: cat Current_HttpRouteTextPerf.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_ProbeContentTypeBenchmark
-
-      - name: Format_Current_ProbeContentTypeBenchmark
-        run: cat Current_ProbeContentTypeBenchmark.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_SchemeDecodeBenchmark
-
-      - name: Format_Current_SchemeDecodeBenchmark
-        run: cat Current_SchemeDecodeBenchmark.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_ServerInboundHandlerBenchmark
-
-      - name: Format_Current_ServerInboundHandlerBenchmark
-        run: cat Current_ServerInboundHandlerBenchmark.txt >> Current_benchmarks.txt
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: Jmh_Current_UtilBenchmark
-
-      - name: Format_Current_UtilBenchmark
-        run: cat Current_UtilBenchmark.txt >> Current_benchmarks.txt
-
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_CookieDecodeBenchmark
@@ -836,16 +760,6 @@ jobs:
       - name: Format_Main_UtilBenchmark
         run: cat Main_UtilBenchmark.txt >> Main_benchmarks.txt
 
-      - name: Current Result
-        id: Current_Result
-        run: |
-          while IFS= read -r line; do
-             IFS=' ' read -ra PARSED_RESULT <<< "$line"
-             echo ${PARSED_RESULT[1]} >> parsed_Current.txt
-             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
-             echo $B_VALUE >> Current.txt
-           done < Current_benchmarks.txt
-
       - name: Main Result
         id: Main_Result
         run: |
@@ -856,20 +770,106 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_benchmarks.txt
 
+      - uses: actions/cache@v4
+        with:
+          path: Main.txt
+          key: criterion_benchmarks_${{ github.sha }}
+
+  Comapre_jmh:
+    name: Compare Jmh
+    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.10]
+        java: [temurin@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_CookieDecodeBenchmark
+
+      - name: Format_Current_CookieDecodeBenchmark
+        run: cat Current_CookieDecodeBenchmark.txt >> Current_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_HttpCollectEval
+
+      - name: Format_Current_HttpCollectEval
+        run: cat Current_HttpCollectEval.txt >> Current_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_HttpCombineEval
+
+      - name: Format_Current_HttpCombineEval
+        run: cat Current_HttpCombineEval.txt >> Current_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_HttpNestedFlatMapEval
+
+      - name: Format_Current_HttpNestedFlatMapEval
+        run: cat Current_HttpNestedFlatMapEval.txt >> Current_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_HttpRouteTextPerf
+
+      - name: Format_Current_HttpRouteTextPerf
+        run: cat Current_HttpRouteTextPerf.txt >> Current_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_ProbeContentTypeBenchmark
+
+      - name: Format_Current_ProbeContentTypeBenchmark
+        run: cat Current_ProbeContentTypeBenchmark.txt >> Current_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_SchemeDecodeBenchmark
+
+      - name: Format_Current_SchemeDecodeBenchmark
+        run: cat Current_SchemeDecodeBenchmark.txt >> Current_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_ServerInboundHandlerBenchmark
+
+      - name: Format_Current_ServerInboundHandlerBenchmark
+        run: cat Current_ServerInboundHandlerBenchmark.txt >> Current_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_UtilBenchmark
+
+      - name: Format_Current_UtilBenchmark
+        run: cat Current_UtilBenchmark.txt >> Current_benchmarks.txt
+
+      - name: Current Result
+        id: Current_Result
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             echo ${PARSED_RESULT[1]} >> parsed_Current.txt
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Current.txt
+           done < Current_benchmarks.txt
+
+      - uses: actions/cache@v4
+        with:
+          path: benches/main_benchmarks.json
+          key: criterion_benchmarks_${{ github.event.pull_request.base.sha }}
+
       - name: Create md
         id: Create_md
         run: |
-          bash zio-http/a.sh Main_benchmarks.txt Current_benchmarks.txt
+          bash zio-http/a.sh Main.txt Current.txt
           cat benchmarks.md
 
-      - uses: peter-evans/commit-comment@v1
+      - uses: peter-evans/commit-comment@v3
         with:
           sha: ${{github.sha}}
-          body: |
-
-            **🚀 Jmh Benchmark:**
-
-            |Name |Current| Main|
-            |-----|----| ----|
-             ${{steps.fomat_output.outputs.body}}
-             
+          body-path: zio-http/benchmarks.md
