@@ -207,6 +207,6 @@ def jmh_compare(batchSize: Int) = Seq(
     )
   })
 
-  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize)// ++ jmh_compare(batchSize)
+  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize) ++ jmh_compare(batchSize)
 
 }
