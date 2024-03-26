@@ -78,7 +78,7 @@ object JmhBenchmarkWorkflow {
       id = "Jmh_cache",
       name = "Cache Jmh benchmarks",
        cond = Some(
-        "${{ ${{ github.event_name == 'push' }} }}",
+        "${{ github.event_name == 'push' && github.ref == 'main'  }}",
        ),
       needs = dependencies(batchSize),
       steps =  downloadArtifacts("Main", batchSize) ++
@@ -109,9 +109,6 @@ object JmhBenchmarkWorkflow {
       id = s"Jmh_${l.head}",
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
-      cond = Some(
-        "${{ ${{ github.event_name == 'push' }} }}",
-      ),
       steps = List(
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v2"),
@@ -128,6 +125,7 @@ object JmhBenchmarkWorkflow {
         ),
 
         WorkflowStep.Run(
+          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           commands = List(
             "cd zio-http",
@@ -143,6 +141,7 @@ object JmhBenchmarkWorkflow {
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt",
           ),
+          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
         ),
       ),
     )
