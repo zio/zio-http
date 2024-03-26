@@ -711,7 +711,7 @@ jobs:
           name: Jmh_Current_CookieDecodeBenchmark
 
       - name: Format_Current_CookieDecodeBenchmark
-        run: cat Jmh_Current_CookieDecodeBenchmark.txt >> Current_benchmarks.txt
+        run: cat Current_CookieDecodeBenchmark.txt >> Current_benchmarks.txt
 
       - uses: actions/download-artifact@v3
         with:
