@@ -405,25 +405,21 @@ object JsonSchema {
       case Schema.Fallback(left, right, fullDecode, _)                                       =>
         val leftSchema  = fromZSchemaMulti(left, refType)
         val rightSchema = fromZSchemaMulti(right, refType)
-        val innerSchema =
+        val candidates  =
           if (fullDecode)
-            OneOfSchema(
-              Chunk(
-                AllOfSchema(Chunk(leftSchema.root, rightSchema.root)),
-                leftSchema.root,
-                rightSchema.root,
-              ),
+            Chunk(
+              AllOfSchema(Chunk(leftSchema.root, rightSchema.root)),
+              leftSchema.root,
+              rightSchema.root,
             )
           else
-            AnyOfSchema(
-              Chunk(
-                leftSchema.root,
-                rightSchema.root,
-              ),
+            Chunk(
+              leftSchema.root,
+              rightSchema.root,
             )
 
         JsonSchemas(
-          innerSchema,
+          OneOfSchema(candidates),
           ref,
           leftSchema.children ++ rightSchema.children,
         )
@@ -586,7 +582,7 @@ object JsonSchema {
           ),
         )
       case Schema.Fallback(left, right, _, _)    =>
-        AnyOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
+        OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
       case Schema.Lazy(schema0)                  => fromZSchema(schema0(), refType)
       case Schema.Dynamic(_)                     => AnyJson
 
