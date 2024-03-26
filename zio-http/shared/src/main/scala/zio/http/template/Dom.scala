@@ -16,6 +16,8 @@
 
 package zio.http.template
 
+import zio.schema.Schema
+
 import zio.http.internal.OutputEncoder
 
 /**
@@ -74,6 +76,9 @@ sealed trait Dom { self =>
 }
 
 object Dom {
+  implicit val schema: Schema[Dom] =
+    Schema[String].transform(Dom.raw, _.encode.toString)
+
   def attr(name: CharSequence, value: CharSequence): Dom = Dom.Attribute(name, value)
 
   def element(name: CharSequence, children: Dom*): Dom = Dom.Element(name, children)

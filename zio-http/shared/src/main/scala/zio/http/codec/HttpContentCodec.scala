@@ -12,6 +12,7 @@ import zio.schema.codec._
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.internal.HeaderOps
+import zio.http.template.Dom
 
 final case class HttpContentCodec[A](
   choices: ListMap[MediaType, BinaryCodec[A]],
@@ -105,12 +106,10 @@ final case class HttpContentCodec[A](
     } else {
       var i                                   = 0
       var result: (MediaType, BinaryCodec[A]) = null
-      while (i < mediaTypes.size) {
-        val mediaType = mediaTypes(i)
-        if (choices.contains(mediaType.mediaType)) {
-          result = (mediaType.mediaType, choices(mediaType.mediaType))
-          i = mediaTypes.size
-        }
+      while (i < mediaTypes.size && result == null) {
+        val mediaType    = mediaTypes(i)
+        val lookupResult = lookup(mediaType.mediaType)
+        if (lookupResult.isDefined) result = (mediaType.mediaType, lookupResult.get)
         i += 1
       }
       if (result == null) {
@@ -177,6 +176,18 @@ object HttpContentCodec {
             zio.http.codec.internal.TextCodec.fromSchema[A](schema),
         ),
         schema,
+      )
+    }
+  }
+
+  object html {
+    implicit val htmlCodec: HttpContentCodec[Dom] = {
+      HttpContentCodec(
+        ListMap(
+          MediaType.text.`html` ->
+            zio.http.codec.internal.TextCodec.fromSchema(Schema[Dom]),
+        ),
+        Schema[Dom],
       )
     }
   }

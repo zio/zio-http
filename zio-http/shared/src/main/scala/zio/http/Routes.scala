@@ -75,6 +75,9 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def handleError(f: Err => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleError(f)))
 
+  def handleErrorZIO(f: Err => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
+    new Routes(routes.map(_.handleErrorZIO(f)))
+
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
    * converting them into responses. This method can be used to convert routes
