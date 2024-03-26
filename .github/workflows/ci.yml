@@ -859,8 +859,7 @@ jobs:
       - name: Create md
         id: Create_md
         run: |
-          cd zio-http
-          bash a.sh Main_benchmarks.txt Current_benchmarks.txt
+          bash zio-http/a.sh Main_benchmarks.txt Current_benchmarks.txt
           cat benchmarks.md
 
       - uses: peter-evans/commit-comment@v1
