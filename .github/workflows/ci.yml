@@ -706,6 +706,10 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
       - uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_CookieDecodeBenchmark
@@ -856,7 +860,7 @@ jobs:
         id: Create_md
         run: |
           cd zio-http
-          bash a.sh Maib.txt Current.txt
+          bash a.sh Main.txt Current.txt
           cat benchmarks.md
 
       - uses: peter-evans/commit-comment@v1
