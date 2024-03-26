@@ -56,6 +56,13 @@ object JmhBenchmarkWorkflow {
     )
   })
 
+  def checkout()= WorkflowStep.Use(
+          UseRef.Public("actions", "checkout", "v2"),
+          Map(
+            "path" -> "zio-http",
+          ),
+        )
+
   def parse_results(branch: String) = WorkflowStep.Run(
         commands = List(s"""while IFS= read -r line; do
                            |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
@@ -74,12 +81,13 @@ object JmhBenchmarkWorkflow {
     WorkflowJob(
       id = "Jmh_cache",
       name = "Cache Jmh benchmarks",
-      cond = Some(
-        "${{ github.event_name == 'push' && github.ref == 'main'  }}",
-      ),
+//       cond = Some(
+//        "${{ github.event_name == 'push' && github.ref == 'main'  }}",
+//       ),
       needs = dependencies(batchSize),
-      steps = downloadArtifacts("Main", batchSize) ++
+      steps =  downloadArtifacts("Main", batchSize) ++
         Seq(
+          checkout(),
           parse_results("Main"),
           WorkflowStep.Use(
           UseRef.Public("actions", "cache", "v4"),
@@ -95,39 +103,39 @@ object JmhBenchmarkWorkflow {
   /**
    * Workflow Job to compare and publish benchmark results in the comment
    */
-def jmh_compare(batchSize: Int) = Seq(
-  WorkflowJob(
-    id = "Comapre_jmh",
-    name = "Compare Jmh",
-    needs = dependencies(batchSize),
-    steps = downloadArtifacts("Current", batchSize) ++
-      Seq(
-        parse_results("Current"),
-        WorkflowStep.Use(
-          ref = UseRef.Public("actions", "cache", "v4"),
-          params = Map(
-            "path" -> "benches/main_benchmarks.json",
-            "key" -> "criterion_benchmarks_${{ github.event.pull_request.base.sha }}"
-          )
-        ),
-        WorkflowStep.Run(
-          commands = List(
-            """bash zio-http/a.sh Main.txt Current.txt""",
-            "cat benchmarks.md"
-          ),
-          id = Some("Create_md"),
-          name = Some("Create md")
-        ),
-        WorkflowStep.Use(
-          ref = UseRef.Public("peter-evans", "commit-comment", "v3"),
-          params = Map(
-            "sha" -> "${{github.sha}}",
-            "body-path" -> "zio-http/benchmarks.md"
-          )
-        )
-      )
-  )
-)
+// def jmh_compare(batchSize: Int) = Seq(
+//   WorkflowJob(
+//     id = "Comapre_jmh",
+//     name = "Compare Jmh",
+//     needs = dependencies(batchSize),
+//     steps = downloadArtifacts("Current", batchSize) ++
+//       Seq(
+//         parse_results("Current"),
+//         WorkflowStep.Use(
+//           ref = UseRef.Public("actions", "cache", "v4"),
+//           params = Map(
+//             "path" -> "benches/main_benchmarks.json",
+//             "key" -> "criterion_benchmarks_${{ github.event.pull_request.base.sha }}"
+//           )
+//         ),
+//         WorkflowStep.Run(
+//           commands = List(
+//             """bash zio-http/a.sh Main.txt Current.txt""",
+//             "cat benchmarks.md"
+//           ),
+//           id = Some("Create_md"),
+//           name = Some("Create md")
+//         ),
+//         WorkflowStep.Use(
+//           ref = UseRef.Public("peter-evans", "commit-comment", "v3"),
+//           params = Map(
+//             "sha" -> "${{github.sha}}",
+//             "body-path" -> "zio-http/benchmarks.md"
+//           )
+//         )
+//       )
+//   )
+// )
 
 
   /**
@@ -152,30 +160,30 @@ def jmh_compare(batchSize: Int) = Seq(
             "java-version" -> "11",
           ),
         ),
-        WorkflowStep.Run(
-          env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
-          commands = List(
-            "cd zio-http",
-            s"sed -i -e '$$a${jmhPlugin}' project/plugins.sbt",
-            s"cat > Current_${l.head}.txt",
-          ) ++ runSBT(l, "Current"),
-          id = Some("Benchmark_Current"),
-          name = Some("Benchmark_Current"),
-        ),
-        WorkflowStep.Use(
-          UseRef.Public("actions", "upload-artifact", "v3"),
-          Map(
-            "name" -> s"Jmh_Current_${l.head}",
-            "path" -> s"Current_${l.head}.txt",
-          ),
-        ),
-        WorkflowStep.Use(
-          UseRef.Public("actions", "checkout", "v2"),
-          Map(
-            "path" -> "zio-http",
-            "ref"  -> "main",
-          ),
-        ),
+        // WorkflowStep.Run(
+        //   env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
+        //   commands = List(
+        //     "cd zio-http",
+        //     s"sed -i -e '$$a${jmhPlugin}' project/plugins.sbt",
+        //     s"cat > Current_${l.head}.txt",
+        //   ) ++ runSBT(l, "Current"),
+        //   id = Some("Benchmark_Current"),
+        //   name = Some("Benchmark_Current"),
+        // ),
+        // WorkflowStep.Use(
+        //   UseRef.Public("actions", "upload-artifact", "v3"),
+        //   Map(
+        //     "name" -> s"Jmh_Current_${l.head}",
+        //     "path" -> s"Current_${l.head}.txt",
+        //   ),
+        // ),
+        // WorkflowStep.Use(
+        //   UseRef.Public("actions", "checkout", "v2"),
+        //   Map(
+        //     "path" -> "zio-http",
+        //     "ref"  -> "main",
+        //   ),
+        // ),
         WorkflowStep.Run(
 //          cond = Option("${{ github.event_name == 'push' && github.ref == 'main' }}"),
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
@@ -199,6 +207,6 @@ def jmh_compare(batchSize: Int) = Seq(
     )
   })
 
-  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize) ++ jmh_compare(batchSize)
+  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize)// ++ jmh_compare(batchSize)
 
 }
