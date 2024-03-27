@@ -16,6 +16,7 @@ object Shading {
     Seq(
       shadedModules ++= (netty :+ `netty-incubator`).map(_.module).toSet,
       shadingRules += ShadingRule.rename("io.netty.**", "zio.http.shaded.netty.@1"),
+      shadingRules += ShadingRule.rename("com.aayushatharva.brotli4j.**", "zio.http.shaded.brotli4j.@1"),
       validNamespaces += "zio",
     )
   } else Nil
