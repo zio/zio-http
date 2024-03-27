@@ -134,7 +134,7 @@ object Middleware extends HandlerAspects {
         response.addHeaders(headers)
       })
 
-    val optionsRoute = {
+    val optionsRoute: Route[Any, Nothing] = {
       implicit val trace: Trace = Trace.empty
 
       Method.OPTIONS / trailing -> handler { (_: Path, request: Request) =>

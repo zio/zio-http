@@ -81,8 +81,10 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       test("Extract username via context with Routes") {
         val app = {
           Routes(
-            Method.GET / "context" -> basicAuthContextM ->
-              Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) => Response.text(c.value) },
+            Method.GET / "context" ->
+              Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) =>
+                Response.text(c.value)
+              } @@ basicAuthContextM,
           )
         }.toHttpApp
         assertZIO(
@@ -104,6 +106,28 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
         val app = (Handler.ok @@ basicAuthZIOM).merge.header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
+      },
+      test("Provide for multiple routes") {
+        val secureRoutes = Routes.build(
+          Method.GET / "a"                  -> handler((ctx: AuthContext, _: Request) => Response.text(ctx.value)),
+          Method.GET / "b" / int("id")      -> handler((id: Int, ctx: AuthContext, _: Request) =>
+            Response.text(s"for id: $id: ${ctx.value}"),
+          ),
+          Method.GET / "c" / string("name") -> handler((name: String, ctx: AuthContext, _: Request) =>
+            Response.text(s"for name: $name: ${ctx.value}"),
+          ),
+        ) @@ basicAuthContextM
+        val app          = secureRoutes.toHttpApp
+        for {
+          s1     <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = successBasicHeader))
+          s1Body <- s1.body.asString.debug("s1Body")
+          s2     <- app.runZIO(Request.get(URL(Root / "b" / "1")).copy(headers = successBasicHeader))
+          s2Body <- s2.body.asString.debug("s2Body")
+          s3     <- app.runZIO(Request.get(URL(Root / "c" / "name")).copy(headers = successBasicHeader))
+          s3Body <- s3.body.asString.debug("s3Body")
+          resultStatus = s1.status == Status.Ok && s2.status == Status.Ok && s3.status == Status.Ok
+          resultBody   = s1Body == "user" && s2Body == "for id: 1: user" && s3Body == "for name: name: user"
+        } yield assertTrue(resultStatus, resultBody)
       },
     ),
     suite("bearerAuth")(

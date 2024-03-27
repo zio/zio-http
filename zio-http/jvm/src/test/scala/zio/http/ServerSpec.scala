@@ -104,10 +104,12 @@ object ServerSpec extends HttpRunnableSpec {
           }
       } +
       suite("echo content") {
-        val app = (RoutePattern.any ->
-          handler { (_: Path, req: Request) =>
-            req.body.asString.map(text => Response.text(text))
-          }).sandbox.toHttpApp
+        val app = Routes(
+          RoutePattern.any ->
+            handler { (_: Path, req: Request) =>
+              req.body.asString.map(text => Response.text(text))
+            },
+        ).sandbox.toHttpApp
 
         test("status is 200") {
           val res = app.deploy.status.run()
