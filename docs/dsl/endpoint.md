@@ -232,11 +232,9 @@ John Doe
 
 The `Endpoint#in` method has multiple overloads that can be used to describe other properties of the request body, such as the media type and documentation.
 
-## Describing Output Properties
+## Describing Output Properties of Success Responses
 
-We have two sets of output properties: success and failure. For success, we can describe the output properties using the `Endpoint#out*` methods, and for failure, we can describe the output properties using the `Endpoint#outError*` methods.
-
-### Describing Success Outputs
+The `Endpoint#out` method is used to describe the output properties of the success response:
 
 ```scala mdoc:compile-only
 import zio.http._
@@ -308,14 +306,86 @@ object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
 
 In the above example, we defined an endpoint that describes a path parameter `id` as input and returns either a `Book` or an `Article` as output.
 
-### Describing Failure Outputs
+## Describing Failures
 
 For failure outputs, we can describe the output properties using the `Endpoint#outError*` methods. Let's see an example:
 
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/EndpointWithError.scala")
+printSource("zio-http-example/src/main/scala/example/endpoint/EndpointWithError.scala")
 ```
 
 In the above example, we defined an endpoint that describes a path parameter `id` as input and returns a `Book` as output. If the book is not found, the endpoint returns a `NotFound` status code with a custom error message.
+
+### Multiple Failure Outputs Using `Endpoint#outError`
+
+If we have multiple failure outputs, we can use the `Endpoint#outError` method multiple times to describe different error types. By specifying more error types, the type of the endpoint will be the union of all the error types (e.g., `Either[Error1, Error2]`):
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.schema._
+import zio.schema.DeriveSchema
+
+case class Book(title: String, authors: List[String])
+case class BookNotFound(message: String, bookId: Int)
+case class AuthenticationError(message: String, userId: Int)
+
+implicit val bookSchema     = DeriveSchema.gen[Book]
+implicit val notFoundSchema = DeriveSchema.gen[BookNotFound]
+implicit val authSchema     = DeriveSchema.gen[AuthenticationError]
+
+val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[BookNotFound, AuthenticationError], Book, None] =
+  Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+    .header(HeaderCodec.authorization)
+    .out[Book]
+    .outError[BookNotFound](Status.NotFound)
+    .outError[AuthenticationError](Status.Unauthorized)
+```
+
+<details>
+<summary><b>Full Implementation Showcase</b></summary>
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/endpoint/EndpointWithMultipleErrorsUsingEither.scala")
+```
+
+</details>
+
+### Multiple Failure Outputs `Endpoint#outErrors`
+
+Alternatively, the idiomatic way to describe multiple failure outputs is to unify all the error types into a single error type using a sealed trait or an enum, and then describe the output properties using the `Endpoint#outErrors` method:
+
+```scala mdoc:compile-only
+case class Book(title: String, authors: List[String])
+implicit val bookSchema = DeriveSchema.gen[Book]
+
+abstract class AppError(message: String)
+case class BookNotFound(message: String, bookId: Int)        extends AppError(message)
+case class AuthenticationError(message: String, userId: Int) extends AppError(message)
+
+implicit val notFoundSchema = DeriveSchema.gen[BookNotFound]
+implicit val authSchema     = DeriveSchema.gen[AuthenticationError]
+
+val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
+  Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+    .header(HeaderCodec.authorization)
+    .out[Book]
+    .outErrors[AppError](
+      HttpCodec.error[BookNotFound](Status.NotFound),
+      HttpCodec.error[AuthenticationError](Status.Unauthorized),
+    )
+```
+
+The `Endpoint#outErrors` method takes a list of `HttpCodec` that describes the error types and their corresponding status codes.
+
+<details>
+<summary><b>Full Implementation Showcase</b></summary>
+
+```scala mdoc:passthrough
+utils.printSource("zio-http-example/src/main/scala/example/endpoint/EndpointWithMultipleUnifiedErrors.scala")
+```
+</details>

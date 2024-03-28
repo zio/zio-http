@@ -1,4 +1,4 @@
-package example
+package example.endpoint
 
 import zio._
 import zio.http._
@@ -14,10 +14,10 @@ object EndpointWithError extends ZIOAppDefault {
   object Book {
     implicit val schema = DeriveSchema.gen[Book]
   }
-  case class ErrorMessage(error: String, message: String)
+  case class NotFoundError(error: String, message: String)
 
-  object ErrorMessage {
-    implicit val schema = DeriveSchema.gen[ErrorMessage]
+  object NotFoundError {
+    implicit val schema = DeriveSchema.gen[NotFoundError]
   }
 
   object BookRepo {
@@ -29,16 +29,16 @@ object EndpointWithError extends ZIOAppDefault {
     }
   }
 
-  val endpoint: Endpoint[Int, Int, ErrorMessage, Book, None] =
+  val endpoint: Endpoint[Int, Int, NotFoundError, Book, None] =
     Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
       .out[Book]
-      .outError[ErrorMessage](Status.NotFound)
+      .outError[NotFoundError](Status.NotFound)
 
-  val getBookHandler: Handler[Any, ErrorMessage, Int, Book] =
+  val getBookHandler: Handler[Any, NotFoundError, Int, Book] =
     handler { (id: Int) =>
       BookRepo
         .find(id)
-        .mapError(err => ErrorMessage(err, "The requested book was not found. Please try using a different ID."))
+        .mapError(err => NotFoundError(err, "The requested book was not found. Please try using a different ID."))
     }
 
   val app = endpoint.implement(getBookHandler).toHttpApp @@ Middleware.debug
