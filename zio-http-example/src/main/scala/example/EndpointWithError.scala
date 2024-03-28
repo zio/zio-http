@@ -14,6 +14,11 @@ object EndpointWithError extends ZIOAppDefault {
   object Book {
     implicit val schema = DeriveSchema.gen[Book]
   }
+  case class ErrorMessage(error: String, message: String)
+
+  object ErrorMessage {
+    implicit val schema = DeriveSchema.gen[ErrorMessage]
+  }
 
   object BookRepo {
     def find(id: Int): ZIO[Any, String, Book] = {
@@ -29,20 +34,14 @@ object EndpointWithError extends ZIOAppDefault {
       .out[Book]
       .outError[ErrorMessage](Status.NotFound)
 
-  def run =
-    Server
-      .serve(
-        endpoint
-          .implement(
-            handler { (id: Int) =>
-              BookRepo
-                .find(id)
-                .mapError(err =>
-                  ErrorMessage(err, "The requested book was not found. Please try using a different ID."),
-                )
-            },
-          )
-          .toHttpApp @@ Middleware.debug,
-      )
-      .provide(Server.default, Scope.default)
+  val getBookHandler: Handler[Any, ErrorMessage, Int, Book] =
+    handler { (id: Int) =>
+      BookRepo
+        .find(id)
+        .mapError(err => ErrorMessage(err, "The requested book was not found. Please try using a different ID."))
+    }
+
+  val app = endpoint.implement(getBookHandler).toHttpApp @@ Middleware.debug
+
+  def run = Server.serve(app).provide(Server.default, Scope.default)
 }

@@ -3,11 +3,13 @@ id: endpoint
 title: Endpoint
 ---
 
-The `Endpoint` API in ZIO HTTP, is an alternative way to describe the endpoints but in a declarative way. It is a high-level API that allows us to describe the endpoints and their inputs, outputs, and how they should look like. So we can think of it as a DSL for just describing the endpoints, and then we can implement them separately.
+The `Endpoint` API in ZIO HTTP, is an alternative way to describe the endpoints but in a declarative way. It is a high-level API that allows us to describe the endpoints and their inputs, outputs, and how they should look. So we can think of it as a DSL for just describing the endpoints, and then we can implement them separately.
 
 Using `Endpoint` API enables us to generate OpenAPI documentation, and also to generate clients for the endpoints.
 
-Here is a simple example of how to define an endpoint using the `Endpoint` API:
+## Overview
+
+Before delving into the detailed description of the `Endpoint` API, let's begin with a simple example to demonstrate how we can define an endpoint using the `Endpoint` API:
 
 ```scala mdoc:compile-only
 import zio._
@@ -85,3 +87,235 @@ object BooksEndpointExample extends ZIOAppDefault {
 By running the above example, other than the main `/books` route, we can also access the OpenAPI documentation using the SwaggerUI at the `/docs/openapi` route.
 
 This was an overview of the `Endpoint` API in ZIO HTTP. Next, we will dive deeper into the `Endpoint` API and see how we can describe the endpoints in more detail.
+
+## Describing Endpoints
+
+Each endpoint is described by a set of properties, such as the path, query parameters, headers, and response type. The `Endpoint` API provides a set of methods to describe these properties. We can think of an endpoint as a function that takes some input and returns some output:
+
+* **Input Properties**— They can be the HTTP method, path parameters, query parameters, request headers, and the request body.
+* **Output Properties**­— They can be success or failure! Both success and failure can have a response body, media type, and status code.
+
+Also, we can provide metadata for each property, such as documentation, examples, etc.
+
+## Describing Input Properties
+
+### Method and Path Parameters
+
+We start describing an endpoint by specifying the HTTP method and the path. The default constructor of the `Endpoint` class takes a `RoutePattern` which is a combination of the HTTP method and the path:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.endpoint._
+import zio.http.endpoint.EndpointMiddleware._
+import zio.http.codec.PathCodec
+
+val endpoint1: Endpoint[Unit, Unit, ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.GET / "users")
+
+val endpoint2: Endpoint[String, String, ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.GET / "users" / PathCodec.string("user_name"))
+
+val endpoint3: Endpoint[(String, Int), (String, Int), ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.GET / "users" / PathCodec.string("user_name") / "posts" / PathCodec.int("post_id"))
+```
+
+In the above examples, we defined three endpoints. The first one is a simple endpoint that matches the GET method on the `/users` path. The second one matches the GET method on the `/users/:user_name` path, where `:user_name` is a path parameter of type `String`. The third one matches the GET method on the `/users/:user_name/posts/:post_id` path, where `:user_name` and `:post_id` are path parameters of type `String` and `Int`, respectively.
+
+The `Endpoint` is a type-safe way to describe the endpoints. For example, if we try to implement the `endpoint3` with a handler that takes a different input type other than `(String, Int)`, the compiler will give us an error.
+
+### Query Parameters
+
+Query parameters can be described using the `Endpoint#query` method which takes a `QueryCodec[A]`:
+
+```scala mdoc:invisible
+import zio._
+import zio.http._
+import zio.http.endpoint._
+import zio.http.endpoint.EndpointMiddleware._
+import zio.http.codec.QueryCodec
+import zio.http.RoutePattern
+import zio.http.codec.PathCodec
+import zio.http.codec._
+```
+
+```scala mdoc:compile-only
+val endpoint: Endpoint[Unit, String, ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.GET / "books")
+    .query(QueryCodec.queryTo[String]("q"))
+```
+
+QueryCodecs are composable, so we can combine multiple query parameters:
+
+```scala mdoc:compile-only
+val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.GET / "books")
+    .query(QueryCodec.queryTo[String]("q") ++ QueryCodec.queryTo[Int]("limit"))
+```
+
+Or we can use the `query` method multiple times:
+
+```scala mdoc:compile-only
+val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.GET / "books")
+    .query(QueryCodec.queryTo[String]("q"))
+    .query(QueryCodec.queryTo[Int]("limit"))
+```
+
+Please note that as we add more properties to the endpoint, the input and output types of the endpoint change accordingly. For example, in the following example, we have an endpoint with a path parameter of type `String` and two query parameters of type `String` and `Int`. So the input type of the endpoint is `(String, String, Int)`:
+
+```scala mdoc:compile-only
+val endpoint: Endpoint[String, (String, String, Int), ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.GET / "books" / PathCodec.string("genre"))
+    .query(QueryCodec.queryTo[String]("q"))
+    .query(QueryCodec.queryTo[Int]("limit"))
+```
+
+When we implement the endpoint, the handler function should take the input type of a tuple that the first element is the "genre" path parameter, and the second and third elements are the query parameters "q" and "limit" respectively.
+
+### Headers
+
+Headers can be described using the `Endpoint#header` method which takes a `HeaderCodec[A]` and specifies that the given header is required, for example:
+
+```scala mdoc:compile-only
+val endpoint: Endpoint[String, (String, Header.Authorization), ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.GET / "books" / PathCodec.string("genre"))
+    .header(HeaderCodec.authorization)
+```
+
+### Request Body
+
+The request body can be described using the `Endpoint#in` method:
+
+```scala mdoc:compile-only
+import zio.schema._
+
+case class Book(title: String, author: String)
+
+object Book {
+  implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
+}
+
+val endpoint: Endpoint[Unit, Book, ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.POST / "books" )
+    .in[Book]
+```
+
+The above example describes an endpoint that accepts a `Book` object as the request body.
+
+By default, the request body is not named and its media type is determined by the `Content-Type` header. But for multipart form data, we can have multiple request bodies, called parts:
+
+```scala mdoc:compile-only
+val endpoint =
+  Endpoint(RoutePattern.POST / "submit-form")
+    .header(HeaderCodec.contentType.expect(Header.ContentType(MediaType.multipart.`form-data`)))
+    .in[String]("title")
+    .in[String]("author")
+```
+
+In the above example, we have defined an endpoint that describes a multipart form data request body with two parts: `title` and `author`. Let's see what the request body might look like:
+
+```http request
+POST /submit-form HTTP/1.1
+Content-Type: multipart/form-data; boundary=boundary1234567890
+
+--boundary1234567890
+Content-Disposition: form-data; name="title"
+
+The Title of the Book
+--boundary1234567890
+Content-Disposition: form-data; name="author"
+
+John Doe
+--boundary1234567890--
+```
+
+The `Endpoint#in` method has multiple overloads that can be used to describe other properties of the request body, such as the media type and documentation.
+
+## Describing Output Properties
+
+We have two sets of output properties: success and failure. For success, we can describe the output properties using the `Endpoint#out*` methods, and for failure, we can describe the output properties using the `Endpoint#outError*` methods.
+
+### Describing Success Outputs
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.schema._
+
+case class Book(title: String, author: String)
+
+object Book {
+  implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
+}
+
+val endpoint: Endpoint[Unit, String, ZNothing, List[Book], None] =
+  Endpoint(RoutePattern.GET / "books")
+    .query(QueryCodec.query("q"))
+    .out[List[Book]]
+```
+
+In the above example, we defined an endpoint that describes a query parameter `q` as input and returns a list of `Book` as output. The `Endpoint#out` method has multiple overloads that can be used to describe other properties of the output, such as the status code, media type, and documentation.
+
+Sometimes based on the condition, we might want to return different types of responses. We can use the `Endpoint#out` method multiple times to describe different output types:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http.{RoutePattern, _}
+import zio.http.endpoint.Endpoint
+import zio.http.endpoint.EndpointMiddleware.None
+import zio.schema.DeriveSchema.gen
+import zio.schema._
+
+case class Book(title: String, author: String)
+
+object Book {
+  implicit val schema: Schema[Book] = DeriveSchema.gen
+}
+
+case class Article(title: String, author: String)
+
+object Article {
+  implicit val schema: Schema[Article] = DeriveSchema.gen
+}
+
+case class Course(title: String, price: Double)
+object Course {
+  implicit val schema = DeriveSchema.gen[Course]
+}
+
+case class Quiz(question: String, level: Int)
+object Quiz {
+  implicit val schema = DeriveSchema.gen[Quiz]
+}
+
+object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
+  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Course, Quiz], None] =
+    Endpoint(RoutePattern.GET / "resources")
+      .out[Course]
+      .out[Quiz]
+
+  def run = Server.serve(
+    endpoint.implement(handler {
+      ZIO.randomWith(_.nextBoolean)
+        .map(r =>
+          if (r) Left(Course("Introduction to Programming", 49.99))
+          else Right(Quiz("What is the boiling point of water in Celsius?", 2)),
+        )
+    })
+    .toHttpApp).provide(Server.default, Scope.default)
+}
+```
+
+In the above example, we defined an endpoint that describes a path parameter `id` as input and returns either a `Book` or an `Article` as output.
+
+### Describing Failure Outputs
+
+For failure outputs, we can describe the output properties using the `Endpoint#outError*` methods. Let's see an example:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/EndpointWithError.scala")
+```
+
+In the above example, we defined an endpoint that describes a path parameter `id` as input and returns a `Book` as output. If the book is not found, the endpoint returns a `NotFound` status code with a custom error message.
