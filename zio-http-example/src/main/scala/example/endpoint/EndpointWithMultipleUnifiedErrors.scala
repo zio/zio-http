@@ -1,11 +1,13 @@
 package example.endpoint
 
 import zio._
+
+import zio.schema.DeriveSchema
+
 import zio.http._
 import zio.http.codec.{HeaderCodec, HttpCodec, PathCodec}
 import zio.http.endpoint.Endpoint
 import zio.http.endpoint.EndpointMiddleware.None
-import zio.schema.DeriveSchema
 
 object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
 
@@ -30,7 +32,7 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
   }
 
   object BookRepo {
-    def find(id: Int): IO[BookNotFound, Nothing] = {
+    def find(id: Int): ZIO[Any, BookNotFound, Book] = {
       if (id == 1)
         ZIO.succeed(Book("Zionomicon", List("John A. De Goes", "Adam Fraser")))
       else
@@ -38,18 +40,18 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
     }
   }
 
-val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
-  Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
-    .header(HeaderCodec.authorization)
-    .out[Book]
-    .outErrors[AppError](
-      HttpCodec.error[BookNotFound](Status.NotFound),
-      HttpCodec.error[AuthenticationError](Status.Unauthorized),
-    )
+  val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
+    Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+      .header(HeaderCodec.authorization)
+      .out[Book]
+      .outErrors[AppError](
+        HttpCodec.error[BookNotFound](Status.NotFound),
+        HttpCodec.error[AuthenticationError](Status.Unauthorized),
+      )
 
   def isUserAuthorized(authHeader: Header.Authorization) = false
 
-  val getBookHandler: Handler[Any, AppError, (Int, Header.Authorization), Nothing] =
+  val getBookHandler: Handler[Any, AppError, (Int, Header.Authorization), Book] =
     handler { (id: Int, authHeader: Header.Authorization) =>
       if (isUserAuthorized(authHeader))
         BookRepo.find(id)

@@ -40,48 +40,16 @@ val booksRoute = endpoint.implement(handler((query: String) => BookRepo.find(que
 We can also generate OpenAPI documentation for our endpoint using the `OpenAPIGen.fromEndpoints` constructor:
 
 ```scala
-val swaggerRoute = SwaggerUI.routes("docs" / "openapi", openAPI)
+val openAPI       = OpenAPIGen.fromEndpoints(title = "Library API", version = "1.0", endpoint)
+val swaggerRoutes = SwaggerUI.routes("docs" / "openapi", openAPI)
 ```
 
 And finally we are ready to serve all the routes. Let's see the complete example:
 
-```scala mdoc:compile-only
-import zio._
-import zio.http._
-import zio.http.codec.PathCodec._
-import zio.http.codec._
-import zio.http.endpoint._
-import zio.http.endpoint.openapi._
-import zio.schema.DeriveSchema
+```scala mdoc:passthrough
+import utils._
 
-object BooksEndpointExample extends ZIOAppDefault {
-  case class Book(title: String, authors: List[String])
-  object Book {
-    implicit val schema = DeriveSchema.gen[Book]
-  }
-
-  object BookRepo {
-    val book1 = Book("Programming in Scala", List("Martin Odersky", "Lex Spoon", "Bill Venners", "Frank Sommers"))
-    val book2 = Book("Zionomicon", List("John A. De Goes", "Adam Fraser"))
-    val book3 = Book("Effect-Oriented Programming", List("Bill Frasure", "Bruce Eckel", "James Ward"))
-    def find(q: String): List[Book] = {
-      if (q.toLowerCase == "scala") List(book1, book2, book3)
-      else if (q.toLowerCase == "zio") List(book2, book3)
-      else List.empty
-    }
-  }
-
-  val endpoint =
-    Endpoint(RoutePattern.GET / "books")
-      .query(QueryCodec.queryTo[String]("q") examples (("example1", "scala"), ("example2", "zio")))
-      .out[List[Book]]
-
-  val booksRoute = endpoint.implement(handler((query: String) => BookRepo.find(query)))
-  val openAPI    = OpenAPIGen.fromEndpoints(title = "Library API", version = "1.0", endpoint)
-  val routes     = Routes(booksRoute) ++ SwaggerUI.routes("docs" / "openapi", openAPI)
-
-  def run = Server.serve(routes.toHttpApp).provide(Server.default, Scope.default)
-}
+printSource("zio-http-example/src/main/scala/example/endpoint/BooksEndpointExample.scala")
 ```
 
 By running the above example, other than the main `/books` route, we can also access the OpenAPI documentation using the SwaggerUI at the `/docs/openapi` route.
@@ -415,3 +383,39 @@ val mappedEndpoint: Endpoint[String, BookQuery, ZNothing, ZNothing, None] =
 In the above example, we mapped over the input type of the `endpoint` and transformed it into a single `BookQuery` object. The `Endpoint#transformIn` method takes two functions, the first one is used to map the input type to the new input type, and the second one is responsible for mapping the new input type back to the original input type.
 
 The `transformOut` and `transformError` methods work similarly to the `transformIn` method.
+
+## OpenAPI Documentation
+
+Every property of an `Endpoint` API can be annotated with documentation, may be examples using methods like `??` and `example*`. We can use these metadata to generate OpenAPI documentation:
+
+```scala
+val endpoint =
+  Endpoint((RoutePattern.GET / "books") ?? Doc.p("Route for querying books"))
+    .query(
+      QueryCodec.queryTo[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
+        "Query parameter for searching books",
+      ),
+    )
+    .out[List[Book]](Doc.p("List of books matching the query")) ?? Doc.p(
+    "Endpoint to query books based on a search query",
+  )
+```
+
+The `OpenAPIGen.fromEndpoints` constructor generates OpenAPI documentation from the endpoints. By having the OpenAPI documentation, we can easily generate Swagger UI routes using the `SwaggerUI.routes` constructor:
+
+```scala
+val booksRoute = endpoint.implement(handler((query: String) => BookRepo.find(query)))
+val openAPI    = OpenAPIGen.fromEndpoints(title = "Library API", version = "1.0", endpoint)
+val swaggerRoutes = SwaggerUI.routes("docs" / "openapi", openAPI)
+val routes     = Routes(booksRoute) ++ swaggerRoutes
+```
+
+<details>
+<summary><b>Full Implementation Showcase</b></summary>
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/endpoint/BooksEndpointExample.scala")
+```
+</details>

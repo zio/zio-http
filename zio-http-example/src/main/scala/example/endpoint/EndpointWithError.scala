@@ -1,11 +1,13 @@
 package example.endpoint
 
 import zio._
+
+import zio.schema.DeriveSchema
+
 import zio.http._
 import zio.http.codec.PathCodec
 import zio.http.endpoint.Endpoint
 import zio.http.endpoint.EndpointMiddleware.None
-import zio.schema.DeriveSchema
 
 object EndpointWithError extends ZIOAppDefault {
 
