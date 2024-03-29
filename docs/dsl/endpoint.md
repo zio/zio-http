@@ -306,6 +306,8 @@ object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
 
 In the above example, we defined an endpoint that describes a path parameter `id` as input and returns either a `Book` or an `Article` as output.
 
+Sometimes we might want more control over the output properties, in such cases, we can provide a custom `HttpCodec` that describes the output properties using the `Endpoint#outCodec` method.
+
 ## Describing Failures
 
 For failure outputs, we can describe the output properties using the `Endpoint#outError*` methods. Let's see an example:
@@ -360,6 +362,8 @@ printSource("zio-http-example/src/main/scala/example/endpoint/EndpointWithMultip
 Alternatively, the idiomatic way to describe multiple failure outputs is to unify all the error types into a single error type using a sealed trait or an enum, and then describe the output properties using the `Endpoint#outErrors` method:
 
 ```scala mdoc:compile-only
+import zio.schema.DeriveSchema
+
 case class Book(title: String, authors: List[String])
 implicit val bookSchema = DeriveSchema.gen[Book]
 
@@ -389,3 +393,25 @@ The `Endpoint#outErrors` method takes a list of `HttpCodec` that describes the e
 utils.printSource("zio-http-example/src/main/scala/example/endpoint/EndpointWithMultipleUnifiedErrors.scala")
 ```
 </details>
+
+## Transforming Endpoint Input/Output and Error Types
+
+To transform the input, output, and error types of an endpoint, we can use the `Endpoint#transformIn`, `Endpoint#transformOut`, and `Endpoint#transformError` methods, respectively. Let's see an example:
+
+```scala mdoc:compile-only
+case class BookQuery(query: String, genre: String, title: String)
+
+val endpoint: Endpoint[String, (String, String, String), ZNothing, ZNothing, None] =
+  Endpoint(RoutePattern.POST / "books" / PathCodec.string("genre"))
+    .query(QueryCodec.query("q"))
+    .query(QueryCodec.query("title"))
+
+val mappedEndpoint: Endpoint[String, BookQuery, ZNothing, ZNothing, None] =
+  endpoint.transformIn[BookQuery] { case (genre, q, title) => BookQuery(q, genre, title) } { i =>
+    (i.genre, i.query, i.title)
+  }
+```
+
+In the above example, we mapped over the input type of the `endpoint` and transformed it into a single `BookQuery` object. The `Endpoint#transformIn` method takes two functions, the first one is used to map the input type to the new input type, and the second one is responsible for mapping the new input type back to the original input type.
+
+The `transformOut` and `transformError` methods work similarly to the `transformIn` method.
