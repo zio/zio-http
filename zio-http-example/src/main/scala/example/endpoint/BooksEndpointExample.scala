@@ -1,12 +1,14 @@
 package example.endpoint
 
 import zio._
+
+import zio.schema.DeriveSchema
+
 import zio.http._
 import zio.http.codec.PathCodec._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi._
-import zio.schema.DeriveSchema
 
 object BooksEndpointExample extends ZIOAppDefault {
   case class Book(title: String, authors: List[String])
