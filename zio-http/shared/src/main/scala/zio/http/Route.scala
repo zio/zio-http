@@ -119,6 +119,33 @@ sealed trait Route[-Env, +Err] { self =>
     }
 
   /**
+   * Effectfully peeks at the unhandled failure of this Route.
+   */
+  final def tapErrorZIO[Env1 <: Env, Err1 >: Err](
+    f: Err => ZIO[Env1, Err1, Unit],
+  )(implicit trace: Trace): Route[Env, Err] =
+    self match {
+      case Provided(route, env)                        => Provided(route.tapErrorZIO(f), env)
+      case Augmented(route, aspect)                    => Augmented(route.tapErrorZIO(f), aspect)
+      case Handled(routePattern, handler, location)    => Handled(routePattern, handler, location)
+      case Unhandled(rpm, handler, zippable, location) => Unhandled(rpm, handler.tapErrorZIO(f), zippable, location)
+    }
+
+  /**
+   * Effectfully peeks at the unhandled failure cause of this Route.
+   */
+  final def tapErrorCauseZIO[Env1 <: Env, Err1 >: Err](
+    f: Cause[Err] => ZIO[Env1, Err1, Unit],
+  )(implicit trace: Trace): Route[Env, Err] =
+    self match {
+      case Provided(route, env)                        => Provided(route.tapErrorCauseZIO(f), env)
+      case Augmented(route, aspect)                    => Augmented(route.tapErrorCauseZIO(f), aspect)
+      case Handled(routePattern, handler, location)    => Handled(routePattern, handler, location)
+      case Unhandled(rpm, handler, zippable, location) =>
+        Unhandled(rpm, handler.tapErrorCauseZIO(f), zippable, location)
+    }
+
+  /**
    * Allows the transformation of the Err type through a function allowing one
    * to build up a Routes in Stages targets the Unhandled case
    */
