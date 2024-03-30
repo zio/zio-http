@@ -2,7 +2,7 @@ package example.endpoint
 
 import zio._
 
-import zio.schema.DeriveSchema
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.PathCodec
@@ -14,12 +14,12 @@ object EndpointWithError extends ZIOAppDefault {
   case class Book(title: String, authors: List[String])
 
   object Book {
-    implicit val schema = DeriveSchema.gen[Book]
+    implicit val schema: Schema[Book] = DeriveSchema.gen
   }
   case class NotFoundError(error: String, message: String)
 
   object NotFoundError {
-    implicit val schema = DeriveSchema.gen[NotFoundError]
+    implicit val schema: Schema[NotFoundError] = DeriveSchema.gen
   }
 
   object BookRepo {

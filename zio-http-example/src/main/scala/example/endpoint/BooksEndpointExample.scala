@@ -1,13 +1,15 @@
 package example.endpoint
 
 import zio._
+
+import zio.schema.annotation.description
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http._
 import zio.http.codec.PathCodec._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi._
-import zio.schema.DeriveSchema
-import zio.schema.annotation.description
 
 object BooksEndpointExample extends ZIOAppDefault {
   case class Book(
@@ -17,7 +19,7 @@ object BooksEndpointExample extends ZIOAppDefault {
     authors: List[String],
   )
   object Book {
-    implicit val schema = DeriveSchema.gen[Book]
+    implicit val schema: Schema[Book] = DeriveSchema.gen
   }
 
   object BookRepo {

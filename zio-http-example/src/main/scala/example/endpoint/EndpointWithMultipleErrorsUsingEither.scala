@@ -2,7 +2,7 @@ package example.endpoint
 
 import zio._
 
-import zio.schema.DeriveSchema
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.{HeaderCodec, PathCodec}
@@ -14,19 +14,19 @@ object EndpointWithMultipleErrorsUsingEither extends ZIOAppDefault {
   case class Book(title: String, authors: List[String])
 
   object Book {
-    implicit val schema = DeriveSchema.gen[Book]
+    implicit val schema: Schema[Book] = DeriveSchema.gen
   }
 
   case class BookNotFound(message: String, bookId: Int)
 
   object BookNotFound {
-    implicit val schema = DeriveSchema.gen[BookNotFound]
+    implicit val schema: Schema[BookNotFound] = DeriveSchema.gen
   }
 
   case class AuthenticationError(message: String, userId: Int)
 
   object AuthenticationError {
-    implicit val schema = DeriveSchema.gen[AuthenticationError]
+    implicit val schema: Schema[AuthenticationError] = DeriveSchema.gen
   }
 
   object BookRepo {
