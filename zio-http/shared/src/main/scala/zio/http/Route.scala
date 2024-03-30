@@ -15,8 +15,8 @@
  */
 package zio.http
 
+import zio.Cause.Fail
 import zio._
-
 import zio.http.codec.PathCodec
 
 /*
@@ -116,6 +116,49 @@ sealed trait Route[-Env, +Err] { self =>
         }
 
         Handled(rpm.routePattern, handler2, location)
+    }
+
+  /**
+   * Effectfully peeks at the unhandled failure of this Route.
+   */
+  final def tapErrorZIO[Err1 >: Err](
+    f: Err => ZIO[Any, Err1, Any],
+  )(implicit trace: Trace): Route[Env, Err1] =
+    self match {
+      case Provided(route, env)                        => Provided(route.tapErrorZIO(f), env)
+      case Augmented(route, aspect)                    => Augmented(route.tapErrorZIO(f), aspect)
+      case Handled(routePattern, handler, location)    =>
+        Handled(
+          routePattern,
+          handler.tapErrorCauseZIO {
+            case err: Fail[Err] => f(err.value).catchAllCause(cause => ZIO.fail(Response.fromCause(cause)))
+            case _              => ZIO.unit
+          },
+          location,
+        )
+      case Unhandled(rpm, handler, zippable, location) => Unhandled(rpm, handler.tapErrorZIO(f), zippable, location)
+    }
+
+  /**
+   * Effectfully peeks at the unhandled failure cause of this Route.
+   */
+  final def tapErrorCauseZIO[Err1 >: Err](
+    f: Cause[Err] => ZIO[Any, Err1, Any],
+  )(implicit trace: Trace): Route[Env, Err1] =
+    self match {
+      case Provided(route, env)                        => Provided(route.tapErrorCauseZIO(f), env)
+      case Augmented(route, aspect)                    => Augmented(route.tapErrorCauseZIO(f), aspect)
+      case Handled(routePattern, handler, location)    =>
+        Handled(
+          routePattern,
+          handler.tapErrorCauseZIO {
+            case cause0: Cause[Err] => f(cause0).catchAllCause(cause => ZIO.fail(Response.fromCause(cause)))
+            case _                  => ZIO.unit
+          },
+          location,
+        )
+      case Unhandled(rpm, handler, zippable, location) =>
+        Unhandled(rpm, handler.tapErrorCauseZIO(f), zippable, location)
     }
 
   /**
