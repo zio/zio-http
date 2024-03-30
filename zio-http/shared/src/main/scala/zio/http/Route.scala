@@ -15,8 +15,10 @@
  */
 package zio.http
 
+import zio.Cause.Fail
 import zio._
 
+import zio.http.Route.CheckResponse
 import zio.http.codec.PathCodec
 
 /*
@@ -129,6 +131,57 @@ sealed trait Route[-Env, +Err] { self =>
         }
 
         Handled(rpm.routePattern, handler2, location)
+    }
+
+  /**
+   * Effectfully peeks at the unhandled failure of this Route.
+   */
+  final def tapErrorZIO[Err1 >: Err](
+    f: Err => ZIO[Any, Err1, Any],
+  )(implicit trace: Trace, ev: CheckResponse[Err]): Route[Env, Err1] =
+    self match {
+      case Provided(route, env)                        => Provided(route.tapErrorZIO(f), env)
+      case Augmented(route, aspect)                    => Augmented(route.tapErrorZIO(f), aspect)
+      case Handled(routePattern, handler, location)    =>
+        Handled(
+          routePattern,
+          if (ev.isResponse) {
+            handler.map(_.tapErrorCauseZIO {
+              case err: Fail[_] if ev.isResponse =>
+                f(err.value.asInstanceOf[Err]).catchAllCause(cause => ZIO.fail(Response.fromCause(cause)))
+              case _                             =>
+                ZIO.unit
+            })
+          } else handler,
+          location,
+        )
+      case Unhandled(rpm, handler, zippable, location) => Unhandled(rpm, handler.tapErrorZIO(f), zippable, location)
+    }
+
+  /**
+   * Effectfully peeks at the unhandled failure cause of this Route.
+   */
+  final def tapErrorCauseZIO[Err1 >: Err](
+    f: Cause[Err] => ZIO[Any, Err1, Any],
+  )(implicit trace: Trace, ev: CheckResponse[Err]): Route[Env, Err1] =
+    self match {
+      case Provided(route, env)                        => Provided(route.tapErrorCauseZIO(f), env)
+      case Augmented(route, aspect)                    => Augmented(route.tapErrorCauseZIO(f), aspect)
+      case Handled(routePattern, handler, location)    =>
+        Handled(
+          routePattern,
+          handler.map(_.tapErrorCauseZIO {
+            case cause0 if ev.isResponse =>
+              f(cause0.asInstanceOf[Cause[Err]]).catchAllCause(cause => ZIO.fail(Response.fromCause(cause)))
+            case _: Fail[_]              =>
+              ZIO.unit
+            case cause0                  =>
+              f(cause0.asInstanceOf[Cause[Nothing]]).catchAllCause(cause => ZIO.fail(Response.fromCause(cause)))
+          }),
+          location,
+        )
+      case Unhandled(rpm, handler, zippable, location) =>
+        Unhandled(rpm, handler.tapErrorCauseZIO(f), zippable, location)
     }
 
   /**
@@ -489,4 +542,16 @@ object Route                   {
     }
   }
 
+  sealed trait CheckResponse[-A] { def isResponse: Boolean }
+  object CheckResponse           {
+    implicit val response: CheckResponse[Response] = new CheckResponse[Response] {
+      val isResponse = true
+    }
+
+    // to avoid unnecessary allocation
+    private val otherInstance: CheckResponse[Nothing] = new CheckResponse[Nothing] {
+      val isResponse = false
+    }
+    implicit def other[A]: CheckResponse[A]           = otherInstance.asInstanceOf[CheckResponse[A]]
+  }
 }
