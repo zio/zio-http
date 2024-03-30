@@ -401,6 +401,19 @@ val endpoint =
   )
 ```
 
+Also, we can use the `@description` annotation from the `zio.schema.annotation` package to annotate data models, which will enrich the OpenAPI documentation:
+
+```scala mdoc:compile-only
+import zio.schema.annotation.description
+
+case class Book(
+  @description("Title of the book")
+  title: String,
+  @description("List of the authors of the book")
+  authors: List[String],
+)
+```
+
 The `OpenAPIGen.fromEndpoints` constructor generates OpenAPI documentation from the endpoints. By having the OpenAPI documentation, we can easily generate Swagger UI routes using the `SwaggerUI.routes` constructor:
 
 ```scala
