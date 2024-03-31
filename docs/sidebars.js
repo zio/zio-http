@@ -25,6 +25,7 @@ const sidebars = {
             "dsl/form",
             "dsl/cookies",
             "dsl/flash",
+            "dsl/protocol-stack",
             "dsl/middleware",
             "dsl/status",
             {
