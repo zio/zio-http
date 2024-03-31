@@ -45,5 +45,5 @@ object EndpointWithError extends ZIOAppDefault {
 
   val app = endpoint.implement(getBookHandler).toHttpApp @@ Middleware.debug
 
-  def run = Server.serve(app).provide(Server.default, Scope.default)
+  def run = Server.serve(app).provide(Server.default)
 }

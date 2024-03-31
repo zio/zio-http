@@ -49,5 +49,5 @@ object BooksEndpointExample extends ZIOAppDefault {
   val swaggerRoutes = SwaggerUI.routes("docs" / "openapi", openAPI)
   val routes        = Routes(booksRoute) ++ swaggerRoutes
 
-  def run = Server.serve(routes.toHttpApp).provide(Server.default, Scope.default)
+  def run = Server.serve(routes.toHttpApp).provide(Server.default)
 }
