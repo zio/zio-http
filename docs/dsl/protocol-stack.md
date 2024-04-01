@@ -130,9 +130,26 @@ val an: ProtocolStack[Any, Response, Response, Response, (Response, RuntimeFlags
 
 ## Stateful ProtocolStacks
 
-In some cases, we may need to maintain some state along with the protocol stack. For example, we may want to keep track of the number of requests processed or the total response time. We can achieve such stateful behavior by using the `interceptHandlerStateful` constructor.
+In some cases, we may need to maintain some state along with the protocol stack. We can achieve such stateful behavior by using the `interceptHandlerStateful` constructor:
 
-We need to design a middleware to measure the total response time of the server. To achieve this, we should store the start time when the request enters the incoming input handler, and then return this information along with the incoming output by encapsulating them in a tuple. So the incoming input handler returns a tuple of the state, which is the start time, and the incoming output:
+```scala
+object ProtocolStack {
+  def interceptHandlerStateful[Env, State, II, IO, OI, OO](
+    incomingInputHandler: Handler[Env, OO, II, (State, IO)],
+  )(
+    outgoingOutputHandler: Handler[Env, Nothing, (State, OI), OO],
+  ): ProtocolStack[Env, II, IO, OI, OO] = ???
+}
+```
+
+The `interceptHandlerStateful` constructor takes two handlers:
+
+- **Incoming Input Handler**— Takes the incoming input of type `II` and returns the state along with the incoming output of type `(State, IO)`.
+- **Outgoing Input Handler**— Takes the state and the outgoing input of type `(State, OI)`, and returns the outgoing output of type `OO`.
+
+For example, assume we want to design a middleware to measure the total response time of the server. To achieve this, we should store the start time when the request enters the incoming input handler, and then access this state in the outgoing input handler to calculate the response time.
+
+Let's create a protocol stack that measures the response time of the server:
 
 ```scala mdoc:silent
 import java.util.concurrent.TimeUnit
