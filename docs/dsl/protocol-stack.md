@@ -194,7 +194,7 @@ Unsafe.unsafe { implicit unsafe =>
 
 In the output, we should see the response which is the input converted to uppercase, and the response time in milliseconds.
 
-## Working with ZIO Environment in ProtocolStack
+## Working with ZIO Environment
 
 The first type parameter of the `ProtocolStack` data type represents the ZIO environment. This allows us to obtain access to the services and resources available in the environment when defining the protocol stack, like logging, configuration, database access, etc.
 
