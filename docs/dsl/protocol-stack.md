@@ -3,7 +3,13 @@ id: protocol-stack
 title: ProtocolStack
 ---
 
-ProtocolStack is a data type that represents a stack of one or more protocol layers. Each layer in the stack is a function that transforms the incoming and outgoing values of some handler.
+:::note
+The `ProtocolStack` is a low-level data type typically utilized in other higher abstractions such as `HandlerAspect` and `Middleware` for building middlewares. If you intend to write middleware, it is advisable in most cases to utilize these higher abstractions, as they simplify the process of middleware creation.
+
+The `ProtocolStack` is a more advanced concept that provides fine-grained control over the types of inputs and outputs at each layer of the middleware stack, instead of common `Request` and `Response` types. Learning about `ProtocolStack` is recommended as it can be beneficial for understanding the inner workings of how middleware is constructed.
+:::
+
+`ProtocolStack` is a data type that represents a stack of one or more protocol layers. Each layer in the stack is a function that transforms the incoming and outgoing values of some handler.
 
 We can think of a `ProtocolStack` as a function (or a composition of functions) that takes a handler and returns a new handler. The new handler is the result of applying each layer in the stack to the handler:
 
@@ -187,3 +193,15 @@ Unsafe.unsafe { implicit unsafe =>
 ```
 
 In the output, we should see the response which is the input converted to uppercase, and the response time in milliseconds.
+
+## Working with ZIO Environment in ProtocolStack
+
+The first type parameter of the `ProtocolStack` data type represents the ZIO environment. This allows us to obtain access to the services and resources available in the environment when defining the protocol stack, like logging, configuration, database access, etc.
+
+In the following example, we will create a protocol stack that keeps track of the number of requests received by the server by storing the global state (`Ref[Int]`) in the environment:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/middleware/CounterProtocolStackExample.scala")
+```
