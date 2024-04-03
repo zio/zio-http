@@ -205,3 +205,34 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/middleware/CounterProtocolStackExample.scala")
 ```
+
+## Conditional ProtocolStacks
+
+In some cases, we may want to apply a protocol stack conditionally based on some criteria. We can achieve this by using the `cond` and `condZIO` constructors inside the `ProtocolStack` companion object.
+
+They take a predicate function that determines which protocol stack to apply based on the incoming input:
+
+
+```scala mdoc:silent:reset
+```
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+def requestCounter[I, O]: ProtocolStack[Ref[Long], I, I, O, O] =
+  ProtocolStack.interceptIncomingHandler {
+    Handler.fromFunctionZIO[I] { (incomingInput: I) =>
+      ZIO.serviceWithZIO[Ref[Long]](_.update(_ + 1)).as(incomingInput)
+    }
+  }
+
+def getMethodRequestCounter: ProtocolStack[Ref[Long], Request, Request, Response, Response] =
+  ProtocolStack
+    .cond[Request](_.method.matches(Method.GET))(
+      ifTrue = requestCounter[Request, Response],
+      ifFalse = ProtocolStack.identity[Request, Response],
+    )
+```
+
+In the above example, we defined a protocol stack that only counts the number of requests for the `GET` method. The state will be stored in a `Ref[Long]` service in the ZIO environment.
