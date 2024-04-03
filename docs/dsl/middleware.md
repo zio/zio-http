@@ -3,7 +3,25 @@ id: middleware
 title: Middleware
 ---
 
+A middleware helps in addressing common crosscutting concerns without duplicating boilerplate code.
+
+## Definition
+
+Middleware can be conceptualized as a functional component that accepts a `Routes` and produces a new `Routes`. The defined trait, `Middleware`, is parameterized by a contravariant type `UpperEnv` which denotes it can access the environment of the `HttpApp`:
+
+```scala
+trait Middleware[-UpperEnv] { self =>
+  def apply[Env1 <: UpperEnv, Err](routes: Routes[Env1, Err]): Routes[Env1, Err]
+} 
+```
+
+This abstraction allows middleware to engage with the `HttpApp` environment, and also the ability to tweak existing routes or add/remove routes as needed.
+
+## Motivation
+
 Before introducing middleware, let us understand why they are needed.
+
+### The Problem: Violation of Separation of Concerns Principle
 
 Consider the following example where we have two endpoints within HttpApp
 * GET a single user by id
@@ -23,8 +41,6 @@ val routes = Routes(
     }
 )
 ```
-
-#### The polluted code violates the principle of "Separation of concerns"
 
 As our application grows, we want to code the following aspects like
 * Basic Auth
@@ -53,14 +69,13 @@ Imagine repeating this for all our endpoints!!!
 
 So there are two problems with this approach
 * We are dangerously coupling our business logic with cross-cutting concerns (like applying timeouts)
-* Also, addressing these concerns will require updating code for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!!
-* For example, any change related to a concern like the logging mechanism from logback to log4j2 may cause changing signature of `log(..)` function in 100 places.
+* Also, addressing these concerns will require updating the code for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!!
+* For example, any change related to a concern like the logging mechanism from logback to log4j2 may cause changing the signature of `log(..)` function in 100 places.
 * On the other hand, this also makes testing core business logic more cumbersome.
-
 
 This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability, thereby leading to increased maintenance costs.
 
-## Need for middlewares and handling "aspects"
+### The solution: Middleware and Aspect-oriented Programming
 
 If we refer to Wikipedia for the definition of an "[Aspect](https://en.wikipedia.org/wiki/Aspect_(computer_programming))" we can glean the following points.
 
@@ -69,21 +84,22 @@ If we refer to Wikipedia for the definition of an "[Aspect](https://en.wikipedia
 * An aspect crosscuts the program's core concerns (**_for example logging code intertwined with core business logic_**),  
 * Therefore, it can violate the principle of "separation of concerns" which tries to encapsulate unrelated functions. (**_Code duplication and maintenance nightmare_**)
 
-Or in short, aspect is a common concern required throughout the application, and its implementation could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
+In short, aspect is a common concern required throughout the application, and its implementation could lead to repeated boilerplate code and violation of the principle of separation of concerns.
 
 There is a paradigm in the programming world called [aspect-oriented programming](https://en.wikipedia.org/wiki/Aspect-oriented_programming) that aims for modular handling of these common concerns in an application. 
 
 Some examples of common "aspects" required throughout the application
 - logging,
 - timeouts (preventing long-running code)
-- retries (or handling flakiness for example while accessing third party APIs)
+- retries (or handling flakiness for example while accessing third-party APIs)
 - authenticating a user before using the REST resource (basic, or custom ones like OAuth / single sign-on, etc).
 
 This is where middleware comes to the rescue. 
 Using middlewares we can compose out-of-the-box middlewares (or our custom middlewares) to address the above-mentioned concerns using ++ and @@ operators as shown below.
 
-#### Cleaned up code using middleware to address cross-cutting concerns like auth, request/response logging, etc.
-Observe, how we can address multiple cross-cutting concerns using neatly composed middlewares, in a single place.
+### The Solution: Middleware in ZIO-HTTP
+
+We cleaned up the code using middleware to address cross-cutting concerns such as authentication, request/response logging, and more. See how we can handle multiple cross-cutting concerns by neatly composing middlewares in a single place:
 
 ```scala mdoc:silent
 import zio._
@@ -113,21 +129,20 @@ And then we can attach our composed bundle of middlewares to an Http using `@@`
 ```
 
 Observe how we gained the following benefits by using middlewares
+
 * **Readability**: de-cluttering business logic.
 * **Modularity**: we can manage aspects independently without making changes in 100 places. For example, 
   * replacing the logging mechanism from logback to log4j2 will require a change in one place, the logging middleware.
   * replacing the authentication mechanism from OAuth to single sign-on will require changing the auth middleware
 * **Testability**: we can test our aspects independently.
 
-## Middleware in zio-http
+## Applying `Middleware` to `HttpApp`
 
-A middleware helps in addressing common crosscutting concerns without duplicating boilerplate code.
+The `@@` operator is used to attach middleware to routes and HTTP applications. The example below shows a middleware attached to an `HttpApp`:
 
-#### Attaching middleware to Http
+```scala mdoc:compile-only
+import zio.http._
 
-The `@@` operator is used to attach a middleware to routes and HTTP applications. Example below shows a middleware attached to an HttpApp:
-
-```scala mdoc:silent
 val app = Routes(
   Method.GET / string("name") -> handler { (name: String, req: Request) => 
     Response.text(s"Hello $name")
@@ -138,41 +153,75 @@ val appWithMiddleware = app @@ Middleware.debug
 
 Logically the code above translates to `Middleware.debug(app)`, which transforms the app using the middleware.
 
-#### A simple middleware example
+## Combining Middlewares
 
-Let us consider a simple example using out-of-the-box middleware called ```addHeader```
-We will write a middleware that will attach a custom header to the response. 
+Middleware can be combined using the `++` operator.
 
-We create a middleware that appends an additional header to the response indicating whether it is a Dev/Prod/Staging environment.
+For example, if we have three middlewares f1, f2, f3, the `f1 ++ f2 ++ f3` applies from left to right with `f1` first followed by others, like this:
 
-```scala mdoc:silent:reset
-import zio._
-import zio.http._
-
-lazy val patchEnv = Middleware.addHeader("X-Environment", "Dev")
+```scala
+f3(f2(f1(http)))
 ```
 
-A test `HttpApp` with attached middleware:
+## Conditional Application of Middlewares
 
-```scala mdoc:silent
-val app = Routes(
-  Method.GET / string("name") -> handler { (name: String, req: Request) =>
-    Response.text(s"Hello $name")
-  }
-).toHttpApp
+- `when` applies middleware only if the condition function evaluates to true
+  -`whenZIO` applies middleware only if the condition function(with effect) evaluates
 
-val appWithMiddleware = app @@ patchEnv
-```
+## Built-in Middlewares
 
-Start the server:
+ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and customize the handling of HTTP requests and responses. These middlewares can be easily integrated into your application to provide various functionalities. Below is a comprehensive list of ZIO HTTP middlewares along with brief descriptions:
 
-```scala mdoc:silent
-Server.serve(appWithMiddleware).provide(Server.default)
+| Number | Description                                            |  Middleware                                                  |
+|--------|--------------------------------------------------------|----------------------------------------------------|
+| 1      | Cross-Origin Resource Sharing (CORS) Middleware        | `Middleware.cors`, `Middleware.corsHeaders`        |
+| 2      | Log Annotations Middleware                             | `Middleware.logAnnotate`, `Middleware.logAnnotateHeaders`|
+| 3      | Timeout Middleware                                     | `Middleware.timeout`                               |
+| 4      | Metrics Middleware                                     | `Middleware.metrics`                               |
+| 5      | Serving Static Files Middleware                        | `Middleware.serveResources`, `Middleware.serveDirectory`|
+| 6      | Managing The Flash Scope                               | `Middleware.flashScopeHandling`                    |
+| 7      | Basic Authentication                                   | `Middleware.basicAuth`, `Middleware.basicAuthZIO`  |
+| 8      | Bearer Authentication                                  | `Middleware.bearerAuth`, `bearerAuthZIO`            |
+| 9      | Custom Authentication                                  | `Middleware.customAuth`, `Middleware.customAuthZIO`, `Middleware.customAuthProviding`, `Middleware.customAuthProvidingZIO`|
+| 10     | Beautify Error Response                                | `Middleware.beautifyErrors`                         |
+| 11     | Debugging Requests and Responses                       | `Middleware.debug`                                 |
+| 12     | Drop Trailing Slash                                    | `Middleware.dropTrailingSlash`                     |
+| 13     | Aborting Requests with Specified Response              | `Middleware.fail`, `Middleware.failWith`            |
+| 14     | Identity Middleware (No effect on request or response) | `Middleware.identity`                          |
+| 15     | Conditional Middlewares                                | `Middleware.ifHeaderThenElse`, `Middleware.ifMethodThenElse`, `Middleware.ifRequestThenElse`, `Middleware.ifRequestThenElseZIO`, `Middleware.whenHeader`, `Middleware.whenResponse`, `Middleware.whenResponseZIO`, `Middleware.when`, `Middleware.whenZIO`|
+| 16     | Intercept Middleware                                   | `Middleware.intercept`, `Middleware.interceptHandler`, `Middleware.interceptHandlerStateful`, `Middleware.interceptIncomingHandler`, `Middleware.interceptOutgoingHandler`, `Middleware.interceptPatch`, `Middleware.interceptPatchZIO`|
+| 17     | Patch Middleware                                       | `Middleware.patch`, `Middleware.patchZIO`          |
+| 18     | Redirect Middleware                                    | `Middleware.redirect`, `Middleware.redirectTrailingSlash`|
+| 19     | Request Logging Middleware                             | `Middleware.requestLogging`                         |
+| 20     | Running Effect Before/After Every Request              | `Middleware.runBefore`, `Middleware.runAfter`      |
+| 21     | Add Cookie                                             | `Middleware.addCookie`, `Middleware.addCookieZIO`  |
+| 22     | Sign Cookies                                           | `Middleware.signCookies`                           |
+| 23     | Update Response Status                                 | `Middleware.status`                                |
+| 24     | Update Response Headers                                | `Middleware.updateHeaders`                         |
+| 25     | Update Request's Method                                | `Middleware.updateMethod`                          |
+| 26     | Update Request's Path                                  | `Middleware.updatePath`                            |
+| 27     | Update Request                                         | `Middleware.updateRequest`, `Middleware.updateRequestZIO`|
+| 28     | Update Response                                        | `Middleware.updateResponse`, `Middleware.updateResponseZIO`|
+| 29     | Update Request's URL                                   | `Middleware.updateURL`                             |
+| 30     | Allow/Disallow Accessing to an HTTP                    | `Middleware.allow`                                 |
+
+## Examples
+
+### A simple middleware example
+
+Let us consider a simple example using out-of-the-box middleware called ```addHeader```. We will write a middleware that will attach a custom header to the response.
+
+We create a middleware that appends an additional header to the response indicating whether it is a Dev/Prod/Staging environment:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HelloWorldWithMiddlewares.scala")
 ```
 
 Fire a curl request, and we see an additional header added to the response indicating the "Dev" environment:
 
-```
+```bash
 curl -i http://localhost:8080/Bob
 
 HTTP/1.1 200 OK
@@ -183,105 +232,54 @@ content-length: 12
 Hello Bob
 ```
 
-## Combining middlewares
+### CORS Example
 
-Middlewares can be combined using `++`.
+```scala mdoc:passthrough
+import utils._
 
-For example, if we have three middlewares f1, f2, f3
-
-`f1 ++ f2 ++ f3` applies from left to right with f1 first followed by others, like this 
-
-```scala
-  f3(f2(f1(http)))
-```
-#### A simple example using `++` combinator
-
-Start with imports:
-
-```scala mdoc:silent:reset
-import zio.http._
-import zio.http.Middleware.basicAuth
-import zio._
+printSource("zio-http-example/src/main/scala/example/HelloWorldWithCORS.scala")
 ```
 
-A user app with single endpoint that welcomes a user:
+### Bearer Authentication Example
 
-```scala mdoc:silent
-val userApp = 
-  Routes(
-    Method.GET / "user" / string("name") / "greet" -> handler { (name: String, req: Request) =>
-      Response.text(s"Welcome to the ZIO party! ${name}")
-    }
-  ).toHttpApp
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/AuthenticationServer.scala")
 ```
 
-A basicAuth middleware with hardcoded user password and another patches response with environment value:
+### Basic Authentication Example
 
-```scala mdoc:silent
-val basicAuthMW = basicAuth("admin", "admin")
-val patchEnv = Middleware.addHeader("X-Environment", "Dev")
-// apply combined middlewares to the userApp
-val appWithMiddleware = userApp @@ (basicAuthMW ++ patchEnv)
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/BasicAuth.scala")
 ```
 
-Start the server:
+To the example, start the server and fire a curl request with an incorrect user/password combination:
 
-```scala mdoc:silent
-Server.serve(appWithMiddleware).provide(Server.default)
-```
-
-Fire a curl request with an incorrect user/password combination:
-
-```
+```bash
 curl -i --user admin:wrong http://localhost:8080/user/admin/greet
 
 HTTP/1.1 401 Unauthorized
 www-authenticate: Basic
-X-Environment: Dev
 content-length: 0
 ```
 
 We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` header. 
 
-## Conditional application of middlewares
+### Endpoint Middleware Example
 
-- `when` applies middleware only if the condition function evaluates to true
--`whenZIO` applies middleware only if the condition function(with effect) evaluates
+```scala mdoc:passthrough
+import utils._
 
-## A complete example of a middleware
-
-<details>
-<summary><b>Detailed example showing "debug" and "addHeader" middlewares</b></summary>
-
-```scala mdoc:silent:reset
-import zio.http._
-import zio._
-
-import java.io.IOException
-import java.util.concurrent.TimeUnit
-
-object Example extends ZIOAppDefault {
-  val app: HttpApp[Any] =
-    Routes(
-      // this will return result instantly
-      Method.GET / "text" -> handler(Response.text("Hello World!")),
-      // this will return result after 5 seconds, so with 3 seconds timeout it will fail
-      Method.GET / "long-running" -> handler(ZIO.succeed(Response.text("Hello World!")).delay(5.seconds))
-    ).toHttpApp
-
-  val middlewares =
-    Middleware.debug ++ // print debug info about request and response 
-      Middleware.addHeader("X-Environment", "Dev") // add static header   
-
-  override def run =
-    Server.serve(app @@ middlewares).provide(Server.default)
-}
+printSource("zio-http-example/src/main/scala/example/EndpointExamples.scala")
 ```
-   
-</details>   
 
-### A few "Out of the box" middlewares
-- [Basic Auth](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_basic_auth) 
-- [CORS](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_cors)
-- [CSRF](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_csrf)
+### Serving Static Files Example
 
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/StaticFiles.scala")
+```
