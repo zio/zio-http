@@ -202,6 +202,43 @@ ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and
 | 29     | Update Request's URL                                   | `Middleware.updateURL`                             |
 | 30     | Allow/Disallow Accessing to an HTTP                    | `Middleware.allow`                                 |
 
+## Building Custom Middleware
+
+In most cases, we won't need a custom middleware. Instead, we have plenty of built-in middlewares that are ready to use. However, if we have a specific use case, we can create a custom middleware.
+
+To build a custom middleware, we have to implement the `Middleware` trait, which requires a single method `apply` to be implemented. The `apply` method accepts a `Routes` and returns a new `Routes`.
+
+For example, assume we want to replace every request path that starts with `/api` with `/v1/api`. We can create a custom middleware to achieve this:
+
+```scala mdoc:compile-only
+val urlRewrite: Middleware[Any] =
+  new Middleware[Any] {
+    override def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+      routes.transform { handler =>
+        Handler.fromFunctionZIO { request =>
+          handler(
+            request.updateURL(url =>
+              if (url.path.startsWith(Path("/api")))
+                url.copy(path = Path("/v1") ++ url.path)
+              else url,
+            ),
+          )
+        }
+      }
+  }
+```
+
+The above implementation is just for demonstration purposes. In practice, we can use the built-in `Middleware.updatePath` to achieve the same functionality:
+
+```scala mdoc:compile-only
+val urlRewrite: Middleware[Any] =
+  Middleware.updateURL(url =>
+    if (url.path.startsWith(Path("/api")))
+      url.copy(path = Path("/v1") ++ url.path)
+    else url,
+  )
+```
+
 ## Examples
 
 ### A simple middleware example
