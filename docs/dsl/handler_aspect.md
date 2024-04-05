@@ -3,7 +3,6 @@ id: handler_aspect
 title: HandlerAspect
 ---
 
-
 A `HandlerAspect` is a wrapper around `ProtocolStack` with the two following features:
 
 - It is a `ProtocolStack` that only works with `Request` and `Response` types. So it is suitable for writing middleware in the context of HTTP protocol. So it can almost be thought of (not the same) as a `ProtocolStack[Env, Request, Request, Response, Response]]`.
@@ -60,6 +59,17 @@ val whitelistMiddleware: HandlerAspect[Any, Unit] =
 ### Intercepting the Outgoing Responses
 
 The `HandlerAspect.interceptOutgoingHandler` constructor takes a handler function and applies it to the outgoing response. It is useful when we want to modify or access the response before it reaches the client or the next layer in the stack.
+
+Let's work on creating a middleware that adds a custom header to the response:
+
+```scala mdoc:compile-only
+val addCustomHeader: HandlerAspect[Any, Unit] =
+  HandlerAspect.interceptOutgoingHandler(
+    Handler.fromFunction[Response](_.addHeader("X-Custom-Header", "Hello from Custom Middleware!")),
+  )
+```
+
+The `interceptOutgoingHandler` takes a handler function that receives a `Response` and returns a `Response`. This is simpler than the `interceptIncomingHandler` as it does not necessitate the output context to be passed along with the response.
 
 ### Intercepting Both Incoming Requests and Outgoing Responses
 
