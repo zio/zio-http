@@ -134,3 +134,43 @@ Server.serve(app @@ counterMiddleware @@ statsMiddleware)
 
 The `HandlerAspect.interceptHandlerStateful` constructor is like the `interceptHandler`, but it allows the incoming handler to have a state that can be passed to the next layer in the stack, and finally, that state can be accessed by the outgoing handler.
 
+Here is how it works:
+
+1. The incoming handler receives a `Request` and produces a tuple of `State` and `(Request, CtxOut)`.
+2. The state produced by the incoming handler is passed to the next layer in the stack.
+3. The outgoing handler receives the `State` along with the `Response` as a tuple, i.e. `(State, Response)`, and produces a `Response`.
+
+So, we can pass some state from the incoming handler to the outgoing handler.
+
+In the following example, we are going to write a middleware that calculates the response time and includes it in the `X-Response-Time` header:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import java.util.concurrent.TimeUnit
+
+val incomingTime: Handler[Any, Nothing, Request, (Long, (Request, Unit))] =
+  Handler.fromFunctionZIO(request => ZIO.clockWith(_.currentTime(TimeUnit.MILLISECONDS)).map(t => (t, (request, ()))))
+
+val outgoingTime: Handler[Any, Nothing, (Long, Response), Response] =
+  Handler.fromFunctionZIO { case (incomingTime, response) =>
+    ZIO
+      .clockWith(_.currentTime(TimeUnit.MILLISECONDS).map(t => t - incomingTime))
+      .map(responseTime => response.addHeader("X-Response-Time", s"${responseTime}ms"))
+  }
+
+val responseTime: HandlerAspect[Any, Unit] =
+  HandlerAspect.interceptHandlerStateful(incomingTime)(outgoingTime)
+```
+
+By applying this middleware to any route, we can see the response time in the `X-Response-Time` header:
+
+```bash
+$ curl -X GET 'http://127.0.0.1:8080/hello' -i
+HTTP/1.1 200 OK
+content-type: text/plain
+X-Response-Time: 100ms
+content-length: 12
+
+Hello World!⏎
+```
