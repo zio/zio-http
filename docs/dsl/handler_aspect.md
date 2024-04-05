@@ -63,6 +63,8 @@ The `HandlerAspect.interceptOutgoingHandler` constructor takes a handler functio
 Let's work on creating a middleware that adds a custom header to the response:
 
 ```scala mdoc:compile-only
+import zio.http._
+
 val addCustomHeader: HandlerAspect[Any, Unit] =
   HandlerAspect.interceptOutgoingHandler(
     Handler.fromFunction[Response](_.addHeader("X-Custom-Header", "Hello from Custom Middleware!")),
@@ -74,6 +76,59 @@ The `interceptOutgoingHandler` takes a handler function that receives a `Respons
 ### Intercepting Both Incoming Requests and Outgoing Responses
 
 The `HandlerAspect.interceptHandler` takes two handler functions, one for the incoming request and one for the outgoing response.
+
+In the following example, we are going to create a middleware that counts the number of incoming requests and outgoing responses and stores them in a `Ref` inside the ZIO environment:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+def inc(label: String) =
+  for {
+    counter <- ZIO.service[Ref[Map[String, Long]]]
+    _ <- counter.update(_.updatedWith(label) {
+      case Some(current) => Some(current + 1)
+      case None => Some(1)
+    })
+  } yield ()
+
+val countRequests: Handler[Ref[Map[String, Long]], Nothing, Request, (Request, Unit)] =
+  Handler.fromFunctionZIO[Request](request => inc("requests").as((request, ())))
+
+val countResponses: Handler[Ref[Map[String, Long]], Nothing, Response, Response] =
+  Handler.fromFunctionZIO[Response](response => inc("responses").as(response))
+
+val counterMiddleware: HandlerAspect[Ref[Map[String, Long]], Unit] =
+  HandlerAspect.interceptHandler(countRequests)(countResponses)
+```
+
+Then, we can write another middleware that is responsible for adding a route to get the statistics of the incoming requests and outgoing responses:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.schema.codec.JsonCodec.zioJsonBinaryCodec
+
+val statsMiddleware: Middleware[Ref[Map[String, Long]]] =
+  new Middleware[Ref[Map[String, Long]]] {
+    override def apply[Env1 <: Ref[Map[String, Long]], Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+      routes ++ Routes(
+        Method.GET / "stats" -> Handler.fromFunctionZIO[Request] { _ =>
+          ZIO.serviceWithZIO[Ref[Map[String, Long]]](_.get).map(stats => Response(body = Body.from(stats)))
+        },
+      )
+  }
+```
+
+After applying these two middlewares to our HttpApp, we have to provide the initial state for the `Ref[Map[String, Long]]` to the whole application's environment:
+
+```scala
+Server.serve(app @@ counterMiddleware @@ statsMiddleware)
+  .provide(
+    Server.default,
+    ZLayer.fromZIO(Ref.make(Map.empty[String, Long]))
+  )
+```
 
 ### Intercepting Statefully
 
