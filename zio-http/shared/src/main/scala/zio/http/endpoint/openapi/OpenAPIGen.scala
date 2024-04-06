@@ -579,7 +579,7 @@ object OpenAPIGen {
         )
       }.filter(_.value.content.exists {
         case (_, OpenAPI.MediaType(OpenAPI.ReferenceOr.Or(schema), _, _)) =>
-          schema != JsonSchema.Null
+          schema.withoutAnnotations != JsonSchema.Null
         case _                                                            => true
       })
 
