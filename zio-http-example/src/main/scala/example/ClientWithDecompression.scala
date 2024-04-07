@@ -7,11 +7,11 @@ import zio.http._
 import zio.http.netty.NettyConfig
 
 object ClientWithDecompression extends ZIOAppDefault {
-  val url = URL.decode("https://jsonplaceholder.typicode.com/todos").toOption.get
 
   val program = for {
-    client <- ZIO.service[Client]
-    res    <- client.addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate())).url(url).get("")
+    url    <- ZIO.fromEither(URL.decode("https://jsonplaceholder.typicode.com"))
+    client <- ZIO.serviceWith[Client](_.addUrl(url))
+    res    <- client.addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate())).get("/todos")
     data   <- res.body.asString
     _      <- Console.printLine(data)
   } yield ()
