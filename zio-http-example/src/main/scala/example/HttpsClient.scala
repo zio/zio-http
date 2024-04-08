@@ -7,7 +7,7 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 object HttpsClient extends ZIOAppDefault {
-  val url     = URL.decode("https://jsonplaceholder.typicode.com/todos").toOption.get
+  val url     = URL.decode("https://jsonplaceholder.typicode.com/todos/1").toOption.get
   val headers = Headers(Header.Host("jsonplaceholder.typicode.com"))
 
   val sslConfig = ClientSSLConfig.FromTrustStoreResource(
