@@ -7,7 +7,7 @@ A `HandlerAspect` is a wrapper around `ProtocolStack` with the two following fea
 
 - It is a `ProtocolStack` that only works with `Request` and `Response` types. So it is suitable for writing middleware in the context of HTTP protocol. So it can almost be thought of (not the same) as a `ProtocolStack[Env, Request, Request, Response, Response]]`.
 
-- It is specialized to work with an output context `CtxOut` that can be passed through the middleware stack. This allows each layer to add its own output context to the transformation process. So the `CtxOut` will be a tuple of all the output contexts that each layer in the stack has added. These output contexts are useful when we are writing middleware that needs to pass some information, which is the result of some computation based on the input request, to the handler that is at the end of the middleware stack. For example, a layer that is responsible for authentication may want to pass the user information to the handler, this is where the output context comes into play.
+- It is specialized to work with an output context `CtxOut` that can be passed through the middleware stack. This allows each layer to add its own output context to the transformation process. So the `CtxOut` will be a tuple of all the output contexts that each layer in the stack has added. These output contexts are useful when we are writing middleware that needs to pass some information, which is the result of some computation based on the input request, to the handler that is at the end of the middleware stack. 
 
 Now, we are ready to see the definition of `HandlerAspect`:
 
@@ -23,16 +23,15 @@ Like the `ProtocolStack`, the `HandlerAspect` is a stack of layers. When we comp
 
 Similar to the `ProtocolStack`, each layer in the `HandlerAspect` may also be stateful at the level of each transformation. So, for example, a layer that is timing request durations may capture the start time of the request in the incoming interceptor, and pass this state to the outgoing interceptor, which can then compute the duration.
 
-
 ## Creating a HandlerAspect
 
 The `HandlerAspect`'s companion object provides many methods to create a `HandlerAspect`. But in this section, we are going to introduce the most basic ones that are used as a building block to create a more complex `HandlerAspect`.
 
 The `HandlerAspect.identity` is the simplest `HandlerAspect` that does nothing. It is useful when you want to create a `HandlerAspect` that does not modify the request or response.
 
-After this simple `HandlerAspect`, let's dive into the `HandlerAspect.intercept*` constructors. Using these, we can create a `HandlerAspect` that can intercept the incoming request, outgoing response, or both:
+After this simple `HandlerAspect`, let's dive into the `HandlerAspect.intercept*` constructors. Using these, we can create a `HandlerAspect` that can intercept the incoming request, outgoing response, or both.
 
-### Intercepting the Incoming Requests
+## Intercepting the Incoming Requests
 
 The `HandlerAspect.interceptIncomingHandler` constructor takes a handler function and applies it to the incoming request. It is useful when we want to modify or access the request before it reaches the handler or the next layer in the stack.
 
@@ -56,7 +55,7 @@ val whitelistMiddleware: HandlerAspect[Any, Unit] =
   }
 ```
 
-### Intercepting the Outgoing Responses
+## Intercepting the Outgoing Responses
 
 The `HandlerAspect.interceptOutgoingHandler` constructor takes a handler function and applies it to the outgoing response. It is useful when we want to modify or access the response before it reaches the client or the next layer in the stack.
 
@@ -73,7 +72,7 @@ val addCustomHeader: HandlerAspect[Any, Unit] =
 
 The `interceptOutgoingHandler` takes a handler function that receives a `Response` and returns a `Response`. This is simpler than the `interceptIncomingHandler` as it does not necessitate the output context to be passed along with the response.
 
-### Intercepting Both Incoming Requests and Outgoing Responses
+## Intercepting Both Incoming Requests and Outgoing Responses
 
 The `HandlerAspect.interceptHandler` takes two handler functions, one for the incoming request and one for the outgoing response.
 
@@ -130,7 +129,7 @@ Server.serve(app @@ counterMiddleware @@ statsMiddleware)
   )
 ```
 
-### Intercepting Statefully
+## Intercepting Statefully
 
 The `HandlerAspect.interceptHandlerStateful` constructor is like the `interceptHandler`, but it allows the incoming handler to have a state that can be passed to the next layer in the stack, and finally, that state can be accessed by the outgoing handler.
 
@@ -173,4 +172,121 @@ X-Response-Time: 100ms
 content-length: 12
 
 Hello World!⏎
+```
+
+## Leveraging Output Context
+
+When writing a middleware, in some cases, we want to pass some information from the middleware to the request handler which is at the end of the stack.
+
+If we take a look at the definition of `HandlerAspect`, we can see that it has two type parameters, `Env` and `CtxOut`. The `CtxOut` is the output context. When we don't need to pass any context to the output, we use `Unit` as the output context, otherwise, we can utilize any type as the output context.
+
+Before diving into a real-world example, let's try to understand the output context with simple examples. First, assume that we have an identity `HandlerAspect` that does nothing but passes an integer value to the output context:
+
+```scala mdoc:silent:reset
+import zio.http._
+
+val intAspect: HandlerAspect[Any, Int] = HandlerAspect.identity.as(42)
+```
+
+To access this integer value in the handler, we need to define a handler that receives a tuple of `(Int, Request)`:
+
+```scala mdoc:silent
+val intRequestHandler: Handler[Any, Nothing, (Int, Request), Response] =
+  Handler.fromFunction[(Int, Request)] { case (n, _) =>
+    Response.text(s"Received the $n value from the output context!")
+  }
+```
+
+If we apply the `intAspect` to this handler, we get back a handler that receives a `Request` and produces a `Response`:
+
+```scala mdoc:compile-only
+val handler: Handler[Any, Response, Request, Response] = 
+  intRequestHandler @@ intAspect
+```
+
+Another thing to note is that when we compose multiple `HandlerAspect`s with output context of non-`Unit` type, the output context of composed `HandlerAspect` will be a tuple of all the output contexts:
+
+```scala mdoc:silent
+val stringAspect: HandlerAspect[Any, String] = 
+  HandlerAspect.identity.as("Hello, World!")
+
+val intStringAspect: HandlerAspect[Any, (Int, String)] = 
+  intAspect ++ stringAspect
+```
+
+Correspondingly, to access the output context of this `HandlerAspect`, we need to have a handler that receives a tuple of `(Int, String, Request)`:
+
+```scala mdoc:silent
+val intStringRequestHandler: Handler[Any, Nothing, (Int, String, Request), Response] =
+  Handler.fromFunction[(Int, String, Request)] { case (n, s, _) =>
+    Response.text(s"Received the $n and $s values from the output context!")
+  }
+```
+
+Finally, we can apply the `intStringAspect` to this handler:
+
+```scala mdoc:silent
+val handler: Handler[Any, Response, Request, Response] = 
+  intStringRequestHandler @@ (intAspect ++ stringAspect)
+```
+
+## Authentication Middleware Example
+
+Now, let's see a real-world example where we can leverage the output context.
+
+In the following example, we are going to write an authentication middleware that checks the JWT token in the incoming request and passes the user information to the handler:
+
+```scala mdoc:silent
+import zio._
+import zio.http._
+import scala.util.Try
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
+
+// Secret Authentication key
+val SECRET_KEY = "secretKey"
+
+def jwtDecode(token: String, key: String): Try[JwtClaim] =
+  Jwt.decode(token, key, Seq(JwtAlgorithm.HS512))
+
+val bearerAuthWithContext: HandlerAspect[Any, String] =
+  HandlerAspect.interceptIncomingHandler(Handler.fromFunctionZIO[Request] { request =>
+    request.header(Header.Authorization) match {
+      case Some(Header.Authorization.Bearer(token)) =>
+        ZIO
+          .fromTry(jwtDecode(token.value.asString, SECRET_KEY))
+          .orElseFail(Response.badRequest("Invalid or expired token!"))
+          .flatMap(claim => ZIO.fromOption(claim.subject).orElseFail(Response.badRequest("Missing subject claim!")))
+          .map(u => (request, u))
+
+      case _ => ZIO.fail(Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm = "Access"))))
+    }
+  })
+```
+
+Now, let's define the `/profile/me` route that requires authentication output context:
+
+```scala mdoc:compile-only
+val profileRoute: Route[Any, Response] =
+  Method.GET / "profile" / "me" -> 
+    Handler.fromFunction[(String, Request)] { case (name: String, _: Request) => 
+      Response.text(s"Welcome $name!")
+  } @@ bearerAuthWithContext
+```
+
+That's it! Now, in the handler of the `/profile/me` route, we have the username that is extracted from the JWT token inside the authentication middleware and passed to it.
+
+The following code snippet is the complete example. Using the login route, we can get the JWT token and use it to access the protected `/profile/me` route:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/AuthenticationServer.scala")
+```
+
+After running the server, we can test it using the following client code:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/AuthenticationClient.scala")
 ```

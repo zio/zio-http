@@ -26,6 +26,7 @@ const sidebars = {
             "dsl/cookies",
             "dsl/flash",
             "dsl/middleware",
+            "dsl/handler_aspect",
             "dsl/status",
             {
               type: "category",
