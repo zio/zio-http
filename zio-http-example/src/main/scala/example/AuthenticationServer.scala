@@ -7,7 +7,6 @@ import scala.util.Try
 import zio._
 
 import zio.http._
-import zio.http.codec.PathCodec.string
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
