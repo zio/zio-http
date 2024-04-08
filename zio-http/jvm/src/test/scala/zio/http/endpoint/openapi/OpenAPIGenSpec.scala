@@ -2445,6 +2445,29 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("example with safe characters in path") {
+        val endpoint = Endpoint(Method.GET / "simple/api/v1.0/$name/plus+some_stuff-etc")
+        val openApi  =
+          OpenAPIGen.fromEndpoints(
+            title = "Safe path examples",
+            version = "1.0",
+            endpoint,
+          )
+        val json     = toJsonAst(openApi)
+        assertTrue(json == toJsonAst("""{
+                                       |  "openapi" : "3.1.0",
+                                       |    "info" : {
+                                       |      "title" : "Safe path examples",
+                                       |      "version" : "1.0"
+                                       |    },
+                                       |    "paths" : {
+                                       |      "/simple/api/v1.0/$name/plus+some_stuff-etc" : {
+                                       |        "get" : {}
+                                       |      }
+                                       |    },
+                                       |    "components" : {}
+                                       |}""".stripMargin))
+      },
     )
 
 }
