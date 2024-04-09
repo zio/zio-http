@@ -273,8 +273,8 @@ object Mixed {
   def fromParts(parts : ZStream[Any, Throwable, Part],
                 boundary: Boundary,
                 bufferSize: Int = 8192) : Mixed = {
-    val sep = crlf ++ boundary.encapsulationBoundaryBytes
-    val term = crlf ++ boundary.closingBoundaryBytes
+    val sep = boundary.encapsulationBoundaryBytes ++ crlf
+    val term = boundary.closingBoundaryBytes ++ crlf
     val bytes =
       parts
         .flatMap{
@@ -290,7 +290,8 @@ object Mixed {
               .concatAll( Chunk(ZStream.fromChunk(sep),
                 headersBytes,
                 ZStream.fromChunk(crlf),
-                bytes
+                bytes,
+                ZStream.fromChunk(crlf)
               ))
         }
         .concat( ZStream.fromChunk(term))

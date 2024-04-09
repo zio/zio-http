@@ -13,6 +13,39 @@ object MixedSpec  extends ZIOHttpSpec {
 
     val defaultSep = "simple boundary"
 
+    def checkRoundtrip(mpm : Mixed) = {
+      for {
+        parsed0 <- mpm
+          .parts
+          .mapZIO { p =>
+            p
+              .toBody
+              .asChunk
+              .map(p.headers -> _)
+          }
+          .runCollect
+        mpm2 = Mixed.fromParts(ZStream
+          .fromChunk(parsed0)
+          .map{
+            case (header, bytes) => Part(header, ZStream.fromChunk(bytes))
+          },
+          mpm.boundary,
+          mpm.bufferSize)
+
+        parsed1 <- mpm2
+          .parts
+          .mapZIO { p =>
+            p
+              .toBody
+              .asChunk
+              .map(p.headers -> _)
+          }
+          .runCollect
+      } yield {
+        zio.test.assert(parsed1)(Assertion.equalTo(parsed0))
+      }
+    }
+
     suiteAll("empty") {
       val empty = Mixed.fromParts(ZStream.empty, Boundary(defaultSep))
 
@@ -104,6 +137,19 @@ object MixedSpec  extends ZIOHttpSpec {
           .map { collected =>
             zio.test.assert(collected)(Assertion.equalTo(expectedStrs))
           }
+      }
+
+      test("roundtrip default buffer size") {
+        ZIO
+          .fromOption(mpm)
+          .flatMap(checkRoundtrip(_))
+      }
+
+      test("roundtrip extremely small buffer") {
+        ZIO
+          .fromOption(mpm)
+          .map(_.copy(bufferSize = 5))
+          .flatMap(checkRoundtrip(_))
       }
     }
   }
