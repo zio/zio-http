@@ -55,7 +55,7 @@ object Mixed {
 
   class Parser(boundary: Boundary,
                pull : ZIO[Any, Throwable, Either[Any, Chunk[Byte]]],
-               bufferSize: Int = 8192
+               bufferSize: Int
               ) {
 
     lazy val upstream: ZChannel[Any, Any, Any, Any, Throwable, Chunk[Byte], Any] = ZChannel

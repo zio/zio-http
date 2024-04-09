@@ -50,7 +50,7 @@ object MixedSpec  extends ZIOHttpSpec {
       }
     }
 
-    test("rfc-1341 sample") {
+    suiteAll("rfc-1341 sample") {
       val msg =
         """
           |
@@ -83,16 +83,30 @@ object MixedSpec  extends ZIOHttpSpec {
            |""".stripMargin.replaceAll("\n", "\r\n")
       )
 
-      ZIO
-        .fromOption(mpm)
-        .flatMap{
-          _.parts.mapZIO(_.toBody.asString)
-            .runCollect
-        }
-        .map{collected =>
-          zio.test.assert(collected)(Assertion.equalTo(expectedStrs))
-        }
+      test("default 8k buffer") {
+        ZIO
+          .fromOption(mpm)
+          .flatMap {
+            _.parts.mapZIO(_.toBody.asString)
+              .runCollect
+          }
+          .map { collected =>
+            zio.test.assert(collected)(Assertion.equalTo(expectedStrs))
+          }
+      }
 
+      test("extremely small buffer") {
+        ZIO
+          .fromOption(mpm)
+          .map(_.copy(bufferSize = 5))
+          .flatMap {
+            _.parts.mapZIO(_.toBody.asString)
+              .runCollect
+          }
+          .map { collected =>
+            zio.test.assert(collected)(Assertion.equalTo(expectedStrs))
+          }
+      }
     }
   }
 
