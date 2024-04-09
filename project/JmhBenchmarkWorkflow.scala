@@ -55,8 +55,8 @@ object JmhBenchmarkWorkflow {
           s"""cat ${branch}_${l.head}.txt >> ${branch}_benchmarks.txt""".stripMargin,
         ),
         name = Some(s"Format_${branch}_${l.head}"),
-      ),
-    )
+     ),
+   )
   })
 
   def parse_results(branch: String) = WorkflowStep.Run(
