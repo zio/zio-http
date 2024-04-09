@@ -72,7 +72,7 @@ object MixedSpec  extends ZIOHttpSpec {
           |""".stripMargin.replaceAll("\n", "\r\n")
 
       val body = Body.fromString(msg).contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
-      val mpm = Mixed.fromBody(body)
+      val mpm = Mixed.fromBody(rechunk(11)(body))
       val expectedStrs = Chunk(
         """|This is implicitly typed plain ASCII text.
            |It does NOT end with a linebreak.
@@ -108,6 +108,21 @@ object MixedSpec  extends ZIOHttpSpec {
           }
       }
     }
+  }
+
+  def rechunk(chunkSz : Int)(body : Body): Body = {
+    val rechunkedStream = body.asStream.rechunk(chunkSz)
+    val res0 = Body
+      .fromStreamChunked(rechunkedStream)
+
+    (body.mediaType, body.boundary) match {
+      case (None, None) => res0
+      case (Some(mt), None) => res0.contentType(mt)
+      case (Some(mt), Some(b)) => res0.contentType(mt, b)
+      case (None, Some(b)) =>
+        sys.error("r u joking me?!?!")
+    }
+
   }
 
 }

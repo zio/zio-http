@@ -71,11 +71,8 @@ object Mixed {
     def preamble(buff : Chunk[Byte] = Chunk.empty) : ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Nothing, (Chunk[Byte], Boolean)] =
       buff.indexOfSlice(crlf) match {
         case -1 =>
-          //have to read more input, can discard most of the buffer
-          val keep = if(buff.nonEmpty && buff.last == '\r')
-            Chunk.single(buff.last)
-          else
-            Chunk.empty
+          //have to read more input, can discard most of the buffer but must account to the case where current buffer's tail is the prefix of the next encapsulating/closing token
+          val keep = buff.takeRight( crlf.size + boundary.closingBoundaryBytes.size - 1 )
           ZChannel
             .readWithCause(
               in => preamble(keep ++ in),
@@ -114,7 +111,7 @@ object Mixed {
             .readWithCause(
               in => parseHeaders(buff ++ in, res),
               ZChannel.refailCause(_),
-              _ => ZChannel.fail(new IllegalStateException("multipart/chunked body ended with no boundary"))
+              _ => ZChannel.fail(new IllegalStateException("multipart/chunked body ended while parsing part's headers"))
             )
         case 0 =>
           //empty line, hence no more headers
@@ -142,41 +139,77 @@ object Mixed {
     }
 
     def subStream(pr : zio.Promise[Throwable, (Chunk[Byte], Boolean)], initialBuff : Chunk[Byte]) : ZStream[Any, Throwable, Byte] = {
-      def ch(buff : Chunk[Byte]) : ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], Any] = {
-        buff.indexOfSlice(crlf) match {
-          case -1 if buff.size > bufferSize =>
-            val (toEmit, rest) = buff.splitAt((buff.size - boundary.closingBoundaryBytes.size + 1) max 0)
-            ZChannel
-            .write(toEmit)  *>
-            ZChannel.readWithCause(
-              in => ch(rest ++ in),
-              c => ZChannel.fromZIO(pr.failCause(c)) *> ZChannel.refailCause(c),
-              done => {
-                val ex = new IllegalStateException("multipart/chunked body ended with no boundary")
-                ZChannel.fromZIO(pr.fail(ex)) *> ZChannel.fail(ex)
+      //when at beginning of line
+      def parseBOL(buff : Chunk[Byte], currLine : Chunk[Byte]) : ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], (Chunk[Byte], Boolean)] = {
+        if(buff.size >= bufferSize)
+          ZChannel.write(buff) *> parseBOL(Chunk.empty, currLine)
+        else {
+          currLine.indexOfSlice(crlf) match {
+            case -1 =>
+              //at this point we have a partial line, if this line is a prefix of the closing boundary we must keep it
+              //otherwise we can stash it away or even emit it, making sure we keep enough bytes to match a CRLF exactly on the boundary
+              if (boundary.closingBoundaryBytes.startsWith(currLine)) {
+                ZChannel
+                  .readWithCause(
+                    in => parseBOL(buff, currLine ++ in),
+                    err => ZChannel.write(buff) *> ZChannel.refailCause(err),
+                    done => {
+                      //still possible that the current line is encapsulating or closing boundary
+                      if(boundary.isClosing(currLine))
+                        ZChannel.write(buff) *> ZChannel.succeed((Chunk.empty, true))
+                      else if(boundary.isEncapsulating(currLine))
+                        ZChannel.write(buff) *> ZChannel.succeed((Chunk.empty, false))
+                      else
+                        ZChannel.write(buff) *> ZChannel.fail(new IllegalStateException("multipart/chunked body ended with no boundary"))
+                    }
+                  )
+              } else {
+                val (h, t) = currLine.splitAt(currLine.size - crlf.size + 1)
+                parseMOL(buff ++ h, t)
               }
-            )
-          case -1 =>
-            ZChannel.readWithCause(
-              in => ch(buff ++ in),
-              c => ZChannel.fromZIO(pr.failCause(c)) *> ZChannel.refailCause(c),
-              done => {
-                val ex = new IllegalStateException("multipart/chunked body ended with no boundary")
-                ZChannel.fromZIO(pr.fail(ex)) *> ZChannel.fail(ex)
-              }
-            )
-          case idx =>
-            val (h, rest) = buff.splitAt(idx)
-            if(boundary.isClosing(h))
-              ZChannel.fromZIO(pr.succeed((rest.drop(crlf.size), true)))
-            else if(boundary.isEncapsulating(h))
-              ZChannel.fromZIO(pr.succeed((rest.drop(crlf.size), false)))
-            else
-              ZChannel.write(h ++ crlf) *> ch(rest.drop(crlf.size))
+            case idx =>
+              val (h, rest) = currLine.splitAt(idx)
+              if(boundary.isClosing(h))
+                ZChannel.write(buff) *> ZChannel.succeed(rest.drop(crlf.size), true)
+              else if(boundary.isEncapsulating(h))
+                ZChannel.write(buff) *> ZChannel.succeed(rest.drop(crlf.size), false)
+              else
+                parseBOL(buff ++ h ++ crlf, rest.drop(crlf.size))
+          }
+        }
+      }
+      //when at middle of line (after eliminating this line as a boundary)
+      def parseMOL(buff : Chunk[Byte], currLine : Chunk[Byte]) : ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], (Chunk[Byte], Boolean)] = {
+        if(buff.size >= bufferSize)
+          ZChannel.write(buff) *> parseMOL(Chunk.empty, currLine)
+        else {
+          currLine.indexOfSlice(crlf) match {
+            case -1 =>
+              //keep just enough of the current line match a crlf 'sitting' on the boundary,
+              //stash or even emit the rest
+              val (h,t) = currLine.splitAt(currLine.size - crlf.size + 1)
+              ZChannel
+              .readWithCause(
+                in => parseMOL(buff ++ h, t ++ in),
+                err => ZChannel.write(buff ++ h) *> ZChannel.refailCause(err),
+                done =>
+                  ZChannel.write(buff ++ currLine) *> ZChannel.fail(new IllegalStateException("multipart/chunked body ended with no boundary"))
+              )
+
+            case idx =>
+              //no need to check for boundary, just buffer and continue with parseBOL
+              val(h, t) = currLine.splitAt(idx + crlf.size)
+              parseBOL(buff ++ h, t)
+          }
         }
       }
 
-      val pl: ZPipeline[Any, Throwable, Byte, Byte] = ch(initialBuff).toPipeline
+      val ch: ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], Unit] = parseBOL(Chunk.empty, initialBuff)
+        .foldCauseChannel(
+          err => ZChannel.fromZIO(pr.failCause(err)) *> ZChannel.refailCause(err),
+          tup => ZChannel.fromZIO(pr.succeed(tup)).unit
+        )
+      val pl: ZPipeline[Any, Throwable, Byte, Byte] = ch.toPipeline
       upstream.toStream >>> pl
     }
 
