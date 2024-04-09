@@ -55,7 +55,7 @@ while IFS= read -r base_line && IFS= read -r current_line <&3; do
 done < "$base_file" 3< "$current_file"
 
 if [ "$change_exceeds" = true ]; then
-    cat "$zio-http/benchmark.md"
+    cat "$markdown_file"
     echo "CI failing as above benchmarks exceeds 10% threshold." >&2
     exit 1
 fi
