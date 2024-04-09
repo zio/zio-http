@@ -140,9 +140,11 @@ object Mixed {
 
     def subStream(pr : zio.Promise[Throwable, (Chunk[Byte], Boolean)], initialBuff : Chunk[Byte]) : ZStream[Any, Throwable, Byte] = {
       //when at beginning of line
-      def parseBOL(buff : Chunk[Byte], currLine : Chunk[Byte]) : ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], (Chunk[Byte], Boolean)] = {
+      def parseBOL(buff : Chunk[Byte],
+                   pendingCrlf : Chunk[Byte],
+                   currLine : Chunk[Byte]) : ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], (Chunk[Byte], Boolean)] = {
         if(buff.size >= bufferSize)
-          ZChannel.write(buff) *> parseBOL(Chunk.empty, currLine)
+          ZChannel.write(buff) *> parseBOL(Chunk.empty, pendingCrlf, currLine)
         else {
           currLine.indexOfSlice(crlf) match {
             case -1 =>
@@ -151,7 +153,7 @@ object Mixed {
               if (boundary.closingBoundaryBytes.startsWith(currLine)) {
                 ZChannel
                   .readWithCause(
-                    in => parseBOL(buff, currLine ++ in),
+                    in => parseBOL(buff, pendingCrlf, currLine ++ in),
                     err => ZChannel.write(buff) *> ZChannel.refailCause(err),
                     done => {
                       //still possible that the current line is encapsulating or closing boundary
@@ -164,17 +166,22 @@ object Mixed {
                     }
                   )
               } else {
+                //we're no longer at beginning of a line, hence no need to look for boundary until we encounter a new line
                 val (h, t) = currLine.splitAt(currLine.size - crlf.size + 1)
-                parseMOL(buff ++ h, t)
+                //also if we had a pending crlf we now know it's part of the content so we move it to the buffered part
+                parseMOL(buff ++ pendingCrlf ++ h, t)
               }
             case idx =>
               val (h, rest) = currLine.splitAt(idx)
+              //if we found a boundary it 'consumes' both the pending and trailing crlf, notice pending crlf is optional (i.e. empty part)
               if(boundary.isClosing(h))
-                ZChannel.write(buff) *> ZChannel.succeed(rest.drop(crlf.size), true)
+                ZChannel.write(buff) *> ZChannel.succeed((rest.drop(crlf.size), true))
               else if(boundary.isEncapsulating(h))
-                ZChannel.write(buff) *> ZChannel.succeed(rest.drop(crlf.size), false)
-              else
-                parseBOL(buff ++ h ++ crlf, rest.drop(crlf.size))
+                ZChannel.write(buff) *> ZChannel.succeed((rest.drop(crlf.size), false))
+              else {
+                //the crlf we just found can either be part of a following boundary or part of the content
+                parseBOL(buff ++ pendingCrlf ++ h, crlf, rest.drop(crlf.size))
+              }
           }
         }
       }
@@ -185,7 +192,7 @@ object Mixed {
         else {
           currLine.indexOfSlice(crlf) match {
             case -1 =>
-              //keep just enough of the current line match a crlf 'sitting' on the boundary,
+              //keep just enough of the current line to match a crlf 'sitting' on the boundary,
               //stash or even emit the rest
               val (h,t) = currLine.splitAt(currLine.size - crlf.size + 1)
               ZChannel
@@ -198,13 +205,13 @@ object Mixed {
 
             case idx =>
               //no need to check for boundary, just buffer and continue with parseBOL
-              val(h, t) = currLine.splitAt(idx + crlf.size)
-              parseBOL(buff ++ h, t)
+              val(h, t) = currLine.splitAt(idx)
+              parseBOL(buff ++ h, crlf, t.drop(crlf.size))
           }
         }
       }
 
-      val ch: ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], Unit] = parseBOL(Chunk.empty, initialBuff)
+      val ch: ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], Unit] = parseBOL(Chunk.empty, Chunk.empty, initialBuff)
         .foldCauseChannel(
           err => ZChannel.fromZIO(pr.failCause(err)) *> ZChannel.refailCause(err),
           tup => ZChannel.fromZIO(pr.succeed(tup)).unit

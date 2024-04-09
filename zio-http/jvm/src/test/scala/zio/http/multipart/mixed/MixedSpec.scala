@@ -75,11 +75,9 @@ object MixedSpec  extends ZIOHttpSpec {
       val mpm = Mixed.fromBody(rechunk(11)(body))
       val expectedStrs = Chunk(
         """|This is implicitly typed plain ASCII text.
-           |It does NOT end with a linebreak.
-           |""".stripMargin.replaceAll("\n", "\r\n"),
+           |It does NOT end with a linebreak.""".stripMargin.replaceAll("\n", "\r\n"),
         """|This is explicitly typed plain ASCII text.
            |It DOES end with a linebreak.
-           |
            |""".stripMargin.replaceAll("\n", "\r\n")
       )
 
