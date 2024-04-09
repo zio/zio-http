@@ -7,7 +7,7 @@ A `HandlerAspect` is a wrapper around `ProtocolStack` with the two following fea
 
 - It is a `ProtocolStack` that only works with `Request` and `Response` types. So it is suitable for writing middleware in the context of HTTP protocol. So it can almost be thought of (not the same) as a `ProtocolStack[Env, Request, Request, Response, Response]]`.
 
-- It is specialized to work with an output context `CtxOut` that can be passed through the middleware stack. This allows each layer to add its own output context to the transformation process. So the `CtxOut` will be a tuple of all the output contexts that each layer in the stack has added. These output contexts are useful when we are writing middleware that needs to pass some information, which is the result of some computation based on the input request, to the handler that is at the end of the middleware stack.
+- It is specialized to work with an output context `CtxOut` that can be passed through the middleware stack. This allows each layer to add its output context to the transformation process. So the `CtxOut` will be a tuple of all the output contexts that each layer in the stack has added. These output contexts are useful when we are writing middleware that needs to pass some information, which is the result of some computation based on the input request, to the handler that is at the end of the middleware stack.
 
 Now, we are ready to see the definition of `HandlerAspect`:
 
@@ -31,7 +31,9 @@ The `HandlerAspect.identity` is the simplest `HandlerAspect` that does nothing. 
 
 After this simple `HandlerAspect`, let's dive into the `HandlerAspect.intercept*` constructors. Using these, we can create a `HandlerAspect` that can intercept the incoming request, outgoing response, or both.
 
-## Intercepting the Incoming Requests
+## Intercepting
+
+### Intercepting the Incoming Requests
 
 The `HandlerAspect.interceptIncomingHandler` constructor takes a handler function and applies it to the incoming request. It is useful when we want to modify or access the request before it reaches the handler or the next layer in the stack.
 
@@ -55,7 +57,7 @@ val whitelistMiddleware: HandlerAspect[Any, Unit] =
   }
 ```
 
-## Intercepting the Outgoing Responses
+### Intercepting the Outgoing Responses
 
 The `HandlerAspect.interceptOutgoingHandler` constructor takes a handler function and applies it to the outgoing response. It is useful when we want to modify or access the response before it reaches the client or the next layer in the stack.
 
@@ -72,7 +74,7 @@ val addCustomHeader: HandlerAspect[Any, Unit] =
 
 The `interceptOutgoingHandler` takes a handler function that receives a `Response` and returns a `Response`. This is simpler than the `interceptIncomingHandler` as it does not necessitate the output context to be passed along with the response.
 
-## Intercepting Both Incoming Requests and Outgoing Responses
+### Intercepting Both Incoming Requests and Outgoing Responses
 
 The `HandlerAspect.interceptHandler` takes two handler functions, one for the incoming request and one for the outgoing response.
 
@@ -129,7 +131,7 @@ Server.serve(app @@ counterMiddleware @@ statsMiddleware)
   )
 ```
 
-## Intercepting Statefully
+### Intercepting Statefully
 
 The `HandlerAspect.interceptHandlerStateful` constructor is like the `interceptHandler`, but it allows the incoming handler to have a state that can be passed to the next layer in the stack, and finally, that state can be accessed by the outgoing handler.
 
@@ -173,6 +175,10 @@ content-length: 12
 
 Hello World!⏎
 ```
+
+### Intercepting Patch
+
+| 16     | Intercept Middleware                                   | `intercept`, `interceptHandler`, `interceptHandlerStateful`, `interceptIncomingHandler`, `interceptOutgoingHandler`, `interceptPatch`, `interceptPatchZIO` |
 
 ## Leveraging Output Context
 
@@ -289,4 +295,142 @@ After running the server, we can test it using the following client code:
 import utils._
 
 printSource("zio-http-example/src/main/scala/example/AuthenticationClient.scala")
+```
+
+## Authentication HandlerAspects
+
+There are several built-in `HandlerAspect`s that can be used to implement authentication in ZIO HTTP:
+
+1. **Basic Authentication**: The `basicAuth` and `basicAuthZIO` middleware can be used to implement basic authentication.
+2. **Bearer Authentication**: The `bearerAuth` and `bearerAuthZIO` middleware can be used to implement bearer authentication. We have to provide a function that validates the bearer token.
+3. **Custom Authentication**: The `customAuth`, `customAuthZIO`, `customAuthProviding`, and `customAuthProvidingZIO` handler aspects can be used to implement custom authentication. We have to provide a function that validates the request.
+
+## Failing HandlerAspects
+
+We can abort the requests by specific response using `HandlerAspect.fail` and `HandlerAspect.failWith` aspects, so the downstream handlers will not be executed.
+
+## Updating Requests and Responses
+
+Several aspects are useful for updating the requests and responses:
+
+| Description             | HandlerAspect                                                     |
+|-------------------------|-------------------------------------------------------------------|
+| Update Request          | `HandlerAspect.updateRequest`, `HandlerAspect.updateRequestZIO`   |
+| Update Request's Method | `HandlerAspect.updateMethod`                                      |
+| Update Request's Path   | `HandlerAspect.updatePath`                                        |
+| Update Request's URL    | `HandlerAspect.updateURL`                                         |
+| Update Response         | `HandlerAspect.updateResponse`, `HandlerAspect.updateResponseZIO` |
+| Update Response Headers | `HandlerAspect.updateHeaders`                                     |
+| Update Response Status  | `HandlerAspect.status`                                            |
+
+## Access Control HandlerAspects
+
+To allow and disallow access to an HTTP based on some conditions, we can use the `HandlerAspect.allow` and `HandlerAspect.allowZIO` aspects.
+
+## Cookie Operations
+
+Several aspects are useful for adding, signing, and managing cookies:
+
+1. `HandlerAspect.addCookie` and `HandlerAspect.addCookieZIO` to add cookies
+2. `HandlerAspect.signCookies` to sign cookies
+3. `HandlerAspect.flashScopeHandling` to manage the flash scope
+
+## Conditional Application of Middlewares
+
+We can attach a handler aspect conditionally using `HandlerAspect#when`, `HandlerAspect#whenZIO`, and `HandlerAspect#whenHeader` methods. Wen also uses the following constructors to have conditional handler aspects: `HandlerAspect.when`, `HandlerAspect.whenZIO`, `HandlerAspect.whenHeader`, `HandlerAspect.whenResponse`, and `HandlerAspect.whenResponseZIO`.
+
+We have also some `if-then-else` style constructors to create conditional aspects like `HandlerAspect.ifHeaderThenElse`, `HandlerAspect.ifMethodThenElse`, `HandlerAspect.ifRequestThenElse`, and `HandlerAspect.ifRequestThenElseZIO`.
+
+## Other Built-in HandlerAspects
+
+ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and customize the handling of HTTP requests and responses. These middlewares can be easily integrated into our application to provide various functionalities. Until now, we have seen several built-in aspects, here are some other built-in aspects:
+
+| HandlerAspect                       | Description                                            |
+|-------------------------------------|--------------------------------------------------------|
+| `beautifyErrors`                    | Beautify Error Response                                |
+| `debug`                             | Debugging Requests and Responses                       |
+| `dropTrailingSlash`                 | Drop Trailing Slash                                    |
+| `identity`                          | Identity Middleware (No effect on request or response) |
+| `patch`, `patchZIO`                 | Patch Middleware                                       |
+| `redirect`, `redirectTrailingSlash` | Redirect Middleware                                    |
+| `requestLogging`                    | Request Logging Middleware                             |
+| `runBefore`, `runAfter`             | Running Effect Before/After Every Request              |
+
+## Examples
+
+### A simple middleware example
+
+Let us consider a simple example using out-of-the-box middleware called ```addHeader```. We will write a middleware that will attach a custom header to the response.
+
+We create a middleware that appends an additional header to the response indicating whether it is a Dev/Prod/Staging environment:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HelloWorldWithMiddlewares.scala")
+```
+
+Fire a curl request, and we see an additional header added to the response indicating the "Dev" environment:
+
+```bash
+curl -i http://localhost:8080/Bob
+
+HTTP/1.1 200 OK
+content-type: text/plain
+X-Environment: Dev
+content-length: 12
+
+Hello Bob
+```
+
+### CORS Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HelloWorldWithCORS.scala")
+```
+
+### Bearer Authentication Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/AuthenticationServer.scala")
+```
+
+### Basic Authentication Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/BasicAuth.scala")
+```
+
+To the example, start the server and fire a curl request with an incorrect user/password combination:
+
+```bash
+curl -i --user admin:wrong http://localhost:8080/user/admin/greet
+
+HTTP/1.1 401 Unauthorized
+www-authenticate: Basic
+content-length: 0
+```
+
+We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` header. 
+
+### Endpoint Middleware Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/EndpointExamples.scala")
+```
+
+### Serving Static Files Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/StaticFiles.scala")
 ```
