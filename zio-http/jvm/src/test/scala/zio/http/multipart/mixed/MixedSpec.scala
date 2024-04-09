@@ -1,11 +1,13 @@
 package zio.http.multipart.mixed
 
-import zio.{Chunk, Scope, ZIO}
-import zio.http.{Body, Boundary, MediaType, ZIOHttpSpec}
-import zio.stream.ZStream
 import zio.test.{Assertion, Spec, TestEnvironment}
+import zio.{Chunk, Scope, ZIO}
 
-object MixedSpec  extends ZIOHttpSpec {
+import zio.stream.ZStream
+
+import zio.http.{Body, Boundary, MediaType, ZIOHttpSpec}
+
+object MixedSpec extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = mixedSuite
 
@@ -13,34 +15,26 @@ object MixedSpec  extends ZIOHttpSpec {
 
     val defaultSep = "simple boundary"
 
-    def checkRoundtrip(mpm : Mixed) = {
+    def checkRoundtrip(mpm: Mixed) = {
       for {
-        parsed0 <- mpm
-          .parts
-          .mapZIO { p =>
-            p
-              .toBody
-              .asChunk
-              .map(p.headers -> _)
-          }
-          .runCollect
-        mpm2 = Mixed.fromParts(ZStream
-          .fromChunk(parsed0)
-          .map{
-            case (header, bytes) => Part(header, ZStream.fromChunk(bytes))
-          },
+        parsed0 <- mpm.parts.mapZIO { p =>
+          p.toBody.asChunk
+            .map(p.headers -> _)
+        }.runCollect
+        mpm2 = Mixed.fromParts(
+          ZStream
+            .fromChunk(parsed0)
+            .map { case (header, bytes) =>
+              Part(header, ZStream.fromChunk(bytes))
+            },
           mpm.boundary,
-          mpm.bufferSize)
+          mpm.bufferSize,
+        )
 
-        parsed1 <- mpm2
-          .parts
-          .mapZIO { p =>
-            p
-              .toBody
-              .asChunk
-              .map(p.headers -> _)
-          }
-          .runCollect
+        parsed1 <- mpm2.parts.mapZIO { p =>
+          p.toBody.asChunk
+            .map(p.headers -> _)
+        }.runCollect
       } yield {
         zio.test.assert(parsed1)(Assertion.equalTo(parsed0))
       }
@@ -50,34 +44,33 @@ object MixedSpec  extends ZIOHttpSpec {
       val empty = Mixed.fromParts(ZStream.empty, Boundary(defaultSep))
 
       test("has no parts") {
-        empty
-          .parts
-          .runCollect
-          .map{collected =>
-            zio.test.assert(collected)(Assertion.isEmpty)
-          }
+        empty.parts.runCollect.map { collected =>
+          zio.test.assert(collected)(Assertion.isEmpty)
+        }
       }
 
       test("emoty no preamble, no epilogue") {
         val body = Body.fromString(s"--${defaultSep}--").contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
-        val mpm = Mixed.fromBody(body)
+        val mpm  = Mixed.fromBody(body)
 
         ZIO
           .fromOption(mpm)
           .flatMap(_.parts.runCollect)
-          .map{collected =>
+          .map { collected =>
             zio.test.assert(collected)(Assertion.isEmpty)
           }
       }
 
       test("empty no preamble, with epilogue") {
-        val body = Body.fromString(s"--${defaultSep}--\r\nsome nasty epilogue").contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
-        val mpm = Mixed.fromBody(body)
+        val body = Body
+          .fromString(s"--${defaultSep}--\r\nsome nasty epilogue")
+          .contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
+        val mpm  = Mixed.fromBody(body)
 
         ZIO
           .fromOption(mpm)
           .flatMap(_.parts.runCollect)
-          .map{collected =>
+          .map { collected =>
             zio.test.assert(collected)(Assertion.isEmpty)
           }
       }
@@ -104,22 +97,21 @@ object MixedSpec  extends ZIOHttpSpec {
           |This is the epilogue.  It is also to be ignored.
           |""".stripMargin.replaceAll("\n", "\r\n")
 
-      val body = Body.fromString(msg).contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
-      val mpm = Mixed.fromBody(rechunk(11)(body))
+      val body         = Body.fromString(msg).contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
+      val mpm          = Mixed.fromBody(rechunk(11)(body))
       val expectedStrs = Chunk(
         """|This is implicitly typed plain ASCII text.
            |It does NOT end with a linebreak.""".stripMargin.replaceAll("\n", "\r\n"),
         """|This is explicitly typed plain ASCII text.
            |It DOES end with a linebreak.
-           |""".stripMargin.replaceAll("\n", "\r\n")
+           |""".stripMargin.replaceAll("\n", "\r\n"),
       )
 
       test("default 8k buffer") {
         ZIO
           .fromOption(mpm)
           .flatMap {
-            _.parts.mapZIO(_.toBody.asString)
-              .runCollect
+            _.parts.mapZIO(_.toBody.asString).runCollect
           }
           .map { collected =>
             zio.test.assert(collected)(Assertion.equalTo(expectedStrs))
@@ -131,8 +123,7 @@ object MixedSpec  extends ZIOHttpSpec {
           .fromOption(mpm)
           .map(_.copy(bufferSize = 5))
           .flatMap {
-            _.parts.mapZIO(_.toBody.asString)
-              .runCollect
+            _.parts.mapZIO(_.toBody.asString).runCollect
           }
           .map { collected =>
             zio.test.assert(collected)(Assertion.equalTo(expectedStrs))
@@ -154,16 +145,16 @@ object MixedSpec  extends ZIOHttpSpec {
     }
   }
 
-  def rechunk(chunkSz : Int)(body : Body): Body = {
+  def rechunk(chunkSz: Int)(body: Body): Body = {
     val rechunkedStream = body.asStream.rechunk(chunkSz)
-    val res0 = Body
+    val res0            = Body
       .fromStreamChunked(rechunkedStream)
 
     (body.mediaType, body.boundary) match {
-      case (None, None) => res0
-      case (Some(mt), None) => res0.contentType(mt)
+      case (None, None)        => res0
+      case (Some(mt), None)    => res0.contentType(mt)
       case (Some(mt), Some(b)) => res0.contentType(mt, b)
-      case (None, Some(b)) =>
+      case (None, Some(b))     =>
         sys.error("r u joking me?!?!")
     }
 
