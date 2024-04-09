@@ -10,7 +10,7 @@ object JmhBenchmarkWorkflow {
   val files = FileTreeView.default.list(Seq(
     Glob("zio-http-benchmarks/src/main/scala-2.13/**"),
     Glob("zio-http-benchmarks/src/main/scala/**")),scalaSources
-  )
+   )
  
   /**
    * Get zioHttpBenchmark file names
