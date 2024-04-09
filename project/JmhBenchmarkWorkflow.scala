@@ -104,7 +104,7 @@ object JmhBenchmarkWorkflow {
   /**
    * Workflow Job to compare and publish benchmark results in the comment
    */
-  def jmh_compare(batchSize: Int) = Seq(
+ def jmh_compare(batchSize: Int) = Seq(
     WorkflowJob(
       id = "Compare_jmh",
       name = "Compare Jmh",
@@ -204,6 +204,6 @@ object JmhBenchmarkWorkflow {
       ),
     )
   })
-
+  
   def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize) ++ jmh_compare(batchSize)
 }
