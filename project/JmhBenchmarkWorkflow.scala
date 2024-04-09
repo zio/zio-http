@@ -78,7 +78,7 @@ object JmhBenchmarkWorkflow {
       id = "Jmh_cache",
       name = "Cache Jmh benchmarks",
       cond = Some(
-        "${{ github.event_name == 'push' && github.ref == 'main'  }}",
+        "${{ github.event_name == 'push' && github.ref == 'ref/heads/main'  }}",
       ),
       needs = dependencies(batchSize),
       steps =  downloadArtifacts("Main", batchSize) ++
