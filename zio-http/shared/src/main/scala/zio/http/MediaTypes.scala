@@ -375,7 +375,7 @@ private[zio] trait MediaTypes {
       lazy val `jscalendar+json`: MediaType          =
         new MediaType("application", "jscalendar+json", Compressible, NotBinary)
       lazy val `json`: MediaType                     =
-        new MediaType("application", "json", Compressible, Binary, List("json", "map"))
+        new MediaType("application", "json", Compressible, NotBinary, List("json", "map"))
       lazy val `json-patch+json`: MediaType          =
         new MediaType("application", "json-patch+json", Compressible, NotBinary)
       lazy val `json-seq`: MediaType                 =
