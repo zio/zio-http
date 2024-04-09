@@ -204,6 +204,6 @@ object JmhBenchmarkWorkflow {
       ),
     )
   })
-  
+
   def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize) ++ jmh_compare(batchSize)
 }
