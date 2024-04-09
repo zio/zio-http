@@ -7,7 +7,7 @@ A `HandlerAspect` is a wrapper around `ProtocolStack` with the two following fea
 
 - It is a `ProtocolStack` that only works with `Request` and `Response` types. So it is suitable for writing middleware in the context of HTTP protocol. So it can almost be thought of (not the same) as a `ProtocolStack[Env, Request, Request, Response, Response]]`.
 
-- It is specialized to work with an output context `CtxOut` that can be passed through the middleware stack. This allows each layer to add its own output context to the transformation process. So the `CtxOut` will be a tuple of all the output contexts that each layer in the stack has added. These output contexts are useful when we are writing middleware that needs to pass some information, which is the result of some computation based on the input request, to the handler that is at the end of the middleware stack. 
+- It is specialized to work with an output context `CtxOut` that can be passed through the middleware stack. This allows each layer to add its own output context to the transformation process. So the `CtxOut` will be a tuple of all the output contexts that each layer in the stack has added. These output contexts are useful when we are writing middleware that needs to pass some information, which is the result of some computation based on the input request, to the handler that is at the end of the middleware stack.
 
 Now, we are ready to see the definition of `HandlerAspect`:
 
@@ -119,7 +119,7 @@ val statsMiddleware: Middleware[Ref[Map[String, Long]]] =
   }
 ```
 
-After applying these two middlewares to our HttpApp, we have to provide the initial state for the `Ref[Map[String, Long]]` to the whole application's environment:
+After attaching these two middlewares to our HttpApp, we have to provide the initial state for the `Ref[Map[String, Long]]` to the whole application's environment:
 
 ```scala
 Server.serve(app @@ counterMiddleware @@ statsMiddleware)
@@ -162,7 +162,7 @@ val responseTime: HandlerAspect[Any, Unit] =
   HandlerAspect.interceptHandlerStateful(incomingTime)(outgoingTime)
 ```
 
-By applying this middleware to any route, we can see the response time in the `X-Response-Time` header:
+By attaching this middleware to any route, we can see the response time in the `X-Response-Time` header:
 
 ```bash
 $ curl -X GET 'http://127.0.0.1:8080/hello' -i
@@ -197,7 +197,7 @@ val intRequestHandler: Handler[Any, Nothing, (Int, Request), Response] =
   }
 ```
 
-If we apply the `intAspect` to this handler, we get back a handler that receives a `Request` and produces a `Response`:
+If we attach the `intAspect` to this handler, we get back a handler that receives a `Request` and produces a `Response`:
 
 ```scala mdoc:compile-only
 val handler: Handler[Any, Response, Request, Response] = 
@@ -223,7 +223,7 @@ val intStringRequestHandler: Handler[Any, Nothing, (Int, String, Request), Respo
   }
 ```
 
-Finally, we can apply the `intStringAspect` to this handler:
+Finally, we can attach the `intStringAspect` to this handler:
 
 ```scala mdoc:silent
 val handler: Handler[Any, Response, Request, Response] = 
