@@ -72,12 +72,21 @@ object Mixed {
       buff.indexOfSlice(crlf) match {
         case -1 =>
           //have to read more input, can discard most of the buffer
+          val keep = if(buff.nonEmpty && buff.last == '\r')
+            Chunk.single(buff.last)
+          else
+            Chunk.empty
           ZChannel
             .readWithCause(
-              in => preamble(buff.takeRight(crlf.size - 1) ++ in),
+              in => preamble(keep ++ in),
               ZChannel.refailCause(_),
               done =>
-                ZChannel.fail(new IllegalStateException("multipart/chunked body ended with no boundary"))
+                if(boundary.isClosing(buff))
+                  ZChannel.succeed((Chunk.empty, true))
+                else if(boundary.isEncapsulating(buff))
+                  ZChannel.succeed((Chunk.empty, false))
+                else
+                  ZChannel.fail(new IllegalStateException("multipart/chunked body ended with no boundary"))
             )
         case idx =>
           val h = buff.take(idx)
