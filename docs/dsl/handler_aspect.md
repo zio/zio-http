@@ -374,6 +374,21 @@ val dropTrailingSlash = HandlerAspect.updateURL(_.dropTrailingSlash)
 
 To allow and disallow access to an HTTP based on some conditions, we can use the `HandlerAspect.allow` and `HandlerAspect.allowZIO` aspects.
 
+```scala mdoc:compile-only
+val disallow: HandlerAspect[Any, Unit] = HandlerAspect.allow(_ => false)
+val allow: HandlerAspect[Any, Unit]    = HandlerAspect.allow(_ => true)
+
+val whitelistAspect: HandlerAspect[Any, Unit] = {
+  val whitelist = Set("127.0.0.1", "0.0.0.0")
+  HandlerAspect.allow(r =>
+    r.headers.get("X-Real-IP") match {
+      case Some(host) => whitelist.contains(host)
+      case None       => false
+    },
+  )
+}
+```
+
 ## Cookie Operations
 
 Several aspects are useful for adding, signing, and managing cookies:
