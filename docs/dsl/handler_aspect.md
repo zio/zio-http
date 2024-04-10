@@ -176,9 +176,36 @@ content-length: 12
 Hello World!⏎
 ```
 
-### Intercepting Patch
+### Intercepting Statefully (Patching Responses)
 
-| 16     | Intercept Middleware                                   | `intercept`, `interceptHandler`, `interceptHandlerStateful`, `interceptIncomingHandler`, `interceptOutgoingHandler`, `interceptPatch`, `interceptPatchZIO` |
+Sometimes we want to apply a series of transformations to the outgoing response. We can use the `HandlerAspect.interceptPatch` and `HandlerAspect.interceptPatchZIO` to achieve this.
+
+A `Response.Patch` is a data type that represents a function (or series of functions) that can be applied to a response and return a new response. The `HanlderAspect.interceptPatch*` uses this data type to transform the response.
+
+The `HandlerApect.interceptPatch` takes two groups of arguments:
+
+1. **Intercepting the Incoming Request**: The first one is a function that takes the incoming `Request` and produces a `State`. This state is passed through the middleware stack and then can be accessed through the interception phase of the outgoing response.
+2. **Intercepting the Outgoing Response**: The second one is a function that takes a tuple of `Response` and `State` and returns a `Response.Patch` that will be applied to the outgoing response.
+
+Let's try to rewrite the previous example using the `HandlerAspect.interceptPatch`:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import java.util.concurrent.TimeUnit
+
+val incomingTime: Request => ZIO[Any, Nothing, Long] =
+  (_: Request) => ZIO.clockWith(_.currentTime(TimeUnit.MILLISECONDS))
+
+val outgoingTime: (Response, Long) => ZIO[Any, Nothing, Response.Patch] =
+  (_: Response, incomingTime: Long) =>
+    ZIO
+      .clockWith(_.currentTime(TimeUnit.MILLISECONDS).map(t => t - incomingTime))
+      .map(responseTime => Response.Patch.addHeader("X-Response-Time", s"${responseTime}ms"))
+
+val responseTime: HandlerAspect[Any, Unit] =
+  HandlerAspect.interceptPatchZIO(incomingTime)(outgoingTime)
+```
 
 ## Leveraging Output Context
 
