@@ -263,7 +263,7 @@ val handler: Handler[Any, Response, Request, Response] =
   intStringRequestHandler @@ (intAspect ++ stringAspect)
 ```
 
-## Authentication Middleware Example
+### Custom Authentication Example
 
 Now, let's see a real-world example where we can leverage the output context.
 
@@ -334,7 +334,21 @@ There are several built-in `HandlerAspect`s that can be used to implement authen
 
 ## Failing HandlerAspects
 
-We can abort the requests by specific response using `HandlerAspect.fail` and `HandlerAspect.failWith` aspects, so the downstream handlers will not be executed.
+We can abort the requests by specific response using `HandlerAspect.fail` and `HandlerAspect.failWith` aspects, so the downstream handlers will not be executed:
+
+```scala mdoc:invisible
+val myHandler = Handler.identity
+```
+
+```scala mdoc:compile-only
+import zio.http._
+
+myHandler @@ HandlerAspect.fail(Response.forbidden("Access Denied!"))
+
+myHandler @@ HandlerAspect
+  .fail(Response.forbidden("Access Denied!"))
+  .when(req => req.method == Method.DELETE)
+```
 
 ## Updating Requests and Responses
 
