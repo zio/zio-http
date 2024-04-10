@@ -397,7 +397,7 @@ Several aspects are useful for adding, signing, and managing cookies:
 2. `HandlerAspect.signCookies` to sign cookies
 3. `HandlerAspect.flashScopeHandling` to manage the flash scope
 
-## Conditional Application of Middlewares
+## Conditional Application of HandlerAspects
 
 We can attach a handler aspect conditionally using `HandlerAspect#when`, `HandlerAspect#whenZIO`, and `HandlerAspect#whenHeader` methods. Wen also uses the following constructors to have conditional handler aspects: `HandlerAspect.when`, `HandlerAspect.whenZIO`, `HandlerAspect.whenHeader`, `HandlerAspect.whenResponse`, and `HandlerAspect.whenResponseZIO`.
 
@@ -420,7 +420,7 @@ ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and
 
 ## Examples
 
-### A simple middleware example
+### A Simple Middleware Example
 
 Let us consider a simple example using out-of-the-box middleware called ```addHeader```. We will write a middleware that will attach a custom header to the response.
 
