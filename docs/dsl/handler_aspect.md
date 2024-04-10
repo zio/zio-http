@@ -364,6 +364,12 @@ Several aspects are useful for updating the requests and responses:
 | Update Response Headers | `HandlerAspect.updateHeaders`                                     |
 | Update Response Status  | `HandlerAspect.status`                                            |
 
+These aspects can be used to modify the request and response before they reach the handler or the client. They take a function that transforms the request or response and returns the updated request or response. Let's see an example:
+
+```scala mdoc:compile-only
+val dropTrailingSlash = HandlerAspect.updateURL(_.dropTrailingSlash) 
+```
+
 ## Access Control HandlerAspects
 
 To allow and disallow access to an HTTP based on some conditions, we can use the `HandlerAspect.allow` and `HandlerAspect.allowZIO` aspects.
