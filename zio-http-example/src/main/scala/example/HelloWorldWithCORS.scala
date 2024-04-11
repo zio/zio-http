@@ -1,5 +1,6 @@
 package example
 import zio._
+
 import zio.http.Header.{AccessControlAllowOrigin, Origin}
 import zio.http.Middleware.{CorsConfig, cors}
 import zio.http._
