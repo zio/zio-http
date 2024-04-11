@@ -174,13 +174,12 @@ val urlRewrite: Middleware[Any] =
 
 Inside the companion object `Middleware`, we have several built-in middlewares that are ready to use. Here is a list of them:
 
-| Number | Description                                     | Middleware                                                |
-|--------|-------------------------------------------------|-----------------------------------------------------------|
-| 1      | Cross-Origin Resource Sharing (CORS) Middleware | `Middleware.cors`                                         |
-| 2      | Log Annotations Middleware                      | `Middleware.logAnnotate`, `Middleware.logAnnotateHeaders` |
-| 3      | Timeout Middleware                              | `Middleware.timeout`                                      |
-| 4      | Metrics Middleware                              | `Middleware.metrics`                                      |
-| 5      | Serving Static Files Middleware                 | `Middleware.serveResources`, `Middleware.serveDirectory`  |
+| Description                      | Middleware                                                |
+|----------------------------------|-----------------------------------------------------------|
+| Log Annotations Middleware       | `Middleware.logAnnotate`, `Middleware.logAnnotateHeaders` |
+| Timeout Middleware               | `Middleware.timeout`                                      |
+| Metrics Middleware               | `Middleware.metrics`                                      |
+| Serving Static Files Middleware  | `Middleware.serveResources`, `Middleware.serveDirectory`  |
 
 The `Middleware` object also inherits many other middlewares from the `HandlerAspect`, that we will introduce them on the [HandlerAspect](./handler_aspect.md) page. 
 
