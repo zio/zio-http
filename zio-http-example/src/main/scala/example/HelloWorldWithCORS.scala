@@ -1,31 +1,46 @@
 package example
-
 import zio._
-
-import zio.http.Header.{AccessControlAllowMethods, AccessControlAllowOrigin, Origin}
+import zio.http.Header.{AccessControlAllowOrigin, Origin}
 import zio.http.Middleware.{CorsConfig, cors}
 import zio.http._
+import zio.http.codec.PathCodec
+import zio.http.template._
 
 object HelloWorldWithCORS extends ZIOAppDefault {
 
-  // Create CORS configuration
   val config: CorsConfig =
     CorsConfig(
       allowedOrigin = {
-        case origin @ Origin.Value(_, host, _) if host == "dev" => Some(AccessControlAllowOrigin.Specific(origin))
-        case _                                                  => None
+        case origin if origin == Origin.parse("http://localhost:3000").toOption.get =>
+          Some(AccessControlAllowOrigin.Specific(origin))
+        case _                                                                      => None
       },
-      allowedMethods = AccessControlAllowMethods(Method.PUT, Method.DELETE),
     )
 
-  // Create HTTP route with CORS enabled
-  val app: HttpApp[Any] =
+  val backend: HttpApp[Any] =
     Routes(
-      Method.GET / "text" -> handler(Response.text("Hello World!")),
-      Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}""")),
+      Method.GET / "json" -> handler(Response.json("""{"message": "Hello World!"}""")),
     ).toHttpApp @@ cors(config)
 
-  // Run it like any simple app
-  val run =
-    Server.serve(app).provide(Server.default)
+  val frontend: HttpApp[Any] =
+    Routes(
+      Method.GET / PathCodec.empty -> handler(
+        Response.html(
+          html(
+            p("Message: ", output()),
+            script("""
+                     |// This runs on http://localhost:3000
+                     |fetch("http://localhost:8080/json")
+                     |  .then((res) => res.json())
+                     |  .then((res) => document.querySelector("output").textContent = res.message);
+                     |""".stripMargin),
+          ),
+        ),
+      ),
+    ).toHttpApp
+
+  val frontEndServer = Server.serve(frontend).provide(Server.defaultWithPort(3000))
+  val backendServer  = Server.serve(backend).provide(Server.defaultWithPort(8080))
+
+  val run = frontEndServer.zipPar(backendServer)
 }
