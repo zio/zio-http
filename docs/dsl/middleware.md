@@ -210,3 +210,28 @@ For example, if we have three middlewares f1, f2, f3, the `f1 ++ f2 ++ f3` appli
 ```scala
 f3(f2(f1(http)))
 ```
+
+## Access Control Allow Origin (CORS) Middleware
+
+The CORS middleware is used to enable cross-origin resource sharing. It allows the server to specify who can access the resources on the server. The origin is a combination of the protocol, domain, and port of the client. By default, the server does not allow cross-origin requests. What this means is that if a client is hosted on a different domain (or different protocol and port), the server will reject the request. So, if the client is hosted on `http://localhost:3000` and the server is hosted on `http://localhost:8080`, the server will reject the request.
+
+This is where the client may want to create a preflight request to the server to ask for permission to access the resources. This is done by sending a preflight `OPTIONS` request to the server with the headers `Origin`, `Access-Control-Request-Method`, and `Access-Control-Request-Headers`. If the server determines that the request is allowed, it includes an `Access-Control-Allow-Origin` header in the response with a value that specifies which origins are permitted to access the resource. The same thing happens with the `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers` headers. Now the client can decide whether to send the actual request or not.
+
+To create a CORS middleware, we can use the `Middleware.cors` constructor. It takes a configuration object of type `CorsConfig` that specifies the allowed origins, methods, headers, and so on. The `CorsConfig` object has the following fields:
+
+1. **`allowedOrigin`**— A function that takes the origin of the client and returns allowed origins of type `Option[Header.AccessControlAllowOrigin]`. By default, the configuration object allows all origins (`*`).
+2. **`allowedMethods`**— The `Access-Control-Allow-Methods` response header is used in response to a preflight request which includes the `Access-Control-Request-Method` to indicate which HTTP methods can be used during the actual request. By default, the configuration object allows all methods (`*`).
+3. **`allowedHeaders`**— The `Access-Control-Allow-Headers` response header is used in response to a preflight request which includes the `Access-Control-Request-Headers` to indicate which HTTP headers can be used during the actual request. By default, the configuration object allows all headers (`*`).
+4. **`allowCredentials`**— The `Access-Control-Allow-Credentials` header is sent in response to a preflight request which includes the `Access-Control-Request-Headers` to indicate whether the actual request can be made using credentials. By default, this configuration is set to `Allow`.
+5. **`exposedHeaders`**— The `Access-Control-Expose-Headers` header is used in response to a preflight request to indicate which headers can be exposed as part of the response. By default, the configuration object exposes all headers (`*`).
+6. **`maxAge`**— The `Access-Control-Max-Age` response header is used in response to a preflight request to indicate how long the results of a preflight request can be cached. By default, this configuration is set to `None`.
+
+In the following example, we are going to serve two HTTP apps. The first app is a backend that serves a JSON response that contains a message. The second app is a frontend that serves an HTML page with a script that fetches the JSON response from the backend. The frontend is hosted on `http://localhost:3000` and the backend is hosted on `http://localhost:8080`. If we try to fetch the JSON response from the frontend, the server will reject the request because the client is hosted on a different origin.
+
+To allow the frontend to access the backend, we need to create a CORS middleware that allows the origin `http://localhost:3001`. We can do this by creating a `CorsConfig` object with an `allowedOrigin` function that returns `Some(AccessControlAllowOrigin.Specific(origin))` if the origin is `http://localhost:3000`. We then attach the CORS middleware to the backend using the `@@` operator.
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HelloWorldWithCORS.scala")
+```
