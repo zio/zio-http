@@ -177,8 +177,6 @@ Inside the companion object `Middleware`, we have several built-in middlewares t
 | Description                      | Middleware                                                |
 |----------------------------------|-----------------------------------------------------------|
 | Log Annotations Middleware       | `Middleware.logAnnotate`, `Middleware.logAnnotateHeaders` |
-| Timeout Middleware               | `Middleware.timeout`                                      |
-| Metrics Middleware               | `Middleware.metrics`                                      |
 | Serving Static Files Middleware  | `Middleware.serveResources`, `Middleware.serveDirectory`  |
 
 The `Middleware` object also inherits many other middlewares from the `HandlerAspect`, that we will introduce them on the [HandlerAspect](./handler_aspect.md) page. 
@@ -263,3 +261,16 @@ printSource("zio-http-example/src/main/scala/example/HelloWorldWithMetrics.scala
 ```
 
 Another important thing to note is that the `metrics` middleware only attaches to the `HttpApp` or `Routes`, so if we want to track some custom metrics particular to a handler, we can use the `ZIO#@@` operator to attach a metric of type `ZIOAspect` to the ZIO effect that is returned by the handler. For example, if we want to track the number of requests that have a custom header `X-Custom-Header` in the `/json` route, we can attach a counter metric to the ZIO effect that is returned by the handler using the `@@` operator.
+
+## Timeout Middleware
+
+The `Middleware.timeout` middleware is used to set a timeout for the HTTP requests that are processed by the server. If the request takes longer than the specified duration, the server will respond with request timeout status code `408`. The middleware takes a `Duration` parameter that specifies the timeout duration.
+
+```scala mdoc:invisible
+import zio.http._
+val httpApp: HttpApp[Any] = Handler.ok.toHttpApp
+```
+
+```scala mdoc:compile-only
+httpApp @@ Middleware.timeout(5.seconds)
+```
