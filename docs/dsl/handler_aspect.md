@@ -332,6 +332,26 @@ There are several built-in `HandlerAspect`s that can be used to implement authen
 2. **Bearer Authentication**: The `bearerAuth` and `bearerAuthZIO` middleware can be used to implement bearer authentication. We have to provide a function that validates the bearer token.
 3. **Custom Authentication**: The `customAuth`, `customAuthZIO`, `customAuthProviding`, and `customAuthProvidingZIO` handler aspects can be used to implement custom authentication. We have to provide a function that validates the request.
 
+### Basic Authentication Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/BasicAuth.scala")
+```
+
+To the example, start the server and fire a curl request with an incorrect user/password combination:
+
+```bash
+curl -i --user admin:wrong http://localhost:8080/user/admin/greet
+
+HTTP/1.1 401 Unauthorized
+www-authenticate: Basic
+content-length: 0
+```
+
+We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` header.
+
 ## Failing HandlerAspects
 
 We can abort the requests by specific response using `HandlerAspect.fail` and `HandlerAspect.failWith` aspects, so the downstream handlers will not be executed:
@@ -444,34 +464,6 @@ content-length: 12
 
 Hello Bob
 ```
-
-### Bearer Authentication Example
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/AuthenticationServer.scala")
-```
-
-### Basic Authentication Example
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/BasicAuth.scala")
-```
-
-To the example, start the server and fire a curl request with an incorrect user/password combination:
-
-```bash
-curl -i --user admin:wrong http://localhost:8080/user/admin/greet
-
-HTTP/1.1 401 Unauthorized
-www-authenticate: Basic
-content-length: 0
-```
-
-We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` header. 
 
 ### Endpoint Middleware Example
 
