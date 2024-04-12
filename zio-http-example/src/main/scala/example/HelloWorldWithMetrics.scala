@@ -1,10 +1,11 @@
 package example
 
 import zio._
-import zio.http._
 import zio.metrics._
 import zio.metrics.connectors.prometheus.PrometheusPublisher
 import zio.metrics.connectors.{MetricsConfig, prometheus}
+
+import zio.http._
 
 object HelloWorldWithMetrics extends ZIOAppDefault {
 
