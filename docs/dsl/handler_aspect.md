@@ -480,11 +480,3 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/EndpointExamples.scala")
 ```
-
-### Serving Static Files Example
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/StaticFiles.scala")
-```

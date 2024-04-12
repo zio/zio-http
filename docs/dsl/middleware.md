@@ -170,17 +170,6 @@ val urlRewrite: Middleware[Any] =
   )
 ```
 
-## Built-in Middlewares
-
-Inside the companion object `Middleware`, we have several built-in middlewares that are ready to use. Here is a list of them:
-
-| Description                      | Middleware                                                |
-|----------------------------------|-----------------------------------------------------------|
-| Log Annotations Middleware       | `Middleware.logAnnotate`, `Middleware.logAnnotateHeaders` |
-| Serving Static Files Middleware  | `Middleware.serveResources`, `Middleware.serveDirectory`  |
-
-The `Middleware` object also inherits many other middlewares from the `HandlerAspect`, that we will introduce them on the [HandlerAspect](./handler_aspect.md) page. 
-
 ## Attaching `Middleware` to `HttpApp`
 
 The `@@` operator is used to attach middleware to routes and HTTP applications. The example below shows a middleware attached to an `HttpApp`:
@@ -208,7 +197,11 @@ For example, if we have three middlewares f1, f2, f3, the `f1 ++ f2 ++ f3` appli
 f3(f2(f1(http)))
 ```
 
-## Access Control Allow Origin (CORS) Middleware
+## Built-in Middlewares
+
+In this section we are going to introduce built-in middlewares that are provided by ZIO HTTP. Please note that the `Middleware` object also inherits many other middlewares from the `HandlerAspect`, that we will introduce them on the [HandlerAspect](./handler_aspect.md) page.
+
+### Access Control Allow Origin (CORS) Middleware
 
 The CORS middleware is used to enable cross-origin resource sharing. It allows the server to specify who can access the resources on the server. The origin is a combination of the protocol, domain, and port of the client. By default, the server does not allow cross-origin requests. What this means is that if a client is hosted on a different domain (or different protocol and port), the server will reject the request. So, if the client is hosted on `http://localhost:3000` and the server is hosted on `http://localhost:8080`, the server will reject the request.
 
@@ -233,7 +226,7 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/HelloWorldWithCORS.scala")
 ```
 
-## Metrics Middleware
+### Metrics Middleware
 
 The `Middleware.metrics` middleware is used to collect metrics about the HTTP requests and responses that are processed by the server. The middleware collects the following metrics:
 
@@ -262,7 +255,7 @@ printSource("zio-http-example/src/main/scala/example/HelloWorldWithMetrics.scala
 
 Another important thing to note is that the `metrics` middleware only attaches to the `HttpApp` or `Routes`, so if we want to track some custom metrics particular to a handler, we can use the `ZIO#@@` operator to attach a metric of type `ZIOAspect` to the ZIO effect that is returned by the handler. For example, if we want to track the number of requests that have a custom header `X-Custom-Header` in the `/json` route, we can attach a counter metric to the ZIO effect that is returned by the handler using the `@@` operator.
 
-## Timeout Middleware
+### Timeout Middleware
 
 The `Middleware.timeout` middleware is used to set a timeout for the HTTP requests that are processed by the server. If the request takes longer than the specified duration, the server will respond with request timeout status code `408`. The middleware takes a `Duration` parameter that specifies the timeout duration.
 
@@ -275,7 +268,7 @@ val httpApp: HttpApp[Any] = Handler.ok.toHttpApp
 httpApp @@ Middleware.timeout(5.seconds)
 ```
 
-## Log Annotation Middleware
+### Log Annotation Middleware
 
 Using the `Middleware.logAnnotate*` middleware, we can add more annotations to the logging context. There are several variations of the `logAnnotate` middleware:
 
@@ -312,4 +305,15 @@ Now, if we call one of the routes with the `X-Correlation-ID` header, we should 
 
 ```shell
 timestamp=2024-04-12T08:16:26.034894Z level=INFO thread=#zio-fiber-44 message="Http request served" location=example.HelloWorldWithLogging.backend file=HelloWorldWithLogging.scala line=20 method=GET correlation-id=34fab1bb-eeca-4b4f-975d-12f18e94f2e7 duration_ms=77 url=/json response_size=27 status_code=200 request_size=0
+```
+
+### Serving Static Files Middleware
+
+With the `Middleware.serveDirectory` and `Middleware.serveResources` middlewares, we can serve static files from a directory or resource directory in the classpath:
+
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/StaticFiles.scala")
 ```
