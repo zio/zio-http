@@ -274,3 +274,42 @@ val httpApp: HttpApp[Any] = Handler.ok.toHttpApp
 ```scala mdoc:compile-only
 httpApp @@ Middleware.timeout(5.seconds)
 ```
+
+## Log Annotation Middleware
+
+Using the `Middleware.logAnnotate*` middleware, we can add more annotations to the logging context. There are several variations of the `logAnnotate` middleware:
+
+* **`logAnnotate(key: => String, value: => String)`**— Adds a single log annotation with the specified key and value.
+* **`logAnnotate(logAnnotation: => LogAnnotation, logAnnotations: => LogAnnotation*)`**— Adds multiple log annotations with the specified log annotations.
+* **`logAnnotate(logAnnotations: => Set[LogAnnotation])`**— Adds multiple log annotations with the specified set of log annotations.
+* **`logAnnotate(fromRequest: Request => Set[LogAnnotation])`**— Adds log annotations derived from the request.
+* **`logAnnotateHeaders(headerName: String, headerNames: String*)`**— Adds log annotations with the names and values of the specified headers.
+* **`logAnnotateHeaders(header: Header.HeaderType, headers: Header.HeaderType*)`**— Adds log annotations with the names and values of the specified headers.
+
+Let's write a middleware that adds a correlation ID to the logging context, which is derived from the `X-Correlation-ID` header of the request. If the header is not present, we generate a random UUID as the correlation ID:
+
+```scala mdoc:silent
+val correlationId =
+  Middleware.logAnnotate{ req =>
+    val correlationId =
+      req.headers.get("X-Correlation-ID").getOrElse(
+        Unsafe.unsafe { implicit unsafe =>
+          Runtime.default.unsafe.run(Random.nextUUID.map(_.toString)).getOrThrow()
+        }
+      )
+
+    Set(LogAnnotation("correlation-id", correlationId))
+  }
+```
+
+To see the correlation ID in the logs, we need to place the middleware after the request logging middleware:
+
+```scala mdoc:silent
+httpApp @@ Middleware.requestLogging() @@ correlationId
+```
+
+Now, if we call one of the routes with the `X-Correlation-ID` header, we should see the correlation ID in the logs:
+
+```shell
+timestamp=2024-04-12T08:16:26.034894Z level=INFO thread=#zio-fiber-44 message="Http request served" location=example.HelloWorldWithLogging.backend file=HelloWorldWithLogging.scala line=20 method=GET correlation-id=34fab1bb-eeca-4b4f-975d-12f18e94f2e7 duration_ms=77 url=/json response_size=27 status_code=200 request_size=0
+```
