@@ -234,3 +234,32 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/HelloWorldWithCORS.scala")
 ```
+
+## Metrics Middleware
+
+The `Middleware.metrics` middleware is used to collect metrics about the HTTP requests and responses that are processed by the server. The middleware collects the following metrics:
+
+* **`http_requests_total`**— The total number of HTTP requests that have been processed by the server, using the counter metric type.
+* **`http_request_duration_seconds`**— The duration of the HTTP requests in seconds, using the histogram metric type.
+* **`http_concurrent_requests_total`**— The total number of concurrent HTTP requests that are being processed by the server, using the gauge metric type.
+
+In the following example, we are going to serve two HTTP apps. One app is a backend that has some routes and the other app is a metrics app that serves the Prometheus metrics. We have attached the `Middleware.metrics` middleware to the backend using the `@@` operator.
+
+In this example we used the Prometheus connector, so we need to add the following dependencies to the `build.sbt` file:
+
+```scala
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
+  "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
+)
+```
+
+To integrate with other metrics systems, please refer to the [ZIO Metrics Connectors](https://zio.dev/zio-metrics-connectors/) documentation.
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/HelloWorldWithMetrics.scala")
+```
+
+Another important thing to note is that the `metrics` middleware only attaches to the `HttpApp` or `Routes`, so if we want to track some custom metrics particular to a handler, we can use the `ZIO#@@` operator to attach a metric of type `ZIOAspect` to the ZIO effect that is returned by the handler. For example, if we want to track the number of requests that have a custom header `X-Custom-Header` in the `/json` route, we can attach a counter metric to the ZIO effect that is returned by the handler using the `@@` operator.

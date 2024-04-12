@@ -268,6 +268,12 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
+  .settings(
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
+  "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
+)
+  )
   .dependsOn(zioHttpJVM, zioHttpCli)
 
 lazy val zioHttpGen = (project in file("zio-http-gen"))
@@ -302,7 +308,7 @@ lazy val docs = project
   .in(file("zio-http-docs"))
   .settings(stdSettings("zio-http-docs"))
   .settings(
-    fork := false,
+    fork                                       := false,
     moduleName                                 := "zio-http-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
