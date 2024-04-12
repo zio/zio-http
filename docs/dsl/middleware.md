@@ -17,6 +17,47 @@ trait Middleware[-UpperEnv] { self =>
 
 This abstraction allows middleware to engage with the `HttpApp` environment, and also the ability to tweak existing routes or add/remove routes as needed.
 
+## Usage
+
+The `@@` operator attaches middleware to routes and HTTP applications.  The example below shows a middleware attached to an `HttpApp`:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val app = Routes(
+  Method.GET / string("name") -> handler { (name: String, req: Request) => 
+    Response.text(s"Hello $name")
+  }
+).toHttpApp
+val appWithMiddleware = app @@ Middleware.debug
+```
+
+Logically the code above translates to `Middleware.debug(app)`, which transforms the app using the middleware.
+
+## Attaching Multiple Middlewares
+
+We can attach multiple middlewares by chaining them using more `@@` operators:
+
+```scala
+val resultApp = httpApp @@ f1 @@ f2 @@ f3
+```
+
+In the above code, when a new request comes in, it will first go through the `f3`'s incoming handler, then `f2`, then `f1`, and finally the `httpApp`, when the response is going out, it will go through the `f1`'s outgoing handler, then `f2`, then `f3`, and finally will be sent out. So **the order of the middlewares matters** and if we change the order of the middlewares, the application's behavior may change.
+
+## Composing Middlewares
+
+Middleware can be combined using the `++` operator:
+
+```scala
+httpApp @@ (f1 ++ f2 ++ f3)
+```
+
+The `f1 ++ f2 ++ f3` applies from left to right with `f1` first followed by others, like this:
+
+```scala
+f3(f2(f1(httpApp)))
+```
+
 ## Motivation
 
 Before introducing middleware, let us understand why they are needed.
@@ -168,33 +209,6 @@ val urlRewrite: Middleware[Any] =
       url.copy(path = Path("/v1") ++ url.path)
     else url,
   )
-```
-
-## Attaching `Middleware` to `HttpApp`
-
-The `@@` operator is used to attach middleware to routes and HTTP applications. The example below shows a middleware attached to an `HttpApp`:
-
-```scala mdoc:compile-only
-import zio.http._
-
-val app = Routes(
-  Method.GET / string("name") -> handler { (name: String, req: Request) => 
-    Response.text(s"Hello $name")
-  }
-).toHttpApp
-val appWithMiddleware = app @@ Middleware.debug
-```
-
-Logically the code above translates to `Middleware.debug(app)`, which transforms the app using the middleware.
-
-## Combining Middlewares
-
-Middleware can be combined using the `++` operator.
-
-For example, if we have three middlewares f1, f2, f3, the `f1 ++ f2 ++ f3` applies from left to right with `f1` first followed by others, like this:
-
-```scala
-f3(f2(f1(http)))
 ```
 
 ## Built-in Middlewares
