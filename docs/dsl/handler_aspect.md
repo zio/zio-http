@@ -447,9 +447,14 @@ The `runBefore` and `runAfter` aspects are useful for running an effect before a
 
 ## Redirect Handler Aspect
 
-A trailing slash is the last forward-slash character at the end of some URLs. The `redirectTrailingSlash` middleware is useful for redirecting requests with trailing slashes to the same URL without a trailing slash. This middleware is useful for SEO purposes and to avoid duplicate content issues.
+There is another handler aspect called `HandlerAspect.redirect` which takes a `URL` and redirects requests to that URL.
 
-There is another handler aspect called `redirect` which takes a `URL` and redirects requests to that URL.
+## Trailing Slash Handler Aspect
+
+A trailing slash is the last forward-slash character at the end of some URLs. ZIO HTTP have two built-in middlewares to handle trailing slashes:
+
+- The `HandlerAspect.redirectTrailingSlash` middleware is useful for redirecting requests with trailing slashes to the same URL without a trailing slash. This middleware is useful for SEO purposes and to avoid duplicate content issues.
+- The `HandlerAspect.dropTrailingSlash` middleware just drops the trailing slash from the request URL.
 
 ## Other Built-in HandlerAspects
 
