@@ -423,6 +423,24 @@ We can attach a handler aspect conditionally using `HandlerAspect#when`, `Handle
 
 We have also some `if-then-else` style constructors to create conditional aspects like `HandlerAspect.ifHeaderThenElse`, `HandlerAspect.ifMethodThenElse`, `HandlerAspect.ifRequestThenElse`, and `HandlerAspect.ifRequestThenElseZIO`.
 
+## Request Logging HandlerAspect
+
+The `requestLogging` middleware is a common middleware that logs incoming requests. It is useful for debugging and monitoring purposes. This middleware logs information such as request method, URL, status code, duration, response and request size by default. We can also configure it to log request and response bodies, request and response headers which are disabled by default:
+
+```scala
+object HandlerAspect {
+  def requestLogging(
+    level: Status => LogLevel = (_: Status) => LogLevel.Info,
+    loggedRequestHeaders: Set[Header.HeaderType] = Set.empty,
+    loggedResponseHeaders: Set[Header.HeaderType] = Set.empty,
+    logRequestBody: Boolean = false,
+    logResponseBody: Boolean = false,
+    requestCharset: Charset = StandardCharsets.UTF_8,
+    responseCharset: Charset = StandardCharsets.UTF_8,
+  ): HandlerAspect[Any, Unit] = ???
+}
+```
+
 ## Other Built-in HandlerAspects
 
 ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and customize the handling of HTTP requests and responses. These middlewares can be easily integrated into our application to provide various functionalities. Until now, we have seen several built-in aspects, here are some other built-in aspects:
@@ -435,7 +453,6 @@ ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and
 | `identity`                          | Identity Middleware (No effect on request or response) |
 | `patch`, `patchZIO`                 | Patch Middleware                                       |
 | `redirect`, `redirectTrailingSlash` | Redirect Middleware                                    |
-| `requestLogging`                    | Request Logging Middleware                             |
 | `runBefore`, `runAfter`             | Running Effect Before/After Every Request              |
 
 ## Examples
