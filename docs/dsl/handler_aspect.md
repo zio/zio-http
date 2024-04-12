@@ -441,6 +441,16 @@ object HandlerAspect {
 }
 ```
 
+## Running Effect Before/After Every Request
+
+The `runBefore` and `runAfter` aspects are useful for running an effect before and after every request. These aspects can be used to perform some side effects like logging, metrics and debugging, before and after every request.
+
+## Redirect Handler Aspect
+
+A trailing slash is the last forward-slash character at the end of some URLs. The `redirectTrailingSlash` middleware is useful for redirecting requests with trailing slashes to the same URL without a trailing slash. This middleware is useful for SEO purposes and to avoid duplicate content issues.
+
+There is another handler aspect called `redirect` which takes a `URL` and redirects requests to that URL.
+
 ## Other Built-in HandlerAspects
 
 ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and customize the handling of HTTP requests and responses. These middlewares can be easily integrated into our application to provide various functionalities. Until now, we have seen several built-in aspects, here are some other built-in aspects:
@@ -452,8 +462,6 @@ ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and
 | `dropTrailingSlash`                 | Drop Trailing Slash                                    |
 | `identity`                          | Identity Middleware (No effect on request or response) |
 | `patch`, `patchZIO`                 | Patch Middleware                                       |
-| `redirect`, `redirectTrailingSlash` | Redirect Middleware                                    |
-| `runBefore`, `runAfter`             | Running Effect Before/After Every Request              |
 
 ## Examples
 
