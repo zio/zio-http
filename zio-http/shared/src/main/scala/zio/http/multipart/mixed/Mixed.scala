@@ -1,14 +1,17 @@
 package zio.http.multipart.mixed
 
 import java.nio.charset.{CharacterCodingException, StandardCharsets}
+
+import scala.annotation.tailrec
+
 import zio.{Chunk, ZIO, ZNothing}
+
 import zio.stream.{ZChannel, ZPipeline, ZStream}
+
 import zio.http._
 import zio.http.endpoint.openapi.JsonSchema.StringFormat.UUID
 import zio.http.internal.FormAST
 import zio.http.multipart.mixed.Mixed.Parser
-
-import scala.annotation.tailrec
 
 final case class Mixed(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
 
@@ -139,16 +142,16 @@ object Mixed {
         buff: Chunk[Byte],
         pendingCrlf: Chunk[Byte],
         currLine: Chunk[Byte],
-        seekingBoundary : Boolean
+        seekingBoundary: Boolean,
       ): ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], (Chunk[Byte], Boolean)] = {
         if (buff.size >= bufferSize)
           ZChannel.write(buff) *> parseBodyAux(Chunk.empty, pendingCrlf, currLine, seekingBoundary)
         else {
           currLine.indexOfSlice(crlf) match {
-            case -1  =>
+            case -1                     =>
               // at this point we have a partial line, if this line is a prefix of the closing boundary we must keep it
               // otherwise we can stash it away or even emit it, making sure we keep enough bytes to match a CRLF exactly on the boundary
-              if(seekingBoundary && boundary.closingBoundaryBytes.startsWith(currLine)) {
+              if (seekingBoundary && boundary.closingBoundaryBytes.startsWith(currLine)) {
                 ZChannel
                   .readWithCause(
                     in => parseBodyAux(buff, pendingCrlf, currLine ++ in, true),
@@ -168,20 +171,21 @@ object Mixed {
               } else {
                 // we're no longer at beginning of a line, hence no need to look for boundary until we encounter a new line
                 val (h, t) = currLine.splitAt(currLine.size - crlf.size + 1)
-                if(t != currLine) {
+                if (t != currLine) {
                   // also if we had a pending crlf we now know it's part of the content so we move it to the buffered part
                   parseBody(buff ++ pendingCrlf ++ h, Chunk.empty, t, false)
                 } else {
                   ZChannel.readWithCause(
                     in => parseBodyAux(buff ++ pendingCrlf ++ h, Chunk.empty, t ++ in, false),
                     err => ZChannel.write(buff ++ crlf ++ currLine) *> ZChannel.refailCause(err),
-                    done => ZChannel.write(buff ++ crlf ++ currLine)  *> ZChannel.fail(
-                      new IllegalStateException("multipart/chunked body ended with no boundary")
-                    )
+                    done =>
+                      ZChannel.write(buff ++ crlf ++ currLine) *> ZChannel.fail(
+                        new IllegalStateException("multipart/chunked body ended with no boundary"),
+                      ),
                   )
                 }
               }
-            case idx if seekingBoundary =>  //potential boundary
+            case idx if seekingBoundary => // potential boundary
               val (h, rest) = currLine.splitAt(idx)
               // if we found a boundary it 'consumes' both the pending and trailing crlf, notice pending crlf is optional (i.e. empty part)
               if (boundary.isClosing(h))
@@ -193,7 +197,7 @@ object Mixed {
                 val nextLine = rest.drop(crlf.size)
                 parseBody(buff ++ pendingCrlf ++ h, crlf, nextLine, true)
               }
-            case idx => //plain content
+            case idx                    => // plain content
               // no need to check for boundary, just buffer and continue with parseBOL
               val (h, t) = currLine.splitAt(idx)
               parseBody(buff ++ h, crlf, t.drop(crlf.size), true)
@@ -201,13 +205,13 @@ object Mixed {
         }
       }
 
-      //escape the tailrec compilation error
+      // escape the tailrec compilation error
       def parseBodyAux(
-                     buff: Chunk[Byte],
-                     pendingCrlf: Chunk[Byte],
-                     currLine: Chunk[Byte],
-                     seekingBoundary : Boolean
-                   ): ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], (Chunk[Byte], Boolean)] =
+        buff: Chunk[Byte],
+        pendingCrlf: Chunk[Byte],
+        currLine: Chunk[Byte],
+        seekingBoundary: Boolean,
+      ): ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], (Chunk[Byte], Boolean)] =
         parseBody(buff, pendingCrlf, currLine, seekingBoundary)
 
       val ch: ZChannel[Any, ZNothing, Chunk[Byte], Any, Throwable, Chunk[Byte], Unit] =
