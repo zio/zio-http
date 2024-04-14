@@ -463,10 +463,24 @@ ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and
 | HandlerAspect                       | Description                                            |
 |-------------------------------------|--------------------------------------------------------|
 | `beautifyErrors`                    | Beautify Error Response                                |
-| `debug`                             | Debugging Requests and Responses                       |
-| `dropTrailingSlash`                 | Drop Trailing Slash                                    |
 | `identity`                          | Identity Middleware (No effect on request or response) |
 | `patch`, `patchZIO`                 | Patch Middleware                                       |
+
+## Debug Handler Aspect
+
+The `debug` middleware is a useful middleware for debugging requests and responses. It prints the response status code, request method and url, and the response time of each request to the console.
+
+
+```scala mdoc:silent
+  val helloRoute =
+    Method.GET / "hello" -> Handler.fromResponse(Response.text("Hello World!")) @@ HandlerAspect.debug
+```
+
+When we send a GET request to the `/hello` route, we can see the following output in the console:
+
+```shell
+200 GET /hello 14ms
+```
 
 ## Examples
 
