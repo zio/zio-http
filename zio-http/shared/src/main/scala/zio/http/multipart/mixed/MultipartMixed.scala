@@ -47,7 +47,7 @@ object MultipartMixed {
     }
   }
 
-  private val crlf = Chunk[Byte]('\r', '\n')
+  private[http] val crlf = Chunk[Byte]('\r', '\n')
 
   private[http] final class Parser(
     boundary: Boundary,
@@ -279,7 +279,7 @@ object MultipartMixed {
 
   def fromParts(parts: ZStream[Any, Throwable, Part], boundary: Boundary, bufferSize: Int = 8192): MultipartMixed = {
     val sep   = boundary.encapsulationBoundaryBytes ++ crlf
-    val term  = boundary.closingBoundaryBytes ++ crlf
+    val term  = boundary.closingBoundaryBytes
     val bytes =
       parts.flatMap { case Part(headers, bytes) =>
         val headersBytes: ZStream[Any, CharacterCodingException, Byte] = ZStream
