@@ -383,13 +383,11 @@ object MultipartMixedSpec$ extends ZIOHttpSpec {
           buffered: Chunk[Byte],
           leftovers: Chunk[Byte],
           rem: Int,
-          nextSz: ZIO[Any, Nothing, Int],
+          nextSz: Iterator[Int],
         ): ZChannel[Any, ZNothing, Chunk[Byte], Any, Nothing, Chunk[Byte], Any] = {
           if (0 == rem)
             ZChannel.write(buffered) *>
-              ZChannel
-                .fromZIO(nextSz)
-                .flatMap(ch(Chunk.empty, leftovers, _, nextSz))
+              ch(Chunk.empty, leftovers, nextSz.next(), nextSz)
           else if (leftovers.nonEmpty)
             ch(buffered ++ leftovers.take(rem), leftovers.drop(rem), (rem - leftovers.size) max 0, nextSz)
           else
@@ -401,26 +399,15 @@ object MultipartMixedSpec$ extends ZIOHttpSpec {
               )
         }
 
-        val s0 = ZStream.fromIterable(sizes).forever.rechunk(1)
-        val s0Pull: ZIO[Any with Scope, Nothing, ZIO[Any, Nothing, Int]] = s0
-          .rechunk(1)
-          .toPull
-          .map { pull =>
-            val z: ZIO[Any, Nothing, Int] = pull.map(_.headOption).orElse(ZIO.none).repeatUntil(_.nonEmpty).map(_.get)
-            z
-          }
-
-        ZPipeline
-          .unwrapScoped[Any] {
-            s0Pull
-              .flatMap(p => ZIO.succeed(p) <*> p)
-              .map { case (nextSz, firstSz) =>
-                val channel: ZChannel[Any, ZNothing, Chunk[Byte], Any, Nothing, Chunk[Byte], Any] =
-                  ch(Chunk.empty, Chunk.empty, firstSz, nextSz)
-                val pl: ZPipeline[Any, Nothing, Byte, Byte]                                       = channel.toPipeline
-                pl
-              }
-          }
+        ZPipeline.suspend {
+          val it                                                                            = Iterator
+            .continually(sizes)
+            .flatMap(_.iterator)
+          val channel: ZChannel[Any, ZNothing, Chunk[Byte], Any, Nothing, Chunk[Byte], Any] =
+            ch(Chunk.empty, Chunk.empty, it.next(), it)
+          val pl: ZPipeline[Any, Nothing, Byte, Byte]                                       = channel.toPipeline
+          pl
+        }
       }
       def alternating(sizes: Chunk[Int]): Breaker =
         new Breaker(alternatingPl(sizes), s"alternating(${sizes.mkString("Chunk(", ",", ")")})")
