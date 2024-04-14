@@ -1,13 +1,12 @@
-package zio.http.multipart.mixed
+package zio.http
 
+import zio.http.multipart.mixed.{MultipartMixed}
+import zio.http.multipart.mixed.MultipartMixed.Part
+import zio.stream.ZStream
 import zio.test.{Assertion, Spec, TestEnvironment}
 import zio.{Chunk, Scope, ZIO}
 
-import zio.stream.ZStream
-
-import zio.http.{Body, Boundary, MediaType, ZIOHttpSpec}
-
-object MixedSpec extends ZIOHttpSpec {
+object MultipartMixedSpec$ extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = mixedSuite
 
@@ -16,7 +15,7 @@ object MixedSpec extends ZIOHttpSpec {
     val defaultSep = "simple boundary"
 
     suiteAll("empty") {
-      val empty = Mixed.fromParts(ZStream.empty, Boundary(defaultSep))
+      val empty = MultipartMixed.fromParts(ZStream.empty, Boundary(defaultSep))
 
       test("has no parts") {
         empty.parts.runCollect.map { collected =>
@@ -26,7 +25,7 @@ object MixedSpec extends ZIOHttpSpec {
 
       test("empty no preamble, no epilogue") {
         val body = Body.fromString(s"--${defaultSep}--").contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
-        val mpm  = Mixed.fromBody(body)
+        val mpm  = MultipartMixed.fromBody(body)
 
         ZIO
           .fromOption(mpm)
@@ -40,7 +39,7 @@ object MixedSpec extends ZIOHttpSpec {
         val body = Body
           .fromString(s"--${defaultSep}--\r\nsome nasty epilogue")
           .contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
-        val mpm  = Mixed.fromBody(body)
+        val mpm  = MultipartMixed.fromBody(body)
 
         ZIO
           .fromOption(mpm)
@@ -73,7 +72,7 @@ object MixedSpec extends ZIOHttpSpec {
           |""".stripMargin.replaceAll("\n", "\r\n")
 
       val body         = Body.fromString(msg).contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
-      val mpm          = Mixed.fromBody(rechunk(11)(body))
+      val mpm          = MultipartMixed.fromBody(rechunk(11)(body))
       val expectedStrs = Chunk(
         """|This is implicitly typed plain ASCII text.
            |It does NOT end with a linebreak.""".stripMargin.replaceAll("\n", "\r\n"),
@@ -135,13 +134,13 @@ object MixedSpec extends ZIOHttpSpec {
 
   }
 
-  def checkRoundtrip(mpm: Mixed) = {
+  def checkRoundtrip(mpm: MultipartMixed) = {
     for {
       parsed0 <- mpm.parts.mapZIO { p =>
         p.toBody.asChunk
           .map(p.headers -> _)
       }.runCollect
-      mpm2 = Mixed.fromParts(
+      mpm2 = MultipartMixed.fromParts(
         ZStream
           .fromChunk(parsed0)
           .map { case (header, bytes) =>

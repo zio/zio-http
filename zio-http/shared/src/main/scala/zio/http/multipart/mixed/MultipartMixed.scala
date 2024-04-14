@@ -9,13 +9,12 @@ import zio.{Chunk, ZIO, ZNothing}
 import zio.stream.{ZChannel, ZPipeline, ZStream}
 
 import zio.http._
-import zio.http.endpoint.openapi.JsonSchema.StringFormat.UUID
 import zio.http.internal.FormAST
-import zio.http.multipart.mixed.Mixed.Parser
+import zio.http.multipart.mixed.MultipartMixed.Parser
 
-final case class Mixed(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
+final case class MultipartMixed(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
 
-  def parts: ZStream[Any, Throwable, Part] = ZStream
+  def parts: ZStream[Any, Throwable, MultipartMixed.Part] = ZStream
     .unwrapScoped[Any] {
       source.toChannel.toPull.map { pull =>
         new Parser(boundary, pull, bufferSize).result
@@ -24,33 +23,34 @@ final case class Mixed(source: ZStream[Any, Throwable, Byte], boundary: Boundary
 
 }
 
-case class Part(headers: Headers, bytes: ZStream[Any, Throwable, Byte]) {
-  def contentType: Option[Header.ContentType] =
-    headers.header(Header.ContentType)
-  def mediaType: Option[MediaType]            =
-    contentType.map(_.mediaType)
 
-  // each part may be a multipart entity on its own
-  def boundary: Option[Boundary] =
-    contentType.flatMap(_.boundary)
+object MultipartMixed {
+  final case class Part(headers: Headers, bytes: ZStream[Any, Throwable, Byte]) {
+    def contentType: Option[Header.ContentType] =
+      headers.header(Header.ContentType)
+    def mediaType: Option[MediaType]            =
+      contentType.map(_.mediaType)
 
-  def toBody: Body = {
-    val base = Body.fromStreamChunked(bytes)
-    (this.mediaType, this.boundary) match {
-      case (Some(mt), Some(boundary)) =>
-        base.contentType(mt, boundary)
-      case (Some(mt), None)           =>
-        base.contentType(mt)
-      case _                          =>
-        base
+    // each part may be a multipart entity on its own
+    def boundary: Option[Boundary] =
+      contentType.flatMap(_.boundary)
+
+    def toBody: Body = {
+      val base = Body.fromStreamChunked(bytes)
+      (this.mediaType, this.boundary) match {
+        case (Some(mt), Some(boundary)) =>
+          base.contentType(mt, boundary)
+        case (Some(mt), None)           =>
+          base.contentType(mt)
+        case _                          =>
+          base
+      }
     }
   }
-}
 
-object Mixed {
   private val crlf = Chunk[Byte]('\r', '\n')
 
-  class Parser(boundary: Boundary, pull: ZIO[Any, Throwable, Either[Any, Chunk[Byte]]], bufferSize: Int) {
+  private[http] final class Parser(boundary: Boundary, pull: ZIO[Any, Throwable, Either[Any, Chunk[Byte]]], bufferSize: Int) {
 
     lazy val upstream: ZChannel[Any, Any, Any, Any, Throwable, Chunk[Byte], Any] = ZChannel
       .fromZIO(pull)
@@ -268,13 +268,13 @@ object Mixed {
     val result: ZStream[Any, Throwable, Part] = upstream.toStream >>> startPl
   }
 
-  def fromBody(body: Body, bufferSize: Int = 8192): Option[Mixed] = {
+  def fromBody(body: Body, bufferSize: Int = 8192): Option[MultipartMixed] = {
     body.boundary.map { b =>
-      Mixed(body.asStream, b, bufferSize)
+      MultipartMixed(body.asStream, b, bufferSize)
     }
   }
 
-  def fromParts(parts: ZStream[Any, Throwable, Part], boundary: Boundary, bufferSize: Int = 8192): Mixed = {
+  def fromParts(parts: ZStream[Any, Throwable, Part], boundary: Boundary, bufferSize: Int = 8192): MultipartMixed = {
     val sep   = boundary.encapsulationBoundaryBytes ++ crlf
     val term  = boundary.closingBoundaryBytes ++ crlf
     val bytes =
@@ -293,10 +293,10 @@ object Mixed {
       }
         .concat(ZStream.fromChunk(term))
 
-    Mixed(bytes, boundary, bufferSize)
+    MultipartMixed(bytes, boundary, bufferSize)
   }
 
-  def fromPartsUUID(parts: ZStream[Any, Throwable, Part], bufferSize: Int = 8192): ZIO[Any, Nothing, Mixed] = {
+  def fromPartsUUID(parts: ZStream[Any, Throwable, Part], bufferSize: Int = 8192): ZIO[Any, Nothing, MultipartMixed] = {
     Boundary.randomUUID
       .map(fromParts(parts, _, bufferSize))
   }
