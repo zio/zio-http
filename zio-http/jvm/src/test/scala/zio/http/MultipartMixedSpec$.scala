@@ -1,10 +1,12 @@
 package zio.http
 
-import zio.http.multipart.mixed.{MultipartMixed}
-import zio.http.multipart.mixed.MultipartMixed.Part
-import zio.stream.ZStream
 import zio.test.{Assertion, Spec, TestEnvironment}
 import zio.{Chunk, Scope, ZIO}
+
+import zio.stream.ZStream
+
+import zio.http.multipart.mixed.MultipartMixed
+import zio.http.multipart.mixed.MultipartMixed.Part
 
 object MultipartMixedSpec$ extends ZIOHttpSpec {
 

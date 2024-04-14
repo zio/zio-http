@@ -23,7 +23,6 @@ final case class MultipartMixed(source: ZStream[Any, Throwable, Byte], boundary:
 
 }
 
-
 object MultipartMixed {
   final case class Part(headers: Headers, bytes: ZStream[Any, Throwable, Byte]) {
     def contentType: Option[Header.ContentType] =
@@ -50,7 +49,11 @@ object MultipartMixed {
 
   private val crlf = Chunk[Byte]('\r', '\n')
 
-  private[http] final class Parser(boundary: Boundary, pull: ZIO[Any, Throwable, Either[Any, Chunk[Byte]]], bufferSize: Int) {
+  private[http] final class Parser(
+    boundary: Boundary,
+    pull: ZIO[Any, Throwable, Either[Any, Chunk[Byte]]],
+    bufferSize: Int,
+  ) {
 
     lazy val upstream: ZChannel[Any, Any, Any, Any, Throwable, Chunk[Byte], Any] = ZChannel
       .fromZIO(pull)
