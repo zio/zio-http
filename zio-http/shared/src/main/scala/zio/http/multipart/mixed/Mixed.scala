@@ -11,7 +11,7 @@ import zio.http.endpoint.openapi.JsonSchema.StringFormat.UUID
 import zio.http.internal.FormAST
 import zio.http.multipart.mixed.Mixed.Parser
 
-case class Mixed(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
+final case class Mixed(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
 
   def parts: ZStream[Any, Throwable, Part] = ZStream
     .unwrapScoped[Any] {
@@ -46,7 +46,7 @@ case class Part(headers: Headers, bytes: ZStream[Any, Throwable, Byte]) {
 }
 
 object Mixed {
-  val crlf = Chunk[Byte]('\r', '\n')
+  private val crlf = Chunk[Byte]('\r', '\n')
 
   class Parser(boundary: Boundary, pull: ZIO[Any, Throwable, Either[Any, Chunk[Byte]]], bufferSize: Int) {
 

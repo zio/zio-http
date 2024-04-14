@@ -24,7 +24,7 @@ object MixedSpec extends ZIOHttpSpec {
         }
       }
 
-      test("emoty no preamble, no epilogue") {
+      test("empty no preamble, no epilogue") {
         val body = Body.fromString(s"--${defaultSep}--").contentType(MediaType.multipart.`mixed`, Boundary(defaultSep))
         val mpm  = Mixed.fromBody(body)
 
