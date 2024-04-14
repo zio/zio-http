@@ -9,7 +9,7 @@ import zio.http.Headers.fromIterable
 import zio.http.multipart.mixed.MultipartMixed
 import zio.http.multipart.mixed.MultipartMixed.Part
 
-object MultipartMixedSpec$ extends ZIOHttpSpec {
+object MultipartMixedSpec extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = mixedSuite
 
