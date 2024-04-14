@@ -154,7 +154,9 @@ object MultipartMixed {
             case -1                     =>
               // at this point we have a partial line, if this line is a prefix of the closing boundary we must keep it
               // otherwise we can stash it away or even emit it, making sure we keep enough bytes to match a CRLF exactly on the boundary
-              if (seekingBoundary && boundary.closingBoundaryBytes.startsWith(currLine)) {
+              // notice we're not actually looking for a prefix, but instead make sure we read enough bytes to rule out the possibility of matching a boundary (encapsulating or closing) followed by a crlf.
+              // this approach ensures we can handle the case of a boundary followed by a split crlf (\r in this read, \n in the next), we have to make sure to keep buffering in this case as we don't have enough bytes to rule out a boundary.
+              if (seekingBoundary && currLine.size < (boundary.closingBoundaryBytes.size + crlf.size)) {
                 ZChannel
                   .readWithCause(
                     in => parseBodyAux(buff, pendingCrlf, currLine ++ in, true),

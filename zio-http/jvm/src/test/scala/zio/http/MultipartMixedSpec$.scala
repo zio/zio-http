@@ -126,13 +126,13 @@ object MultipartMixedSpec$ extends ZIOHttpSpec {
                  |explanatory note to non-MIME compliant readers.""".stripMargin),
           boundary,
           Chunk(
-            new TestPart( Headers.empty,
+            new TestPart( Headers(),
               utf8("""This is implicitly typed plain ASCII text.
                      |It does NOT end with a linebreak.""".stripMargin),
               boundary
             ),
             new TestPart(
-              Headers.empty.addHeader("Content-type", "text/plain; charset=us-ascii"),
+              Headers("Content-type", "text/plain; charset=us-ascii"),
               utf8("""This is explicitly typed plain ASCII text.
                      |It DOES end with a linebreak.
                      |""".stripMargin),
@@ -159,7 +159,7 @@ object MultipartMixedSpec$ extends ZIOHttpSpec {
       tc.testFromRepr
     }
 
-    test("tc1") {
+    test("closing boundary trailing crlf is split between two reads") {
       val tc = TestCase(Chunk(44),
         Boundary("(((ba4584f8-ca16-457a-921e-adf1a01996a7)))",Charsets.Utf8),
         Chunk(
