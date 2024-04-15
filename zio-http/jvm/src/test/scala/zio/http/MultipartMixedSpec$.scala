@@ -213,6 +213,75 @@ object MultipartMixedSpec extends ZIOHttpSpec {
         zio.Console.printLine(testCase) *> testCase.runTests
       }
     } @@ TestAspect.shrinks(0)
+
+    suiteAll("nested") {
+      test("single(single)") {
+        val inner = new TestCase(utf8("few preamble bytes"), Boundary("inner_boundary"),
+          Chunk(
+            new TestPart(Headers(Header.ContentType(MediaType.text.`plain`)),
+              utf8("some textual content\r\nmake it multiline textual content!\r\nbut not ending with a CRLF"),
+              Boundary("inner_boundary")
+            )
+          ),
+          utf8("an epilogue, nothing special here"),
+          1024,
+          gens.breaker.fixed(512)
+        )
+        val outer = new TestCase(utf8("the outer preamble, make it multiline\r\nhere it is!\r\n"), Boundary("outer_boundary"),
+          Chunk(
+            new TestPart(Headers(Header.ContentType(MediaType.multipart.`mixed`, Some(inner.boundary)), Header.Custom("author", "me!")),
+              inner.binaryRepr,
+              Boundary("outer_boundary")
+            )
+          ),
+          Chunk.empty,
+          1024,
+          gens.breaker.fixed(512)
+        )
+
+        val innerTests = inner.runTests.debug("inner")
+        val outerTests = outer.runTests.debug("outer")
+        val nestedTests = {
+          val materialized = {
+            val outerMpm = outer.multipartFromRepr
+            outerMpm
+              .parts
+              .zipWithIndex
+              .mapZIO { case (p, idx) =>
+                for {
+                  innerMpm <- ZIO.fromOption(MultipartMixed.fromBody(p.toBody)).orElseFail(new IllegalStateException(s"outer part #$idx is not a valid multipart/mixed"))
+                  innerParts <- innerMpm.parts.zipWithIndex.mapZIO { case (p1, j) =>
+                      p1.bytes.runCollect.map { bytes =>
+                        new TestPart(p1.headers, bytes, innerMpm.boundary).withRawHeaders
+                      }
+                    }
+                    .runCollect
+                } yield {
+                  innerParts
+                }
+              }
+              .runCollect
+          }
+
+          val expected = Chunk(
+            Chunk(
+              inner.parts.head.withRawHeaders
+            )
+          )
+
+          materialized.map{collected =>
+            zio.test.assert(collected)(Assertion.equalTo(expected))
+          }
+        }
+        .debug("nested")
+
+        (innerTests <*> outerTests <*> nestedTests)
+          .map{
+            case (i, o, n) =>
+              i && o && n
+          }
+      }
+    }
   }
 
   def utf8(str: String): Chunk[Byte] =
@@ -278,6 +347,13 @@ object MultipartMixedSpec extends ZIOHttpSpec {
       )
 
     def toPart = MultipartMixed.Part(headers, ZStream.fromChunk(contents))
+
+    def withRawHeaders = {
+      val customs = headers.flatMap {h =>
+        headers.rawHeader(h.headerType).map(Header.Custom(h.headerName, _))
+      }
+      copy(headers = Headers(customs))
+    }
   }
   case class TestCase(
     preamble: Chunk[Byte],
@@ -339,9 +415,12 @@ object MultipartMixedSpec extends ZIOHttpSpec {
     def testFromRepr = {
       multipartFromRepr.parts.mapZIO { p =>
         p.bytes.runCollect
-          .map(new TestPart(fromIterable(p.headers.toVector), _, boundary))
+          .map(new TestPart(fromIterable(p.headers.toVector), _, boundary).withRawHeaders)
       }.runCollect
-        .map(zio.test.assert(_)(Assertion.equalTo(parts)))
+        .map{ collected =>
+          val partsWithRowHeaders = parts.map(_.withRawHeaders)
+          zio.test.assert(collected)(Assertion.equalTo(partsWithRowHeaders))
+        }
     }
 
     def runTests =
