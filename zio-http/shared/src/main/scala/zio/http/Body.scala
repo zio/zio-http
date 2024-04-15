@@ -19,10 +19,14 @@ package zio.http
 import java.io.{FileInputStream, IOException}
 import java.nio.charset._
 import java.nio.file._
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.stream.ZStream
+
 import zio.schema.codec.BinaryCodec
+
 import zio.http.internal.BodyEncoding
 import zio.http.multipart.mixed.MultipartMixed
 
@@ -107,13 +111,12 @@ trait Body { self =>
         )
     }
 
-  def asMultipartMixed(implicit trace: Trace) : Task[MultipartMixed] =
+  def asMultipartMixed(implicit trace: Trace): Task[MultipartMixed] =
     ZIO.fromOption {
       MultipartMixed
         .fromBody(self)
     }
-    .orElseFail(new IllegalStateException("Cannot decode body as multipart/mixed without a known boundary"))
-
+      .orElseFail(new IllegalStateException("Cannot decode body as multipart/mixed without a known boundary"))
 
   /**
    * Returns a stream that contains the bytes of the body. This method is safe
