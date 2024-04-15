@@ -111,6 +111,13 @@ trait Body { self =>
         )
     }
 
+  /**
+   * Returns an effect that decodes the streaming body as a multipart/mixed.
+   *
+   * The result is a stream of Part objects, where each Part has headers and
+   * contents (binary stream), Part objects can be easily converted to a Body
+   * objects which provide vast API for extracting their contents.
+   */
   def asMultipartMixed(implicit trace: Trace): Task[MultipartMixed] =
     ZIO.fromOption {
       MultipartMixed
