@@ -458,18 +458,47 @@ A trailing slash is the last forward-slash character at the end of some URLs. ZI
 
 ## Other Built-in HandlerAspects
 
-ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and customize the handling of HTTP requests and responses. These middlewares can be easily integrated into our application to provide various functionalities. Until now, we have seen several built-in aspects, here are some other built-in aspects:
+ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and customize the handling of HTTP requests and responses. These middlewares can be easily integrated into our application to provide various functionalities. Until now, we have seen several built-in aspects, here are some other built-in aspects.
 
-| HandlerAspect                       | Description                                            |
-|-------------------------------------|--------------------------------------------------------|
-| `beautifyErrors`                    | Beautify Error Response                                |
-| `identity`                          | Identity Middleware (No effect on request or response) |
-| `patch`, `patchZIO`                 | Patch Middleware                                       |
+## Patching Response Handler Aspect
+
+The `HandlerAspect.patch` and `HandlerAspect.patchZIO` take a function from `Request` to `Response.Patch` and apply the patch to the response.
+
+Here is an example of a middleware that adds a custom header to the response if the request has a specific header:
+
+```scala mdoc:compile-only
+HandlerAspect.patch(request =>
+  if (request.hasHeader("X-Foo"))
+    Response.Patch.addHeader("X-Bar", "Bar Value")
+  else 
+    Response.Patch.empty
+)
+```
+
+## Beautify Errors Handler Aspect
+
+To make the error responses more user-friendly, we have a built-in handler aspect called `beautifyErrors`. This aspect beautifies the error responses based on the requested content type. If the client requests an HTML response, it returns a formatted HTML response, otherwise, it returns a plain text response:
+
+```scala
+val route = 
+  Method.GET / "internal-error" -> Handler.fromResponse(Response.forbidden) @@ HandlerAspect.beautifyErrors,
+```
+
+If we deploy this route and send a GET request to the `/internal-error` route with the `Accept: text/html` header, we will get the following response body:
+
+```html
+<!DOCTYPE html><html><head><title>ZIO Http - Forbidden</title><style>
+ body {
+   font-family: monospace;
+   font-size: 16px;
+   background-color: #edede0;
+ }
+</style></head><body><div style="margin: auto; padding: 2em 4em; max-width: 80%"><h1>Forbidden</h1><div><div style="text-align: center"><div style="font-size: 20em">403</div><div>403</div></div></div></div></body></html>⏎
+```
 
 ## Debug Handler Aspect
 
 The `debug` middleware is a useful middleware for debugging requests and responses. It prints the response status code, request method and url, and the response time of each request to the console.
-
 
 ```scala mdoc:silent
   val helloRoute =
