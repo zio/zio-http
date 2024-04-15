@@ -239,44 +239,136 @@ object MultipartMixedSpec extends ZIOHttpSpec {
           gens.breaker.fixed(512)
         )
 
-        val innerTests = inner.runTests.debug("inner")
-        val outerTests = outer.runTests.debug("outer")
-        val nestedTests = {
-          val materialized = {
-            val outerMpm = outer.multipartFromRepr
-            outerMpm
-              .parts
-              .zipWithIndex
-              .mapZIO { case (p, idx) =>
-                for {
-                  innerMpm <- ZIO.fromOption(MultipartMixed.fromBody(p.toBody)).orElseFail(new IllegalStateException(s"outer part #$idx is not a valid multipart/mixed"))
-                  innerParts <- innerMpm.parts.zipWithIndex.mapZIO { case (p1, j) =>
-                      p1.bytes.runCollect.map { bytes =>
-                        new TestPart(p1.headers, bytes, innerMpm.boundary).withRawHeaders
-                      }
-                    }
-                    .runCollect
-                } yield {
-                  innerParts
-                }
-              }
-              .runCollect
-          }
+        val innerTests = inner.runTests.map(_.label("inner")).debug("inner")
+        val outerTests = outer.runTests.map(_.label("outer")).debug("outer")
 
-          val expected = Chunk(
+        val nestedTests = {
+          val expectedNested = Nested.Multi(outer.boundary,
             Chunk(
-              inner.parts.head.withRawHeaders
+              Nested.Multi(inner.boundary,
+                inner.parts.map(p => Nested.Single(p.withRawHeaders))
+              )
             )
           )
 
-          materialized.map{collected =>
-            zio.test.assert(collected)(Assertion.equalTo(expected))
-          }
+          outer.partsToNested
+            .map { collected =>
+              zio.test.assert(collected)(Assertion.equalTo(expectedNested)).label("nestedTests")
+            }
+            .debug("nestedTests")
         }
-        .debug("nested")
 
         (innerTests <*> outerTests <*> nestedTests)
-          .map{
+          .map {
+            case (i, o, n) =>
+              i && o && n
+          }
+      }
+
+      test("single(double)") {
+        val inner = new TestCase(utf8("few preamble bytes"), Boundary("inner_boundary"),
+          Chunk(
+            new TestPart(Headers(Header.ContentType(MediaType.text.`plain`)),
+              utf8("some textual content\r\nmake it multiline textual content!\r\nbut not ending with a CRLF"),
+              Boundary("inner_boundary")
+            ),
+            new TestPart(Headers.empty,
+              utf8("another day, another part\r\nmultiline, ending with a CRLF\r\n"),
+              Boundary("inner_boundary")
+            )
+          ),
+          utf8("an epilogue, nothing special here"),
+          1024,
+          gens.breaker.fixed(512)
+        )
+        val outer = new TestCase(utf8("the outer preamble, make it multiline\r\nhere it is!\r\n"), Boundary("outer_boundary"),
+          Chunk(
+            new TestPart(Headers(Header.ContentType(MediaType.multipart.`mixed`, Some(inner.boundary)), Header.Custom("author", "me!")),
+              inner.binaryRepr,
+              Boundary("outer_boundary")
+            )
+          ),
+          Chunk.empty,
+          1024,
+          gens.breaker.fixed(512)
+        )
+
+        val innerTests = inner.runTests.map(_.label("inner")).debug("inner")
+        val outerTests = outer.runTests.map(_.label("outer")).debug("outer")
+
+        val nestedTests = {
+          val expectedNested = Nested.Multi(outer.boundary,
+            Chunk(
+              Nested.Multi(inner.boundary,
+                inner.parts.map(p => Nested.Single(p.withRawHeaders))
+              )
+            )
+          )
+
+          outer.partsToNested
+            .map { collected =>
+              zio.test.assert(collected)(Assertion.equalTo(expectedNested)).label("nestedTests")
+            }
+            .debug("nestedTests")
+        }
+
+        (innerTests <*> outerTests <*> nestedTests)
+          .map {
+            case (i, o, n) =>
+              i && o && n
+          }
+      }
+
+      test("single(single), single") {
+        val inner = new TestCase(utf8("few preamble bytes"), Boundary("inner_boundary"),
+          Chunk(
+            new TestPart(Headers(Header.ContentType(MediaType.text.`plain`)),
+              utf8("some textual content\r\nmake it multiline textual content!\r\nbut not ending with a CRLF"),
+              Boundary("inner_boundary")
+            )
+          ),
+          utf8("an epilogue, nothing special here"),
+          1024,
+          gens.breaker.fixed(512)
+        )
+        val outer = new TestCase(utf8("the outer preamble, make it multiline\r\nhere it is!\r\n"), Boundary("outer_boundary"),
+          Chunk(
+            new TestPart(Headers(Header.ContentType(MediaType.multipart.`mixed`, Some(inner.boundary)), Header.Custom("author", "me!")),
+              inner.binaryRepr,
+              Boundary("outer_boundary")
+            ),
+            new TestPart(Headers.empty,
+              utf8("the final part"),
+              Boundary("outer_boundary")
+            )
+          ),
+          Chunk.empty,
+          1024,
+          gens.breaker.fixed(512)
+        )
+
+        val innerTests = inner.runTests.map(_.label("inner")).debug("inner")
+        val outerTests = outer.runTests.map(_.label("outer")).debug("outer")
+
+        val nestedTests = {
+          val expectedNested = Nested.Multi(outer.boundary,
+            Chunk(
+              Nested.Multi(inner.boundary,
+                inner.parts.map(p => Nested.Single(p.withRawHeaders))
+              ),
+              Nested.Single(outer.parts(1).withRawHeaders)
+            )
+          )
+
+          outer.partsToNested
+            .map { collected =>
+              zio.test.assert(collected)(Assertion.equalTo(expectedNested)).label("nestedTests")
+            }
+            .debug("nestedTests")
+        }
+
+        (innerTests <*> outerTests <*> nestedTests)
+          .map {
             case (i, o, n) =>
               i && o && n
           }
@@ -418,13 +510,41 @@ object MultipartMixedSpec extends ZIOHttpSpec {
           .map(new TestPart(fromIterable(p.headers.toVector), _, boundary).withRawHeaders)
       }.runCollect
         .map{ collected =>
-          val partsWithRowHeaders = parts.map(_.withRawHeaders)
-          zio.test.assert(collected)(Assertion.equalTo(partsWithRowHeaders))
+          val partsWithRawHeaders = parts.map(_.withRawHeaders)
+          zio.test.assert(collected)(Assertion.equalTo(partsWithRawHeaders))
         }
     }
 
     def runTests =
       testFromRepr.zipWith(testFromParts)(_ && _)
+
+    def partsToNested: ZIO[Any, Throwable, Nested.Multi] = Nested.collect(this.multipartFromParts)
+    def reprToNested: ZIO[Any, Throwable, Nested.Multi] = Nested.collect(this.multipartFromRepr)
+  }
+
+  sealed trait Nested
+  object Nested {
+    case class Single(testPart : TestPart) extends Nested
+    case class Multi(boundary : Boundary, nesteds : Chunk[Nested]) extends Nested
+
+    def collect(mp : MultipartMixed) : ZIO[Any, Throwable, Nested.Multi] =
+      mp.parts.mapZIO{ part =>
+        MultipartMixed
+          .fromBody(part.toBody)
+          .map{nmp =>
+            collect(nmp)
+          }
+          .getOrElse(
+            part
+              .bytes
+              .runCollect
+              .map{bytes =>
+                Single(new TestPart(part.headers, bytes, mp.boundary).withRawHeaders)
+              }
+          )
+      }
+      .runCollect
+      .map(Multi(mp.boundary, _))
   }
 
   // thin wrapper over pipeline, gives a usable string repr
