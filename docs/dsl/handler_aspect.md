@@ -19,7 +19,7 @@ final case class HandlerAspect[-Env, +CtxOut](
 }
 ```
 
-Like the `ProtocolStack`, the `HandlerAspect` is a stack of layers. When we compose two `HandlerAspect` using the `++` operator, we are composing middlewares sequentially. So each layer in the stack corresponds to a separate transformation.
+Like the `ProtocolStack`, the `HandlerAspect` is a stack of layers. When we compose two `HandlerAspect` using the `++` operator, we are composing handler aspects sequentially. So each layer in the stack corresponds to a separate transformation.
 
 Similar to the `ProtocolStack`, each layer in the `HandlerAspect` may also be stateful at the level of each transformation. So, for example, a layer that is timing request durations may capture the start time of the request in the incoming interceptor, and pass this state to the outgoing interceptor, which can then compute the duration.
 
@@ -41,7 +41,7 @@ ZIO HTTP offers a versatile set of built-in handler aspects, designed to enhance
 
 The `HandlerAspect.interceptIncomingHandler` constructor takes a handler function and applies it to the incoming request. It is useful when we want to modify or access the request before it reaches the handler or the next layer in the stack.
 
-Let's see an example of how to use this constructor to create a middleware that checks the IP address of the incoming request and allows only the whitelisted IP addresses to access the server:
+Let's see an example of how to use this constructor to create a handler aspect that checks the IP address of the incoming request and allows only the whitelisted IP addresses to access the server:
 
 ```scala mdoc:compile-only
 import zio._
@@ -65,7 +65,7 @@ val whitelistMiddleware: HandlerAspect[Any, Unit] =
 
 The `HandlerAspect.interceptOutgoingHandler` constructor takes a handler function and applies it to the outgoing response. It is useful when we want to modify or access the response before it reaches the client or the next layer in the stack.
 
-Let's work on creating a middleware that adds a custom header to the response:
+Let's work on creating a handler aspect that adds a custom header to the response:
 
 ```scala mdoc:compile-only
 import zio.http._
@@ -82,7 +82,7 @@ The `interceptOutgoingHandler` takes a handler function that receives a `Respons
 
 The `HandlerAspect.interceptHandler` takes two handler functions, one for the incoming request and one for the outgoing response.
 
-In the following example, we are going to create a middleware that counts the number of incoming requests and outgoing responses and stores them in a `Ref` inside the ZIO environment:
+In the following example, we are going to create a handler aspect that counts the number of incoming requests and outgoing responses and stores them in a `Ref` inside the ZIO environment:
 
 ```scala mdoc:compile-only
 import zio._
@@ -107,7 +107,7 @@ val counterMiddleware: HandlerAspect[Ref[Map[String, Long]], Unit] =
   HandlerAspect.interceptHandler(countRequests)(countResponses)
 ```
 
-Then, we can write another middleware that is responsible for adding a route to get the statistics of the incoming requests and outgoing responses:
+Then, we can write another handler aspect that is responsible for adding a route to get the statistics of the incoming requests and outgoing responses:
 
 ```scala mdoc:compile-only
 import zio._
@@ -125,7 +125,7 @@ val statsMiddleware: Middleware[Ref[Map[String, Long]]] =
   }
 ```
 
-After attaching these two middlewares to our HttpApp, we have to provide the initial state for the `Ref[Map[String, Long]]` to the whole application's environment:
+After attaching these two handler aspects to our `HttpApp`, we have to provide the initial state for the `Ref[Map[String, Long]]` to the whole application's environment:
 
 ```scala
 Server.serve(app @@ counterMiddleware @@ statsMiddleware)
@@ -147,7 +147,7 @@ Here is how it works:
 
 So, we can pass some state from the incoming handler to the outgoing handler.
 
-In the following example, we are going to write a middleware that calculates the response time and includes it in the `X-Response-Time` header:
+In the following example, we are going to write an handler aspect that calculates the response time and includes it in the `X-Response-Time` header:
 
 ```scala mdoc:compile-only
 import zio._
@@ -168,7 +168,7 @@ val responseTime: HandlerAspect[Any, Unit] =
   HandlerAspect.interceptHandlerStateful(incomingTime)(outgoingTime)
 ```
 
-By attaching this middleware to any route, we can see the response time in the `X-Response-Time` header:
+By attaching this handler aspect to any route, we can see the response time in the `X-Response-Time` header:
 
 ```bash
 $ curl -X GET 'http://127.0.0.1:8080/hello' -i
@@ -188,7 +188,7 @@ A `Response.Patch` is a data type that represents a function (or series of funct
 
 The `HandlerApect.interceptPatch` takes two groups of arguments:
 
-1. **Intercepting the Incoming Request**: The first one is a function that takes the incoming `Request` and produces a `State`. This state is passed through the middleware stack and then can be accessed through the interception phase of the outgoing response.
+1. **Intercepting the Incoming Request**: The first one is a function that takes the incoming `Request` and produces a `State`. This state is passed through the handler aspect stack and then can be accessed through the interception phase of the outgoing response.
 2. **Intercepting the Outgoing Response**: The second one is a function that takes a tuple of `Response` and `State` and returns a `Response.Patch` that will be applied to the outgoing response.
 
 Let's try to rewrite the previous example using the `HandlerAspect.interceptPatch`:
@@ -213,7 +213,7 @@ val responseTime: HandlerAspect[Any, Unit] =
 
 ## Leveraging Output Context
 
-When writing a middleware, in some cases, we want to pass some information from the middleware to the request handler which is at the end of the stack.
+When writing a handler aspect, in some cases, we want to pass some information from the handler aspect to the request handler which is at the end of the stack.
 
 If we take a look at the definition of `HandlerAspect`, we can see that it has two type parameters, `Env` and `CtxOut`. The `CtxOut` is the output context. When we don't need to pass any context to the output, we use `Unit` as the output context, otherwise, we can utilize any type as the output context.
 
@@ -271,7 +271,7 @@ val handler: Handler[Any, Response, Request, Response] =
 
 Now, let's see a real-world example where we can leverage the output context.
 
-In the following example, we are going to write an authentication middleware that checks the JWT token in the incoming request and passes the user information to the handler:
+In the following example, we are going to write an authentication handler aspect that checks the JWT token in the incoming request and passes the user information to the handler:
 
 ```scala mdoc:silent
 import zio._
@@ -310,7 +310,7 @@ val profileRoute: Route[Any, Response] =
   } @@ bearerAuthWithContext
 ```
 
-That's it! Now, in the handler of the `/profile/me` route, we have the username that is extracted from the JWT token inside the authentication middleware and passed to it.
+That's it! Now, in the handler of the `/profile/me` route, we have the username that is extracted from the JWT token inside the authentication handler aspect and passed to it.
 
 The following code snippet is the complete example. Using the login route, we can get the JWT token and use it to access the protected `/profile/me` route:
 
@@ -328,12 +328,12 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/AuthenticationClient.scala")
 ```
 
-## Authentication HandlerAspects
+## Authentication Handler Aspects
 
 There are several built-in `HandlerAspect`s that can be used to implement authentication in ZIO HTTP:
 
-1. **Basic Authentication**: The `basicAuth` and `basicAuthZIO` middleware can be used to implement basic authentication.
-2. **Bearer Authentication**: The `bearerAuth` and `bearerAuthZIO` middleware can be used to implement bearer authentication. We have to provide a function that validates the bearer token.
+1. **Basic Authentication**: The `basicAuth` and `basicAuthZIO` handler aspect can be used to implement basic authentication.
+2. **Bearer Authentication**: The `bearerAuth` and `bearerAuthZIO` handler aspect can be used to implement bearer authentication. We have to provide a function that validates the bearer token.
 3. **Custom Authentication**: The `customAuth`, `customAuthZIO`, `customAuthProviding`, and `customAuthProvidingZIO` handler aspects can be used to implement custom authentication. We have to provide a function that validates the request.
 
 ### Basic Authentication Example
@@ -354,7 +354,7 @@ www-authenticate: Basic
 content-length: 0
 ```
 
-We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` header.
+We notice in the response that first `basicAuth` handler aspect responded `HTTP/1.1 401 Unauthorized` and then patch handler aspect attached a `X-Environment: Dev` header.
 
 ## Failing HandlerAspects
 
@@ -427,9 +427,9 @@ We can attach a handler aspect conditionally using `HandlerAspect#when`, `Handle
 
 We have also some `if-then-else` style constructors to create conditional aspects like `HandlerAspect.ifHeaderThenElse`, `HandlerAspect.ifMethodThenElse`, `HandlerAspect.ifRequestThenElse`, and `HandlerAspect.ifRequestThenElseZIO`.
 
-## Request Logging HandlerAspect
+## Request Logging Handler Aspect
 
-The `requestLogging` middleware is a common middleware that logs incoming requests. It is useful for debugging and monitoring purposes. This middleware logs information such as request method, URL, status code, duration, response and request size by default. We can also configure it to log request and response bodies, request and response headers which are disabled by default:
+The `requestLogging` handler aspect is a common aspect that logs incoming requests. It is useful for debugging and monitoring purposes. This aspect logs information such as request method, URL, status code, duration, response and request size by default. We can also configure it to log request and response bodies, request and response headers which are disabled by default:
 
 ```scala
 object HandlerAspect {
@@ -455,16 +455,16 @@ There is another handler aspect called `HandlerAspect.redirect` which takes a `U
 
 ## Trailing Slash Handler Aspect
 
-A trailing slash is the last forward-slash character at the end of some URLs. ZIO HTTP have two built-in middlewares to handle trailing slashes:
+A trailing slash is the last forward-slash character at the end of some URLs. ZIO HTTP have two built-in aspect to handle trailing slashes:
 
-- The `HandlerAspect.redirectTrailingSlash` middleware is useful for redirecting requests with trailing slashes to the same URL without a trailing slash. This middleware is useful for SEO purposes and to avoid duplicate content issues.
-- The `HandlerAspect.dropTrailingSlash` middleware just drops the trailing slash from the request URL.
+- The `HandlerAspect.redirectTrailingSlash` aspect is useful for redirecting requests with trailing slashes to the same URL without a trailing slash. This aspect is useful for SEO purposes and to avoid duplicate content issues.
+- The `HandlerAspect.dropTrailingSlash` aspect just drops the trailing slash from the request URL.
 
 ## Patching Response Handler Aspect
 
 The `HandlerAspect.patch` and `HandlerAspect.patchZIO` take a function from `Request` to `Response.Patch` and apply the patch to the response.
 
-Here is an example of a middleware that adds a custom header to the response if the request has a specific header:
+Here is an example of a handler aspect that adds a custom header to the response if the request has a specific header:
 
 ```scala mdoc:compile-only
 HandlerAspect.patch(request =>
@@ -498,7 +498,7 @@ If we deploy this route and send a GET request to the `/internal-error` route wi
 
 ## Debug Handler Aspect
 
-The `debug` middleware is a useful middleware for debugging requests and responses. It prints the response status code, request method and url, and the response time of each request to the console.
+The `debug` handler aspect is a useful aspect for debugging requests and responses. It prints the response status code, request method and url, and the response time of each request to the console.
 
 ```scala mdoc:silent
   val helloRoute =
@@ -515,9 +515,9 @@ When we send a GET request to the `/hello` route, we can see the following outpu
 
 ### A Simple Middleware Example
 
-Let us consider a simple example using out-of-the-box middleware called ```addHeader```. We will write a middleware that will attach a custom header to the response.
+Let us consider a simple example using an out-of-the-box handler aspect called ```addHeader```. We will write an aspect that will attach a custom header to the response.
 
-We create a middleware that appends an additional header to the response indicating whether it is a Dev/Prod/Staging environment:
+We create an aspect that appends an additional header to the response indicating whether it is a Dev/Prod/Staging environment:
 
 ```scala mdoc:passthrough
 import utils._
