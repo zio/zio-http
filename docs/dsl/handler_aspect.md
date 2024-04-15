@@ -31,6 +31,10 @@ The `HandlerAspect.identity` is the simplest `HandlerAspect` that does nothing. 
 
 After this simple `HandlerAspect`, let's dive into the `HandlerAspect.intercept*` constructors. Using these, we can create a `HandlerAspect` that can intercept the incoming request, outgoing response, or both.
 
+## Built-in Handler Aspects
+
+ZIO HTTP offers a versatile set of built-in handler aspects, designed to enhance and customize the handling of HTTP requests and responses. These aspects can be easily integrated into our application to provide various functionalities. For the rest of this page, we will explore how to use them in our applications.
+
 ## Intercepting
 
 ### Intercepting the Incoming Requests
@@ -455,10 +459,6 @@ A trailing slash is the last forward-slash character at the end of some URLs. ZI
 
 - The `HandlerAspect.redirectTrailingSlash` middleware is useful for redirecting requests with trailing slashes to the same URL without a trailing slash. This middleware is useful for SEO purposes and to avoid duplicate content issues.
 - The `HandlerAspect.dropTrailingSlash` middleware just drops the trailing slash from the request URL.
-
-## Other Built-in HandlerAspects
-
-ZIO HTTP offers a versatile set of built-in middlewares, designed to enhance and customize the handling of HTTP requests and responses. These middlewares can be easily integrated into our application to provide various functionalities. Until now, we have seen several built-in aspects, here are some other built-in aspects.
 
 ## Patching Response Handler Aspect
 
