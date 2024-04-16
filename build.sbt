@@ -269,8 +269,12 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .settings(
-    libraryDependencies += "dev.zio" %% "zio-config"          % "4.0.1",
-    libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "4.0.1",
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-config" % "4.0.1",
+  "dev.zio" %% "zio-config-typesafe" % "4.0.1",
+  "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
+  "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
+)
   )
   .dependsOn(zioHttpJVM, zioHttpCli)
 
