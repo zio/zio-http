@@ -18,6 +18,8 @@ package zio.http
 
 import java.net.{MalformedURLException, URI}
 
+import zio.Config
+
 import zio.http.URL.{Fragment, Location}
 import zio.http.internal._
 
@@ -293,6 +295,8 @@ object URL {
       case e: Exception => Left(e)
     }
   }
+
+  def config: Config[URL] = Config.string.mapAttempt(decode(_).toTry.get)
 
   def fromURI(uri: URI): Option[URL] = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
