@@ -213,7 +213,11 @@ val responseTime: HandlerAspect[Any, Unit] =
 
 ## Leveraging Output Context
 
-When writing a handler aspect, in some cases, we want to pass some information from the handler aspect to the request handler which is at the end of the stack.
+Ordinary Middlewares are intended to bracket a request's execution by intercepting the request, possibly modifying it or short-circuiting its execution, and then performing some post-processing on the response.
+
+However, we sometimes want to gather some contextual information about a request and pass it alongside to the request's handler. This can be achieved with the `HandlerAspect[Env, CtxOut]` type, which extends `Middleware[Env]`.
+
+The `HandlerAspect` middleware produces a value of type `CtxOut` on each request, which the routing DSL will accept just like a path component.
 
 If we take a look at the definition of `HandlerAspect`, we can see that it has two type parameters, `Env` and `CtxOut`. The `CtxOut` is the output context. When we don't need to pass any context to the output, we use `Unit` as the output context, otherwise, we can utilize any type as the output context.
 
@@ -266,6 +270,46 @@ Finally, we can attach the `intStringAspect` to this handler:
 val handler: Handler[Any, Response, Request, Response] = 
   intStringRequestHandler @@ (intAspect ++ stringAspect)
 ```
+
+### Session Example
+
+To look up a `Session`, we might use a `sessionMiddleware` with type `HandlerAspect[Env, Session]`:
+
+[//]: # (Invisible name declarations to get MDoc to compile)
+```scala mdoc:invisible:reset
+import zio.ZIO
+import zio.http._
+type Env = Any
+
+case class Session(organizationId: Int)
+val sessionMiddleware: HandlerAspect[Any, Session] = HandlerAspect.identity.map(_ => Session(0))
+
+object UserRepository {
+  def getUser(organizationId: Int, userId: Int): ZIO[Any, Throwable, Response] = ??? 
+}
+```
+
+```scala mdoc:silent
+Routes(
+  Method.GET / "user" / int("userId") -> sessionMiddleware -> handler { 
+    (userId: Int, session: Session, request: Request) =>
+      UserRepository.getUser(session.organizationId, userId)
+  }
+)
+```
+
+The `HandlerAspect` companion object provides a number of helpful constructors for these middlewares.
+For this example, we would probably use `HandlerAspect.interceptHandler`, which wraps an incoming-request handler as well as one which performs any necessary post-processing on the outgoing response:
+
+```scala mdoc:compile-only
+val incomingHandler: Handler[Env, Response, Request, (Request, Session)] = ???
+val outgoingHandler: Handler[Env, Nothing, Response, Response] = ???
+HandlerAspect.interceptHandler(incomingHandler)(outgoingHandler)
+```
+
+Note the asymmetry in the type parameters of these two handlers:
+- In the incoming case, the handler emits a `Response` on the error-channel whenever the service cannot produce a `Session`, effectively short-circuiting the processing of this request.
+- The outgoing handler, by contrast, has `Nothing` as its `Err` type, meaning that it **cannot** fail and must always produce a `Response` on the success channel.
 
 ### Custom Authentication Example
 
