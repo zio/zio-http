@@ -448,3 +448,71 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/endpoint/GenerateEndpointFromOpenAPIExample.scala")
 ```
+
+## Generating ZIO‌ CLI App from Endpoint API
+
+The ZIO‌ CLI is a ZIO‌ library that provides a way to build command-line applications using ZIO facilities. With ZIO‌ HTTP, we can generate a ZIO CLI client from the `Endpoint` API.
+
+To do this, first, we need to add the following line to the `build.sbt` file:
+
+```scala
+libraryDependencies += "dev.zio" %% "zio-http-cli" % "@VERSION@"
+```
+
+Then we can generate the ZIO CLI client from the `Endpoint` API using the `HttpCliApp.fromEndpoints` constructor:
+
+```scala
+object TestCliApp extends zio.cli.ZIOCliDefault with TestCliEndpoints {
+  val cliApp =
+    HttpCliApp
+      .fromEndpoints(
+        name = "users-mgmt",
+        version = "0.0.1",
+        summary = HelpDoc.Span.text("Users management CLI"),
+        footer = HelpDoc.p("Copyright 2023"),
+        host = "localhost",
+        port = 8080,
+        endpoints = Chunk(getUser, getUserPosts, createUser),
+        cliStyle = true,
+      )
+      .cliApp
+}
+```
+
+Using the above code, we can create the `users-mgmt` CLI application that can be used to interact with the `getUser`, `getUserPosts`, and `createUser` endpoints:
+
+```shell
+                                                             __ 
+  __  __________  __________      ____ ___  ____ _____ ___  / /_
+ / / / / ___/ _ \/ ___/ ___/_____/ __ `__ \/ __ `/ __ `__ \/ __/
+/ /_/ (__  )  __/ /  (__  )_____/ / / / / / /_/ / / / / / / /_  
+\__,_/____/\___/_/  /____/     /_/ /_/ /_/\__, /_/ /_/ /_/\__/  
+                                         /____/                 
+
+users-mgmt v0.0.1 -- Users management CLI
+
+USAGE
+
+  $ users-mgmt <command>
+
+COMMANDS
+
+  - get-users --userId integer --location text                               Get a user by ID
+
+  - get-users-posts --postId integer --userId integer --user-name text       Get a user's posts by userId and postId
+
+  - create-users -f file|-u text|--.id integer --.name text [--.email text]  Create a new user
+
+Copyright 2023
+```
+
+<details>
+<summary><b>Full Implementation Showcase</b></summary>
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/endpoint/CliExamples.scala")
+```
+
+</details>
