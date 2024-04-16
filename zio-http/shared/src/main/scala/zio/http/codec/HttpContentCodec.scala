@@ -193,7 +193,7 @@ object HttpContentCodec {
       ZPipeline.identity[Chunk[Byte]].flattenChunks
   }
 
-  val byteChunkCodec: HttpContentCodec[Chunk[Byte]] = {
+  implicit val byteChunkCodec: HttpContentCodec[Chunk[Byte]] = {
     HttpContentCodec(
       ListMap(
         MediaType.allMediaTypes.filter(_.binary).map(mt => mt -> ByteChunkBinaryCodec): _*,
@@ -216,7 +216,7 @@ object HttpContentCodec {
       ZPipeline.identity[Byte]
   }
 
-  val byteCodec: HttpContentCodec[Byte] = {
+  implicit val byteCodec: HttpContentCodec[Byte] = {
     HttpContentCodec(
       ListMap(
         MediaType.allMediaTypes.filter(_.binary).map(mt => mt -> ByteBinaryCodec): _*,
