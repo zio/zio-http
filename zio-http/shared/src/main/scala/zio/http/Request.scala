@@ -106,6 +106,8 @@ final case class Request(
 
   def updateURL(f: URL => URL): Request = copy(url = f(url))
 
+  def updatePath(f: Path => Path): Request = copy(url = url.copy(path = f(path)))
+
   /**
    * Unnests the request by the specified prefix. If the request URL is not
    * nested at the specified path, then this has no effect on the URL.

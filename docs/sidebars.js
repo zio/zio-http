@@ -25,6 +25,7 @@ const sidebars = {
             "dsl/form",
             "dsl/cookies",
             "dsl/flash",
+            "dsl/protocol-stack",
             "dsl/middleware",
             "dsl/handler_aspect",
             "dsl/status",
@@ -37,7 +38,8 @@ const sidebars = {
                 "dsl/socket/websocketframe"
               ]
             },
-            "dsl/template"
+            "dsl/template",
+            "dsl/client"
           ]
         },
         {

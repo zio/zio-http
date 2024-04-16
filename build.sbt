@@ -270,6 +270,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .settings(
 libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-config" % "4.0.1",
+  "dev.zio" %% "zio-config-typesafe" % "4.0.1",
   "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
   "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
 )
@@ -319,7 +321,8 @@ lazy val docs = project
     ciWorkflowName                             := "Continuous Integration",
     libraryDependencies ++= Seq(
       `jwt-core`,
-      "dev.zio" %% "zio-test" % ZioVersion,
+      "dev.zio" %% "zio-test"   % ZioVersion,
+      "dev.zio" %% "zio-config" % "4.0.1",
     ),
     publish / skip                             := true,
   )
