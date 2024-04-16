@@ -128,6 +128,8 @@ private[cli] object HttpOptions {
           case Schema.Dynamic(_)                    => emptyJson
           case Schema.Either(left, right, _)        =>
             (loop(prefix, left) orElseEither loop(prefix, right)).map(_.merge)
+          case Schema.Fallback(left, right, _, _)   =>
+            (loop(prefix, left) orElseEither loop(prefix, right)).map(_.merge)
           case Schema.Optional(schema, _)           =>
             loop(prefix, schema).optional.map {
               case Some(json) => json
