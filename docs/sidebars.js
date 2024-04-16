@@ -27,6 +27,7 @@ const sidebars = {
             "dsl/flash",
             "dsl/protocol-stack",
             "dsl/middleware",
+            "dsl/handler_aspect",
             "dsl/status",
             {
               type: "category",
