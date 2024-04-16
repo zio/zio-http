@@ -4,6 +4,8 @@ import zio.http.endpoint.openapi.OpenAPI
 import zio.http.gen.openapi.EndpointGen
 import zio.http.gen.scala.CodeGen
 
+import java.nio.file._
+
 object GenerateEndpointFromOpenAPIExample extends App {
   val userOpenAPI = OpenAPI.fromJson(
     """|{
@@ -56,7 +58,7 @@ object GenerateEndpointFromOpenAPIExample extends App {
 
   CodeGen.writeFiles(
     EndpointGen.fromOpenAPI(userOpenAPI.toOption.get),
-    basePath = java.nio.file.Path.of("./users/src/main/scala"),
+    basePath = Paths.get("./users/src/main/scala"),
     basePackage = "org.example",
     scalafmtPath = None,
   )
