@@ -432,3 +432,19 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/endpoint/BooksEndpointExample.scala")
 ```
 </details>
+
+## Generating Endpoint from OpenAPI Spec
+
+With ZIO HTTP, we can generate endpoints from an OpenAPI specification. To do this, first, we need to add the following line to the `build.sbt` file:
+
+```scala
+libraryDependencies += "dev.zio" %% "zio-http-gen" % "@VERSION@"
+```
+
+Then we can generate the endpoints from the OpenAPI specification using the `EndpointGen.fromOpenAPI` constructor:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/endpoint/GenerateEndpointFromOpenAPIExample.scala")
+```
