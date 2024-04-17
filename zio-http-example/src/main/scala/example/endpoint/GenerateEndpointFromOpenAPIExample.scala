@@ -1,10 +1,10 @@
 package example.endpoint
 
+import java.nio.file._
+
 import zio.http.endpoint.openapi.OpenAPI
 import zio.http.gen.openapi.EndpointGen
 import zio.http.gen.scala.CodeGen
-
-import java.nio.file._
 
 object GenerateEndpointFromOpenAPIExample extends App {
   val userOpenAPI = OpenAPI.fromJson(
