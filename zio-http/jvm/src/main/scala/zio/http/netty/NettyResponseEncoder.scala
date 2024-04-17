@@ -39,9 +39,10 @@ private[zio] object NettyResponseEncoder {
       val bytes = runtime.runtime(ctx).unsafe.run(body.asArray).getOrThrow()
       fastEncode(response, bytes)
     } else {
+      val status   = response.status
       val jHeaders = Conversions.headersToNetty(response.headers)
-      val jStatus  = Conversions.statusToNetty(response.status)
-      maybeAddDateHeader(jHeaders)
+      val jStatus  = Conversions.statusToNetty(status)
+      maybeAddDateHeader(jHeaders, status)
 
       response.body.knownContentLength match {
         case Some(contentLength) if !jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH) =>
@@ -65,7 +66,8 @@ private[zio] object NettyResponseEncoder {
   private def doEncode(response: Response, bytes: Array[Byte]): FullHttpResponse = {
     val jHeaders         = Conversions.headersToNetty(response.headers)
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-    maybeAddDateHeader(jHeaders)
+    val status           = response.status
+    maybeAddDateHeader(jHeaders, status)
 
     val jStatus = Conversions.statusToNetty(response.status)
 
@@ -76,10 +78,15 @@ private[zio] object NettyResponseEncoder {
     new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, jHeaders, EmptyHttpHeaders.INSTANCE)
   }
 
-  /** If the user already provided this, we shouldn't override it */
-  private def maybeAddDateHeader(headers: HttpHeaders): Unit =
-    if (!headers.contains(HttpHeaderNames.DATE)) {
-      headers.set(HttpHeaderNames.DATE, dateHeaderCache.get())
-    } else ()
+  /**
+   * We don't need to add the Date header in the following case:
+   *   - Status code is 1xx
+   *   - Status code is 5xx
+   *   - User already provided it
+   */
+  private def maybeAddDateHeader(headers: HttpHeaders, status: Status): Unit = {
+    if (status.isInformational || status.isServerError || headers.contains(HttpHeaderNames.DATE)) ()
+    else headers.set(HttpHeaderNames.DATE, dateHeaderCache.get())
+  }
 
 }
