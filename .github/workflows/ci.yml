@@ -236,7 +236,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_CookieDecodeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_CookieDecodeBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_CookieDecodeBenchmark.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -253,7 +253,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_CookieDecodeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_CookieDecodeBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_CookieDecodeBenchmark.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -288,7 +288,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_EndpointBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 EndpointBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_EndpointBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 EndpointBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_EndpointBenchmark.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -305,7 +305,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_EndpointBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 EndpointBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_EndpointBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 EndpointBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_EndpointBenchmark.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -340,7 +340,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_HttpCollectEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpCollectEval.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpCollectEval.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -357,7 +357,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_HttpCollectEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCollectEval.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCollectEval.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -392,7 +392,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_HttpCombineEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpCombineEval.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpCombineEval.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -409,7 +409,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_HttpCombineEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCombineEval.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCombineEval.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -444,7 +444,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_HttpNestedFlatMapEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpNestedFlatMapEval.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Current_HttpNestedFlatMapEval.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -461,7 +461,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_HttpNestedFlatMapEval.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpNestedFlatMapEval.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpNestedFlatMapEval.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -496,7 +496,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_HttpRouteTextPerf.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Current_HttpRouteTextPerf.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Current_HttpRouteTextPerf.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -513,7 +513,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_HttpRouteTextPerf.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Main_HttpRouteTextPerf.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Main_HttpRouteTextPerf.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -548,7 +548,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_ProbeContentTypeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_ProbeContentTypeBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_ProbeContentTypeBenchmark.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -565,7 +565,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_ProbeContentTypeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ProbeContentTypeBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ProbeContentTypeBenchmark.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -600,7 +600,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_SchemeDecodeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_SchemeDecodeBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_SchemeDecodeBenchmark.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -617,7 +617,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_SchemeDecodeBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_SchemeDecodeBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_SchemeDecodeBenchmark.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -652,7 +652,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_ServerInboundHandlerBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_ServerInboundHandlerBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_ServerInboundHandlerBenchmark.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -669,7 +669,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_ServerInboundHandlerBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ServerInboundHandlerBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ServerInboundHandlerBenchmark.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
@@ -704,7 +704,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Current_UtilBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_UtilBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Current_UtilBenchmark.txt
 
       - if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v3
@@ -721,7 +721,7 @@ jobs:
           cd zio-http
           sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
           cat > Main_UtilBenchmark.txt
-          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_UtilBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_UtilBenchmark.txt
 
       - if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
