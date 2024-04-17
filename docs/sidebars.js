@@ -41,6 +41,7 @@ const sidebars = {
             "dsl/client"
           ]
         },
+        "testing-http-apps",
         {
           type: "category",
           label: "Examples",
