@@ -26,7 +26,7 @@ object JmhBenchmarkWorkflow {
    * Run jmh benchmarks and store result
    */
   def runSBT(list: Seq[String], branch: String) = list.map(str =>
-    s"""sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f 1 -t 1 $str" | grep -e "thrpt" -e "avgt" >> ../${branch}_${list.head}.txt""".stripMargin,
+    s"""sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 $str" | grep -e "thrpt" -e "avgt" >> ../${branch}_${list.head}.txt""".stripMargin,
   )
 
   /**
