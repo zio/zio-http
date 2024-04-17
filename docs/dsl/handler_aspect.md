@@ -224,6 +224,7 @@ If we take a look at the definition of `HandlerAspect`, we can see that it has t
 Before diving into a real-world example, let's try to understand the output context with simple examples. First, assume that we have an identity `HandlerAspect` that does nothing but passes an integer value to the output context:
 
 ```scala mdoc:silent:reset
+import zio._
 import zio.http._
 
 val intAspect: HandlerAspect[Any, Int] = HandlerAspect.identity.as(42)
@@ -232,9 +233,11 @@ val intAspect: HandlerAspect[Any, Int] = HandlerAspect.identity.as(42)
 To access this integer value in the handler, we need to define a handler that receives a tuple of `(Int, Request)`:
 
 ```scala mdoc:silent
-val intRequestHandler: Handler[Any, Nothing, (Int, Request), Response] =
-  Handler.fromFunction[(Int, Request)] { case (n, _) =>
-    Response.text(s"Received the $n value from the output context!")
+val intRequestHandler: Handler[Int, Nothing, Request, Response] =
+  Handler.fromFunctionZIO[Request] { (_: Request) =>
+    ZIO.serviceWith[Int] { n =>
+      Response.text(s"Received the $n value from the output context!")
+    }
   }
 ```
 
@@ -258,9 +261,10 @@ val intStringAspect: HandlerAspect[Any, (Int, String)] =
 Correspondingly, to access the output context of this `HandlerAspect`, we need to have a handler that receives a tuple of `(Int, String, Request)`:
 
 ```scala mdoc:silent
-val intStringRequestHandler: Handler[Any, Nothing, (Int, String, Request), Response] =
-  Handler.fromFunction[(Int, String, Request)] { case (n, s, _) =>
-    Response.text(s"Received the $n and $s values from the output context!")
+val intStringRequestHandler: Handler[(Int, String), Nothing, Request, Response] =
+  Handler.fromFunctionZIO[Request] { (req: Request) => ZIO.serviceWith[(Int, String)] { case (n, s) =>
+      Response.text(s"Received the $n and $s values from the output context!")
+    }
   }
 ```
 
@@ -349,8 +353,8 @@ Now, let's define the `/profile/me` route that requires authentication output co
 ```scala mdoc:compile-only
 val profileRoute: Route[Any, Response] =
   Method.GET / "profile" / "me" -> 
-    Handler.fromFunction[(String, Request)] { case (name: String, _: Request) => 
-      Response.text(s"Welcome $name!")
+    Handler.fromFunctionZIO[Request] { (_: Request) => 
+     ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
   } @@ bearerAuthWithContext
 ```
 
@@ -525,7 +529,7 @@ To make the error responses more user-friendly, we have a built-in handler aspec
 
 ```scala
 val route = 
-  Method.GET / "internal-error" -> Handler.fromResponse(Response.forbidden) @@ HandlerAspect.beautifyErrors,
+  Method.GET / "internal-error" -> Handler.fromResponse(Response.forbidden) @@ HandlerAspect.beautifyErrors
 ```
 
 If we deploy this route and send a GET request to the `/internal-error` route with the `Accept: text/html` header, we will get the following response body:

@@ -46,8 +46,8 @@ object AuthenticationServer extends ZIOAppDefault {
   def app: HttpApp[Any] =
     Routes(
       // A route that is accessible only via a jwt token
-      Method.GET / "profile" / "me" -> handler { (name: String, _: Request) =>
-        ZIO.succeed(Response.text(s"Welcome $name!"))
+      Method.GET / "profile" / "me" -> handler { (_: Request) =>
+        ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
       } @@ bearerAuthWithContext,
 
       // A login route that is successful only if the password is the reverse of the username
