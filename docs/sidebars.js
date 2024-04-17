@@ -54,33 +54,45 @@ const sidebars = {
           collapsed: false,
           link: { type: "doc", id: "index" },
           items: [
-            "dsl/server",
-            "dsl/routes",
-            "dsl/route_pattern",
-            "dsl/path_codec",
-            "dsl/request",
-            "dsl/response",
-            "dsl/handler",
-            "dsl/headers",
-            "dsl/body",
-            "dsl/form",
-            "dsl/cookies",
-            "dsl/flash",
-            "dsl/protocol-stack",
-            "dsl/middleware",
-            "dsl/handler_aspect",
-            "dsl/status",
+            "reference/server-backend",
+            "reference/websockets",
+            "reference/json-handling",
+            "reference/metrics",
+            "reference/request-logging",
             {
               type: "category",
               label: "DSL",
               link: { type: "doc", id: "index" },
               items: [
-                "dsl/socket/socket",
-                "dsl/socket/websocketframe"
+                "dsl/server",
+                "dsl/routes",
+                "dsl/route_pattern",
+                "dsl/path_codec",
+                "dsl/request",
+                "dsl/response",
+                "dsl/handler",
+                "dsl/headers",
+                "dsl/body",
+                "dsl/form",
+                "dsl/cookies",
+                "dsl/flash",
+                "dsl/protocol-stack",
+                "dsl/middleware",
+                "dsl/handler_aspect",
+                "dsl/status",
+                {
+                  type: "category",
+                  label: "Socket",
+                  link: { type: "doc", id: "index" },
+                  items: [
+                    "dsl/socket/socket",
+                    "dsl/socket/websocketframe"
+                  ]
+                },
+                "dsl/template",
+                "dsl/client"
               ]
-            },
-            "dsl/template",
-            "dsl/client"
+            }
           ]
         },
         {
@@ -110,5 +122,3 @@ const sidebars = {
     },
   ],
 };
-
-module.exports = sidebars;
