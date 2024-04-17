@@ -11,15 +11,27 @@ object AuthenticationClient extends ZIOAppDefault {
    * by first making a login request to obtain a jwt token and use it to access
    * a protected route. Run AuthenticationServer before running this example.
    */
-  val url = "http://localhost:8090"
+  val url = "http://localhost:8080"
 
-  val loginUrl = URL.decode(s"${url}/login/username/emanresu").toOption.get
-  val greetUrl = URL.decode(s"${url}/user/userName/greet").toOption.get
+  val loginUrl = URL.decode(s"${url}/login").toOption.get
+  val greetUrl = URL.decode(s"${url}/profile/me").toOption.get
 
   val program = for {
     client   <- ZIO.service[Client]
     // Making a login request to obtain the jwt token. In this example the password should be the reverse string of username.
-    token    <- client(Request.get(loginUrl)).flatMap(_.body.asString)
+    token    <- client(
+      Request
+        .get(loginUrl)
+        .withBody(
+          Body.fromMultipartForm(
+            Form(
+              FormField.simpleField("username", "John"),
+              FormField.simpleField("password", "nhoJ"),
+            ),
+            Boundary("boundary123"),
+          ),
+        ),
+    ).flatMap(_.body.asString)
     // Once the jwt token is procured, adding it as a Bearer token in Authorization header while accessing a protected route.
     response <- client(Request.get(greetUrl).addHeader(Header.Authorization.Bearer(token)))
     body     <- response.body.asString

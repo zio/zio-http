@@ -105,12 +105,10 @@ final case class HttpContentCodec[A](
     } else {
       var i                                   = 0
       var result: (MediaType, BinaryCodec[A]) = null
-      while (i < mediaTypes.size) {
-        val mediaType = mediaTypes(i)
-        if (choices.contains(mediaType.mediaType)) {
-          result = (mediaType.mediaType, choices(mediaType.mediaType))
-          i = mediaTypes.size
-        }
+      while (i < mediaTypes.size && result == null) {
+        val mediaType    = mediaTypes(i)
+        val lookupResult = lookup(mediaType.mediaType)
+        if (lookupResult.isDefined) result = (mediaType.mediaType, lookupResult.get)
         i += 1
       }
       if (result == null) {
@@ -195,7 +193,7 @@ object HttpContentCodec {
       ZPipeline.identity[Chunk[Byte]].flattenChunks
   }
 
-  val byteChunkCodec: HttpContentCodec[Chunk[Byte]] = {
+  implicit val byteChunkCodec: HttpContentCodec[Chunk[Byte]] = {
     HttpContentCodec(
       ListMap(
         MediaType.allMediaTypes.filter(_.binary).map(mt => mt -> ByteChunkBinaryCodec): _*,
@@ -218,7 +216,7 @@ object HttpContentCodec {
       ZPipeline.identity[Byte]
   }
 
-  val byteCodec: HttpContentCodec[Byte] = {
+  implicit val byteCodec: HttpContentCodec[Byte] = {
     HttpContentCodec(
       ListMap(
         MediaType.allMediaTypes.filter(_.binary).map(mt => mt -> ByteBinaryCodec): _*,
