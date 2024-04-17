@@ -1,6 +1,6 @@
 -J-Xms2048m
 -J-Xmx2048m
--J-XX:ReservedCodeCacheSize=256m
+-J-XX:ReservedCodeCacheSize=512m
 -J-XX:MaxMetaspaceSize=512m
--J-XX:NonProfiledCodeHeapSize=512m
+-J-XX:NonProfiledCodeHeapSize=256m
 -J-XX:+UseG1GC
