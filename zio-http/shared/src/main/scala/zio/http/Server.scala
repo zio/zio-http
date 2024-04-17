@@ -301,7 +301,7 @@ object Server extends ServerPlatformSpecific {
           zio.Config.int("level").withDefault(DefaultLevel) ++
             zio.Config.int("bits").withDefault(DefaultBits) ++
             zio.Config.int("mem").withDefault(DefaultMem) ++
-            CompressionOptions.CompressionType.config.nested("type"),
+            CompressionOptions.CompressionType.config.nested("type")
         ).map { case (level, bits, mem, kind) =>
           CompressionOptions(level, bits, mem, kind)
         }

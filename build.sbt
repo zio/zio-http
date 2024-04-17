@@ -235,10 +235,10 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
       "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.5.1",
       "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.1",
-      "com.softwaremill.sttp.client3" %% "core"                % "3.9.1",
+      "com.softwaremill.sttp.client3" %% "core"                % "3.9.5",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
-      "org.slf4j"                      % "slf4j-api"           % "2.0.12",
-      "org.slf4j"                      % "slf4j-simple"        % "2.0.12",
+      "org.slf4j"                      % "slf4j-api"           % "2.0.13",
+      "org.slf4j"                      % "slf4j-simple"        % "2.0.13",
     ),
   )
   .dependsOn(zioHttpJVM)
@@ -269,8 +269,12 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .settings(
-    libraryDependencies += "dev.zio" %% "zio-config"          % "4.0.1",
-    libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "4.0.1",
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-config" % "4.0.1",
+  "dev.zio" %% "zio-config-typesafe" % "4.0.1",
+  "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
+  "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
+)
   )
   .dependsOn(zioHttpJVM, zioHttpCli)
 
@@ -306,7 +310,7 @@ lazy val docs = project
   .in(file("zio-http-docs"))
   .settings(stdSettings("zio-http-docs"))
   .settings(
-    fork := false,
+    fork                                       := false,
     moduleName                                 := "zio-http-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
