@@ -3,7 +3,32 @@ id: testing-http-apps
 title: Testing HTTP Applications
 ---
 
-Testing HTTP applications is a critical part of the development process. Utilizing the ZIO Test we can write first-class tests for our HTTP applications. We have comprehensive documentation on [ZIO Test](https://zio.dev/reference/test/) which is worth reading to understand how to write tests using ZIO effects.
+Testing HTTP applications is a critical part of the development process. Utilizing the ZIO Test we can write first-class tests for our HTTP applications.
+
+## ZIO Test
+
+We have comprehensive documentation on [ZIO Test](https://zio.dev/reference/test/) which is worth reading to understand how to write tests using ZIO effects.
+
+It is easy to test ZIO HTTP applications beacuse we can think of `HttpApp` as a function of `Request => ZIO[R, Response, Response]`. This means we can effortlessly provide a Request as input to the `HttpApp` and receive the corresponding Response as output using the runZIO method. By doing this we can test the behavior of the `HttpApp` in a controlled environment:
+
+```scala mdoc:silent:reset
+import zio.test._
+import zio.test.Assertion.equalTo
+import zio.http._
+
+object ExampleSpec extends ZIOSpecDefault {
+
+  def spec = suite("http")(
+    test("should be ok") {
+      val app = Handler.ok.toHttpApp
+      val req = Request.get(URL(Root))
+      assertZIO(app.runZIO(req))(equalTo(Response.ok))
+    }
+  )
+}
+```
+
+## ZIO HTTP Testkit
 
 Also, ZIO HTTP provides a testkit called `zio-http-testkit` that includes `TestClient` and `TestServer` utilities which helps us to test our HTTP applications without the need for having a real live client and server instances.
 

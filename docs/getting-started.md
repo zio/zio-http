@@ -106,27 +106,6 @@ val routes = Routes(
 )
 ```
 
-### Testing
-
-You can run `HttpApp` as a function of `A => ZIO[R, Response, Response]` to test it by using the `runZIO` method.
-
-```scala mdoc:silent:reset
-import zio.test._
-import zio.test.Assertion.equalTo
-import zio.http._
-
-object Spec extends ZIOSpecDefault {
-
-  def spec = suite("http")(
-    test("should be ok") {
-      val app = Handler.ok.toHttpApp
-      val req = Request.get(URL(Root))
-      assertZIO(app.runZIO(req))(equalTo(Response.ok))
-    }
-  )
-}
-```
-
 ## Socket
 
 `Socket` is functional domain in ZIO HTTP. It provides constructors to create socket apps. A socket app is 
