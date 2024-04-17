@@ -102,7 +102,6 @@ const sidebars = {
             "examples/endpoint",
             "examples/cors-handling-middleware",
             "examples/authentication",
-            "examples/cookies",
             "examples/graceful-shutdown",
             "examples/cli",
             "examples/concrete-entity",
