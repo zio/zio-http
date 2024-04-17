@@ -13,7 +13,6 @@ const sidebars = {
         {
           type: "category",
           label: "Concepts",
-          collapsed: false,
           link: { type: "doc", id: "index" },
           items: [
             "concepts/routing",
@@ -82,8 +81,8 @@ const sidebars = {
                 "dsl/status",
                 {
                   type: "category",
-                  label: "Socket",
-                  link: { type: "doc", id: "index" },
+                  label: "DSL",
+                  collapsed: false,
                   items: [
                     "dsl/socket/socket",
                     "dsl/socket/websocketframe"
@@ -122,3 +121,5 @@ const sidebars = {
     },
   ],
 };
+
+
