@@ -1,11 +1,12 @@
 package zio.http.netty
 
+import java.time.ZonedDateTime
+
 import zio._
-import zio.http.ZIOHttpSpec
-import zio.http.internal.DateEncoding
 import zio.test.{Spec, TestAspect, TestEnvironment, assertCompletes}
 
-import java.time.ZonedDateTime
+import zio.http.ZIOHttpSpec
+import zio.http.internal.DateEncoding
 
 object CachedDateHeaderSpec extends ZIOHttpSpec {
   private val dateHeaderCache = CachedDateHeader.default
@@ -19,7 +20,8 @@ object CachedDateHeaderSpec extends ZIOHttpSpec {
 
           ZIO
             .fail(
-              new Exception(s"Mismatch in cached and uncached date header value:\n\tuncached: $uncached\n\tcached: $cached",
+              new Exception(
+                s"Mismatch in cached and uncached date header value:\n\tuncached: $uncached\n\tcached: $cached",
               ),
             )
             .unless(uncached == cached)

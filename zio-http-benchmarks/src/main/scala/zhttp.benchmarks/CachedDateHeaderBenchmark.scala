@@ -1,10 +1,11 @@
 package zio.http.netty
 
-import org.openjdk.jmh.annotations._
-import zio.http.internal.DateEncoding
-
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
+
+import zio.http.internal.DateEncoding
+
+import org.openjdk.jmh.annotations._
 
 @State(Scope.Benchmark)
 @BenchmarkMode(Array(Mode.AverageTime))

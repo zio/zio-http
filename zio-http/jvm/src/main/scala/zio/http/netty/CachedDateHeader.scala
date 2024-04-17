@@ -1,9 +1,9 @@
 package zio.http.netty
 
-import zio.http.internal.DateEncoding
-
 import java.time.{Clock, LocalDateTime, ZoneOffset}
 import java.util.concurrent.locks.LockSupport
+
+import zio.http.internal.DateEncoding
 
 private object CachedDateHeader {
   lazy val default: CachedDateHeader = new CachedDateHeader()
