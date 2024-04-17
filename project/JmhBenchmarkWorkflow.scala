@@ -10,7 +10,7 @@ object JmhBenchmarkWorkflow {
   val files = FileTreeView.default.list(Seq(
     Glob("zio-http-benchmarks/src/main/scala-2.13/**"),
     Glob("zio-http-benchmarks/src/main/scala/**")),scalaSources
-   )
+  )
 
   /**
    * Get zioHttpBenchmark file names
@@ -26,7 +26,7 @@ object JmhBenchmarkWorkflow {
    * Run jmh benchmarks and store result
    */
   def runSBT(list: Seq[String], branch: String) = list.map(str =>
-    s"""sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 $str" | grep -e "thrpt" -e "avgt" >> ../${branch}_${list.head}.txt""".stripMargin,
+    s"""sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 5 -wi 3 -f 2 -t 1 $str" | grep -e "thrpt" -e "avgt" >> ../${branch}_${list.head}.txt""".stripMargin,
   )
 
   /**
@@ -55,8 +55,8 @@ object JmhBenchmarkWorkflow {
           s"""cat ${branch}_${l.head}.txt >> ${branch}_benchmarks.txt""".stripMargin,
         ),
         name = Some(s"Format_${branch}_${l.head}"),
-     ),
-   )
+      ),
+    )
   })
 
   def parse_results(branch: String) = WorkflowStep.Run(
@@ -104,7 +104,7 @@ object JmhBenchmarkWorkflow {
   /**
    * Workflow Job to compare and publish benchmark results in the comment
    */
- def jmh_compare(batchSize: Int) = Seq(
+  def jmh_compare(batchSize: Int) = Seq(
     WorkflowJob(
       id = "Compare_jmh",
       name = "Compare Jmh",
