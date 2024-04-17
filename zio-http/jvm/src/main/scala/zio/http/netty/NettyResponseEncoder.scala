@@ -27,6 +27,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http._
 
 private[zio] object NettyResponseEncoder {
+  private val dateHeaderCache = CachedDateHeader.default
 
   def encode(
     ctx: ChannelHandlerContext,
@@ -40,6 +41,7 @@ private[zio] object NettyResponseEncoder {
     } else {
       val jHeaders = Conversions.headersToNetty(response.headers)
       val jStatus  = Conversions.statusToNetty(response.status)
+      maybeAddDateHeader(jHeaders)
 
       response.body.knownContentLength match {
         case Some(contentLength) if !jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH) =>
@@ -63,16 +65,21 @@ private[zio] object NettyResponseEncoder {
   private def doEncode(response: Response, bytes: Array[Byte]): FullHttpResponse = {
     val jHeaders         = Conversions.headersToNetty(response.headers)
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
+    maybeAddDateHeader(jHeaders)
 
     val jStatus = Conversions.statusToNetty(response.status)
 
-    val jContent  = Unpooled.wrappedBuffer(bytes)
-    val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, false)
+    val jContent = Unpooled.wrappedBuffer(bytes)
 
     if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
-    jResponse.headers().add(jHeaders)
-    jResponse
 
+    new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, jHeaders, EmptyHttpHeaders.INSTANCE)
   }
+
+  /** If the user already provided this, we shouldn't override it */
+  private def maybeAddDateHeader(headers: HttpHeaders): Unit =
+    if (!headers.contains(HttpHeaderNames.DATE)) {
+      headers.set(HttpHeaderNames.DATE, dateHeaderCache.get())
+    } else ()
 
 }
