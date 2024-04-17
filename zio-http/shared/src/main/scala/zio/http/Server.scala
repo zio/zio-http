@@ -58,6 +58,7 @@ object Server extends ServerPlatformSpecific {
     gracefulShutdownTimeout: Duration,
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
+    validateRequestHeaders: Boolean,
   ) {
     self =>
 
@@ -156,6 +157,10 @@ object Server extends ServerPlatformSpecific {
     def requestStreaming(requestStreaming: RequestStreaming): Config =
       self.copy(requestStreaming = requestStreaming)
 
+    /** Enables or disables request header validation */
+    def validateRequestHeaders(validate: Boolean): Config =
+      self.copy(validateRequestHeaders = validate)
+
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
@@ -174,7 +179,8 @@ object Server extends ServerPlatformSpecific {
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
         zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
         zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout) ++
-        zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout)
+        zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
+        zio.Config.boolean("validate-request-headers").withDefault(Config.default.validateRequestHeaders)
     }.map {
       case (
             sslConfig,
@@ -190,6 +196,7 @@ object Server extends ServerPlatformSpecific {
             logWarningOnFatalError,
             gracefulShutdownTimeout,
             idleTimeout,
+            validateRequestHeaders,
           ) =>
         default.copy(
           sslConfig = sslConfig,
@@ -204,6 +211,7 @@ object Server extends ServerPlatformSpecific {
           logWarningOnFatalError = logWarningOnFatalError,
           gracefulShutdownTimeout = gracefulShutdownTimeout,
           idleTimeout = idleTimeout,
+          validateRequestHeaders = validateRequestHeaders,
         )
     }
 
@@ -221,6 +229,7 @@ object Server extends ServerPlatformSpecific {
       gracefulShutdownTimeout = 10.seconds,
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = None,
+      validateRequestHeaders = false,
     )
 
     final case class ResponseCompressionConfig(

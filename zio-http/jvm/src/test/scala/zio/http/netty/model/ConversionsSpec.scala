@@ -42,7 +42,7 @@ object ConversionsSpec extends ZIOHttpSpec {
         test("header with multiple values should not be escaped") {
           val headers               = Headers("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
           val expected: HttpHeaders =
-            new DefaultHttpHeaders(true).add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+            new DefaultHttpHeaders().add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
           assertTrue(Conversions.headersToNetty(headers) == expected)
         },
       ),

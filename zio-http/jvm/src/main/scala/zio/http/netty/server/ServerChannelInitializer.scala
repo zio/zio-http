@@ -58,10 +58,13 @@ private[zio] final case class ServerChannelInitializer(
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
-    pipeline.addLast(
-      Names.HttpRequestDecoder,
-      new HttpRequestDecoder(cfg.maxInitialLineLength, cfg.maxHeaderSize, DEFAULT_MAX_CHUNK_SIZE, false),
-    )
+    val decoderCfg = new HttpDecoderConfig()
+      .setMaxInitialLineLength(cfg.maxInitialLineLength)
+      .setMaxHeaderSize(cfg.maxHeaderSize)
+      .setMaxChunkSize(DEFAULT_MAX_CHUNK_SIZE)
+      .setValidateHeaders(cfg.validateRequestHeaders)
+
+    pipeline.addLast(Names.HttpRequestDecoder, new HttpRequestDecoder(decoderCfg))
     pipeline.addLast(Names.HttpResponseEncoder, new HttpResponseEncoder())
 
     // HttpContentDecompressor

@@ -66,13 +66,11 @@ private[zio] object NettyResponseEncoder {
 
     val jStatus = Conversions.statusToNetty(response.status)
 
-    val jContent  = Unpooled.wrappedBuffer(bytes)
-    val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, false)
+    val jContent = Unpooled.wrappedBuffer(bytes)
 
     if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
-    jResponse.headers().add(jHeaders)
-    jResponse
 
+    new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, jHeaders, EmptyHttpHeaders.INSTANCE)
   }
 
 }

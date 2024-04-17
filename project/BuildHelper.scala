@@ -6,12 +6,12 @@ import xerial.sbt.Sonatype.autoImport.*
 import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 
 object BuildHelper extends ScalaSettings {
-  val Scala212         = "2.12.18"
-  val Scala213         = "2.13.12"
-  val Scala3           = "3.3.1"
-  val ScoverageVersion = "2.0.9"
-  val JmhVersion       = "0.4.3"
-  val SilencerVersion  = "1.7.14"
+  val Scala212         = "2.12.19"
+  val Scala213         = "2.13.13"
+  val Scala3           = "3.3.3"
+  val ScoverageVersion = "2.0.11"
+  val JmhVersion       = "0.4.7"
+  val SilencerVersion  = "1.7.16"
 
   private val stdOptions = Seq(
     "-deprecation",
