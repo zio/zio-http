@@ -27,6 +27,34 @@ private[http] sealed trait FormState {
 
 private[http] object FormState {
 
+  final case class BoundaryDetectingBuffer(b: Boundary) {
+    val buffer: Array[Byte] = Array.ofDim(b.closingBoundary.length)
+    var offset              = 0
+
+    def addByte(byte: Byte): BoundaryDetectingBuffer = {
+      buffer(offset) = byte
+      offset += 1
+      if (offset >= buffer.length) offset = 0
+      this
+    }
+
+    def isClosingBoundary: Boolean = {
+      for (i <- (0 until b.closingBoundary.length).reverse) {
+        if (b.closingBoundary(i).toByte != buffer(positionInBuffer(i))) return false
+      }
+      true
+    }
+
+    private def positionInBuffer(index: Int) =
+      offset - 1 - index match {
+        case x if x < 0 => buffer.length + x
+        case x          => x
+      }
+
+    def isCRLF: Boolean =
+      buffer(positionInBuffer(0)) == '\n'.toByte && buffer(positionInBuffer(1)) == '\r'.toByte
+  }
+
   final class FormStateBuffer(boundary: Boundary) extends FormState { self =>
 
     private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make[FormAST]()
@@ -37,6 +65,7 @@ private[http] object FormState {
     private var dropContents           = false
     private var phase0: Phase          = Phase.Part1
     private var lastTree               = null.asInstanceOf[Chunk[FormAST]]
+    private val boundaryBuffer         = BoundaryDetectingBuffer(boundary)
 
     private def addToTree(ast: FormAST): Unit = {
       if (lastTree ne null) lastTree = null
@@ -51,8 +80,10 @@ private[http] object FormState {
     def phase: Phase = phase0
 
     def append(byte: Byte): FormState = {
+      boundaryBuffer.addByte(byte)
 
-      val crlf = byte == '\n' && !lastByte.isEmpty && lastByte.get == '\r'
+      val crlf      = boundaryBuffer.isCRLF
+      val isClosing = !crlf && boundaryBuffer.isClosingBoundary
 
       def flush(ast: FormAST): Unit = {
         buffer.clear()
@@ -73,6 +104,17 @@ private[http] object FormState {
         }
 
       } else if (crlf && (phase eq Phase.Part2)) {
+        val ast = FormAST.makePart2(buffer.result(), boundary)
+
+        ast match {
+          case content: Content         =>
+            flush(content)
+            addToTree(EoL) // preserving EoL for multiline content
+            self
+          case EncapsulatingBoundary(_) => BoundaryEncapsulated(tree)
+          case ClosingBoundary(_)       => BoundaryClosed(tree)
+        }
+      } else if (isClosing && (phase eq Phase.Part2)) {
         val ast = FormAST.makePart2(buffer.result(), boundary)
 
         ast match {

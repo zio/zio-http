@@ -168,7 +168,7 @@ object FormSpec extends ZIOHttpSpec {
           "octet-stream",
         )
       val testDataExpected                      = Chunk(multipartText, multipartBinary)
-      val shouldBeIgnored                       = Chunk(CRLF.getBytes, "some random text".getBytes)
+      val shouldBeIgnored                       = Chunk(CRLF.getBytes)
       val testSet: Chunk[(Chunk[Byte], String)] = for {
         be <- testDataExpected
         (bytes, expected) = be
