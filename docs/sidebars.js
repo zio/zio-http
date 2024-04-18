@@ -48,6 +48,30 @@ const sidebars = {
             "how-to-guides/how-to-handle-WebSocket-exceptions-and-errors",
           ],
     },
+
+
+    // Examples
+    {
+      type: "category",
+      label: "Examples",
+      items: [
+        "examples/hello-world",
+        "examples/http-client-server",
+        "examples/https-client-server",
+        "examples/serving-static-files",
+        "examples/html-templating",
+        "examples/websocket",
+        "examples/streaming",
+        "examples/endpoint",
+        "examples/cors-handling-middleware",
+        "examples/authentication",
+        "examples/graceful-shutdown",
+        "examples/cli",
+        "examples/concrete-entity",
+        "examples/multipart-form-data",
+        "examples/server-sent-events-in-endpoints",
+      ],
+    },
     
     //Reference
     {
@@ -86,37 +110,12 @@ const sidebars = {
             "reference/dsl/template",
             "reference/dsl/client",
           ],
-        },
-          
+        },       
       ],    
     },
-    
-    
-    // Examples #later 
-    {
-          type: "category",
-          label: "Examples",
-          items: [
-            "examples/hello-world",
-            "examples/http-client-server",
-            "examples/https-client-server",
-            "examples/serving-static-files",
-            "examples/html-templating",
-            "examples/websocket",
-            "examples/streaming",
-            "examples/endpoint",
-            "examples/cors-handling-middleware",
-            "examples/authentication",
-            "examples/graceful-shutdown",
-            "examples/cli",
-            "examples/concrete-entity",
-            "examples/multipart-form-data",
-            "examples/server-sent-events-in-endpoints",
-          ],
-    },
-        
+      
             
-        ],
+      "performance",],
     },
   ],
 };
