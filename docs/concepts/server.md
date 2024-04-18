@@ -7,7 +7,7 @@ The concept of a server in ZIO HTTP revolves around handling incoming HTTP reque
 
 ZIO HTTP provides a simple and composable DSL for defining HTTP servers using the `Http` type. The `Http` type represents an HTTP route or endpoint that can handle incoming requests and produce responses. Servers in ZIO HTTP are created by defining an HTTP route and then using the `Server.serve` method to start the server and bind it to a specific port.
 
-Here are the key components involved in the server concept in ZIO-HTTP:
+Here are the key components involved in the server concept in ZIO HTTP:
 
 1. **HTTP Route**:
    - A route is defined using the `Http.collect` method, which takes a partial function mapping requests to their corresponding responses.

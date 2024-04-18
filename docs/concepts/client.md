@@ -17,7 +17,7 @@ Key components and concepts involved in the client concept in ZIO HTTP:
 
 - **Dependency Injection**: ZIO's dependency injection capabilities enable us to provide the necessary dependencies to the client. This includes the client configuration, the client implementation, and other dependencies required for networking, DNS resolution, and other underlying functionality.
 
-- **Error Handling**: ZIO-HTTP provides comprehensive error handling mechanisms. Errors that may occur during the client interaction, such as network failures, timeouts, or invalid responses, are represented as typed errors in the ZIO effect. You can handle these errors using combinators like `catchAll`, `orElse`, or `fold`.
+- **Error Handling**: ZIO HTTP provides comprehensive error handling mechanisms. Errors that may occur during the client interaction, such as network failures, timeouts, or invalid responses, are represented as typed errors in the ZIO effect. You can handle these errors using combinators like `catchAll`, `orElse`, or `fold`.
 
 By leveraging the client concept in ZIO HTTP, we can build type-safe, composable, and concurrent HTTP clients that seamlessly integrate with the ZIO ecosystem. It enables us to write pure and testable code while benefiting from ZIO's powerful features like error handling, concurrency, and resource management.
 

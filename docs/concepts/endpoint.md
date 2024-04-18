@@ -35,4 +35,4 @@ ZIO HTTP server requires an `HttpApp[R]` to run. The server can be started using
 
 The server is responsible for listening on the specified port, accepting incoming connections, and handling the incoming HTTP requests by routing them to the appropriate endpoints.
 
-With `Endpoint` in ZIO HTTP, we can define and implement our API endpoints in a type-safe and composable way. The DSL allows us to specify the details of each endpoint, handle middleware for additional behavior, and easily compose endpoints to structure our API. This powerful concept empowers developers to build robust and scalable API services using ZIO-HTTP.
+With `Endpoint` in ZIO HTTP, we can define and implement our API endpoints in a type-safe and composable way. The DSL allows us to specify the details of each endpoint, handle middleware for additional behavior, and easily compose endpoints to structure our API. This powerful concept empowers developers to build robust and scalable API services using ZIO HTTP.
