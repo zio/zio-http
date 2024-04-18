@@ -1,4 +1,4 @@
-package example
+package example.endpoint
 
 import zio._
 import zio.cli._
@@ -13,9 +13,8 @@ import zio.http.endpoint.cli._
 import zio.http.endpoint.{Endpoint, EndpointExecutor}
 
 trait TestCliEndpoints {
-  import zio.http.codec.PathCodec._
-
   import HttpCodec._
+  import zio.http.codec.PathCodec._
   final case class User(
     @description("The unique identifier of the User")
     id: Int,
@@ -82,8 +81,8 @@ object TestCliApp extends zio.cli.ZIOCliDefault with TestCliEndpoints {
 object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
   val getUserRoute =
     getUser.implement {
-      Handler.fromFunction { case (id, _) =>
-        User(id, "Juanito", Some("juanito@test.com"))
+      Handler.fromFunctionZIO { case (id, _) =>
+        ZIO.succeed(User(id, "Juanito", Some("juanito@test.com"))).debug("Hello")
       }
     }
 
@@ -101,7 +100,7 @@ object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
       }
     }
 
-  val routes = Routes(getUserRoute, getUserPostsRoute, createUserRoute)
+  val routes = Routes(getUserRoute, getUserPostsRoute, createUserRoute) @@ Middleware.debug
 
   val run = Server.serve(routes.toHttpApp).provide(Server.default)
 }

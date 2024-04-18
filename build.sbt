@@ -276,7 +276,7 @@ libraryDependencies ++= Seq(
   "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
 )
   )
-  .dependsOn(zioHttpJVM, zioHttpCli)
+  .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen)
 
 lazy val zioHttpGen = (project in file("zio-http-gen"))
   .settings(stdSettings("zio-http-gen"))

@@ -13,8 +13,19 @@ ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Ne
 Setup via `build.sbt`:
 
 ```scala
-package example
+libraryDependencies += "dev.zio" %% "zio-http" % "3.0.0-RC6"
+```
 
+**NOTES ON VERSIONING:**
+
+- Older library versions `1.x` or `2.x` with organization `io.d11` of ZIO Http are derived from Dream11, the organization that donated ZIO Http to the ZIO organization in 2022. 
+- Newer library versions, starting in 2023 and resulting from the ZIO organization (`dev.zio`) started with `0.0.x`, reaching `1.0.0` release candidates in April of 2023
+
+## Getting Started
+
+A simple Http server can be built using a few lines of code.
+
+```scala
 import zio._
 
 import zio.http._

@@ -5,6 +5,23 @@ title: PathCodec
 
 `PathCodec[A]` represents a codec for paths of type `A`, comprising segments where each segment can be a literal, an integer, a long, a string, a UUID, or the trailing path.
 
+The three basic operations that `PathCodec` supports are:
+
+- **decode**: converting a path into a value of type `A`.
+- **format**: converting a value of type `A` into a path.
+- **++ or /**: combining two `PathCodec` values to create a new `PathCodec` that matches both paths, so the resulting of the decoding operation will be a tuple of the two values.
+
+So we can think of `PathCodec` as the following simplified trait:
+
+```scala
+trait PathCodec[A] {
+  def /[B](that: PathCodec[B]): PathCodec[(A, B)]
+
+  def decode(path: Path): Either[String, A]
+  def format(value: A): : Either[String, Path]
+}
+```
+
 ## Building PathCodecs
 
 The `PathCodec` data type offers several predefined codecs for common types:
@@ -18,7 +35,7 @@ The `PathCodec` data type offers several predefined codecs for common types:
 
 Complex `PathCodecs` can be constructed by combining them using the `/` operator:
 
-```scala mdoc:compile-only
+```scala mdoc:silent
 import zio.http.codec.PathCodec
 import PathCodec._
 
@@ -26,6 +43,54 @@ val pathCodec = empty / "users" / int("user-id") / "posts" / string("post-id")
 ```
 
 By combining `PathCodec` values, the resulting `PathCodec` type reflects the types of the path segments it matches. In the provided example, the type of `pathCodec` is `(Int, String)` because it matches a path with two segments of type `Int` and `String`, respectively.
+
+## Decoding and Formatting PathCodecs
+
+To decode a path into a value of type `A`, we can use the `PathCodec#decode` method:
+
+```scala mdoc
+import zio.http._
+
+pathCodec.decode(Path("users/123/posts/abc"))
+```
+
+To format (encode) a value of type `A` into a path, we can use the `PathCodec#format` method:
+
+```scala mdoc
+pathCodec.format((123, "abc"))
+```
+
+## Rendering PathCodecs
+
+If we render the previous `PathCodec` to a string using `PathCodec#render` or `PathCodec#toString`, we get the following result:
+
+```scala mdoc
+pathCodec.render
+
+pathCodec.toString
+```
+
+## Attaching Documentation to PathCodecs
+
+The `PathCodec#??` operator, takes a `Doc` and annotate the `PathCodec` with it. It is useful for generating developer-friendly documentation for the API:
+
+```scala mdoc
+import zio.http.codec._
+
+val users = PathCodec.literal("users") ?? (Doc.p("Managing users including CRUD operations"))
+```
+
+When generating OpenAPI documentation, these annotations will be used to generate the API documentation.
+
+## Attaching Examples to PathCodecs
+
+Similarly to attaching documentation, we can attach examples to `PathCodec` using the `PathCodec#example` operator:
+
+```scala mdoc
+import zio.http.codec._
+
+val userId = PathCodec.int("user-id") ?? (Doc.p("The user id")) example ("user-id", 123)
+```
 
 ## Using Value Objects with PathCodecs
 

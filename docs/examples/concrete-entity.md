@@ -10,5 +10,5 @@ This code is an example demonstrating how to build an application using concrete
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/CliExamples.scala")
+printSource("zio-http-example/src/main/scala/example/endpoint/CliExamples.scala")
 ```
