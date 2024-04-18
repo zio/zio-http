@@ -14,7 +14,8 @@ const sidebars = {
     //concepts          
     {
       type: "category",
-      label: "Concepts", 
+      label: "Concepts",
+      link: { type: "doc", id: "concepts/intro" }, 
       items: [
         "concepts/client",
         "concepts/endpoint",
