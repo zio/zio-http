@@ -49,6 +49,7 @@ private[zio] trait NettyRuntime { self =>
     // When connection closes, interrupt the program
     var close: GenericFutureListener[Future[_ >: Void]] = null
 
+    // See https://github.com/zio/zio-http/pull/2782 on why forking is preferable over runOrFork
     val fiber = rtm.unsafe.fork(program)
 
     if (interruptOnClose) {
