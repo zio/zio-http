@@ -1,6 +1,6 @@
 ---
 id: quickstart
-title: quickstart
+title: Quickstart
 ---
 
 ## Quickstart

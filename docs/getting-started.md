@@ -1,7 +1,6 @@
 ---
-id: index
-title: "Introduction to ZIO Http"
-sidebar_label: "ZIO Http"
+id: getting-started
+title: "Getting Started"
 ---
 
 
