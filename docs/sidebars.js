@@ -115,7 +115,8 @@ const sidebars = {
     },
       
             
-      "performance",],
+      "performance",
+      "faq",],
     },
   ],
 };
