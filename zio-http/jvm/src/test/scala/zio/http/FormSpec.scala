@@ -16,19 +16,17 @@
 
 package zio.http
 
-import java.nio.charset.StandardCharsets
-
-import scala.annotation.nowarn
-
 import zio._
+import zio.http.Header.ContentTransferEncoding
+import zio.http.forms.Fixtures._
+import zio.stream.ZStream
+import zio.stream.ZStreamAspect
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-import zio.stream.{ZStream, ZStreamAspect}
-
-import zio.http.Header.ContentTransferEncoding
-import zio.http.forms.Fixtures._
+import java.nio.charset.StandardCharsets
+import scala.annotation.nowarn
 
 object FormSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
@@ -142,7 +140,46 @@ object FormSpec extends ZIOHttpSpec {
           form.get("file").get.asInstanceOf[FormField.Binary].data.size == 69,
         )
       }
+    },
+    test("decoding should  not require a terminating CRLF and ignore everything after the closing boundary") {
+      val multipartText                         =
+        (
+          Chunk.fromArray(
+            s"""|--(((AaB03x)))${CR}
+                |Content-Disposition: form-data; name="csv-data"${CR}
+                |Content-Type: text/csv; charset=UTF-8${CR}
+                |${CR}
+                |foo,bar,baz${CR}
+                |--(((AaB03x)))--""".stripMargin.getBytes(),
+          ),
+          "csv-data",
+        )
+      val multipartBinary                       =
+        (
+          Chunk.fromArray(
+            s"""|--(((AaB03x)))${CR}
+                |Content-Disposition: form-data; name="octet-stream"${CR}
+                |Content-Type:  application/octet-stream${CR}
+                |${CR}
+                |{"prompt": "<prompt text>", "completion": "<ideal generated text>"}${CR}
+                |${CR}
+                |--(((AaB03x)))--""".stripMargin.getBytes(),
+          ),
+          "octet-stream",
+        )
+      val testDataExpected                      = Chunk(multipartText, multipartBinary)
+      val shouldBeIgnored                       = Chunk(CRLF.getBytes, "some random text".getBytes)
+      val testSet: Chunk[(Chunk[Byte], String)] = for {
+        be <- testDataExpected
+        (bytes, expected) = be
+        ignored <- shouldBeIgnored
+      } yield (bytes ++ ignored, expected)
 
+      check(Gen.fromIterable(testSet)) { case (bytes, expected) =>
+        Form.fromMultipartBytes(bytes).map { form =>
+          assertTrue(form.formData.size == 1, form.formData.head.name == expected)
+        }
+      }
     },
   )
 
