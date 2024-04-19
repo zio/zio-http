@@ -24,8 +24,8 @@ object BadRequestSpec extends ZIOSpecDefault {
         val expectedBody =
           html(
             body(
-              h1("Bad Request"),
-              p("There was an error decoding the request"),
+              h1("Codec Error"),
+              p("There was an error en-/decoding the request/response"),
               p("SchemaTransformationFailure", idAttr                                      := "name"),
               p("Expected single value for query parameter age, but got 2 instead", idAttr := "message"),
             ),
