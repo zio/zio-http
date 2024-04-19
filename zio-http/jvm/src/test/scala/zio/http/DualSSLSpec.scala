@@ -16,6 +16,8 @@
 
 package zio.http
 
+import java.security.cert.X509Certificate
+
 import zio.test.Assertion.equalTo
 import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 import zio.{Scope, ZLayer}
@@ -24,10 +26,7 @@ import zio.http.SSLConfig.HttpBehaviour
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-object SSLSpec extends ZIOHttpSpec {
-
-  val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
-  val config    = Server.Config.default.port(8073).ssl(sslConfig)
+object DualSSLSpec extends ZIOHttpSpec {
 
   val clientSSL1 = ClientSSLConfig.FromCertResource("server.crt")
   val clientSSL2 = ClientSSLConfig.FromCertResource("ss2.crt.pem")
@@ -37,18 +36,30 @@ object SSLSpec extends ZIOHttpSpec {
     ClientSSLConfig.FromClientCertResource("client.crt", "client.key"),
   )
 
+  val clientSSLWithClientCert2 = ClientSSLConfig.FromClientAndServerCert(
+    clientSSL1,
+    ClientSSLConfig.FromClientCertResource("client_other.crt", "client_other.key"),
+  )
+
   val sslConfigWithTrustedClient = SSLConfig.fromResource(
     HttpBehaviour.Redirect,
     "server.crt",
     "server.key",
     Some(ClientAuth.Required),
     Some("ca.pem"),
+    includeClientCert = true,
   )
+
+  val config = Server.Config.default.port(8073).ssl(sslConfigWithTrustedClient)
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
   val app: HttpApp[Any] = Routes(
-    Method.GET / "success" -> handler(Response.ok),
+    Method.GET / "success" -> handler((req: Request) =>
+      Response.text(
+        req.remoteCertificate.map { _.asInstanceOf[X509Certificate].getSubjectX500Principal.getName() }.getOrElse(""),
+      ),
+    ),
   ).sandbox.toHttpApp
 
   val httpUrl =
@@ -62,23 +73,21 @@ object SSLSpec extends ZIOHttpSpec {
       .install(app)
       .as(
         List(
-          test("succeed when client has the server certificate") {
+          test("succeed when client has the server certificate and client certificate is configured") {
             val actual = Client
               .request(Request.get(httpsUrl))
-              .map(_.status)
-            assertZIO(actual)(equalTo(Status.Ok))
+              .flatMap(r => r.body.asString.map(body => (r.status, body)))
+            assertZIO(actual)(equalTo((Status.Ok, "O=client1,ST=Some-State,C=AU")))
           }.provide(
             Client.customized,
-            ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
+            ZLayer.succeed(ZClient.Config.default.ssl(clientSSLWithClientCert)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
           // Unfortunately if the channel closes before we create the request, we can't extract the DecoderException
-          test(
-            "fail with DecoderException or PrematureChannelClosureException when client doesn't have the server certificate",
-          ) {
+          test("fail when client has the server certificate but no client certificate is configured") {
             Client
               .request(Request.get(httpsUrl))
               .fold(
@@ -92,33 +101,27 @@ object SSLSpec extends ZIOHttpSpec {
               )
           }.provide(
             Client.customized,
-            ZLayer.succeed(ZClient.Config.default.ssl(clientSSL2)),
-            NettyClientDriver.live,
-            DnsResolver.default,
-            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-            Scope.default,
-          ),
-          test("succeed when client has default SSL") {
-            val actual = Client
-              .request(Request.get(httpsUrl))
-              .map(_.status)
-            assertZIO(actual)(equalTo(Status.Ok))
-          }.provide(
-            Client.customized,
-            ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.Default)),
-            NettyClientDriver.live,
-            DnsResolver.default,
-            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-            Scope.default,
-          ),
-          test("Https Redirect when client makes http request") {
-            val actual = Client
-              .request(Request.get(httpUrl))
-              .map(_.status)
-            assertZIO(actual)(equalTo(Status.PermanentRedirect))
-          }.provide(
-            Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
+            NettyClientDriver.live,
+            DnsResolver.default,
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+            Scope.default,
+          ),
+          test("fail when client has the server certificate but wrong client certificate is configured") {
+            Client
+              .request(Request.get(httpsUrl))
+              .fold(
+                { e =>
+                  val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
+                  val errorType      = e.getClass.getSimpleName
+                  if (expectedErrors.contains(errorType)) assertCompletes
+                  else assertNever(s"request failed with unexpected error type: $errorType")
+                },
+                _ => assertNever("expected request to fail"),
+              )
+          }.provide(
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(clientSSLWithClientCert2)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

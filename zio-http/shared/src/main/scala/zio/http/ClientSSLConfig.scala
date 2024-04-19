@@ -22,31 +22,61 @@ import zio.Config.Secret
 sealed trait ClientSSLConfig
 
 object ClientSSLConfig {
+  val clientSSLCertConfig: Config[ClientSSLCertConfig] = {
+    val tpe      = Config.string("type")
+    val certPath = Config.string("certPath")
+    val keyPath  = Config.string("keyPath")
+
+    val fromCertFile     = certPath.zipWith(keyPath)(FromClientCertFile(_, _))
+    val fromCertResource = certPath.zipWith(keyPath)(FromClientCertResource(_, _))
+
+    tpe.switch(
+      "FromCertFile"     -> fromCertFile,
+      "FromCertResource" -> fromCertResource,
+    )
+  }
+
   val config: Config[ClientSSLConfig] = {
     val tpe                = Config.string("type")
     val certPath           = Config.string("certPath")
     val trustStorePath     = Config.string("trustStorePath")
     val trustStorePassword = Config.secret("trustStorePassword")
 
-    val default                = Config.succeed(Default)
-    val fromCertFile           = certPath.map(FromCertFile(_))
-    val fromCertResource       = certPath.map(FromCertResource(_))
-    val fromTrustStoreFile     = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile(_, _))
-    val fromTrustStoreResource = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource(_, _))
+    val default                 = Config.succeed(Default)
+    val fromCertFile            = certPath.map(FromCertFile(_))
+    val fromCertResource        = certPath.map(FromCertResource(_))
+    val fromTrustStoreFile      = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile(_, _))
+    val fromTrustStoreResource  = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource(_, _))
+    val fromClientAndServerCert = Config.defer {
+      val serverCertConfig = config.nested("serverCertConfig")
+      val clientCertConfig = clientSSLCertConfig.nested("clientCertConfig")
+      serverCertConfig.zipWith(clientCertConfig)(FromClientAndServerCert(_, _))
+    }
 
     tpe.switch(
-      "Default"                -> default,
-      "FromCertFile"           -> fromCertFile,
-      "FromCertResource"       -> fromCertResource,
-      "FromTrustStoreFile"     -> fromTrustStoreFile,
-      "FromTrustStoreResource" -> fromTrustStoreResource,
+      "Default"                 -> default,
+      "FromCertFile"            -> fromCertFile,
+      "FromCertResource"        -> fromCertResource,
+      "FromTrustStoreFile"      -> fromTrustStoreFile,
+      "FromTrustStoreResource"  -> fromTrustStoreResource,
+      "FromClientAndServerCert" -> fromClientAndServerCert,
     )
   }
+
+  sealed trait ClientSSLCertConfig
 
   case object Default                                                                         extends ClientSSLConfig
   final case class FromCertFile(certPath: String)                                             extends ClientSSLConfig
   final case class FromCertResource(certPath: String)                                         extends ClientSSLConfig
   final case class FromTrustStoreResource(trustStorePath: String, trustStorePassword: Secret) extends ClientSSLConfig
+  final case class FromClientAndServerCert(
+    serverCertConfig: ClientSSLConfig,
+    clientCertConfig: ClientSSLCertConfig,
+  ) extends ClientSSLConfig
+
+  final case class FromClientCertFile(certPath: String, keyPath: String)     extends ClientSSLCertConfig
+  final case class FromClientCertResource(certPath: String, keyPath: String) extends ClientSSLCertConfig
+
   object FromTrustStoreResource {
     def apply(trustStorePath: String, trustStorePassword: String): FromTrustStoreResource =
       FromTrustStoreResource(trustStorePath, Secret(trustStorePassword))
