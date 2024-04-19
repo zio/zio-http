@@ -255,7 +255,7 @@ object Quiz {
 }
 
 object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
-  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Course, Quiz], None] =
+  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Quiz, Course], None] =
     Endpoint(RoutePattern.GET / "resources")
       .out[Course]
       .out[Quiz]
@@ -264,8 +264,8 @@ object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
     endpoint.implement(handler {
       ZIO.randomWith(_.nextBoolean)
         .map(r =>
-          if (r) Left(Course("Introduction to Programming", 49.99))
-          else Right(Quiz("What is the boiling point of water in Celsius?", 2)),
+          if (r) Right(Course("Introduction to Programming", 49.99))
+          else Left(Quiz("What is the boiling point of water in Celsius?", 2)),
         )
     })
     .toHttpApp).provide(Server.default, Scope.default)
@@ -306,7 +306,7 @@ implicit val bookSchema     = DeriveSchema.gen[Book]
 implicit val notFoundSchema = DeriveSchema.gen[BookNotFound]
 implicit val authSchema     = DeriveSchema.gen[AuthenticationError]
 
-val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[BookNotFound, AuthenticationError], Book, None] =
+val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
     .header(HeaderCodec.authorization)
     .out[Book]

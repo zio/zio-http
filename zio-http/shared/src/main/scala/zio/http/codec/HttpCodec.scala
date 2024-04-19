@@ -334,7 +334,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   def unused: HttpCodec[Any, ZNothing] = Halt
 
   final case class Enumeration[Value](unit: Unit) extends AnyVal {
-    def apply[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag](
+    def f2[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag](
       codec1: HttpCodec[AtomTypes, Sub1],
       codec2: HttpCodec[AtomTypes, Sub2],
     ): HttpCodec[AtomTypes, Value] =
@@ -346,7 +346,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
-    def apply[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
+    def f3[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
       codec1: HttpCodec[AtomTypes, Sub1],
       codec2: HttpCodec[AtomTypes, Sub2],
       codec3: HttpCodec[AtomTypes, Sub3],
@@ -360,7 +360,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
-    def apply[
+    def f4[
       AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
@@ -384,7 +384,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
-    def apply[
+    def f5[
       AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
@@ -411,7 +411,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
-    def apply[
+    def f6[
       AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
@@ -441,7 +441,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
-    def apply[
+    def f7[
       AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
@@ -474,7 +474,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
-    def apply[
+    def f8[
       AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,

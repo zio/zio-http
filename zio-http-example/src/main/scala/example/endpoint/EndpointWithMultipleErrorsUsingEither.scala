@@ -38,7 +38,7 @@ object EndpointWithMultipleErrorsUsingEither extends ZIOAppDefault {
     }
   }
 
-  val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[BookNotFound, AuthenticationError], Book, None] =
+  val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, None] =
     Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
       .header(HeaderCodec.authorization)
       .out[Book]
@@ -48,12 +48,12 @@ object EndpointWithMultipleErrorsUsingEither extends ZIOAppDefault {
   def isUserAuthorized(authHeader: Header.Authorization) = false
 
   val getBookHandler
-    : Handler[Any, Either[BookNotFound, AuthenticationError], (RuntimeFlags, Header.Authorization), Book] =
+    : Handler[Any, Either[AuthenticationError, BookNotFound], (RuntimeFlags, Header.Authorization), Book] =
     handler { (id: Int, authHeader: Header.Authorization) =>
       if (isUserAuthorized(authHeader))
-        BookRepo.find(id).mapError(Left(_))
+        BookRepo.find(id).mapError(Right(_))
       else
-        ZIO.fail(Right(AuthenticationError("User is not authenticated", 123)))
+        ZIO.fail(Left(AuthenticationError("User is not authenticated", 123)))
     }
 
   val app = endpoint.implement(getBookHandler).toHttpApp @@ Middleware.debug

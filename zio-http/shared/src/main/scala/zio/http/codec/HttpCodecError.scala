@@ -25,7 +25,7 @@ import zio.schema.validation.ValidationError
 
 import zio.http.{Path, Status}
 
-sealed trait HttpCodecError extends Exception with NoStackTrace {
+sealed trait HttpCodecError extends Exception with NoStackTrace with Product with Serializable {
   override def getMessage(): String = message
   def message: String
 }
@@ -67,10 +67,17 @@ object HttpCodecError {
         errors,
       )
   }
-  final case class CustomError(message: String)                                                extends HttpCodecError
+  final case class CustomError(name: String, message: String)                                  extends HttpCodecError
 
   final case class UnsupportedContentType(contentType: String) extends HttpCodecError {
     def message = s"Unsupported content type $contentType"
+  }
+
+  def asHttpCodecError(cause: Cause[Any]): Option[HttpCodecError] = {
+    if (!cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError]))
+      cause.defects.headOption.asInstanceOf[Option[HttpCodecError]]
+    else
+      None
   }
 
   def isHttpCodecError(cause: Cause[Any]): Boolean = {
