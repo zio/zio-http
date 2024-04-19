@@ -7,6 +7,57 @@ title: Overview
 
 ZIO HTTP has powerful functional domains that help in creating, modifying, composing apps easily. Let's start with the HTTP domain.
 
+The core concepts of ZIO HTTP are:
+
+- `HttpApp` - A collection of `Routes`s that are ready to be served. All errors are handled through conversion into HTTP responses.
+- `Routes` - A collection of `Route`s.
+- `Route` - A single route that can be matched against an http `Request` and produce a `Response`. It comprises of a `RoutePattern` and a `Handler`:
+  1. `RoutePattern` - A pattern that can be matched against an http request. It is a combination of `Method` and `PathCodec` which can be used to match the method and path of the request.
+  2. `Handler` - A function that can convert a `Request` into a `Response`.
+
+Let's see each of these concepts inside a simple example:
+
+```scala mdoc:silent
+import zio._
+import zio.http._
+
+object ExampleServer extends ZIOAppDefault {
+
+  // A route that matches GET requests to /greet
+  // It doesn't require any service from the ZIO environment 
+  // so the first type parameter is Any
+  // All its errors are handled so the second type parameter is Nothing
+  val greetRoute: Route[Any, Nothing] =
+    // The whole Method.GET / "greet" is a RoutePattern
+    Method.GET / "greet" ->
+      // The handler is a function that takes a Request and returns a Response
+      handler { (req: Request) =>
+       val name = req.queryParamToOrElse("name", "World")
+       Response.text(s"Hello $name!")
+      }
+
+  // A route that matches POST requests to /echo
+  // It doesn't require any service from the ZIO environment
+  // It is an unhandled route so the second type parameter is something other than Nothing
+  val echoRoute: Route[Any, Throwable] =
+    Method.POST / "echo" -> handler { (req: Request) =>
+      req.body.asString.map(e => Response.text(e))
+    }
+
+  // The HttpApp that doesn't require any service from the ZIO environment,
+  // so the first type parameter is Any.
+  // All the errors are handled
+  val app: HttpApp[Any] =
+    // List of all the routes
+    Routes(greetRoute, echoRoute) // Handle all unhandled errors
+      .handleError(e => Response.internalServerError(e.getMessage))
+      .toHttpApp // Convert the routes to an HttpApp
+  
+  // Serving the app using the default server layer
+  def run = Server.serve(app).provide(Server.default)
+}
+```
+
 ## Handler and HttpApp
 
 `Handler` describes the transformation from an incoming `Request` to an outgoing `Response` type. The `HttpApp` type on top of this provides input-dependent routing to different `Handler` values.
@@ -144,7 +195,7 @@ ZIO HTTP provides a way to set configurations for our server. The server can be 
 
 ### Starting an HTTP App
 
-To launch our app, we need to start the server on a port. The below example shows a simple HTTP app that responds with empty content and a `200` status code, deployed on port `8090` using `Server.start`.
+To launch our app, we need to start the server on a port. The below example shows a simple HTTP app that responds with empty content and a `200` status code, deployed on port `8090` using `Server.start`:
 
 ```scala mdoc:silent:reset
 import zio.http._
