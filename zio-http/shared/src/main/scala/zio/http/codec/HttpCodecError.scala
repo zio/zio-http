@@ -73,6 +73,13 @@ object HttpCodecError {
     def message = s"Unsupported content type $contentType"
   }
 
+  def asHttpCodecError(cause: Cause[Any]): Option[HttpCodecError] = {
+    if (!cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError]))
+      cause.defects.headOption.asInstanceOf[Option[HttpCodecError]]
+    else
+      None
+  }
+
   def isHttpCodecError(cause: Cause[Any]): Boolean = {
     !cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError])
   }

@@ -29,7 +29,7 @@ object EndpointGen {
       input,
       HttpCodec.unused,
       HttpCodec.unused,
-      HttpCodecErrorCodec.default,
+      HttpContentCodec.responseErrorCodec,
       doc,
       EndpointMiddleware.None,
     )

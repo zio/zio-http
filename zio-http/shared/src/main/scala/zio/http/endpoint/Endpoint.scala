@@ -157,7 +157,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     copy(input = self.input ++ codec)
 
   def implement[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
-    import HttpCodecError.isHttpCodecError
+    import HttpCodecError.asHttpCodecError
 
     val handlers = self.alternatives.map { case (endpoint, condition) =>
       Handler.fromFunctionZIO { (request: zio.http.Request) =>
@@ -198,25 +198,28 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
             }
           }
         }
-        .catchAllCause {
-          case cause if isHttpCodecError(cause) =>
-            Handler.fromFunctionZIO { (request: zio.http.Request) =>
-              val error    = cause.defects.head.asInstanceOf[HttpCodecError]
-              val log      = ZIO.unit
-              val response = {
-                val outputMediaTypes =
-                  NonEmptyChunk
-                    .fromChunk(
-                      request.headers
-                        .getAll(Header.Accept)
-                        .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0)),
-                    )
-                    .getOrElse(defaultMediaTypes)
-                codecError.encodeResponse(error, outputMediaTypes)
+        .catchAllCause { cause =>
+          asHttpCodecError(cause) match {
+            case Some(error) =>
+              Handler.fromFunctionZIO { (request: zio.http.Request) =>
+                val error    = cause.defects.head.asInstanceOf[HttpCodecError]
+                val log      = ZIO.unit
+                val response = {
+                  val outputMediaTypes =
+                    NonEmptyChunk
+                      .fromChunk(
+                        request.headers
+                          .getAll(Header.Accept)
+                          .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0)),
+                      )
+                      .getOrElse(defaultMediaTypes)
+                  codecError.encodeResponse(error, outputMediaTypes)
+                }
+                log.as(response)
               }
-              log.as(response)
-            }
-          case cause                            => Handler.failCause(cause)
+            case None        =>
+              Handler.failCause(cause)
+          }
         }
 
     Route.handled(self.route)(handler)
@@ -354,12 +357,6 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       doc,
       mw,
     )
-
-//  /**
-//   * If a codec error occurs, log the error using the specified function.
-//   */
-//  def logCodecError(log: HttpCodecError => String): Endpoint[PathInput, Input, Err, Output, Middleware] =
-//    self.copy(codecError = self.codecError.copy(log = Some(log)))
 
   /**
    * Returns a new endpoint derived from this one whose middleware is composed
@@ -725,7 +722,7 @@ object Endpoint {
       route.toHttpCodec,
       HttpCodec.unused,
       HttpCodec.unused,
-      HttpCodecErrorCodec.default,
+      HttpContentCodec.responseErrorCodec,
       Doc.empty,
       EndpointMiddleware.None,
     )

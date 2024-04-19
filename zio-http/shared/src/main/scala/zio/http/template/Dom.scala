@@ -87,7 +87,7 @@ object Dom {
     HttpContentCodec(
       ListMap(
         MediaType.text.`html` ->
-          BinaryCodecWithSchema.forCodec(zio.http.codec.internal.TextBinaryCodec.fromSchema(Schema[Dom])),
+          BinaryCodecWithSchema.fromBinaryCodec(zio.http.codec.internal.TextBinaryCodec.fromSchema(Schema[Dom])),
       ),
     )
   }
