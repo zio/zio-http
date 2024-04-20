@@ -5,13 +5,15 @@ title: Overview
 
 **ZIO HTTP** is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO and uses [Netty](https://netty.io/) as its core.
 
-ZIO HTTP has powerful functional domains that help in creating, modifying, composing apps easily. Let's start with the HTTP domain.
+ZIO HTTP has powerful functional domains that help in creating, modifying, and composing apps easily. Let's start with the HTTP domain.
+
+## Core Concepts
 
 The core concepts of ZIO HTTP are:
 
 - `HttpApp` - A collection of `Routes`s that are ready to be served. All errors are handled through conversion into HTTP responses.
 - `Routes` - A collection of `Route`s.
-- `Route` - A single route that can be matched against an http `Request` and produce a `Response`. It comprises of a `RoutePattern` and a `Handler`:
+- `Route` - A single route that can be matched against an http `Request` and produce a `Response`. It comprises a `RoutePattern` and a `Handler`:
   1. `RoutePattern` - A pattern that can be matched against an http request. It is a combination of `Method` and `PathCodec` which can be used to match the method and path of the request.
   2. `Handler` - A function that can convert a `Request` into a `Response`.
 
@@ -41,7 +43,7 @@ object ExampleServer extends ZIOAppDefault {
   // It is an unhandled route so the second type parameter is something other than Nothing
   val echoRoute: Route[Any, Throwable] =
     Method.POST / "echo" -> handler { (req: Request) =>
-      req.body.asString.map(e => Response.text(e))
+      req.body.asString.map(Response.text(_))
     }
 
   // The HttpApp that doesn't require any service from the ZIO environment,
@@ -49,92 +51,91 @@ object ExampleServer extends ZIOAppDefault {
   // All the errors are handled
   val app: HttpApp[Any] =
     // List of all the routes
-    Routes(greetRoute, echoRoute) // Handle all unhandled errors
+    Routes(greetRoute, echoRoute)
+      // Handle all unhandled errors
       .handleError(e => Response.internalServerError(e.getMessage))
-      .toHttpApp // Convert the routes to an HttpApp
+      // Convert the routes to an HttpApp
+      .toHttpApp
   
-  // Serving the app using the default server layer
+  // Serving the app using the default server layer on port 8080
   def run = Server.serve(app).provide(Server.default)
 }
 ```
 
-## Handler and HttpApp
+### 1. HttpApp
 
-`Handler` describes the transformation from an incoming `Request` to an outgoing `Response` type. The `HttpApp` type on top of this provides input-dependent routing to different `Handler` values.
+The `HttpApp` provides input-dependent routing to different `Handler` values.
 
-There are some default handler constructors such as `Handler.text`, `Handler.html`, `Handler.fromFile`, `Handler.fromBody`, `Handler.fromStream`, `Handler.fromEffect`.
+The `Handler`, `Route` and `Routes` can always be transformed to a `HttpApp` value using the `.toHttpApp` method, in which case the HTTP application will handle incomming routes. Before converting to `HttpApp`, we should handle all unhandled errors, e.g.:
 
-A `Handler` can always be transformed to a `HttpApp` value using the `.toHttpApp` method, in which case the HTTP application will handle all routes.
+```scala mdoc:invisible
+import zio.http._
 
-### Creating a Hello World App
-
-Creating an HTTP app using ZIO HTTP is as simple as given below, this app will always respond with "Hello World!"
+val greetRoute: Route[Any, Nothing] = Route.notFound
+val echoRoute: Route[Any, Throwable] = Route.notFound
+```
 
 ```scala mdoc:silent
 import zio.http._
 
-val app = Handler.text("Hello World!").toHttpApp
+val app: HttpApp[Any] =
+  Routes(greetRoute, echoRoute)
+    .handleError(e => Response.internalServerError(e.getMessage))
+    .toHttpApp
 ```
 
-An application can be made using any of the available operators on `HttpApp`. In the above program for any Http request, the response is always `"Hello World!"`.
+### 2. Routes
 
-### Routing
+For handling routes, ZIO HTTP has a [`Routes`](dsl/routes.md) value, which allows us to aggregate a collection of individual routes. Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
 
-For handling routes, ZIO HTTP has a `Routes` value, which allows us to aggregate a collection of individual routes.
+The `Routes` is a collection of `Route` values. It can be created using its default constructor:
 
-Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
+```scala mdoc:silent
+val routes = Routes(greetRoute, echoRoute)
+```
 
-The example below shows how to create routes:
+### 3. Route
 
-```scala mdoc:silent:reset
+Each `Route` is a combination of a [`RoutePattern`](dsl/route_pattern.md) and a [`Handler`](dsl/handler.md). The `RoutePattern` is a combination of a `Method` and a [`PathCodec`](dsl/path_codec.md) that can be used to match the method and path of the request. The `Handler` is a function that can convert a `Request` into a `Response`.
+
+The `PathCodec` can be parameterized to extract values from the path. In such cases, the `Handler` should be a function that accepts the extracted values besides the `Request`:
+
+```scala mdoc:silent:nest
 import zio.http._
 
 val routes = Routes(
-  Method.GET / "fruits" / "a" -> handler(Response.text("Apple")),
-  Method.GET / "fruits" / "b" -> handler(Response.text("Banana"))
-)
-```
-
-We can create parameterized routes as well:
-
-```scala mdoc:silent:reset
-import zio.http._
-
-val routes = Routes(
-  Method.GET / "Apple" / int("count") ->
-    handler { (count: Int, req: Request) =>
-      Response.text(s"Apple: $count")
+  Method.GET / "user" / int("id") ->
+    handler { (id: Int, req: Request) =>
+      Response.text(s"Requested User ID: $id")
     }
 )
 ```
 
-### Composition
+To learn more about routes, see the [Routes](dsl/routes.md) page.
 
-Routes can be composed using the `++` operator, which works by combining the routes.
+### 4. Handler
 
-```scala mdoc:silent:reset
-import zio.http._
+The `Handler` describes the transformation from an incoming `Request` to an outgoing `Response`:
 
-val a = Routes(Method.GET / "a" -> Handler.ok)
-val b = Routes(Method.GET / "b" -> Handler.ok)
-
-val routes = a ++ b
+```scala mdoc:compile-only
+val helloHanlder = 
+  handler { (_: Request) =>
+    Response.text("Hello World!")
+  }
 ```
 
-### ZIO Integration
+The `Handler` can be effectful, in which case it should be a function that returns a `ZIO` effect, e.g.:
 
-For creating effectful apps, we can use handlers that return ZIO effects:
-
-```scala mdoc:silent:reset
-import zio.http._
-import zio._
-
-val routes = Routes(
-  Method.GET / "hello" -> handler(ZIO.succeed(Response.text("Hello World")))
-)
+```scala mdoc:compile-only
+val randomGeneratorHandler = 
+  handler { (_: Request) =>
+    Random.nextIntBounded(100).map(Response.text(_))
+  }
 ```
 
-### Accessing the Request
+There are several ways to create a `Handler`, to learn more about handlers, see the [Handlers](dsl/handler.md) page.
+
+## Accessing the Request
 
 To access the request, just create a handler that accepts the request:
 
@@ -153,15 +154,39 @@ val routes = Routes(
 )
 ```
 
-## Socket
+To learn more about the request, see the [Request](dsl/request.md) page.
 
-`Socket` is functional domain in ZIO HTTP. It provides constructors to create socket apps. A socket app is an app that handles WebSocket connections.
+## Accessing Services from The Environment
 
-### Creating a socket app
+ZIO HTTP is built on top of ZIO, which means that we can access services from the environment in our handlers. For example, we can access a `Ref[Int]` service to create a simple counter:
 
-Socket app can be created by using `Socket` constructors. To create a socket app, we need to create a socket that accepts `WebSocketChannel` and produces `ZIO`. Finally, we need to convert socketApp to `Response` using `toResponse`, so that we can run it like any other HTTP app.
+```scala mdoc:compile-only
+import zio._
+import zio.http._
 
-The below example shows a simple socket app, which sends WebsSocketTextFrame "BAR" on receiving WebsSocketTextFrame "FOO".
+object CounterExample extends ZIOAppDefault {
+  val app: HttpApp[Ref[Int]] =
+    Routes(
+      Method.GET / "count" / int("n") ->
+        handler { (n: Int, _: Request) =>
+          for {
+            ref <- ZIO.service[Ref[Int]]
+            res <- ref.updateAndGet(_ + n)
+          } yield Response.text(s"Counter: $res")
+        },
+    ).toHttpApp
+
+  def run = Server.serve(app).provide(Server.default, ZLayer.fromZIO(Ref.make(0)))
+}
+```
+
+Finally, we should provide the required services to the server using the `provide` method. In the above example, we provided the `Ref[Int]` service using the `ZLayer.fromZIO` method.
+
+## WebSocket Connection
+
+To handle WebSocket connections, we can use `Handler.webSocket` to create a socket app. To create a socket app, we need to create a socket that accepts `WebSocketChannel` and produces `ZIO`. Finally, we need to convert socketApp to `Response` using `toResponse`, so that we can run it like any other HTTP app.
+
+The below example shows a simple socket app, which sends `WebsSocketTextFrame` "BAR" on receiving `WebsSocketTextFrame` "FOO":
 
 ```scala mdoc:silent:reset
 import zio.http._
@@ -187,13 +212,13 @@ val routes =
   )
 ```
 
+We have a more detailed explanation of the WebSocket connection on the [Socket](dsl/socket/socket.md) page.
+
 ## Server
 
 As we have seen how to create HTTP apps, the only thing left is to run an HTTP server and serve requests.
 
 ZIO HTTP provides a way to set configurations for our server. The server can be configured according to the leak detection level, request size, address etc.
-
-### Starting an HTTP App
 
 To launch our app, we need to start the server on a port. The below example shows a simple HTTP app that responds with empty content and a `200` status code, deployed on port `8090` using `Server.start`:
 
@@ -208,3 +233,28 @@ object HelloWorld extends ZIOAppDefault {
     Server.serve(app).provide(Server.defaultWithPort(8090))
 }
 ```
+
+Finally, we provided the default server with the port `8090` to the app. To learn more about the server, see the [Server](dsl/server.md) page.
+
+## Client
+
+Besides creating HTTP apps, ZIO HTTP also provides a way to create HTTP clients. The client can be used to send requests to the server and receive responses:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+object ClientExample extends ZIOAppDefault {
+
+  val app =
+    for {
+      client   <- ZIO.serviceWith[Client](_.host("localhost").port(8090))
+      response <- client.request(Request.get("/"))
+      _        <- ZIO.debug("Response Status: " + response.status)
+    } yield ()
+
+  def run = app.provide(Client.default, Scope.default)
+}
+```
+
+In the above example, we obtained the `Client` service from the environment and sent a `GET` request to the server. Finally, to run the client app, we provided the default `Client` and `Scope` services to the app. For more information about the client, see the [Client](dsl/client.md) page.
