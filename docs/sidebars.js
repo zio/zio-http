@@ -110,6 +110,7 @@ const sidebars = {
             "reference/dsl/socket/websocketframe",
             "reference/dsl/template",
             "reference/dsl/client",
+		    "reference/dsl/endpoint",
           ],
         },       
       ],    
