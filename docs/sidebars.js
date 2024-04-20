@@ -22,6 +22,7 @@ const sidebars = {
             "dsl/handler",
             "dsl/headers",
             "dsl/body",
+            "dsl/endpoint",
             "dsl/form",
             "dsl/cookies",
             "dsl/flash",

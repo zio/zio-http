@@ -102,6 +102,7 @@ object CustomErrorSpec extends ZIOHttpSpec {
           Endpoint(POST / "users")
             .in[User](Doc.p("User schema with id"))
             .out[String]
+            .emptyErrorResponse
             .implement {
               Handler.fromFunctionZIO { _ =>
                 ZIO.succeed("User ID is greater than 0")

@@ -23,7 +23,7 @@ import zio.stream.{ZPipeline, ZStream}
 import zio.schema._
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
-import zio.http.codec.{HttpCodecError, HttpContentCodec}
+import zio.http.codec.{BinaryCodecWithSchema, HttpCodecError, HttpContentCodec}
 import zio.http.{Body, MediaType}
 
 /**
@@ -55,17 +55,12 @@ private[http] sealed trait BodyCodec[A] { self =>
   final def erase: BodyCodec[Any] = self.asInstanceOf[BodyCodec[Any]]
 
   /**
-   * The schema associated with the element type.
-   */
-  def schema: Schema[Element]
-
-  /**
    * Allows customizing the media type.
    *
    * The default is application/json for arbitrary types and
    * application/octet-stream for byte streams
    */
-  def mediaType: Option[MediaType]
+  def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType]
 
   /**
    * Name of the body part
@@ -85,27 +80,30 @@ private[http] object BodyCodec {
 
     def schema: Schema[Unit] = Schema[Unit]
 
-    def mediaType: Option[MediaType] = None
+    def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType] = None
 
     def name: Option[String] = None
   }
 
   final case class Single[A](codec: HttpContentCodec[A], name: Option[String]) extends BodyCodec[A] {
 
-    def schema: Schema[A] = codec.schema
+    def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType] =
+      Some(codec.chooseFirstOrDefault(accepted)._1)
 
-    def mediaType: Option[MediaType] = Some(codec.defaultMediaType) // TODO: Is this correct?
-
-    def decodeFromBody(body: Body)(implicit trace: Trace): IO[Throwable, A] =
-      if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
-      else
-        body.asChunk.flatMap { chunk =>
-          ZIO.fromEither(codecForBody(codec, body).flatMap(_.decode(chunk)))
-        }.flatMap(validateZIO(schema))
+    def decodeFromBody(body: Body)(implicit trace: Trace): IO[Throwable, A] = {
+      val codec0 = codecForBody(codec, body)
+      codec0 match {
+        case Left(error)                                                       => ZIO.fail(error)
+        case Right(BinaryCodecWithSchema(_, schema)) if schema == Schema[Unit] =>
+          ZIO.unit.asInstanceOf[IO[Throwable, A]]
+        case Right(BinaryCodecWithSchema(codec, schema))                       =>
+          body.asChunk.flatMap { chunk => ZIO.fromEither(codec.decode(chunk)) }.flatMap(validateZIO(schema))
+      }
+    }
 
     def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor])(implicit trace: Trace): Body = {
-      val (mediaType, encoder) = codec.chooseFirst(mediaTypes)
-      Body.fromChunk(encoder.encode(value)).contentType(mediaType)
+      val (mediaType, BinaryCodecWithSchema(codec0, _)) = codec.chooseFirst(mediaTypes)
+      Body.fromChunk(codec0.encode(value)).contentType(mediaType)
     }
 
     type Element = A
@@ -114,15 +112,14 @@ private[http] object BodyCodec {
   final case class Multiple[E](codec: HttpContentCodec[E], name: Option[String])
       extends BodyCodec[ZStream[Any, Nothing, E]] {
 
-    def schema: Schema[E] = codec.schema
-
-    def mediaType: Option[MediaType] = Some(codec.defaultMediaType) // TODO: Is this correct?
+    def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType] =
+      Some(codec.chooseFirstOrDefault(accepted)._1)
 
     def decodeFromBody(body: Body)(implicit
       trace: Trace,
     ): IO[Throwable, ZStream[Any, Nothing, E]] = {
       ZIO.fromEither {
-        codecForBody(codec, body).map { codec =>
+        codecForBody(codec, body).map { case BinaryCodecWithSchema(codec, schema) =>
           (body.asStream >>> codec.streamDecoder >>> validateStream(schema)).orDie
         }
       }
@@ -131,7 +128,7 @@ private[http] object BodyCodec {
     def encodeToBody(value: ZStream[Any, Nothing, E], mediaTypes: Chunk[MediaTypeWithQFactor])(implicit
       trace: Trace,
     ): Body = {
-      val (mediaType, codec0) = codec.chooseFirst(mediaTypes)
+      val (mediaType, BinaryCodecWithSchema(codec0, _)) = codec.chooseFirst(mediaTypes)
       Body.fromStreamChunked(value >>> codec0.streamEncoder).contentType(mediaType)
     }
 
@@ -142,7 +139,7 @@ private[http] object BodyCodec {
     val mediaType = body.mediaType.getOrElse(codec.defaultMediaType)
     val codec0    = codec
       .lookup(mediaType)
-      .toRight(HttpCodecError.CustomError(s"Unsupported MediaType ${body.mediaType}"))
+      .toRight(HttpCodecError.CustomError("UnsupportedMediaType", s"MediaType: ${body.mediaType}"))
     codec0
   }
 

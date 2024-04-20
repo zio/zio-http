@@ -90,7 +90,7 @@ private[http] object Mechanic {
         val threaded = makeConstructorLoop(transform.api)
         results =>
           transform.f(threaded(results)) match {
-            case Left(value)  => throw HttpCodecError.CustomError(value)
+            case Left(value)  => throw HttpCodecError.CustomError("SchemaTransformationFailure", value)
             case Right(value) => value
           }
 
@@ -131,7 +131,7 @@ private[http] object Mechanic {
         (input, inputsBuilder) =>
           deconstructor(
             transform.g(input) match {
-              case Left(value)  => throw HttpCodecError.CustomError(value)
+              case Left(value)  => throw HttpCodecError.CustomError("SchemaTransformationFailure", value)
               case Right(value) => value
             },
             inputsBuilder,

@@ -119,7 +119,7 @@ private[codec] object EncoderDecoder {
 
     val decodeErrorMessage =
       """
-        |Trying to decode with Undefined codec. That means that encode was invoked for object of type Nothing - which cannot exist.
+        |Trying to decode with Undefined codec. That means that decode was invoked for object of type Nothing - which cannot exist.
         |Verify that middleware and endpoint have proper types or submit bug report at https://github.com/zio/zio-http/issues
     """.stripMargin.trim()
 
@@ -162,19 +162,22 @@ private[codec] object EncoderDecoder {
                 None
             }
           }.getOrElse {
-            throw HttpCodecError.CustomError(s"Cannot encode multipart/form-data field $name: no codec found")
+            throw HttpCodecError.CustomError(
+              "CodecNotFound",
+              s"Cannot encode multipart/form-data field $name: no codec found",
+            )
           }
 
           if (mediaType.binary) {
             FormField.binaryField(
               name,
-              codec.asInstanceOf[BinaryCodec[Any]].encode(value),
+              codec.codec.asInstanceOf[BinaryCodec[Any]].encode(value),
               mediaType,
             )
           } else {
             FormField.textField(
               name,
-              codec.asInstanceOf[BinaryCodec[Any]].encode(value).asString,
+              codec.codec.asInstanceOf[BinaryCodec[Any]].encode(value).asString,
               mediaType,
             )
           }
@@ -198,7 +201,7 @@ private[codec] object EncoderDecoder {
             }
           }.getOrElse { throw HttpCodecError.UnsupportedContentType(mediaType.fullType) }
 
-          field.asChunk.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
+          field.asChunk.flatMap(chunk => ZIO.fromEither(codec.codec.decode(chunk)))
 
         }
       }
@@ -248,7 +251,7 @@ private[codec] object EncoderDecoder {
       val status             = encodeStatus(inputs.status)
       val method             = encodeMethod(inputs.method)
       val headers            = encodeHeaders(inputs.header)
-      val contentTypeHeaders = encodeContentType(inputs.content)
+      val contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
       val body               = encodeBody(inputs.content, outputTypes)
 
       f(URL(path, queryParams = query), status, method, headers ++ contentTypeHeaders, body)
@@ -534,7 +537,7 @@ private[codec] object EncoderDecoder {
         Body.fromStreamChunked(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
       } else {
         if (inputs.length > 1) {
-          Body.fromMultipartForm(encodeMultipartFormData(inputs), formBoundary)
+          Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes), formBoundary)
         } else {
           if (isEventStream) {
             Body.fromCharSequenceStreamChunked(
@@ -550,7 +553,7 @@ private[codec] object EncoderDecoder {
       }
     }
 
-    private def encodeMultipartFormData(inputs: Array[Any]): Form = {
+    private def encodeMultipartFormData(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Form = {
       Form(
         flattened.content.zipWithIndex.map { case (bodyCodec, idx) =>
           val input = inputs(idx)
@@ -560,7 +563,7 @@ private[codec] object EncoderDecoder {
               FormField.streamingBinaryField(
                 name,
                 input.asInstanceOf[ZStream[Any, Nothing, Byte]],
-                bodyCodec.mediaType.getOrElse(MediaType.application.`octet-stream`),
+                bodyCodec.mediaType(outputTypes).getOrElse(MediaType.application.`octet-stream`),
               )
             case _                                                             =>
               formFieldEncoders(idx)(name, input)
@@ -569,9 +572,9 @@ private[codec] object EncoderDecoder {
       )
     }
 
-    private def encodeContentType(inputs: Array[Any]): Headers = {
+    private def encodeContentType(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Headers = {
       if (isByteStream) {
-        val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.`octet-stream`)
+        val mediaType = flattened.content(0).mediaType(outputTypes).getOrElse(MediaType.application.`octet-stream`)
         Headers(Header.ContentType(mediaType))
       } else {
         if (inputs.length > 1) {
@@ -582,8 +585,8 @@ private[codec] object EncoderDecoder {
           else {
             val mediaType = flattened
               .content(0)
-              .mediaType
-              .getOrElse(throw HttpCodecError.CustomError("HttpContentCodec without codecs."))
+              .mediaType(outputTypes)
+              .getOrElse(throw HttpCodecError.CustomError("InvalidHttpContentCodec", "No codecs found."))
             Headers(Header.ContentType(mediaType))
           }
         }
@@ -598,8 +601,10 @@ private[codec] object EncoderDecoder {
 
     private def isEventStreamBody(codec: BodyCodec[_]): Boolean =
       codec match {
-        case BodyCodec.Multiple(codec, _) if codec.schema == Schema[ServerSentEvent] => true
-        case _                                                                       => false
+        case BodyCodec.Multiple(codec, _)
+            if codec.lookup(MediaType.text.`event-stream`).exists(_.schema == Schema[ServerSentEvent]) =>
+          true
+        case _ => false
       }
   }
 

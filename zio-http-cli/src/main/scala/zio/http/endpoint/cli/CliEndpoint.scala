@@ -102,14 +102,14 @@ private[cli] object CliEndpoint {
           case Some(x) => x
           case None    => ""
         }
-        CliEndpoint(body = HttpOptions.Body(name, codec.defaultMediaType, codec.schema) :: List())
+        CliEndpoint(body = HttpOptions.Body(name, codec.defaultMediaType, codec.defaultSchema) :: List())
 
       case HttpCodec.ContentStream(codec, nameOption, _) =>
         val name = nameOption match {
           case Some(x) => x
           case None    => ""
         }
-        CliEndpoint(body = HttpOptions.Body(name, codec.defaultMediaType, codec.schema) :: List())
+        CliEndpoint(body = HttpOptions.Body(name, codec.defaultMediaType, codec.defaultSchema) :: List())
 
       case HttpCodec.Header(name, textCodec, _) if textCodec.isInstanceOf[TextCodec.Constant] =>
         CliEndpoint(headers =
