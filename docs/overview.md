@@ -129,7 +129,7 @@ The `Handler` can be effectful, in which case it should be a function that retur
 ```scala mdoc:compile-only
 val randomGeneratorHandler = 
   handler { (_: Request) =>
-    Random.nextIntBounded(100).map(Response.text(_))
+    Random.nextIntBounded(100).map(_.toString).map(Response.text(_))
   }
 ```
 
