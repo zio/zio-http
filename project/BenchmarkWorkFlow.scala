@@ -1,5 +1,6 @@
-import BuildHelper.Scala213
+import BuildHelper.{LatestLtsJdkVersion, Scala213}
 import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
+import sbtghactions.JavaSpec
 
 object BenchmarkWorkFlow {
   def apply(): Seq[WorkflowJob] = Seq(
@@ -27,6 +28,7 @@ object BenchmarkWorkFlow {
         "${{ github.event_name == 'pull_request'}}",
       ),
       scalas = List(Scala213),
+      javas = List(JavaSpec.temurin(LatestLtsJdkVersion)),
       steps = List(
         WorkflowStep.Run(
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),

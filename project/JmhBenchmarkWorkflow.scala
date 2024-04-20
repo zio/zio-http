@@ -1,7 +1,7 @@
-import BuildHelper.{JmhVersion, Scala213}
+import BuildHelper.{JmhVersion, LatestLtsJdkVersion, Scala213}
 import sbt.nio.file.FileTreeView
 import sbt.{**, Glob, PathFilter}
-import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
+import sbtghactions.GenerativePlugin.autoImport.*
 
 object JmhBenchmarkWorkflow {
 
@@ -11,7 +11,7 @@ object JmhBenchmarkWorkflow {
     Glob("zio-http-benchmarks/src/main/scala-2.13/**"),
     Glob("zio-http-benchmarks/src/main/scala/**")),scalaSources
     )
- 
+
   /**
    * Get zioHttpBenchmark file names
    */
@@ -77,6 +77,8 @@ object JmhBenchmarkWorkflow {
     WorkflowJob(
       id = "Jmh_cache",
       name = "Cache Jmh benchmarks",
+      scalas = List(Scala213),
+      javas = List(JavaSpec.temurin(LatestLtsJdkVersion)),
       cond = Some(
         "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}",
       ),
@@ -112,6 +114,7 @@ object JmhBenchmarkWorkflow {
         "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}",
       ),
       scalas = List(Scala213),
+      javas = List(JavaSpec.temurin(LatestLtsJdkVersion)),
       steps = List(
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v2"),

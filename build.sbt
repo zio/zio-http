@@ -10,8 +10,8 @@ val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
 // CI Configuration
 ThisBuild / githubWorkflowJavaVersions := Seq(
-  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
-  JavaSpec.temurin("8"),
+  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), LatestLtsJdkVersion),
+  JavaSpec.temurin(MinSupportedJdkVersion),
 )
 ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
@@ -25,6 +25,8 @@ ThisBuild / githubWorkflowAddedJobs    :=
     WorkflowJob(
       id = "update_release_draft",
       name = "Release Drafter",
+      scalas = List(Scala213),
+      javas = List(JavaSpec.temurin(LatestLtsJdkVersion)),
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
@@ -80,6 +82,7 @@ ThisBuild / githubWorkflowBuildPostamble :=
       ),
     ),
     scalas = List(Scala213),
+    javas = List(JavaSpec.temurin(LatestLtsJdkVersion)),
   ).steps ++
     WorkflowJob(
       id = "zio-http-shaded-tests",
@@ -269,12 +272,12 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .settings(
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-config" % "4.0.1",
-  "dev.zio" %% "zio-config-typesafe" % "4.0.1",
-  "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
-  "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
-)
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-config"                        % "4.0.1",
+      "dev.zio" %% "zio-config-typesafe"               % "4.0.1",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1",
+    ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen)
 
