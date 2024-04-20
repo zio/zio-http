@@ -34,9 +34,8 @@ final class WebSocketClientInboundHandler(
     extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
-  override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    ctx.fireChannelActive()
-  }
+  override def channelActive(ctx: ChannelHandlerContext): Unit =
+    ctx.fireChannelActive(): Unit
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {

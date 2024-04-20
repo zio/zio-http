@@ -56,11 +56,13 @@ object NettyBodyWriter {
                     case other        => Unpooled.wrappedBuffer(other.toArray)
                   }
                   ctx.writeAndFlush(nettyMsg)
-                  if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+                  if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
                 }
 
-                override def fail(cause: Throwable): Unit =
+                override def fail(cause: Throwable): Unit = {
                   ctx.fireExceptionCaught(cause)
+                  ()
+                }
               },
             )
             None
@@ -73,11 +75,11 @@ object NettyBodyWriter {
                     case other        => Unpooled.wrappedBuffer(other.toArray)
                   }
                   ctx.writeAndFlush(new DefaultHttpContent(nettyMsg))
-                  if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+                  val _        = if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
                 }
 
                 override def fail(cause: Throwable): Unit =
-                  ctx.fireExceptionCaught(cause)
+                  ctx.fireExceptionCaught(cause): Unit
               },
             )
             None

@@ -18,11 +18,14 @@ package zio.http
 
 import java.nio.file.Files
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
+@nowarn("msg=dead code")
 object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
 
   def spec = suite("Handler")(

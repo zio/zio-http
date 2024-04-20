@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -35,6 +37,7 @@ import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
 
+@nowarn("msg=dead code")
 object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
     ZLayer.make[Server & Client & Scope](
@@ -246,7 +249,6 @@ object RoundtripSpec extends ZIOHttpSpec {
           Handler.fromFunction { case (accountId, name, instanceName, args, env) =>
             println(s"$accountId, $name, $instanceName, $args, $env")
             throw new RuntimeException("I can't code")
-            s"$accountId, $name, $instanceName, $args, $env"
           }
         }
 

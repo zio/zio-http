@@ -25,7 +25,8 @@ import zio.http.netty.{AsyncBodyReader, NettyFutureExecutor, NettyRuntime}
 
 import io.netty.channel._
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
-final class ClientResponseStreamHandler(
+
+private[http] final class ClientResponseStreamHandler(
   rtm: NettyRuntime,
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,

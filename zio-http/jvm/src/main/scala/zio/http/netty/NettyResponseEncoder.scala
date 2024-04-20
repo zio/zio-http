@@ -86,7 +86,7 @@ private[zio] object NettyResponseEncoder {
    */
   private def maybeAddDateHeader(headers: HttpHeaders, status: Status): Unit = {
     if (status.isInformational || status.isServerError || headers.contains(HttpHeaderNames.DATE)) ()
-    else headers.set(HttpHeaderNames.DATE, dateHeaderCache.get())
+    else headers.set(HttpHeaderNames.DATE, dateHeaderCache.get()): Unit
   }
 
 }

@@ -151,7 +151,7 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
 
   def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] = {
 
-    class RouteFailure[+Err](val err: Cause[Err]) extends Throwable(null, null, true, false) {
+    class RouteFailure[+Err0](val err: Cause[Err0]) extends Throwable(null, null, true, false) {
       override def getMessage: String = err.unified.headOption.fold("<unknown>")(_.message)
 
       override def getStackTrace(): Array[StackTraceElement] =

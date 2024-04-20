@@ -113,6 +113,7 @@ object Fixtures {
         case StandardType.BoolType   => Gen.boolean
         case StandardType.IntType    => Gen.int
         case StandardType.UUIDType   => Gen.uuid
+        case _                       => ???
       }
     } yield (
       FormField.Simple(name.getOrElse(""), value.toString),

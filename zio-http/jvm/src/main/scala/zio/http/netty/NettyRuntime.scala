@@ -36,6 +36,7 @@ private[zio] trait NettyRuntime { self =>
         case None        => ()
         case Some(error) =>
           ctx.fireExceptionCaught(error)
+          ()
       }
       if (ctx.channel().isOpen) ctx.close(): Unit
     }

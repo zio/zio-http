@@ -127,6 +127,7 @@ sealed trait Doc { self =>
 
         case Doc.Raw(value, RawDocType.CommonMark) =>
           writer.append(value)
+          ()
 
         case Doc.Raw(_, docType) =>
           throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
@@ -272,6 +273,7 @@ sealed trait Doc { self =>
 
         case Doc.Raw(value, RawDocType.Plain) =>
           writer.append(value)
+          ()
 
         case Doc.Raw(_, docType) =>
           throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")

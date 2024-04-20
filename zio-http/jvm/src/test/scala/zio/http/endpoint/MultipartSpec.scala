@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test._
 
@@ -27,6 +29,7 @@ import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.forms.Fixtures.formField
 
+@nowarn("msg=dead code")
 object MultipartSpec extends ZIOHttpSpec {
   def spec = suite("MultipartSpec")(
     suite("multipart/form-data")(

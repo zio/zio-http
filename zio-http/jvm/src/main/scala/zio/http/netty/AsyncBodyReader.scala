@@ -27,7 +27,9 @@ import zio.http.netty.NettyBody.UnsafeAsync
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
-abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInboundHandler[HttpContent](true) {
+
+private[http] abstract class AsyncBodyReader(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[HttpContent](true) {
 
   protected val unsafeClass: Unsafe = Unsafe.unsafe
 
@@ -52,6 +54,7 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
               callback(chunk, isLast)
             }
             ctx.read()
+            ()
           } else {
             throw new IllegalStateException("Attempting to read from a closed channel, which will never finish")
           }
@@ -69,7 +72,7 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
   }
 
   override def handlerRemoved(ctx: ChannelHandlerContext): Unit = {
-    ctx.channel().config().setAutoRead(previousAutoRead)
+    ctx.channel().config().setAutoRead(previousAutoRead): Unit
   }
 
   override def channelRead0(
@@ -114,6 +117,7 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
       }
     }
     ctx.fireChannelInactive()
+    ()
   }
 }
 

@@ -54,6 +54,7 @@ final class ClientInboundHandler(
     jReq match {
       case fullRequest: FullHttpRequest =>
         ctx.writeAndFlush(fullRequest)
+        ()
       case _: HttpRequest               =>
         ctx.write(jReq)
         NettyBodyWriter.writeAndFlush(req.body, None, ctx).foreach { effect =>
@@ -77,7 +78,8 @@ final class ClientInboundHandler(
             .flatMap(onResponse.succeed)
         }(unsafeClass, trace)
       case content: HttpContent   =>
-        ctx.fireChannelRead(content): Unit
+        ctx.fireChannelRead(content)
+        ()
 
       case err => throw new IllegalStateException(s"Client unexpected message type: $err")
     }
@@ -85,5 +87,6 @@ final class ClientInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
     ctx.fireExceptionCaught(error)
+    ()
   }
 }

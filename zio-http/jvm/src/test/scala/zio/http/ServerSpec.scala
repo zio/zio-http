@@ -498,7 +498,7 @@ object ServerSpec extends HttpRunnableSpec {
     suite("ServerSpec") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
-    }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
+    }.provideSome[DynamicServer & Server & Client](Scope.default)
       .provideShared(
         DynamicServer.live,
         ZLayer.succeed(configApp),

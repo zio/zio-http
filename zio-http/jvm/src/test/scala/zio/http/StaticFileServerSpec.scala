@@ -18,6 +18,8 @@ package zio.http
 
 import java.io.File
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.{timeout, unix, withLiveClock}
@@ -25,6 +27,7 @@ import zio.test.assertZIO
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 
+@nowarn
 object StaticFileServerSpec extends HttpRunnableSpec {
 
   private val fileOk       = Handler.fromResource("TestFile.txt").sandbox.toHttpApp.deploy

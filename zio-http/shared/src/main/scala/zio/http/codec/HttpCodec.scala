@@ -313,10 +313,10 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   def enumeration[Value]: Enumeration[Value] =
     new Enumeration[Value](())
 
-  def error[Body](status: zio.http.Status)(implicit
-    schema: Schema[Body],
-  ): HttpCodec[HttpCodecType.Status with HttpCodecType.Content, Body] =
-    content[Body]("error-response") ++ this.status(status)
+  def error[Body0](status: zio.http.Status)(implicit
+    schema: Schema[Body0],
+  ): HttpCodec[HttpCodecType.Status with HttpCodecType.Content, Body0] =
+    content[Body0]("error-response") ++ this.status(status)
 
   private[http] sealed trait AtomTag
   private[http] object AtomTag {

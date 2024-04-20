@@ -110,7 +110,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       suite("app with request streaming") {
         appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec))
       }
-    }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
+    }.provideSome[DynamicServer & Server & Client](Scope.default)
       .provideShared(
         DynamicServer.live,
         ZLayer.succeed(configAppWithRequestStreaming),

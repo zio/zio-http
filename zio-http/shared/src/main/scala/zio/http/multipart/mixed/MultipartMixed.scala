@@ -76,7 +76,7 @@ object MultipartMixed {
             .readWithCause(
               in => preamble(keep ++ in),
               ZChannel.refailCause(_),
-              done =>
+              _ =>
                 if (boundary.isClosing(buff))
                   ZChannel.succeed((Chunk.empty, true))
                 else if (boundary.isEncapsulating(buff))
@@ -123,7 +123,7 @@ object MultipartMixed {
           if (boundary.isClosing(h))
             ZChannel.succeed((res, rest, true))
           else if (boundary.isEncapsulating(h)) // ditto
-            ZChannel.succeed(res, rest, false)
+            ZChannel.succeed((res, rest, false))
           else {
             // todo: this is a private class, either avoid using it or refactor
             FormAST.Header
@@ -161,7 +161,7 @@ object MultipartMixed {
                   .readWithCause(
                     in => parseBodyAux(buff, pendingCrlf, currLine ++ in, true),
                     err => ZChannel.write(buff) *> ZChannel.refailCause(err),
-                    done => {
+                    _ => {
                       // still possible that the current line is encapsulating or closing boundary
                       if (boundary.isClosing(currLine))
                         ZChannel.write(buff) *> ZChannel.succeed((Chunk.empty, true))
@@ -183,7 +183,7 @@ object MultipartMixed {
                   ZChannel.readWithCause(
                     in => parseBodyAux(buff ++ pendingCrlf ++ h, Chunk.empty, t ++ in, false),
                     err => ZChannel.write(buff ++ crlf ++ currLine) *> ZChannel.refailCause(err),
-                    done =>
+                    _ =>
                       ZChannel.write(buff ++ crlf ++ currLine) *> ZChannel.fail(
                         new IllegalStateException("multipart/chunked body ended with no boundary"),
                       ),
@@ -247,7 +247,7 @@ object MultipartMixed {
                 ZChannel
                   .fromZIO(pr.await)
                   .flatMap {
-                    case (rest, true)  =>
+                    case (_, true)     =>
                       epilogue
                     case (rest, false) =>
                       cont(rest)

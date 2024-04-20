@@ -387,12 +387,12 @@ object PathCodec          {
   def apply(value: String): PathCodec[Unit] = {
     val path = Path(value)
 
-    path.segments match {
-      case Chunk()                 => PathCodec.empty
-      case Chunk(first, rest @ _*) =>
-        rest.foldLeft[PathCodec[Unit]](Segment(SegmentCodec.literal(first))) { (pathSpec, segment) =>
-          pathSpec / Segment(SegmentCodec.literal(segment))
-        }
+    val seg = path.segments
+    if (seg.isEmpty) PathCodec.empty
+    else {
+      seg.tail.foldLeft[PathCodec[Unit]](Segment(SegmentCodec.literal(seg.head))) { (pathSpec, segment) =>
+        pathSpec / Segment(SegmentCodec.literal(segment))
+      }
     }
 
   }
