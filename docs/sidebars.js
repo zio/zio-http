@@ -11,7 +11,6 @@ const sidebars = {
         {
           type: "category",
           label: "Reference",
-          link: { type: "doc", id: "index" },
           items: [
             "reference/server",
             "reference/routes",
