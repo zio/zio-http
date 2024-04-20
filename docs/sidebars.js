@@ -6,46 +6,75 @@ const sidebars = {
       collapsed: true,
       link: { type: "doc", id: "index" },
       items: [
-        "setup",
+        "installation",
         "getting-started",
         {
           type: "category",
+          collapsed: true,
           label: "Reference",
           items: [
             "reference/server",
-            "reference/routes",
-            "reference/route_pattern",
-            "reference/path_codec",
-            "reference/request",
-            "reference/response",
+            "reference/client",
+            {
+              type: "category",
+              label: "Routing",
+              items: [
+                "reference/routes",
+                "reference/route_pattern",
+                "reference/path_codec",
+              ],
+            },
             "reference/handler",
-            "reference/headers",
-            "reference/body",
+            {
+              type: "category",
+              label: "HTTP Messages",
+              items: [
+                {
+                  type: "category",
+                  label: "Headers",
+                  items: [
+                    "reference/headers",
+                    "reference/cookies",
+                    "reference/flash",
+                  ],
+                },
+                "reference/request",
+                {
+                  type: "category",
+                  label: "Response",
+                  items: ["reference/response", "reference/status"],
+                },
+                {
+                  type: "category",
+                  label: "Message Body",
+                  items: ["reference/body", "reference/form"],
+                },
+              ],
+            },
             "reference/endpoint",
-            "reference/form",
-            "reference/cookies",
-            "reference/flash",
-            "reference/protocol-stack",
-            "reference/middleware",
-            "reference/handler_aspect",
-            "reference/status",
+            {
+              type: "category",
+              label: "HTTP Middleware",
+              items: [
+                "reference/protocol-stack",
+                "reference/middleware",
+                "reference/handler_aspect",
+              ],
+            },
             {
               type: "category",
               label: "WebSocket",
-              collapsed: false,
               items: [
                 "reference/socket/socket",
-                "reference/socket/websocketframe"
-              ]
+                "reference/socket/websocketframe",
+              ],
             },
             "reference/template",
-            "reference/client"
-          ]
+          ],
         },
         {
           type: "category",
           label: "Examples",
-          collapsed: false,
           link: { type: "doc", id: "index" },
           items: [
             "examples/hello-world",
@@ -63,11 +92,11 @@ const sidebars = {
             "examples/concrete-entity",
             "examples/multipart-form-data",
             "examples/server-sent-events-in-endpoints",
-          ]
-        }
-      ]
-    }
-  ]
+          ],
+        },
+      ],
+    },
+  ],
 };
 
 module.exports = sidebars;
