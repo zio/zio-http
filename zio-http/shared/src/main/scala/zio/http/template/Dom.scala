@@ -16,6 +16,12 @@
 
 package zio.http.template
 
+import scala.collection.immutable.ListMap
+
+import zio.schema.Schema
+
+import zio.http.MediaType
+import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
 import zio.http.internal.OutputEncoder
 
 /**
@@ -74,6 +80,18 @@ sealed trait Dom { self =>
 }
 
 object Dom {
+  implicit val schema: Schema[Dom] =
+    Schema[String].transform(Dom.raw, _.encode.toString)
+
+  implicit val htmlCodec: HttpContentCodec[Dom] = {
+    HttpContentCodec(
+      ListMap(
+        MediaType.text.`html` ->
+          BinaryCodecWithSchema.fromBinaryCodec(zio.http.codec.internal.TextBinaryCodec.fromSchema(Schema[Dom])),
+      ),
+    )
+  }
+
   def attr(name: CharSequence, value: CharSequence): Dom = Dom.Attribute(name, value)
 
   def element(name: CharSequence, children: Dom*): Dom = Dom.Element(name, children)

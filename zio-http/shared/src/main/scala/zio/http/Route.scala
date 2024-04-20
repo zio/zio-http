@@ -53,6 +53,14 @@ sealed trait Route[-Env, +Err] { self =>
   final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorCause(Response.fromCauseWith(_)(f))
 
+  final def handleErrorZIO(f: Err => ZIO[Any, Nothing, Response])(implicit trace: Trace): Route[Env, Nothing] =
+    self.handleErrorCauseZIO { cause =>
+      cause.failureOrCause match {
+        case Left(err)    => f(err)
+        case Right(cause) => ZIO.succeed(Response.fromCause(cause))
+      }
+    }
+
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
    * converting them into responses. This method can be used to convert a route
