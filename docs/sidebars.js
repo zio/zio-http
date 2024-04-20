@@ -10,37 +10,37 @@ const sidebars = {
         "getting-started",
         {
           type: "category",
-          label: "DSL",
+          label: "Reference",
           link: { type: "doc", id: "index" },
           items: [
-            "dsl/server",
-            "dsl/routes",
-            "dsl/route_pattern",
-            "dsl/path_codec",
-            "dsl/request",
-            "dsl/response",
-            "dsl/handler",
-            "dsl/headers",
-            "dsl/body",
-            "dsl/endpoint",
-            "dsl/form",
-            "dsl/cookies",
-            "dsl/flash",
-            "dsl/protocol-stack",
-            "dsl/middleware",
-            "dsl/handler_aspect",
-            "dsl/status",
+            "reference/server",
+            "reference/routes",
+            "reference/route_pattern",
+            "reference/path_codec",
+            "reference/request",
+            "reference/response",
+            "reference/handler",
+            "reference/headers",
+            "reference/body",
+            "reference/endpoint",
+            "reference/form",
+            "reference/cookies",
+            "reference/flash",
+            "reference/protocol-stack",
+            "reference/middleware",
+            "reference/handler_aspect",
+            "reference/status",
             {
               type: "category",
-              label: "DSL",
+              label: "WebSocket",
               collapsed: false,
               items: [
-                "dsl/socket/socket",
-                "dsl/socket/websocketframe"
+                "reference/socket/socket",
+                "reference/socket/websocketframe"
               ]
             },
-            "dsl/template",
-            "dsl/client"
+            "reference/template",
+            "reference/client"
           ]
         },
         {
