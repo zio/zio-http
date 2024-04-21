@@ -20,7 +20,6 @@ import zio.test.Assertion.equalTo
 import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 import zio.{Scope, ZLayer}
 
-import zio.http.SSLConfig.HttpBehaviour
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
@@ -31,19 +30,6 @@ object SSLSpec extends ZIOHttpSpec {
 
   val clientSSL1 = ClientSSLConfig.FromCertResource("server.crt")
   val clientSSL2 = ClientSSLConfig.FromCertResource("ss2.crt.pem")
-
-  val clientSSLWithClientCert = ClientSSLConfig.FromClientAndServerCert(
-    clientSSL1,
-    ClientSSLConfig.FromClientCertResource("client.crt", "client.key"),
-  )
-
-  val sslConfigWithTrustedClient = SSLConfig.fromResource(
-    HttpBehaviour.Redirect,
-    "server.crt",
-    "server.key",
-    Some(ClientAuth.Required),
-    Some("ca.pem"),
-  )
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 

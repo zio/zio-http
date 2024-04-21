@@ -33,12 +33,12 @@ object DualSSLSpec extends ZIOHttpSpec {
 
   val clientSSLWithClientCert = ClientSSLConfig.FromClientAndServerCert(
     clientSSL1,
-    ClientSSLConfig.FromClientCertResource("client.crt", "client.key"),
+    ClientSSLCertConfig.FromClientCertResource("client.crt", "client.key"),
   )
 
   val clientSSLWithClientCert2 = ClientSSLConfig.FromClientAndServerCert(
     clientSSL1,
-    ClientSSLConfig.FromClientCertResource("client_other.crt", "client_other.key"),
+    ClientSSLCertConfig.FromClientCertResource("client_other.crt", "client_other.key"),
   )
 
   val sslConfigWithTrustedClient = SSLConfig.fromResource(

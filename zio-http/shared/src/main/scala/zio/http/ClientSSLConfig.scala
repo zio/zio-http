@@ -22,20 +22,6 @@ import zio.Config.Secret
 sealed trait ClientSSLConfig
 
 object ClientSSLConfig {
-  val clientSSLCertConfig: Config[ClientSSLCertConfig] = {
-    val tpe      = Config.string("type")
-    val certPath = Config.string("certPath")
-    val keyPath  = Config.string("keyPath")
-
-    val fromCertFile     = certPath.zipWith(keyPath)(FromClientCertFile(_, _))
-    val fromCertResource = certPath.zipWith(keyPath)(FromClientCertResource(_, _))
-
-    tpe.switch(
-      "FromCertFile"     -> fromCertFile,
-      "FromCertResource" -> fromCertResource,
-    )
-  }
-
   val config: Config[ClientSSLConfig] = {
     val tpe                = Config.string("type")
     val certPath           = Config.string("certPath")
@@ -49,7 +35,7 @@ object ClientSSLConfig {
     val fromTrustStoreResource  = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource(_, _))
     val fromClientAndServerCert = Config.defer {
       val serverCertConfig = config.nested("serverCertConfig")
-      val clientCertConfig = clientSSLCertConfig.nested("clientCertConfig")
+      val clientCertConfig = ClientSSLCertConfig.config.nested("clientCertConfig")
       serverCertConfig.zipWith(clientCertConfig)(FromClientAndServerCert(_, _))
     }
 
@@ -63,8 +49,6 @@ object ClientSSLConfig {
     )
   }
 
-  sealed trait ClientSSLCertConfig
-
   case object Default                                                                         extends ClientSSLConfig
   final case class FromCertFile(certPath: String)                                             extends ClientSSLConfig
   final case class FromCertResource(certPath: String)                                         extends ClientSSLConfig
@@ -73,9 +57,6 @@ object ClientSSLConfig {
     serverCertConfig: ClientSSLConfig,
     clientCertConfig: ClientSSLCertConfig,
   ) extends ClientSSLConfig
-
-  final case class FromClientCertFile(certPath: String, keyPath: String)     extends ClientSSLCertConfig
-  final case class FromClientCertResource(certPath: String, keyPath: String) extends ClientSSLCertConfig
 
   object FromTrustStoreResource {
     def apply(trustStorePath: String, trustStorePassword: String): FromTrustStoreResource =
