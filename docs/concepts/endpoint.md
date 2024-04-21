@@ -9,6 +9,7 @@ Endpoints in ZIO HTTP are defined using the `Endpoint` object's combinators, whi
 import zio._
 import zio.http._
 import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
+import HttpCodec.query
 
 val auth = EndpointMiddleware.auth
 
@@ -45,11 +46,12 @@ Here, the `auth` middleware ensures that only authenticated users can access the
 Endpoints are implemented using the `implement` method, which takes a function specifying the logic to handle the request and generate the response. Inside the implementation function, ZIO effects can be used to perform computations and interact with dependencies:
 
 ```scala
-val getUserRoute = getUser.implement[Any] {
-  Handler.fromFunctionZIO[Int] { id =>
-    ZIO.succeed(id)
+val getUserRoute =
+  getUser.implement {
+    Handler.fromFunction[Int] { id =>
+      id
+    }
   }
-}
 ```
 
 In this example, the implementation function takes an `Int` representing the user ID and returns a ZIO effect that produces the same ID.
@@ -66,13 +68,6 @@ val getUserPostsRoute =
         ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
       }
     }
-
-val getUserRoute =
-  getUser.implement {
-    Handler.fromFunction[Int] { id =>
-      id
-    }
-  }
 
 val routes = Routes(getUserRoute, getUserPostsRoute)
 ```
