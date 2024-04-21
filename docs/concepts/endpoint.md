@@ -3,11 +3,6 @@ id: endpoint
 title: Endpoint
 ---
 
----
-id: client
-title: Client
----
-
 Endpoints in ZIO HTTP are defined using the `Endpoint` object's combinators, which provide a type-safe way to specify various aspects of the endpoint. For instance, consider defining endpoints for retrieving user information and user posts:
 
 ```scala
