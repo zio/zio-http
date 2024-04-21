@@ -201,7 +201,7 @@ object SimpleResponseDispatcher extends ZIOAppDefault {
   // Create a message as a Chunk[Byte]
   val message = Chunk.fromArray("Hello world !\r\n".getBytes(Charsets.Http))
   // Use `Http.collect` to match on route
-  val app: HttpApp[Any] =
+  val app: HttpApp[Any, Response] =
     Routes(
       // Simple (non-stream) based route
       Method.GET / "health" -> handler(Response.ok),

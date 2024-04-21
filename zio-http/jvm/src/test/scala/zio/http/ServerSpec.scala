@@ -159,7 +159,7 @@ object ServerSpec extends HttpRunnableSpec {
         ).sandbox.toHttpApp.deploy
 
         def roundTrip[R, E <: Throwable](
-          app: HttpApp[R],
+          app: HttpApp[R, Response],
           headers: Headers,
           contentStream: ZStream[R, E, Byte],
           compressor: ZPipeline[R, E, Byte, Byte],
@@ -267,7 +267,7 @@ object ServerSpec extends HttpRunnableSpec {
   )
 
   def requestSpec = suite("RequestSpec") {
-    val app: HttpApp[Any] =
+    val app: HttpApp[Any, Response] =
       Routes
         .singleton(handler { (_: Path, req: Request) =>
           Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString)
@@ -464,7 +464,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   def requestBodySpec = suite("RequestBodySpec")(
     test("POST Request stream") {
-      val app: HttpApp[Any] = Routes.singleton {
+      val app: HttpApp[Any, Response] = Routes.singleton {
         handler { (_: Path, req: Request) =>
           Response(body = Body.fromStreamChunked(req.body.asStream))
         }

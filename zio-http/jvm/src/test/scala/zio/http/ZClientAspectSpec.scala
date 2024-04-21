@@ -26,11 +26,11 @@ import zio.http.netty.NettyConfig
 object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
-  val app: HttpApp[Any] = {
+  val app: HttpApp[Any, Response] = {
     Route.handled(Method.GET / "hello")(Handler.fromResponse(Response.text("hello")))
   }.toHttpApp
 
-  val redir: HttpApp[Any] = {
+  val redir: HttpApp[Any, Response] = {
     Route.handled(Method.GET / "redirect")(Handler.fromResponse(Response.redirect(URL.empty / "hello")))
   }.toHttpApp
 

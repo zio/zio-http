@@ -16,16 +16,18 @@
 package zio.http
 
 import java.io.File
-
 import zio._
 import zio.metrics._
-
 import zio.http.codec.{PathCodec, SegmentCodec}
+import zio.http.endpoint.EndpointMiddleware.None.Err
 
 trait Middleware[-UpperEnv] { self =>
   def apply[Env1 <: UpperEnv, Err](
     routes: Routes[Env1, Err],
   ): Routes[Env1, Err]
+
+  def apply[Env1 <: UpperEnv, Err](app: HttpApp[Env1, Err]): HttpApp[Env1, Err] =
+    HttpApp(self(Routes.fromIterable(app.routes)))
 
   def @@[UpperEnv1 <: UpperEnv](
     that: Middleware[UpperEnv1],

@@ -214,8 +214,8 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    * Converts the routes into an app, which can be done only when errors are
    * handled and converted into responses.
    */
-  def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] =
-    HttpApp(asErrorType[Response])
+  def toHttpApp: HttpApp[Env, Err] =
+    HttpApp(self)
 
   /**
    * Returns new routes whose handlers are transformed by the specified

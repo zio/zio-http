@@ -86,7 +86,7 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
           .tagged("method", "GET")
           .tagged("status", "200")
 
-        val app: HttpApp[Any] =
+        val app: HttpApp[Any, Response] =
           (Method.GET / "ok" -> Handler.ok).toHttpApp @@ metrics(extraLabels =
             Set(MetricLabel("test", "http_request_duration_seconds")),
           )

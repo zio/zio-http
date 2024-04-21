@@ -8,7 +8,7 @@ import zio.http._
 
 object MultipartFormDataStreaming extends ZIOAppDefault {
 
-  private val app: HttpApp[Any] =
+  private val app: HttpApp[Any, Response] =
     Routes(
       Method.POST / "upload-simple"    -> handler { (req: Request) =>
         for {

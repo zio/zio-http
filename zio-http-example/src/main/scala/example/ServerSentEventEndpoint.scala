@@ -23,7 +23,7 @@ object ServerSentEventEndpoint extends ZIOAppDefault {
 
   val sseRoute = sseEndpoint.implement(Handler.succeed(stream))
 
-  val app: HttpApp[Any] = sseRoute.toHttpApp
+  val app: HttpApp[Any, Response] = sseRoute.toHttpApp
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] = {
     Server.serve(app).provide(Server.default).exitCode

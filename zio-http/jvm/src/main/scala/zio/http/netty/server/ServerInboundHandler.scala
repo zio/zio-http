@@ -49,7 +49,7 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private var app: HttpApp[Any]      = _
+  private var app: HttpApp[Any, Response]      = _
   private var env: ZEnvironment[Any] = _
 
   val inFlightRequests: LongAdder = new LongAdder()

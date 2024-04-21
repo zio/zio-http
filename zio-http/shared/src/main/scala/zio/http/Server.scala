@@ -33,7 +33,7 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R, Unit]
+  def install[R](httpApp: HttpApp[R, Response])(implicit trace: Trace): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
@@ -330,7 +330,7 @@ object Server extends ServerPlatformSpecific {
   }
 
   def serve[R](
-    httpApp: HttpApp[R],
+    httpApp: HttpApp[R, Response],
   )(implicit trace: Trace): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
       install(httpApp) *>
@@ -338,7 +338,7 @@ object Server extends ServerPlatformSpecific {
       ZIO.never
   }
 
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
+  def install[R](httpApp: HttpApp[R, Response])(implicit trace: Trace): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
@@ -392,7 +392,7 @@ object Server extends ServerPlatformSpecific {
     driver: Driver,
     bindPort: Int,
   ) extends Server {
-    override def install[R](httpApp: HttpApp[R])(implicit
+    override def install[R](httpApp: HttpApp[R, Response])(implicit
       trace: Trace,
     ): URIO[R, Unit] =
       ZIO.environment[R].flatMap(driver.addApp(httpApp, _))

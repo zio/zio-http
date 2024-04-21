@@ -16,7 +16,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
 
   private val STATIC_SERVER_NAME = "zio-http"
 
-  private val app: HttpApp[Any] = Routes(
+  private val app: HttpApp[Any, Response] = Routes(
     Method.GET / "plaintext" ->
       handler(
         Response

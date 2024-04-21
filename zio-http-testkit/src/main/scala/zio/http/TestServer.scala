@@ -69,7 +69,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
     for {
       r <- ZIO.environment[R]
       provided          = route.provideEnvironment(r)
-      app: HttpApp[Any] = provided.toHttpApp
+      app: HttpApp[Any, Response] = provided.toHttpApp
       _ <- driver.addApp(app, r)
     } yield ()
 
@@ -92,11 +92,11 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
     for {
       r <- ZIO.environment[R]
       provided          = routes.provideEnvironment(r)
-      app: HttpApp[Any] = provided.toHttpApp
+      app: HttpApp[Any, Response] = provided.toHttpApp
       _ <- driver.addApp(app, r)
     } yield ()
 
-  override def install[R](httpApp: HttpApp[R])(implicit
+  override def install[R](httpApp: HttpApp[R, Response])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
     ZIO

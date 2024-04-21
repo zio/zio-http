@@ -6,7 +6,7 @@ import zio.http._
 
 object MultipartFormData extends ZIOAppDefault {
 
-  private val app: HttpApp[Any] =
+  private val app: HttpApp[Any, Response] =
     Routes(
       Method.POST / "upload" ->
         handler { (req: Request) =>

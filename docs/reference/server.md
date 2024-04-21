@@ -15,7 +15,7 @@ Assuming we have written an `HttpApp`:
 import zio.http._
 import zio._
 
-def app: HttpApp[Any] = 
+def app: HttpApp[Any, Response] = 
   Routes(
     Method.GET / "hello" -> 
       handler(Response.text("Hello, World!"))
@@ -405,7 +405,7 @@ import zio.stream.{ZSink, ZStream}
 object RequestStreamingServerExample extends ZIOAppDefault {
   def logBytes = (b: Byte) => ZIO.log(s"received byte: $b")
 
-  private val app: HttpApp[Any] =
+  private val app: HttpApp[Any, Response] =
     Routes(
       Method.POST / "upload-stream" / "simple"     -> handler { (req: Request) =>
         for {

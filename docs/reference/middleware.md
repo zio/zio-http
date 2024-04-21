@@ -275,7 +275,7 @@ The `Middleware.timeout` middleware is used to set a timeout for the HTTP reques
 
 ```scala mdoc:invisible
 import zio.http._
-val httpApp: HttpApp[Any] = Handler.ok.toHttpApp
+val httpApp: HttpApp[Any, Response] = Handler.ok.toHttpApp
 ```
 
 ```scala mdoc:compile-only

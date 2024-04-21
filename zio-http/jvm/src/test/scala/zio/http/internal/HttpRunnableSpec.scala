@@ -29,9 +29,9 @@ import zio.http._
  * requests.
  */
 abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
-  implicit class RunnableHttpClientAppSyntax[R](route: HttpApp[R]) {
+  implicit class RunnableHttpClientAppSyntax[R](route: HttpApp[R, Response]) {
 
-    def app: HttpApp[R] = route
+    def app: HttpApp[R, Response] = route
 
     /**
      * Deploys the http application on the test server and returns a Http of
@@ -112,7 +112,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
       _    <- DynamicServer.setStart(server)
     } yield port
 
-  def serve[R](app: HttpApp[R]): ZIO[R with DynamicServer with Server, Nothing, Int] =
+  def serve[R](app: HttpApp[R, Response]): ZIO[R with DynamicServer with Server, Nothing, Int] =
     for {
       server <- ZIO.service[Server]
       port   <- Server.install(app)

@@ -43,7 +43,7 @@ object AuthenticationServer extends ZIOAppDefault {
       }
     })
 
-  def app: HttpApp[Any] =
+  def app: HttpApp[Any, Response] =
     Routes(
       // A route that is accessible only via a jwt token
       Method.GET / "profile" / "me" -> handler { (_: Request) =>

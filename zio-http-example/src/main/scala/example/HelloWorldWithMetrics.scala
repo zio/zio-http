@@ -9,7 +9,7 @@ import zio.http._
 
 object HelloWorldWithMetrics extends ZIOAppDefault {
 
-  val backend: HttpApp[Any] =
+  val backend: HttpApp[Any, Response] =
     Routes(
       Method.GET / "json"      -> handler((req: Request) =>
         ZIO.succeed(Response.json("""{"message": "Hello World!"}""")) @@ Metric
@@ -19,7 +19,7 @@ object HelloWorldWithMetrics extends ZIOAppDefault {
       Method.GET / "forbidden" -> handler(ZIO.succeed(Response.forbidden)),
     ).toHttpApp @@ Middleware.metrics()
 
-  val metrics: HttpApp[PrometheusPublisher] =
+  val metrics: HttpApp[PrometheusPublisher, Response] =
     Routes(
       Method.GET / "metrics" -> handler(ZIO.serviceWithZIO[PrometheusPublisher](_.get.map(Response.text))),
     ).toHttpApp

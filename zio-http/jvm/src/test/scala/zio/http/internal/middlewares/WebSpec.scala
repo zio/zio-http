@@ -317,7 +317,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
 
   private def condZIO(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
-  private def runApp[R](app: HttpApp[R]): ZIO[R, Response, Response] = {
+  private def runApp[R](app: HttpApp[R, Response]): ZIO[R, Response, Response] = {
     for {
       fib <- app.runZIO { Request.get(url = URL(Root / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)

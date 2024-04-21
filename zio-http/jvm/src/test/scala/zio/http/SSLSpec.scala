@@ -33,7 +33,7 @@ object SSLSpec extends ZIOHttpSpec {
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
-  val app: HttpApp[Any] = Routes(
+  val app: HttpApp[Any, Response] = Routes(
     Method.GET / "success" -> handler(Response.ok),
   ).sandbox.toHttpApp
 

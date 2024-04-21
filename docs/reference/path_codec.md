@@ -174,7 +174,7 @@ object Main extends ZIOAppDefault {
 
   val userId: PathCodec[UserId] = int("user-id").transformOrFailLeft(UserId.apply)(_.value)
 
-  val httpApp: HttpApp[Any] =
+  val httpApp: HttpApp[Any, Response] =
     Routes(
       Method.GET / "users" / userId ->
         Handler.fromFunctionHandler[(UserId, Request)] { case (userId: UserId, request: Request) =>

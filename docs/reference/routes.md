@@ -221,7 +221,7 @@ import zio._
 import zio.http._
 
 object HelloWorld extends ZIOAppDefault {
-  val app: HttpApp[Any] = Handler.ok.toHttpApp
+  val app: HttpApp[Any, Response] = Handler.ok.toHttpApp
 
   override def run = Server.serve(app).provide(Server.default)
 } 

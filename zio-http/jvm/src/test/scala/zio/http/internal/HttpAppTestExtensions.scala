@@ -19,12 +19,12 @@ package zio.http.internal
 import zio.http._
 
 trait HttpAppTestExtensions {
-  implicit class HttpAppSyntax[R](route: HttpApp[R]) {
+  implicit class HttpAppSyntax[R](route: HttpApp[R, Response]) {
     def rawHeader(name: String): Handler[R, Response, Request, Option[String]] =
       route.toHandler.map(res => res.rawHeader(name))
 
     def headerValues: Handler[R, Response, Request, List[String]] =
-      route.toHandler.map(res => res.headers.toList.map(_.renderedValue.toString))
+      route.toHandler.map(res => res.headers.toList.map(_.renderedValue))
 
     def headers: Handler[R, Response, Request, Headers] =
       route.toHandler.map(res => res.headers)
@@ -38,7 +38,7 @@ trait HttpAppTestExtensions {
       handler.map(res => res.rawHeader(name))
 
     def headerValues: Handler[R, E, Request, List[String]] =
-      handler.map(res => res.headers.toList.map(_.renderedValue.toString))
+      handler.map(res => res.headers.toList.map(_.renderedValue))
 
     def headers: Handler[R, E, Request, Headers] =
       handler.map(res => res.headers)

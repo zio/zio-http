@@ -19,7 +19,7 @@ import zio._
 import zio.http._
 
 object HelloWorldExample extends ZIOAppDefault {
-  val app: HttpApp[Any] =
+  val app: HttpApp[Any, Response] =
     Routes(
       Method.GET / "text" ->
         handler {
@@ -295,7 +295,7 @@ import zio.http._
 
 object WebsocketExample extends ZIOAppDefault {
 
-  val app: HttpApp[Any] = {
+  val app: HttpApp[Any, Response] = {
     Routes(
       Method.GET / "echo" -> handler {
         Response.fromSocketApp(

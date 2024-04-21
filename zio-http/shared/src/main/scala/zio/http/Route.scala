@@ -296,7 +296,7 @@ sealed trait Route[-Env, +Err] { self =>
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
-  final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = Routes(self).toHttpApp
+  final def toHttpApp: HttpApp[Env, Err] = HttpApp(self)
 
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],

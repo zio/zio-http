@@ -29,7 +29,7 @@ import zio.http.netty.NettyConfig
 
 object ResponseCompressionSpec extends ZIOHttpSpec {
 
-  private val text: HttpApp[Any] =
+  private val text: HttpApp[Any, Response] =
     Routes(
       Method.GET / "text" -> handler(Response.text("Hello World!\n")),
     ).toHttpApp

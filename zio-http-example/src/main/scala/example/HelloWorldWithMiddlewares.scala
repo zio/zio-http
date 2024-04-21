@@ -8,7 +8,7 @@ import zio.http._
 
 object HelloWorldWithMiddlewares extends ZIOAppDefault {
 
-  val app: HttpApp[Any] = Routes(
+  val app: HttpApp[Any, Response] = Routes(
     // this will return result instantly
     Method.GET / "text"         -> handler(ZIO.succeed(Response.text("Hello World!"))),
     // this will return result after 5 seconds, so with 3 seconds timeout it will fail
