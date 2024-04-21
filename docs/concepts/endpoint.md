@@ -27,7 +27,7 @@ In these examples, we use combinators like `Method.GET`, `int`, and `query` to d
 
 Middleware can be applied to endpoints using the `@@` operator to add additional behavior or processing. For example, we can apply authentication middleware to restrict access to certain endpoints:
 
-```scala mdoc:invisible
+```scala mdoc
 
 val getUserRoute =
   getUser.implement {
@@ -58,7 +58,7 @@ In this example, the implementation function takes an `Int` representing the use
 
 Endpoints can be composed together using operators like `++`, allowing us to build a collection of endpoints that make up our API:
 
-```scala mdoc:invisible
+```scala mdoc
 
 val getUserPostsRoute =
     getUserPosts.implement[Any] {
@@ -76,7 +76,7 @@ Here, we compose the `getUserRoute` and `getUserPostsRoute` endpoints into a col
 
 To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`). This conversion is done using the `toHttpApp` method:
 
-```scala mdoc:invisible
+```scala mdoc
  val app = routes.toHttpApp
 ```
 
@@ -91,5 +91,27 @@ val run = Server.serve(app).provide(Server.default)
 ```
 
 The server listens on the specified port, accepts incoming connections, and routes the incoming HTTP requests to the appropriate endpoints.
+
+### Purposes and Benefits of Endpoints in ZIO HTTP:
+
+#### Purpose:
+- **Type-Safe Endpoint Definition:** Endpoints in ZIO HTTP are defined using combinators, ensuring type safety and preventing runtime errors related to endpoint configuration.
+- **Clear API Specification:** The use of combinators allows for a clear and concise specification of endpoints, including HTTP method, URL path, path parameters, query parameters, and response types.
+
+#### Benefits:
+- **Enhanced Readability:** Endpoint definitions using combinators improve code readability by providing a declarative way to describe API endpoints.
+- **Improved Maintainability:** The type-safe nature of endpoint definitions reduces the likelihood of errors and facilitates maintenance by making it easier to understand and modify endpoints.
+- **Simplified Middleware Application:** Middleware can be applied directly to endpoints, enabling easy addition of cross-cutting concerns such as authentication, logging, or validation.
+- **Flexible Endpoint Composition:** Endpoints can be composed together using operators like `++`, allowing for the creation of complex APIs from simpler endpoint definitions.
+
+### Why Use Endpoints in ZIO HTTP:
+- **Type Safety:** Endpoints offer strong compile-time guarantees, reducing the risk of runtime errors and enhancing code robustness.
+- **Expressiveness:** The combinators provided by ZIO HTTP allow for expressive and concise endpoint definitions, improving developer productivity and code readability.
+- **Integration with ZIO Ecosystem:** Endpoints seamlessly integrate with the ZIO ecosystem, enabling the use of ZIO effects for handling endpoint logic and dependencies.
+
+### Benefit of Separating Endpoint Definition from Implementation:
+- **Modularity:** Separating the definition of endpoints from their implementation promotes modularity and separation of concerns, making it easier to reason about and maintain the codebase.
+- **Testability:** By decoupling endpoint definition from implementation, each component can be tested independently, facilitating unit testing and ensuring code quality.
+- **Flexibility:** Changes to the implementation of an endpoint can be made without affecting its definition, providing flexibility and allowing for iterative development and refactoring.
 
 The concept of endpoints in ZIO HTTP provides a powerful and type-safe way to define, implement, and serve API operations. By leveraging combinators, middleware, and composition, developers can create robust and scalable API services with ease. [Full code Implementation](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/EndpointExamples.scala)

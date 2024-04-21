@@ -8,7 +8,7 @@ const sidebars = {
       items: [
               "setup",
               "getting-started",
-              "overview.md",
+              "overview",
       
               
     //concepts          
