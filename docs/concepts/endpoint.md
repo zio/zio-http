@@ -5,7 +5,11 @@ title: Endpoint
 
 Endpoints in ZIO HTTP are defined using the `Endpoint` object's combinators, which provide a type-safe way to specify various aspects of the endpoint. For instance, consider defining endpoints for retrieving user information and user posts:
 
-```scala mdoc:invisible
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
+
 val getUser = Endpoint(Method.GET / "users" / int("userId")).out[Int]
 
 val getUserPosts = Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
