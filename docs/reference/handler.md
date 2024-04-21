@@ -39,7 +39,7 @@ Let's look at some examples of creating handlers, using the `handler` smart cons
 import zio._
 import zio.http._
 
-Routes(
+HttpApp(
 
   // 1. A simple handler that returns a "Hello, World!" response
   Method.GET / "hello" -> 
@@ -202,7 +202,7 @@ Let's try an example:
 import zio.http._
 import zio.stream._
 
-Routes(
+HttpApp(
   Method.GET / "stream" ->
     Handler
       .fromStream(
@@ -239,7 +239,7 @@ Now, let's try another example, this time using `fromStreamChunked`:
 import zio.http._
 import zio.stream._
 
-Routes(
+HttpApp(
   Method.GET / "stream" ->
     Handler
       .fromStreamChunked(
@@ -273,7 +273,7 @@ import zio.http._
 import zio.stream._
 import zio.http.template._
 
-Routes(
+HttpApp(
   Method.GET / "html" ->
     Handler.html(
 
@@ -320,7 +320,7 @@ ZIP HTTP has a simple built-in template which is useful for creating simple HTML
 import zio.http._
 import zio.http.template._
 
-Routes(
+HttpApp(
   Method.GET / "hello" -> 
     Handler.template("Hello world!")(
       html(
@@ -396,7 +396,7 @@ import zio.http._
 import zio.stream._
 import zio.schema.codec.JsonCodec.zioJsonBinaryCodec
 
-Routes(
+HttpApp(
   Method.POST / "bounded-body-consumer" ->
     handler { (request: Request) =>
       Handler
@@ -418,7 +418,7 @@ The following example shows how to create a handler that takes an `Int` and `Req
 import zio.json._
 import zio.http._
 
-Routes(
+HttpApp(
   Method.GET / "users" / int("userId")  ->
     Handler.fromFunction[(Int, Request)] { case (userId: Int, request: Request) =>
       Response.json(
@@ -455,7 +455,7 @@ Let's see an example:
 import zio.http._
 import java.io.File
 
-Routes(
+HttpApp(
   Method.GET / "video" -> 
     Handler.fromFile(new File("src/main/resources/TestVideoFile.mp4")),
   Method.GET / "text"  -> 
@@ -472,7 +472,7 @@ Here is an example:
 ```scala mdoc:compile-only
 import zio.http._
 
-Routes(
+HttpApp(
   Method.GET / "static" / trailing -> handler {
     // Path extractor
     val pathExtractor: Handler[Any, Nothing, (Path, Request), Path] = 
@@ -513,7 +513,7 @@ The following example shows how to create an echo server using the `Handler.webS
 import zio.http._
 import zio.http.ChannelEvent._
 
-Routes(
+HttpApp(
   Method.GET / "websocket" ->
     handler {
       Handler.webSocket { channel =>
@@ -548,7 +548,7 @@ Let's try an example:
 ```scala mdoc:compile-only
 import zio.http._
 
-Routes(
+HttpApp(
   Method.GET / "stacktrace" ->
     handler {
       for {
@@ -575,7 +575,7 @@ To attach a handler aspect to a handler, we use the `@@` operator. For instance,
 ```scala mdoc:compile-only
 import zio.http._
 
-Routes(
+HttpApp(
   Method.GET / "echo" -> handler { req: Request =>
     Handler.fromBody(req.body)
   }.flatten @@ HandlerAspect.requestLogging()
@@ -602,7 +602,7 @@ Let's see an example:
 import zio.http._
 import java.nio.file._
 
-Routes(
+HttpApp(
   Method.GET / "file" ->
     Handler.fromFile(Paths.get("file.txt").toFile).sandbox,
 )

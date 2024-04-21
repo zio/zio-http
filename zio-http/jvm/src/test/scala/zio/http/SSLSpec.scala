@@ -33,9 +33,9 @@ object SSLSpec extends ZIOHttpSpec {
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
-  val app: HttpApp[Any, Response] = Routes(
+  val app: HttpApp[Any, Response] = HttpApp(
     Method.GET / "success" -> handler(Response.ok),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   val httpUrl =
     URL.decode("http://localhost:8073/success").toOption.get

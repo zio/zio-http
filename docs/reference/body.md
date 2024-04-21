@@ -21,14 +21,14 @@ import zio.http._
 
 object HelloExample extends ZIOAppDefault {
   val app: HttpApp[Any, Response] =
-    Routes(
+    HttpApp(
       Method.GET / "hello" ->
         handler { req: Request =>
           for {
             name <- req.body.asString
           } yield Response(body = Body.fromString(s"Hello $name!"))
         }.sandbox,
-    ).toHttpApp
+    )
 
   override val run = Server.serve(app).provide(Server.default)
 }

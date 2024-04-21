@@ -69,13 +69,13 @@ Let's write a simple example to see how it works:
 import zio.http._
 
 object ResponseCookieExample extends ZIOAppDefault {
-  val httpApp = Routes(
+  val httpApp = HttpApp(
     Method.GET / "cookie" -> handler {
       Response.ok.addCookie(
         Cookie.Response(name = "user_id", content = "user123", maxAge = Some(5.days))
       )
     },
-  ).toHttpApp
+  )
 
   def run = Server.serve(httpApp).provide(Server.default)
 }
@@ -150,11 +150,11 @@ The cookies can be signed with a signature:
 ```scala mdoc:silent:nest
 val cookie = Cookie.Response("key", "hello", maxAge = Some(5.days))
 val app = 
-  Routes(
+  HttpApp(
     Method.GET / "cookie" -> handler {
       Response.ok.addCookie(cookie.sign("secret"))
     }
-  ).toHttpApp
+  )
 ```
 
 - Using `signCookies` middleware:
@@ -164,10 +164,10 @@ To sign all the cookies in your routes, we can use `signCookies` middleware:
 ```scala mdoc:silent:nest
 import Middleware.signCookies
 
-val app = Routes(
+val app = HttpApp(
   Method.GET / "cookie" -> handler(Response.ok.addCookie(cookie)),
   Method.GET / "secure-cookie" -> handler(Response.ok.addCookie(cookie.copy(isSecure = true)))
-).toHttpApp
+)
 
 // Run it like any simple app
 def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
@@ -205,7 +205,7 @@ From HTTP requests, a single cookie can be retrieved with `Request#cookie`:
 
 ```scala mdoc:compile-only
  private val app4 = 
-  Routes(
+  HttpApp(
     Method.GET / "cookie" -> handler { (req: Request) =>
       val cookieContent = req.cookie("sessionId").map(_.content)
       Response.text(s"cookie content: $cookieContent")
@@ -219,7 +219,7 @@ In HTTP requests, cookies are stored in the `Header.cookie` header:
 
 ```scala mdoc:compile-only
  private val app3 = 
-  Routes(
+  HttpApp(
     Method.GET / "cookie" -> handler { (req: Request) =>
       Response.text(
         req.header(Header.Cookie)

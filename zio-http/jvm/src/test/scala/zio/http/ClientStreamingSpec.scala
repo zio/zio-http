@@ -32,7 +32,7 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 object ClientStreamingSpec extends HttpRunnableSpec {
   def extractStatus(response: Response): Status = response.status
 
-  val app = Routes(
+  val app = HttpApp(
     Method.GET / "simple-get"      ->
       handler(Response.text("simple response")),
     Method.GET / "streaming-get"   ->
@@ -52,7 +52,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         }
       },
     ),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   // TODO: test failure cases
 

@@ -68,7 +68,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      provided          = route.provideEnvironment(r)
+      provided                    = route.provideEnvironment(r)
       app: HttpApp[Any, Response] = provided.toHttpApp
       _ <- driver.addApp(app, r)
     } yield ()
@@ -91,7 +91,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      provided          = routes.provideEnvironment(r)
+      provided                    = routes.provideEnvironment(r)
       app: HttpApp[Any, Response] = provided.toHttpApp
       _ <- driver.addApp(app, r)
     } yield ()

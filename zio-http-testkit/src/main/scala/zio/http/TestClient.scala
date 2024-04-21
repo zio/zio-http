@@ -10,9 +10,24 @@ import zio._
  *   Server
  */
 final case class TestClient(
-  behavior: Ref[Routes[Any, Response]],
+  behavior: Ref[HttpApp[Any, Response]],
   serverSocketBehavior: Ref[WebSocketApp[Any]],
 ) extends ZClient.Driver[Any, Throwable] {
+
+  /**
+   * Adds an HttpApp to the TestClient
+   * @param app
+   *   The HttpApp to be added to the TestClient
+   *
+   * @example
+   *   {{{
+   *    TestClient.addHttpApp(HttpApp.empty)
+   *   }}}
+   */
+  def addHttpApp(
+    app: HttpApp[Any, Response],
+  ): ZIO[Any, Nothing, Unit] =
+    behavior.update(_ ++ app)
 
   /**
    * Adds an exact 1-1 behavior
@@ -84,11 +99,12 @@ final case class TestClient(
    *   }}}
    */
   def addRoutes[R](
-    routes: Routes[R, Response],
+    route: Route[R, Response],
+    routes: Route[R, Response]*,
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      provided = routes.provideEnvironment(r)
+      provided = HttpApp.fromIterable(route +: routes).provideEnvironment(r)
       _ <- behavior.update(_ ++ provided)
     } yield ()
 
@@ -158,6 +174,9 @@ final case class TestClient(
 
 object TestClient {
 
+  def addApp(app: HttpApp[Any, Response]): ZIO[TestClient, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClient](_.addHttpApp(app))
+
   /**
    * Adds an exact 1-1 behavior
    * @param request
@@ -211,9 +230,10 @@ object TestClient {
    *   }}}
    */
   def addRoutes[R](
-    routes: Routes[R, Response],
+    route: Route[R, Response],
+    routes: Route[R, Response]*,
   ): ZIO[R with TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addRoutes(routes))
+    ZIO.serviceWithZIO[TestClient](_.addRoutes(route, routes: _*))
 
   def installSocketApp(
     app: WebSocketApp[Any],
@@ -223,7 +243,7 @@ object TestClient {
   val layer: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
-        behavior       <- Ref.make[Routes[Any, Response]](Routes.empty)
+        behavior       <- Ref.make[HttpApp[Any, Response]](HttpApp.empty)
         socketBehavior <- Ref.make[WebSocketApp[Any]](WebSocketApp.unit)
         driver = TestClient(behavior, socketBehavior)
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))

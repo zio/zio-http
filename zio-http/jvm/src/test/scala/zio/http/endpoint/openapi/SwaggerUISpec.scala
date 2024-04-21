@@ -34,7 +34,7 @@ object SwaggerUISpec extends ZIOSpecDefault {
           OpenAPIGen.fromEndpoints(title = "Another Endpoint Example", version = "2.0", getUser, getUserPosts)
 
         val routes =
-          Routes(getUserRoute, getUserPostsRoute) ++ SwaggerUI.routes("docs" / "openapi", openAPIv1, openAPIv2)
+          HttpApp(getUserRoute, getUserPostsRoute) ++ SwaggerUI.app("docs" / "openapi", openAPIv1, openAPIv2)
 
         val response = routes.apply(Request(method = Method.GET, url = url"/docs/openapi"))
 

@@ -16,10 +16,10 @@ import zio.http._
 import zio._
 
 def app: HttpApp[Any, Response] = 
-  Routes(
+  HttpApp(
     Method.GET / "hello" -> 
       handler(Response.text("Hello, World!"))
-  ).toHttpApp
+  )
 ```
 
 We can serve it using the `Server.serve` method:
@@ -406,7 +406,7 @@ object RequestStreamingServerExample extends ZIOAppDefault {
   def logBytes = (b: Byte) => ZIO.log(s"received byte: $b")
 
   private val app: HttpApp[Any, Response] =
-    Routes(
+    HttpApp(
       Method.POST / "upload-stream" / "simple"     -> handler { (req: Request) =>
         for {
           count <- req.body.asStream.tap(logBytes).run(ZSink.count)
@@ -438,7 +438,7 @@ object RequestStreamingServerExample extends ZIOAppDefault {
           } yield Response.text(count.toString)
         else ZIO.succeed(Response(status = Status.NotFound))
       },
-    ).sandbox.toHttpApp @@ Middleware.debug
+    ).sandbox @@ Middleware.debug
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
     Server

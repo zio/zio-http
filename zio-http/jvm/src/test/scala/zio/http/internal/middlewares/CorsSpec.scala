@@ -27,13 +27,13 @@ import zio.http.internal.HttpAppTestExtensions
 object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   def extractStatus(response: Response): Status = response.status
 
-  val app = Routes(
+  val app = HttpApp(
     Method.GET / "success" -> handler(Response.ok),
     Method.GET / "failure" -> handler(ZIO.fail("failure")),
     Method.GET / "die"     -> handler(ZIO.dieMessage("die")),
   ).handleErrorCause { cause =>
     Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
-  }.toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
+  } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
   override def spec = suite("CorsSpec")(
     test("OPTIONS request") {

@@ -79,7 +79,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
   def testEndpoint[P, In, Err, Out](
     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
-    route: Routes[Any, Nothing],
+    route: HttpApp[Any, Nothing],
     in: In,
     out: Out,
   ): ZIO[Client with Server with Scope, Err, TestResult] =
@@ -87,12 +87,12 @@ object RoundtripSpec extends ZIOHttpSpec {
 
   def testEndpointZIO[P, In, Err, Out](
     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
-    route: Routes[Any, Nothing],
+    route: HttpApp[Any, Nothing],
     in: In,
     outF: Out => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
     for {
-      port   <- Server.install(route.toHttpApp @@ Middleware.requestLogging())
+      port   <- Server.install(route @@ Middleware.requestLogging())
       client <- ZIO.service[Client]
       executor = makeExecutor(client, port)
       out    <- executor(endpoint.apply(in))
@@ -100,13 +100,13 @@ object RoundtripSpec extends ZIOHttpSpec {
     } yield result
 
   def testEndpointCustomRequestZIO[P, In, Err, Out](
-    route: Routes[Any, Nothing],
+    route: HttpApp[Any, Nothing],
     in: Request,
     outF: Response => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
     ZIO.scoped[Client with Server] {
       for {
-        port   <- Server.install(route.toHttpApp @@ Middleware.requestLogging())
+        port   <- Server.install(route @@ Middleware.requestLogging())
         client <- ZIO.service[Client]
         out    <- client.request(in.updateURL(_.host("localhost").port(port))).orDie
         result <- outF(out)
@@ -115,7 +115,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
   def testEndpointError[P, In, Err, Out](
     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
-    route: Routes[Any, Nothing],
+    route: HttpApp[Any, Nothing],
     in: In,
     err: Err,
   ): ZIO[Client with Server with Scope, Out, TestResult] =
@@ -123,12 +123,12 @@ object RoundtripSpec extends ZIOHttpSpec {
 
   def testEndpointErrorZIO[P, In, Err, Out](
     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
-    route: Routes[Any, Nothing],
+    route: HttpApp[Any, Nothing],
     in: In,
     errorF: Err => ZIO[Any, Nothing, TestResult],
   ): ZIO[Client with Server with Scope, Out, TestResult] =
     for {
-      port <- Server.install(route.toHttpApp)
+      port <- Server.install(route)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
         .service[EndpointExecutor[Unit]]
@@ -155,7 +155,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpoint(
           usersPostAPI,
-          Routes(usersPostHandler),
+          HttpApp(usersPostHandler),
           (10, 20),
           Post(20, "title", "body", 10),
         )
@@ -175,7 +175,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpoint(
           usersPostAPI,
-          Routes(usersPostHandler),
+          HttpApp(usersPostHandler),
           (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
           Post(20, "title", "body", 10),
         ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
@@ -196,7 +196,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpoint(
           usersPostAPI,
-          Routes(usersPostHandler),
+          HttpApp(usersPostHandler),
           (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
           Post(20, "title", "body", 10),
         ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
@@ -218,18 +218,18 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpoint(
           api,
-          Routes(handler),
+          HttpApp(handler),
           (10, 20, None, Some("x")),
           Post(10, "-", "x", 20),
         ) && testEndpoint(
           api,
-          Routes(handler),
+          HttpApp(handler),
           (10, 20, None, None),
           Post(10, "-", "-", 20),
         ) &&
         testEndpoint(
           api,
-          Routes(handler),
+          HttpApp(handler),
           (10, 20, Some("x"), Some("y")),
           Post(10, "x", "y", 20),
         )
@@ -274,7 +274,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpoint(
           api,
-          Routes(route),
+          HttpApp(route),
           (11, Post(1, "title", "body", 111)),
           "userId: 11, post: Post(1,title,body,111)",
         )
@@ -290,7 +290,7 @@ object RoundtripSpec extends ZIOHttpSpec {
         Random.nextBytes(1024 * 1024).flatMap { bytes =>
           testEndpoint(
             api,
-            Routes(route),
+            HttpApp(route),
             ZStream.fromChunk(bytes).rechunk(1024),
             1024 * 1024L,
           )
@@ -306,7 +306,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpointZIO(
           api,
-          Routes(route),
+          HttpApp(route),
           1024 * 1024,
           (stream: ZStream[Any, Nothing, Byte]) => stream.runCount.map(c => assert(c)(equalTo(1024L * 1024L))),
         )
@@ -326,7 +326,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpoint(
           api,
-          Routes(route),
+          HttpApp(route),
           ("name", 10, Post(1, "title", "body", 111)),
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
@@ -339,7 +339,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpointError(
           api,
-          Routes(route),
+          HttpApp(route),
           (),
           "42",
         )
@@ -494,7 +494,7 @@ object RoundtripSpec extends ZIOHttpSpec {
         Random.nextBytes(1024 * 1024).flatMap { bytes =>
           testEndpoint(
             api,
-            Routes(route),
+            HttpApp(route),
             ("xyz", 100, ZStream.fromChunk(bytes).rechunk(1024)),
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
@@ -519,7 +519,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           .nextBytes(1024 * 1024)
           .flatMap { bytes =>
             testEndpointCustomRequestZIO(
-              Routes(route),
+              HttpApp(route),
               Request.post(
                 "/test",
                 Body.fromMultipartForm(

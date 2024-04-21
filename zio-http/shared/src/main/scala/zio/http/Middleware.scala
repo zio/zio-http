@@ -16,8 +16,10 @@
 package zio.http
 
 import java.io.File
+
 import zio._
 import zio.metrics._
+
 import zio.http.codec.{PathCodec, SegmentCodec}
 import zio.http.endpoint.EndpointMiddleware.None.Err
 
@@ -346,11 +348,11 @@ object Middleware extends HandlerAspects {
         acc || stop
       }
 
-      override def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] = {
+      override def apply[Env1 <: Any, Err](routes: HttpApp[Env1, Err]): HttpApp[Env1, Err] = {
         val mountpoint =
           Method.GET / path.segments.map(PathCodec.literal).reduceLeftOption(_ / _).getOrElse(PathCodec.empty)
         val pattern    = mountpoint / trailing
-        val other      = Routes(
+        val other      = HttpApp(
           pattern -> Handler
             .identity[Request]
             .flatMap { request =>
@@ -369,6 +371,9 @@ object Middleware extends HandlerAspects {
         )
         routes ++ other
       }
+
+      override def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        Routes.fromIterable(apply(HttpApp(routes)).routes)
     }
 
   /**

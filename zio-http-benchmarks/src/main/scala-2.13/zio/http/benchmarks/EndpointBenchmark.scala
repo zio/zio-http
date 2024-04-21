@@ -104,14 +104,14 @@ class EndpointBenchmark {
   val apiHttpApp = handledUsersPosts.toHttpApp
 
   // Collect DSL
-  val collectHttpApp = Routes(
+  val collectHttpApp = HttpApp(
     Method.GET / "users" / int("userId") / "posts" / int("postId") -> handler {
       (userIdInt: Int, postIdInt: Int, req: Request) =>
         val query = req.url.queryParam("query").get
 
         Response.json(ExampleData(userIdInt, postIdInt, query).toJson)
     },
-  ).toHttpApp
+  )
 
   // Tapir Akka DSL
 
@@ -223,14 +223,14 @@ class EndpointBenchmark {
 
   // Collect DSL
 
-  val deepPathCollectHttpApp = Routes(
+  val deepPathCollectHttpApp = HttpApp(
     Method.GET / "first" / int("id1") / "second" / int("id2") / "third" / int("id3") / "fourth" / int(
       "id4",
     ) / "fifth" / int("id5") / "sixth" / int("id6") / "seventh" / int("id7") ->
       handler { (_: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Request) =>
         ZIO.succeed(Response.ok)
       },
-  ).toHttpApp
+  )
 
   // Tapir Akka DSL
 
@@ -418,7 +418,7 @@ class EndpointBenchmark {
       .implement(Handler.unit)
 
   val broadApiApp =
-    Routes(
+    HttpApp(
       broadUsers,
       broadUsersId,
       boardUsersPosts,
@@ -435,11 +435,11 @@ class EndpointBenchmark {
       broadUsersCommentsId,
       boardUsersPostsCommentsReplies,
       boardUsersPostsCommentsRepliesId,
-    ).toHttpApp
+    )
 
   // Collect DSL
 
-  val broadCollectApp = Routes(
+  val broadCollectApp = HttpApp(
     Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") -> handler {
       (userId: Int, postId: Int, commentId: Int, request: Request) =>
         Response()
@@ -491,7 +491,7 @@ class EndpointBenchmark {
     ) / "replies" -> handler { (userId: Int, postId: Int, commentId: Int, req: Request) =>
       Response()
     },
-  ).toHttpApp
+  )
 
   // Tapir Akka DSL
 

@@ -175,7 +175,7 @@ object Main extends ZIOAppDefault {
   val userId: PathCodec[UserId] = int("user-id").transformOrFailLeft(UserId.apply)(_.value)
 
   val httpApp: HttpApp[Any, Response] =
-    Routes(
+    HttpApp(
       Method.GET / "users" / userId ->
         Handler.fromFunctionHandler[(UserId, Request)] { case (userId: UserId, request: Request) =>
           Handler.text(userId.value.toString)
@@ -188,7 +188,7 @@ object Main extends ZIOAppDefault {
           else
             Response.internalServerError
       }
-    }.toHttpApp
+    }
 
   def run = Server.serve(httpApp).provide(Server.default)
 }
@@ -214,12 +214,12 @@ object TrailingExample extends ZIOAppDefault {
     } yield http
 
   val app =
-    Routes(
+    HttpApp(
       Method.GET / "static" / trailing ->
         Handler.fromFunctionHandler[(Path, Request)] { case (path: Path, _: Request) =>
           staticFileHandler(path).contramap[(Path, Request)](_._2)
         },
-    ).sandbox.toHttpApp @@ HandlerAspect.requestLogging()
+    ).sandbox @@ HandlerAspect.requestLogging()
 
   val run = Server.serve(app).provide(Server.default)
 }

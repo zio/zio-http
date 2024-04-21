@@ -29,9 +29,9 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
   def extractStatus(response: Response): Status = response.status
 
   private val app =
-    Routes(
+    HttpApp(
       Method.GET / "health" -> handler(ZIO.succeed(Response.ok).delay(1 second)),
-    ).toHttpApp
+    )
 
   private val midA = Middleware.addHeader("X-Custom", "A")
   private val midB = Middleware.addHeader("X-Custom", "B")
@@ -216,11 +216,11 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
           ),
         )
         checkAll(urls) { case (url, expected) =>
-          val app = Routes(
+          val app = HttpApp(
             Method.ANY / PathCodec.trailing -> handler { (_: Path, req: Request) =>
               Response.text(req.url.encode)
             },
-          ).toHttpApp @@ dropTrailingSlash(onlyIfNoQueryParams = true)
+          ) @@ dropTrailingSlash(onlyIfNoQueryParams = true)
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))

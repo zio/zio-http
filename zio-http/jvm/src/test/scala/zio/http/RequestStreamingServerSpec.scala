@@ -72,7 +72,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
     suite("streaming request passed to client")({
-      val app   = Routes(
+      val app   = HttpApp(
         Method.POST / "1" -> handler { (req: Request) =>
           val host       = req.headers.get(Header.Host).get
           val newRequest =
@@ -88,7 +88,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
               Response.text(body.length.toString)
             }
         },
-      ).sandbox.toHttpApp
+      ).sandbox
       val sizes = Chunk(0, 8192, 1024 * 1024)
       sizes.map { size =>
         test(s"with body length $size") {

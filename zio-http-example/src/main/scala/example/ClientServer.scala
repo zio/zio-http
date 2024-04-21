@@ -7,10 +7,10 @@ import zio.http._
 object ClientServer extends ZIOAppDefault {
   val url = URL.decode("http://localhost:8080/hello").toOption.get
 
-  val app = Routes(
+  val app = HttpApp(
     Method.GET / "hello" -> handler(Response.text("hello")),
     Method.GET / ""      -> handler(ZClient.request(Request.get(url))),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   val run =
     Server.serve(app).provide(Server.default, Client.default, Scope.default).exitCode

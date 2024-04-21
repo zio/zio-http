@@ -24,11 +24,11 @@ The `@@` operator attaches middleware to routes and HTTP applications.  The exam
 ```scala mdoc:compile-only
 import zio.http._
 
-val app = Routes(
+val app = HttpApp(
   Method.GET / string("name") -> handler { (name: String, req: Request) => 
     Response.text(s"Hello $name")
   }
-).toHttpApp
+)
 val appWithMiddleware = app @@ Middleware.debug
 ```
 
@@ -70,7 +70,7 @@ Consider the following example where we have two endpoints:
 * **GET /users** - Get all users
 
 ```scala
-val routes = Routes(
+val routes = HttpApp(
   Method.GET / "users" / int("id") -> 
     handler { (id: Int, req: Request) =>
       // core business logic  
@@ -152,7 +152,7 @@ val composedMiddlewares = Middleware.basicAuth("user","pw") ++
 And then we can attach our composed bundle of middlewares to an Http using `@@`
 
 ```scala
- val routes = Routes(
+ val routes = HttpApp(
   Method.GET / "users" / int("id") -> 
     handler { (id: Int, req: Request) =>
       // core business logic  

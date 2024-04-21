@@ -27,14 +27,14 @@ object DynamicAppTest extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   val httpApp1: HttpApp[Any, Response] =
-    Routes(
+    HttpApp(
       Method.GET / "good" -> Handler.ok,
-    ).sandbox.toHttpApp
+    ).sandbox
 
   val httpApp2: HttpApp[Any, Response] =
-    Routes(
+    HttpApp(
       Method.GET / "better" -> handler(Response.status(Status.Created)),
-    ).sandbox.toHttpApp
+    ).sandbox
 
   val layer =
     ZLayer.make[Client & Server & Scope](

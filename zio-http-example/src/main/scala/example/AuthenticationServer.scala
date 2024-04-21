@@ -44,7 +44,7 @@ object AuthenticationServer extends ZIOAppDefault {
     })
 
   def app: HttpApp[Any, Response] =
-    Routes(
+    HttpApp(
       // A route that is accessible only via a jwt token
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
         ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
@@ -69,7 +69,7 @@ object AuthenticationServer extends ZIOAppDefault {
             else
               Response.unauthorized("Invalid username or password.")
         },
-    ).toHttpApp @@ Middleware.debug
+    ) @@ Middleware.debug
 
   override val run = Server.serve(app).provide(Server.default)
 }

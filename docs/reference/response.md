@@ -20,12 +20,12 @@ import zio.http._
 
 object HelloWorldExample extends ZIOAppDefault {
   val app: HttpApp[Any, Response] =
-    Routes(
+    HttpApp(
       Method.GET / "text" ->
         handler {
           Response.text("Hello World!")
         },
-    ).toHttpApp
+    )
 
   override val run = Server.serve(app).provide(Server.default)
 }
@@ -246,11 +246,11 @@ object ServerSentExample extends ZIOAppDefault {
     )
 
   val app =
-    Routes(
+    HttpApp(
       Method.GET / "events" -> handler {
         Response.fromServerSentEvents(stream)
       },
-    ).toHttpApp
+    )
   def run = Server.serve(app).provide(Server.default)
 }
 ```
@@ -296,7 +296,7 @@ import zio.http._
 object WebsocketExample extends ZIOAppDefault {
 
   val app: HttpApp[Any, Response] = {
-    Routes(
+    HttpApp(
       Method.GET / "echo" -> handler {
         Response.fromSocketApp(
           WebSocketApp(
@@ -311,7 +311,7 @@ object WebsocketExample extends ZIOAppDefault {
           ),
         )
       },
-    ).toHttpApp
+    )
   }
 
   def run =

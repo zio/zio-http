@@ -39,9 +39,9 @@ object EndpointExamples extends ZIOAppDefault {
 
   val openAPI = OpenAPIGen.fromEndpoints(title = "Endpoint Example", version = "1.0", getUser, getUserPosts)
 
-  val routes = Routes(getUserRoute, getUserPostsRoute) ++ SwaggerUI.routes("docs" / "openapi", openAPI)
+  val routes = HttpApp(getUserRoute, getUserPostsRoute) ++ SwaggerUI.app("docs" / "openapi", openAPI)
 
-  val app = routes.toHttpApp // (auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
+  val app = routes // (auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
 
   val request = Request.get(url = URL.decode("/users/1").toOption.get)
 

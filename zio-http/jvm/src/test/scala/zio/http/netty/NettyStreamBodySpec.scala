@@ -14,7 +14,7 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 object NettyStreamBodySpec extends HttpRunnableSpec {
 
   def app(streams: Iterator[ZStream[Any, Throwable, Byte]], len: Long) =
-    Routes(
+    HttpApp(
       Method.GET / "with-content-length" ->
         handler(
           http.Response(
@@ -22,7 +22,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
             body = Body.fromStream(streams.next(), len),
           ),
         ),
-    ).sandbox.toHttpApp
+    ).sandbox
 
   private def server(
     streams: Iterator[ZStream[Any, Throwable, Byte]],

@@ -28,13 +28,13 @@ import zio.http._
 object EndpointSpec extends ZIOHttpSpec {
   def spec = suite("EndpointSpec")()
 
-  def testEndpoint[R](service: Routes[R, Nothing])(
+  def testEndpoint[R](service: HttpApp[R, Nothing])(
     url: String,
     expected: String,
   ): ZIO[R, Response, TestResult] =
     testEndpointWithHeaders(service)(url, headers = List.empty, expected)
 
-  def testEndpointWithHeaders[R](service: Routes[R, Nothing])(
+  def testEndpointWithHeaders[R](service: HttpApp[R, Nothing])(
     url: String,
     headers: List[(String, String)],
     expected: String,
@@ -43,7 +43,7 @@ object EndpointSpec extends ZIOHttpSpec {
       .get(url = URL.decode(url).toOption.get)
       .addHeaders(headers.foldLeft(Headers.empty) { case (hs, (k, v)) => hs ++ Headers(k, v) })
     for {
-      response <- service.toHttpApp.runZIO(request)
+      response <- service.runZIO(request)
       body     <- response.body.asString.orDie
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }

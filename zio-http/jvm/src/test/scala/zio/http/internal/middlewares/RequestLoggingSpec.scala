@@ -25,12 +25,12 @@ import zio.http.internal.HttpAppTestExtensions
 
 object RequestLoggingSpec extends ZIOHttpSpec with HttpAppTestExtensions {
 
-  private val app = Routes(
+  private val app = HttpApp(
     Method.GET / "ok"     -> Handler.ok,
     Method.GET / "error"  -> Handler.internalServerError,
     Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
     Method.GET / "defect" -> Handler.die(new Throwable("boom")),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("RequestLoggingSpec")(

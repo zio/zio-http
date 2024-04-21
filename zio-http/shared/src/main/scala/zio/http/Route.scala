@@ -284,7 +284,7 @@ sealed trait Route[-Env, +Err] { self =>
    * the request, or else this method will fail fatally.
    */
   final def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] =
-    Routes(self).run(request)
+    HttpApp(self).run(request)
 
   /**
    * Returns a route that automatically translates all failures into responses,

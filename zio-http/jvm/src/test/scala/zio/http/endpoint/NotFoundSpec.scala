@@ -40,7 +40,7 @@ object NotFoundSpec extends ZIOHttpSpec {
     test("on wrong path") {
       check(Gen.int) { userId =>
         val testRoutes = test404(
-          Routes(
+          HttpApp(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
               .implement {
@@ -65,7 +65,7 @@ object NotFoundSpec extends ZIOHttpSpec {
     test("on wrong method") {
       check(Gen.int, Gen.int, Gen.alphaNumericString) { (userId, postId, name) =>
         val testRoutes = test404(
-          Routes(
+          HttpApp(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
               .implement {
@@ -89,13 +89,13 @@ object NotFoundSpec extends ZIOHttpSpec {
     },
   )
 
-  def test404[R](service: Routes[R, Nothing])(
+  def test404[R](service: HttpApp[R, Nothing])(
     url: String,
     method: Method,
   ): ZIO[R, Response, TestResult] = {
     val request = Request(method = method, url = URL.decode(url).toOption.get)
     for {
-      response <- service.toHttpApp.runZIO(request)
+      response <- service.runZIO(request)
       result = response.status == Status.NotFound
     } yield assertTrue(result)
   }

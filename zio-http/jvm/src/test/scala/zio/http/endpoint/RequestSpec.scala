@@ -36,7 +36,7 @@ object RequestSpec extends ZIOHttpSpec {
       test("simple request with header") {
         check(Gen.int, Gen.int, Gen.uuid) { (userId, postId, correlationId) =>
           val testRoutes = testEndpointWithHeaders(
-            Routes(
+            HttpApp(
               Endpoint(GET / "users" / int("userId"))
                 .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
                 .out[String]
@@ -188,7 +188,7 @@ object RequestSpec extends ZIOHttpSpec {
       test("out of order api") {
         check(Gen.int, Gen.int, Gen.alphaNumericString, Gen.int(1, Int.MaxValue)) { (userId, postId, name, age) =>
           val testRoutes = testEndpoint(
-            Routes(
+            HttpApp(
               Endpoint(GET / "users" / int("userId"))
                 .out[String]
                 .implement {
@@ -217,7 +217,7 @@ object RequestSpec extends ZIOHttpSpec {
       test("fallback") {
         check(Gen.int, Gen.alphaNumericString) { (userId, username) =>
           val testRoutes = testEndpoint(
-            Routes(
+            HttpApp(
               Endpoint(GET / "users")
                 .query(queryInt("userId") | query("userId"))
                 .out[String]
@@ -356,7 +356,7 @@ object RequestSpec extends ZIOHttpSpec {
               }
 
           val testRoutes = testEndpoint(
-            Routes(
+            HttpApp(
               broadUsers,
               broadUsersId,
               boardUsersPosts,

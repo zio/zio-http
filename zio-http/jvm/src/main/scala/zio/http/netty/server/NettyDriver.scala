@@ -18,11 +18,14 @@ package zio.http.netty.server
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
+
 import zio._
+
 import zio.http.Driver.StartResult
 import zio.http.netty._
 import zio.http.netty.client.NettyClientDriver
 import zio.http.{ClientDriver, Driver, HttpApp, Response, Server}
+
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.util.ResourceLeakDetector

@@ -217,7 +217,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
                 }
                 log.as(response)
               }
-            case None        =>
+            case None    =>
               Handler.failCause(cause)
           }
         }

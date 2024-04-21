@@ -80,11 +80,11 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       },
       test("Extract username via context with Routes") {
         val app = {
-          Routes(
+          HttpApp(
             Method.GET / "context" -> basicAuthContextM ->
               Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) => Response.text(c.value) },
           )
-        }.toHttpApp
+        }
         assertZIO(
           app
             .runZIO(Request.get(URL.root / "context").copy(headers = successBasicHeader))
@@ -106,7 +106,7 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
       },
       test("Provide for multiple routes") {
-        val secureRoutes = Routes(
+        val secureRoutes = HttpApp(
           Method.GET / "a" -> handler((_: Request) => ZIO.serviceWith[AuthContext](ctx => Response.text(ctx.value))),
           Method.GET / "b" / int("id")      -> handler((id: Int, _: Request) =>
             ZIO.serviceWith[AuthContext](ctx => Response.text(s"for id: $id: ${ctx.value}")),
@@ -114,9 +114,10 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
           Method.GET / "c" / string("name") -> handler((name: String, _: Request) =>
             ZIO.serviceWith[AuthContext](ctx => Response.text(s"for name: $name: ${ctx.value}")),
           ),
+          // Needs version of @@ that removes the context from the environment
         ) @@ basicAuthContextM
         // Just a prove that the aspect can require an environment. Does nothing.
-        val app          = secureRoutes.toHttpApp
+        val app          = secureRoutes
         for {
           s1     <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = successBasicHeader))
           s1Body <- s1.body.asString.debug("s1Body")
@@ -143,9 +144,9 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Routes(Method.GET / "a" -> Handler.ok).toHttpApp
-        val app2 = Routes(Method.GET / "b" -> Handler.ok).toHttpApp
-        val app3 = Routes(Method.GET / "c" -> Handler.ok).toHttpApp
+        val app1 = HttpApp(Method.GET / "a" -> Handler.ok)
+        val app2 = HttpApp(Method.GET / "b" -> Handler.ok)
+        val app3 = HttpApp(Method.GET / "c" -> Handler.ok)
         val app  = app1 ++ app2 @@ bearerAuthM ++ app3
         for {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
@@ -169,9 +170,9 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Routes(Method.GET / "a" -> Handler.ok).toHttpApp
-        val app2 = Routes(Method.GET / "b" -> Handler.ok).toHttpApp
-        val app3 = Routes(Method.GET / "c" -> Handler.ok).toHttpApp
+        val app1 = HttpApp(Method.GET / "a" -> Handler.ok)
+        val app2 = HttpApp(Method.GET / "b" -> Handler.ok)
+        val app3 = HttpApp(Method.GET / "c" -> Handler.ok)
         val app  = app1 ++ app2 @@ bearerAuthZIOM ++ app3
         for {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))

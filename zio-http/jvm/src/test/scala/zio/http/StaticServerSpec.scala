@@ -27,25 +27,25 @@ import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, serverTestLa
 
 object StaticServerSpec extends HttpRunnableSpec {
 
-  private val staticApp = Routes(
+  private val staticApp = HttpApp(
     Method.GET / "success"       -> handler(Response.ok),
     Method.GET / "failure"       -> handler(ZIO.fail(new RuntimeException("FAILURE"))),
     Method.GET / "die"           -> handler(ZIO.die(new RuntimeException("DIE"))),
     Method.GET / "get%2Fsuccess" -> handler(Response.ok),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Routes(
+  private val nonZIO = HttpApp(
     Method.ANY / "ExitSuccess" -> handler(Exit.succeed(Response.ok)),
     Method.ANY / "ExitFailure" -> handler(Exit.fail(new RuntimeException("FAILURE"))),
     Method.ANY / "throwable"   -> handlerTODO("Throw inside Handler"),
-  ).sandbox.toHttpApp
+  ).sandbox
 
-  private val staticAppWithCors = Routes(
+  private val staticAppWithCors = HttpApp(
     Method.GET / "success-cors" -> handler(Response.ok.addHeader(Header.Vary("test1", "test2"))),
-  ).toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
+  ) @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
-  private val combined = nonZIO ++ staticApp ++ staticAppWithCors
+  private val combined: HttpApp[Any, Response] = nonZIO ++ staticApp ++ staticAppWithCors
 
   private val app = serve { combined }
 

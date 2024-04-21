@@ -128,7 +128,7 @@ object ServerSpec extends HttpRunnableSpec {
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
             val app        =
-              Routes(RoutePattern.any -> handler((_: Path, req: Request) => Response(body = req.body))).toHttpApp
+              HttpApp(RoutePattern.any -> handler((_: Path, req: Request) => Response(body = req.body)))
             val res        =
               app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromCharSequenceStreamChunked(dataStream))
             assertZIO(res)(equalTo(MaxSize))
@@ -151,12 +151,12 @@ object ServerSpec extends HttpRunnableSpec {
         val body         = "some-text"
         val bodyAsStream = ZStream.fromChunk(Chunk.fromArray(body.getBytes))
 
-        val app = Routes(
+        val app = HttpApp(
           RoutePattern.any ->
             handler { (_: Path, req: Request) =>
               req.body.asString.map(body => Response.text(body))
             },
-        ).sandbox.toHttpApp.deploy
+        ).sandbox.deploy
 
         def roundTrip[R, E <: Throwable](
           app: HttpApp[R, Response],
@@ -233,7 +233,7 @@ object ServerSpec extends HttpRunnableSpec {
         },
       ) +
       suite("proxy") {
-        val server = Routes(
+        val server = HttpApp(
           Method.ANY / "proxy" / trailing ->
             handler { (path: Path, req: Request) =>
               val url = URL.decode(s"http://localhost:$port/$path").toOption.get
@@ -251,7 +251,7 @@ object ServerSpec extends HttpRunnableSpec {
 
               Response.text(s"Received ${method} query on ${path}")
             },
-        ).sandbox.toHttpApp
+        ).sandbox
 
         test("should be able to directly return other request") {
           for {

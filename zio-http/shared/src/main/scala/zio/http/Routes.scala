@@ -174,11 +174,6 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
           .orElse(err.find { case Cause.Fail(value: Throwable, _) => value })
           .orNull
 
-      def fillSuppressed()(implicit unsafe: Unsafe): Unit =
-        if (getSuppressed().length == 0) {
-          err.unified.iterator.drop(1).foreach(unified => addSuppressed(unified.toThrowable))
-        }
-
       override def toString =
         err.prettyPrint
     }
@@ -231,6 +226,7 @@ object Routes extends RoutesVersionSpecific {
   /**
    * Constructs new routes from a varargs of individual routes.
    */
+  @deprecated("Use HttpApp.apply instead. Will be removed in the next release.")
   def apply[Env, Err](route: zio.http.Route[Env, Err], routes: zio.http.Route[Env, Err]*): Routes[Env, Err] =
     new Routes(Chunk(route) ++ Chunk.fromIterable(routes))
 
@@ -242,6 +238,7 @@ object Routes extends RoutesVersionSpecific {
   /**
    * Constructs new routes from an iterable of individual routes.
    */
+  @deprecated("Use HttpApp.fromIterable instead. Will be removed in the next release.")
   def fromIterable[Env, Err](iterable: Iterable[Route[Env, Err]]): Routes[Env, Err] =
     new Routes(Chunk.fromIterable(iterable))
 
@@ -249,6 +246,7 @@ object Routes extends RoutesVersionSpecific {
    * Constructs a singleton route from a handler that handles all possible
    * methods and paths. You would only use this method for testing.
    */
+  @deprecated("Use HttpApp.singleton instead. Will be removed in the next release.")
   def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))
 }

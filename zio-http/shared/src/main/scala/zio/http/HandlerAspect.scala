@@ -90,9 +90,30 @@ final case class HandlerAspect[-Env, +CtxOut](
    * Applies middleware to the specified handler, which may ignore the context
    * produced by this middleware.
    */
+  @deprecated("Transform your Routes to HttpApp and use the overloaded apply for HttpApp.")
   def apply[Env1 <: Env, Err](
     routes: Routes[Env1, Err],
   ): Routes[Env1, Err] =
+    routes.transform[Env1] { handler =>
+      if (self == HandlerAspect.identity) handler
+      else {
+        for {
+          tuple <- protocol.incomingHandler
+          (state, (request, ctxOut)) = tuple
+          either   <- Handler.fromZIO(handler(request)).either
+          response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+          response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+        } yield response
+      }
+    }
+
+  /**
+   * Applies middleware to the specified handler, which may ignore the context
+   * produced by this middleware.
+   */
+  override def apply[Env1 <: Env, Err](
+    routes: HttpApp[Env1, Err],
+  ): HttpApp[Env1, Err] =
     routes.transform[Env1] { handler =>
       if (self == HandlerAspect.identity) handler
       else {

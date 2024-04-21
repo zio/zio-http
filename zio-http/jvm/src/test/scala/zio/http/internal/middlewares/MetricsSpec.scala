@@ -29,12 +29,12 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("MetricsSpec")(
       test("http_requests_total & http_errors_total") {
-        val app = Routes(
+        val app = HttpApp(
           Method.GET / "ok"     -> Handler.ok,
           Method.GET / "error"  -> Handler.internalServerError,
           Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
           Method.GET / "defect" -> Handler.die(new Throwable("boom")),
-        ).toHttpApp @@ metrics(
+        ) @@ metrics(
           extraLabels = Set(MetricLabel("test", "http_requests_total & http_errors_total")),
         )
 
@@ -105,9 +105,9 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
 
         for {
           promise <- Promise.make[Nothing, Unit]
-          app = Routes(
+          app = HttpApp(
             Method.ANY / PathCodec.trailing -> (Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)),
-          ).toHttpApp @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
+          ) @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
           before <- gauge.value
           _      <- app.runZIO(Request.get(url = URL(Root / "slow"))).fork
           _      <- promise.await

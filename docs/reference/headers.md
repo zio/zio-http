@@ -168,7 +168,7 @@ Response(
 ```scala mdoc
 import Middleware.addHeader
 
-Routes(Method.GET / "hello" -> Handler.ok) @@ addHeader(Header.ContentLength(0L))
+HttpApp(Method.GET / "hello" -> Handler.ok) @@ addHeader(Header.ContentLength(0L))
 ```
 
 ### Reading Headers from Request
@@ -176,7 +176,7 @@ Routes(Method.GET / "hello" -> Handler.ok) @@ addHeader(Header.ContentLength(0L)
 On the Server-side you can read Request headers as given below:
 
 ```scala mdoc
-Routes(
+HttpApp(
   Method.GET / "streamOrNot" -> handler { (req: Request) =>
     Response.text(req.headers.map(_.toString).mkString("\n"))
   }
@@ -202,7 +202,7 @@ object SimpleResponseDispatcher extends ZIOAppDefault {
   val message = Chunk.fromArray("Hello world !\r\n".getBytes(Charsets.Http))
   // Use `Http.collect` to match on route
   val app: HttpApp[Any, Response] =
-    Routes(
+    HttpApp(
       // Simple (non-stream) based route
       Method.GET / "health" -> handler(Response.ok),
 
@@ -221,7 +221,7 @@ object SimpleResponseDispatcher extends ZIOAppDefault {
             Response(status = Status.Accepted, body = Body.fromChunk(message)).addHeader("X-MY-HEADER", "test")
           }
         }
-    ).sandbox.toHttpApp
+    ).sandbox
 }
 ```
 

@@ -10,7 +10,7 @@ Let's see an example of a simple `Routes` that has two routes:
 ```scala mdoc:compile-only
 import zio.http._
 
-Routes(
+HttpApp(
   Method.GET / "hello"        -> Handler.text("hello"),
   Method.GET / "health-check" -> Handler.ok,
 )
@@ -23,7 +23,7 @@ To build empty routes we have `Routes.empty` constructor:
 ```scala mdoc:silent
 import zio.http._ 
 
-val routes1 = Routes.empty
+val routes1 = HttpApp.empty
 ```
 
 We can build routes with the `Routes.apply` constructor, which takes varargs of individual `Route` values:
@@ -40,7 +40,7 @@ object Routes {
 Example:
 
 ```scala mdoc:compile-only
-Routes(
+HttpApp(
   Method.GET / "hello"        -> Handler.text("hello"),
   Method.GET / "health-check" -> Handler.ok,
   Method.POST / "echo"        ->
@@ -61,7 +61,7 @@ Using the `/` operator of `Method`, we can construct route patterns, which can t
 
 ```scala mdoc:silent
 val routes2 = 
-  Routes(
+  HttpApp(
     Method.GET / "hello"   -> Handler.ok,
     Method.GET / "goodbye" -> Handler.ok
   )
@@ -83,17 +83,17 @@ import zio.http.codec.PathCodec._
 
 val routes = 
   literal("nest1") /
-    Routes.fromIterable(
+    HttpApp.fromIterable(
       Chunk(
         Method.GET / "foo" -> Handler.text("foo"),
         Method.GET / "bar" -> Handler.text("bar"),
       ) ++
         Chunk(
-          literal("nest2") / Routes(
+          literal("nest2") / HttpApp(
             Method.GET / "baz" -> Handler.text("baz"),
             Method.GET / "qux" -> Handler.text("qux"),
           ),
-          literal("nest2") / Routes(
+          literal("nest2") / HttpApp(
             Method.GET / "quux" -> Handler.text("quux"),
             Method.GET / "corge" -> Handler.text("corge"),
           ),
