@@ -17,6 +17,7 @@
 package zio.http
 
 import java.net.InetAddress
+import java.security.cert.Certificate
 
 import zio._
 
@@ -29,6 +30,7 @@ final case class Request(
   headers: Headers = Headers.empty,
   body: Body = Body.empty,
   remoteAddress: Option[InetAddress] = None,
+  remoteCertificate: Option[Certificate] = None,
 ) extends HeaderOps[Request]
     with QueryOps[Request] { self =>
 
