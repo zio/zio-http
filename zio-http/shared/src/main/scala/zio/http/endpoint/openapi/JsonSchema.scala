@@ -18,7 +18,7 @@ private[openapi] case class SerializableJsonSchema(
   oneOf: Option[Chunk[SerializableJsonSchema]] = None,
   allOf: Option[Chunk[SerializableJsonSchema]] = None,
   anyOf: Option[Chunk[SerializableJsonSchema]] = None,
-  enumValues: Option[Chunk[Json]] = None,
+  @fieldName("enum") enumValues: Option[Chunk[Json]] = None,
   properties: Option[Map[String, SerializableJsonSchema]] = None,
   additionalProperties: Option[BoolOrSchema] = None,
   required: Option[Chunk[String]] = None,
