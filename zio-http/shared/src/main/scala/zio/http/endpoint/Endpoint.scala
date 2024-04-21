@@ -53,6 +53,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   doc: Doc,
   middleware: Middleware,
+  tags: List[String],
 ) { self =>
   import self.{middleware => mw}
 
@@ -305,6 +306,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -322,6 +324,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -339,6 +342,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -356,6 +360,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -372,7 +377,16 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     errAlternator.Out,
     outCombiner.Out,
   ]] =
-    Endpoint(route, input, output, error, codecError, doc, mw ++ that)
+    Endpoint(
+      route,
+      input,
+      output,
+      error,
+      codecError,
+      doc,
+      mw ++ that,
+      tags,
+    )
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
@@ -389,6 +403,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -424,6 +439,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -442,6 +458,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       Doc.empty,
       mw,
+      tags,
     )
 
   /**
@@ -460,6 +477,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -479,6 +497,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -497,6 +516,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
 
   /**
@@ -562,6 +582,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
   }
 
@@ -586,6 +607,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
   }
 
@@ -610,6 +632,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
   }
 
@@ -646,6 +669,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
   }
 
@@ -664,6 +688,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       codecError,
       doc,
       mw,
+      tags,
     )
   }
 
@@ -709,6 +734,18 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     g: Err1 => Err,
   ): Endpoint[PathInput, Input, Err1, Output, Middleware] =
     copy(error = self.error.transform(f)(g))
+
+  /**
+   * Returns a new API that is derived from this one, which includes a tag that
+   * will be included in OpenAPI generation.
+   */
+  def tag(that: String): Endpoint[PathInput, Input, Err, Output, Middleware] = copy(tags = self.tags :+ that)
+
+  /**
+   * Returns a new API that is derived from this one, which includes a the list
+   * of tags that will be included in OpenAPI generation.
+   */
+  def tags(that: List[String]): Endpoint[PathInput, Input, Err, Output, Middleware] = copy(tags = self.tags ++ that)
 }
 
 object Endpoint {
@@ -725,6 +762,7 @@ object Endpoint {
       HttpContentCodec.responseErrorCodec,
       Doc.empty,
       EndpointMiddleware.None,
+      List.empty,
     )
 
   final case class OutErrors[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware, Err2](

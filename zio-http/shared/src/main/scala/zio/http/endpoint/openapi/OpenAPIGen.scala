@@ -542,7 +542,7 @@ object OpenAPIGen {
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
       val maybeDoc = Some(endpoint.doc + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
-        tags = Nil,
+        tags = endpoint.tags,
         summary = None,
         description = maybeDoc,
         externalDocs = None,

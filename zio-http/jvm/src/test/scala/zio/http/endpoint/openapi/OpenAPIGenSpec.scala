@@ -2468,6 +2468,61 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                                        |    "components" : {}
                                        |}""".stripMargin))
       },
+      test("with tag") {
+        val endpoint = Endpoint(Method.GET / "static").tag("static")
+        val openApi  =
+          OpenAPIGen.fromEndpoints(
+            title = "With tag example",
+            version = "1.0",
+            endpoint,
+          )
+        val json     = toJsonAst(openApi)
+        assertTrue(json == toJsonAst("""{
+                                       |  "openapi" : "3.1.0",
+                                       |    "info" : {
+                                       |      "title" : "With tag example",
+                                       |      "version" : "1.0"
+                                       |    },
+                                       |    "paths" : {
+                                       |      "/static" : {
+                                       |        "get" : {
+                                       |          "tags" : [
+                                       |            "static"
+                                       |          ]
+                                       |        }
+                                       |      }
+                                       |    },
+                                       |    "components" : {}
+                                       |}""".stripMargin))
+      },
+      test("with list of tags") {
+        val endpoint = Endpoint(Method.GET / "static").tags(List("static", "tags"))
+        val openApi  =
+          OpenAPIGen.fromEndpoints(
+            title = "With tags example",
+            version = "1.0",
+            endpoint,
+          )
+        val json     = toJsonAst(openApi)
+        assertTrue(json == toJsonAst("""{
+                                       |  "openapi" : "3.1.0",
+                                       |    "info" : {
+                                       |      "title" : "With tags example",
+                                       |      "version" : "1.0"
+                                       |    },
+                                       |    "paths" : {
+                                       |      "/static" : {
+                                       |        "get" : {
+                                       |          "tags" : [
+                                       |            "static",
+                                       |            "tags"
+                                       |          ]
+                                       |        }
+                                       |      }
+                                       |    },
+                                       |    "components" : {}
+                                       |}""".stripMargin))
+      },
     )
 
 }

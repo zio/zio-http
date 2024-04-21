@@ -32,6 +32,7 @@ object EndpointGen {
       HttpContentCodec.responseErrorCodec,
       doc,
       EndpointMiddleware.None,
+      List.empty,
     )
 
   lazy val anyCliEndpoint: Gen[Any, CliReprOf[CliEndpoint]] =
