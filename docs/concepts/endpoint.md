@@ -5,10 +5,11 @@ title: Endpoint
 
 Endpoints in ZIO HTTP are defined using the `Endpoint` object's combinators, which provide a type-safe way to specify various aspects of the endpoint. For instance, consider defining endpoints for retrieving user information and user posts:
 
-```scala mdoc:compile-only
+```scala mdoc
 import zio._
 import zio.http._
 import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
+import zio.http.codec.{HttpCodec, PathCodec}
 import HttpCodec.query
 
 val auth = EndpointMiddleware.auth
@@ -27,16 +28,13 @@ In these examples, we use combinators like `Method.GET`, `int`, and `query` to d
 Middleware can be applied to endpoints using the `@@` operator to add additional behavior or processing. For example, we can apply authentication middleware to restrict access to certain endpoints:
 
 ```scala mdoc:invisible
-val getUser =
-  Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
 
-val auth = EndpointMiddleware.auth
-
-val getUserRoute = getUser.implement {
-  Handler.fromFunction[Int] { id =>
-    id
+val getUserRoute =
+  getUser.implement {
+    Handler.fromFunction[Int] { id =>
+      id
+    }
   }
-} @@ auth
 ```
 
 Here, the `auth` middleware ensures that only authenticated users can access the `getUser` endpoint.
