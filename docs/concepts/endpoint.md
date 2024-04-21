@@ -3,36 +3,81 @@ id: endpoint
 title: Endpoint
 ---
 
-Endpoints in ZIO HTTP represent individual API operations or routes that the server can handle. They encapsulate the structure and behavior of the API endpoints in a type-safe manner, making them fundamental building blocks for defining HTTP APIs.
+---
+id: client
+title: Client
+---
 
-## Endpoint Definition
+Endpoints in ZIO HTTP are defined using the `Endpoint` object's combinators, which provide a type-safe way to specify various aspects of the endpoint. For instance, consider defining endpoints for retrieving user information and user posts:
 
-Endpoints are defined using the `Endpoint` object's combinators, such as `get`, `post`, `path`, `query`, and more. These combinators allow us to specify various aspects of the endpoint, such as the HTTP method, URL path, query parameters, request/response bodies, and more.
+```scala
+val getUser = Endpoint(Method.GET / "users" / int("userId")).out[Int]
 
-## Middleware
+val getUserPosts = Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
+  .query(query("name"))
+  .out[List[String]]
+```
 
-Middleware can be applied to endpoints using the `@@` operator. Middleware allows us to add additional behavior or processing to the endpoint. For instance, we can handle authentication, validation, error handling, logging, or implement any custom logic needed for the endpoint using middleware.
+In these examples, we use combinators like `Method.GET`, `int`, and `query` to define the HTTP method, URL path, path parameters, query parameters, and response types of the endpoints.
 
-## Endpoint Implementation
+### Middleware Application
 
-Endpoints are implemented using the `implement` method, which takes a function specifying the logic to handle the request and generate the response. This implementation function receives an instance of the request as input and produces an instance of the response as output.
+Middleware can be applied to endpoints using the `@@` operator to add additional behavior or processing. For example, we can apply authentication middleware to restrict access to certain endpoints:
 
-Inside the implementation function, we can use ZIO effects to perform computations, interact with dependencies, and produce the desired response. ZIO's functional approach makes it easy to handle errors, perform asynchronous operations, and compose complex behaviors within the endpoint implementation.
+```scala
+val auth = EndpointMiddleware.auth
 
-## Endpoint Composition
+val getUserRoute = getUser.implement {
+  Handler.fromFunction[Int] { id =>
+    id
+  }
+} @@ auth
+```
 
-Endpoints can be composed together using operators like `++`, allowing us to build a collection of endpoints that make up our API. This composition enables us to structure the API by grouping related endpoints or creating reusable components.
+Here, the `auth` middleware ensures that only authenticated users can access the `getUser` endpoint.
 
-## Converting to App
+### Endpoint Implementation
 
-To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`). This conversion is done using the `toApp` method, which prepares the endpoints to be served as an HTTP application.
+Endpoints are implemented using the `implement` method, which takes a function specifying the logic to handle the request and generate the response. Inside the implementation function, ZIO effects can be used to perform computations and interact with dependencies:
 
-Any required middleware can be applied during this conversion to the final app. Middleware added to the endpoints will be applied to the HTTP application, ensuring that the specified behavior is enforced for each incoming request.
+```scala
+val getUserRoute = getUser.implement[Any] {
+  Handler.fromFunctionZIO[Int] { id =>
+    ZIO.succeed(id)
+  }
+}
+```
 
-## Running an App
+In this example, the implementation function takes an `Int` representing the user ID and returns a ZIO effect that produces the same ID.
 
-ZIO HTTP server requires an `HttpApp[R]` to run. The server can be started using the `Server.serve()` method, which takes the HTTP application as input and any necessary configurations.
+### Endpoint Composition
 
-The server is responsible for listening on the specified port, accepting incoming connections, and handling the incoming HTTP requests by routing them to the appropriate endpoints.
+Endpoints can be composed together using operators like `++`, allowing us to build a collection of endpoints that make up our API:
 
-With `Endpoint` in ZIO HTTP, we can define and implement our API endpoints in a type-safe and composable way. The DSL allows us to specify the details of each endpoint, handle middleware for additional behavior, and easily compose endpoints to structure our API. This powerful concept empowers developers to build robust and scalable API services using ZIO HTTP.
+```scala
+val routes = Routes(getUserRoute, getUserPostsRoute)
+```
+
+Here, we compose the `getUserRoute` and `getUserPostsRoute` endpoints into a collection of routes.
+
+### Converting to App
+
+To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`). This conversion is done using the `toHttpApp` method:
+
+```scala
+val app = routes.toHttpApp
+```
+
+Any required middleware can be applied during this conversion to the final app, ensuring that the specified behavior is enforced for each incoming request.
+
+### Running an App
+
+The ZIO HTTP server requires an `HttpApp[R]` to run. The server can be started using the `Server.serve()` method, which takes the HTTP application as input and any necessary configurations:
+
+```scala
+val run = Server.serve(app).provide(Server.default)
+```
+
+The server listens on the specified port, accepts incoming connections, and routes the incoming HTTP requests to the appropriate endpoints.
+
+The concept of endpoints in ZIO HTTP provides a powerful and type-safe way to define, implement, and serve API operations. By leveraging combinators, middleware, and composition, developers can create robust and scalable API services with ease.
