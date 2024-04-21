@@ -16,58 +16,76 @@
 
 package zio.http.netty.client
 
-import java.io.{FileInputStream, InputStream}
+import java.io.{File, FileInputStream, InputStream}
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
+
+import scala.util.Using
 
 import zio.Config.Secret
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+import zio.http.ClientSSLCertConfig.{FromClientCertFile, FromClientCertResource}
 import zio.http.ClientSSLConfig
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 object ClientSSLConverter {
-  private def trustStoreToSslContext(trustStoreStream: InputStream, trustStorePassword: Secret): SslContext = {
+  private def trustStoreToSslContext(
+    trustStoreStream: InputStream,
+    trustStorePassword: Secret,
+    sslContextBuilder: SslContextBuilder,
+  ): SslContextBuilder = {
     val trustStore          = KeyStore.getInstance("JKS")
     val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
 
     trustStore.load(trustStoreStream, trustStorePassword.value.toArray)
     trustManagerFactory.init(trustStore)
-    SslContextBuilder
-      .forClient()
-      .trustManager(trustManagerFactory)
-      .build()
+
+    sslContextBuilder.trustManager(trustManagerFactory)
   }
 
-  private def certToSslContext(certStream: InputStream): SslContext =
-    SslContextBuilder
-      .forClient()
-      .trustManager(certStream)
-      .build()
-
-  def toNettySSLContext(sslConfig: ClientSSLConfig): SslContext = sslConfig match {
-    case ClientSSLConfig.Default =>
-      SslContextBuilder
-        .forClient()
-        .trustManager(InsecureTrustManagerFactory.INSTANCE)
-        .build()
-
-    case ClientSSLConfig.FromCertFile(certPath) =>
+  private def buildNettySslContextBuilder(
+    sslConfig: ClientSSLConfig,
+    sslContextBuilder: SslContextBuilder,
+  ): SslContextBuilder = sslConfig match {
+    case ClientSSLConfig.Default                                                                              =>
+      sslContextBuilder.trustManager(InsecureTrustManagerFactory.INSTANCE)
+    case ClientSSLConfig.FromCertFile(certPath)                                                               =>
       val certStream = new FileInputStream(certPath)
-      certToSslContext(certStream)
-
-    case ClientSSLConfig.FromCertResource(certPath) =>
+      sslContextBuilder.trustManager(certStream)
+    case ClientSSLConfig.FromCertResource(certPath)                                                           =>
       val certStream = getClass.getClassLoader.getResourceAsStream(certPath)
-      certToSslContext(certStream)
-
-    case ClientSSLConfig.FromTrustStoreFile(trustStorePath, trustStorePassword) =>
-      val trustStoreStream = new FileInputStream(trustStorePath)
-      trustStoreToSslContext(trustStoreStream, trustStorePassword)
-
-    case ClientSSLConfig.FromTrustStoreResource(trustStorePath, trustStorePassword) =>
+      sslContextBuilder.trustManager(certStream)
+    case ClientSSLConfig.FromTrustStoreResource(trustStorePath, trustStorePassword)                           =>
       val trustStoreStream = getClass.getClassLoader.getResourceAsStream(trustStorePath)
-      trustStoreToSslContext(trustStoreStream, trustStorePassword)
+      trustStoreToSslContext(trustStoreStream, trustStorePassword, sslContextBuilder)
+    case ClientSSLConfig.FromClientAndServerCert(serverCertConfig, FromClientCertFile(certPath, keyPath))     =>
+      val newBuilder = buildNettySslContextBuilder(serverCertConfig, sslContextBuilder)
+      Using.Manager { use =>
+        val certInputStream = use(new FileInputStream(new File(certPath)))
+        val keyInputStream  = use(new FileInputStream(new File(keyPath)))
+        newBuilder.keyManager(certInputStream, keyInputStream)
+      }.get
+    case ClientSSLConfig.FromClientAndServerCert(serverCertConfig, FromClientCertResource(certPath, keyPath)) =>
+      val newBuilder = buildNettySslContextBuilder(serverCertConfig, sslContextBuilder)
+      Using.Manager { use =>
+        val classLoader     = getClass.getClassLoader
+        val certInputStream = use(classLoader.getResourceAsStream(certPath))
+        val keyInputStream  = use(classLoader.getResourceAsStream(keyPath))
+        newBuilder.keyManager(certInputStream, keyInputStream)
+      }.get
+    case ClientSSLConfig.FromTrustStoreFile(trustStorePath, trustStorePassword)                               =>
+      val trustStoreStream = new FileInputStream(trustStorePath)
+      trustStoreToSslContext(trustStoreStream, trustStorePassword, sslContextBuilder)
+  }
+
+  def toNettySSLContext(sslConfig: ClientSSLConfig): SslContext = {
+    buildNettySslContextBuilder(
+      sslConfig,
+      SslContextBuilder
+        .forClient(),
+    ).build()
   }
 
 }
