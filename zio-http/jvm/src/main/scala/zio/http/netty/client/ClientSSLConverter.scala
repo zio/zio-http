@@ -18,16 +18,18 @@ package zio.http.netty.client
 
 import java.io.{File, FileInputStream, InputStream}
 import java.security.KeyStore
-
 import javax.net.ssl.TrustManagerFactory
+
 import scala.util.Using
 
 import zio.Config.Secret
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.ClientSSLCertConfig.{FromClientCertFile, FromClientCertResource}
 import zio.http.ClientSSLConfig
+
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
-import zio.http.ClientSSLCertConfig.{FromClientCertFile, FromClientCertResource}
 object ClientSSLConverter {
   private def trustStoreToSslContext(
     trustStoreStream: InputStream,
