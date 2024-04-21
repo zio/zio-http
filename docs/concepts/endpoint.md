@@ -59,7 +59,8 @@ Here, we compose the `getUserRoute` and `getUserPostsRoute` endpoints into a col
 
 To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`). This conversion is done using the `toHttpApp` method:
 
-```scala mdoc:invisibleval app = routes.toHttpApp
+```scala mdoc:invisible
+ val app = routes.toHttpApp
 ```
 
 Any required middleware can be applied during this conversion to the final app, ensuring that the specified behavior is enforced for each incoming request.
