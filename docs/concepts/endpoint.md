@@ -10,11 +10,13 @@ import zio._
 import zio.http._
 import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
 
+val auth = EndpointMiddleware.auth
+
 val getUser = Endpoint(Method.GET / "users" / int("userId")).out[Int]
 
 val getUserPosts = Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
   .query(query("name"))
-  .out[List[String]]
+  .out[List[String]] @@ auth
 ```
 
 In these examples, we use combinators like `Method.GET`, `int`, and `query` to define the HTTP method, URL path, path parameters, query parameters, and response types of the endpoints.
@@ -24,6 +26,9 @@ In these examples, we use combinators like `Method.GET`, `int`, and `query` to d
 Middleware can be applied to endpoints using the `@@` operator to add additional behavior or processing. For example, we can apply authentication middleware to restrict access to certain endpoints:
 
 ```scala mdoc:invisible
+val getUser =
+  Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
+
 val auth = EndpointMiddleware.auth
 
 val getUserRoute = getUser.implement {
@@ -39,7 +44,7 @@ Here, the `auth` middleware ensures that only authenticated users can access the
 
 Endpoints are implemented using the `implement` method, which takes a function specifying the logic to handle the request and generate the response. Inside the implementation function, ZIO effects can be used to perform computations and interact with dependencies:
 
-```scala mdoc:invisible
+```scala
 val getUserRoute = getUser.implement[Any] {
   Handler.fromFunctionZIO[Int] { id =>
     ZIO.succeed(id)
@@ -54,6 +59,21 @@ In this example, the implementation function takes an `Int` representing the use
 Endpoints can be composed together using operators like `++`, allowing us to build a collection of endpoints that make up our API:
 
 ```scala mdoc:invisible
+
+val getUserPostsRoute =
+    getUserPosts.implement[Any] {
+      Handler.fromFunctionZIO[(Int, Int, String)] { case (id1: Int, id2: Int, query: String) =>
+        ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
+      }
+    }
+
+val getUserRoute =
+  getUser.implement {
+    Handler.fromFunction[Int] { id =>
+      id
+    }
+  }
+
 val routes = Routes(getUserRoute, getUserPostsRoute)
 ```
 
@@ -73,7 +93,7 @@ Any required middleware can be applied during this conversion to the final app, 
 
 The ZIO HTTP server requires an `HttpApp[R]` to run. The server can be started using the `Server.serve()` method, which takes the HTTP application as input and any necessary configurations:
 
-```scala mdoc:invisible
+```scala 
 val run = Server.serve(app).provide(Server.default)
 ```
 
