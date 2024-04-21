@@ -5,7 +5,7 @@ title: Endpoint
 
 Endpoints in ZIO HTTP are defined using the `Endpoint` object's combinators, which provide a type-safe way to specify various aspects of the endpoint. For instance, consider defining endpoints for retrieving user information and user posts:
 
-```scala mdoc
+```scala mdoc:silent
 import zio._
 import zio.http._
 import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
@@ -27,7 +27,7 @@ In these examples, we use combinators like `Method.GET`, `int`, and `query` to d
 
 Middleware can be applied to endpoints using the `@@` operator to add additional behavior or processing. For example, we can apply authentication middleware to restrict access to certain endpoints:
 
-```scala mdoc
+```scala mdoc:silent
 
 val getUserRoute =
   getUser.implement {
@@ -37,7 +37,7 @@ val getUserRoute =
   }
 ```
 
-Here, the `auth` middleware ensures that only authenticated users can access the `getUser` endpoint.
+Here, the `auth` middleware ensu authenticated users can access the `getUser` endpoint.
 
 ### Endpoint Implementation
 
@@ -58,7 +58,7 @@ In this example, the implementation function takes an `Int` representing the use
 
 Endpoints can be composed together using operators like `++`, allowing us to build a collection of endpoints that make up our API:
 
-```scala mdoc
+```scala mdoc:silent
 
 val getUserPostsRoute =
     getUserPosts.implement[Any] {
@@ -76,7 +76,7 @@ Here, we compose the `getUserRoute` and `getUserPostsRoute` endpoints into a col
 
 To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`). This conversion is done using the `toHttpApp` method:
 
-```scala mdoc
+```scala mdoc:silent
  val app = routes.toHttpApp
 ```
 
