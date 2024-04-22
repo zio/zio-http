@@ -23,7 +23,7 @@ val getUserPosts = Endpoint(Method.GET / "users" / int("userId") / "posts" / int
 
 In these examples, we use combinators like `Method.GET`, `int`, and `query` to define the HTTP method, URL path, path parameters, query parameters, and response types of the endpoints.
 
-### Middleware Application
+## Middleware Application
 
 Middleware can be applied to endpoints using the `@@` operator to add additional behavior or processing. For example, we can apply authentication middleware to restrict access to certain endpoints:
 
@@ -39,11 +39,11 @@ val getUserRoute =
 
 Here, the `auth` middleware ensu authenticated users can access the `getUser` endpoint.
 
-### Endpoint Implementation
+## Endpoint Implementation
 
 Endpoints are implemented using the `implement` method, which takes a function specifying the logic to handle the request and generate the response. Inside the implementation function, ZIO effects can be used to perform computations and interact with dependencies:
 
-```scala
+```scala mdoc:fail
 val getUserRoute =
   getUser.implement {
     Handler.fromFunction[Int] { id =>
@@ -54,7 +54,7 @@ val getUserRoute =
 
 In this example, the implementation function takes an `Int` representing the user ID and returns a ZIO effect that produces the same ID.
 
-### Endpoint Composition
+## Endpoint Composition
 
 Endpoints can be composed together using operators like `++`, allowing us to build a collection of endpoints that make up our API:
 
@@ -72,7 +72,7 @@ val routes = Routes(getUserRoute, getUserPostsRoute)
 
 Here, we compose the `getUserRoute` and `getUserPostsRoute` endpoints into a collection of routes.
 
-### Converting to App
+## Converting to App
 
 To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`). This conversion is done using the `toHttpApp` method:
 
@@ -82,7 +82,7 @@ To serve the defined endpoints, they need to be converted to an HTTP application
 
 Any required middleware can be applied during this conversion to the final app, ensuring that the specified behavior is enforced for each incoming request.
 
-### Running an App
+## Running an App
 
 The ZIO HTTP server requires an `HttpApp[R]` to run. The server can be started using the `Server.serve()` method, which takes the HTTP application as input and any necessary configurations:
 
@@ -92,13 +92,13 @@ val run = Server.serve(app).provide(Server.default)
 
 The server listens on the specified port, accepts incoming connections, and routes the incoming HTTP requests to the appropriate endpoints.
 
-### Purposes and Benefits of Endpoints in ZIO HTTP:
+## Purposes and Benefits of Endpoints in ZIO HTTP:
 
-#### Purpose:
+### Purpose:
 - **Type-Safe Endpoint Definition:** Endpoints in ZIO HTTP are defined using combinators, ensuring type safety and preventing runtime errors related to endpoint configuration.
 - **Clear API Specification:** The use of combinators allows for a clear and concise specification of endpoints, including HTTP method, URL path, path parameters, query parameters, and response types.
 
-#### Benefits:
+### Benefits:
 - **Enhanced Readability:** Endpoint definitions using combinators improve code readability by providing a declarative way to describe API endpoints.
 - **Improved Maintainability:** The type-safe nature of endpoint definitions reduces the likelihood of errors and facilitates maintenance by making it easier to understand and modify endpoints.
 - **Simplified Middleware Application:** Middleware can be applied directly to endpoints, enabling easy addition of cross-cutting concerns such as authentication, logging, or validation.
