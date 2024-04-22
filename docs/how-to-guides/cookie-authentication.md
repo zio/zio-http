@@ -1,6 +1,6 @@
 ---
 id: cookie-authentication
-title: "Cookie Authentication in ZIO Server"
+title: "How to Implement Cookie Based Authentication in ZIO Server"
 ---
 
 **Cookie Authentication in ZIO Server**
@@ -20,14 +20,14 @@ title: "Cookie Authentication in ZIO Server"
 
 1. **Import Dependencies:**
 
-   ```scala
+   ```scala mdoc:silent
    import zio._
    import zio.http._
    ```
 
 2. **Define a Cookie:**
 
-   ```scala
+   ```scala mdoc:silent
    private val cookie = Cookie.Response("key", "value", maxAge = Some(5 days))
    ```
 
@@ -37,13 +37,13 @@ title: "Cookie Authentication in ZIO Server"
 
 3. **Set Cookies in Responses:**
 
-   ```scala
+   ```scala mdoc:silent
    Response.ok.addCookie(cookie)
    ```
 
 4. **Enhance Cookie Security:**
 
-   ```scala
+   ```scala mdoc:silent
    cookie.copy(isSecure = true, path = Some(Path.root / "secure-cookie"), isHttpOnly = true)
    ```
 
@@ -53,14 +53,14 @@ title: "Cookie Authentication in ZIO Server"
 
 5.  **Delete a Cookie (for logout functionality):**
 
-    ```scala
+    ```scala mdoc:silent
     Response.ok.addCookie(Cookie.clear("key")) 
     ``` 
     This sets the cookie value to an empty string and effectively expires it.
 
 **Complete Example**
 
-See the [original code](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/CookieServerSide.scala) snippet for a full working example demonstrating these steps.
+See the [original code](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/CookieServerSide.scala) for a full working example demonstrating these steps.
 
 **Important Considerations**
 

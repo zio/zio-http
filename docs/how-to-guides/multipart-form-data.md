@@ -10,6 +10,9 @@ Handling multipart form data is a common task in web development, especially whe
 First, we need to define a route that will handle the multipart form data. In the example below, we define a POST route at `/upload`:
 
 ```scala
+import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.http._
+
 private val app: HttpApp[Any] =
   Routes(
     Method.POST / "upload" ->
@@ -109,3 +112,6 @@ private def program: ZIO[Client with Server with Scope, Throwable, Unit] =
 This example demonstrates how to send a multipart form data request with a binary file field named `"file"` using the `Body.fromMultipartForm` method.
 
 By following this guide, you should now be able to handle multipart form data in your ZIO HTTP applications, including processing file uploads and other form fields.
+
+**Complete Example**
+[Full implementation](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/MultipartFormData.scala) For the Example above.
