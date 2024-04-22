@@ -3,7 +3,7 @@ id: middleware
 title: Middleware in ZIO HTTP
 ---
 
-In ZIO HTTP, middleware is a powerful concept that allows you to modify the behavior of HTTP requests and responses before and after they are processed by your application. Middleware functions are applied to the HTTP app using the `@@` operator, creating a pipeline of transformations that are executed in the order they are composed.
+In ZIO HTTP, middleware is a powerful concept that allows us to modify the behavior of HTTP requests and responses before and after they are processed by your application. Middleware functions are applied to the HTTP app using the `@@` operator, creating a pipeline of transformations that are executed in the order they are composed.
 
 Here are some examples of middleware in ZIO HTTP:
 
