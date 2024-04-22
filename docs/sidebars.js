@@ -72,6 +72,7 @@ const sidebars = {
             "reference/template",
           ],
         },
+        "testing-http-apps",
         {
           type: "category",
           label: "Examples",

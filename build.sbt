@@ -319,6 +319,7 @@ lazy val docs = project
     projectStage                               := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttpJVM),
     ciWorkflowName                             := "Continuous Integration",
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       `jwt-core`,
       "dev.zio" %% "zio-test"   % ZioVersion,
@@ -328,3 +329,4 @@ lazy val docs = project
   )
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)
+  .dependsOn(zioHttpTestkit)
