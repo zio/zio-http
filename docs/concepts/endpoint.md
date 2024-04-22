@@ -87,7 +87,7 @@ val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
 
 ## OpenAPI Documentation
 
-ZIO HTTP allows you to generate OpenAPI documentation from `Endpoint` definitions, which can be used to create Swagger UI routes.
+ZIO HTTP allows us to generate OpenAPI documentation from `Endpoint` definitions, which can be used to create Swagger UI routes.
 
 ```scala
 val openAPI = OpenAPIGen.fromEndpoints(title = "Library API", version = "1.0", endpoint)
