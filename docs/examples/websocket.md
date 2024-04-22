@@ -61,3 +61,18 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/WebSocketEcho.scala")
 ```
+
+**Explanation**
+
+**This code sets up a WebSocket server with playful message handling:**
+
+**How it works:**
+
+* **WebSocket Route:**  The "/subscriptions" route is specially designed to handle WebSocket connections.
+* **Message Echoing:** When the server receives a WebSocket message:
+    * If the message is "FOO", it responds with "BAR".
+    * If the message is "BAR", it responds with "FOO".
+    * Otherwise, it repeats the received message 10 times.
+* **Regular HTTP Route:**  The "/greet/{name}" route demonstrates a standard HTTP request for greeting a user.
+
+**Key Point:** This shows how ZIO HTTP allows you to mix WebSocket connections and traditional HTTP requests within the same server.

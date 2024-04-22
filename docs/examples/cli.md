@@ -9,7 +9,7 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/endpoint/CliExamples.scala")
 ```
-
+**Explanation**
 The code defines a set of endpoints for a ZIO-based HTTP server and client application. 
 
 - It declares data models for `User` and `Post`, each with their respective schemas.

@@ -18,6 +18,7 @@ printSource("zio-http-example/src/main/scala/example/HelloWorldWithCORS.scala")
 
 This code sets up a simple web application with Cross-Origin Resource Sharing (CORS) enabled.
 
+
 - It defines a `CorsConfig` specifying allowed origins and their corresponding access control rules.
 - Two HTTP servers are created:
   1. `frontendServer`: Serves a frontend application that interacts with the backend.
