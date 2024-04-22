@@ -40,9 +40,8 @@ const sidebars = {
           type: "category",
           label: "How-to-guides",
           items: [
-            "how-to-guides/endpoint",
             "how-to-guides/cookie-authentication",
-            "how-to-guides/basic-web-application-with-zio-http",
+            "how-to-guides/how-to-use-html-templating",
             "how-to-guides/multipart-form-data",
             "how-to-guides/how-to-utilize-signed-cookies",
             "how-to-guides/how-to-handle-WebSocket-exceptions-and-errors",

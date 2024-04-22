@@ -3,59 +3,66 @@ id: cookie-authentication
 title: "Cookie Authentication in ZIO Server"
 ---
 
-This guide will demonstrate how to implement cookie-based authentication in a ZIO server-side application. You'll learn how to set and validate authentication cookies to secure your endpoints.
+**Cookie Authentication in ZIO Server**
 
-## Code
+**Objectives**
 
-```scala
-package example
+* Set authentication cookies in HTTP responses.
+* Understand how to make cookies secure using flags.
+* Clear (delete) cookies to log out users.
 
-import zio._
+**Prerequisites**
 
-import zio.http._
+* Basic understanding of ZIO HTTP and web server concepts.
+* Familiarity with cookies and their role in authentication.
 
-/**
- * Example to make app using cookies
- */
-object CookieServerSide extends ZIOAppDefault {
+**Steps**
 
-  // Setting cookies with an expiry of 5 days
-  private val cookie = Cookie.Response("key", "value", maxAge = Some(5 days))
-  val res            = Response.ok.addCookie(cookie)
+1. **Import Dependencies:**
 
-  private val app = Http.collect[Request] {
-    case Method.GET -> Root / "cookie" =>
-      Response.ok.addCookie(cookie.copy(path = Some(Root / "cookie"), isHttpOnly = true))
+   ```scala
+   import zio._
+   import zio.http._
+   ```
 
-    case Method.GET -> Root / "secure-cookie" =>
-      Response.ok.addCookie(cookie.copy(isSecure = true, path = Some(Root / "secure-cookie")))
+2. **Define a Cookie:**
 
-    case Method.GET -> Root / "cookie" / "remove" =>
-      res.addCookie(Cookie.clear("key"))
-  }
+   ```scala
+   private val cookie = Cookie.Response("key", "value", maxAge = Some(5 days))
+   ```
 
-  // Run it like any simple app
-  val run =
-    Server.serve(app).provide(Server.default)
-}
-```
+   * **"key"**: The name of the authentication cookie.
+   * **"value"**: A value to identify the logged-in user (could be a session ID or similar).
+   * **maxAge**: (Optional) Sets the cookie's expiration time.
 
-## Explaination 
+3. **Set Cookies in Responses:**
 
-- It imports necessary dependencies from the ZIO and ZIO HTTP modules.
+   ```scala
+   Response.ok.addCookie(cookie)
+   ```
 
-- It defines an object called `CookieServerSide` that extends the `ZIOAppDefault` trait, which provides a default implementation for running the ZIO application.
+4. **Enhance Cookie Security:**
 
-- It creates a `Cookie.Response` object named `cookie` with a key-value pair and an expiry of 5 days.
+   ```scala
+   cookie.copy(isSecure = true, path = Some(Path.root / "secure-cookie"), isHttpOnly = true)
+   ```
 
-- It creates a `Response` object named `res` with an `ok` status and adds the cookie to it.
+   * **isSecure**: Ensures the cookie is only transmitted over HTTPS connections.
+   * **path**:  Restricts the cookie to a specific path on your server.
+   * **isHttpOnly**: Prevents JavaScript from accessing the cookie (mitigates XSS risks).
 
-- It defines a `Http.collect` function that takes a `Request` object and pattern matches on different routes.
+5.  **Delete a Cookie (for logout functionality):**
 
-- For the route `GET /cookie`, it returns a response with an added cookie using the `cookie` object, specifying the path and setting the `isHttpOnly` flag to `true`.
+    ```scala
+    Response.ok.addCookie(Cookie.clear("key")) 
+    ``` 
+    This sets the cookie value to an empty string and effectively expires it.
 
-- For the route `GET /secure-cookie`, it returns a response with an added cookie using the `cookie` object, setting the `isSecure` flag to `true` and specifying the path.
+**Complete Example**
 
-- For the route `GET /cookie/remove`, it returns a response with the res object, which contains the original `cookie` object with a cleared value for the "key" field.
+See the [original code](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/CookieServerSide.scala) snippet for a full working example demonstrating these steps.
 
-- Finally, it defines a `run` value that runs the server by serving the `app` using the `Server.serve` method and providing a default server configuration `(Server.default)`.
+**Important Considerations**
+
+* **Store Sensitive Information Securely:** Avoid storing highly sensitive data directly in cookies. Use session IDs and reference user data in a secure server-side database.
+* **Cookie Validation:**  On subsequent requests, extract the cookie from the request and validate it against your server-side authentication data.

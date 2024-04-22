@@ -25,20 +25,28 @@ By leveraging the client concept in ZIO HTTP, we can build type-safe, composable
 
 Let's explore an example ZIO application together. In this code snippet, we use the ZIO HTTP client to make a GET request to a specified URL, explicitly enabling response decompression: 
 
-```scala mdoc:passthrough
-import utils._
+```scala
+import zio._
+import zio.http._
 
-printSource("zio-http-example/src/main/scala/example/ClientWithDecompression.scala")
+val program =
+  for {
+    client <- ZIO.service[Client].map(_ @@ ZClientAspect.requestDecompression)
+    res    <- client.request(Request.get("https://example.com"))
+    _      <- Console.printLine(s"Response: ${res.status.code}")
+  } yield ()
+
+val run = program.provideCustomLayer(Client.customized ++ EventLoopGroup.auto(2) ++ DnsResolver.live)
 ```
 
-## Code breakdown
+### Code breakdown
     
-- **Client Creation**: The code creates an HTTP client using the `Client.request` method. It sends an HTTP GET request to the specified URL (`url` variable) and provides additional headers (Accept-Encoding) for the request.
+- **Client Creation**: The code creates an HTTP client using the `Client.request` method. It sends an HTTP GET request to the specified URL (`https://example.com`) and provides additional headers (Accept-Encoding) for the request.
 
-- **Request and Response Handling**: The code retrieves the response from the client using `res.body.asString`, which reads the response body as a string. It then proceeds to print the response data using `Console.printLine`.
+- **Request and Response Handling**: The code retrieves the response from the client using `res.status.code`, which reads the response status code. It then proceeds to print the status code using `Console.printLine`.
 
-- **Client Configuration**: The code includes a `ZClient.Config` object that configures the client. In this case, `requestDecompression` is set to `true`, enabling automatic decompression of the response body if the server provides compressed data (e.g., gzip or deflate).
+- **Client Configuration**: The code includes a `ZClientAspect.requestDecompression` aspect that configures the client to enable automatic decompression of the response body if the server provides compressed data (e.g., gzip or deflate).
 
-- **Client Execution**: The `program` is executed using the `run` method, which provides the necessary dependencies to the client. The dependencies include the client configuration, the live `Client` implementation, the `NettyConfig` for the underlying networking library, and the default `DnsResolver`.
+- **Client Execution**: The `program` is executed using the `run` method, which provides the necessary dependencies to the client. The dependencies include the customized client implementation, the `EventLoopGroup` for managing network events, and the default `DnsResolver`.
 
-Overall, this code demonstrates how to create an HTTP client using ZIO HTTP. It configures the client, sends an HTTP request, handles the response, and prints the response data. The client concept in ZIO HTTP enables us to interact with remote servers, send requests, and process the received responses in a purely functional manner using ZIO's effectful programming model.
+Overall, this code demonstrates how to create an HTTP client using ZIO HTTP. It configures the client, sends an HTTP request, handles the response, and prints the response status code. The client concept in ZIO HTTP enables us to interact with remote servers, send requests, and process the received responses in a purely functional manner using ZIO's effectful programming model.
