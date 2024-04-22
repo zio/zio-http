@@ -28,18 +28,24 @@ object ClientSSLConfig {
     val trustStorePath     = Config.string("trustStorePath")
     val trustStorePassword = Config.secret("trustStorePassword")
 
-    val default                = Config.succeed(Default)
-    val fromCertFile           = certPath.map(FromCertFile(_))
-    val fromCertResource       = certPath.map(FromCertResource(_))
-    val fromTrustStoreFile     = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile(_, _))
-    val fromTrustStoreResource = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource(_, _))
+    val default                 = Config.succeed(Default)
+    val fromCertFile            = certPath.map(FromCertFile(_))
+    val fromCertResource        = certPath.map(FromCertResource(_))
+    val fromTrustStoreFile      = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile(_, _))
+    val fromTrustStoreResource  = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource(_, _))
+    val fromClientAndServerCert = Config.defer {
+      val serverCertConfig = config.nested("serverCertConfig")
+      val clientCertConfig = ClientSSLCertConfig.config.nested("clientCertConfig")
+      serverCertConfig.zipWith(clientCertConfig)(FromClientAndServerCert(_, _))
+    }
 
     tpe.switch(
-      "Default"                -> default,
-      "FromCertFile"           -> fromCertFile,
-      "FromCertResource"       -> fromCertResource,
-      "FromTrustStoreFile"     -> fromTrustStoreFile,
-      "FromTrustStoreResource" -> fromTrustStoreResource,
+      "Default"                 -> default,
+      "FromCertFile"            -> fromCertFile,
+      "FromCertResource"        -> fromCertResource,
+      "FromTrustStoreFile"      -> fromTrustStoreFile,
+      "FromTrustStoreResource"  -> fromTrustStoreResource,
+      "FromClientAndServerCert" -> fromClientAndServerCert,
     )
   }
 
@@ -47,6 +53,11 @@ object ClientSSLConfig {
   final case class FromCertFile(certPath: String)                                             extends ClientSSLConfig
   final case class FromCertResource(certPath: String)                                         extends ClientSSLConfig
   final case class FromTrustStoreResource(trustStorePath: String, trustStorePassword: Secret) extends ClientSSLConfig
+  final case class FromClientAndServerCert(
+    serverCertConfig: ClientSSLConfig,
+    clientCertConfig: ClientSSLCertConfig,
+  ) extends ClientSSLConfig
+
   object FromTrustStoreResource {
     def apply(trustStorePath: String, trustStorePassword: String): FromTrustStoreResource =
       FromTrustStoreResource(trustStorePath, Secret(trustStorePassword))

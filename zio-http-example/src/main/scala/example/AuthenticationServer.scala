@@ -2,65 +2,74 @@ package example
 
 import java.time.Clock
 
+import scala.util.Try
+
 import zio._
 
-import zio.http.Middleware.bearerAuth
 import zio.http._
-import zio.http.codec.PathCodec.string
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
+/**
+ * This is an example to demonstrate bearer Authentication middleware. The
+ * Server has 2 routes. The first one is for login, Upon a successful login, it
+ * will return a jwt token for accessing protected routes. The second route is a
+ * protected route that is accessible only if the request has a valid jwt token.
+ * AuthenticationClient example can be used to makes requests to this server.
+ */
 object AuthenticationServer extends ZIOAppDefault {
-
-  /**
-   * This is an example to demonstrate barer Authentication middleware. The
-   * Server has 2 routes. The first one is for login,Upon a successful login, it
-   * will return a jwt token for accessing protected routes. The second route is
-   * a protected route that is accessible only if the request has a valid jwt
-   * token. AuthenticationClient example can be used to makes requests to this
-   * server.
-   */
+  implicit val clock: Clock = Clock.systemUTC
 
   // Secret Authentication key
   val SECRET_KEY = "secretKey"
 
-  implicit val clock: Clock = Clock.systemUTC
+  def jwtEncode(username: String, key: String): String =
+    Jwt.encode(JwtClaim(subject = Some(username)).issuedNow.expiresIn(300), key, JwtAlgorithm.HS512)
 
-  // Helper to encode the JWT token
-  def jwtEncode(username: String): String = {
-    val json  = s"""{"user": "${username}"}"""
-    val claim = JwtClaim {
-      json
-    }.issuedNow.expiresIn(300)
-    Jwt.encode(claim, SECRET_KEY, JwtAlgorithm.HS512)
-  }
+  def jwtDecode(token: String, key: String): Try[JwtClaim] =
+    Jwt.decode(token, key, Seq(JwtAlgorithm.HS512))
 
-  // Helper to decode the JWT token
-  def jwtDecode(token: String): Option[JwtClaim] = {
-    Jwt.decode(token, SECRET_KEY, Seq(JwtAlgorithm.HS512)).toOption
-  }
+  val bearerAuthWithContext: HandlerAspect[Any, String] =
+    HandlerAspect.interceptIncomingHandler(Handler.fromFunctionZIO[Request] { request =>
+      request.header(Header.Authorization) match {
+        case Some(Header.Authorization.Bearer(token)) =>
+          ZIO
+            .fromTry(jwtDecode(token.value.asString, SECRET_KEY))
+            .orElseFail(Response.badRequest("Invalid or expired token!"))
+            .flatMap(claim => ZIO.fromOption(claim.subject).orElseFail(Response.badRequest("Missing subject claim!")))
+            .map(u => (request, u))
 
-  // Http app that is accessible only via a jwt token
-  def user: HttpApp[Any] = Routes(
-    Method.GET / "user" / string("name") / "greet" -> handler { (name: String, _: Request) =>
-      Response.text(s"Welcome to the ZIO party! ${name}")
-    },
-  ).toHttpApp @@ bearerAuth(jwtDecode(_).isDefined)
+        case _ => ZIO.fail(Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm = "Access"))))
+      }
+    })
 
-  // App that let's the user login
-  // Login is successful only if the password is the reverse of the username
-  def login: HttpApp[Any] =
+  def app: HttpApp[Any] =
     Routes(
-      Method.GET / "login" / string("username") / string("password") ->
-        handler { (username: String, password: String, _: Request) =>
-          if (password.reverse.hashCode == username.hashCode) Response.text(jwtEncode(username))
-          else Response.text("Invalid username or password.").status(Status.Unauthorized)
+      // A route that is accessible only via a jwt token
+      Method.GET / "profile" / "me" -> handler { (_: Request) =>
+        ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
+      } @@ bearerAuthWithContext,
+
+      // A login route that is successful only if the password is the reverse of the username
+      Method.GET / "login" ->
+        handler { (request: Request) =>
+          val form = request.body.asMultipartForm.orElseFail(Response.badRequest)
+          for {
+            username <- form
+              .map(_.get("username"))
+              .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing username field!")))
+              .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing username value!")))
+            password <- form
+              .map(_.get("password"))
+              .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing password field!")))
+              .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing password value!")))
+          } yield
+            if (password.reverse.hashCode == username.hashCode)
+              Response.text(jwtEncode(username, SECRET_KEY))
+            else
+              Response.unauthorized("Invalid username or password.")
         },
-    ).toHttpApp
+    ).toHttpApp @@ Middleware.debug
 
-  // Composing all the HttpApps together
-  val app: HttpApp[Any] = login ++ user
-
-  // Run it like any simple app
   override val run = Server.serve(app).provide(Server.default)
 }

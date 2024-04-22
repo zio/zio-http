@@ -16,8 +16,10 @@
 
 package zio.http.netty.server
 
-import java.io.FileInputStream
+import java.io.{FileInputStream, InputStream}
 import java.util
+
+import scala.util.Using
 
 import zio.http.SSLConfig.{HttpBehaviour, Provider}
 import zio.http.netty.Names
@@ -65,6 +67,22 @@ object SSLUtil {
     }
   }
 
+  def buildSslServerContext(
+    sslConfig: SSLConfig,
+    certInputStream: InputStream,
+    keyInputStream: InputStream,
+    trustCertCollectionPath: Option[InputStream],
+  ): SslContext = {
+    val sslServerContext = SslContextBuilder
+      .forServer(certInputStream, keyInputStream)
+
+    trustCertCollectionPath.foreach { stream =>
+      sslServerContext.trustManager(stream)
+    }
+
+    sslServerContext.buildWithDefaultOptions(sslConfig)
+  }
+
   def sslConfigToSslContext(sslConfig: SSLConfig): SslContext = sslConfig.data match {
     case SSLConfig.Data.Generate =>
       val selfSigned = new SelfSignedCertificate()
@@ -72,19 +90,35 @@ object SSLUtil {
         .forServer(selfSigned.key, selfSigned.cert)
         .buildWithDefaultOptions(sslConfig)
 
-    case SSLConfig.Data.FromFile(certPath, keyPath) =>
-      val certInputStream = new FileInputStream(certPath)
-      val keyInputStream  = new FileInputStream(keyPath)
-      SslContextBuilder
-        .forServer(certInputStream, keyInputStream)
-        .buildWithDefaultOptions(sslConfig)
+    case SSLConfig.Data.FromFile(certPath, keyPath, trustCertCollectionPath) =>
+      Using.Manager { use =>
+        val certInputStream      = use(new FileInputStream(certPath))
+        val keyInputStream       = use(new FileInputStream(keyPath))
+        val trustCertInputStream = trustCertCollectionPath.map(path => use(new FileInputStream(path)))
 
-    case SSLConfig.Data.FromResource(certPath, keyPath) =>
-      val certInputStream = getClass().getClassLoader().getResourceAsStream(certPath)
-      val keyInputStream  = getClass().getClassLoader().getResourceAsStream(keyPath)
-      SslContextBuilder
-        .forServer(certInputStream, keyInputStream)
-        .buildWithDefaultOptions(sslConfig)
+        buildSslServerContext(
+          sslConfig,
+          certInputStream,
+          keyInputStream,
+          trustCertInputStream,
+        )
+      }.get
+
+    case SSLConfig.Data.FromResource(certPath, keyPath, trustCertCollectionPath) =>
+      val classLoader = getClass().getClassLoader
+
+      Using.Manager { use =>
+        val certInputStream      = use(classLoader.getResourceAsStream(certPath))
+        val keyInputStream       = use(classLoader.getResourceAsStream(keyPath))
+        val trustCertInputStream = trustCertCollectionPath.map(path => use(classLoader.getResourceAsStream(path)))
+
+        buildSslServerContext(
+          sslConfig,
+          certInputStream,
+          keyInputStream,
+          trustCertInputStream,
+        )
+      }.get
   }
 
 }

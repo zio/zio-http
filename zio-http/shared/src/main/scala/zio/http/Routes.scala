@@ -17,6 +17,7 @@ package zio.http
 
 import zio._
 
+import zio.http.Routes.ApplyContextAspect
 import zio.http.codec.PathCodec
 
 /**
@@ -58,6 +59,17 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)
 
+  def @@[Env0](aspect: HandlerAspect[Env0, Unit]): Routes[Env with Env0, Err] =
+    aspect(self)
+
+  def @@[Env0, Ctx <: Env](
+    aspect: HandlerAspect[Env0, Ctx],
+  )(implicit tag: Tag[Ctx]): Routes[Env0, Err] =
+    self.transform(_ @@ aspect)
+
+  def @@[Env0]: ApplyContextAspect[Env, Err, Env0] =
+    new ApplyContextAspect[Env, Err, Env0](self)
+
   def apply(request: Request)(implicit ev: Err <:< Response, trace: Trace): ZIO[Env, Response, Response] =
     self.toHttpApp.apply(request)
 
@@ -74,6 +86,9 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    */
   def handleError(f: Err => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleError(f)))
+
+  def handleErrorZIO(f: Err => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
+    new Routes(routes.map(_.handleErrorZIO(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -211,7 +226,7 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   ): Routes[Env1, Err] =
     new Routes(routes.map(_.transform(f)))
 }
-object Routes {
+object Routes extends RoutesVersionSpecific {
 
   /**
    * Constructs new routes from a varargs of individual routes.

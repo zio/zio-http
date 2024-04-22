@@ -80,8 +80,8 @@ object MultipartSpec extends ZIOHttpSpec {
             form.get("title").map(_.asInstanceOf[FormField.Text].value) == Some(title),
             form.get("width").map(_.asInstanceOf[FormField.Text].value) == Some(width.toString),
             form.get("height").map(_.asInstanceOf[FormField.Text].value) == Some(height.toString),
-            form.get("metadata").map(_.asInstanceOf[FormField.Binary].data) == Some(
-              Chunk.fromArray(s"""{"description":"$description","createdAt":"$createdAt"}""".getBytes),
+            form.get("metadata").map(_.asInstanceOf[FormField.Text].value) == Some(
+              s"""{"description":"$description","createdAt":"$createdAt"}""",
             ),
           )
         }
@@ -136,8 +136,8 @@ object MultipartSpec extends ZIOHttpSpec {
             form.get("field1").map(_.asInstanceOf[FormField.Text].value) == Some(title),
             form.get("field2").map(_.asInstanceOf[FormField.Text].value) == Some(width.toString),
             form.get("field3").map(_.asInstanceOf[FormField.Text].value) == Some(height.toString),
-            form.get("field4").map(_.asInstanceOf[FormField.Binary].data) == Some(
-              Chunk.fromArray(s"""{"description":"$description","createdAt":"$createdAt"}""".getBytes),
+            form.get("field4").map(_.asInstanceOf[FormField.Text].value) == Some(
+              s"""{"description":"$description","createdAt":"$createdAt"}""",
             ),
           )
         }
@@ -159,11 +159,9 @@ object MultipartSpec extends ZIOHttpSpec {
                 }
             form  = Form(
               FormField.simpleField("title", title),
-              FormField.binaryField(
+              FormField.textField(
                 "metadata",
-                Chunk.fromArray(
-                  s"""{"description":"$description","createdAt":"$createdAt"}""".getBytes,
-                ),
+                s"""{"description":"$description","createdAt":"$createdAt"}""",
                 MediaType.application.json,
               ),
               FormField.binaryField("uploaded-image", bytes, MediaType.image.png),

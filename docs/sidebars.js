@@ -7,7 +7,7 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "setup",
-        "getting-started",
+        "overview",
         {
           type: "category",
           label: "DSL",
@@ -22,11 +22,13 @@ const sidebars = {
             "dsl/handler",
             "dsl/headers",
             "dsl/body",
+            "dsl/endpoint",
             "dsl/form",
             "dsl/cookies",
             "dsl/flash",
             "dsl/protocol-stack",
             "dsl/middleware",
+            "dsl/handler_aspect",
             "dsl/status",
             {
               type: "category",

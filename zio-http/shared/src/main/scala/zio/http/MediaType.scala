@@ -29,10 +29,10 @@ final case class MediaType(
 ) {
   lazy val fullType: String = s"$mainType/$subType"
 
-  def matches(other: MediaType): Boolean =
+  def matches(other: MediaType, ignoreParameters: Boolean = false): Boolean =
     (mainType == "*" || other.mainType == "*" || mainType.equalsIgnoreCase(other.mainType)) &&
       (subType == "*" || other.subType == "*" || subType.equalsIgnoreCase(other.subType)) &&
-      parameters.forall { case (key, value) => other.parameters.get(key).contains(value) }
+      (ignoreParameters || parameters.forall { case (key, value) => other.parameters.get(key).contains(value) })
 }
 
 object MediaType extends MediaTypes {

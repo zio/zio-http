@@ -28,6 +28,7 @@ import zio.stream.ZStream
 import zio.schema.codec.BinaryCodec
 
 import zio.http.internal.BodyEncoding
+import zio.http.multipart.mixed.MultipartMixed
 
 /**
  * Represents the body of a request or response. The body can be a fixed chunk
@@ -109,6 +110,20 @@ trait Body { self =>
           new IllegalStateException("Cannot decode body as streaming multipart/form-data without a known boundary"),
         )
     }
+
+  /**
+   * Returns an effect that decodes the streaming body as a multipart/mixed.
+   *
+   * The result is a stream of Part objects, where each Part has headers and
+   * contents (binary stream), Part objects can be easily converted to a Body
+   * objects which provide vast API for extracting their contents.
+   */
+  def asMultipartMixed(implicit trace: Trace): Task[MultipartMixed] =
+    ZIO.fromOption {
+      MultipartMixed
+        .fromBody(self)
+    }
+      .orElseFail(new IllegalStateException("Cannot decode body as multipart/mixed without a known boundary"))
 
   /**
    * Returns a stream that contains the bytes of the body. This method is safe
