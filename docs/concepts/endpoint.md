@@ -1,6 +1,6 @@
 ---
 id: endpoint
-title: Endpoints in ZIO HTTP
+title: Endpoints
 ---
 
 In ZIO HTTP, an `Endpoint` is a fundamental building block that represents a single HTTP route or operation. It provides a declarative way to define the contract of your API, including the HTTP method, path pattern, input parameters, output types, and potential errors.
@@ -12,7 +12,24 @@ An `Endpoint` is typically defined using the `Endpoint` constructor or builder m
 
 Example:
 
-```scala
+```scala mdoc:silent 
+import zio._
+import zio.http._
+import zio.http.codec._
+import zio.http.endpoint._
+import zio.schema.annotation.description
+import zio.schema.{DeriveSchema, Schema}
+
+  case class Book(
+    @description("Title of the book")
+    title: String,
+    @description("List of the authors of the book")
+    authors: List[String],
+  )
+  object Book {
+    implicit val schema: Schema[Book] = DeriveSchema.gen
+  }
+
 val endpoint =
   Endpoint((RoutePattern.GET / "books") ?? Doc.p("Route for querying books"))
     .query(
@@ -31,7 +48,19 @@ In this example, the endpoint is defined for the `GET` method on the `/books` pa
 
 After defining an endpoint, you need to implement it by providing a handler function that processes the incoming request and produces the desired response or error.
 
-```scala
+```scala mdoc:silent
+
+  object BookRepo {
+    val book1 = Book("Programming in Scala", List("Martin Odersky", "Lex Spoon", "Bill Venners", "Frank Sommers"))
+    val book2 = Book("Zionomicon", List("John A. De Goes", "Adam Fraser"))
+    val book3 = Book("Effect-Oriented Programming", List("Bill Frasure", "Bruce Eckel", "James Ward"))
+    def find(q: String): List[Book] = {
+      if (q.toLowerCase == "scala") List(book1, book2, book3)
+      else if (q.toLowerCase == "zio") List(book2, book3)
+      else List.empty
+    }
+  }
+
 val booksRoute = endpoint.implement(handler((query: String) => BookRepo.find(query)))
 ```
 
@@ -41,8 +70,27 @@ Here, the `implement` method takes a `Handler` that maps the input (in this case
 
 ZIO HTTP provides various ways to handle errors in endpoints. You can define specific error types for your endpoint and map them to appropriate HTTP status codes.
 
-```scala
-case class NotFoundError(error: String, message: String)
+```scala mdoc:reset
+
+import zio._
+import zio.schema.{DeriveSchema, Schema}
+import zio.http._
+import zio.http.codec.PathCodec
+import zio.http.endpoint.Endpoint
+import zio.http.endpoint.EndpointMiddleware.None
+
+
+case class Book(title: String, authors: List[String])
+
+  object Book {
+    implicit val schema: Schema[Book] = DeriveSchema.gen
+  }
+  case class NotFoundError(error: String, message: String)
+
+  object NotFoundError {
+    implicit val schema: Schema[NotFoundError] = DeriveSchema.gen
+  }
+
 
 val endpoint: Endpoint[Int, Int, NotFoundError, Book, None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
@@ -56,9 +104,34 @@ In this example, the `outError` method defines the `NotFoundError` as a potentia
 
 ZIO HTTP supports handling multiple error types by using either `Either` or a common base class for all errors.
 
-```scala
+```scala mdoc:compile-only
+
+import zio._
+
+import zio.schema.{DeriveSchema, Schema}
+
+import zio.http._
+import zio.http.codec.{HeaderCodec, PathCodec}
+import zio.http.endpoint.Endpoint
+import zio.http.endpoint.EndpointMiddleware.None
+
+case class Book(title: String, authors: List[String])
+
+object Book {
+  implicit val schema: Schema[Book] = DeriveSchema.gen
+}
+
 case class BookNotFound(message: String, bookId: Int)
+
+object BookNotFound {
+    implicit val schema: Schema[BookNotFound] = DeriveSchema.gen
+  }
+  
 case class AuthenticationError(message: String, userId: Int)
+
+object AuthenticationError {
+    implicit val schema: Schema[AuthenticationError] = DeriveSchema.gen
+  }
 
 val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
@@ -70,10 +143,37 @@ val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationEr
 
 Alternatively, you can unify all error types into a single error type using a sealed trait or an enum.
 
-```scala
+```scala mdoc:reset
+import zio._
+
+import zio.schema.{DeriveSchema, Schema}
+
+import zio.http._
+import zio.http.codec.{HeaderCodec, HttpCodec, PathCodec}
+import zio.http.endpoint.Endpoint
+import zio.http.endpoint.EndpointMiddleware.None
+
+
+  case class Book(title: String, authors: List[String])
+
+  object Book {
+    implicit val schema: Schema[Book] = DeriveSchema.gen
+  }
+
+
 abstract class AppError(message: String)
+
 case class BookNotFound(message: String, bookId: Int) extends AppError(message)
+
+object BookNotFound {
+    implicit val schema: Schema[BookNotFound] = DeriveSchema.gen
+  }
+
 case class AuthenticationError(message: String, userId: Int) extends AppError(message)
+
+object AuthenticationError {
+    implicit val schema: Schema[AuthenticationError] = DeriveSchema.gen
+  }
 
 val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
@@ -89,7 +189,54 @@ val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
 
 ZIO HTTP allows us to generate OpenAPI documentation from `Endpoint` definitions, which can be used to create Swagger UI routes.
 
-```scala
+```scala mdoc:reset
+import zio._
+
+import zio.schema.annotation.description
+import zio.schema.{DeriveSchema, Schema}
+
+import zio.http._
+import zio.http.codec.PathCodec._
+import zio.http.codec._
+
+import zio.http.endpoint._
+import zio.http.endpoint.openapi._
+
+
+case class Book(
+    @description("Title of the book")
+    title: String,
+    @description("List of the authors of the book")
+    authors: List[String],
+  )
+  object Book {
+    implicit val schema: Schema[Book] = DeriveSchema.gen
+  }
+
+  object BookRepo {
+    val book1 = Book("Programming in Scala", List("Martin Odersky", "Lex Spoon", "Bill Venners", "Frank Sommers"))
+    val book2 = Book("Zionomicon", List("John A. De Goes", "Adam Fraser"))
+    val book3 = Book("Effect-Oriented Programming", List("Bill Frasure", "Bruce Eckel", "James Ward"))
+    def find(q: String): List[Book] = {
+      if (q.toLowerCase == "scala") List(book1, book2, book3)
+      else if (q.toLowerCase == "zio") List(book2, book3)
+      else List.empty
+    }
+  }
+
+
+val endpoint =
+    Endpoint((RoutePattern.GET / "books") ?? Doc.p("Route for querying books"))
+      .query(
+        QueryCodec.queryTo[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
+          "Query parameter for searching books",
+        ),
+      )
+      .out[List[Book]](Doc.p("List of books matching the query")) ?? Doc.p(
+      "Endpoint to query books based on a search query",
+    )
+    
+val booksRoute    = endpoint.implement(handler((query: String) => BookRepo.find(query)))
 val openAPI = OpenAPIGen.fromEndpoints(title = "Library API", version = "1.0", endpoint)
 val swaggerRoutes = SwaggerUI.routes("docs" / "openapi", openAPI)
 val routes = Routes(booksRoute) ++ swaggerRoutes
@@ -99,7 +246,7 @@ val routes = Routes(booksRoute) ++ swaggerRoutes
 
 You can also generate `Endpoint` code from an existing OpenAPI specification using the `EndpointGen.fromOpenAPI` constructor.
 
-```scala
+```scala 
 val userOpenAPI = OpenAPI.fromJson(/* OpenAPI JSON definition */)
 
 CodeGen.writeFiles(
@@ -114,7 +261,16 @@ CodeGen.writeFiles(
 
 ZIO HTTP allows you to generate a ZIO CLI client application from `Endpoint` definitions using the `HttpCliApp.fromEndpoints` constructor.
 
-```scala
+```scala mdoc:fail
+
+
+import zio._
+import zio.cli._
+
+import zio.http._
+import zio.http.codec._
+import zio.http.endpoint.cli._
+
 val cliApp =
   HttpCliApp
     .fromEndpoints(
