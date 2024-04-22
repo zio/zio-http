@@ -1,117 +1,137 @@
 ---
 id: endpoint
-title: Endpoint
+title: Endpoints in ZIO HTTP
 ---
 
-Endpoints in ZIO HTTP are defined using the `Endpoint` object's combinators, which provide a type-safe way to specify various aspects of the endpoint. For instance, consider defining endpoints for retrieving user information and user posts:
+In ZIO HTTP, an `Endpoint` is a fundamental building block that represents a single HTTP route or operation. It provides a declarative way to define the contract of your API, including the HTTP method, path pattern, input parameters, output types, and potential errors.
 
-```scala mdoc:silent
-import zio._
-import zio.http._
-import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
-import zio.http.codec.{HttpCodec, PathCodec}
-import HttpCodec.query
 
-val auth = EndpointMiddleware.auth
+## Defining an Endpoint
 
-val getUser = Endpoint(Method.GET / "users" / int("userId")).out[Int]
+An `Endpoint` is typically defined using the `Endpoint` constructor or builder methods. The constructor takes various parameters to define the endpoint's characteristics, such as the HTTP method, path pattern, query parameters, request body, and response types.
 
-val getUserPosts = Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
-  .query(query("name"))
-  .out[List[String]] @@ auth
+Example:
+
+```scala
+val endpoint =
+  Endpoint((RoutePattern.GET / "books") ?? Doc.p("Route for querying books"))
+    .query(
+      QueryCodec.queryTo[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
+        "Query parameter for searching books",
+      ),
+    )
+    .out[List[Book]](Doc.p("List of books matching the query")) ?? Doc.p(
+    "Endpoint to query books based on a search query",
+  )
 ```
 
-In these examples, we use combinators like `Method.GET`, `int`, and `query` to define the HTTP method, URL path, path parameters, query parameters, and response types of the endpoints.
+In this example, the endpoint is defined for the `GET` method on the `/books` path. It accepts a query parameter `q` of type `String` and returns a list of `Book` objects.
 
-## Middleware Application
+## Implementing an Endpoint
 
-Middleware can be applied to endpoints using the `@@` operator to add additional behavior or processing. For example, we can apply authentication middleware to restrict access to certain endpoints:
+After defining an endpoint, you need to implement it by providing a handler function that processes the incoming request and produces the desired response or error.
 
-```scala mdoc:silent
-
-val getUserRoute =
-  getUser.implement {
-    Handler.fromFunction[Int] { id =>
-      id
-    }
-  }
+```scala
+val booksRoute = endpoint.implement(handler((query: String) => BookRepo.find(query)))
 ```
 
-Here, the `auth` middleware ensu authenticated users can access the `getUser` endpoint.
+Here, the `implement` method takes a `Handler` that maps the input (in this case, the `query` string) to the output (a list of `Book` objects).
 
-## Endpoint Implementation
+## Handling Errors
 
-Endpoints are implemented using the `implement` method, which takes a function specifying the logic to handle the request and generate the response. Inside the implementation function, ZIO effects can be used to perform computations and interact with dependencies:
+ZIO HTTP provides various ways to handle errors in endpoints. You can define specific error types for your endpoint and map them to appropriate HTTP status codes.
 
-```scala mdoc:fail
-val getUserRoute =
-  getUser.implement {
-    Handler.fromFunction[Int] { id =>
-      id
-    }
-  }
+```scala
+case class NotFoundError(error: String, message: String)
+
+val endpoint: Endpoint[Int, Int, NotFoundError, Book, None] =
+  Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+    .out[Book]
+    .outError[NotFoundError](Status.NotFound)
 ```
 
-In this example, the implementation function takes an `Int` representing the user ID and returns a ZIO effect that produces the same ID.
+In this example, the `outError` method defines the `NotFoundError` as a potential error for the endpoint, mapped to the 404 status code.
 
-## Endpoint Composition
+## Multiple Errors
 
-Endpoints can be composed together using operators like `++`, allowing us to build a collection of endpoints that make up our API:
+ZIO HTTP supports handling multiple error types by using either `Either` or a common base class for all errors.
 
-```scala mdoc:silent
+```scala
+case class BookNotFound(message: String, bookId: Int)
+case class AuthenticationError(message: String, userId: Int)
 
-val getUserPostsRoute =
-    getUserPosts.implement[Any] {
-      Handler.fromFunctionZIO[(Int, Int, String)] { case (id1: Int, id2: Int, query: String) =>
-        ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
-      }
-    }
-
-val routes = Routes(getUserRoute, getUserPostsRoute)
+val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, None] =
+  Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+    .header(HeaderCodec.authorization)
+    .out[Book]
+    .outError[BookNotFound](Status.NotFound)
+    .outError[AuthenticationError](Status.Unauthorized)
 ```
 
-Here, we compose the `getUserRoute` and `getUserPostsRoute` endpoints into a collection of routes.
+Alternatively, you can unify all error types into a single error type using a sealed trait or an enum.
 
-## Converting to App
+```scala
+abstract class AppError(message: String)
+case class BookNotFound(message: String, bookId: Int) extends AppError(message)
+case class AuthenticationError(message: String, userId: Int) extends AppError(message)
 
-To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`). This conversion is done using the `toHttpApp` method:
-
-```scala mdoc:silent
- val app = routes.toHttpApp
+val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
+  Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+    .header(HeaderCodec.authorization)
+    .out[Book]
+    .outErrors[AppError](
+      HttpCodec.error[BookNotFound](Status.NotFound),
+      HttpCodec.error[AuthenticationError](Status.Unauthorized),
+    )
 ```
 
-Any required middleware can be applied during this conversion to the final app, ensuring that the specified behavior is enforced for each incoming request.
+## OpenAPI Documentation
 
-## Running an App
+ZIO HTTP allows you to generate OpenAPI documentation from `Endpoint` definitions, which can be used to create Swagger UI routes.
 
-The ZIO HTTP server requires an `HttpApp[R]` to run. The server can be started using the `Server.serve()` method, which takes the HTTP application as input and any necessary configurations:
-
-```scala 
-val run = Server.serve(app).provide(Server.default)
+```scala
+val openAPI = OpenAPIGen.fromEndpoints(title = "Library API", version = "1.0", endpoint)
+val swaggerRoutes = SwaggerUI.routes("docs" / "openapi", openAPI)
+val routes = Routes(booksRoute) ++ swaggerRoutes
 ```
 
-The server listens on the specified port, accepts incoming connections, and routes the incoming HTTP requests to the appropriate endpoints.
+## Generating Endpoints from OpenAPI Spec
 
-## Purposes and Benefits of Endpoints in ZIO HTTP:
+You can also generate `Endpoint` code from an existing OpenAPI specification using the `EndpointGen.fromOpenAPI` constructor.
 
-### Purpose:
-- **Type-Safe Endpoint Definition:** Endpoints in ZIO HTTP are defined using combinators, ensuring type safety and preventing runtime errors related to endpoint configuration.
-- **Clear API Specification:** The use of combinators allows for a clear and concise specification of endpoints, including HTTP method, URL path, path parameters, query parameters, and response types.
+```scala
+val userOpenAPI = OpenAPI.fromJson(/* OpenAPI JSON definition */)
 
-### Benefits:
-- **Enhanced Readability:** Endpoint definitions using combinators improve code readability by providing a declarative way to describe API endpoints.
-- **Improved Maintainability:** The type-safe nature of endpoint definitions reduces the likelihood of errors and facilitates maintenance by making it easier to understand and modify endpoints.
-- **Simplified Middleware Application:** Middleware can be applied directly to endpoints, enabling easy addition of cross-cutting concerns such as authentication, logging, or validation.
-- **Flexible Endpoint Composition:** Endpoints can be composed together using operators like `++`, allowing for the creation of complex APIs from simpler endpoint definitions.
+CodeGen.writeFiles(
+  EndpointGen.fromOpenAPI(userOpenAPI.toOption.get),
+  basePath = Paths.get("./users/src/main/scala"),
+  basePackage = "org.example",
+  scalafmtPath = None,
+)
+```
 
-### Why Use Endpoints in ZIO HTTP:
-- **Type Safety:** Endpoints offer strong compile-time guarantees, reducing the risk of runtime errors and enhancing code robustness.
-- **Expressiveness:** The combinators provided by ZIO HTTP allow for expressive and concise endpoint definitions, improving developer productivity and code readability.
-- **Integration with ZIO Ecosystem:** Endpoints seamlessly integrate with the ZIO ecosystem, enabling the use of ZIO effects for handling endpoint logic and dependencies.
+## Generating ZIO CLI App from Endpoint API
 
-### Benefit of Separating Endpoint Definition from Implementation:
-- **Modularity:** Separating the definition of endpoints from their implementation promotes modularity and separation of concerns, making it easier to reason about and maintain the codebase.
-- **Testability:** By decoupling endpoint definition from implementation, each component can be tested independently, facilitating unit testing and ensuring code quality.
-- **Flexibility:** Changes to the implementation of an endpoint can be made without affecting its definition, providing flexibility and allowing for iterative development and refactoring.
+ZIO HTTP allows you to generate a ZIO CLI client application from `Endpoint` definitions using the `HttpCliApp.fromEndpoints` constructor.
 
-The concept of endpoints in ZIO HTTP provides a powerful and type-safe way to define, implement, and serve API operations. By leveraging combinators, middleware, and composition, developers can create robust and scalable API services with ease. [Full code Implementation](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/EndpointExamples.scala) For more in-depth details, check out [Reference](reference/dsl/endpoint)
+```scala
+val cliApp =
+  HttpCliApp
+    .fromEndpoints(
+      name = "users-mgmt",
+      version = "0.0.1",
+      summary = HelpDoc.Span.text("Users management CLI"),
+      footer = HelpDoc.p("Copyright 2023"),
+      host = "localhost",
+      port = 8080,
+      endpoints = Chunk(getUser, getUserPosts, createUser),
+      cliStyle = true,
+    )
+    .cliApp
+```
+
+This allows you to interact with your API endpoints through a command-line interface.
+
+In summary, the `Endpoint` concept in ZIO HTTP provides a declarative and type-safe way to define your API's contract, handle various scenarios such as input and output types, handle errors, generate OpenAPI documentation, and create client applications, all while adhering to the principles of functional programming and type safety. 
+
+[Reference codes](https://github.com/zio/zio-http/tree/main/zio-http-example/src/main/scala/example/endpoint)
