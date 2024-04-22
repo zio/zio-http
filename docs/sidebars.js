@@ -63,7 +63,7 @@ const sidebars = {
         "examples/websocket",
         "examples/streaming",
         "examples/endpoint",
-        "examples/cors-handling-middleware",
+        "examples/middleware-cors-handling",
         "examples/authentication",
         "examples/graceful-shutdown",
         "examples/cli",
