@@ -7,7 +7,7 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "setup",
-        "getting-started",
+        "overview",
         {
           type: "category",
           label: "DSL",
@@ -44,6 +44,7 @@ const sidebars = {
           ]
         },
         "binary_codecs",
+        "testing-http-apps",
         {
           type: "category",
           label: "Examples",

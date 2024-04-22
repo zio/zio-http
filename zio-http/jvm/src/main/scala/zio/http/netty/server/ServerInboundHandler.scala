@@ -36,6 +36,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.ssl.SslHandler
 import io.netty.handler.timeout.ReadTimeoutException
 
 @Sharable
@@ -52,6 +53,7 @@ private[zio] final case class ServerInboundHandler(
   private var env: ZEnvironment[Any] = _
 
   val inFlightRequests: LongAdder = new LongAdder()
+  val readClientCert              = config.sslConfig.exists(_.includeClientCert)
 
   def refreshApp(): Unit = {
     val pair = appRef.get()
@@ -204,8 +206,13 @@ private[zio] final case class ServerInboundHandler(
       case HttpVersion.HTTP_1_1 => Version.Http_1_1
       case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: $nettyHttpVersion")
     }
-
-    val remoteAddress = ctx.channel().remoteAddress() match {
+    val clientCert       = if (readClientCert) {
+      val sslHandler = ctx.pipeline().get(classOf[SslHandler])
+      sslHandler.engine().getSession().getPeerCertificates().headOption
+    } else {
+      None
+    }
+    val remoteAddress    = ctx.channel().remoteAddress() match {
       case m: InetSocketAddress => Option(m.getAddress)
       case _                    => None
     }
@@ -222,6 +229,7 @@ private[zio] final case class ServerInboundHandler(
           url = URL.decode(nettyReq.uri()).getOrElse(URL.empty),
           version = protocolVersion,
           remoteAddress = remoteAddress,
+          remoteCertificate = clientCert,
         )
       case nettyReq: HttpRequest     =>
         val knownContentLength = headers.get(Header.ContentLength).map(_.length)
@@ -235,6 +243,7 @@ private[zio] final case class ServerInboundHandler(
           url = URL.decode(nettyReq.uri()).getOrElse(URL.empty),
           version = protocolVersion,
           remoteAddress = remoteAddress,
+          remoteCertificate = clientCert,
         )
     }
 
