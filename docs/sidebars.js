@@ -43,7 +43,7 @@ const sidebars = {
             "dsl/client"
           ]
         },
-        "codecs",
+        "binary_codecs",
         {
           type: "category",
           label: "Examples",
