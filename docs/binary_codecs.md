@@ -25,10 +25,10 @@ object Body {
 }
 ```
 
-To use these two methods, we need to have an implicit `BinaryCodec` for our custom data type, `A`. Let's assume we have a `Book` case class with `title`, `author`, and `year` fields:
+To use these two methods, we need to have an implicit `BinaryCodec` for our custom data type, `A`. Let's assume we have a `Book` case class with `title`, `authors` fields:
 
 ```scala mdoc:silent
-case class Book(title: String, author: String, year: Int)
+case class Book(title: String, authors: List[String])
 ```
 
 To create a `BinaryCodec[Book]` for our `Book` case class, we can implement the `BinaryCodec` interface:
@@ -46,7 +46,7 @@ implicit val bookBinaryCodec = new BinaryCodec[Book] {
 } 
 ```
 
-Now, when we call `Body.from(Book("Zionomicon", "John De Goes", 2021"))`, it will encode the `Book` case class to a response body using the implicit `BinaryCodec[Book]`. But, what happens if we add a new field to the `Book` case class, or change one of the existing fields? We would need to update the `BinaryCodec[Book]` implementation to reflect these changes. Also, if we want to support body response bodies with multiple book objects, we would need to implement a new codec for `List[Book]`. So, maintaining these codecs can be cumbersome and error-prone.
+Now, when we call `Body.from(Book("Zionomicon", List("John De Goes")))`, it will encode the `Book` case class to a response body using the implicit `BinaryCodec[Book]`. But, what happens if we add a new field to the `Book` case class, or change one of the existing fields? We would need to update the `BinaryCodec[Book]` implementation to reflect these changes. Also, if we want to support body response bodies with multiple book objects, we would need to implement a new codec for `List[Book]`. So, maintaining these codecs can be cumbersome and error-prone.
 
 ZIO Schema simplifies this process by providing a way to derive codecs for our custom data types. For each custom data type, `A`, if we write/derive a `Schema[A]` using ZIO Schema, then we can derive a `BinaryCodec[A]` for any format supported by ZIO Schema, including JSON, Protobuf, Avro, and Thrift.
 
