@@ -7,7 +7,7 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "installation",
-        "getting-started",
+        "overview",
         {
           type: "category",
           collapsed: true,
