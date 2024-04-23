@@ -30,8 +30,7 @@ const sidebars = {
           type: "category",
           label: "Tutorials",
           items: [
-            "tutorials/testing-your-zio-http-app",
-            "tutorials/deeper-dive-into-middleware",
+            "tutorials/testing-http-apps",
           ],
         },
     
