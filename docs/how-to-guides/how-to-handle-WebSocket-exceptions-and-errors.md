@@ -21,7 +21,11 @@ Before you begin, ensure you have the following:
 
 First, define the WebSocket URL to which you want to connect:
 
-```scala
+```scala mdoc:silent
+import zio._
+import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
+import zio.http._
+
 val url = "ws://ws.vi-server.org/mirror"
 ```
 
@@ -29,31 +33,36 @@ val url = "ws://ws.vi-server.org/mirror"
 
 Next, implement the WebSocket client using ZIO's `Handler.webSocket` function. This function listens for all WebSocket channel events and handles them accordingly.
 
-```scala
-def makeSocketApp(p: Promise[Nothing, Throwable]): SocketApp[Any] =
-  Handler.webSocket { channel =>
-    channel.receiveAll {
-      case UserEventTriggered(UserEvent.HandshakeComplete) =>
-        // On connect, send a "foo" message to start the echo loop
-        channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
+```scala mdoc:silent
+  // A promise is used to be able to notify application about websocket errors
+  def makeSocketApp(p: Promise[Nothing, Throwable]): WebSocketApp[Any] =
+    Handler
 
-      case Read(WebSocketFrame.Text("foo"))                =>
-        // On receiving "foo", reply with another "foo" to keep echo loop going
-        ZIO.logInfo("Received foo message.") *>
-          ZIO.sleep(1.second) *>
-          channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
+      // Listen for all websocket channel events
+      .webSocket { channel =>
+        channel.receiveAll {
 
-      case ExceptionCaught(t)                              =>
-        // Handle exception and convert it to failure to signal the shutdown of the socket connection via the promise
-        ZIO.fail(t)
+          // On connect send a "foo" message to the server to start the echo loop
+          case UserEventTriggered(UserEvent.HandshakeComplete) =>
+            channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
 
-      case _ =>
-        ZIO.unit
-    }
-  }.tapErrorZIO { f =>
-    // Signal failure to application
-    p.succeed(f)
-  }
+          // On receiving "foo", we'll reply with another "foo" to keep echo loop going
+          case Read(WebSocketFrame.Text("foo"))                =>
+            ZIO.logInfo("Received foo message.") *>
+              ZIO.sleep(1.second) *>
+              channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
+
+          // Handle exception and convert it to failure to signal the shutdown of the socket connection via the promise
+          case ExceptionCaught(t)                              =>
+            ZIO.fail(t)
+
+          case _ =>
+            ZIO.unit
+        }
+      }.tapErrorZIO { f =>
+        // signal failure to application
+        p.succeed(f)
+}
 ```
 
 ### 3. Connect and Handle Errors

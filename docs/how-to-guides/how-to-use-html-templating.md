@@ -9,18 +9,11 @@ This guide demonstrates how to use ZIO HTTP's built-in HTML templating capabilit
 
 First, we need to import the necessary dependencies and define the main application object:
 
-```scala
-package example
-
+```scala mdoc:silent
 import zio._
 import zio.http._
+import zio.http.template._ // Importing everything from `zio.html`
 
-object HtmlTemplating extends ZIOAppDefault {
-  // Importing everything from `zio.html`
-  import zio.http.template._
-
-  // ...
-}
 ```
 
 We import the `zio.http.template` module, which provides the HTML templating functionality.
@@ -29,7 +22,7 @@ We import the `zio.http.template` module, which provides the HTML templating fun
 
 Next, we define the HTTP handler that will generate the HTML response:
 
-```scala
+```scala mdoc:silent
 def app: HttpApp[Any] = {
   // Html response takes in a `Html` instance.
   Handler.html {
@@ -53,7 +46,7 @@ The `Handler.html` function takes a `Html` instance as its argument, which repre
 
 Inside the `body` element, we can construct the desired HTML structure using the provided functions:
 
-```scala
+```scala mdoc:silent
 body(
   div(
     // Support for css class names
@@ -91,7 +84,7 @@ This example demonstrates several features of the HTML templating API:
 
 Finally, we can run the server and serve the HTML content:
 
-```scala
+```scala mdoc:silent
 def run = Server.serve(app).provide(Server.default)
 ```
 

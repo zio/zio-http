@@ -15,12 +15,12 @@ title: "How to Utilize Signed Cookies with ZIO HTTP"
 **Step-by-Step Guide**
 
 1. **Import ZIO HTTP:**
-   ```scala
+   ```scala mdoc:silent
    import zio.http._
    ```
 
 2. **Define Your Cookie:**
-   ```scala
+   ```scala mdoc:silent
    private val cookie = Cookie.Response("key", "hello", maxAge = Some(5 days))
    ```
    * **"key"**: The name of the cookie.
@@ -28,7 +28,7 @@ title: "How to Utilize Signed Cookies with ZIO HTTP"
    * **maxAge**: (Optional) Sets an expiration time (here, 5 days).
 
 3. **Create a Route to Set the Cookie:**
-   ```scala
+   ```scala mdoc:silent
   private val app = Http.collect[Request] { case Method.GET -> Root / "cookie" =>
     Response.ok.addCookie(cookie.sign("secret"))
   }
@@ -36,7 +36,7 @@ title: "How to Utilize Signed Cookies with ZIO HTTP"
    * **"secret"**:  A secret key known only to your server, used for signing.
 
 4. **Start the Server:**
-   ```scala
+   ```scala mdoc:silent
    val run = Server.serve(app).provide(Server.default)
    ```
 
