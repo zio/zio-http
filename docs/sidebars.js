@@ -6,37 +6,37 @@ const sidebars = {
       collapsed: true,
       link: { type: "doc", id: "index" },
       items: [
-              "overview",
-              "testing-http-apps",
-      
+        "overview",
+        "testing-http-apps",
+
               
-    //concepts          
-    {
-      type: "category",
-      label: "Concepts",
-      link: { type: "doc", id: "concepts/intro" }, 
-      items: [
-        "concepts/client",
-        "concepts/endpoint",
-        "concepts/middleware",
-        "concepts/request-handling",
-        "concepts/routing",
-        "concepts/server",
-      ],
-    },
+        //concepts          
+        {
+          type: "category",
+          label: "Concepts",
+          link: { type: "doc", id: "concepts/intro" }, 
+          items: [
+            "concepts/client",
+            "concepts/endpoint",
+            "concepts/middleware",
+            "concepts/request-handling",
+            "concepts/routing",
+            "concepts/server",
+          ],
+        },
     
-    // detailed tutorials
-    {
+        // detailed tutorials
+        {
           type: "category",
           label: "Tutorials",
           items: [
             "tutorials/testing-your-zio-http-app",
             "tutorials/deeper-dive-into-middleware",
           ],
-    },
+        },
     
-    // How to guide
-    {
+        // How to guide
+        {
           type: "category",
           label: "How-to-guides",
           items: [
@@ -46,34 +46,34 @@ const sidebars = {
             "how-to-guides/how-to-utilize-signed-cookies",
             "how-to-guides/how-to-handle-WebSocket-exceptions-and-errors",
           ],
-    },
+        },
 
 
-    // Examples
-    {
-      type: "category",
-      label: "Examples",
-      items: [
-        "examples/hello-world",
-        "examples/http-client-server",
-        "examples/https-client-server",
-        "examples/serving-static-files",
-        "examples/html-templating",
-        "examples/websocket",
-        "examples/streaming",
-        "examples/endpoint",
-        "examples/middleware-cors-handling",
-        "examples/authentication",
-        "examples/graceful-shutdown",
-        "examples/cli",
-        "examples/concrete-entity",
-        "examples/multipart-form-data",
-        "examples/server-sent-events-in-endpoints",
-      ],
-    },
+        // Examples
+        {
+          type: "category",
+          label: "Examples",
+          items: [
+            "examples/hello-world",
+            "examples/http-client-server",
+            "examples/https-client-server",
+            "examples/serving-static-files",
+            "examples/html-templating",
+            "examples/websocket",
+            "examples/streaming",
+            "examples/endpoint",
+            "examples/middleware-cors-handling",
+            "examples/authentication",
+            "examples/graceful-shutdown",
+            "examples/cli",
+            "examples/concrete-entity",
+            "examples/multipart-form-data",
+            "examples/server-sent-events-in-endpoints",
+          ],
+        },
     
-    //Reference
-    {
+        //Reference
+        {
           type: "category",
           label: "Reference",
           items: [
@@ -102,19 +102,16 @@ const sidebars = {
             "reference/socket/websocketframe",
             "reference/template",
             "reference/client",
-		        "reference/endpoint",
+            "reference/endpoint",
           ],
         },       
       ],    
     },
-      
-            
-      "performance",
-      "faq",
-      "binary_codecs",
-      "Installation",
-    ],
-    },
+    
+    "performance",
+    "faq",
+    "binary_codecs",
+    "Installation",
   ],
 };
 
