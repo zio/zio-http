@@ -7,9 +7,7 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "overview",
-        "testing-http-apps",
-
-              
+    
         //concepts          
         {
           type: "category",
