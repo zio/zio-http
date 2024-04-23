@@ -43,6 +43,7 @@ const sidebars = {
             "dsl/client"
           ]
         },
+        "faq",
         {
           type: "category",
           label: "Examples",
