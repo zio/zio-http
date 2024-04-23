@@ -86,7 +86,7 @@ val app: HttpApp[Any] =
 
 ### 2. Routes
 
-For handling routes, ZIO HTTP has a [`Routes`](reference/dsl/routes.md) value, which allows us to aggregate a collection of individual routes. Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
+For handling routes, ZIO HTTP has a [`Routes`](reference/routes.md) value, which allows us to aggregate a collection of individual routes. Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
 
 The `Routes` is a collection of `Route` values. It can be created using its default constructor:
 
@@ -96,7 +96,7 @@ val routes = Routes(greetRoute, echoRoute)
 
 ### 3. Route
 
-Each `Route` is a combination of a [`RoutePattern`](reference/dsl/route_pattern.md) and a [`Handler`](reference/dsl/handler.md). The `RoutePattern` is a combination of a `Method` and a [`PathCodec`](reference/dsl/path_codec.md) that can be used to match the method and path of the request. The `Handler` is a function that can convert a `Request` into a `Response`.
+Each `Route` is a combination of a [`RoutePattern`](reference/route_pattern.md) and a [`Handler`](reference/handler.md). The `RoutePattern` is a combination of a `Method` and a [`PathCodec`](reference/path_codec.md) that can be used to match the method and path of the request. The `Handler` is a function that can convert a `Request` into a `Response`.
 
 The `PathCodec` can be parameterized to extract values from the path. In such cases, the `Handler` should be a function that accepts the extracted values besides the `Request`:
 
@@ -111,7 +111,7 @@ val routes = Routes(
 )
 ```
 
-To learn more about routes, see the [Routes](reference/dsl/routes.md) page.
+To learn more about routes, see the [Routes](reference/routes.md) page.
 
 ### 4. Handler
 
@@ -133,7 +133,7 @@ val randomGeneratorHandler =
   }
 ```
 
-There are several ways to create a `Handler`, to learn more about handlers, see the [Handlers](reference/dsl/handler.md) page.
+There are several ways to create a `Handler`, to learn more about handlers, see the [Handlers](reference/handler.md) page.
 
 ## Accessing the Request
 
@@ -154,7 +154,7 @@ val routes = Routes(
 )
 ```
 
-To learn more about the request, see the [Request](reference/dsl/request.md) page.
+To learn more about the request, see the [Request](reference/request.md) page.
 
 ## Accessing Services from The Environment
 
@@ -212,7 +212,7 @@ val routes =
   )
 ```
 
-We have a more detailed explanation of the WebSocket connection on the [Socket](reference/dsl/socket/socket.md) page.
+We have a more detailed explanation of the WebSocket connection on the [Socket](reference/socket/socket.md) page.
 
 ## Server
 
@@ -234,7 +234,7 @@ object HelloWorld extends ZIOAppDefault {
 }
 ```
 
-Finally, we provided the default server with the port `8090` to the app. To learn more about the server, see the [Server](reference/dsl/server.md) page.
+Finally, we provided the default server with the port `8090` to the app. To learn more about the server, see the [Server](reference/server.md) page.
 
 ## Client
 
@@ -257,4 +257,4 @@ object ClientExample extends ZIOAppDefault {
 }
 ```
 
-In the above example, we obtained the `Client` service from the environment and sent a `GET` request to the server. Finally, to run the client app, we provided the default `Client` and `Scope` services to the app. For more information about the client, see the [Client](reference/dsl/client.md) page.
+In the above example, we obtained the `Client` service from the environment and sent a `GET` request to the server. Finally, to run the client app, we provided the default `Client` and `Scope` services to the app. For more information about the client, see the [Client](reference/client.md) page.

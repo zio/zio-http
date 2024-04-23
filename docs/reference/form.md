@@ -1,6 +1,6 @@
 ---
 id: form
-title: Form
+title: Form Data
 ---
 
 The `Form` represents a collection of `FormFields` that can be a multipart or URL-encoded form:
