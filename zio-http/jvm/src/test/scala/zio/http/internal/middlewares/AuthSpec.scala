@@ -19,7 +19,7 @@ package zio.http.internal.middlewares
 import zio.Config.Secret
 import zio.test.Assertion._
 import zio.test._
-import zio.{Ref, ZIO}
+import zio.{Ref, ZEnvironment, ZIO}
 
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
@@ -73,9 +73,9 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
       },
       test("Extract username via context") {
-        val app = (Handler.fromFunction[(AuthContext, Request)] { case (c, _) =>
-          Response.text(c.value)
-        } @@ basicAuthContextM).merge.mapZIO(_.body.asString)
+        val app = (Handler.fromFunctionZIO[Request](_ =>
+          ZIO.serviceWith[AuthContext](c => Response.text(c.value)),
+        ) @@ basicAuthContextM).merge.mapZIO(_.body.asString)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo("user"))
       },
       test("Extract username via context with Routes") {
@@ -104,6 +104,29 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
         val app = (Handler.ok @@ basicAuthZIOM).merge.header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
+      },
+      test("Provide for multiple routes") {
+        val secureRoutes = Routes(
+          Method.GET / "a" -> handler((_: Request) => ZIO.serviceWith[AuthContext](ctx => Response.text(ctx.value))),
+          Method.GET / "b" / int("id")      -> handler((id: Int, _: Request) =>
+            ZIO.serviceWith[AuthContext](ctx => Response.text(s"for id: $id: ${ctx.value}")),
+          ),
+          Method.GET / "c" / string("name") -> handler((name: String, _: Request) =>
+            ZIO.serviceWith[AuthContext](ctx => Response.text(s"for name: $name: ${ctx.value}")),
+          ),
+        ) @@ basicAuthContextM
+        // Just a prove that the aspect can require an environment. Does nothing.
+        val app          = secureRoutes.toHttpApp
+        for {
+          s1     <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = successBasicHeader))
+          s1Body <- s1.body.asString.debug("s1Body")
+          s2     <- app.runZIO(Request.get(URL(Root / "b" / "1")).copy(headers = successBasicHeader))
+          s2Body <- s2.body.asString.debug("s2Body")
+          s3     <- app.runZIO(Request.get(URL(Root / "c" / "name")).copy(headers = successBasicHeader))
+          s3Body <- s3.body.asString.debug("s3Body")
+          resultStatus = s1.status == Status.Ok && s2.status == Status.Ok && s3.status == Status.Ok
+          resultBody   = s1Body == "user" && s2Body == "for id: 1: user" && s3Body == "for name: name: user"
+        } yield assertTrue(resultStatus, resultBody)
       },
     ),
     suite("bearerAuth")(
