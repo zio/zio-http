@@ -8,7 +8,7 @@ sidebar_label: FAQ
 
 If you are new to ZIO, you can start by reading the [ZIO documentation](https://zio.dev/overview/getting-started) to understand the core concepts of ZIO. Once you are comfortable with ZIO, you can explore the ZIO HTTP documentation to learn how to build HTTP applications using ZIO. There are also several [examples](https://github.com/zio/zio-http/tree/main/zio-http-example/src/main/scala/example) available in the ZIO HTTP repository that help you get started quickly.
 
-### What Libraries Does ZIO‌ HTTP Rely On?
+### What Libraries Does ZIO HTTP Rely On?
 
 ZIO HTTP is built on top of [Netty](https://netty.io/) for networking operations. It also leverages [ZIO Core](https://zio.dev/reference/core/zio/), [ZIO Schema](https://zio.dev/zio-schema/), and [ZIO Stream](https://zio.dev/reference/stream/) for concurrency, encoding/decoding, and streaming, respectively.
 
