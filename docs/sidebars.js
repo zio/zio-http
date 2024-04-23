@@ -111,7 +111,7 @@ const sidebars = {
     "performance",
     "faq",
     "binary_codecs",
-    "Installation",
+    "installation",
   ],
 };
 
