@@ -34,6 +34,7 @@ final case class SSLConfig(
   data: Data,
   provider: Provider,
   clientAuth: Option[ClientAuth] = None,
+  includeClientCert: Boolean = false,
 )
 
 object SSLConfig {
@@ -64,8 +65,16 @@ object SSLConfig {
     certPath: String,
     keyPath: String,
     clientAuth: Option[ClientAuth] = None,
+    trustCertCollectionPath: Option[String] = None,
+    includeClientCert: Boolean = false,
   ): SSLConfig =
-    new SSLConfig(behaviour, Data.FromFile(certPath, keyPath), Provider.JDK, clientAuth)
+    new SSLConfig(
+      behaviour,
+      Data.FromFile(certPath, keyPath, trustCertCollectionPath),
+      Provider.JDK,
+      clientAuth,
+      includeClientCert,
+    )
 
   def fromResource(certPath: String, keyPath: String): SSLConfig =
     fromResource(HttpBehaviour.Redirect, certPath, keyPath, None)
@@ -78,8 +87,16 @@ object SSLConfig {
     certPath: String,
     keyPath: String,
     clientAuth: Option[ClientAuth] = None,
+    trustCertCollectionPath: Option[String] = None,
+    includeClientCert: Boolean = false,
   ): SSLConfig =
-    new SSLConfig(behaviour, Data.FromResource(certPath, keyPath), Provider.JDK, clientAuth)
+    new SSLConfig(
+      behaviour,
+      Data.FromResource(certPath, keyPath, trustCertCollectionPath),
+      Provider.JDK,
+      clientAuth,
+      includeClientCert,
+    )
 
   def generate: SSLConfig =
     generate(HttpBehaviour.Redirect, None)
@@ -114,9 +131,10 @@ object SSLConfig {
      */
     case object Generate extends Data
 
-    final case class FromFile(certPath: String, keyPath: String) extends Data
+    final case class FromFile(certPath: String, keyPath: String, trustCertCollectionPath: Option[String]) extends Data
 
-    final case class FromResource(certPath: String, keyPath: String) extends Data
+    final case class FromResource(certPath: String, keyPath: String, trustCertCollectionPath: Option[String])
+        extends Data
 
     val config: Config[Data] = {
       val generate     = Config.string.mapOrFail {
@@ -124,12 +142,16 @@ object SSLConfig {
         case other      => Left(Config.Error.InvalidData(message = s"Invalid Data.Generate: $other"))
       }
       val fromFile     =
-        (Config.string("certPath") ++ Config.string("keyPath")).map { case (certPath, keyPath) =>
-          FromFile(certPath, keyPath)
+        (Config.string("certPath") ++ Config.string("keyPath") ++ Config.Optional(
+          Config.string("trustCertCollectionPath"),
+        )).map { case (certPath, keyPath, trustCertCollectionPath) =>
+          FromFile(certPath, keyPath, trustCertCollectionPath)
         }
       val fromResource =
-        (Config.string("certResource") ++ Config.string("keyResource")).map { case (certPath, keyPath) =>
-          FromResource(certPath, keyPath)
+        (Config.string("certResource") ++ Config.string("keyResource") ++ Config.Optional(
+          Config.string("trustCertCollectionResource"),
+        )).map { case (certPath, keyPath, trustCertCollectionPath) =>
+          FromResource(certPath, keyPath, trustCertCollectionPath)
         }
       generate orElse fromFile orElse fromResource
     }

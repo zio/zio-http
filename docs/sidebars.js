@@ -7,7 +7,7 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "setup",
-        "getting-started",
+        "overview",
         {
           type: "category",
           label: "DSL",
@@ -43,6 +43,7 @@ const sidebars = {
             "dsl/client"
           ]
         },
+        "testing-http-apps",
         "faq",
         {
           type: "category",

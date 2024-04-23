@@ -1774,7 +1774,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |        {
                          |        "type" :
                          |          "string",
-                         |        "enumValues" : [
+                         |        "enum" : [
                          |          "One",
                          |          "Two",
                          |          "Three"
