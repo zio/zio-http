@@ -22,7 +22,7 @@ object RequestBodyJsonDeserializationExample extends ZIOAppDefault {
           for {
             book  <- req.body.to[Book].catchAll(_ => ZIO.fail(Response.badRequest("unable to deserialize the request")))
             books <- ZIO.service[Ref[List[Book]]]
-            _     <- books.updateAndGet(_.appended(book))
+            _     <- books.updateAndGet(_ :+ book)
           } yield Response.ok
         },
       Method.GET / "books"  ->
