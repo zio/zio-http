@@ -43,6 +43,7 @@ const sidebars = {
             "dsl/client"
           ]
         },
+        "binary_codecs",
         "testing-http-apps",
         {
           type: "category",
