@@ -18,7 +18,7 @@ val socket = Handler.webSocket { channel =>
   }
 }
 
-val http = HttpApp(
+val http = Routes(
   Method.GET / "subscriptions" -> handler(socket.toResponse)
 )
 ```

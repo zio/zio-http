@@ -32,7 +32,7 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 object ClientStreamingSpec extends HttpRunnableSpec {
   def extractStatus(response: Response): Status = response.status
 
-  val app = HttpApp(
+  val app = Routes(
     Method.GET / "simple-get"      ->
       handler(Response.text("simple response")),
     Method.GET / "streaming-get"   ->

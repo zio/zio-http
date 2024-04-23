@@ -125,10 +125,10 @@ val statsMiddleware: Middleware[Ref[Map[String, Long]]] =
   }
 ```
 
-After attaching these two handler aspects to our `HttpApp`, we have to provide the initial state for the `Ref[Map[String, Long]]` to the whole application's environment:
+After attaching these two handler aspects to our `Routes`, we have to provide the initial state for the `Ref[Map[String, Long]]` to the whole application's environment:
 
 ```scala
-Server.serve(app @@ counterMiddleware @@ statsMiddleware)
+Server.serve(routes @@ counterMiddleware @@ statsMiddleware)
   .provide(
     Server.default,
     ZLayer.fromZIO(Ref.make(Map.empty[String, Long]))

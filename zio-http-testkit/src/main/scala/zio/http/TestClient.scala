@@ -10,7 +10,7 @@ import zio._
  *   Server
  */
 final case class TestClient(
-  behavior: Ref[HttpApp[Any, Response]],
+  behavior: Ref[Routes[Any, Response]],
   serverSocketBehavior: Ref[WebSocketApp[Any]],
 ) extends ZClient.Driver[Any, Throwable] {
 
@@ -21,11 +21,11 @@ final case class TestClient(
    *
    * @example
    *   {{{
-   *    TestClient.addHttpApp(HttpApp.empty)
+   *    TestClient.addRoutes(HttpApp.empty)
    *   }}}
    */
-  def addHttpApp(
-    app: HttpApp[Any, Response],
+  def addRoutes(
+    app: Routes[Any, Response],
   ): ZIO[Any, Nothing, Unit] =
     behavior.update(_ ++ app)
 
@@ -104,7 +104,7 @@ final case class TestClient(
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      provided = HttpApp.fromIterable(route +: routes).provideEnvironment(r)
+      provided = Routes.fromIterable(route +: routes).provideEnvironment(r)
       _ <- behavior.update(_ ++ provided)
     } yield ()
 
@@ -174,8 +174,8 @@ final case class TestClient(
 
 object TestClient {
 
-  def addApp(app: HttpApp[Any, Response]): ZIO[TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addHttpApp(app))
+  def addRoutes(app: Routes[Any, Response]): ZIO[TestClient, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClient](_.addRoutes(app))
 
   /**
    * Adds an exact 1-1 behavior
@@ -243,7 +243,7 @@ object TestClient {
   val layer: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
-        behavior       <- Ref.make[HttpApp[Any, Response]](HttpApp.empty)
+        behavior       <- Ref.make[Routes[Any, Response]](Routes.empty)
         socketBehavior <- Ref.make[WebSocketApp[Any]](WebSocketApp.unit)
         driver = TestClient(behavior, socketBehavior)
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))

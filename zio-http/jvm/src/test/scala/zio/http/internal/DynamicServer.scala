@@ -24,9 +24,9 @@ import zio.http._
 import zio.http.internal.DynamicServer.Id
 
 sealed trait DynamicServer {
-  def add(app: HttpApp[Any, Response]): UIO[Id]
+  def add(app: Routes[Any, Response]): UIO[Id]
 
-  def get(id: Id): UIO[Option[HttpApp[Any, Response]]]
+  def get(id: Id): UIO[Option[Routes[Any, Response]]]
 
   def port: ZIO[Any, Nothing, Int]
 
@@ -41,7 +41,7 @@ object DynamicServer {
 
   val APP_ID = "X-APP_ID"
 
-  def app(dynamicServer: DynamicServer): RequestHandler[Any, Response] =
+  def handler(dynamicServer: DynamicServer): RequestHandler[Any, Response] =
     Handler.fromFunctionHandler[Request] { (req: Request) =>
       Handler
         .fromZIO(req.rawHeader(APP_ID) match {
@@ -59,13 +59,13 @@ object DynamicServer {
   def baseURL(scheme: Scheme): ZIO[DynamicServer, Nothing, String] =
     port.map(port => s"${scheme.encode}://localhost:$port")
 
-  def deploy[R](app: HttpApp[R, Response]): ZIO[DynamicServer with R, Nothing, String] =
+  def deploy[R](app: Routes[R, Response]): ZIO[DynamicServer with R, Nothing, String] =
     for {
       env <- ZIO.environment[R]
       id  <- ZIO.environmentWithZIO[DynamicServer](_.get.add(app.provideEnvironment(env)))
     } yield id
 
-  def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[Any, Response]]] =
+  def get(id: Id): ZIO[DynamicServer, Nothing, Option[Routes[Any, Response]]] =
     ZIO.environmentWithZIO[DynamicServer](_.get.get(id))
 
   def httpURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.HTTP)
@@ -73,7 +73,7 @@ object DynamicServer {
   val live: ZLayer[Any, Nothing, DynamicServer] =
     ZLayer {
       for {
-        ref <- Ref.make(Map.empty[Id, HttpApp[Any, Response]])
+        ref <- Ref.make(Map.empty[Id, Routes[Any, Response]])
         pr  <- Promise.make[Nothing, Server]
       } yield new Live(ref, pr)
     }
@@ -87,13 +87,13 @@ object DynamicServer {
 
   def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
-  final class Live(ref: Ref[Map[Id, HttpApp[Any, Response]]], pr: Promise[Nothing, Server]) extends DynamicServer {
-    def add(app: HttpApp[Any, Response]): UIO[Id] = for {
+  final class Live(ref: Ref[Map[Id, Routes[Any, Response]]], pr: Promise[Nothing, Server]) extends DynamicServer {
+    def add(app: Routes[Any, Response]): UIO[Id] = for {
       id <- ZIO.succeed(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
     } yield id
 
-    def get(id: Id): UIO[Option[HttpApp[Any, Response]]] = ref.get.map(_.get(id))
+    def get(id: Id): UIO[Option[Routes[Any, Response]]] = ref.get.map(_.get(id))
 
     def port: ZIO[Any, Nothing, Int] = start.map(_.port)
 

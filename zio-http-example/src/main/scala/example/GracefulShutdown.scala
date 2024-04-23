@@ -22,12 +22,12 @@ import zio.http._
 
 object GracefulShutdown extends ZIOAppDefault {
 
-  val app: HttpApp[Any, Response] = Handler
+  val app: Routes[Any, Response] = Handler
     .fromFunctionZIO[Request] { _ =>
       ZIO.sleep(10.seconds).debug("request handler delay done").as(Response.text("done"))
     }
     .sandbox
-    .toHttpApp
+    .toRoutes
 
   override def run: ZIO[Any, Throwable, Unit] =
     (for {

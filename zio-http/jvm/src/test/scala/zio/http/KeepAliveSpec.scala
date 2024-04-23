@@ -16,16 +16,16 @@
 
 package zio.http
 
+import zio.Scope
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.TestAspect.{sequential, timeout, withLiveClock}
+import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test.{Spec, assert}
-import zio.{Scope, ZIO, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
-  private val app                   = Handler.ok.toHttpApp
+  private val routes                = Handler.ok.toRoutes
   private val connectionCloseHeader = Headers(Header.Connection.Close)
   private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)
   private val appKeepAliveEnabled   = serve
@@ -35,13 +35,13 @@ object KeepAliveSpec extends HttpRunnableSpec {
       test("without connection close") {
         for {
           _   <- appKeepAliveEnabled
-          res <- app.deploy(Request()).map(_.header(Header.Connection))
+          res <- routes.deploy(Request()).map(_.header(Header.Connection))
         } yield assert(res)(isNone)
       },
       test("with connection close") {
         for {
           _   <- appKeepAliveEnabled
-          res <- app.deploy(Request(headers = connectionCloseHeader)).map(_.header(Header.Connection))
+          res <- routes.deploy(Request(headers = connectionCloseHeader)).map(_.header(Header.Connection))
         } yield assert(res)(isSome(equalTo(Header.Connection.Close)))
       },
     ),
@@ -49,13 +49,13 @@ object KeepAliveSpec extends HttpRunnableSpec {
       test("without keep-alive") {
         for {
           _   <- appKeepAliveEnabled
-          res <- app.deploy(Request(version = Version.`HTTP/1.0`)).map(_.header(Header.Connection))
+          res <- routes.deploy(Request(version = Version.`HTTP/1.0`)).map(_.header(Header.Connection))
         } yield assert(res)(isSome(equalTo(Header.Connection.Close)))
       },
       test("with keep-alive") {
         for {
           _   <- appKeepAliveEnabled
-          res <- app
+          res <- routes
             .deploy(Request(version = Version.Http_1_0, headers = keepAliveHeader))
             .map(_.header(Header.Connection))
         } yield assert(res)(isNone)

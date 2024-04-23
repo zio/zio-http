@@ -31,7 +31,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("simple request with query parameter") {
       check(Gen.int, Gen.int, Gen.alphaNumericString) { (userId, postId, username) =>
         val testRoutes = testEndpoint(
-          HttpApp(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
               .implement {
@@ -59,7 +59,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("optional query parameter") {
       check(Gen.int, Gen.alphaNumericString) { (userId, details) =>
         val testRoutes = testEndpoint(
-          HttpApp(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(query("details").optional)
               .out[String]
@@ -78,7 +78,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("multiple optional query parameters") {
       check(Gen.int, Gen.alphaNumericString, Gen.alphaNumericString) { (userId, key, value) =>
         val testRoutes = testEndpoint(
-          HttpApp(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(query("key").optional)
               .query(query("value").optional)
@@ -99,7 +99,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("query parameters with multiple values") {
       check(Gen.int, Gen.listOfN(3)(Gen.alphaNumericString)) { (userId, keys) =>
         val testRoutes = testEndpoint(
-          HttpApp(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("key"))
               .out[String]
@@ -128,7 +128,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("optional query parameters with multiple values") {
       check(Gen.int, Gen.listOfN(3)(Gen.alphaNumericString)) { (userId, keys) =>
         val testRoutes = testEndpoint(
-          HttpApp(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("key").optional)
               .out[String]
@@ -158,7 +158,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
       check(Gen.int, Gen.listOfN(3)(Gen.alphaNumericString), Gen.listOfN(2)(Gen.alphaNumericString)) {
         (userId, keys, values) =>
           val testRoutes = testEndpoint(
-            HttpApp(
+            Routes(
               Endpoint(GET / "users" / int("userId"))
                 .query(queryAll("key") & queryAll("value"))
                 .out[String]
@@ -183,7 +183,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("mix of multi value and single value query parameters") {
       check(Gen.int, Gen.listOfN(2)(Gen.alphaNumericString), Gen.alphaNumericString) { (userId, multi, single) =>
         val testRoutes = testEndpoint(
-          HttpApp(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("multi") & query("single"))
               .out[String]
@@ -204,7 +204,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("either of two multi value query parameters") {
       check(Gen.int, Gen.listOfN(2)(Gen.alphaNumericString), Gen.listOfN(2)(Gen.boolean)) { (userId, left, right) =>
         val testRoutes = testEndpoint(
-          HttpApp(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("left") | queryAllBool("right"))
               .out[String]
@@ -234,7 +234,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
       check(Gen.int, Gen.listOfN(2)(Gen.alphaNumericString), Gen.listOfN(2)(Gen.alphaNumericString)) {
         (userId, left, right) =>
           val testRoutes = testEndpoint(
-            HttpApp(
+            Routes(
               Endpoint(GET / "users" / int("userId"))
                 .query(queryAll("left") | queryAll("right"))
                 .out[String]
@@ -263,7 +263,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("either of multi value or single value query parameter") {
       check(Gen.int, Gen.listOfN(2)(Gen.alphaNumericString), Gen.alphaNumericString) { (userId, left, right) =>
         val testRoutes = testEndpoint(
-          HttpApp(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("left") | query("right"))
               .out[String]
@@ -291,7 +291,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     },
     test("query parameters keys without values for multi value query") {
       val testRoutes = testEndpoint(
-        HttpApp(
+        Routes(
           Endpoint(GET / "users")
             .query(queryAllInt("ints"))
             .out[String]
@@ -309,7 +309,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
       )
     },
     test("no specified query parameters for multi value query") {
-      val testRoutes = HttpApp(
+      val testRoutes = Routes(
         Endpoint(GET / "users")
           .query(queryAllInt("ints"))
           .out[String]
@@ -326,7 +326,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     },
     test("multiple query parameter values to single value query parameter codec") {
       val testRoutes =
-        HttpApp(
+        Routes(
           Endpoint(GET / "users")
             .query(queryInt("ints"))
             .out[String]

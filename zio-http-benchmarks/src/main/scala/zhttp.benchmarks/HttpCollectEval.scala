@@ -15,8 +15,8 @@ class HttpCollectEval {
   private val MAX  = 10000
   private val req  = Request()
   private val res  = Response.ok
-  private val app  = HttpApp.singleton(handler(res))
-  private val http = HttpApp(Route.route(Method.ANY / "text")(handler(res)))
+  private val app  = Routes.singleton(handler(res))
+  private val http = Routes(Route.route(Method.ANY / "text")(handler(res)))
 
   private val base: PartialFunction[Int, Int] = { case 0 => 1 }
   private val baseTotal: Int => Int           = _ => 1

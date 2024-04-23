@@ -59,7 +59,7 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
         ZIO.fail(AuthenticationError("User is not authenticated", 123))
     }
 
-  val app = endpoint.implement(getBookHandler).toHttpApp @@ Middleware.debug
+  val routes = endpoint.implement(getBookHandler).toRoutes @@ Middleware.debug
 
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(routes).provide(Server.default)
 }

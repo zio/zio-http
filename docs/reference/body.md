@@ -20,8 +20,8 @@ import zio._
 import zio.http._
 
 object HelloExample extends ZIOAppDefault {
-  val app: HttpApp[Any, Response] =
-    HttpApp(
+  val app: Routes[Any, Response] =
+    Routes(
       Method.GET / "hello" ->
         handler { req: Request =>
           for {

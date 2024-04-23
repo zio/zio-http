@@ -7,7 +7,7 @@ A middleware helps in addressing common crosscutting concerns without duplicatin
 
 ## Definition
 
-Middleware can be conceptualized as a functional component that accepts a `Routes` and produces a new `Routes`. The defined trait, `Middleware`, is parameterized by a contravariant type `UpperEnv` which denotes it can access the environment of the `HttpApp`:
+Middleware can be conceptualized as a functional component that accepts a `Routes` and produces a new `Routes`. The defined trait, `Middleware`, is parameterized by a contravariant type `UpperEnv` which denotes it can access the environment of the `Routes`:
 
 ```scala
 trait Middleware[-UpperEnv] { self =>
@@ -15,16 +15,16 @@ trait Middleware[-UpperEnv] { self =>
 } 
 ```
 
-This abstraction allows middleware to engage with the `HttpApp` environment, and also the ability to tweak existing routes or add/remove routes as needed.
+This abstraction allows middleware to engage with the `Routes` environment, and also the ability to tweak existing routes or add/remove routes as needed.
 
 ## Usage
 
-The `@@` operator attaches middleware to routes and HTTP applications.  The example below shows a middleware attached to an `HttpApp`:
+The `@@` operator attaches middleware to routes and HTTP applications.  The example below shows a middleware attached to an `Routes`:
 
 ```scala mdoc:compile-only
 import zio.http._
 
-val app = HttpApp(
+val app = Routes(
   Method.GET / string("name") -> handler { (name: String, req: Request) => 
     Response.text(s"Hello $name")
   }
@@ -39,23 +39,23 @@ Logically the code above translates to `Middleware.debug(app)`, which transforms
 We can attach multiple middlewares by chaining them using more `@@` operators:
 
 ```scala
-val resultApp = httpApp @@ f1 @@ f2 @@ f3
+val resultApp = routes @@ f1 @@ f2 @@ f3
 ```
 
-In the above code, when a new request comes in, it will first go through the `f3`'s incoming handler, then `f2`, then `f1`, and finally the `httpApp`, when the response is going out, it will go through the `f1`'s outgoing handler, then `f2`, then `f3`, and finally will be sent out. So **the order of the middlewares matters** and if we change the order of the middlewares, the application's behavior may change.
+In the above code, when a new request comes in, it will first go through the `f3`'s incoming handler, then `f2`, then `f1`, and finally the `routes`, when the response is going out, it will go through the `f1`'s outgoing handler, then `f2`, then `f3`, and finally will be sent out. So **the order of the middlewares matters** and if we change the order of the middlewares, the application's behavior may change.
 
 ## Composing Middlewares
 
 Middleware can be combined using the `++` operator:
 
 ```scala
-httpApp @@ (f1 ++ f2 ++ f3)
+routes @@ (f1 ++ f2 ++ f3)
 ```
 
 The `f1 ++ f2 ++ f3` applies from left to right with `f1` first followed by others, like this:
 
 ```scala
-f3(f2(f1(httpApp)))
+f3(f2(f1(routes)))
 ```
 
 ## Motivation
@@ -70,7 +70,7 @@ Consider the following example where we have two endpoints:
 * **GET /users** - Get all users
 
 ```scala
-val routes = HttpApp(
+val routes = Routes(
   Method.GET / "users" / int("id") -> 
     handler { (id: Int, req: Request) =>
       // core business logic  
@@ -152,7 +152,7 @@ val composedMiddlewares = Middleware.basicAuth("user","pw") ++
 And then we can attach our composed bundle of middlewares to an Http using `@@`
 
 ```scala
- val routes = HttpApp(
+ val routes = Routes(
   Method.GET / "users" / int("id") -> 
     handler { (id: Int, req: Request) =>
       // core business logic  
@@ -267,7 +267,7 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/HelloWorldWithMetrics.scala")
 ```
 
-Another important thing to note is that the `metrics` middleware only attaches to the `HttpApp` or `Routes`, so if we want to track some custom metrics particular to a handler, we can use the `ZIO#@@` operator to attach a metric of type `ZIOAspect` to the ZIO effect that is returned by the handler. For example, if we want to track the number of requests that have a custom header `X-Custom-Header` in the `/json` route, we can attach a counter metric to the ZIO effect that is returned by the handler using the `@@` operator.
+Another important thing to note is that the `metrics` middleware only attaches to the `Routes` or `Routes`, so if we want to track some custom metrics particular to a handler, we can use the `ZIO#@@` operator to attach a metric of type `ZIOAspect` to the ZIO effect that is returned by the handler. For example, if we want to track the number of requests that have a custom header `X-Custom-Header` in the `/json` route, we can attach a counter metric to the ZIO effect that is returned by the handler using the `@@` operator.
 
 ### Timeout Middleware
 
@@ -275,11 +275,11 @@ The `Middleware.timeout` middleware is used to set a timeout for the HTTP reques
 
 ```scala mdoc:invisible
 import zio.http._
-val httpApp: HttpApp[Any, Response] = Handler.ok.toHttpApp
+val routes: Routes[Any, Response] = Handler.ok.toRoutes
 ```
 
 ```scala mdoc:compile-only
-httpApp @@ Middleware.timeout(5.seconds)
+routes @@ Middleware.timeout(5.seconds)
 ```
 
 ### Log Annotation Middleware
@@ -312,7 +312,7 @@ val correlationId =
 To see the correlation ID in the logs, we need to place the middleware after the request logging middleware:
 
 ```scala mdoc:silent
-httpApp @@ Middleware.requestLogging() @@ correlationId
+routes @@ Middleware.requestLogging() @@ correlationId
 ```
 
 Now, if we call one of the routes with the `X-Correlation-ID` header, we should see the correlation ID in the logs:

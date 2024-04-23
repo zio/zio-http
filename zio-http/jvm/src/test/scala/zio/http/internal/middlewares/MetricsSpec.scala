@@ -29,7 +29,7 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("MetricsSpec")(
       test("http_requests_total & http_errors_total") {
-        val app = HttpApp(
+        val app = Routes(
           Method.GET / "ok"     -> Handler.ok,
           Method.GET / "error"  -> Handler.internalServerError,
           Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
@@ -61,7 +61,7 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         )
       },
       test("http_requests_total with path label mapper") {
-        val app = (Method.GET / "user" / int("id") -> Handler.ok).toHttpApp @@ metrics(
+        val routes = (Method.GET / "user" / int("id") -> Handler.ok).toRoutes @@ metrics(
           extraLabels = Set(MetricLabel("test", "http_requests_total with path label mapper")),
         )
 
@@ -70,8 +70,8 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         val totalOk = total.tagged("path", "/user/{id}").tagged("method", "GET").tagged("status", "200")
 
         for {
-          _            <- app.runZIO(Request.get(url = URL(Root / "user" / "1")))
-          _            <- app.runZIO(Request.get(url = URL(Root / "user" / "2")))
+          _            <- routes.runZIO(Request.get(url = URL(Root / "user" / "1")))
+          _            <- routes.runZIO(Request.get(url = URL(Root / "user" / "2")))
           totalOkCount <- totalOk.value
         } yield assertTrue(totalOkCount == MetricState.Counter(2))
       },
@@ -86,8 +86,8 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
           .tagged("method", "GET")
           .tagged("status", "200")
 
-        val app: HttpApp[Any, Response] =
-          (Method.GET / "ok" -> Handler.ok).toHttpApp @@ metrics(extraLabels =
+        val app: Routes[Any, Response] =
+          (Method.GET / "ok" -> Handler.ok).toRoutes @@ metrics(extraLabels =
             Set(MetricLabel("test", "http_request_duration_seconds")),
           )
 
@@ -105,7 +105,7 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
 
         for {
           promise <- Promise.make[Nothing, Unit]
-          app = HttpApp(
+          app = Routes(
             Method.ANY / PathCodec.trailing -> (Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)),
           ) @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
           before <- gauge.value

@@ -37,7 +37,7 @@ import zio.http._
 
 object GreetingServer extends ZIOAppDefault {
   val routes =
-    HttpApp(
+    Routes(
       Method.GET / "greet" -> handler { (req: Request) =>
         val name = req.queryParamToOrElse("name", "World")
         Response.text(s"Hello $name!")

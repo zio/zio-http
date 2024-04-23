@@ -29,13 +29,13 @@ import zio.http.netty.NettyConfig
 
 object ResponseCompressionSpec extends ZIOHttpSpec {
 
-  private val text: HttpApp[Any, Response] =
-    HttpApp(
+  private val text: Routes[Any, Response] =
+    Routes(
       Method.GET / "text" -> handler(Response.text("Hello World!\n")),
     )
 
   private val stream =
-    HttpApp(
+    Routes(
       Method.GET / "stream-chunked" ->
         handler(
           Response(

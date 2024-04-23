@@ -28,13 +28,13 @@ import zio.http._
 object EndpointSpec extends ZIOHttpSpec {
   def spec = suite("EndpointSpec")()
 
-  def testEndpoint[R](service: HttpApp[R, Nothing])(
+  def testEndpoint[R](service: Routes[R, Nothing])(
     url: String,
     expected: String,
   ): ZIO[R, Response, TestResult] =
     testEndpointWithHeaders(service)(url, headers = List.empty, expected)
 
-  def testEndpointWithHeaders[R](service: HttpApp[R, Nothing])(
+  def testEndpointWithHeaders[R](service: Routes[R, Nothing])(
     url: String,
     headers: List[(String, String)],
     expected: String,

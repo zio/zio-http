@@ -284,7 +284,7 @@ sealed trait Route[-Env, +Err] { self =>
    * the request, or else this method will fail fatally.
    */
   final def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] =
-    HttpApp(self).run(request)
+    Routes(self).run(request)
 
   /**
    * Returns a route that automatically translates all failures into responses,
@@ -296,7 +296,10 @@ sealed trait Route[-Env, +Err] { self =>
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
-  final def toHttpApp: HttpApp[Env, Err] = HttpApp(self)
+  @deprecated("Use toRoutes instead")
+  final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = toHandler.toHttpApp
+
+  final def toRoutes: Routes[Env, Err] = Routes(self)
 
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],

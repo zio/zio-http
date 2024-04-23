@@ -42,7 +42,7 @@ object StatusSpec extends ZIOHttpSpec {
     suite("toHttpApp")(
       test("status") {
         checkAll(statusGen) { case status =>
-          val res = status.toHttpApp.runZIO(Request.get(URL.empty))
+          val res = status.toRoutes.runZIO(Request.get(URL.empty))
           assertZIO(res.map(_.status))(equalTo(status))
         }
       },

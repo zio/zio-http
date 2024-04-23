@@ -13,7 +13,7 @@ To access the incoming request, we can use a `Handler` which takes a `Request` a
 import zio._
 import zio.http._
 
-HttpApp(
+Routes(
   Method.POST / "echo" ->
     handler { (req: Request) => 
       req.body.asString(Charsets.Utf8).map(Response.text(_)).sandbox 
@@ -148,7 +148,7 @@ import zio.http._
 object QueryParamExample extends ZIOAppDefault {
 
   val app =
-    HttpApp(
+    Routes(
       Method.GET / "search" -> handler { (req: Request) =>
         val queries = req.queryParam("q")
         queries match {
@@ -171,7 +171,7 @@ The typed version of `Request#queryParam` is `Request#queryParamTo` which takes 
 import zio.http._
 object TypedQueryParamExample extends ZIOAppDefault {
   val app =
-    HttpApp(
+    Routes(
       Method.GET / "search" -> Handler.fromFunctionHandler { (req: Request) =>
         val response: ZIO[Any, QueryParamsError, Response] =
           ZIO.fromEither(req.queryParamTo[Int]("age"))
@@ -204,7 +204,7 @@ import zio.http._
 
 object QueryParamsExample extends ZIOAppDefault {
   val app =
-    HttpApp(
+    Routes(
       Method.GET / "search" -> handler { (req: Request) =>
         val queries = req.queryParams("q")
         if (queries.nonEmpty) {

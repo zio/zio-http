@@ -46,11 +46,11 @@ object CliSpec extends ZIOSpecDefault {
   val testClient: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
-        behavior       <- Ref.make[HttpApp[Any, Response]](HttpApp.empty)
+        behavior       <- Ref.make[Routes[Any, Response]](Routes.empty)
         socketBehavior <- Ref.make[WebSocketApp[Any]](WebSocketApp(Handler.unit))
         driver = TestClient(behavior, socketBehavior)
-        _ <- driver.addHttpApp {
-          HttpApp(
+        _ <- driver.addRoutes {
+          Routes(
             Method.GET / "fromURL" -> handler(Response.text("342.76")),
             Method.GET / trailing  -> handler { (_: Path, request: Request) =>
               val headers = request.headers

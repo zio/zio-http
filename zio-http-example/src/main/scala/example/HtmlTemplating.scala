@@ -8,7 +8,7 @@ object HtmlTemplating extends ZIOAppDefault {
   // Importing everything from `zio.html`
   import zio.http.template._
 
-  def app: HttpApp[Any, Response] = {
+  def app: Routes[Any, Response] = {
     // Html response takes in a `Html` instance.
     Handler.html {
 
@@ -45,7 +45,7 @@ object HtmlTemplating extends ZIOAppDefault {
         ),
       )
     }
-  }.toHttpApp
+  }.toRoutes
 
   def run = Server.serve(app).provide(Server.default)
 }

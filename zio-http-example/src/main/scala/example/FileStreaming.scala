@@ -12,7 +12,7 @@ import zio.http._
 object FileStreaming extends ZIOAppDefault {
 
   // Create HTTP route
-  val app = HttpApp(
+  val app = Routes(
     Method.GET / "health" -> Handler.ok,
 
     // Read the file as ZStream

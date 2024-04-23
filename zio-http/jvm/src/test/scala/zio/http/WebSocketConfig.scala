@@ -42,7 +42,7 @@ object WebSocketConfigSpec extends HttpRunnableSpec {
                 channel.send(closeFrame)
               case _                                               => ZIO.unit
             }
-          }.toHttpAppWS
+          }.toRoutes
         }
 
         res <- ZIO.scoped {

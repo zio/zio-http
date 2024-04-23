@@ -59,8 +59,8 @@ object TestClientSpec extends ZIOHttpSpec {
       test("addRoutes") {
         for {
           client           <- ZIO.service[Client]
-          _                <- TestClient.addApp {
-            HttpApp(
+          _                <- TestClient.addRoutes {
+            Routes(
               Method.GET / trailing          -> handler { Response.text("fallback") },
               Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
             )

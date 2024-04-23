@@ -101,10 +101,10 @@ class EndpointBenchmark {
       }
     }
 
-  val apiHttpApp = handledUsersPosts.toHttpApp
+  val apiRoutes = handledUsersPosts.toRoutes
 
   // Collect DSL
-  val collectHttpApp = HttpApp(
+  val collectdRoutes = Routes(
     Method.GET / "users" / int("userId") / "posts" / int("postId") -> handler {
       (userIdInt: Int, postIdInt: Int, req: Request) =>
         val query = req.url.queryParam("query").get
@@ -171,13 +171,13 @@ class EndpointBenchmark {
   @Benchmark
   def benchmarkSmallDataZioApi(): Unit =
     unsafeRun {
-      apiHttpApp.runZIO(smallDataRequest).repeatN(REPEAT_N)
+      apiRoutes.runZIO(smallDataRequest).repeatN(REPEAT_N)
     }
 
   @Benchmark
   def benchmarkSmallDataZioCollect(): Unit =
     unsafeRun {
-      collectHttpApp.runZIO(smallDataRequest).repeatN(REPEAT_N)
+      collectdRoutes.runZIO(smallDataRequest).repeatN(REPEAT_N)
     }
 
 //  @Benchmark
@@ -208,7 +208,7 @@ class EndpointBenchmark {
 
   // API DSL
 
-  val deepPathHttpApp = Endpoint(
+  val deepPathRoutes = Endpoint(
     Method.GET /
       "first" /
       int("id1") / "second" / int("id2") / "third" / int(
@@ -219,11 +219,11 @@ class EndpointBenchmark {
   )
     .out[Unit]
     .implement(Handler.unit)
-    .toHttpApp
+    .toRoutes
 
   // Collect DSL
 
-  val deepPathCollectHttpApp = HttpApp(
+  val deepPathCollectHttpApp = Routes(
     Method.GET / "first" / int("id1") / "second" / int("id2") / "third" / int("id3") / "fourth" / int(
       "id4",
     ) / "fifth" / int("id5") / "sixth" / int("id6") / "seventh" / int("id7") ->
@@ -281,7 +281,7 @@ class EndpointBenchmark {
   @Benchmark
   def benchmarkDeepPathZioApi(): Unit =
     unsafeRun {
-      deepPathHttpApp.runZIO(deepPathRequest).repeatN(REPEAT_N)
+      deepPathRoutes.runZIO(deepPathRequest).repeatN(REPEAT_N)
     }
 
   @Benchmark
@@ -418,7 +418,7 @@ class EndpointBenchmark {
       .implement(Handler.unit)
 
   val broadApiApp =
-    HttpApp(
+    Routes(
       broadUsers,
       broadUsersId,
       boardUsersPosts,
@@ -439,56 +439,53 @@ class EndpointBenchmark {
 
   // Collect DSL
 
-  val broadCollectApp = HttpApp(
+  val broadCollectApp = Routes(
     Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") -> handler {
-      (userId: Int, postId: Int, commentId: Int, request: Request) =>
+      (_: Int, _: Int, _: Int, _: Request) =>
         Response()
     },
     Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments"                    -> handler {
-      (userId: Int, postId: Int, req: Request) =>
+      (_: Int, _: Int, _: Request) =>
         Response()
     },
-    Method.GET / "users" / int("userId") / "posts" / int("postId")                                 -> handler {
-      (userId: Int, postId: Int, req: Request) =>
-        Response()
-    },
-    Method.GET / "users" / int("userId") / "posts"                       -> handler { (userId: Int, req: Request) =>
+    Method.GET / "users" / int("userId") / "posts" / int("postId")       -> handler { (_: Int, _: Int, _: Request) =>
       Response()
     },
-    Method.GET / "users" / int("userId")                                 -> handler { (userId: Int, req: Request) =>
+    Method.GET / "users" / int("userId") / "posts"                       -> handler { (_: Int, _: Request) =>
+      Response()
+    },
+    Method.GET / "users" / int("userId")                                 -> handler { (_: Int, _: Request) =>
       Response()
     },
     Method.GET / "users"                                                 -> handler(Response()),
-    Method.GET / "posts" / int("postId") / "comments" / int("commentId") -> handler {
-      (postId: Int, commentId: Int, req: Request) =>
-        Response()
-    },
-    Method.GET / "posts" / int("postId") / "comments"                    -> handler { (postId: Int, req: Request) =>
+    Method.GET / "posts" / int("postId") / "comments" / int("commentId") -> handler { (_: Int, _: Int, _: Request) =>
       Response()
     },
-    Method.GET / "posts" / int("postId")                                 -> handler { (postId: Int, req: Request) =>
+    Method.GET / "posts" / int("postId") / "comments"                    -> handler { (_: Int, _: Request) =>
+      Response()
+    },
+    Method.GET / "posts" / int("postId")                                 -> handler { (_: Int, _: Request) =>
       Response()
     },
     Method.GET / "posts"                                                 -> handler(Response()),
-    Method.GET / "comments" / int("commentId")                           -> handler { (commentId: Int, req: Request) =>
+    Method.GET / "comments" / int("commentId")                           -> handler { (_: Int, _: Request) =>
       Response()
     },
     Method.GET / "comments"                                              -> handler(Response()),
-    Method.GET / "users" / int("userId") / "comments"                    -> handler { (userId: Int, req: Request) =>
+    Method.GET / "users" / int("userId") / "comments"                    -> handler { (_: Int, _: Request) =>
       Response()
     },
-    Method.GET / "users" / int("userId") / "comments" / int("commentId") -> handler {
-      (userId: Int, commentId: Int, req: Request) =>
-        Response()
+    Method.GET / "users" / int("userId") / "comments" / int("commentId") -> handler { (_: Int, _: Int, _: Request) =>
+      Response()
     },
     Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" / int(
       "replyId",
-    )             -> handler { (userId: Int, postId: Int, commentId: Int, replyId: Int, req: Request) =>
+    )             -> handler { (_: Int, _: Int, _: Int, _: Int, _: Request) =>
       Response()
     },
     Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int(
       "commentId",
-    ) / "replies" -> handler { (userId: Int, postId: Int, commentId: Int, req: Request) =>
+    ) / "replies" -> handler { (_: Int, _: Int, _: Int, _: Request) =>
       Response()
     },
   )

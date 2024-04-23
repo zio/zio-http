@@ -30,7 +30,7 @@ import zio.http.netty.NettyConfig
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
-  private val app = HttpApp(
+  private val app = Routes(
     Method.POST / "streaming" -> handler((req: Request) => Response(body = Body.fromStreamChunked(req.body.asStream))),
     Method.GET / "slow"       -> handler(ZIO.sleep(1.hour).as(Response.text("done"))),
     Method.ANY / trailing     -> handler((_: Path, req: Request) => req.body.asString.map(Response.text(_))),

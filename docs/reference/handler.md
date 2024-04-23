@@ -39,7 +39,7 @@ Let's look at some examples of creating handlers, using the `handler` smart cons
 import zio._
 import zio.http._
 
-HttpApp(
+Routes(
 
   // 1. A simple handler that returns a "Hello, World!" response
   Method.GET / "hello" -> 
@@ -202,7 +202,7 @@ Let's try an example:
 import zio.http._
 import zio.stream._
 
-HttpApp(
+Routes(
   Method.GET / "stream" ->
     Handler
       .fromStream(
@@ -239,7 +239,7 @@ Now, let's try another example, this time using `fromStreamChunked`:
 import zio.http._
 import zio.stream._
 
-HttpApp(
+Routes(
   Method.GET / "stream" ->
     Handler
       .fromStreamChunked(
@@ -273,7 +273,7 @@ import zio.http._
 import zio.stream._
 import zio.http.template._
 
-HttpApp(
+Routes(
   Method.GET / "html" ->
     Handler.html(
 
@@ -320,7 +320,7 @@ ZIP HTTP has a simple built-in template which is useful for creating simple HTML
 import zio.http._
 import zio.http.template._
 
-HttpApp(
+Routes(
   Method.GET / "hello" -> 
     Handler.template("Hello world!")(
       html(
@@ -396,7 +396,7 @@ import zio.http._
 import zio.stream._
 import zio.schema.codec.JsonCodec.zioJsonBinaryCodec
 
-HttpApp(
+Routes(
   Method.POST / "bounded-body-consumer" ->
     handler { (request: Request) =>
       Handler
@@ -418,7 +418,7 @@ The following example shows how to create a handler that takes an `Int` and `Req
 import zio.json._
 import zio.http._
 
-HttpApp(
+Routes(
   Method.GET / "users" / int("userId")  ->
     Handler.fromFunction[(Int, Request)] { case (userId: Int, request: Request) =>
       Response.json(
@@ -455,7 +455,7 @@ Let's see an example:
 import zio.http._
 import java.io.File
 
-HttpApp(
+Routes(
   Method.GET / "video" -> 
     Handler.fromFile(new File("src/main/resources/TestVideoFile.mp4")),
   Method.GET / "text"  -> 
@@ -472,7 +472,7 @@ Here is an example:
 ```scala mdoc:compile-only
 import zio.http._
 
-HttpApp(
+Routes(
   Method.GET / "static" / trailing -> handler {
     // Path extractor
     val pathExtractor: Handler[Any, Nothing, (Path, Request), Path] = 
@@ -513,7 +513,7 @@ The following example shows how to create an echo server using the `Handler.webS
 import zio.http._
 import zio.http.ChannelEvent._
 
-HttpApp(
+Routes(
   Method.GET / "websocket" ->
     handler {
       Handler.webSocket { channel =>
@@ -548,7 +548,7 @@ Let's try an example:
 ```scala mdoc:compile-only
 import zio.http._
 
-HttpApp(
+Routes(
   Method.GET / "stacktrace" ->
     handler {
       for {
@@ -575,7 +575,7 @@ To attach a handler aspect to a handler, we use the `@@` operator. For instance,
 ```scala mdoc:compile-only
 import zio.http._
 
-HttpApp(
+Routes(
   Method.GET / "echo" -> handler { req: Request =>
     Handler.fromBody(req.body)
   }.flatten @@ HandlerAspect.requestLogging()
@@ -602,7 +602,7 @@ Let's see an example:
 import zio.http._
 import java.nio.file._
 
-HttpApp(
+Routes(
   Method.GET / "file" ->
     Handler.fromFile(Paths.get("file.txt").toFile).sandbox,
 )
@@ -612,9 +612,9 @@ In this example, the type of the handler before applying the `sandbox` operator 
 
 Without the `sandbox` operator, the compiler would complain about the unhandled `Throwable` error.
 
-### Converting a `Handler` to an `HttpApp`
+### Converting a `Handler` to an `Routes`
 
-The `Handler#toHttpApp` operator, converts a handler to an `HttpApp` to be served by the `Server`. The following example, shows an HTTP application that serves a simple "Hello, World!" response for all types of incoming requests:
+The `Handler#toRoutes` operator, converts a handler to an `Routes` to be served by the `Server`. The following example, shows an HTTP application that serves a simple "Hello, World!" response for all types of incoming requests:
 
 ```scala mdoc:compile-only
 import zio._
@@ -623,7 +623,7 @@ import zio.http._
 object HelloWorldServer extends ZIOAppDefault {
   def run =
     Server
-      .serve(Handler.fromResponse(Response.text("Hello, world!")).toHttpApp)
+      .serve(Handler.fromResponse(Response.text("Hello, world!")).toRoutes)
       .provide(Server.default)
 }
 ```
@@ -714,7 +714,7 @@ The are similar to the `ZIO` ones, but they are specialized for the `Handler` ty
 The first type parameter of the `Handler` is the environment type. This means that a `Handler` can require an environment to run, like a `ZIO` effect. When we create a `Handler`, we can get access to the environment using `ZIO.service*` methods, and finally, we can provide the environment using `Handler#provide*` methods.
 
 :::note
-Please note that in most cases, we are not required to provide the environment of the handler in the middle of the routes definition. It is usually done at the end when we are creating the `HttpApp` using the `Server#serve` method.
+Please note that in most cases, we are not required to provide the environment of the handler in the middle of the routes definition. It is usually done at the end when we are creating the `Routes` using the `Server#serve` method.
 :::
 
 :::note

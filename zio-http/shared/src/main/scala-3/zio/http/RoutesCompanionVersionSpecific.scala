@@ -1,6 +1,6 @@
 package zio.http
 
-trait RoutesVersionSpecific {
+trait RoutesCompanionVersionSpecific {
   private[http] class ApplyContextAspect[-Env, +Err, Env0](private val self: Routes[Env, Err]) {
     transparent inline def apply[Env1, Env2 <: Env, Ctx](aspect: HandlerAspect[Env1, Ctx])(implicit
       ev: Env0 with Ctx <:< Env,

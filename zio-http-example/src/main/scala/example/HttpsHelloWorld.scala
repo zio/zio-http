@@ -6,10 +6,10 @@ import zio.http._
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
-  val app: HttpApp[Any, Response] = Routes(
+  val app: Routes[Any, Response] = Routes(
     Method.GET / "text" -> handler(Response.text("Hello World!")),
     Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}""")),
-  ).toHttpApp
+  )
 
   /**
    * In this example, a private key and certificate are loaded from resources.

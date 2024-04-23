@@ -25,7 +25,7 @@ import zio.http.internal.HttpAppTestExtensions
 
 object RequestLoggingSpec extends ZIOHttpSpec with HttpAppTestExtensions {
 
-  private val app = HttpApp(
+  private val app = Routes(
     Method.GET / "ok"     -> Handler.ok,
     Method.GET / "error"  -> Handler.internalServerError,
     Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
