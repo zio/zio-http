@@ -17,7 +17,7 @@ The `Body` data type in ZIO HTTP represents the body message of a request or a r
 
 ```scala
 trait Body {
-  def to[A](implicit codec: BinaryCodec[A]): Task[A] =
+  def to[A](implicit codec: BinaryCodec[A]): Task[A] = ???
 }
 
 object Body {
