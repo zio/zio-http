@@ -24,11 +24,11 @@ As a ZIO-based library, ZIO HTTP leverages ZIO's error-handling capabilities to 
 
 Yes, ZIO HTTP is designed for performance, leveraging non-blocking I/O and asynchronous concurrency to handle high loads efficiently.
 
-## Can I integrate ZIO HTTP with existing Java libraries or frameworks?
+## Can I integrate ZIO HTTP with Existing Java Libraries?
 
-Yes, ZIO HTTP provides interoperability with existing Java libraries and frameworks, allowing you to leverage functionality from the Java ecosystem seamlessly.
+Yes, ZIO HTTP provides interoperability with existing Java libraries and frameworks, allowing you to leverage functionality from the Java ecosystem seamlessly by importing blocking and non-blocking operations.
 
-## Is ZIO HTTP suitable for building microservices?
+## Is ZIO HTTP Suitable for Building Microservices?
 
 Yes, ZIO HTTP along with the ZIO ecosystem is well-suited for building microservices, which provides many aspects that are essential for building cloud-native applications:
 
@@ -37,6 +37,7 @@ Yes, ZIO HTTP along with the ZIO ecosystem is well-suited for building microserv
 - **Distributed Tracing**- In microservice architectures, distributed tracing is essential for monitoring the flow of requests across different services. [ZIO Telemetry](https://zio.dev/zio-telemetry/) supports distributed tracing using OpenTelemetry, OpenTracing, and OpenCensus.
 - **Instrumenting Metrics**- ZIO has [built-in support for metrics instrumentation](https://zio.dev/reference/observability/metrics/), with popular [metrics backends](https://zio.dev/zio-metrics-connectors/) such as Prometheus, Datadog, New Relic, and more.
 - **Resilience to failures**- When building microservices, it is essential to handle failures gracefully. There is a project called [Rezilience](https://zio.dev/ecosystem/community/) that provides various resilience patterns such as retries, timeouts, circuit breakers, rate limiting, and more to build robust and resilient microservices.
+- **Concurrency and Parallelism**- ZIO provides a powerful concurrency model that allows you to write highly concurrent and parallel applications. With [ZIO Fiber](https://zio.dev/reference/concurrency/fiber/), and its [Concurrency Primitives](https://zio.dev/reference/concurrency/#concurrency-primitives), you can write highly concurrent applications.
 - **Resource-safety** - ZIO provides a resource system that ensures resources are acquired and released safely. With [ZIO Scopes](https://zio.dev/reference/resource/scope/) and also [scoped Layers](https://zio.dev/reference/resource/scope/#converting-resources-into-other-zio-data-types), we can manage resources in a structured way.
 - **ZIO Aspect and Middlewares**- Both ZIO and ZIO HTTP support the idea of aspects and middlewares, which can be used to add cross-cutting concerns such as logging, metrics, authentication, and more to your services.
 - **Modularity**- With [service pattern](https://zio.dev/reference/service-pattern/) in ZIO, we can define our services along with their dependencies, and finally, we can start the service with its dependencies. This pattern is useful for building modular and testable services.
