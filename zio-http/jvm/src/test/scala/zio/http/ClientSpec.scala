@@ -31,26 +31,26 @@ object ClientSpec extends HttpRunnableSpec {
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {
-      val app = Handler.ok.toHttpApp.deploy(Request()).map(_.status)
+      val app = Handler.ok.toRoutes.deploy(Request()).map(_.status)
       assertZIO(app)(equalTo(Status.Ok))
     },
     test("non empty content") {
-      val app             = Handler.text("abc").toHttpApp
+      val app             = Handler.text("abc").toRoutes
       val responseContent = app.deploy(Request()).flatMap(_.body.asChunk)
       assertZIO(responseContent)(isNonEmpty)
     },
     test("echo POST request content") {
-      val app = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toHttpApp
+      val app = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toRoutes
       val res = app.deploy(Request(method = Method.POST, body = Body.fromString("ZIO user"))).flatMap(_.body.asString)
       assertZIO(res)(equalTo("ZIO user"))
     },
     test("empty content") {
-      val app             = HttpApp.empty
+      val app             = Routes.empty
       val responseContent = app.deploy(Request()).flatMap(_.body.asString.map(_.length))
       assertZIO(responseContent)(equalTo(0))
     },
     test("text content") {
-      val app             = Handler.text("zio user does not exist").toHttpApp
+      val app             = Handler.text("zio user does not exist").toRoutes
       val responseContent = app.deploy(Request()).flatMap(_.body.asString)
       assertZIO(responseContent)(containsString("user"))
     },
@@ -61,7 +61,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("streaming content to server") {
-      val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toHttpApp
+      val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toRoutes
       val stream = ZStream.fromIterable(List("a", "b", "c"), chunkSize = 1)
       val res    = app
         .deploy(Request(method = Method.POST, body = Body.fromCharSequenceStreamChunked(stream)))
@@ -71,7 +71,7 @@ object ClientSpec extends HttpRunnableSpec {
     test("no trailing slash for empty path") {
       for {
         baseURL   <- DynamicServer.httpURL
-        _         <- Handler.ok.toHttpApp
+        _         <- Handler.ok.toRoutes
           .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get(""))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
@@ -80,14 +80,14 @@ object ClientSpec extends HttpRunnableSpec {
     test("trailing slash for explicit slash") {
       for {
         baseURL   <- DynamicServer.httpURL
-        _         <- Handler.ok.toHttpApp
+        _         <- Handler.ok.toRoutes
           .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get("/"))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == s"$baseURL/")
     },
     test("reading of unfinished body must fail") {
-      val app         = Handler.fromStreamChunked(ZStream.never).sandbox.toHttpApp
+      val app         = Handler.fromStreamChunked(ZStream.never).sandbox.toRoutes
       val requestCode = (client: Client) =>
         (for {
           response <- ZIO.scoped(client(Request()))

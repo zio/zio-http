@@ -49,14 +49,15 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
     test("test unsafe large content") {
       val size    = 1024 * 1024
       val content = genString(size, '?')
-      val app     = Handler
+      val routes  = Handler
         .fromFunctionZIO[Request] {
           _.body.asStream.runCount
             .map(bytesCount => Response.text(bytesCount.toString))
         }
         .sandbox
-        .toHttpApp
-      val res     = app.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
+        .toRoutes
+
+      val res = routes.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
@@ -67,7 +68,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
             _ <- req.body.asChunk
           } yield Response.ok
         }
-      }.sandbox.toHttpApp
+      }.sandbox
       val res = app.deploy(Request()).map(_.status)
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
@@ -88,7 +89,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
               Response.text(body.length.toString)
             }
         },
-      ).sandbox.toHttpApp
+      ).sandbox
       val sizes = Chunk(0, 8192, 1024 * 1024)
       sizes.map { size =>
         test(s"with body length $size") {

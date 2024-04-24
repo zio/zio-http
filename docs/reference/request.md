@@ -158,7 +158,7 @@ object QueryParamExample extends ZIOAppDefault {
             Response.badRequest(s"The q query parameter is missing!")
         }
       },
-    ).toHttpApp
+    )
 
   def run = Server.serve(app).provide(Server.default)
 }
@@ -184,7 +184,7 @@ object TypedQueryParamExample extends ZIOAppDefault {
             Handler.badRequest(s"The value of $name query param is malformed")
         }
       },
-    ).toHttpApp
+    )
 
   def run = Server.serve(app).provide(Server.default)
 }
@@ -214,7 +214,7 @@ object QueryParamsExample extends ZIOAppDefault {
           Response.badRequest(s"The q query parameter is missing!")
         }
       },
-    ).toHttpApp
+    )
 
   def run = Server.serve(app).provide(Server.default)
 }

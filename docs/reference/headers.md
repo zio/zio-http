@@ -195,33 +195,32 @@ import zio.stream._
 
 object SimpleResponseDispatcher extends ZIOAppDefault {
   override def run =
-  // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-    Server.serve(app).provide(Server.default)
+    // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
+    Server.serve(routes).provide(Server.default)
 
   // Create a message as a Chunk[Byte]
   val message = Chunk.fromArray("Hello world !\r\n".getBytes(Charsets.Http))
-  // Use `Http.collect` to match on route
-  val app: HttpApp[Any] =
+  val routes: Routes[Any, Response] =
     Routes(
       // Simple (non-stream) based route
       Method.GET / "health" -> handler(Response.ok),
 
       // From Request(req), the headers are accessible.
-      Method.GET / "streamOrNot" -> 
-        handler { (req: Request) => 
+      Method.GET / "streamOrNot" ->
+        handler { (req: Request) =>
           // Checking if client is able to handle streaming response
           val acceptsStreaming: Boolean = req.header(Header.Accept).exists(_.mimeTypes.contains(Header.Accept.MediaTypeWithQFactor(MediaType.application.`octet-stream`, None)))
           if (acceptsStreaming)
             Response(
               status = Status.Ok,
               body = Body.fromStream(ZStream.fromChunk(message), message.length.toLong), // Encoding content using a ZStream
-            )
+              )
           else {
             // Adding a custom header to Response
             Response(status = Status.Accepted, body = Body.fromChunk(message)).addHeader("X-MY-HEADER", "test")
           }
         }
-    ).sandbox.toHttpApp
+      ).sandbox
 }
 ```
 

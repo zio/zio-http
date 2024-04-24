@@ -20,24 +20,24 @@ import java.io.File
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{timeout, unix, withLiveClock}
+import zio.test.TestAspect.{unix, withLiveClock}
 import zio.test.assertZIO
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val fileOk       = Handler.fromResource("TestFile.txt").sandbox.toHttpApp.deploy
-  private val fileNotFound = Handler.fromResource("Nothing").sandbox.toHttpApp.deploy
+  private val fileOk       = Handler.fromResource("TestFile.txt").sandbox.toRoutes.deploy
+  private val fileNotFound = Handler.fromResource("Nothing").sandbox.toRoutes.deploy
 
   private val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
   private val resourceOk       =
-    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).sandbox.toHttpApp.deploy
+    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).sandbox.toRoutes.deploy
   private val resourceNotFound =
     Handler
       .fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt"))
       .sandbox
-      .toHttpApp
+      .toRoutes
       .deploy
 
   override def spec = suite("StaticFileServerSpec") {
@@ -72,7 +72,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
     suite("fromFile")(
       suite("failure on construction")(
         test("should respond with 500") {
-          val res = Handler.fromFile(throw new Error("Wut happened?")).sandbox.toHttpApp.deploy.run().map(_.status)
+          val res = Handler.fromFile(throw new Error("Wut happened?")).sandbox.toRoutes.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),
@@ -80,7 +80,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         test("should respond with 500") {
           val tmpFile = File.createTempFile("test", "txt")
           tmpFile.setReadable(false)
-          val res     = Handler.fromFile(tmpFile).sandbox.toHttpApp.deploy.run().map(_.status)
+          val res     = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.Forbidden))
         } @@ unix,
       ),
@@ -89,7 +89,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           final class BadFile(name: String) extends File(name) {
             override def exists(): Boolean = throw new Error("Haha")
           }
-          val res = Handler.fromFile(new BadFile("Length Failure")).sandbox.toHttpApp.deploy.run().map(_.status)
+          val res = Handler.fromFile(new BadFile("Length Failure")).sandbox.toRoutes.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),

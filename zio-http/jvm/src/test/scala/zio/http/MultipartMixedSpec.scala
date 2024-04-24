@@ -401,7 +401,7 @@ object MultipartMixedSpec extends ZIOHttpSpec {
       case (None, None)        => res0
       case (Some(mt), None)    => res0.contentType(mt)
       case (Some(mt), Some(b)) => res0.contentType(mt, b)
-      case (None, Some(b))     =>
+      case (None, Some(_))     =>
         sys.error("r u joking me?!?!")
     }
 

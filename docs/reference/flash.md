@@ -157,7 +157,7 @@ object NotificationWithoutFlash extends ZIOAppDefault {
     }
 
 
-  def run = Server.serve(Routes(saveUserRoute, homeRoute).toHttpApp)
+  def run = Server.serve(Routes(saveUserRoute, homeRoute))
     .provide(Server.default, ZLayer(Ref.make(List.empty[User])))
 }
 ```
@@ -350,7 +350,7 @@ val getUsersRoute: Route[Ref[List[User]] with Flash.Backend, Nothing] =
     } yield Response.html(html ++ usersHTML)
   }
 
-  val app = Routes(saveUserRoute, getUsersRoute, homeRoute).toHttpApp
+  val app = Routes(saveUserRoute, getUsersRoute, homeRoute)
 
   def run = Server.serve(app).provide(Server.default, Flash.Backend.inMemory, ZLayer(Ref.make(List.empty[User])))
 }
@@ -520,7 +520,7 @@ object ui {
 }
 
 object SetGetBothFlashExample extends ZIOAppDefault {
-  val httpApp = Routes(
+  val routes = Routes(
     Method.GET / "set-flash" -> handler {
       val setBoth: Flash.Setter[(String, String)] =
         Flash.setNotice("The form was submitted successfully!") ++
@@ -536,9 +536,9 @@ object SetGetBothFlashExample extends ZIOAppDefault {
         req.flash(getBoth).getOrElse(ui.renderNoFlash),
       )
     },
-  ).sandbox.toHttpApp
+  ).sandbox
 
-  def run = Server.serve(httpApp).provide(Server.default, Flash.Backend.inMemory)
+  def run = Server.serve(routes).provide(Server.default, Flash.Backend.inMemory)
 }
 ```
 
@@ -555,7 +555,7 @@ import zio._
 import zio.http._
 
 object CookieBasedFlashExample extends ZIOAppDefault {
-  val httpApp = Routes(
+  val routes = Routes(
     Method.GET / "set-flash" -> handler {
       Response
         .seeOther(URL.root / "get-flash")
@@ -568,9 +568,9 @@ object CookieBasedFlashExample extends ZIOAppDefault {
         req.flash(Flash.getNotice[String]).getOrElse("no-flash"),
       )
     },
-  ).sandbox.toHttpApp
+  ).sandbox
 
-  def run = Server.serve(httpApp).provide(Server.default)
+  def run = Server.serve(routes).provide(Server.default)
 }
 ```
 
@@ -609,7 +609,7 @@ import zio.http._
 import zio.http.template._
 
 object FlashBackendExample extends ZIOAppDefault {
-  val httpApp = Routes(
+  val routes = Routes(
     Method.GET / "set-flash" -> handler {
       for {
         flashBackend <- ZIO.service[Flash.Backend]
@@ -625,9 +625,9 @@ object FlashBackendExample extends ZIOAppDefault {
         notice       <- flashBackend.flash(req, Flash.getNotice[String])
       } yield Response.text(notice)
     },
-  ).sandbox.toHttpApp
+  ).sandbox
 
-  def run = Server.serve(httpApp).provide(Server.default, Flash.Backend.inMemory)
+  def run = Server.serve(routes).provide(Server.default, Flash.Backend.inMemory)
 }
 ```
 
@@ -649,7 +649,7 @@ HTTP/1.1 200 OK
 content-type: text/plain
 content-length: 28
 
-The form was submitted successfully!⏎
+The form was submitted successfully!
 ```
 
 :::note
