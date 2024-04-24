@@ -40,7 +40,7 @@ import zio.http._
 object GreetingServer extends ZIOAppDefault {
   val app =
     Routes(
-      Method.GET / "" -> handler(Response.text("Greetings at your service")),
+      Method.GET / Root -> handler(Response.text("Greetings at your service")),
       Method.GET / "greet" -> handler { (req: Request) =>
         val name = req.queryParamToOrElse("name", "World")
         Response.text(s"Hello $name!")
@@ -72,9 +72,3 @@ object GreetingClient extends ZIOAppDefault {
   def run = app.provide(Client.default, Scope.default)
 }
 ```
-
-## Watch Mode
-
-We can use the [sbt-revolver] plugin to start the server and run it in watch mode using `~ reStart` command on the SBT console.
-
-[sbt-revolver]: https://github.com/spray/sbt-revolver

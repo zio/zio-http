@@ -7,7 +7,7 @@ import zio.http._
 object HelloWorld extends ZIOAppDefault {
   // Responds with plain text
   val homeRoute =
-    Method.GET / "" -> handler(Response.text("Hello World!"))
+    Method.GET / Root -> handler(Response.text("Hello World!"))
 
   // Responds with JSON
   val jsonRoute =
