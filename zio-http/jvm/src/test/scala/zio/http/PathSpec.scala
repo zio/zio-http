@@ -137,8 +137,8 @@ object PathSpec extends ZIOHttpSpec with ExitAssertion {
               Flags(Flag.LeadingSlash, Flag.TrailingSlash),
               Chunk("a", "b", "c"),
             ),
-            "/a/b/"   -> Path.root / a / b / ""      -> Path(Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk("a", "b")),
-            "/a/"     -> Path.root / a / ""          -> Path(Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk("a")),
+            "/a/b/" -> Path.root / a / b / "" -> Path(Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk("a", "b")),
+            "/a/"   -> Path.root / a / ""     -> Path(Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk("a")),
           ),
         )
         checkAll(paths) { case ((encoded, path1), path2) =>

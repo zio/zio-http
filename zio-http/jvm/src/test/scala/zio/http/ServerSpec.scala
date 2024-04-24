@@ -471,7 +471,9 @@ object ServerSpec extends HttpRunnableSpec {
       }.toHttpApp
 
       check(Gen.alphaNumericString) { c =>
-        assertZIO(app.deploy.body.mapZIO(_.asString).run(path = Path.root, method = Method.POST, body = Body.fromString(c)))(
+        assertZIO(
+          app.deploy.body.mapZIO(_.asString).run(path = Path.root, method = Method.POST, body = Body.fromString(c)),
+        )(
           equalTo(c),
         )
       }
