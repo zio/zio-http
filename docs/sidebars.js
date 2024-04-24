@@ -2,53 +2,82 @@ const sidebars = {
   sidebar: [
     {
       type: "category",
-      label: "ZIO Http",
+      label: "ZIO HTTP",
       collapsed: true,
       link: { type: "doc", id: "index" },
       items: [
-        "setup",
+        "installation",
         "overview",
         {
           type: "category",
-          label: "DSL",
-          link: { type: "doc", id: "index" },
+          collapsed: true,
+          label: "Reference",
           items: [
-            "dsl/server",
-            "dsl/routes",
-            "dsl/route_pattern",
-            "dsl/path_codec",
-            "dsl/request",
-            "dsl/response",
-            "dsl/handler",
-            "dsl/headers",
-            "dsl/body",
-            "dsl/endpoint",
-            "dsl/form",
-            "dsl/cookies",
-            "dsl/flash",
-            "dsl/protocol-stack",
-            "dsl/middleware",
-            "dsl/handler_aspect",
-            "dsl/status",
+            "reference/server",
+            "reference/client",
             {
               type: "category",
-              label: "DSL",
-              collapsed: false,
+              label: "Routing",
               items: [
-                "dsl/socket/socket",
-                "dsl/socket/websocketframe"
-              ]
+                "reference/routes",
+                "reference/route_pattern",
+                "reference/path_codec",
+              ],
             },
-            "dsl/template",
-            "dsl/client"
-          ]
+            "reference/handler",
+            {
+              type: "category",
+              label: "HTTP Messages",
+              items: [
+                {
+                  type: "category",
+                  label: "Headers",
+                  items: [
+                    "reference/headers",
+                    "reference/cookies",
+                    "reference/flash",
+                  ],
+                },
+                "reference/request",
+                {
+                  type: "category",
+                  label: "Response",
+                  items: ["reference/response", "reference/status"],
+                },
+                {
+                  type: "category",
+                  label: "Message Body",
+                  items: ["reference/body", "reference/form"],
+                },
+              ],
+            },
+            "reference/endpoint",
+            {
+              type: "category",
+              label: "HTTP Middleware",
+              items: [
+                "reference/protocol-stack",
+                "reference/middleware",
+                "reference/handler_aspect",
+              ],
+            },
+            {
+              type: "category",
+              label: "WebSocket",
+              items: [
+                "reference/socket/socket",
+                "reference/socket/websocketframe",
+              ],
+            },
+            "reference/template",
+          ],
         },
+        "binary_codecs",
         "testing-http-apps",
         "faq",
         {
           type: "category",
           label: "Examples",
-          collapsed: false,
           link: { type: "doc", id: "index" },
           items: [
             "examples/hello-world",
@@ -66,11 +95,11 @@ const sidebars = {
             "examples/concrete-entity",
             "examples/multipart-form-data",
             "examples/server-sent-events-in-endpoints",
-          ]
-        }
-      ]
-    }
-  ]
+          ],
+        },
+      ],
+    },
+  ],
 };
 
 module.exports = sidebars;
