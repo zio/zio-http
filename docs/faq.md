@@ -12,6 +12,10 @@ If you are new to ZIO, you can start by reading the [ZIO documentation](https://
 
 ZIO HTTP is built on top of [Netty](https://netty.io/) for networking operations. It also leverages [ZIO Core](https://zio.dev/reference/core/zio/), [ZIO Schema](https://zio.dev/zio-schema/), and [ZIO Stream](https://zio.dev/reference/stream/) for concurrency, encoding/decoding, and streaming, respectively.
 
+### I Love ZIO‌, But Don't Want to Use ZIO HTTP. What Alternatives Do I Have?
+
+If you prefer not to use ZIO HTTP but still want to build HTTP applications using ZIO, you can consider using [Http4s](https://http4s.org/), a functional HTTP library for Scala that can be integrated with ZIO effects ([link](https://github.com/zio/zio-json/tree/series/2.x/examples/interop-http4s)). Additionally, if you are looking for a declarative approach to building HTTP applications, similar to ZIO HTTP's `Endpoint` API, you can explore [Tapir](https://tapir.softwaremill.com/). It's easy to integrate Tapir with ZIO using [tapir-zio-http-server](https://tapir.softwaremill.com/en/latest/server/ziohttp.html) module.
+
 ### How Can I Serialize/Deserialize Data to/from JSON in Requests and Responses?
 
 ZIO HTTP provides built-in support for JSON serialization and deserialization using [ZIO Schema](https://zio.dev/zio-schema/). You can derive JSON codecs for your custom data types using ZIO Schema and use them to encode/decode data to/from request/response bodies. Check out the [BinaryCodecs](./binary_codecs.md) section in the documentation for more details.
