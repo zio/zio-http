@@ -167,7 +167,7 @@ val routes: Routes[Any, Response] = ???
 val newRoutes = routes @@ HandlerAspect.dropTrailingSlash
 ```
 
-To learn more about middlewares, see the [Middleware](middleware.md) section.
+To learn more about middlewares, see the [Middleware](../aop/middleware.md) section.
 
 ## Handling Errors in Routes
 

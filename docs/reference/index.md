@@ -84,7 +84,7 @@ val app: HttpApp[Any] =
 
 ### 2. Routes
 
-For handling routes, ZIO HTTP has a [`Routes`](routes.md) value, which allows us to aggregate a collection of individual routes. Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
+For handling routes, ZIO HTTP has a [`Routes`](routing/routes.md) value, which allows us to aggregate a collection of individual routes. Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
 
 The `Routes` is a collection of `Route` values. It can be created using its default constructor:
 
@@ -94,7 +94,7 @@ val routes = Routes(greetRoute, echoRoute)
 
 ### 3. Route
 
-Each `Route` is a combination of a [`RoutePattern`](route_pattern.md) and a [`Handler`](handler.md). The `RoutePattern` is a combination of a `Method` and a [`PathCodec`](path_codec.md) that can be used to match the method and path of the request. The `Handler` is a function that can convert a `Request` into a `Response`.
+Each `Route` is a combination of a [`RoutePattern`](routing/route_pattern.md) and a [`Handler`](handler.md). The `RoutePattern` is a combination of a `Method` and a [`PathCodec`](routing/path_codec.md) that can be used to match the method and path of the request. The `Handler` is a function that can convert a `Request` into a `Response`.
 
 The `PathCodec` can be parameterized to extract values from the path. In such cases, the `Handler` should be a function that accepts the extracted values besides the `Request`:
 
@@ -109,7 +109,7 @@ val routes = Routes(
 )
 ```
 
-To learn more about routes, see the [Routes](routes.md) page.
+To learn more about routes, see the [Routes](routing/routes.md) page.
 
 ### 4. Handler
 
