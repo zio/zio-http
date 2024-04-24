@@ -18,12 +18,12 @@ object HelloWorldWithCORS extends ZIOAppDefault {
       },
     )
 
-  val backend: HttpApp[Any] =
+  val backend: Routes[Any, Response] =
     Routes(
       Method.GET / "json" -> handler(Response.json("""{"message": "Hello World!"}""")),
-    ).toHttpApp @@ cors(config)
+    ) @@ cors(config)
 
-  val frontend: HttpApp[Any] =
+  val frontend: Routes[Any, Response] =
     Routes(
       Method.GET / PathCodec.empty -> handler(
         Response.html(
@@ -38,7 +38,7 @@ object HelloWorldWithCORS extends ZIOAppDefault {
           ),
         ),
       ),
-    ).toHttpApp
+    )
 
   val frontEndServer = Server.serve(frontend).provide(Server.defaultWithPort(3000))
   val backendServer  = Server.serve(backend).provide(Server.defaultWithPort(8080))

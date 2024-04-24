@@ -29,13 +29,13 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
 //    .serverTime
     .addHeader(Header.Server(STATIC_SERVER_NAME))
 
-  private def plainTextApp(response: Response): HttpApp[Any] =
-    Routes(Method.GET / plaintextPath -> Handler.fromResponse(response)).toHttpApp
+  private def plainTextApp(response: Response): Routes[Any, Response] =
+    Routes(Method.GET / plaintextPath -> Handler.fromResponse(response))
 
-  private def jsonApp(json: Response): HttpApp[Any] =
-    Routes(Method.GET / jsonPath -> Handler.fromResponse(json)).toHttpApp
+  private def jsonApp(json: Response): Routes[Any, Response] =
+    Routes(Method.GET / jsonPath -> Handler.fromResponse(json))
 
-  val app: HttpApp[Any] = plainTextApp(frozenPlainTextResponse) ++ jsonApp(frozenJsonResponse)
+  val app: Routes[Any, Response] = plainTextApp(frozenPlainTextResponse) ++ jsonApp(frozenJsonResponse)
 
   private val config = Server.Config.default
     .port(8080)

@@ -8,7 +8,7 @@ object ServeOnAnyOpenPort extends ZIOAppDefault {
   val httpApp =
     Routes(
       Method.GET / "hello" -> handler(Response.text("Hello, World!")),
-    ).toHttpApp
+    )
 
   val app = for {
     port <- Server.install(httpApp)

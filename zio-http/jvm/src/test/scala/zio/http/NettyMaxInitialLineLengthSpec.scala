@@ -32,7 +32,7 @@ object NettyMaxInitialLineLength extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     test("should get a failure instead of an empty body") {
-      val app = Handler
+      val routes = Handler
         .fromFunctionZIO[Request] { request =>
           request.body.asString.map { body =>
             val responseBody = if (body.isEmpty) "<empty>" else body
@@ -40,9 +40,10 @@ object NettyMaxInitialLineLength extends ZIOHttpSpec {
           } // this should not be run, as the request is invalid
         }
         .sandbox
-        .toHttpApp
+        .toRoutes
+
       for {
-        port <- Server.install(app)
+        port <- Server.install(routes)
         url     = URL
           .decode(s"http://localhost:$port/a%20looooooooooooooooooooooooooooong%20query%20parameter")
           .toOption

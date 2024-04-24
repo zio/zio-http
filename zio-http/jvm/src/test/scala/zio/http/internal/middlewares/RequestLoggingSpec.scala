@@ -30,7 +30,7 @@ object RequestLoggingSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     Method.GET / "error"  -> Handler.internalServerError,
     Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
     Method.GET / "defect" -> Handler.die(new Throwable("boom")),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("RequestLoggingSpec")(

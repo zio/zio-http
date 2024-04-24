@@ -90,7 +90,7 @@ final case class HandlerAspect[-Env, +CtxOut](
    * Applies middleware to the specified handler, which may ignore the context
    * produced by this middleware.
    */
-  def apply[Env1 <: Env, Err](
+  override def apply[Env1 <: Env, Err](
     routes: Routes[Env1, Err],
   ): Routes[Env1, Err] =
     routes.transform[Env1] { handler =>

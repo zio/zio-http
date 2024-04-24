@@ -21,11 +21,11 @@ import zio._
 import zio.metrics._
 
 import zio.http.codec.{PathCodec, SegmentCodec}
+import zio.http.endpoint.EndpointMiddleware.None.Err
 
 trait Middleware[-UpperEnv] { self =>
-  def apply[Env1 <: UpperEnv, Err](
-    routes: Routes[Env1, Err],
-  ): Routes[Env1, Err]
+
+  def apply[Env1 <: UpperEnv, Err](app: Routes[Env1, Err]): Routes[Env1, Err]
 
   def @@[UpperEnv1 <: UpperEnv](
     that: Middleware[UpperEnv1],
@@ -367,6 +367,7 @@ object Middleware extends HandlerAspects {
         )
         routes ++ other
       }
+
     }
 
   /**

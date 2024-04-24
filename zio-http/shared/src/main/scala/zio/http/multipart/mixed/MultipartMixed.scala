@@ -75,8 +75,8 @@ object MultipartMixed {
           ZChannel
             .readWithCause(
               in => preamble(keep ++ in),
-              ZChannel.refailCause(_),
-              done =>
+              ZChannel.refailCause,
+              _ =>
                 if (boundary.isClosing(buff))
                   ZChannel.succeed((Chunk.empty, true))
                 else if (boundary.isEncapsulating(buff))
@@ -161,7 +161,7 @@ object MultipartMixed {
                   .readWithCause(
                     in => parseBodyAux(buff, pendingCrlf, currLine ++ in, true),
                     err => ZChannel.write(buff) *> ZChannel.refailCause(err),
-                    done => {
+                    _ => {
                       // still possible that the current line is encapsulating or closing boundary
                       if (boundary.isClosing(currLine))
                         ZChannel.write(buff) *> ZChannel.succeed((Chunk.empty, true))
@@ -178,12 +178,12 @@ object MultipartMixed {
                 val (h, t) = currLine.splitAt(currLine.size - crlf.size + 1)
                 if (t != currLine) {
                   // also if we had a pending crlf we now know it's part of the content so we move it to the buffered part
-                  parseBody(buff ++ pendingCrlf ++ h, Chunk.empty, t, false)
+                  parseBody(buff ++ pendingCrlf ++ h, Chunk.empty, t, seekingBoundary = false)
                 } else {
                   ZChannel.readWithCause(
-                    in => parseBodyAux(buff ++ pendingCrlf ++ h, Chunk.empty, t ++ in, false),
+                    in => parseBodyAux(buff ++ pendingCrlf ++ h, Chunk.empty, t ++ in, seekingBoundary = false),
                     err => ZChannel.write(buff ++ crlf ++ currLine) *> ZChannel.refailCause(err),
-                    done =>
+                    _ =>
                       ZChannel.write(buff ++ crlf ++ currLine) *> ZChannel.fail(
                         new IllegalStateException("multipart/chunked body ended with no boundary"),
                       ),
@@ -200,12 +200,12 @@ object MultipartMixed {
               else {
                 // the crlf we just found can either be part of a following boundary or part of the content
                 val nextLine = rest.drop(crlf.size)
-                parseBody(buff ++ pendingCrlf ++ h, crlf, nextLine, true)
+                parseBody(buff ++ pendingCrlf ++ h, crlf, nextLine, seekingBoundary = true)
               }
             case idx                    => // plain content
               // no need to check for boundary, just buffer and continue with parseBOL
               val (h, t) = currLine.splitAt(idx)
-              parseBody(buff ++ h, crlf, t.drop(crlf.size), true)
+              parseBody(buff ++ h, crlf, t.drop(crlf.size), seekingBoundary = true)
           }
         }
       }
@@ -247,7 +247,7 @@ object MultipartMixed {
                 ZChannel
                   .fromZIO(pr.await)
                   .flatMap {
-                    case (rest, true)  =>
+                    case (_, true)     =>
                       epilogue
                     case (rest, false) =>
                       cont(rest)
@@ -267,7 +267,7 @@ object MultipartMixed {
         case (_, true)         =>
           epilogue
       }
-        .mapOut(Chunk.single(_))
+        .mapOut(Chunk.single)
     val startPl: ZPipeline[Any, Throwable, Byte, Part]                                  = startCh.toPipeline
 
     val result: ZStream[Any, Throwable, Part] = upstream.toStream >>> startPl
@@ -299,11 +299,6 @@ object MultipartMixed {
         .concat(ZStream.fromChunk(term))
 
     MultipartMixed(bytes, boundary, bufferSize)
-  }
-
-  def fromPartsUUID(parts: ZStream[Any, Throwable, Part], bufferSize: Int = 8192): ZIO[Any, Nothing, MultipartMixed] = {
-    Boundary.randomUUID
-      .map(fromParts(parts, _, bufferSize))
   }
 
 }

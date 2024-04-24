@@ -20,7 +20,7 @@ import zio._
 import zio.http._
 
 object HelloExample extends ZIOAppDefault {
-  val app: HttpApp[Any] =
+  val app: Routes[Any, Response] =
     Routes(
       Method.GET / "hello" ->
         handler { req: Request =>
@@ -28,7 +28,7 @@ object HelloExample extends ZIOAppDefault {
             name <- req.body.asString
           } yield Response(body = Body.fromString(s"Hello $name!"))
         }.sandbox,
-    ).toHttpApp
+    )
 
   override val run = Server.serve(app).provide(Server.default)
 }
