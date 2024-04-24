@@ -29,7 +29,7 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkHttp(): Unit = {
-    (0 to MAX).foreach(_ => http(Request.get(url = URL(Root / "text"))))
+    (0 to MAX).foreach(_ => http(Request.get(url = URL(Path.root / "text"))))
     ()
   }
 

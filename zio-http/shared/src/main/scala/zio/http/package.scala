@@ -49,8 +49,6 @@ package object http extends UrlInterpolator with MdInterpolator {
   val trailing: PathCodec[Path]                 = PathCodec.trailing
   def uuid(name: String): PathCodec[UUID]       = PathCodec.uuid(name)
 
-  val Empty: Path = Path.empty
-
   val Root: PathCodec[Unit] = PathCodec.empty
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
