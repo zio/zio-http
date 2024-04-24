@@ -21,13 +21,13 @@ object WebSocketEcho extends ZIOAppDefault {
       }
     }
 
-  private val app: HttpApp[Any] =
+  private val app: Routes[Any, Response] =
     Routes(
       Method.GET / "greet" / string("name") -> handler { (name: String, _: Request) =>
         Response.text(s"Greetings {$name}!")
       },
       Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
-    ).toHttpApp
+    )
 
   override val run = Server.serve(app).provide(Server.default)
 }

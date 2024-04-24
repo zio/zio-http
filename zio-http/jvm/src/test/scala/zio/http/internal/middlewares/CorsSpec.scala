@@ -33,7 +33,7 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     Method.GET / "die"     -> handler(ZIO.dieMessage("die")),
   ).handleErrorCause { cause =>
     Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
-  }.toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
+  } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
   override def spec = suite("CorsSpec")(
     test("OPTIONS request") {

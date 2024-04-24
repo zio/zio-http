@@ -43,7 +43,7 @@ object EndpointWithError extends ZIOAppDefault {
         .mapError(err => NotFoundError(err, "The requested book was not found. Please try using a different ID."))
     }
 
-  val app = endpoint.implement(getBookHandler).toHttpApp @@ Middleware.debug
+  val routes = endpoint.implement(getBookHandler).toRoutes @@ Middleware.debug
 
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(routes).provide(Server.default)
 }

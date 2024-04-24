@@ -43,7 +43,7 @@ object EndpointSpec extends ZIOHttpSpec {
       .get(url = URL.decode(url).toOption.get)
       .addHeaders(headers.foldLeft(Headers.empty) { case (hs, (k, v)) => hs ++ Headers(k, v) })
     for {
-      response <- service.toHttpApp.runZIO(request)
+      response <- service.runZIO(request)
       body     <- response.body.asString.orDie
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }

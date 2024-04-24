@@ -33,7 +33,14 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R, Unit]
+  @deprecated("Install Routes instead. Will be removed in the next release.")
+  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R, Unit] =
+    install(httpApp.routes)
+
+  /**
+   * Installs the given HTTP application into the server.
+   */
+  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
@@ -329,6 +336,7 @@ object Server extends ServerPlatformSpecific {
       }
   }
 
+  @deprecated("Serve Routes instead. Will be removed in the next release.")
   def serve[R](
     httpApp: HttpApp[R],
   )(implicit trace: Trace): URIO[R with Server, Nothing] = {
@@ -338,7 +346,21 @@ object Server extends ServerPlatformSpecific {
       ZIO.never
   }
 
+  @deprecated("Install Routes instead. Will be removed in the next release.")
   def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
+  }
+
+  def serve[R](
+    httpApp: Routes[R, Response],
+  )(implicit trace: Trace): URIO[R with Server, Nothing] = {
+    ZIO.logInfo("Starting the server...") *>
+      install(httpApp) *>
+      ZIO.logInfo("Server started") *>
+      ZIO.never
+  }
+
+  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
@@ -392,11 +414,12 @@ object Server extends ServerPlatformSpecific {
     driver: Driver,
     bindPort: Int,
   ) extends Server {
-    override def install[R](httpApp: HttpApp[R])(implicit
+    override def install[R](httpApp: Routes[R, Response])(implicit
       trace: Trace,
     ): URIO[R, Unit] =
       ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
 
     override def port: Int = bindPort
+
   }
 }

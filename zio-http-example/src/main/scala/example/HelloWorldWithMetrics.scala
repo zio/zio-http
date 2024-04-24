@@ -9,7 +9,7 @@ import zio.http._
 
 object HelloWorldWithMetrics extends ZIOAppDefault {
 
-  val backend: HttpApp[Any] =
+  val backend: Routes[Any, Response] =
     Routes(
       Method.GET / "json"      -> handler((req: Request) =>
         ZIO.succeed(Response.json("""{"message": "Hello World!"}""")) @@ Metric
@@ -17,12 +17,12 @@ object HelloWorldWithMetrics extends ZIOAppDefault {
           .contramap[Any](_ => if (req.headers.contains("X-Custom-Header")) 1L else 0L),
       ),
       Method.GET / "forbidden" -> handler(ZIO.succeed(Response.forbidden)),
-    ).toHttpApp @@ Middleware.metrics()
+    ) @@ Middleware.metrics()
 
-  val metrics: HttpApp[PrometheusPublisher] =
+  val metrics: Routes[PrometheusPublisher, Response] =
     Routes(
       Method.GET / "metrics" -> handler(ZIO.serviceWithZIO[PrometheusPublisher](_.get.map(Response.text))),
-    ).toHttpApp
+    )
 
   val run =
     Server

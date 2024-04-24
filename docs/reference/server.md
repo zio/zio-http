@@ -9,35 +9,35 @@ This section describes, ZIO HTTP Server and different configurations you can pro
 
 ## Starting a Server with Default Configurations
 
-Assuming we have written an `HttpApp`:
+Assuming we have written a `Routes`:
 
 ```scala mdoc:silent
 import zio.http._
 import zio._
 
-def app: HttpApp[Any] = 
+val routes: Routes[Any, Response] =
   Routes(
-    Method.GET / "hello" -> 
+    Method.GET / "hello" ->
       handler(Response.text("Hello, World!"))
-  ).toHttpApp
+    )
 ```
 
 We can serve it using the `Server.serve` method:
 
 ```scala mdoc:silent
-Server.serve(app).provide(Server.default)
+Server.serve(routes).provide(Server.default)
 ```
 
 By default, it will start the server on port `8080`. A quick shortcut to only customize the port is `Server.defaultWithPort`:
 
 ```scala mdoc:compile-only
-Server.serve(app).provide(Server.defaultWithPort(8081))
+Server.serve(routes).provide(Server.defaultWithPort(8081))
 ```
 
 Or to customize more properties of the _default configuration_:
 
 ```scala mdoc:compile-only
-Server.serve(app).provide(
+Server.serve(routes).provide(
   Server.defaultWith(
     _.port(8081).enableRequestStreaming
   )
@@ -45,7 +45,7 @@ Server.serve(app).provide(
 ```
 
 :::note
-Sometimes we may want to have more control over installation of the http application into the server. In such cases, we may want to use the `Server.install` method. This method only installs the `HttpApp` into the server, and the lifecycle of the server can be managed separately.
+Sometimes we may want to have more control over installation of the http application into the server. In such cases, we may want to use the `Server.install` method. This method only installs the `Routes` into the server, and the lifecycle of the server can be managed separately.
 :::
 
 ## Starting a Server with Custom Configurations
@@ -54,7 +54,7 @@ The `live` layer expects a `Server.Config` holding the custom configuration for 
 
 ```scala mdoc:compile-only
 Server
-  .serve(app)
+  .serve(routes)
   .provide(
     ZLayer.succeed(Server.Config.default.port(8081)),
     Server.live
@@ -159,10 +159,10 @@ import zio._
 import zio.http._
 
 object KeepAliveExample extends ZIOAppDefault {
-  val httpApp = handler(Response.text("Hello World!")).toHttpApp
+  val routes = handler(Response.text("Hello World!")).toRoutes
 
   override val run =
-    Server.serve(httpApp).provide(Server.default)
+    Server.serve(routes).provide(Server.default)
 }
 ```
 
@@ -175,7 +175,7 @@ content-type: text/plain
 content-length: 12
 connection: close
 
-Hello World!⏎
+Hello World!
 ```
 
 However, with the `Connection: Keep-Alive` header, the client can request that the connection remain open after the initial request, allowing for subsequent requests to be sent over the same connection without needing to establish a new one each time.
@@ -224,7 +224,7 @@ The `configured` layer loads the server configuration using the application's _Z
 
 ```scala mdoc:compile-only
 Server
-  .serve(app)
+  .serve(routes)
   .provide(
     Server.configured()
   )
@@ -233,9 +233,9 @@ Server
 For example, to load the server configuration from the hocon file, we should add the `zio-config-typesafe` dependency to our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-config"          % "<version>",
-libraryDependencies += "dev.zio" %% "zio-config-magnolia" % "<version>",
-libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "<version>",
+libraryDependencies += "dev.zio" %% "zio-config"          % "<version>"
+libraryDependencies += "dev.zio" %% "zio-config-magnolia" % "<version>"
+libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "<version>"
 ```
 
 And put the `application.conf` file in the `src/main/resources` directory:
@@ -278,7 +278,7 @@ object EchoServerWithDecompression extends ZIOAppDefault {
       .serve(
         handler { (req: Request) =>
           req.body.asString.map(Response.text)
-        }.sandbox.toHttpApp,
+        }.sandbox.toRoutes,
       )
       .provide(Server.live, ZLayer.succeed(Server.Config.default.requestDecompression(true)))
 }
@@ -405,7 +405,7 @@ import zio.stream.{ZSink, ZStream}
 object RequestStreamingServerExample extends ZIOAppDefault {
   def logBytes = (b: Byte) => ZIO.log(s"received byte: $b")
 
-  private val app: HttpApp[Any] =
+  private val routes: Routes[Any, Response] =
     Routes(
       Method.POST / "upload-stream" / "simple"     -> handler { (req: Request) =>
         for {
@@ -438,11 +438,11 @@ object RequestStreamingServerExample extends ZIOAppDefault {
           } yield Response.text(count.toString)
         else ZIO.succeed(Response(status = Status.NotFound))
       },
-    ).sandbox.toHttpApp @@ Middleware.debug
+    ).sandbox @@ Middleware.debug
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
     Server
-      .serve(app)
+      .serve(routes)
       .provide(
         ZLayer.succeed(Server.Config.default.enableRequestStreaming),
         Server.live,

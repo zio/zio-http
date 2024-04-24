@@ -320,7 +320,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
           },
       )
 
-      testRoutes.toHttpApp
+      testRoutes
         .runZIO(Request.get("/users"))
         .map(resp => assertTrue(resp.status == Status.BadRequest))
     },
@@ -337,7 +337,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             },
         )
 
-      testRoutes.toHttpApp
+      testRoutes
         .runZIO(Request.get(URL.decode("/users?ints=1&ints=2").toOption.get))
         .map(resp => assertTrue(resp.status == Status.BadRequest))
     },

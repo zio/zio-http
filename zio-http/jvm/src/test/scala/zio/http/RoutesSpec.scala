@@ -16,23 +16,21 @@
 
 package zio.http
 
-import zio._
-import zio.test.Assertion._
 import zio.test._
 
-object HttpAppSpec extends ZIOHttpSpec {
+object RoutesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   def spec = suite("HttpAppSpec")(
     test("empty not found") {
-      val app = HttpApp.empty
+      val app = Routes.empty
 
       for {
         result <- app.run()
       } yield assertTrue(extractStatus(result) == Status.NotFound)
     },
     test("compose empty not found") {
-      val app = HttpApp.empty ++ HttpApp.empty
+      val app = Routes.empty ++ Routes.empty
 
       for {
         result <- app.run()
@@ -43,7 +41,7 @@ object HttpAppSpec extends ZIOHttpSpec {
 
       val app = handler { (req: Request) =>
         Response(body = req.body)
-      }.toHttpApp
+      }
 
       for {
         result <- app.runZIO(Request(body = body))

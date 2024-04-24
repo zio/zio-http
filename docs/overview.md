@@ -11,10 +11,9 @@ ZIO HTTP has powerful functional domains that help in creating, modifying, and c
 
 The core concepts of ZIO HTTP are:
 
-- `HttpApp` - A collection of `Routes`s that are ready to be served. All errors are handled through conversion into HTTP responses.
-- `Routes` - A collection of `Route`s.
-- `Route` - A single route that can be matched against an http `Request` and produce a `Response`. It comprises a `RoutePattern` and a `Handler`:
-  1. `RoutePattern` - A pattern that can be matched against an http request. It is a combination of `Method` and `PathCodec` which can be used to match the method and path of the request.
+- `Routes` - A collection of `Route`s. If the error type of the routes is `Response`, then they can be served.
+- `Route` - A single route that can be matched against a http `Request` and produce a `Response`. It comprises a `RoutePattern` and a `Handler`:
+  1. `RoutePattern` - A pattern that can be matched against a http request. It is a combination of `Method` and `PathCodec` which can be used to match the method and path of the request.
   2. `Handler` - A function that can convert a `Request` into a `Response`.
 
 Let's see each of these concepts inside a simple example:
@@ -32,11 +31,11 @@ object ExampleServer extends ZIOAppDefault {
   val greetRoute: Route[Any, Nothing] =
     // The whole Method.GET / "greet" is a RoutePattern
     Method.GET / "greet" ->
-      // The handler is a function that takes a Request and returns a Response
-      handler { (req: Request) =>
-       val name = req.queryParamToOrElse("name", "World")
-       Response.text(s"Hello $name!")
-      }
+            // The handler is a function that takes a Request and returns a Response
+            handler { (req: Request) =>
+              val name = req.queryParamToOrElse("name", "World")
+              Response.text(s"Hello $name!")
+            }
 
   // A route that matches POST requests to /echo
   // It doesn't require any service from the ZIO environment
@@ -46,27 +45,25 @@ object ExampleServer extends ZIOAppDefault {
       req.body.asString.map(Response.text(_))
     }
 
-  // The HttpApp that doesn't require any service from the ZIO environment,
+  // The Routes that don't require any service from the ZIO environment,
   // so the first type parameter is Any.
-  // All the errors are handled
-  val app: HttpApp[Any] =
+  // All the errors are handled by turning them into a Response.
+  val routes: Routes[Any, Response] =
     // List of all the routes
     Routes(greetRoute, echoRoute)
-      // Handle all unhandled errors
-      .handleError(e => Response.internalServerError(e.getMessage))
-      // Convert the routes to an HttpApp
-      .toHttpApp
-  
-  // Serving the app using the default server layer on port 8080
-  def run = Server.serve(app).provide(Server.default)
+            // Handle all unhandled errors
+            .handleError(e => Response.internalServerError(e.getMessage))
+
+  // Serving the routes using the default server layer on port 8080
+  def run = Server.serve(routes).provide(Server.default)
 }
 ```
 
-### 1. HttpApp
+### 1.Routes 
 
-The `HttpApp` provides input-dependent routing to different `Handler` values.
+The `Routes` provides input-dependent routing to different `Handler` values.
 
-The `Handler`, `Route` and `Routes` can always be transformed to a `HttpApp` value using the `.toHttpApp` method, in which case the HTTP application will handle incomming routes. Before converting to `HttpApp`, we should handle all unhandled errors, e.g.:
+The `Handler` and `Route` can be transformed to `Routes` by the `.toRoutes` method. To serve the routes, all errors should be handled by converting them into a `Response` using for example the `.handleError` method.
 
 ```scala mdoc:invisible
 import zio.http._
@@ -78,23 +75,12 @@ val echoRoute: Route[Any, Throwable] = Route.notFound
 ```scala mdoc:silent
 import zio.http._
 
-val app: HttpApp[Any] =
+val app: Routes[Any, Response] =
   Routes(greetRoute, echoRoute)
     .handleError(e => Response.internalServerError(e.getMessage))
-    .toHttpApp
 ```
 
-### 2. Routes
-
-For handling routes, ZIO HTTP has a [`Routes`](reference/routes.md) value, which allows us to aggregate a collection of individual routes. Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
-
-The `Routes` is a collection of `Route` values. It can be created using its default constructor:
-
-```scala mdoc:silent
-val routes = Routes(greetRoute, echoRoute)
-```
-
-### 3. Route
+### 2. Route
 
 Each `Route` is a combination of a [`RoutePattern`](reference/route_pattern.md) and a [`Handler`](reference/handler.md). The `RoutePattern` is a combination of a `Method` and a [`PathCodec`](reference/path_codec.md) that can be used to match the method and path of the request. The `Handler` is a function that can convert a `Request` into a `Response`.
 
@@ -113,12 +99,12 @@ val routes = Routes(
 
 To learn more about routes, see the [Routes](reference/routes.md) page.
 
-### 4. Handler
+### 3. Handler
 
 The `Handler` describes the transformation from an incoming `Request` to an outgoing `Response`:
 
 ```scala mdoc:compile-only
-val helloHanlder = 
+val helloHandler =
   handler { (_: Request) =>
     Response.text("Hello World!")
   }
@@ -165,18 +151,18 @@ import zio._
 import zio.http._
 
 object CounterExample extends ZIOAppDefault {
-  val app: HttpApp[Ref[Int]] =
+  val routes: Routes[Ref[Int], Response] =
     Routes(
       Method.GET / "count" / int("n") ->
-        handler { (n: Int, _: Request) =>
-          for {
-            ref <- ZIO.service[Ref[Int]]
-            res <- ref.updateAndGet(_ + n)
-          } yield Response.text(s"Counter: $res")
-        },
-    ).toHttpApp
+              handler { (n: Int, _: Request) =>
+                for {
+                  ref <- ZIO.service[Ref[Int]]
+                  res <- ref.updateAndGet(_ + n)
+                } yield Response.text(s"Counter: $res")
+              },
+      )
 
-  def run = Server.serve(app).provide(Server.default, ZLayer.fromZIO(Ref.make(0)))
+  def run = Server.serve(routes).provide(Server.default, ZLayer.fromZIO(Ref.make(0)))
 }
 ```
 
@@ -227,10 +213,10 @@ import zio.http._
 import zio._
 
 object HelloWorld extends ZIOAppDefault {
-  val app = Handler.ok.toHttpApp
+  val routes = Handler.ok.toRoutes
 
   override def run =
-    Server.serve(app).provide(Server.defaultWithPort(8090))
+    Server.serve(routes).provide(Server.defaultWithPort(8090))
 }
 ```
 

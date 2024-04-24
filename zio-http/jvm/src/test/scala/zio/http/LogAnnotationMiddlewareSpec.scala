@@ -12,7 +12,6 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
             handler(ZIO.logWarning("Oh!") *> ZIO.succeed(Response.text("Hey logging!"))),
           )
           .@@(Middleware.logAnnotate("label", "value"))
-          .toHttpApp
           .runZIO(Request.get("/"))
 
         for {
@@ -32,7 +31,6 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
               Set(LogAnnotation("method", req.method.name), LogAnnotation("path", req.path.encode)),
             ),
           )
-          .toHttpApp
           .runZIO(Request.get("/"))
 
         for {
@@ -51,7 +49,6 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
           )
           .@@(Middleware.logAnnotateHeaders("header"))
           .@@(Middleware.logAnnotateHeaders(Header.UserAgent.name))
-          .toHttpApp
           .runZIO {
             Request
               .get("/")

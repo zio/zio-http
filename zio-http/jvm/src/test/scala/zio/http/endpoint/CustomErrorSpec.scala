@@ -16,25 +16,17 @@
 
 package zio.http.endpoint
 
-import java.time.Instant
-
 import zio._
 import zio.test._
 
-import zio.stream.ZStream
-
 import zio.schema.annotation.validate
-import zio.schema.codec.{DecodeError, JsonCodec}
 import zio.schema.validation.Validation
-import zio.schema.{DeriveSchema, Schema, StandardType}
+import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.extractStatus
-import zio.http.forms.Fixtures.formField
 
 object CustomErrorSpec extends ZIOHttpSpec {
   def spec = suite("CustomErrorSpec")(
@@ -49,6 +41,7 @@ object CustomErrorSpec extends ZIOHttpSpec {
                 ZIO.fail(s"path(users, $userId)")
               }
             }
+            .toRoutes
         val request =
           Request
             .get(
@@ -56,7 +49,7 @@ object CustomErrorSpec extends ZIOHttpSpec {
             )
 
         for {
-          response <- routes.toHttpApp.runZIO(request)
+          response <- routes.runZIO(request)
           body     <- response.body.asString.orDie
         } yield assertTrue(extractStatus(response).code == customCode, body == s""""path(users, $userId)"""")
       }
@@ -76,15 +69,16 @@ object CustomErrorSpec extends ZIOHttpSpec {
                 else ZIO.fail(TestError.UnexpectedError("something went wrong"))
               }
             }
+            .toRoutes
 
         val request1 = Request.get(URL.decode(s"/users/$myUserId").toOption.get)
         val request2 = Request.get(URL.decode(s"/users/$invalidUserId").toOption.get)
 
         for {
-          response1 <- routes.toHttpApp.runZIO(request1)
+          response1 <- routes.runZIO(request1)
           body1     <- response1.body.asString.orDie
 
-          response2 <- routes.toHttpApp.runZIO(request2)
+          response2 <- routes.runZIO(request2)
           body2     <- response2.body.asString.orDie
         } yield assertTrue(
           extractStatus(response1) == Status.NotFound,
@@ -111,14 +105,15 @@ object CustomErrorSpec extends ZIOHttpSpec {
             .handleErrorCause { cause =>
               Response.text("Caught: " + cause.defects.headOption.fold("no known cause")(d => d.getMessage))
             }
+            .toRoutes
 
         val request1 = Request.post(URL.decode("/users").toOption.get, Body.fromString("""{"id":0}"""))
         val request2 = Request.post(URL.decode("/users").toOption.get, Body.fromString(s"""{"id":$userId}"""))
 
         for {
-          response1 <- routes.toHttpApp.runZIO(request1)
+          response1 <- routes.runZIO(request1)
           body1     <- response1.body.asString.orDie
-          response2 <- routes.toHttpApp.runZIO(request2)
+          response2 <- routes.runZIO(request2)
           body2     <- response2.body.asString.orDie
         } yield assertTrue(
           extractStatus(response1) == Status.BadRequest,

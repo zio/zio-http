@@ -29,10 +29,10 @@ import zio.http.netty.NettyConfig
 
 object ResponseCompressionSpec extends ZIOHttpSpec {
 
-  private val text: HttpApp[Any] =
+  private val text: Routes[Any, Response] =
     Routes(
       Method.GET / "text" -> handler(Response.text("Hello World!\n")),
-    ).toHttpApp
+    )
 
   private val stream =
     Routes(
@@ -71,7 +71,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
             ),
           ),
         ),
-    ).toHttpApp
+    )
 
   private val app                              = text ++ stream
   private lazy val serverConfig: Server.Config = Server.Config.default.port(0).responseCompression()

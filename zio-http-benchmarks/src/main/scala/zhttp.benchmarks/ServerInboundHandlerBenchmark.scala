@@ -59,7 +59,7 @@ class ServerInboundHandlerBenchmark {
   private def shutdownRoute(shutdownSignal: Promise[Nothing, Unit]) =
     Route.route(Method.GET / shutdownEndpoint)(handler(shutdownSignal.succeed(()).as(shutdownResponse)))
   private def http(shutdownSignal: Promise[Nothing, Unit])          =
-    Routes(testRoute, arrayRoute, chunkRoute, shutdownRoute(shutdownSignal)).toHttpApp
+    Routes(testRoute, arrayRoute, chunkRoute, shutdownRoute(shutdownSignal))
 
   @Setup(Level.Trial)
   def setup(): Unit = {

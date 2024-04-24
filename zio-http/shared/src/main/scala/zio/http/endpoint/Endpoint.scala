@@ -200,7 +200,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
         }
         .catchAllCause { cause =>
           asHttpCodecError(cause) match {
-            case Some(error) =>
+            case Some(_) =>
               Handler.fromFunctionZIO { (request: zio.http.Request) =>
                 val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                 val log      = ZIO.unit
@@ -217,7 +217,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
                 }
                 log.as(response)
               }
-            case None        =>
+            case None    =>
               Handler.failCause(cause)
           }
         }

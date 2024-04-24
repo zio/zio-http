@@ -19,11 +19,11 @@ object ResponseBodyJsonSerializationExample extends ZIOAppDefault {
   val book2 = Book("Zionomicon", List("John A. De Goes", "Adam Fraser"))
   val book3 = Book("Effect-Oriented Programming", List("Bill Frasure", "Bruce Eckel", "James Ward"))
 
-  val app: Routes[Any, Nothing] =
+  val routes: Routes[Any, Nothing] =
     Routes(
       Method.GET / "users" ->
         handler(Response(body = Body.from(List(book1, book2, book3)))),
     )
 
-  def run = Server.serve(app.toHttpApp).provide(Server.default)
+  def run = Server.serve(routes).provide(Server.default)
 }

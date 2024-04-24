@@ -69,15 +69,15 @@ Let's write a simple example to see how it works:
 import zio.http._
 
 object ResponseCookieExample extends ZIOAppDefault {
-  val httpApp = Routes(
+  val routes = Routes(
     Method.GET / "cookie" -> handler {
       Response.ok.addCookie(
         Cookie.Response(name = "user_id", content = "user123", maxAge = Some(5.days))
       )
     },
-  ).toHttpApp
+  )
 
-  def run = Server.serve(httpApp).provide(Server.default)
+  def run = Server.serve(routes).provide(Server.default)
 }
 ```
 
@@ -154,7 +154,7 @@ val app =
     Method.GET / "cookie" -> handler {
       Response.ok.addCookie(cookie.sign("secret"))
     }
-  ).toHttpApp
+  )
 ```
 
 - Using `signCookies` middleware:
@@ -167,7 +167,7 @@ import Middleware.signCookies
 val app = Routes(
   Method.GET / "cookie" -> handler(Response.ok.addCookie(cookie)),
   Method.GET / "secure-cookie" -> handler(Response.ok.addCookie(cookie.copy(isSecure = true)))
-).toHttpApp
+)
 
 // Run it like any simple app
 def run(args: List[String]): ZIO[Any, Throwable, Nothing] =

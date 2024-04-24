@@ -9,15 +9,15 @@ import zio.http.codec.PathCodec.string
 object BasicAuth extends ZIOAppDefault {
 
   // Http app that requires a JWT claim
-  val user: HttpApp[Any] = Routes(
+  val user: Routes[Any, Response] = Routes(
     Method.GET / "user" / string("name") / "greet" ->
       handler { (name: String, _: Request) =>
         Response.text(s"Welcome to the ZIO party! ${name}")
       },
-  ).toHttpApp
+  )
 
   // Composing all the HttpApps together
-  val app: HttpApp[Any] = user @@ basicAuth("admin", "admin")
+  val app: Routes[Any, Response] = user @@ basicAuth("admin", "admin")
 
   // Run it like any simple app
   val run = Server.serve(app).provide(Server.default)

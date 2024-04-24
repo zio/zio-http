@@ -16,7 +16,7 @@ class HttpCombineEval {
   private val res  = Response.ok
   private val MAX  = 1000
   private val app  = Routes(Method.GET / "" -> handler(res))
-  private val spec = (0 to MAX).foldLeft(app)((a, _) => a ++ app).toHttpApp
+  private val spec = (0 to MAX).foldLeft(app)((a, _) => a ++ app)
 
   @Benchmark
   def empty(): Unit = {
