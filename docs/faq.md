@@ -14,7 +14,7 @@ ZIO HTTP is built on top of [Netty](https://netty.io/) for networking operations
 
 ### How Can I Serialize/Deserialize Data to/from JSON in Requests and Responses?
 
-ZIO HTTP provides built-in support for JSON serialization and deserialization using [ZIO Schema](https://zio.dev/zio-schema/). You can derive JSON codecs for your custom data types using ZIO Schema and use them to encode/decode data to/from request/response bodies. Check out the [BinaryCodecs](./codecs.md) section in the documentation for more details.
+ZIO HTTP provides built-in support for JSON serialization and deserialization using [ZIO Schema](https://zio.dev/zio-schema/). You can derive JSON codecs for your custom data types using ZIO Schema and use them to encode/decode data to/from request/response bodies. Check out the [BinaryCodecs](./binary_codecs.md) section in the documentation for more details.
 
 ### How Can I Handle CORS Requests in ZIO HTTP?
 
