@@ -25,7 +25,7 @@ libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 
 ZIO HTTP provides a simple and expressive API for building HTTP applications. It supports both server and client-side APIs. 
 
-ZIO HTTP‌ is designed in terms of **HTTP as function**, where both server and client are a function from `Request` to `Response`.
+ZIO HTTP is designed in terms of **HTTP as function**, where both server and client are a function from `Request` to `Response`.
 
 ### Greeting Server
 
@@ -69,9 +69,3 @@ object GreetingClient extends ZIOAppDefault {
   def run = app.provide(Client.default, Scope.default)
 }
 ```
-
-## Watch Mode
-
-We can use the [sbt-revolver] plugin to start the server and run it in watch mode using `~ reStart` command on the SBT console.
-
-[sbt-revolver]: https://github.com/spray/sbt-revolver

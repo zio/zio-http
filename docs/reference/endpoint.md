@@ -449,9 +449,9 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/endpoint/GenerateEndpointFromOpenAPIExample.scala")
 ```
 
-## Generating ZIO‌ CLI App from Endpoint API
+## Generating ZIO CLI App from Endpoint API
 
-The ZIO‌ CLI is a ZIO‌ library that provides a way to build command-line applications using ZIO facilities. With ZIO‌ HTTP, we can generate a ZIO CLI client from the `Endpoint` API.
+The ZIO CLI is a ZIO library that provides a way to build command-line applications using ZIO facilities. With ZIO HTTP, we can generate a ZIO CLI client from the `Endpoint` API.
 
 To do this, first, we need to add the following line to the `build.sbt` file:
 

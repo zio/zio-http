@@ -7,10 +7,10 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "installation",
-        "overview",
         {
           type: "category",
           collapsed: true,
+          link: { type: "doc", id: "reference/index" },
           label: "Reference",
           items: [
             "reference/server",
@@ -47,7 +47,11 @@ const sidebars = {
                 {
                   type: "category",
                   label: "Message Body",
-                  items: ["reference/body", "reference/form"],
+                  items: [
+                    "reference/body",
+                    "reference/form",
+                    "reference/binary_codecs",
+                  ],
                 },
               ],
             },
@@ -72,7 +76,6 @@ const sidebars = {
             "reference/template",
           ],
         },
-        "binary_codecs",
         "testing-http-apps",
         {
           type: "category",

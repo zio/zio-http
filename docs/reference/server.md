@@ -208,7 +208,7 @@ connection: close
 Hello World!⏎
 ```
 
-The‌ ZIO HTTP server by default supports keep-alive connections. To disable it, we can use the `Server.Config#keepAlive` method, by setting it to `false`:
+The ZIO HTTP server by default supports keep-alive connections. To disable it, we can use the `Server.Config#keepAlive` method, by setting it to `false`:
 
 ```scala mdoc:compile-only
 import zio.http._
@@ -546,7 +546,7 @@ printSource("zio-http-example/src/main/scala/example/ServeOnAnyOpenPort.scala")
 
 When a ZIO HTTP server is running, it handles incoming requests from clients, processes them, and sends back appropriate responses. In-flight requests are requests that have been received by the server but have not yet been fully processed or responded to. These requests might be in various stages of processing, such as waiting for database queries to complete or for resources to become available.
 
-When we're shutting down the server, it's important to handle these in-flight requests gracefully. ZIO‌ HTTP has a built-in mechanism to allow in-flight requests to finalize before shutting down the server. The default behavior is to wait for 10 seconds for in-flight requests to finalize before shutting down the server. During this time, the server will not accept new requests, but it will continue to process existing requests until they're fully completed.
+When we're shutting down the server, it's important to handle these in-flight requests gracefully. ZIO HTTP has a built-in mechanism to allow in-flight requests to finalize before shutting down the server. The default behavior is to wait for 10 seconds for in-flight requests to finalize before shutting down the server. During this time, the server will not accept new requests, but it will continue to process existing requests until they're fully completed.
 
 To change the default graceful shutdown timeout, we can use the `Server.Config#gracefulShutdownTimeout` method. It takes a `Duration` as an argument, and returns a new `Server.Config` with the specified graceful shutdown timeout:
 
