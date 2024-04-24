@@ -1,6 +1,6 @@
 ---
 id: handler
-title: Handler
+title: Request Handler
 ---
 
 A `Handler` is responsible for processing the matched incoming request and generating an appropriate response. It is a function that takes a `Request` and produces a `Response`. Thus, it is a crucial component of the ZIO HTTP that determines how the server should respond to a request matched by the corresponding `RoutePattern`.
