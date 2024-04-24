@@ -118,7 +118,7 @@ responseCookie.copy(domain = Some("example.com"))
 - `path` updates the path of the cookie:
 
 ```scala mdoc:compile-only
-responseCookie.copy(path = Some(Root / "cookie"))
+responseCookie.copy(path = Some(Path.root / "cookie"))
 ```
 
 - `isSecure` enables cookie only on https server:
