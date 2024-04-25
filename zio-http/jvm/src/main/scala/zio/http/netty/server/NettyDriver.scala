@@ -53,19 +53,23 @@ private[zio] final case class NettyDriver(
       )
     } yield StartResult(port, serverInboundHandler.inFlightRequests)
 
-  def addApp[R](newApp: Routes[R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
-    var loop = true
-    while (loop) {
-      val oldAppAndEnv     = appRef.get()
-      val (oldApp, oldEnv) = oldAppAndEnv
-      val updatedApp       = (oldApp ++ newApp).asInstanceOf[Routes[Any, Response]]
-      val updatedEnv       = oldEnv.unionAll(env)
-      val updatedAppAndEnv = (updatedApp, updatedEnv)
+  def addApp[R](newApp: Routes[R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] =
+    ZIO.fiberId.map { fiberId =>
+      var loop = true
+      while (loop) {
+        val oldAppAndRt     = appRef.get()
+        val (oldApp, oldRt) = oldAppAndRt
+        val updatedApp      = (oldApp ++ newApp).asInstanceOf[Routes[Any, Response]]
+        val updatedEnv      = oldRt.environment.unionAll(env)
+        // Update the fiberRefs with the new environment to avoid doing this every time we run / fork a fiber
+        val updatedFibRefs  = oldRt.fiberRefs.updatedAs(fiberId)(FiberRef.currentEnvironment, updatedEnv)
+        val updatedRt       = Runtime(updatedEnv, updatedFibRefs, oldRt.runtimeFlags)
+        val updatedAppAndRt = (updatedApp, updatedRt)
 
-      if (appRef.compareAndSet(oldAppAndEnv, updatedAppAndEnv)) loop = false
+        if (appRef.compareAndSet(oldAppAndRt, updatedAppAndRt)) loop = false
+      }
+      serverInboundHandler.refreshApp()
     }
-    serverInboundHandler.refreshApp()
-  }
 
   override def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
     for {
@@ -113,10 +117,7 @@ object NettyDriver {
   val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
-      ZLayer.succeed(
-        new AtomicReference[(Routes[Any, Response], ZEnvironment[Any])]((Routes.empty, ZEnvironment.empty)),
-      ),
-      NettyRuntime.live,
+      ZLayer.succeed(AppRef.empty),
       ServerChannelInitializer.layer,
       ServerInboundHandler.live,
       ZLayer(make),
