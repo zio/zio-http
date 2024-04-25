@@ -26,6 +26,10 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 package object server {
   private[server] type AppRef = AtomicReference[(Routes[Any, Response], Runtime[Any])]
 
+  private[server] object AppRef {
+    def empty: AppRef = new AtomicReference((Routes.empty, Runtime.default))
+  }
+
   val live: ZLayer[Server.Config, Throwable, Driver] =
     NettyDriver.live
 

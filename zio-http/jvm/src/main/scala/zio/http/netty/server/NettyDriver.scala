@@ -117,9 +117,7 @@ object NettyDriver {
   val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
-      ZLayer(ZIO.runtime[Any].map { rt =>
-        new AtomicReference[(Routes[Any, Response], Runtime[Any])]((Routes.empty, rt))
-      }),
+      ZLayer.succeed(AppRef.empty),
       ServerChannelInitializer.layer,
       ServerInboundHandler.live,
       ZLayer(make),
