@@ -16,6 +16,7 @@ const sidebars = {
           type: "category",
           collapsed: true,
           label: "Reference",
+          link: { type: "doc", id: "reference/index" },
           items: [
             "reference/server", 
             "reference/client",
@@ -105,7 +106,7 @@ const sidebars = {
           // Subcategory: Examples
           type: "category",
           label: "Examples",
-          link: { type: "doc", id: "index" },
+          link: { type: "doc", id: "examples/index" },
           items: [
             "examples/hello-world", 
             "examples/http-client-server", 
