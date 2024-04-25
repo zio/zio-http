@@ -8,6 +8,22 @@ const sidebars = {
       items: [
         "installation",
         "overview",
+
+
+        //concepts          
+        {
+          type: "category",
+          label: "Concepts",
+          link: { type: "doc", id: "concepts/intro" }, 
+          items: [
+            "concepts/client",
+            "concepts/endpoint",
+            "concepts/middleware",
+            "concepts/server",
+          ],
+        },
+
+
         {
           type: "category",
           collapsed: true,
