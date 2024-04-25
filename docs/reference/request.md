@@ -43,7 +43,7 @@ The below snippet creates a request with default params, `headers` as `Headers.e
 ```scala mdoc
 import zio.http._
 
-Request(method = Method.GET, url = URL(Root))
+Request(method = Method.GET, url = URL(Path.root))
 ```
 
 There are also some helper methods to create requests for different HTTP methods inside the `Request`'s companion object: `delete`, `get`, `head`, `options`, `patch`, `post`, and `put`.
@@ -71,7 +71,7 @@ The below snippet creates a request with query params: `?q=a&q=b&q=c`
 import zio._
 import zio.http._
 
-Request.get(url = URL(Root, queryParams = QueryParams("q" -> Chunk("a","b","c"))))
+Request.get(url = URL(Path.root, queryParams = QueryParams("q" -> Chunk("a","b","c"))))
 ```
 
 The `Request#url.queryParams` can be used to read query params from the request.
@@ -266,7 +266,7 @@ import zio.http._
 
 val request = Request(
   method = Method.GET,
-  url = URL(Root),
+  url = URL(Path.root),
   headers = Headers(
     Header.Cookie(
       NonEmptyChunk(

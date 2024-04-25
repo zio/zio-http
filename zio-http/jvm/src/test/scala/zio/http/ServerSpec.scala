@@ -256,10 +256,10 @@ object ServerSpec extends HttpRunnableSpec {
         test("should be able to directly return other request") {
           for {
             body1 <- server.deploy.body
-              .run(path = Root / "test", method = Method.GET)
+              .run(path = Path.root / "test", method = Method.GET)
               .flatMap(_.asString(Charsets.Utf8))
             body2 <- server.deploy.body
-              .run(path = Root / "proxy" / "test-proxy", method = Method.GET)
+              .run(path = Path.root / "proxy" / "test-proxy", method = Method.GET)
               .flatMap(_.asString(Charsets.Utf8))
           } yield assertTrue(body1 == "Received GET query on /test", body2 == "Received GET query on /test-proxy")
         }
@@ -285,7 +285,7 @@ object ServerSpec extends HttpRunnableSpec {
           .singleton(handler { (_: Path, req: Request) => req.body.asChunk.as(Response.ok) })
           .sandbox
 
-        val res = app.deploy.status.run(path = Root, method = Method.POST, body = Body.fromString("some text"))
+        val res = app.deploy.status.run(path = Path.root, method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       } +
       test("body can be read multiple times") {
@@ -469,7 +469,9 @@ object ServerSpec extends HttpRunnableSpec {
       }
 
       check(Gen.alphaNumericString) { c =>
-        assertZIO(app.deploy.body.mapZIO(_.asString).run(path = Root, method = Method.POST, body = Body.fromString(c)))(
+        assertZIO(
+          app.deploy.body.mapZIO(_.asString).run(path = Path.root, method = Method.POST, body = Body.fromString(c)),
+        )(
           equalTo(c),
         )
       }
