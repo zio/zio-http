@@ -21,7 +21,6 @@ import zio._
 import zio.metrics._
 
 import zio.http.codec.{PathCodec, SegmentCodec}
-import zio.http.endpoint.EndpointMiddleware.None.Err
 
 trait Middleware[-UpperEnv] { self =>
 
@@ -166,6 +165,86 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         (routes @@ aspect) :+ optionsRoute
+    }
+  }
+
+  def ensureHeader(header: Header.HeaderType)(make: => header.HeaderValue): Middleware[Any] =
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        routes.transform[Env1] { h =>
+          handler { (req: Request) =>
+            if (req.headers.contains(header.name)) h(req)
+            else h(req.addHeader(make))
+          }
+        }
+    }
+
+  def ensureHeader(headerName: String)(make: => String): Middleware[Any] =
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        routes.transform[Env1] { h =>
+          handler { (req: Request) =>
+            if (req.headers.contains(headerName)) h(req)
+            else h(req.addHeader(headerName, make))
+          }
+        }
+    }
+
+  private[http] case class ForwardedHeaders(headers: Headers)
+
+  def forwardHeaders(header: Header.HeaderType, headers: Header.HeaderType*)(implicit
+    trace: Trace,
+  ): Middleware[Any] = {
+    val allHeaders = header +: headers
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        routes.transform[Env1] { h =>
+          handler { (req: Request) =>
+            val headerValues = ChunkBuilder.make[Header]
+            headerValues.sizeHint(allHeaders.length)
+            var i            = 0
+            while (i < allHeaders.length) {
+              val name = allHeaders(i)
+              req.headers.get(name).foreach { value =>
+                headerValues += value
+              }
+              i += 1
+            }
+            RequestStore.update[ForwardedHeaders] { old =>
+              ForwardedHeaders {
+                old.map(_.headers).getOrElse(Headers.empty) ++
+                  Headers.fromIterable(headerValues.result())
+              }
+            } *> h(req)
+          }
+        }
+    }
+  }
+
+  def forwardHeaders(headerName: String, headerNames: String*)(implicit trace: Trace): Middleware[Any] = {
+    val allHeaders = headerName +: headerNames
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        routes.transform[Env1] { h =>
+          handler { (req: Request) =>
+            val headerValues = ChunkBuilder.make[Header]
+            headerValues.sizeHint(allHeaders.length)
+            var i            = 0
+            while (i < allHeaders.length) {
+              val name = allHeaders(i)
+              req.headers.get(name).foreach { value =>
+                headerValues += Header.Custom(name, value)
+              }
+              i += 1
+            }
+            RequestStore.update[ForwardedHeaders] { old =>
+              ForwardedHeaders {
+                old.map(_.headers).getOrElse(Headers.empty) ++
+                  Headers.fromIterable(headerValues.result())
+              }
+            } *> h(req)
+          }
+        }
     }
   }
 

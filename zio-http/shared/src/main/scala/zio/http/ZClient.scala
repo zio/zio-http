@@ -23,7 +23,6 @@ import zio._
 
 import zio.http.URL.Location
 import zio.http.internal._
-//import zio.http.netty.client._
 
 final case class ZClient[-Env, -In, +Err, +Out](
   version: Version,
