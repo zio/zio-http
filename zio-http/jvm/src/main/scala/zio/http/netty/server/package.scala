@@ -27,7 +27,10 @@ package object server {
   private[server] type AppRef = AtomicReference[(Routes[Any, Response], Runtime[Any])]
 
   private[server] object AppRef {
-    def empty: AppRef = new AtomicReference((Routes.empty, Runtime.default))
+    val empty: UIO[AppRef] = {
+      implicit val trace: Trace = Trace.empty
+      ZIO.runtime[Any].map(rt => new AtomicReference((Routes.empty, rt)))
+    }
   }
 
   val live: ZLayer[Server.Config, Throwable, Driver] =
