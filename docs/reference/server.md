@@ -208,7 +208,7 @@ connection: close
 Hello World!⏎
 ```
 
-The‌ ZIO HTTP server by default supports keep-alive connections. To disable it, we can use the `Server.Config#keepAlive` method, by setting it to `false`:
+The ZIO HTTP server by default supports keep-alive connections. To disable it, we can use the `Server.Config#keepAlive` method, by setting it to `false`:
 
 ```scala mdoc:compile-only
 import zio.http._
