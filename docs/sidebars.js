@@ -74,6 +74,7 @@ const sidebars = {
           ],
         },
         "testing-http-apps",
+        "faq",
         {
           type: "category",
           label: "Examples",

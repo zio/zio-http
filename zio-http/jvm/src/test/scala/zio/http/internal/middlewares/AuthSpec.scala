@@ -84,7 +84,7 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
             Method.GET / "context" -> basicAuthContextM ->
               Handler.fromFunction[(AuthContext, Request)] { case (c: AuthContext, _) => Response.text(c.value) },
           )
-        }.toHttpApp
+        }
         assertZIO(
           app
             .runZIO(Request.get(URL.root / "context").copy(headers = successBasicHeader))
@@ -114,15 +114,16 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
           Method.GET / "c" / string("name") -> handler((name: String, _: Request) =>
             ZIO.serviceWith[AuthContext](ctx => Response.text(s"for name: $name: ${ctx.value}")),
           ),
+          // Needs version of @@ that removes the context from the environment
         ) @@ basicAuthContextM
         // Just a prove that the aspect can require an environment. Does nothing.
-        val app          = secureRoutes.toHttpApp
+        val app          = secureRoutes
         for {
-          s1     <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = successBasicHeader))
+          s1     <- app.runZIO(Request.get(URL(Path.root / "a")).copy(headers = successBasicHeader))
           s1Body <- s1.body.asString.debug("s1Body")
-          s2     <- app.runZIO(Request.get(URL(Root / "b" / "1")).copy(headers = successBasicHeader))
+          s2     <- app.runZIO(Request.get(URL(Path.root / "b" / "1")).copy(headers = successBasicHeader))
           s2Body <- s2.body.asString.debug("s2Body")
-          s3     <- app.runZIO(Request.get(URL(Root / "c" / "name")).copy(headers = successBasicHeader))
+          s3     <- app.runZIO(Request.get(URL(Path.root / "c" / "name")).copy(headers = successBasicHeader))
           s3Body <- s3.body.asString.debug("s3Body")
           resultStatus = s1.status == Status.Ok && s2.status == Status.Ok && s3.status == Status.Ok
           resultBody   = s1Body == "user" && s2Body == "for id: 1: user" && s3Body == "for name: name: user"
@@ -143,14 +144,14 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Routes(Method.GET / "a" -> Handler.ok).toHttpApp
-        val app2 = Routes(Method.GET / "b" -> Handler.ok).toHttpApp
-        val app3 = Routes(Method.GET / "c" -> Handler.ok).toHttpApp
+        val app1 = Routes(Method.GET / "a" -> Handler.ok)
+        val app2 = Routes(Method.GET / "b" -> Handler.ok)
+        val app3 = Routes(Method.GET / "c" -> Handler.ok)
         val app  = app1 ++ app2 @@ bearerAuthM ++ app3
         for {
-          s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
-          s2 <- app.runZIO(Request.get(URL(Root / "b")).copy(headers = failureBearerHeader))
-          s3 <- app.runZIO(Request.get(URL(Root / "c")).copy(headers = failureBearerHeader))
+          s1 <- app.runZIO(Request.get(URL(Path.root / "a")).copy(headers = failureBearerHeader))
+          s2 <- app.runZIO(Request.get(URL(Path.root / "b")).copy(headers = failureBearerHeader))
+          s3 <- app.runZIO(Request.get(URL(Path.root / "c")).copy(headers = failureBearerHeader))
           result = s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok
         } yield assertTrue(result)
       },
@@ -169,14 +170,14 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Routes(Method.GET / "a" -> Handler.ok).toHttpApp
-        val app2 = Routes(Method.GET / "b" -> Handler.ok).toHttpApp
-        val app3 = Routes(Method.GET / "c" -> Handler.ok).toHttpApp
+        val app1 = Routes(Method.GET / "a" -> Handler.ok)
+        val app2 = Routes(Method.GET / "b" -> Handler.ok)
+        val app3 = Routes(Method.GET / "c" -> Handler.ok)
         val app  = app1 ++ app2 @@ bearerAuthZIOM ++ app3
         for {
-          s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
-          s2 <- app.runZIO(Request.get(URL(Root / "b")).copy(headers = failureBearerHeader))
-          s3 <- app.runZIO(Request.get(URL(Root / "c")).copy(headers = failureBearerHeader))
+          s1 <- app.runZIO(Request.get(URL(Path.root / "a")).copy(headers = failureBearerHeader))
+          s2 <- app.runZIO(Request.get(URL(Path.root / "b")).copy(headers = failureBearerHeader))
+          s3 <- app.runZIO(Request.get(URL(Path.root / "c")).copy(headers = failureBearerHeader))
           result = s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok
         } yield assertTrue(result)
       },

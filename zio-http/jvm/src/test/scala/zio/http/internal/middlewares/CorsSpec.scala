@@ -33,12 +33,12 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     Method.GET / "die"     -> handler(ZIO.dieMessage("die")),
   ).handleErrorCause { cause =>
     Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
-  }.toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
+  } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
   override def spec = suite("CorsSpec")(
     test("OPTIONS request") {
       val request = Request
-        .options(URL(Root / "success"))
+        .options(URL(Path.root / "success"))
         .copy(
           headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
         )
@@ -57,7 +57,7 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     test("GET request") {
       val request =
         Request
-          .get(URL(Root / "success"))
+          .get(URL(Path.root / "success"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )
@@ -74,7 +74,7 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     test("GET request with server side failure") {
       val request =
         Request
-          .get(URL(Root / "failure"))
+          .get(URL(Path.root / "failure"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )
@@ -91,7 +91,7 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     test("GET request with server side defect") {
       val request =
         Request
-          .get(URL(Root / "die"))
+          .get(URL(Path.root / "die"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )

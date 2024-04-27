@@ -15,7 +15,7 @@ object RequestBodyJsonDeserializationExample extends ZIOAppDefault {
     implicit val schema: Schema[Book] = DeriveSchema.gen
   }
 
-  val app: Routes[Ref[List[Book]], Nothing] =
+  val routes: Routes[Ref[List[Book]], Nothing] =
     Routes(
       Method.POST / "books" ->
         handler { (req: Request) =>
@@ -33,5 +33,5 @@ object RequestBodyJsonDeserializationExample extends ZIOAppDefault {
         },
     )
 
-  def run = Server.serve(app.toHttpApp).provide(Server.default, ZLayer.fromZIO(Ref.make(List.empty[Book])))
+  def run = Server.serve(routes).provide(Server.default, ZLayer.fromZIO(Ref.make(List.empty[Book])))
 }

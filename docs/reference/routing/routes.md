@@ -195,34 +195,18 @@ trait Routes[-Env, +Err] {
 }
 ```
 
-## Converting `Routes` to `HttpApp`
-
-`HttpApp[-R]` represents a fully-specified HTTP application that can be executed by the server.
-
-When we are done building a collection of routes, our next step is typically to convert these routes into an HTTP application using the `Routes#toHttpApp` method, which we can then execute with the server.
-
-Routes may have handled or unhandled errors.  If the error type of `Routes[Env, Err]` is equal to or a subtype of `Response`, we call this a route where all errors are handled. Otherwise, it's a route where some errors are unhandled.
-
-For instance, a route of type `Route[Env, Throwable]` has not handled its errors by converting them into responses. Consequently, such unfinished routes cannot be converted into HTTP applications. We must first handle errors using the `handleError` or `handleErrorCause` methods.
-
-By handling our errors, we ensure that clients interacting with our API will not encounter strange or unexpected responses, but will always be able to interact effectively with our web service, even in exceptional cases.
-
-:::note
-If we aim to automatically convert our failures into suitable responses, without revealing details about the specific nature of the errors, we can utilize `Routes#sandbox`. After addressing our errors in this manner, we can proceed to convert our routes into an HTTP application.
-:::
-
 ## Running an App
 
-ZIO HTTP server needs an `HttpApp[R]` for running. We can use `Server.serve()` method to bootstrap the server with
-an `HttpApp[R]`:
+ZIO HTTP server needs `Routes[Env, Response]` for running, so routes that have a `Response` as the error type.
+We can use `Server.serve()` method to bootstrap the server with an instance of `Routes[Env, Response]`.:
 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
 
 object HelloWorld extends ZIOAppDefault {
-  val app: HttpApp[Any] = Handler.ok.toHttpApp
+  val routes: Routes[Any, Response] = Handler.ok.toRoutes
 
-  override def run = Server.serve(app).provide(Server.default)
+  override def run = Server.serve(routes).provide(Server.default)
 } 
 ```

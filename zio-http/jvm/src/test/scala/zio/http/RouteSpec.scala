@@ -82,7 +82,7 @@ object RouteSpec extends ZIOHttpSpec {
             .handleErrorCauseZIO(c => p.failCause(c).as(Response.internalServerError))
 
           request = Request.get(URL.decode("/endpoint").toOption.get)
-          response <- errorHandled.toHttpApp.runZIO(request)
+          response <- errorHandled.toRoutes.runZIO(request)
           result   <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
 
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, result.contains("hmm..."))
@@ -98,7 +98,7 @@ object RouteSpec extends ZIOHttpSpec {
             )
 
           request = Request.get(URL.decode("/endpoint").toOption.get)
-          response      <- errorHandled.toHttpApp.runZIO(request)
+          response      <- errorHandled.toRoutes.runZIO(request)
           result        <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
           resultWarning <- ZIO.fromOption(response.headers.get(Header.Warning).map(_.text))
 
@@ -116,7 +116,7 @@ object RouteSpec extends ZIOHttpSpec {
           )
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
-          response      <- errorHandled.toHttpApp.runZIO(request)
+          response      <- errorHandled.toRoutes.runZIO(request)
           resultWarning <- ZIO.fromOption(response.headers.get(Header.Warning).map(_.text))
 
         } yield assertTrue(
@@ -129,7 +129,7 @@ object RouteSpec extends ZIOHttpSpec {
         val errorHandled = route.handleErrorCause(_ => Response.text("error").status(Status.InternalServerError))
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
-          response   <- errorHandled.toHttpApp.runZIO(request)
+          response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
@@ -139,7 +139,7 @@ object RouteSpec extends ZIOHttpSpec {
           route.handleErrorCauseZIO(_ => ZIO.succeed(Response.text("error").status(Status.InternalServerError)))
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
-          response   <- errorHandled.toHttpApp.runZIO(request)
+          response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
@@ -149,7 +149,7 @@ object RouteSpec extends ZIOHttpSpec {
           route.handleErrorRequestCause((_, _) => Response.text("error").status(Status.InternalServerError))
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
-          response   <- errorHandled.toHttpApp.runZIO(request)
+          response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
@@ -160,7 +160,7 @@ object RouteSpec extends ZIOHttpSpec {
         )
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
-          response   <- errorHandled.toHttpApp.runZIO(request)
+          response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },

@@ -612,9 +612,9 @@ In this example, the type of the handler before applying the `sandbox` operator 
 
 Without the `sandbox` operator, the compiler would complain about the unhandled `Throwable` error.
 
-### Converting a `Handler` to an `HttpApp`
+### Converting a `Handler` to an `Routes`
 
-The `Handler#toHttpApp` operator, converts a handler to an `HttpApp` to be served by the `Server`. The following example, shows an HTTP application that serves a simple "Hello, World!" response for all types of incoming requests:
+The `Handler#toRoutes` operator, converts a handler to an `Routes` to be served by the `Server`. The following example, shows an HTTP application that serves a simple "Hello, World!" response for all types of incoming requests:
 
 ```scala mdoc:compile-only
 import zio._
@@ -623,7 +623,7 @@ import zio.http._
 object HelloWorldServer extends ZIOAppDefault {
   def run =
     Server
-      .serve(Handler.fromResponse(Response.text("Hello, world!")).toHttpApp)
+      .serve(Handler.fromResponse(Response.text("Hello, world!")).toRoutes)
       .provide(Server.default)
 }
 ```
@@ -714,7 +714,7 @@ The are similar to the `ZIO` ones, but they are specialized for the `Handler` ty
 The first type parameter of the `Handler` is the environment type. This means that a `Handler` can require an environment to run, like a `ZIO` effect. When we create a `Handler`, we can get access to the environment using `ZIO.service*` methods, and finally, we can provide the environment using `Handler#provide*` methods.
 
 :::note
-Please note that in most cases, we are not required to provide the environment of the handler in the middle of the routes definition. It is usually done at the end when we are creating the `HttpApp` using the `Server#serve` method.
+Please note that in most cases, we are not required to provide the environment of the handler in the middle of the routes definition. It is usually done at the end when we are creating the `Routes` using the `Server#serve` method.
 :::
 
 :::note
