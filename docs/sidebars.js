@@ -73,7 +73,15 @@ const sidebars = {
             },
           ],
         },
-        "testing-http-apps",
+        {
+          type: "category",
+          label: "Guides",
+          link: { type: "doc", id: "index" },
+          items: [
+            "guides/testing-http-apps",
+            "guides/integration-with-zio-config",
+          ],
+        },
         "faq",
         {
           type: "category",

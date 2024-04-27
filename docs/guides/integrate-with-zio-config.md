@@ -1,7 +1,7 @@
 ---
 id: integration-with-zio-config
-title: "ZIO HTTP: How to Integrate with ZIO Config"
-sidebar: Integration with ZIO Config
+title: "How to Integrate with ZIO Config"
+sidebar_label: Integration with ZIO Config
 ---
 
 When building HTTP applications, it is common to have configuration settings that need to be loaded from various sources such as environment variables, system properties, or configuration files. It is essential especially when deploying applications to different environments like development, testing, and production, or we want to have a cloud-native application that can be configured dynamically.
@@ -27,7 +27,7 @@ case class DatabaseConfig(
 
 We can derive a configuration schema for `DatabaseConfig` using ZIO Config as follows:
 
-```scala mdoc:compile-only
+```scala
 object DatabaseConfig {
   val config: Config[DatabaseConfig] =
     DeriveConfig.deriveConfig[DatabaseConfig]
@@ -135,7 +135,7 @@ So, to have a customized client or server, we need to provide configuration laye
 For a practical example, see the following code which enables the response compression in the server:
 
 ```scala mdoc:passthrough
-import zio.http._
+import utils._
 
 printSource("zio-http-example/src/main/scala/example/ServerResponseCompression.scala")
 ```
