@@ -1,5 +1,4 @@
 const sidebars = {
-
   sidebar: [
     {
       type: "category",
@@ -95,7 +94,6 @@ const sidebars = {
           ],
         },
 
-
         {
           // Subcategory: Tutorials 
           type: "category",
@@ -104,12 +102,12 @@ const sidebars = {
             "tutorials/testing-http-apps", 
           ],
         },
-
+        
         // Examples section
         {
           type: "category",
           label: "Examples",
-          link: { type: "doc", id: "index" },
+          link: { type: "doc", id: "examples/index" },
           items: [
             "examples/hello-world", 
             "examples/http-client-server", 

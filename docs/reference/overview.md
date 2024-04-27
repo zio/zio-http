@@ -1,6 +1,6 @@
 ---
 id: overview
-title: Introduction to ZIO HTTP
+title: Overview
 ---
 
 ZIO HTTP offers an expressive API for creating HTTP applications. It uses a domain-specific language (DSL) to define routes and handlers. Both server and client are designed in terms of **HTTP as a function**, so they are functions from `Request` to `Response`.
