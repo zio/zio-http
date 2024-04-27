@@ -327,7 +327,8 @@ lazy val docs = project
     ),
     publish / skip                             := true,
     mdocVariables ++= Map(
-      "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion
+      "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
+      "ZIO_VERSION" -> ZioVersion
     )
   )
   .dependsOn(zioHttpJVM)

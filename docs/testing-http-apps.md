@@ -33,8 +33,8 @@ object ExampleSpec extends ZIOSpecDefault {
 Also, ZIO HTTP provides a testkit called `zio-http-testkit` that includes `TestClient` and `TestServer` utilities which helps us to test our HTTP applications without the need for having a real live client and server instances.
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-test"         % ZioVersion  % Test
-libraryDependencies += "dev.zio" %% "zio-test-sbt"     % ZioVersion  % Test
+libraryDependencies += "dev.zio" %% "zio-test"         % "@ZIO_VERSION@"  % Test
+libraryDependencies += "dev.zio" %% "zio-test-sbt"     % "@ZIO_VERSION@"  % Test
 libraryDependencies += "dev.zio" %% "zio-http-testkit" % "@VERSION@" % Test
 testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 ```

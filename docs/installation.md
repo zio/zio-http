@@ -35,9 +35,9 @@ This template includes the following plugins:
 
 These dependencies in the g8 template were added to enable an efficient development process.
 
-### Hot-reload Changes
+### Hot-reload Changes (Watch Mode)
 
-Sbt-revolver can watch application resources for change and automatically re-compile and then re-start the application under development. This provides a fast development-turnaround, the closest we can get to real hot-reloading.
+[Sbt-revolver](https://github.com/spray/sbt-revolver) can watch application resources for change and automatically re-compile and then re-start the application under development. This provides a fast development-turnaround, the closest we can get to real hot-reloading.
 
 We can start our application from _sbt_ with the following command:
 

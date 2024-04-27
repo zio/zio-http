@@ -1,19 +1,17 @@
 ---
-id: overview
-title: Overview
+id: index
+title: Introduction to ZIO HTTP
 ---
 
-**ZIO HTTP** is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO and uses [Netty](https://netty.io/) as its core.
-
-ZIO HTTP has powerful functional domains that help in creating, modifying, and composing apps easily. Let's start with the HTTP domain.
+ZIO HTTP offers an expressive API for creating HTTP applications. It uses a domain-specific language (DSL) to define routes and handlers. Both server and client are designed in terms of **HTTP as a function**, so they are functions from `Request` to `Response`.
 
 ## Core Concepts
 
-The core concepts of ZIO HTTP are:
+ZIO HTTP has powerful functional domains that help in creating, modifying, and composing apps easily. Let's take a look at the core domain:
 
 - `Routes` - A collection of `Route`s. If the error type of the routes is `Response`, then they can be served.
-- `Route` - A single route that can be matched against a http `Request` and produce a `Response`. It comprises a `RoutePattern` and a `Handler`:
-  1. `RoutePattern` - A pattern that can be matched against a http request. It is a combination of `Method` and `PathCodec` which can be used to match the method and path of the request.
+- `Route` - A single route that can be matched against an HTTP `Request` and produce a `Response`. It comprises a `RoutePattern` and a `Handler`:
+  1. `RoutePattern` - A pattern that can be matched against an HTTP `Request`. It is a combination of `Method` and `PathCodec` which can be used to match the `Method` and `Path` of the `Request`.
   2. `Handler` - A function that can convert a `Request` into a `Response`.
 
 Let's see each of these concepts inside a simple example:
@@ -61,9 +59,7 @@ object ExampleServer extends ZIOAppDefault {
 
 ### 1.Routes 
 
-The `Routes` provides input-dependent routing to different `Handler` values.
-
-The `Handler` and `Route` can be transformed to `Routes` by the `.toRoutes` method. To serve the routes, all errors should be handled by converting them into a `Response` using for example the `.handleError` method.
+The `Routes` is a collection of `Route` values. It can be created using its default constructor:
 
 ```scala mdoc:invisible
 import zio.http._
@@ -80,9 +76,13 @@ val app: Routes[Any, Response] =
     .handleError(e => Response.internalServerError(e.getMessage))
 ```
 
+The `Handler` and `Route` can be transformed to `Routes` by the `.toRoutes` method. To serve the routes, all errors should be handled by converting them into a `Response` using for example the `.handleError` method.
+
+For handling routes, ZIO HTTP has a [`Routes`](routing/routes.md) value, which allows us to aggregate a collection of individual routes. Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
+
 ### 2. Route
 
-Each `Route` is a combination of a [`RoutePattern`](reference/route_pattern.md) and a [`Handler`](reference/handler.md). The `RoutePattern` is a combination of a `Method` and a [`PathCodec`](reference/path_codec.md) that can be used to match the method and path of the request. The `Handler` is a function that can convert a `Request` into a `Response`.
+Each `Route` is a combination of a [`RoutePattern`](routing/route_pattern.md) and a [`Handler`](handler.md). The `RoutePattern` is a combination of a `Method` and a [`PathCodec`](routing/path_codec.md) that can be used to match the method and path of the request. The `Handler` is a function that can convert a `Request` into a `Response`.
 
 The `PathCodec` can be parameterized to extract values from the path. In such cases, the `Handler` should be a function that accepts the extracted values besides the `Request`:
 
@@ -97,7 +97,7 @@ val routes = Routes(
 )
 ```
 
-To learn more about routes, see the [Routes](reference/routes.md) page.
+To learn more about routes, see the [Routes](routing/routes.md) page.
 
 ### 3. Handler
 
@@ -140,7 +140,7 @@ val routes = Routes(
 )
 ```
 
-To learn more about the request, see the [Request](reference/request.md) page.
+To learn more about the request, see the [Request](request.md) page.
 
 ## Accessing Services from The Environment
 
@@ -198,7 +198,7 @@ val routes =
   )
 ```
 
-We have a more detailed explanation of the WebSocket connection on the [Socket](reference/socket/socket.md) page.
+We have a more detailed explanation of the WebSocket connection on the [Socket](socket/socket.md) page.
 
 ## Server
 
@@ -220,7 +220,7 @@ object HelloWorld extends ZIOAppDefault {
 }
 ```
 
-Finally, we provided the default server with the port `8090` to the app. To learn more about the server, see the [Server](reference/server.md) page.
+Finally, we provided the default server with the port `8090` to the app. To learn more about the server, see the [Server](server.md) page.
 
 ## Client
 
@@ -243,4 +243,4 @@ object ClientExample extends ZIOAppDefault {
 }
 ```
 
-In the above example, we obtained the `Client` service from the environment and sent a `GET` request to the server. Finally, to run the client app, we provided the default `Client` and `Scope` services to the app. For more information about the client, see the [Client](reference/client.md) page.
+In the above example, we obtained the `Client` service from the environment and sent a `GET` request to the server. Finally, to run the client app, we provided the default `Client` and `Scope` services to the app. For more information about the client, see the [Client](client.md) page.

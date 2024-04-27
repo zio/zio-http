@@ -187,7 +187,7 @@ val program = for {
 ```
 
 :::note
-To learn more about headers and how they work, check out our dedicated section called [Header Operations](./headers.md#headers-operations) on the headers page.
+To learn more about headers and how they work, check out our dedicated section called [Header Operations](headers/headers.md#headers-operations) on the headers page.
 :::
 
 ## Composable URLs

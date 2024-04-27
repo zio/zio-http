@@ -7,10 +7,10 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "installation",
-        "overview",
         {
           type: "category",
           collapsed: true,
+          link: { type: "doc", id: "reference/index" },
           label: "Reference",
           items: [
             "reference/server",
@@ -19,9 +19,9 @@ const sidebars = {
               type: "category",
               label: "Routing",
               items: [
-                "reference/routes",
-                "reference/route_pattern",
-                "reference/path_codec",
+                "reference/routing/routes",
+                "reference/routing/route_pattern",
+                "reference/routing/path_codec",
               ],
             },
             "reference/handler",
@@ -29,36 +29,38 @@ const sidebars = {
               type: "category",
               label: "HTTP Messages",
               items: [
+                "reference/request",
+                "reference/response/response",
                 {
                   type: "category",
                   label: "Headers",
                   items: [
-                    "reference/headers",
-                    "reference/cookies",
-                    "reference/flash",
+                    "reference/headers/headers",
+                    "reference/headers/session/cookies",
+                    "reference/headers/session/flash",
                   ],
-                },
-                "reference/request",
-                {
-                  type: "category",
-                  label: "Response",
-                  items: ["reference/response", "reference/status"],
                 },
                 {
                   type: "category",
                   label: "Message Body",
-                  items: ["reference/body", "reference/form"],
+                  items: [
+                    "reference/body/body",
+                    "reference/body/form",
+                    "reference/body/binary_codecs",
+                    "reference/body/template",
+                  ],
                 },
+                "reference/response/status",
               ],
             },
             "reference/endpoint",
             {
               type: "category",
-              label: "HTTP Middleware",
+              label: "Aspects",
               items: [
-                "reference/protocol-stack",
-                "reference/middleware",
-                "reference/handler_aspect",
+                "reference/aop/protocol-stack",
+                "reference/aop/middleware",
+                "reference/aop/handler_aspect",
               ],
             },
             {
@@ -69,10 +71,8 @@ const sidebars = {
                 "reference/socket/websocketframe",
               ],
             },
-            "reference/template",
           ],
         },
-        "binary_codecs",
         "testing-http-apps",
         "faq",
         {
