@@ -8,13 +8,12 @@ const sidebars = {
       collapsed: true,
       link: { type: "doc", id: "index" },
       items: [
-        "installation", 
-        "overview", 
-
+        "installation",
         {
           // Subcategory: Reference
           type: "category",
           collapsed: true,
+          link: { type: "doc", id: "reference/index" },
           label: "Reference",
           link: { type: "doc", id: "reference/index" },
           items: [
@@ -29,9 +28,9 @@ const sidebars = {
               type: "category",
               label: "Routing",
               items: [
-                "reference/routes", 
-                "reference/route_pattern", 
-                "reference/path_codec", 
+                "reference/routing/routes",
+                "reference/routing/route_pattern",
+                "reference/routing/path_codec",
               ],
             },
             
@@ -41,42 +40,41 @@ const sidebars = {
               type: "category",
               label: "HTTP Messages",
               items: [
+                "reference/request",
+                "reference/response/response",
                 {
                   // Sub-subcategory: Headers
                   type: "category",
                   label: "Headers",
                   items: [
-                    "reference/headers",
-                    "reference/cookies",
-                    "reference/flash", 
+                    "reference/headers/headers",
+                    "reference/headers/session/cookies",
+                    "reference/headers/session/flash",
                   ],
-                },
-
-                "reference/request", 
-                {
-                  // Sub-subcategory: Response
-                  type: "category",
-                  label: "Response",
-                  items: ["reference/response", "reference/status"], 
                 },
 
                 {
                   // Sub-subcategory: Message Body
                   type: "category",
                   label: "Message Body",
-                  items: ["reference/body", "reference/form"],
+                  items: [
+                    "reference/body/body",
+                    "reference/body/form",
+                    "reference/body/binary_codecs",
+                    "reference/body/template",
+                  ],
                 },
+                "reference/response/status",
               ],
-            }, 
-
+            },
+            "reference/endpoint",
             {
-              // Subcategory: HTTP Middleware
               type: "category",
-              label: "HTTP Middleware",
+              label: "Aspects",
               items: [
-                "reference/protocol-stack",
-                "reference/middleware", 
-                "reference/handler_aspect", 
+                "reference/aop/protocol-stack",
+                "reference/aop/middleware",
+                "reference/aop/handler_aspect",
               ],
             },
 
@@ -89,21 +87,11 @@ const sidebars = {
                 "reference/socket/websocketframe", 
               ],
             },
-        
           ],
         },
-        
+        "testing-http-apps",
+        "faq",
         {
-          // Subcategory: Tutorials 
-          type: "category",
-          label: "Tutorials",
-          items: [
-            "tutorials/testing-http-apps", 
-          ],
-        },
-
-        {
-          // Subcategory: Examples
           type: "category",
           label: "Examples",
           link: { type: "doc", id: "examples/index" },

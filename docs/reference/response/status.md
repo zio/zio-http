@@ -1,6 +1,6 @@
 ---
 id: status
-title: Status Code
+title: Status Codes
 ---
 
 HTTP status codes are standard response codes given by web services on the Internet. The codes help identify the cause of the problem when a web page or other resource does not load properly.

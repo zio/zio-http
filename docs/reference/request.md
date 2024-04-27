@@ -230,7 +230,7 @@ Using the `Request#queryParameters` method, we can access the query parameters o
 
 ### Modifying Query Parameters
 
-When we are working with ZIO HTTP‌ Client, we need to create a new `Request` and may need to set/update/remove query parameters. In such cases, we have the following methods available: `addQueryParam`, `addQueryParams`, `removeQueryParam`, `removeQueryParams`, `setQueryParams`, and `updateQueryParams`.
+When we are working with ZIO HTTP Client, we need to create a new `Request` and may need to set/update/remove query parameters. In such cases, we have the following methods available: `addQueryParam`, `addQueryParams`, `removeQueryParam`, `removeQueryParams`, `setQueryParams`, and `updateQueryParams`.
 
 ```scala mdoc:compile-only
 import zio._
