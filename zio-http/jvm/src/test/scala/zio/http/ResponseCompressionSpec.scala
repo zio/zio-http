@@ -86,7 +86,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           response     <- client.request(
             Request(
               method = Method.GET,
-              url = URL(Root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(server.port))),
+              url = URL(Path.root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(server.port))),
             )
               .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
@@ -116,7 +116,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       response     <- client.request(
         Request(
           method = Method.GET,
-          url = URL(Root / endpoint, kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(server.port))),
+          url = URL(Path.root / endpoint, kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(server.port))),
         )
           .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
       )

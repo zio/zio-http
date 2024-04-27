@@ -213,7 +213,7 @@ val urlRewrite: Middleware[Any] =
 
 ## Built-in Middlewares
 
-In this section we are going to introduce built-in middlewares that are provided by ZIO HTTP. Please note that the `Middleware` object also inherits many other middlewares from the `HandlerAspect`, that we will introduce them on the [HandlerAspect](./handler_aspect.md) page.
+In this section we are going to introduce built-in middlewares that are provided by ZIO HTTP. Please note that the `Middleware` object also inherits many other middlewares from the `HandlerAspect`, that we will introduce them on the [HandlerAspect](handler_aspect.md) page.
 
 ### Access Control Allow Origin (CORS) Middleware
 

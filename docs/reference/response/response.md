@@ -353,4 +353,4 @@ Response.ok.addFlash(flash)
 
 ### Working with Headers
 
-There are various methods to work with headers in `Response` which we have discussed in the [Headers](headers.md#headers-operations) page.
+There are various methods to work with headers in `Response` which we have discussed in the [Headers](../headers/headers.md#headers-operations) page.

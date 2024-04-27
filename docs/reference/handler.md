@@ -582,7 +582,7 @@ Routes(
 )
 ```
 
-This will log every request coming to these handlers. ZIO HTTP supports various `HandlerAspects` that you can learn about in the [Middleware](middleware.md) section.
+This will log every request coming to these handlers. ZIO HTTP supports various `HandlerAspects` that you can learn about in the [Middleware](aop/middleware.md) section.
 
 ### Sandboxing Errors
 
