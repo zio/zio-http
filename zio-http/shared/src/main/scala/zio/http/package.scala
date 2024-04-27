@@ -33,6 +33,9 @@ package object http extends UrlInterpolator with MdInterpolator {
   def handlerTODO(message: String): Handler[Any, Nothing, Any, Nothing] =
     handler(ZIO.dieMessage(message))
 
+  def withContext[C](fn: => C)(implicit c: WithContext[C]): ZIO[c.Env, c.Err, c.Out] =
+    c.toZIO(fn)
+
   abstract class RouteDecode[A](f: String => A) {
     def unapply(a: String): Option[A] =
       try {
