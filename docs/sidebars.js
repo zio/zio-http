@@ -2,84 +2,89 @@ const sidebars = {
 
   sidebar: [
     {
-
       type: "category",
       label: "ZIO HTTP",
       collapsed: true,
+
+      // main documentation index
       link: { type: "doc", id: "index" },
       items: [
-        "installation",
+        "installation", 
+
+
+        // Reference section
         {
-          // Subcategory: Reference
           type: "category",
           collapsed: true,
           link: { type: "doc", id: "reference/index" },
           label: "Reference",
-          link: { type: "doc", id: "reference/index" },
           items: [
+            "reference/overview",
             "reference/server", 
-            "reference/client",
-            "reference/template",
+            "reference/client", 
             "reference/handler",
-            "reference/endpoint",
+            "reference/endpoint", 
 
+            // Routing subsection
             {
-              // Subcategory: Routing
               type: "category",
               label: "Routing",
               items: [
                 "reference/routing/routes",
-                "reference/routing/route_pattern",
+                "reference/routing/route_pattern", 
                 "reference/routing/path_codec",
               ],
             },
-            
 
+            // HTTP Messages subsection
             {
-              // Subcategory: HTTP Messages
               type: "category",
               label: "HTTP Messages",
               items: [
                 "reference/request",
                 "reference/response/response",
+                "reference/response/status",
+
+                // Headers subsection
                 {
-                  // Sub-subcategory: Headers
                   type: "category",
                   label: "Headers",
                   items: [
-                    "reference/headers/headers",
-                    "reference/headers/session/cookies",
-                    "reference/headers/session/flash",
+                    "reference/headers/headers", 
+                    "reference/headers/session/cookies", 
+                    "reference/headers/session/flash", 
                   ],
                 },
 
+                // Message Body subsection
                 {
-                  // Sub-subcategory: Message Body
                   type: "category",
                   label: "Message Body",
                   items: [
-                    "reference/body/body",
+                    "reference/body/body", 
                     "reference/body/form",
                     "reference/body/binary_codecs",
-                    "reference/body/template",
+                    "reference/body/template", 
                   ],
                 },
-                "reference/response/status",
+                
               ],
             },
-            "reference/endpoint",
+
+
+            // Aspects subsection
             {
               type: "category",
               label: "Aspects",
               items: [
-                "reference/aop/protocol-stack",
-                "reference/aop/middleware",
-                "reference/aop/handler_aspect",
+                "reference/aop/protocol-stack", 
+                "reference/aop/middleware", 
+                "reference/aop/handler_aspect", 
               ],
             },
 
+            // WebSocket subsection
             {
-              // Subcategory: WebSocket
               type: "category",
               label: "WebSocket",
               items: [
@@ -89,32 +94,41 @@ const sidebars = {
             },
           ],
         },
-        "testing-http-apps",
-        "faq",
+
+
+        {
+          // Subcategory: Tutorials 
+          type: "category",
+          label: "Tutorials",
+          items: [
+            "tutorials/testing-http-apps", 
+          ],
+        },
+
+        // Examples section
         {
           type: "category",
           label: "Examples",
-          link: { type: "doc", id: "examples/index" },
+          link: { type: "doc", id: "index" },
           items: [
             "examples/hello-world", 
             "examples/http-client-server", 
-            "examples/https-client-server",
-            "examples/serving-static-files", 
-            "examples/html-templating",
+            "examples/https-client-server", 
+            "examples/serving-static-files",
+            "examples/html-templating", 
             "examples/websocket", 
             "examples/streaming", 
             "examples/endpoint", 
             "examples/middleware-cors-handling", 
             "examples/authentication", 
-            "examples/graceful-shutdown", 
+            "examples/graceful-shutdown",
             "examples/cli", 
             "examples/concrete-entity", 
             "examples/multipart-form-data", 
-            "examples/server-sent-events-in-endpoints", 
+            "examples/server-sent-events-in-endpoints",
           ],
         },
 
-        "binary_codecs",
         "faq",
       ],
     },
