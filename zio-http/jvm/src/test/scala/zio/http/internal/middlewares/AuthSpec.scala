@@ -19,7 +19,7 @@ package zio.http.internal.middlewares
 import zio.Config.Secret
 import zio.test.Assertion._
 import zio.test._
-import zio.{Ref, ZEnvironment, ZIO}
+import zio.{Ref, ZIO}
 
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
@@ -74,7 +74,7 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       },
       test("Extract username via context") {
         val app = (Handler.fromFunctionZIO[Request](_ =>
-          ZIO.serviceWith[AuthContext](c => Response.text(c.value)),
+          withContext((c: AuthContext) => Response.text(c.value)),
         ) @@ basicAuthContextM).merge.mapZIO(_.body.asString)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo("user"))
       },
@@ -109,14 +109,13 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         val secureRoutes = Routes(
           Method.GET / "a" -> handler((_: Request) => ZIO.serviceWith[AuthContext](ctx => Response.text(ctx.value))),
           Method.GET / "b" / int("id")      -> handler((id: Int, _: Request) =>
-            ZIO.serviceWith[AuthContext](ctx => Response.text(s"for id: $id: ${ctx.value}")),
+            withContext((ctx: AuthContext) => Response.text(s"for id: $id: ${ctx.value}")),
           ),
           Method.GET / "c" / string("name") -> handler((name: String, _: Request) =>
-            ZIO.serviceWith[AuthContext](ctx => Response.text(s"for name: $name: ${ctx.value}")),
+            withContext((ctx: AuthContext) => Response.text(s"for name: $name: ${ctx.value}")),
           ),
           // Needs version of @@ that removes the context from the environment
         ) @@ basicAuthContextM
-        // Just a prove that the aspect can require an environment. Does nothing.
         val app          = secureRoutes
         for {
           s1     <- app.runZIO(Request.get(URL(Path.root / "a")).copy(headers = successBasicHeader))

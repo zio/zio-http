@@ -18,7 +18,7 @@ object HandlerAspectSpec extends ZIOSpecDefault {
       test("HandlerAspect with context can eliminate environment type partially") {
         val handlerAspect = HandlerAspect.interceptIncomingHandler(handler((req: Request) => (req, req.headers.size)))
         val handler0 = handler { (_: Request) =>
-          ZIO.service[Boolean] *> ZIO.serviceWith[Int](i => Response.text(i.toString))
+          withContext((_: Boolean, i: Int) => Response.text(i.toString))
           //leftover type is only needed in Scala 2
           //can't be infix because of Scala 3
         }.@@[Boolean](handlerAspect)
@@ -29,10 +29,10 @@ object HandlerAspectSpec extends ZIOSpecDefault {
       },
       test("HandlerAspect with context can eliminate environment type partially while requiring an additional environment") {
         val handlerAspect: HandlerAspect[String, Int] = HandlerAspect.interceptIncomingHandler {
-          handler((req: Request) => ZIO.serviceWith[String](s => (req.withBody(Body.fromString(s)), req.headers.size)))
+          handler((req: Request) => withContext((s: String) => (req.withBody(Body.fromString(s)), req.headers.size)))
         }
         val handler0: Handler[Boolean with String, Response, Request, Response] = handler { (r: Request) =>
-          ZIO.service[Boolean] *> ZIO.serviceWithZIO[Int] { i =>
+          ZIO.service[Boolean] *> withContext{ (i: Int) =>
             for {
               body <- r.body.asString.orDie
             } yield Response.text(s"$i $body")
