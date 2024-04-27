@@ -200,7 +200,7 @@ object Middleware extends HandlerAspects {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
           handler { (req: Request) =>
-            val headerValues = ChunkBuilder.make[Header]
+            val headerValues = ChunkBuilder.make[Header]()
             headerValues.sizeHint(allHeaders.length)
             var i            = 0
             while (i < allHeaders.length) {
@@ -227,7 +227,7 @@ object Middleware extends HandlerAspects {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
           handler { (req: Request) =>
-            val headerValues = ChunkBuilder.make[Header]
+            val headerValues = ChunkBuilder.make[Header]()
             headerValues.sizeHint(allHeaders.length)
             var i            = 0
             while (i < allHeaders.length) {
