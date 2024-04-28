@@ -1,7 +1,9 @@
 package example.config
 
 import zio._
+
 import zio.config.typesafe._
+
 import zio.http._
 
 object HoconWithConfiguredLayerExample extends ZIOAppDefault {

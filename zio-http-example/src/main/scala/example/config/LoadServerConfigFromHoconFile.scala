@@ -1,9 +1,11 @@
 package example.config
 
 import zio._
-import zio.http._
+
 import zio.config._
 import zio.config.typesafe._
+
+import zio.http._
 
 object LoadServerConfigFromHoconFile extends ZIOAppDefault {
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
