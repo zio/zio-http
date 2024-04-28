@@ -326,6 +326,7 @@ lazy val docs = project
       "dev.zio" %% "zio-test"   % ZioVersion,
       "dev.zio" %% "zio-config" % ZioConfigVersion,
       "dev.zio" %% "zio-config-magnolia" % ZioConfigVersion,
+      "dev.zio" %% "zio-config-typesafe" % ZioConfigVersion
     ),
     publish / skip                             := true,
     mdocVariables ++= Map(

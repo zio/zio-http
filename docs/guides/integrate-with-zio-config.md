@@ -27,7 +27,11 @@ case class DatabaseConfig(
 
 We can derive a configuration schema for `DatabaseConfig` using ZIO Config as follows:
 
-```scala
+```scala mdoc:silent
+import zio._
+import zio.config._
+import zio.config.magnolia._
+
 object DatabaseConfig {
   val config: Config[DatabaseConfig] =
     DeriveConfig.deriveConfig[DatabaseConfig]
@@ -38,7 +42,9 @@ object DatabaseConfig {
 
 Now, we can load the configuration settings for `DatabaseConfig` by calling `ZIO.config(DatabaseConfig.config)`:
 
-```scala
+```scala mdoc:compile-only
+import zio._
+
 object MainApp extends ZIOAppDefault {
   def run = {
     for {
@@ -88,7 +94,11 @@ database {
 
 Then, we can load it using the `ConfigProvider.fromResourcePath` method:
 
-```scala
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.config.typesafe._
+
 object MainApp extends ZIOAppDefault {
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
     Runtime.setConfigProvider(ConfigProvider.fromResourcePath())
@@ -106,7 +116,12 @@ object MainApp extends ZIOAppDefault {
 
 Both `Client` and `Server` have the `default` layer that requires no configuration and provides an instance of `Client` and `Server` with default settings:
 
-```scala
+```scala mdoc:invisible
+import zio._
+import zio.http._
+```
+
+```scala mdoc:compile-only
 object Client {
   val default: ZLayer[Any, Throwable, Client] = ???
 }
@@ -116,15 +131,29 @@ object Server {
 }
 ```
 
-But in some cases, we need to customize the client or server settings such as timeouts, host, port, and other parameters. To do that, ZIO HTTP provides `live` and `customized` layers that require additional configuration settings:
+In some cases, we need to customize the client or server settings such as timeouts, host, port, and other parameters. To do that, ZIO HTTP provides `live` and `customized` layers that require additional configuration settings:
 
-```scala
+```scala mdoc:invisible
+import zio._
+import zio.http._
+import zio.http.netty._
+```
+
+```scala mdoc:compile-only
 object Client {
+  case class Config(
+    // configuration settings for client
+  )
+  
   val live      : ZLayer[Client.Config with NettyConfig with DnsResolver, Throwable, Client]  = ??? 
   def customized: ZLayer[Client.Config with ClientDriver with DnsResolver, Throwable, Client] = ???
 }
 
 object Server {
+  case class Config(
+    // configuration settings for server 
+  )
+  
   val live      : ZLayer[Server.Config, Throwable, Server]               = ???
   val customized: ZLayer[Server.Config & NettyConfig, Throwable, Server] = ???
 }
@@ -148,23 +177,10 @@ Until now, we changed the server configuration programmatically inside the code.
 
 Before going further, let's take a look at the `Server.Config` and `Client.Config` and see how are they defined in ZIO HTTP:
 
-```scala
-object Server {
-  case class Config(
-    // list of all server configuration settings
-  )
-  object Config {
-    // configuration schema for Server.Config
-    val config: zio.Config[Server.Config] = ???
-
-    // default configuration for Server.Config
-    lazy val default: Server.Config = ???
-  }
-}
-
+```scala mdoc:compile-only
 object Client {
   case class Config(
-    // list of all client configuration settings
+    // configuration settings for client
   )
   object Config {
     // Configuration Schema for Cleint.Config
@@ -174,15 +190,28 @@ object Client {
     lazy val default: Client.Config = ???
   }
 }
+
+object Server {
+  case class Config(
+    // configuration settings for server
+  )
+  object Config {
+    // configuration schema for Server.Config
+    val config: zio.Config[Server.Config] = ???
+
+    // default configuration for Server.Config
+    lazy val default: Server.Config = ???
+  }
+}
 ```
 
 The `Server` and `Client` modules have predefined config schema, i.e. `Server.Config.config` and `Client.Config.config`, that can be used to load the server/client configuration from the environment, system properties, or any other configuration sources.
 
 ## Loading Configuration Settings from Environment Variables
 
-As the ZIO HTTP‌ provided these configuration schemas by default, we can easily use them to load the configuration settings from the considered sources using the corresponding `ConfigProvider`:
+As the ZIO HTTP provided these configuration schemas by default, we can easily use them to load the configuration settings from the considered sources using the corresponding `ConfigProvider`:
 
-```scala
+```scala mdoc:compile-only
 import zio._
 import zio.http._
 
@@ -225,53 +254,19 @@ zio.http.server {
 }
 ```
 
-```scala
-import zio._
-import zio.http._
+```scala mdoc:invisible:reset
+```
 
-object LoadServerConfigFromHoconFile extends ZIOAppDefault {
-    override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
-      Runtime.setConfigProvider(ConfigProvider.fromResourcePath())
-      
-  def run = {
-    Server
-      .install(
-        Routes(
-          Method.GET / "hello" -> handler(Response.text("Hello, world!")),
-        ),
-      )
-      .flatMap(port => ZIO.debug(s"Sever started on http://localhost:$port") *> ZIO.never)
-      .provide(
-        Server.live,
-        ZLayer.fromZIO(
-          ZIO.config(Server.Config.config.nested("zio.http.server").mapKey(_.replace('-', '_'))),
-        ),
-      )
-  }
-}
+```scala mdoc:passthrough
+import utils._
+printSource("zio-http-example/src/main/scala/example/config/LoadServerConfigFromHoconFile.scala")
 ```
 
 Instead of providing two layers (`Server.live` and `ZLayer.fromZIO(ZIO.config(Server.Config.config))`) to the `Server.serve` method, we can combine them into a single layer using the `Server.configured` layer:
 
-```scala
-import zio._
-import zio.http._
-
-object MainApp extends ZIOAppDefault {
-    override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
-      Runtime.setConfigProvider(ConfigProvider.fromResourcePath())
-      
-  def run = {
-    Server
-      .install(
-        Routes(
-          Method.GET / "hello" -> handler(Response.text("Hello, world!")),
-        ),
-      )
-      .flatMap(port => ZIO.debug(s"Sever started on http://localhost:$port") *> ZIO.never)
-      .provide(Server.configured())
-  }
-}
+```scala mdoc:passthrough
+import utils._
+printSource("zio-http-example/src/main/scala/example/config/HoconWithConfiguredLayerExample.scala")
 ```
 
 ### Customized Layers
@@ -281,12 +276,26 @@ If we need to have more control, the `Server` and `Client` companion objects hav
 - `Server.customized` is a layer that requires a `Server.Config` and `NettyConfig` and returns a `Server` layer.
 - `Client.customized` is a layer that requires a `Client.Config`, `NettyConfig`, and `DnsResolver` and returns a `Client` layer.
 
-```scala
+```scala mdoc:silent
+import zio._
+import zio.http._
+import zio.http.netty._
+```
+
+```scala mdoc:compile-only
 object Clinet {
+  case class Config(
+    // configuration settings for client
+  )
+  
   val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = ???
 }
 
 object Server {
+  case class Config(
+    // configuration settings for server 
+  )
+  
   val customized: ZLayer[Config & NettyConfig, Throwable, Server] = ???
 }
 ```
