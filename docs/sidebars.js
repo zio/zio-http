@@ -10,7 +10,6 @@ const sidebars = {
       items: [
         "installation", 
 
-
         // Reference section
         {
           type: "category",
@@ -21,7 +20,6 @@ const sidebars = {
             "reference/overview",
             "reference/server", 
             "reference/client", 
-            "reference/handler",
             "reference/endpoint", 
 
             // Routing subsection
@@ -34,6 +32,8 @@ const sidebars = {
                 "reference/routing/path_codec",
               ],
             },
+            
+                "reference/handler",
 
             // HTTP Messages subsection
             {
