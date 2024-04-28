@@ -238,6 +238,7 @@ final case class EndpointGen() {
               status = status,
               mediaType = Some("application/json"),
               doc = None,
+              false,
             )
         case (OpenAPI.StatusOrDefault.StatusValue(status), OpenAPI.ReferenceOr.Or(response: OpenAPI.Response))    =>
           val (imports, code) =
@@ -283,6 +284,7 @@ final case class EndpointGen() {
             status = status,
             mediaType = Some("application/json"),
             doc = None,
+            false,
           )
       }.unzip
 
@@ -292,7 +294,7 @@ final case class EndpointGen() {
       pathPatternCode = Code.PathPatternCode(segments),
       queryParamsCode = queryParams,
       headersCode = Code.HeadersCode(headers),
-      inCode = Code.InCode(inType, None, None),
+      inCode = Code.InCode(inType),
       outCodes = outCodes.filterNot(_.status.isError).toList,
       errorsCode = outCodes.filter(_.status.isError).toList,
     )
