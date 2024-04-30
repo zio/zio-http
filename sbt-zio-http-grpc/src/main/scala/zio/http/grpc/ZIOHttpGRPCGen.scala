@@ -11,8 +11,6 @@ import scalapb.compiler.{DescriptorImplicits, ProtobufGenerator}
 import scalapb.options.Scalapb
 
 object ZIOHttpGRPCGen extends CodeGenApp {
-  override def registerExtensions(registry: ExtensionRegistry): Unit =
-    Scalapb.registerAllExtensions(registry)
 
   def process(request: CodeGenRequest): CodeGenResponse =
     ProtobufGenerator.parseParameters(request.parameter) match {

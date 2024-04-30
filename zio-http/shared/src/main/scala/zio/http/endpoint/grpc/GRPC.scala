@@ -6,7 +6,7 @@ import zio.schema.Schema
 import zio.schema.codec.ProtobufCodec
 
 import zio.http.MediaType
-import zio.http.codec.HttpContentCodec
+import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
 
 object GRPC {
 
@@ -14,9 +14,8 @@ object GRPC {
     HttpContentCodec(
       ListMap(
         MediaType.parseCustomMediaType("application/grpc").get ->
-          ProtobufCodec.protobufCodec[A],
+          BinaryCodecWithSchema(ProtobufCodec.protobufCodec[A], schema),
       ),
-      schema,
     )
 
 }

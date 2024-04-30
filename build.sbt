@@ -320,6 +320,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     .settings(stdSettings("sbt-zio-http-grpc-tests"))
     .settings(publishSetting(false))
     .settings(
+      Test / skip := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 12))),
       libraryDependencies ++= Seq(
         `zio-test-sbt`,
         `zio-test`,
