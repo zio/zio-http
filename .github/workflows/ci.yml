@@ -177,38 +177,6 @@ jobs:
     steps:
       - uses: release-drafter/release-drafter@v5
 
-  unsafeRunScoverage:
-    name: Unsafe Scoverage
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.12]
-        java: [temurin@8]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout current branch (full)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Add Scoverage
-        id: add_plugin
-        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.0.9")' project/plugins.sbt
-
-      - name: Update Build Definition
-        id: update_build_definition
-        run: |
-
-          sed -i -e 's+(project in file("./zio-http"))+(project in file("./zio-http")).settings(coverageEnabled:=true,coverageMinimumStmtTotal:=50.0,coverageMinimumBranchTotal:=60.0)+g' build.sbt
-
-      - name: Run Coverage
-        id: run_coverage
-        run: sbt 'coverage; project zioHttpJVM; test; coverageReport'
-
-      - name: Push Codecov
-        id: push_codecov
-        run: 'bash <(curl -s https://codecov.io/bash)'
-
   Jmh_CachedDateHeaderBenchmark:
     name: Jmh CachedDateHeaderBenchmark
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

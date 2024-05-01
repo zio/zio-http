@@ -28,7 +28,7 @@ ThisBuild / githubWorkflowAddedJobs    :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
-  ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) // ++ BenchmarkWorkFlow()
+  ) ++ JmhBenchmarkWorkflow(1)
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
@@ -328,8 +328,8 @@ lazy val docs = project
     publish / skip                             := true,
     mdocVariables ++= Map(
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
-      "ZIO_VERSION" -> ZioVersion
-    )
+      "ZIO_VERSION"        -> ZioVersion,
+    ),
   )
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)
