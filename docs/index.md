@@ -12,7 +12,7 @@ ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Ne
 
 ZIO HTTP provides a simple and expressive API for building both server and client-side applications. ZIO HTTP is designed in terms of **HTTP as function**, where both server and client are a function from `Request` to `Response`.
 
-Key features of ZIO HTTP includes:
+Some of the key features of ZIO HTTP are:
 
 **ZIO Native**: ZIO HTTP is built atop ZIO, a type-safe, composable, and asynchronous effect system for Scala. It inherits all the benefits of ZIO, including testability, composability, and type safety.
 **Cloud-Native**: ZIO HTTP is designed for cloud-native environments and supports building highly scalable and performant web applications. Built atop ZIO, it features built-in support for concurrency, parallelism, resource management, error handling, structured logging, configuration management, and metrics instrumentation.
