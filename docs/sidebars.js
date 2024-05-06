@@ -20,7 +20,6 @@ const sidebars = {
             "reference/overview",
             "reference/server",
             "reference/client",
-            "reference/endpoint",
 
             // Routing subsection
             {
@@ -68,6 +67,7 @@ const sidebars = {
                 },
               ],
             },
+            "reference/endpoint",
 
             // Aspects subsection
             {

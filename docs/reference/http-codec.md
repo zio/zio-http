@@ -297,3 +297,33 @@ HttpCodec has several methods for annotating codecs:
 - `??`: To attach a documentation to the codec.
 
 This additional information can be used for [generating API documentation, e.g. OpenAPI](endpoint.md#openapi-documentation).
+
+## Usage
+
+Having a codec for HTTP messages is useful when we want to program declaratively instead of imperative programming.
+
+### Imperative Programming
+
+When writing an HTTP API, we have to think about a function that takes a `Request` and returns a `Response`, i.e. the handler function. In imperative programming, we have to deal with the low-level details of how to extract the required information from the `Request`, validate it, and finally construct the proper `Response`. In such a way, we have to write all these logics step by step.
+
+In the following example, we are going to write an API for a bookstore. The API has a single endpoint `/books?id=<book-id>` that returns the book with the given `id` as a query parameter. If the book is found, it returns a `200 OK` response with the book as the body. If the book is not found, it returns a `404 Not Found` response with an error message:
+
+```scala mdoc:passthrough
+import utils._
+printSource("zio-http-example/src/main/scala/example/endpoint/style/ImperativeProgrammingExample.scala")
+```
+
+The type of handler in the above example is `Handler[Any, Response, Request, Response]`, which means we have to write a function that takes a `Request` and returns a `Response` and in case of failure, it will return a failure value of type `Response`. In the handler function, we have to manually extract the `id` from the query parameters, then do the business logic to find the book with the given `id`, and finally construct the proper `Response`. 
+
+### Declarative Programming
+
+In declarative programming, we can separate the two concerns from each other: the definition of the API and its implementation. By having the codecs for the HTTP messages, we can define how the `Request` and `Response` should look like and based on our requirements how they should be encoded and decoded. ZIO Http has the `Endpoint` API that makes it easy to define the API in a declarative way by utilizing `HttpCodec`. After defining the API using `Endpoint`, we can implement it using the `Endpoint#implement` method.
+
+In the following example, we are going to rewrite the previous example using the `Endpoint` API:
+
+```scala mdoc:passthrough
+import utils._
+printSource("zio-http-example/src/main/scala/example/endpoint/style/DeclarativeProgrammingExample.scala")
+```
+
+As we will see, we have declared a clear specification of the API and separately implemented it. The very interesting point about the implementation section is that it is not concerned with the low-level details of how to extract the required information from the `Request` and how to construct the proper `Response`. The `implement` method takes a handler of type `Handler[Any, NotFoundError, String, Book]`, which means we have to write a handler function that takes a `String` and returns a `Book` and in case of failure, it will return a `NotFoundError` error. No manual decoding of `Request` and no manual encoding of `Response` is required. So in the handler function, we only have to focus on the business logic.
