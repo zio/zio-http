@@ -67,7 +67,14 @@ const sidebars = {
                 },
               ],
             },
-            "reference/endpoint",
+            {
+              type: "category",
+              label: "Declarative Endpoints",
+              items: [
+                "reference/endpoint",
+                "reference/http-codec",
+              ],
+            },
 
             // Aspects subsection
             {
@@ -89,7 +96,6 @@ const sidebars = {
                 "reference/socket/websocketframe",
               ],
             },
-            "reference/http-codec",
           ],
         },
 

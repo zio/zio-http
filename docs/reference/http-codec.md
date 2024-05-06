@@ -302,6 +302,8 @@ This additional information can be used for [generating API documentation, e.g. 
 
 Having a codec for HTTP messages is useful when we want to program declaratively instead of imperative programming.
 
+Let's compare these two programming styles in ZIO HTTP and see how we can benefit from using `HttpCodec` for writing declarative APIs.
+
 ### Imperative Programming
 
 When writing an HTTP API, we have to think about a function that takes a `Request` and returns a `Response`, i.e. the handler function. In imperative programming, we have to deal with the low-level details of how to extract the required information from the `Request`, validate it, and finally construct the proper `Response`. In such a way, we have to write all these logics step by step.
