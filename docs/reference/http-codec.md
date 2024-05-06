@@ -1,6 +1,6 @@
 ---
-id: http-codecs
-title: "HTTP Codecs"
+id: http-codec
+title: "HttpCodec"
 ---
 
 In ZIO HTTP when we work with HTTP requests and responses, we are not dealing with raw bytes but with structured data. This structured data is represented by the `Request` and `Response` types. But under the hood, these types are serialized and deserialized to and from raw bytes. This process is handled by HTTP Codecs. We can think of `HttpCodec` as a pair of functions both for encoding and decoding requests and responses:

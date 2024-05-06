@@ -89,7 +89,7 @@ const sidebars = {
                 "reference/socket/websocketframe",
               ],
             },
-            "reference/http-codecs",
+            "reference/http-codec",
           ],
         },
 
