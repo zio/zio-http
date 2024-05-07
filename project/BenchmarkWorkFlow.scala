@@ -19,7 +19,6 @@ object BenchmarkWorkFlow {
 
   private def makeBenchmarkPass(id: String, name: String, performanceFloor: Int, server: String) =
     WorkflowJob(
-      runsOnExtraLabels = List("zio-http"),
       id = id,
       name = name,
       oses = List("centos"),
