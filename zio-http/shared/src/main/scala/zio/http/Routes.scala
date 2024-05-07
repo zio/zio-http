@@ -282,6 +282,10 @@ object Routes extends RoutesCompanionVersionSpecific {
   def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))
 
+  implicit class RouteOps[-Env, +Err <: Response](val routes: Routes[Env, Err]) extends AnyVal {
+    def serve: URIO[Env with Server, Int] = Server.install(routes)
+  }
+
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(self.tree ++ that.tree)

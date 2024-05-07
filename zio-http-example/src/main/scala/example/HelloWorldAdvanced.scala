@@ -35,7 +35,7 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     val configLayer      = ZLayer.succeed(config)
     val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
-    (Server.install(fooBar ++ app).flatMap { port =>
+    ((fooBar ++ app).serve.flatMap { port =>
       Console.printLine(s"Started server on port: $port")
     } *> ZIO.never)
       .provide(configLayer, nettyConfigLayer, Server.customized)
