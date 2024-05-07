@@ -56,15 +56,6 @@ jobs:
       - name: Check that workflows are up to date
         run: sbt '++ ${{ matrix.scala }}' githubWorkflowCheck
 
-      - name: Compress target directories
-        run: tar cf targets.tar zio-http-cli/target target zio-http/jvm/target zio-http-docs/target zio-http-gen/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
-
-      - name: Upload target directories
-        uses: actions/upload-artifact@v4
-        with:
-          name: target-${{ matrix.os }}-${{ matrix.scala }}-${{ matrix.java }}
-          path: targets.tar
-
   publish:
     name: Publish Artifacts
     needs: [build]
@@ -99,36 +90,6 @@ jobs:
           java-version: 8
           cache: sbt
 
-      - name: Download target directories (2.12.18)
-        uses: actions/download-artifact@v4
-        with:
-          name: target-${{ matrix.os }}-2.12.18-${{ matrix.java }}
-
-      - name: Inflate target directories (2.12.18)
-        run: |
-          tar xf targets.tar
-          rm targets.tar
-
-      - name: Download target directories (2.13.12)
-        uses: actions/download-artifact@v4
-        with:
-          name: target-${{ matrix.os }}-2.13.12-${{ matrix.java }}
-
-      - name: Inflate target directories (2.13.12)
-        run: |
-          tar xf targets.tar
-          rm targets.tar
-
-      - name: Download target directories (3.3.1)
-        uses: actions/download-artifact@v4
-        with:
-          name: target-${{ matrix.os }}-3.3.1-${{ matrix.java }}
-
-      - name: Inflate target directories (3.3.1)
-        run: |
-          tar xf targets.tar
-          rm targets.tar
-
   runBenchmarks-simple:
     name: Performance Benchmarks (PlainTextBenchmarkServer)
     if: ${{ github.event_name == 'pull_request'}}
@@ -151,7 +112,7 @@ jobs:
 
       - uses: actions/checkout@v2
         with:
-          repository: zio/FrameworkBenchmarks
+          repository: khajavi/FrameworkBenchmarks
           path: FrameworkBenchMarks
 
       - id: result
@@ -220,7 +181,7 @@ jobs:
 
       - uses: actions/checkout@v2
         with:
-          repository: zio/FrameworkBenchmarks
+          repository: khajavi/FrameworkBenchmarks
           path: FrameworkBenchMarks
 
       - id: result

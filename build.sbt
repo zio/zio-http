@@ -16,7 +16,7 @@ ThisBuild / githubWorkflowJavaVersions := Seq(
 
 ThisBuild / githubWorkflowBuild := Seq.empty
 ThisBuild / githubWorkflowPublish := Seq.empty
-ThisBuild / githubWorkflowArtifactUpload := Seq.empty
+ThisBuild / githubWorkflowArtifactUpload := false
 
 ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
