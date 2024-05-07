@@ -420,7 +420,7 @@ object Server extends ServerPlatformSpecific {
       trace: Trace,
       tag: EnvironmentTag[R],
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune))
+      ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune[R]))
 
     override def port: Int = bindPort
 
