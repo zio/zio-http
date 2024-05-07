@@ -16,15 +16,17 @@
 
 package zio.http.netty
 
+import scala.annotation.unused
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 
-private[zio] trait NettyRuntime { self =>
+private[zio] final class NettyRuntime(zRuntime: Runtime[Any]) {
 
-  def runtime(ctx: ChannelHandlerContext): Runtime[Any]
+  def runtime(@unused ctx: ChannelHandlerContext): Runtime[Any] = zRuntime
 
   def run(ctx: ChannelHandlerContext, ensured: () => Unit, interruptOnClose: Boolean = true)(
     program: ZIO[Any, Throwable, Any],
@@ -42,21 +44,21 @@ private[zio] trait NettyRuntime { self =>
     }
 
     def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit = {
-      if (close != null)
+      if (close ne null)
         ctx.channel().closeFuture().removeListener(close): Unit
     }
-
-    // Close the connection if the program fails
-    // When connection closes, interrupt the program
-    var close: GenericFutureListener[Future[_ >: Void]] = null
 
     // See https://github.com/zio/zio-http/pull/2782 on why forking is preferable over runOrFork
     val fiber = rtm.unsafe.fork(program)
 
-    if (interruptOnClose) {
-      close = closeListener(rtm, fiber)
-      ctx.channel().closeFuture.addListener(close)
-    }
+    // Close the connection if the program fails
+    // When connection closes, interrupt the program
+    val close: GenericFutureListener[Future[_ >: Void]] =
+      if (interruptOnClose) {
+        val close0 = closeListener(rtm, fiber)
+        ctx.channel().closeFuture.addListener(close0)
+        close0
+      } else null
 
     fiber.unsafe.addObserver {
       case Exit.Success(_)     =>
@@ -96,11 +98,7 @@ private[zio] object NettyRuntime {
     ZLayer.fromZIO {
       ZIO
         .runtime[Any]
-        .map { rtm =>
-          new NettyRuntime {
-            def runtime(ctx: ChannelHandlerContext): Runtime[Any] = rtm
-          }
-        }
+        .map(new NettyRuntime(_))
     }
   }
 }

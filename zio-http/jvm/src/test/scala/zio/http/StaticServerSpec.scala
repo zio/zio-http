@@ -32,20 +32,20 @@ object StaticServerSpec extends HttpRunnableSpec {
     Method.GET / "failure"       -> handler(ZIO.fail(new RuntimeException("FAILURE"))),
     Method.GET / "die"           -> handler(ZIO.die(new RuntimeException("DIE"))),
     Method.GET / "get%2Fsuccess" -> handler(Response.ok),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   // Use this route to test anything that doesn't require ZIO related computations.
   private val nonZIO = Routes(
     Method.ANY / "ExitSuccess" -> handler(Exit.succeed(Response.ok)),
     Method.ANY / "ExitFailure" -> handler(Exit.fail(new RuntimeException("FAILURE"))),
     Method.ANY / "throwable"   -> handlerTODO("Throw inside Handler"),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   private val staticAppWithCors = Routes(
     Method.GET / "success-cors" -> handler(Response.ok.addHeader(Header.Vary("test1", "test2"))),
-  ).toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
+  ) @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
-  private val combined = nonZIO ++ staticApp ++ staticAppWithCors
+  private val combined: Routes[Any, Response] = nonZIO ++ staticApp ++ staticAppWithCors
 
   private val app = serve { combined }
 
@@ -77,19 +77,19 @@ object StaticServerSpec extends HttpRunnableSpec {
   def nonZIOSpec = suite("NonZIOSpec")(
     test("200 response") {
       checkAll(methodGenWithoutOPTIONS) { method =>
-        val actual = status(method, Root / "ExitSuccess")
+        val actual = status(method, Path.root / "ExitSuccess")
         assertZIO(actual)(equalTo(Status.Ok))
       }
     },
     test("500 response") {
       checkAll(methodGenWithoutOPTIONS) { method =>
-        val actual = status(method, Root / "ExitFailure")
+        val actual = status(method, Path.root / "ExitFailure")
         assertZIO(actual)(equalTo(Status.InternalServerError))
       }
     },
     test("404 response ") {
       checkAll(methodGenWithoutHEAD) { method =>
-        val actual = status(method, Root / "A")
+        val actual = status(method, Path.root / "A")
         assertZIO(actual)(equalTo(Status.NotFound))
       }
     },
@@ -111,35 +111,35 @@ object StaticServerSpec extends HttpRunnableSpec {
   def staticAppSpec    =
     suite("StaticAppSpec")(
       test("200 response") {
-        val actual = status(path = Root / "success")
+        val actual = status(path = Path.root / "success")
         assertZIO(actual)(equalTo(Status.Ok))
       },
       test("500 response on failure") {
-        val actual = status(path = Root / "failure")
+        val actual = status(path = Path.root / "failure")
         assertZIO(actual)(equalTo(Status.InternalServerError))
       },
       test("500 response on die") {
-        val actual = status(path = Root / "die")
+        val actual = status(path = Path.root / "die")
         assertZIO(actual)(equalTo(Status.InternalServerError))
       },
       test("404 response") {
-        val actual = status(path = Root / "random")
+        val actual = status(path = Path.root / "random")
         assertZIO(actual)(equalTo(Status.NotFound))
       },
       test("200 response with encoded path") {
-        val actual = status(path = Root / "get%2Fsuccess")
+        val actual = status(path = Path.root / "get%2Fsuccess")
         assertZIO(actual)(equalTo(Status.Ok))
       },
       test("Multiple 200 response") {
         for {
-          data <- status(path = Root / "success").repeatN(1024)
+          data <- status(path = Path.root / "success").repeatN(1024)
         } yield assertTrue(data == Status.Ok)
       },
     )
   def throwableAppSpec = suite("ThrowableAppSpec") {
     test("Throw inside Handler") {
       for {
-        status <- status(Method.GET, Root / "throwable")
+        status <- status(Method.GET, Path.root / "throwable")
       } yield assertTrue(status == Status.InternalServerError)
     }
   }
@@ -147,7 +147,7 @@ object StaticServerSpec extends HttpRunnableSpec {
   def multiHeadersSpec = suite("Multi headers spec")(
     test("CORS headers should be properly encoded") {
       for {
-        result <- headers(Method.GET, Root / "success-cors", Headers(Header.Origin("http", "example.com")))
+        result <- headers(Method.GET, Path.root / "success-cors", Headers(Header.Origin("http", "example.com")))
       } yield {
         assertTrue(
           result.hasHeader(Header.AccessControlAllowMethods.name),

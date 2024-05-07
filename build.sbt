@@ -270,11 +270,11 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
-  .settings(libraryDependencies ++= Seq(`jwt-core`))
+  .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-config"                        % "4.0.1",
-      "dev.zio" %% "zio-config-typesafe"               % "4.0.1",
+      "dev.zio" %% "zio-config"                        % "4.0.2",
+      "dev.zio" %% "zio-config-typesafe"               % "4.0.2",
       "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
       "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1",
     ),
@@ -322,12 +322,18 @@ lazy val docs = project
     projectStage                               := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttpJVM),
     ciWorkflowName                             := "Continuous Integration",
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       `jwt-core`,
       "dev.zio" %% "zio-test"   % ZioVersion,
-      "dev.zio" %% "zio-config" % "4.0.1",
+      "dev.zio" %% "zio-config" % "4.0.2",
     ),
     publish / skip                             := true,
+    mdocVariables ++= Map(
+      "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
+      "ZIO_VERSION"        -> ZioVersion,
+    ),
   )
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)
+  .dependsOn(zioHttpTestkit)

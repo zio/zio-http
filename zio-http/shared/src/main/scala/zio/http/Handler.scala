@@ -16,19 +16,24 @@
 
 package zio.http
 
-import zio._
-import zio.http.template.{Html, Template}
-import zio.http.Header.HeaderType
-import zio.http.internal.HeaderModifier
-import zio.stream.ZStream
-
-import java.io.{File, FileNotFoundException, IOException}
+import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
+
 import scala.reflect.ClassTag
-import scala.util.control.NonFatal // scalafix:ok;
-import java.util.zip.ZipFile
+import scala.util.Try
+import scala.util.control.NonFatal
+
+import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.stream.ZStream
+
+import zio.http.Handler.ApplyContextAspect
+import zio.http.Header.HeaderType
+import zio.http.internal.HeaderModifier
+import zio.http.template.{Html, Template}
+
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
@@ -42,18 +47,22 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     aspect.applyHandler(convert(self))
   }
 
-  def @@[Env1 <: R, Ctx, In1 <: In](aspect: HandlerAspect[Env1, Ctx])(implicit
-    zippable: Zippable.Out[Ctx, Request, In1],
-    res: Out <:< Response,
+  def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
+    in: Handler.IsRequest[In1],
+    out: Out <:< Response,
+    err: Err <:< Response,
     trace: Trace,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, In1, Response] =
-      handler.asInstanceOf[Handler[R, Response, In1, Response]]
+    tag: Tag[Ctx],
+  ): Handler[Env0, Response, Request, Response] =
+    aspect.applyHandlerContext {
+      handler { (ctx: Ctx, req: Request) =>
+        val handler: ZIO[Ctx, Response, Response] = self.asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
+        handler.provideSomeEnvironment[Env0](_.add[Ctx](ctx))
+      }
+    }
 
-    aspect.applyHandlerContext(Handler.fromFunction[(Ctx, Request)] { case (ctx, req) =>
-      zippable.zip(ctx, req)
-    } >>> convert(self))
-  }
+  def @@[Env0]: ApplyContextAspect[R, Err, In, Out, Env0] =
+    new ApplyContextAspect(self)
 
   /**
    * Alias for flatmap
@@ -599,11 +608,25 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * the handler has been appropriately sandboxed, turning all possible failures
    * into well-formed HTTP responses.
    */
+  @deprecated("Use toRoutes instead. Will be removed in the next release.")
   def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response, trace: Trace): HttpApp[R] = {
     val handler: Handler[R, Response, Request, Response] =
       self.asInstanceOf[Handler[R, Response, Request, Response]]
 
     HttpApp(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
+  }
+
+  /**
+   * Converts the request handler into an HTTP application. Note that the
+   * handler of the HTTP application is not identical to this handler, because
+   * the handler has been appropriately sandboxed, turning all possible failures
+   * into well-formed HTTP responses.
+   */
+  def toRoutes(implicit in: Request <:< In, out: Out <:< Response, trace: Trace): Routes[R, Err] = {
+    val handler: Handler[R, Err, Request, Response] =
+      self.asInstanceOf[Handler[R, Err, Request, Response]]
+
+    Routes.singleton(handler.contramap[(Path, Request)](_._2))
   }
 
   /**
@@ -671,7 +694,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.flatMap(_ => that)
 }
 
-object Handler extends HandlerPlatformSpecific {
+object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   sealed trait IsRequest[-A]
 

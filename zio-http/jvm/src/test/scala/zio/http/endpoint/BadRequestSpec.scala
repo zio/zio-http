@@ -18,7 +18,6 @@ object BadRequestSpec extends ZIOSpecDefault {
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
         val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2").addHeader(Header.Accept(MediaType.text.`html`))
         val expectedBody =
@@ -31,7 +30,7 @@ object BadRequestSpec extends ZIOSpecDefault {
             ),
           )
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody.encode.toString)
       },
@@ -40,14 +39,13 @@ object BadRequestSpec extends ZIOSpecDefault {
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
         val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))
         val expectedBody =
           """{"name":"SchemaTransformationFailure","message":"Expected single value for query parameter age, but got 2 instead"}"""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },
@@ -56,14 +54,13 @@ object BadRequestSpec extends ZIOSpecDefault {
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
         val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.`atf`))
         val expectedBody =
           """{"name":"SchemaTransformationFailure","message":"Expected single value for query parameter age, but got 2 instead"}"""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },
@@ -73,13 +70,12 @@ object BadRequestSpec extends ZIOSpecDefault {
           .out[Unit]
           .emptyErrorResponse
         val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.`atf`))
         val expectedBody = ""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },
@@ -88,14 +84,13 @@ object BadRequestSpec extends ZIOSpecDefault {
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
         val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))
         val expectedBody =
           """{"name":"SchemaTransformationFailure","message":"Expected single value for query parameter age, but got 2 instead"}"""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },
@@ -105,14 +100,13 @@ object BadRequestSpec extends ZIOSpecDefault {
           .out[Unit]
           .outCodecError(default)
         val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))
         val expectedBody =
           """{"name2":"SchemaTransformationFailure","message2":"Expected single value for query parameter age, but got 2 instead"}"""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },

@@ -26,19 +26,17 @@ import zio.http.netty.NettyConfig
 object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
-  val app: HttpApp[Any] = {
-    Route.handled(Method.GET / "hello")(Handler.fromResponse(Response.text("hello")))
-  }.toHttpApp
+  val routes: Routes[Any, Response] =
+    Route.handled(Method.GET / "hello")(Handler.fromResponse(Response.text("hello"))).toRoutes
 
-  val redir: HttpApp[Any] = {
-    Route.handled(Method.GET / "redirect")(Handler.fromResponse(Response.redirect(URL.empty / "hello")))
-  }.toHttpApp
+  val redir: Routes[Any, Response] =
+    Route.handled(Method.GET / "redirect")(Handler.fromResponse(Response.redirect(URL.empty / "hello"))).toRoutes
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("ZClientAspect")(
       test("debug") {
         for {
-          port       <- Server.install(app)
+          port       <- Server.install(routes)
           baseClient <- ZIO.service[Client]
           client = baseClient.url(
             URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -54,7 +52,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       },
       test("requestLogging")(
         for {
-          port       <- Server.install(app)
+          port       <- Server.install(routes)
           baseClient <- ZIO.service[Client]
           client = baseClient
             .url(
@@ -87,7 +85,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       ),
       test("followRedirects")(
         for {
-          port       <- Server.install(redir ++ app)
+          port       <- Server.install(redir ++ routes)
           baseClient <- ZIO.service[Client]
           client = baseClient
             .url(

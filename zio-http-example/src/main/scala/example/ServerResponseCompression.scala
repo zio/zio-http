@@ -7,7 +7,7 @@ import zio.http._
 object ServerResponseCompression extends ZIOAppDefault {
   val httpApp = Routes(
     Method.GET / "hello" -> handler(Response.text("Hello, World!")),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   val config = ZLayer.succeed(
     Server.Config.default.copy(

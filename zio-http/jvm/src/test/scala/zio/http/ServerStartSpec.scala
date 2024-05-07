@@ -30,7 +30,7 @@ object ServerStartSpec extends HttpRunnableSpec {
     test("desired port") {
       val port   = 8088
       val config = Server.Config.default.port(port)
-      serve(HttpApp.empty).flatMap { port =>
+      serve(Routes.empty).flatMap { port =>
         assertZIO(ZIO.attempt(port))(equalTo(port))
       }.provide(
         ZLayer.succeed(config),
@@ -42,7 +42,7 @@ object ServerStartSpec extends HttpRunnableSpec {
     test("available port") {
       val port   = 0
       val config = Server.Config.default.port(port)
-      serve(HttpApp.empty).flatMap { bindPort =>
+      serve(Routes.empty).flatMap { bindPort =>
         assertZIO(ZIO.attempt(bindPort))(not(equalTo(port)))
       }.provide(
         ZLayer.succeed(config),

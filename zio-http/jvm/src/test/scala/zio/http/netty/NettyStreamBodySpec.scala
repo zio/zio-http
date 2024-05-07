@@ -22,7 +22,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
             body = Body.fromStream(streams.next(), len),
           ),
         ),
-    ).sandbox.toHttpApp
+    ).sandbox
 
   private def server(
     streams: Iterator[ZStream[Any, Throwable, Byte]],

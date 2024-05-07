@@ -22,9 +22,16 @@ import zio.http._
 
 import java.util.concurrent.atomic.AtomicReference // scalafix:ok;
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 package object server {
-  private[server] type AppRef = AtomicReference[(HttpApp[Any], ZEnvironment[Any])]
-  private[server] type EnvRef = AtomicReference[ZEnvironment[Any]]
+  private[server] type AppRef = AtomicReference[(Routes[Any, Response], Runtime[Any])]
+
+  private[server] object AppRef {
+    val empty: UIO[AppRef] = {
+      implicit val trace: Trace = Trace.empty
+      ZIO.runtime[Any].map(rt => new AtomicReference((Routes.empty, rt)))
+    }
+  }
 
   val live: ZLayer[Server.Config, Throwable, Driver] =
     NettyDriver.live

@@ -311,7 +311,7 @@ object FormSpec extends ZIOHttpSpec {
           )
         }
       } @@ samples(10),
-    )
+    ) @@ sequential
 
   def spec =
     suite("FormSpec")(urlEncodedSuite, multiFormSuite, multiFormStreamingSuite)
