@@ -25,7 +25,7 @@ Some of the key features of ZIO HTTP are:
 **JSON and Binary Codecs**: Built-in support for ZIO Schema enables encoding and decoding of request/response bodies, supporting various data types including JSON, Protobuf, Avro, and Thrift.
 **Template System**: A built-in DSL facilitates writing HTML templates using Scala code.
 **OpenAPI Support**: Built-in support is available for generating OpenAPI documentation for HTTP applications, and conversely, for generating HTTP endpoints from OpenAPI documentation.
-**ZIO HTTP CLI**: Command-line applications can be built to interact with HTTP APIs.
+**ZIO HTTP CLI**: Command-line applications can be built to interact with HTTP APIs by leveraging the power of [ZIO CLI](https://zio.dev/zio-cli) and ZIO HTTP.
 
 ## Installation
 
