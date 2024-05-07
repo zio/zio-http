@@ -1,9 +1,11 @@
 package example.endpoint.style
 
 import zio._
-import zio.http._
+
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 import zio.schema.{DeriveSchema, Schema}
+
+import zio.http._
 
 object ImperativeProgrammingExample extends ZIOAppDefault {
 

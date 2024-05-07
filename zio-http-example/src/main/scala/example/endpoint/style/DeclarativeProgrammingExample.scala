@@ -1,11 +1,13 @@
 package example.endpoint.style
 
 import zio._
+
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http._
 import zio.http.codec.QueryCodec
 import zio.http.endpoint.Endpoint
 import zio.http.endpoint.EndpointMiddleware.None
-import zio.schema.{DeriveSchema, Schema}
 
 object DeclarativeProgrammingExample extends ZIOAppDefault {
 
