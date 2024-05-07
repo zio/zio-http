@@ -92,7 +92,6 @@ jobs:
 
   runBenchmarks-simple:
     name: Performance Benchmarks (PlainTextBenchmarkServer)
-    if: ${{ github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -161,7 +160,6 @@ jobs:
 
   runBenchmarks-effectful:
     name: Performance Benchmarks (SimpleEffectBenchmarkServer)
-    if: ${{ github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]

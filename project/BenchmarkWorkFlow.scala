@@ -23,9 +23,9 @@ object BenchmarkWorkFlow {
       id = id,
       name = name,
       oses = List("ubuntu-latest"),
-      cond = Some(
-        "${{ github.event_name == 'pull_request'}}",
-      ),
+//      cond = Some(
+//        "${{ github.event_name == 'pull_request'}}",
+//      ),
       scalas = List(Scala213),
       steps = List(
         WorkflowStep.Run(
