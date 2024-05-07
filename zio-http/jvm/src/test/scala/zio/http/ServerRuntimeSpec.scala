@@ -57,6 +57,19 @@ object ServerRuntimeSpec extends HttpRunnableSpec {
             .zipRight(server.deploy.body.run(path = Path.root / "test", method = Method.GET))
             .flatMap(_.asString(Charsets.Utf8))
             .map(b => assertTrue(b == "Some(LogLevel(30000,WARN,4))"))
+        } + test("environment contains only the specified services") {
+          final class Foo
+          val server = Routes(
+            Method.GET / "test" -> handler(
+              ZIO.environment[Any].map(env => Response.text(env.size.toString)),
+            ),
+          )
+          ZIO
+            .scoped(serve[Foo](server))
+            .zipRight(server.deploy.body.run(path = Path.root / "test", method = Method.GET))
+            .flatMap(_.asString(Charsets.Utf8))
+            .map(b => assertTrue(b == "1"))
+            .provideSomeLayer[DynamicServer & Server.Config & Server & Client & Scope](ZLayer.succeed(new Foo))
         }
     }
       .provideSomeLayer[DynamicServer & Server.Config & Server & Client](Scope.default)
