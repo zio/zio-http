@@ -1,7 +1,7 @@
 ---
 id: index
-title: "Introduction to ZIO Http"
-sidebar_label: "ZIO Http"
+title: "Introduction to ZIO HTTP"
+sidebar_label: "ZIO HTTP"
 ---
 
 ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic Scala.
@@ -37,7 +37,7 @@ libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 
 **NOTES ON VERSIONING:**
 
-- Older library versions `1.x` or `2.x` with organization `io.d11` of ZIO Http are derived from Dream11, the organization that donated ZIO Http to the ZIO organization in 2022.
+- Older library versions `1.x` or `2.x` with organization `io.d11` of ZIO HTTP are derived from Dream11, the organization that donated ZIO HTTP to the ZIO organization in 2022.
 - Newer library versions, starting in 2023 and resulting from the [ZIO organization](https://dev.zio) started with `0.0.x`, reaching `1.0.0` release candidates in April of 2023
 
 ## Getting Started
