@@ -42,9 +42,7 @@ libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 
 ## Getting Started
 
-ZIO HTTP provides a simple and expressive API for building HTTP applications. It supports both server and client-side APIs. 
-
-ZIO HTTP is designed in terms of **HTTP as function**, where both server and client are a function from `Request` to `Response`.
+ZIO HTTP provides a simple and expressive API for building HTTP applications. It supports both server and client-side APIs. Let's see how it is simple to build a greeting server and call it using the client API.
 
 ### Greeting Server
 
