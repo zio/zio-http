@@ -283,7 +283,7 @@ object Routes extends RoutesCompanionVersionSpecific {
     Routes(Route.route(RoutePattern.any)(h))
 
   implicit class RouteOps[-Env, +Err <: Response](val routes: Routes[Env, Err]) extends AnyVal {
-    def serve: URIO[Env with Server, Int] = Server.install(routes)
+    def serve: URIO[Env with Server, Nothing] = Server.serve(routes)
   }
 
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
