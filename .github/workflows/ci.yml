@@ -695,7 +695,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request'}}
     strategy:
       matrix:
-        os: [centos]
+        os: [ubuntu-latest]
         scala: [2.13.12]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
@@ -764,7 +764,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request'}}
     strategy:
       matrix:
-        os: [centos]
+        os: [ubuntu-latest]
         scala: [2.13.12]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}

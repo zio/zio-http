@@ -21,7 +21,7 @@ object BenchmarkWorkFlow {
     WorkflowJob(
       id = id,
       name = name,
-      oses = List("centos"),
+      oses = List("ubuntu-latest"),
       cond = Some(
         "${{ github.event_name == 'pull_request'}}",
       ),
