@@ -16,7 +16,7 @@ Some of the key features of ZIO HTTP are:
 
 **ZIO Native**: ZIO HTTP is built atop ZIO, a type-safe, composable, and asynchronous effect system for Scala. It inherits all the benefits of ZIO, including testability, composability, and type safety.
 **Cloud-Native**: ZIO HTTP is designed for cloud-native environments and supports building highly scalable and performant web applications. Built atop ZIO, it features built-in support for concurrency, parallelism, resource management, error handling, structured logging, configuration management, and metrics instrumentation.
-**Declarative Endpoints**: The API offers a declarative approach to defining HTTP endpoints. Each endpoint can be described by its inputs and outputs, expressing the shape of the endpoint.
+**Imperative and Declarative Endpoints**: ZIO HTTP provides a declarative API for defining HTTP endpoints besides the imperative API. With imperative endpoints, both the shape of the endpoint and the logic are defined together, while with declarative endpoints, the description of the endpoint is separated from its logic. Developers can choose the style that best fit their needs.
 **Middleware Support**: ZIO HTTP offers middleware support for incorporating cross-cutting concerns such as logging, metrics, authentication, and more into your services.
 **Error Handling**: Built-in support exists for handling errors at the HTTP layer, distinguishing between handled and unhandled errors.
 **WebSockets**: Built-in support for WebSockets allows for the creation of real-time applications using ZIO HTTP.
