@@ -97,7 +97,7 @@ jobs:
         os: [ubuntu-latest]
         scala: [2.13.12]
         java: [temurin@8]
-    runs-on: [ "${{ matrix.os }}", zio-http ]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Clean up
         id: clean_up
@@ -165,7 +165,7 @@ jobs:
         os: [ubuntu-latest]
         scala: [2.13.12]
         java: [temurin@8]
-    runs-on: [ "${{ matrix.os }}", zio-http ]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Clean up
         id: clean_up
