@@ -19,7 +19,7 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
 
   private val STATIC_SERVER_NAME = "zio-http"
 
-  private val frozenJsonResponse = Response
+  private def frozenJsonResponse = Response
     .json(jsonMessage)
 //    .serverTime
     .addHeader(Header.Server(STATIC_SERVER_NAME))
@@ -35,7 +35,7 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
   private def jsonApp(json: Response): Routes[Any, Response] =
     Routes(Method.GET / jsonPath -> Handler.fromResponse(json))
 
-  val app: Routes[Any, Response] = plainTextApp(frozenPlainTextResponse) ++ jsonApp(frozenJsonResponse)
+  val app: Routes[Any, Response] = plainTextApp(frozenPlainTextResponse) ++ Routes(Method.GET / jsonPath -> Handler.fromResponse(frozenJsonResponse))// ++ jsonApp(frozenJsonResponse)
 
   private val config = Server.Config.default
     .port(8080)
