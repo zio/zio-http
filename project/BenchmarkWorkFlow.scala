@@ -56,6 +56,8 @@ object BenchmarkWorkFlow {
             "cd ./FrameworkBenchMarks",
             "cd ./frameworks/Scala/zio-http",
             "git init .",
+            "git config user.email 'benchamrk@example.com'",
+            "git config user.name 'ZIO Benchmark'",
             "git add build.sbt",
             "git commit -m 'initial commit'",
             "git tag v1.0.0",
