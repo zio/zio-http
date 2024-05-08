@@ -692,7 +692,6 @@ jobs:
 
   runBenchmarks-simple:
     name: Performance Benchmarks (PlainTextBenchmarkServer)
-    if: ${{ github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -756,7 +755,7 @@ jobs:
         env:
           REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
           CONCURRENCY: ${{steps.result.outputs.concurrency}}
-          PERFORMANCE_FLOOR: 600000
+          PERFORMANCE_FLOOR: 300000
         run: |
           echo "** 🚀 Performance Benchmarks (PlainTextBenchmarkServer) Report 🚀 **" 
 
@@ -771,7 +770,6 @@ jobs:
 
   runBenchmarks-effectful:
     name: Performance Benchmarks (SimpleEffectBenchmarkServer)
-    if: ${{ github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]

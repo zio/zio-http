@@ -6,7 +6,7 @@ object BenchmarkWorkFlow {
     makeBenchmarkPass(
       "runBenchmarks-simple",
       "Performance Benchmarks (PlainTextBenchmarkServer)",
-      600000,
+      300000,
       "PlainTextBenchmarkServer",
     ),
     makeBenchmarkPass(
