@@ -256,7 +256,6 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-
   // TODO: reimplement it on server settings level
 //  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
 //    val _ =
