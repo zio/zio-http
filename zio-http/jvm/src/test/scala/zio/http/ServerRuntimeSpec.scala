@@ -32,6 +32,8 @@ object ServerRuntimeSpec extends HttpRunnableSpec {
       Runtime.setUnhandledErrorLogLevel(LogLevel.Warning),
     )
 
+  private final class Foo
+
   override def spec =
     suite("ServerRuntimeSpec") {
       test("runtime flags are propagated") {
@@ -57,11 +59,16 @@ object ServerRuntimeSpec extends HttpRunnableSpec {
             .zipRight(server.deploy.body.run(path = Path.root / "test", method = Method.GET))
             .flatMap(_.asString(Charsets.Utf8))
             .map(b => assertTrue(b == "Some(LogLevel(30000,WARN,4))"))
-        } + test("environment contains only the specified services") {
-          final class Foo
+        } +
+        test("environment contains only the specified services") {
           val server = Routes(
             Method.GET / "test" -> handler(
-              ZIO.environment[Any].map(env => Response.text(env.size.toString)),
+              ZIO.environment[Any].flatMap { env =>
+                ZIO
+                  .fromOption(env.getDynamic[Foo])
+                  .orDieWith(_ => new Exception("Expected Foo to be in the environment"))
+                  .as(Response.text(env.size.toString))
+              },
             ),
           )
           ZIO
@@ -69,15 +76,15 @@ object ServerRuntimeSpec extends HttpRunnableSpec {
             .zipRight(server.deploy.body.run(path = Path.root / "test", method = Method.GET))
             .flatMap(_.asString(Charsets.Utf8))
             .map(b => assertTrue(b == "1"))
-            .provideSomeLayer[DynamicServer & Server.Config & Server & Client & Scope](ZLayer.succeed(new Foo))
         }
     }
-      .provideSomeLayer[DynamicServer & Server.Config & Server & Client](Scope.default)
-      .provideShared(
+      .provide(
         DynamicServer.live,
         Server.customized,
         ZLayer.succeed(Server.Config.default),
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         Client.default,
+        Scope.default,
+        ZLayer.succeed(new Foo),
       ) @@ sequential @@ withLiveClock
 }
