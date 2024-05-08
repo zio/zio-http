@@ -13,11 +13,6 @@ ThisBuild / githubWorkflowJavaVersions := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
   JavaSpec.temurin("8"),
 )
-
-ThisBuild / githubWorkflowBuild := Seq.empty
-ThisBuild / githubWorkflowPublish := Seq.empty
-ThisBuild / githubWorkflowArtifactUpload := false
-
 ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
@@ -25,16 +20,79 @@ ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Edited,
   PREventType.Labeled,
 )
-ThisBuild / githubWorkflowAddedJobs    := BenchmarkWorkFlow()
+ThisBuild / githubWorkflowAddedJobs    :=
+  Seq(
+    WorkflowJob(
+      id = "update_release_draft",
+      name = "Release Drafter",
+      steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
+      cond = Option("${{ github.base_ref == 'main' }}"),
+    ),
+  ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) // ++ BenchmarkWorkFlow()
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish       := Seq.empty
+ThisBuild / githubWorkflowPublish       :=
+  Seq(
+    WorkflowStep.Sbt(
+      List("ci-release"),
+      name = Some("Release"),
+      env = Map(
+        "PGP_PASSPHRASE"      -> "${{ secrets.PGP_PASSPHRASE }}",
+        "PGP_SECRET"          -> "${{ secrets.PGP_SECRET }}",
+        "SONATYPE_PASSWORD"   -> "${{ secrets.SONATYPE_PASSWORD }}",
+        "SONATYPE_USERNAME"   -> "${{ secrets.SONATYPE_USERNAME }}",
+        "CI_SONATYPE_RELEASE" -> "${{ secrets.CI_SONATYPE_RELEASE }}",
+      ),
+    ),
+    WorkflowStep.Sbt(
+      List("ci-release"),
+      name = Some("Release Shaded"),
+      env = Map(
+        Shading.env.PUBLISH_SHADED -> "true",
+        "PGP_PASSPHRASE"           -> "${{ secrets.PGP_PASSPHRASE }}",
+        "PGP_SECRET"               -> "${{ secrets.PGP_SECRET }}",
+        "SONATYPE_PASSWORD"        -> "${{ secrets.SONATYPE_PASSWORD }}",
+        "SONATYPE_USERNAME"        -> "${{ secrets.SONATYPE_USERNAME }}",
+        "CI_SONATYPE_RELEASE"      -> "${{ secrets.CI_SONATYPE_RELEASE }}",
+      ),
+    ),
+  )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble := Seq.empty
+ThisBuild / githubWorkflowBuildPreamble := Seq(
+  WorkflowStep.Run(
+    name = Some("Check formatting"),
+    commands = List(s"sbt ++${Scala213} fmtCheck"),
+    cond = Some(s"matrix.scala == '${Scala213}'"),
+  ),
+)
 
-ThisBuild / githubWorkflowBuildPostamble := Seq.empty
+ThisBuild / githubWorkflowBuildPostamble :=
+  WorkflowJob(
+    "checkDocGeneration",
+    "Check doc generation",
+    List(
+      WorkflowStep.Run(
+        commands = List(s"sbt ++${Scala213} doc"),
+        name = Some("Check doc generation"),
+        cond = Some("${{ github.event_name == 'pull_request' }}"),
+      ),
+    ),
+    scalas = List(Scala213),
+  ).steps ++
+    WorkflowJob(
+      id = "zio-http-shaded-tests",
+      name = "Test shaded version of zio-http",
+      steps = List(
+        WorkflowStep.Sbt(
+          name = Some("zio-http-shaded Tests"),
+          commands = List("zioHttpShadedTests/test"),
+          cond = Some(s"matrix.scala == '$Scala213'"),
+          env = Map(Shading.env.PUBLISH_SHADED -> "true"),
+        ),
+      ),
+    ).steps
 
 inThisBuild(
   List(
