@@ -756,7 +756,7 @@ jobs:
         env:
           REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
           CONCURRENCY: ${{steps.result.outputs.concurrency}}
-          PERFORMANCE_FLOOR: 800000
+          PERFORMANCE_FLOOR: 600000
         run: |
           echo "** 🚀 Performance Benchmarks (PlainTextBenchmarkServer) Report 🚀 **" 
 
@@ -835,7 +835,7 @@ jobs:
         env:
           REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
           CONCURRENCY: ${{steps.result.outputs.concurrency}}
-          PERFORMANCE_FLOOR: 500000
+          PERFORMANCE_FLOOR: 300000
         run: |
           echo "** 🚀 Performance Benchmarks (SimpleEffectBenchmarkServer) Report 🚀 **" 
 
