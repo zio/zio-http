@@ -270,8 +270,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-config"                        % "4.0.1",
-      "dev.zio" %% "zio-config-typesafe"               % "4.0.1",
+      "dev.zio" %% "zio-config"                        % "4.0.2",
+      "dev.zio" %% "zio-config-typesafe"               % "4.0.2",
       "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
       "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1",
     ),
@@ -323,13 +323,13 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       `jwt-core`,
       "dev.zio" %% "zio-test"   % ZioVersion,
-      "dev.zio" %% "zio-config" % "4.0.1",
+      "dev.zio" %% "zio-config" % "4.0.2",
     ),
     publish / skip                             := true,
     mdocVariables ++= Map(
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
-      "ZIO_VERSION" -> ZioVersion
-    )
+      "ZIO_VERSION"        -> ZioVersion,
+    ),
   )
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)
