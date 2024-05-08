@@ -56,6 +56,8 @@ object BenchmarkWorkFlow {
             "cd ./FrameworkBenchMarks",
             "cd ./frameworks/Scala/zio-http",
             "git init .",
+            "git add build.sbt",
+            "git commit -m 'initial commit'",
             "git tag v1.0.0",
             "git clone https://github.com/${{github.event.pull_request.head.repo.owner.login}}/zio-http.git",
             "cd zio-http",
