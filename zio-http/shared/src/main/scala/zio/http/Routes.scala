@@ -193,6 +193,13 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
       }
   }
 
+  /**
+   * A shortcut for `Server.install(routes) *> ZIO.never`
+   */
+  def serve(implicit ev: Err <:< Response, trace: Trace): URIO[Env with Server, Nothing] = {
+    Server.serve(self.handleError(_.asInstanceOf[Response]))
+  }
+
   def run(
     method: Method = Method.GET,
     path: Path = Path.root,
@@ -281,10 +288,6 @@ object Routes extends RoutesCompanionVersionSpecific {
 
   def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))
-
-  implicit class RouteOps[-Env, +Err <: Response](val routes: Routes[Env, Err]) extends AnyVal {
-    def serve: URIO[Env with Server, Nothing] = Server.serve(routes)
-  }
 
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
