@@ -25,11 +25,13 @@ libraryDependencies += "dev.zio" %% "zio-http" % "3.0.0-RC6"
 
 ZIO HTTP provides a simple and expressive API for building HTTP applications. It supports both server and client-side APIs. 
 
-ZIO HTTP‌ is designed in terms of **HTTP as function**, where both server and client are a function from `Request` to `Response`.
+ZIO HTTP is designed in terms of **HTTP as function**, where both server and client are a function from `Request` to `Response`.
 
 ### Greeting Server
 
-The following example demonstrates how to build a simple greeting server that responds with a greeting message based on the query parameter `name`.
+The following example demonstrates how to build a simple greeting server. It contains 2 routes: one on the root
+path, it responds with a fixed string, and one route on the path `/greet` that responds with a greeting message
+based on the query parameter `name`.
 
 ```scala
 import zio._
@@ -38,6 +40,7 @@ import zio.http._
 object GreetingServer extends ZIOAppDefault {
   val routes =
     Routes(
+      Method.GET / Root -> handler(Response.text("Greetings at your service")),
       Method.GET / "greet" -> handler { (req: Request) =>
         val name = req.queryParamToOrElse("name", "World")
         Response.text(s"Hello $name!")
@@ -69,12 +72,6 @@ object GreetingClient extends ZIOAppDefault {
   def run = app.provide(Client.default, Scope.default)
 }
 ```
-
-## Watch Mode
-
-We can use the [sbt-revolver] plugin to start the server and run it in watch mode using `~ reStart` command on the SBT console.
-
-[sbt-revolver]: https://github.com/spray/sbt-revolver
 
 ## Documentation
 
