@@ -10,6 +10,8 @@ const sidebars = {
       items: [
         "installation", 
 
+        
+
         // Reference section
         {
           type: "category",
