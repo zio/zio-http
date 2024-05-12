@@ -35,7 +35,8 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     val configLayer      = ZLayer.succeed(config)
     val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
-    (fooBar ++ app).serve
+    (fooBar ++ app)
+      .serve[Any]
       .provide(configLayer, nettyConfigLayer, Server.customized)
   }
 }

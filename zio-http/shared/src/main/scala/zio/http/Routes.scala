@@ -196,8 +196,12 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   /**
    * A shortcut for `Server.install(routes) *> ZIO.never`
    */
-  def serve(implicit ev: Err <:< Response, trace: Trace): URIO[Env with Server, Nothing] = {
-    Server.serve(self.handleError(_.asInstanceOf[Response]))
+  def serve[Env1 <: Env](implicit
+    ev: Err <:< Response,
+    trace: Trace,
+    tag: EnvironmentTag[Env1],
+  ): URIO[Env1 with Server, Nothing] = {
+    Server.serve[Env1](self.handleError(_.asInstanceOf[Response]))
   }
 
   def run(
