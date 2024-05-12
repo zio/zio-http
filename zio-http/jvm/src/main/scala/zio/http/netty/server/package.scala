@@ -29,7 +29,8 @@ package object server {
   private[server] object AppRef {
     val empty: UIO[AppRef] = {
       implicit val trace: Trace = Trace.empty
-      ZIO.runtime[Any].map(rt => new AtomicReference((Routes.empty, rt)))
+      // Environment will be populated when we `install` the app
+      ZIO.runtime[Any].map(rt => new AtomicReference((Routes.empty, rt.mapEnvironment(_ => ZEnvironment.empty))))
     }
   }
 

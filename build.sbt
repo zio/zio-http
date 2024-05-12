@@ -28,7 +28,7 @@ ThisBuild / githubWorkflowAddedJobs    :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
-  ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) // ++ BenchmarkWorkFlow()
+  ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
@@ -270,8 +270,9 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-config"                        % "4.0.2",
-      "dev.zio" %% "zio-config-typesafe"               % "4.0.2",
+      "dev.zio" %% "zio-config"                        % ZioConfigVersion,
+      "dev.zio" %% "zio-config-typesafe"               % ZioConfigVersion,
+      "dev.zio" %% "zio-config-magnolia"               % ZioConfigVersion,
       "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
       "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1",
     ),
@@ -323,13 +324,16 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       `jwt-core`,
       "dev.zio" %% "zio-test"   % ZioVersion,
-      "dev.zio" %% "zio-config" % "4.0.2",
+      "dev.zio" %% "zio-config" % ZioConfigVersion,
+      "dev.zio" %% "zio-config-magnolia" % ZioConfigVersion,
+      "dev.zio" %% "zio-config-typesafe" % ZioConfigVersion
     ),
     publish / skip                             := true,
     mdocVariables ++= Map(
+      "ZIO_VERSION" -> ZioVersion,
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
-      "ZIO_VERSION"        -> ZioVersion,
-    ),
+      "ZIO_CONFIG_VERSION" -> ZioConfigVersion,
+    )
   )
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)

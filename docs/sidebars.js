@@ -95,7 +95,15 @@ const sidebars = {
             },
           ],
         },
-
+        {
+          type: "category",
+          label: "Guides",
+          link: { type: "doc", id: "index" },
+          items: [
+            "guides/integration-with-zio-config",
+          ],
+        },
+        "faq",
         {
           // Subcategory: Tutorials 
           type: "category",
@@ -104,7 +112,6 @@ const sidebars = {
             "tutorials/testing-http-apps", 
           ],
         },
-        
         // Examples section
         {
           type: "category",
