@@ -15,6 +15,7 @@ import zio.http.gen.model._
 import zio.http.gen.openapi.EndpointGen
 
 import scala.meta._
+import scala.meta.internal.tokens.fixed
 import scala.util.{Failure, Success, Try}
 
 object CodeGenSpec extends ZIOSpecDefault {
@@ -234,7 +235,7 @@ object CodeGenSpec extends ZIOSpecDefault {
 
         val tempDir = Files.createTempDirectory("codegen")
 
-        CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", None)
+        CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(tempDir, "test/api/v1/Keywords.scala", "/EndpointWithRequestResponseBodyWithKeywordsInline.scala")
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3

@@ -74,10 +74,17 @@ object Code {
     schema: Boolean = true,
   ) extends ScalaType
 
-  final case class Field(name: String, fieldType: ScalaType) extends Code
+  sealed abstract case class Field private(name: String, fieldType: ScalaType) extends Code {
+    // only allow copy on fieldType, since name is mangled to be valid in smart constructor
+    def copy(fieldType: ScalaType): Field = new Field(name, fieldType) {}
+  }
 
   object Field {
-    def apply(name: String): Field = Field(name, ScalaType.Inferred)
+    def apply(name: String): Field = apply(name, ScalaType.Inferred)
+    def apply(name: String, fieldType: ScalaType): Field = {
+      // using scalameta to ensure name is valid (keywords wrapped with backticks)
+      new Field(scala.meta.Term.Name(name).syntax, fieldType){}
+    }
   }
 
   sealed trait Collection extends ScalaType {
