@@ -288,6 +288,7 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-test`,
       `zio-test-sbt`,
       scalafmt.cross(CrossVersion.for3Use2_13),
+      scalameta % Test,
     ),
   )
   .dependsOn(zioHttpJVM)
