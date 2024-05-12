@@ -22,7 +22,7 @@ ZIO HTTP provides built-in support for JSON serialization and deserialization us
 
 ### How Can I Handle CORS Requests in ZIO HTTP?
 
-ZIO has several middlewares including `CORS` that can be used to handle cross-origin resource sharing requests. Check out the [Middleware](./reference/aop/middleware) section in the documentation for more details.
+ZIO has several middlewares including `CORS` that can be used to handle cross-origin resource sharing requests. Check out the [Middleware](./reference/aop/middleware.md) section in the documentation for more details.
 
 ### How Does ZIO HTTP Handle Errors?
 
