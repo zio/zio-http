@@ -1,6 +1,6 @@
 ---
 id: testing-http-apps
-title: Testing HTTP Applications
+title: Testing ZIO HTTP Applications
 ---
 
 Testing HTTP applications is a critical part of the development process. Utilizing the ZIO Test we can write first-class tests for our HTTP applications.
