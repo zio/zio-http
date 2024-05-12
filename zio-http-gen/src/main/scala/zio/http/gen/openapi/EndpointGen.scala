@@ -238,7 +238,7 @@ final case class EndpointGen() {
               status = status,
               mediaType = Some("application/json"),
               doc = None,
-              false,
+              streaming = false,
             )
         case (OpenAPI.StatusOrDefault.StatusValue(status), OpenAPI.ReferenceOr.Or(response: OpenAPI.Response))    =>
           val (imports, code) =
@@ -284,7 +284,7 @@ final case class EndpointGen() {
             status = status,
             mediaType = Some("application/json"),
             doc = None,
-            false,
+            streaming = false,
           )
       }.unzip
 

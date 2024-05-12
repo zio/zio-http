@@ -1,11 +1,12 @@
 package zio.http.grpc
 
-import zio.http.gen.grpc.EndpointGen
+import scala.jdk.CollectionConverters._
+
+import zio.http.gen.grpc._
 import zio.http.gen.scala.{Code, CodeGen}
 
-import com.google.protobuf.Descriptors.FileDescriptor
-import com.google.protobuf.ExtensionRegistry
 import com.google.protobuf.compiler.PluginProtos.CodeGeneratorResponse
+import com.google.protobuf.{Descriptors, ExtensionRegistry}
 import protocgen.{CodeGenApp, CodeGenRequest, CodeGenResponse}
 import scalapb.compiler.{DescriptorImplicits, ProtobufGenerator}
 import scalapb.options.Scalapb
@@ -27,8 +28,8 @@ object ZIOHttpGRPCGen extends CodeGenApp {
         CodeGenResponse.fail(error)
     }
 
-  def fromProtobuf(file: FileDescriptor): Code.Files = {
-    EndpointGen.fromProtobuf(file)
+  def fromProtobuf(file: Descriptors.FileDescriptor): Code.Files = {
+    EndpointGen.fromProtobuf(fromDescriptor(file))
   }
 
   def fileToPluginCode(file: Code.File): CodeGeneratorResponse.File = {
@@ -62,6 +63,43 @@ object ZIOHttpGRPCGen extends CodeGenApp {
 
   def tpeToSchema(tpe: String): String = {
     s"\n\n implicit val ${tpe}Codec: Schema[$tpe] = DeriveSchema.gen[$tpe]"
+  }
+
+  def fromDescriptor(file: Descriptors.FileDescriptor): Protobuf.File = {
+    val deps    = file
+      .getDependencies()
+      .asScala
+      .toList
+      .map(_.getName())
+    val opt     = file.getOptions()
+    val pkg     = if (opt.hasJavaPackage() && opt.getJavaPackage() != "") opt.getJavaPackage() else file.getPackage()
+    val pkgPath = if (pkg == "") Nil else pkg.split('.').toList
+    val name0   =
+      if (opt.hasJavaOuterClassname() && opt.getJavaOuterClassname() != "") opt.getJavaOuterClassname()
+      else file.getName()
+    val name    = if (name0.endsWith(".proto")) name0.dropRight(6) else name0
+
+    def fromService(service: Descriptors.ServiceDescriptor): Protobuf.Service =
+      Protobuf.Service(
+        service.getName(),
+        service.getMethods.asScala.toList.map(fromMethod(_)),
+      )
+
+    def fromMethod(method: Descriptors.MethodDescriptor): Protobuf.Method =
+      Protobuf.Method(
+        method.getName(),
+        method.getInputType().getName(),
+        method.getOutputType().getName(),
+        method.isClientStreaming(),
+        method.isServerStreaming(),
+      )
+
+    Protobuf.File(
+      name,
+      pkgPath,
+      deps,
+      file.getServices().asScala.toList.map(fromService(_)),
+    )
   }
 
 }

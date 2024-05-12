@@ -289,7 +289,6 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-test`,
       `zio-test-sbt`,
       scalafmt.cross(CrossVersion.for3Use2_13),
-      "com.google.protobuf"                      % "protobuf-java"           % "4.26.1",
     ),
   )
   .settings(
@@ -312,6 +311,15 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.15" % "protobuf",
       "com.google.protobuf"  %  "protobuf-java"   % "4.26.1" % "protobuf"
     )
+  )
+  .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, n)) if n <= 12 =>
+          Seq(`scala-compact-collection`)
+        case _                       => Seq.empty
+      }
+    },
   )
   .dependsOn(zioHttpJVM, zioHttpGen)
 

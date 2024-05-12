@@ -1,43 +1,29 @@
 package zio.http.gen.grpc
 
-import scala.jdk.CollectionConverters._
-
 import zio.http.Method
 import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.ScalaType
 
-import com.google.protobuf.Descriptors
-
 object EndpointGen {
 
-  def fromProtobuf(protobuf: Descriptors.FileDescriptor): Code.Files = {
-    val imports = protobuf
-      .getDependencies()
-      .asScala
-      .toList
-      .map(_.getName())
+  def fromProtobuf(protobuf: Protobuf.File): Code.Files = {
+    val imports = protobuf.dependencies
       .flatMap(dep => Code.Import.FromBase(s"$dep._") :: Code.Import.FromBase(s"$dep.Schemas._") :: Nil)
-    val opt     = protobuf.getOptions()
-    val pkg  = if (opt.hasJavaPackage() && opt.getJavaPackage() != "") opt.getJavaPackage() else protobuf.getPackage()
-    val name =
-      if (opt.hasJavaOuterClassname() && opt.getJavaOuterClassname() != "") opt.getJavaOuterClassname()
-      else protobuf.getName()
-    val pkgPath = if (pkg == "") Nil else pkg.split('.').toList
 
     Code.Files {
-      protobuf.getServices().asScala.toList.map { s =>
-        fromService(s, pkgPath, if (name.endsWith(".proto")) name.dropRight(6) else name, imports)
+      protobuf.services.map { s =>
+        fromService(s, protobuf.pkgPath, protobuf.name, imports)
       }
     }
   }
 
   private def fromService(
-    service: Descriptors.ServiceDescriptor,
+    service: Protobuf.Service,
     pkg: List[String],
     name: String,
     imports: List[Code.Import],
   ): Code.File = {
-    val className = service.getName().capitalize
+    val className = service.name.capitalize
     val obj       = objFromService(service)
     Code.File(
       path = pkg ++ List(name, s"$className.scala"),
@@ -50,13 +36,13 @@ object EndpointGen {
     )
   }
 
-  private def objFromService(service: Descriptors.ServiceDescriptor): Code.Object = {
-    val name      = service.getName()
-    val endpoints = service.getMethods.asScala.toList.map { m =>
-      Code.Field(m.getName()) -> endpoint(name, m)
+  private def objFromService(service: Protobuf.Service): Code.Object = {
+    val name      = service.name
+    val endpoints = service.methods.map { m =>
+      Code.Field(m.name) -> endpoint(name, m)
     }
     val obj       = Code.Object(
-      name.capitalize,
+      name = name.capitalize,
       schema = false,
       endpoints = endpoints.toMap,
       objects = Nil,
@@ -68,23 +54,23 @@ object EndpointGen {
 
   private def endpoint(
     service: String,
-    method: Descriptors.MethodDescriptor,
+    method: Protobuf.Method,
   ): Code.EndpointCode = {
-    val pathSegments = List(service, method.getName()).map(Code.PathSegmentCode.apply)
+    val pathSegments = List(service, method.name).map(Code.PathSegmentCode.apply)
     val imports      = Nil
     val endpoint     = Code.EndpointCode(
       method = Method.POST,
       pathPatternCode = Code.PathPatternCode(pathSegments),
       queryParamsCode = Set.empty,
       headersCode = Code.HeadersCode.empty,
-      inCode = Code.InCode(method.getInputType().getName()).copy(streaming = method.isClientStreaming()),
+      inCode = Code.InCode(method.inputType).copy(streaming = method.clientStreaming),
       outCodes = List(
         Code.OutCode(
-          method.getOutputType().getName(),
-          zio.http.Status.Ok,
-          Some("application/grpc"),
-          None,
-          method.isServerStreaming(),
+          outType = method.outputType,
+          status = zio.http.Status.Ok,
+          mediaType = Some("application/grpc"),
+          doc = None,
+          streaming = method.serverStreaming,
         ),
       ),
       errorsCode = Nil,

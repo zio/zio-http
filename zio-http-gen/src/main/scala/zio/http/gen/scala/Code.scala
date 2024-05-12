@@ -133,7 +133,7 @@ object Code {
   }
   final case class QueryParamCode(name: String, queryType: CodecType)
   final case class HeadersCode(headers: List[HeaderCode])
-  object HeadersCode     { val empty: HeadersCode = HeadersCode(Nil)                             }
+  object HeadersCode     { val empty: HeadersCode = HeadersCode(Nil)                                         }
   final case class HeaderCode(name: String)
   final case class InCode(
     inType: String,
@@ -141,7 +141,7 @@ object Code {
     doc: Option[String],
     streaming: Boolean,
   )
-  object InCode          { def apply(inType: String): InCode = InCode(inType, None, None, false) }
+  object InCode          { def apply(inType: String): InCode = InCode(inType, None, None, streaming = false) }
   final case class OutCode(
     outType: String,
     status: Status,
@@ -150,8 +150,9 @@ object Code {
     streaming: Boolean,
   )
   object OutCode         {
-    def apply(outType: String, status: Status): OutCode = OutCode(outType, status, None, None, false)
-    def json(outType: String, status: Status): OutCode = OutCode(outType, status, Some("application/json"), None, false)
+    def apply(outType: String, status: Status): OutCode = OutCode(outType, status, None, None, streaming = false)
+    def json(outType: String, status: Status): OutCode  =
+      OutCode(outType, status, Some("application/json"), None, streaming = false)
   }
 
 }

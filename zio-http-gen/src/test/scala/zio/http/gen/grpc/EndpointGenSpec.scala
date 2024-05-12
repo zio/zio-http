@@ -15,59 +15,34 @@ import zio.http.gen.model._
 import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.Collection.Opt
 
-import com.google.protobuf.{DescriptorProtos, Descriptors}
-
 object EndpointGenSpec extends ZIOSpecDefault {
 
-  def toDescriptor(
-    file: DescriptorProtos.FileDescriptorProto,
-    imports: Array[Descriptors.FileDescriptor] = Array.empty,
-  ): Descriptors.FileDescriptor = {
-    Descriptors.FileDescriptor.buildFrom(file, imports, true)
-  }
-
-  def file(
+  def descriptor(
     name: String,
-    services: List[DescriptorProtos.ServiceDescriptorProto],
-  ): DescriptorProtos.FileDescriptorProto = {
-    val builder = DescriptorProtos.FileDescriptorProto.newBuilder
-    builder.setName(name)
-    builder.addAllService(services.toSeq.asJava)
-    builder.build
-  }
+    imports: List[Protobuf.File],
+    services: List[Protobuf.Service],
+  ): Protobuf.File =
+    Protobuf.File(
+      name,
+      List.empty,
+      imports.map(_.name),
+      services,
+    )
 
-  def service(
-    name: String,
-    methods: List[DescriptorProtos.MethodDescriptorProto],
-  ): DescriptorProtos.ServiceDescriptorProto = {
-    val builder = DescriptorProtos.ServiceDescriptorProto.newBuilder
-    builder.setName(name)
-    builder.addAllMethod(methods.toSeq.asJava)
-    builder.build
-  }
-
-  def method(name: String, in: String, out: String): DescriptorProtos.MethodDescriptorProto = {
-    val builder = DescriptorProtos.MethodDescriptorProto.newBuilder
-    builder.setName(name)
-    builder.setInputType(in)
-    builder.setOutputType(out)
-    builder.build
-  }
-
-  def protobuf(in: String, out: String, imports: Array[Descriptors.FileDescriptor] = Array.empty) =
-    toDescriptor(
-      file(
-        "api",
-        service(
-          "v1",
-          method(
-            "users",
-            in,
-            out,
-          ) :: Nil,
-        ) :: Nil,
-      ),
+  def protobuf(in: String, out: String, imports: List[Protobuf.File] = List.empty) =
+    descriptor(
+      "api",
       imports,
+      Protobuf.Service(
+        "v1",
+        Protobuf.Method(
+          "users",
+          in,
+          out,
+          false,
+          false,
+        ) :: Nil,
+      ) :: Nil,
     )
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -120,13 +95,12 @@ object EndpointGenSpec extends ZIOSpecDefault {
       },
       test("adding imports") {
         val dependency =
-          toDescriptor(
-            file(
-              "dep",
-              Nil,
-            ),
+          descriptor(
+            "dep",
+            Nil,
+            Nil,
           )
-        val scala      = EndpointGen.fromProtobuf(protobuf("Request", "Response", Array(dependency)))
+        val scala      = EndpointGen.fromProtobuf(protobuf("Request", "Response", List(dependency)))
         val expected   = Code.File(
           List("api", "V1.scala"),
           pkgPath = List("api"),
