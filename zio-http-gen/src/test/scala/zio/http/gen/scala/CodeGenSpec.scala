@@ -5,7 +5,8 @@ import java.nio.file._
 
 import scala.jdk.CollectionConverters._
 import scala.meta._
-import scala.meta.internal.tokens.fixed
+import scala.meta.parsers._
+import scala.meta.prettyprinters.XtensionSyntax
 import scala.util.{Failure, Success, Try}
 
 import zio.Scope
@@ -35,9 +36,12 @@ object CodeGenSpec extends ZIOSpecDefault {
 
   private def isValidScala(code: String): TestResult =
     assert(Try(code.parse[Source]))(Assertion[Try[Parsed[Source]]](TestArrow.make[Try[Parsed[Source]], Boolean] {
-      case Success(Parsed.Success(_))       => TestTrace.succeed(true)
-      case Success(Parsed.Error(_, err, _)) => TestTrace.fail(s"Invalid Scala syntax: $err")
-      case Failure(exception)               => TestTrace.fail(ErrorMessage.throwable(exception))
+      case Failure(failed) => TestTrace.fail(ErrorMessage.throwable(failed))
+      case Success(parsed) =>
+        parsed.fold(
+          e => TestTrace.fail(s"Invalid Scala syntax: ${e.message}"),
+          _ => TestTrace.succeed(true),
+        )
     }))
 
   private val java11OrNewer = {
