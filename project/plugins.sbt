@@ -12,3 +12,6 @@ addSbtPlugin("io.get-coursier"    % "sbt-shading"               % "2.1.4")
 addSbtPlugin("com.github.cb372"   % "sbt-explicit-dependencies" % "0.3.1")
 addSbtPlugin("org.scala-js"       % "sbt-scalajs"               % "1.16.0")
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject"  % "1.3.2")
+addSbtPlugin("com.thesamet"       % "sbt-protoc"                % "1.0.7")
+addSbtPlugin("com.thesamet"       % "sbt-protoc-gen-project"    % "0.1.8")
+libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.15"
