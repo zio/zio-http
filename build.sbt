@@ -118,6 +118,8 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpBenchmarks,
       zioHttpCli,
       zioHttpGen,
+      sbtZioHttpGrpc,
+      sbtZioHttpGrpcTests,
       zioHttpHtmx,
       zioHttpExample,
       zioHttpTestkit,
@@ -288,9 +290,67 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-test`,
       `zio-test-sbt`,
       scalafmt.cross(CrossVersion.for3Use2_13),
+      scalametaParsers.cross(CrossVersion.for3Use2_13).exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
     ),
   )
+  .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, n)) if n <= 12 =>
+          Seq(`scala-compact-collection`)
+        case _                       => Seq.empty
+      }
+    },
+  )
   .dependsOn(zioHttpJVM)
+
+lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
+  .settings(stdSettings("sbt-zio-http-grpc"))
+  .settings(publishSetting(true))
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.15",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.15" % "protobuf",
+      "com.google.protobuf"  %  "protobuf-java"   % "4.26.1" % "protobuf"
+    )
+  )
+  .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, n)) if n <= 12 =>
+          Seq(`scala-compact-collection`)
+        case _                       => Seq.empty
+      }
+    },
+  )
+  .dependsOn(zioHttpJVM, zioHttpGen)
+
+lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
+    .enablePlugins(LocalCodeGenPlugin)
+    .settings(stdSettings("sbt-zio-http-grpc-tests"))
+    .settings(publishSetting(false))
+    .settings(
+      Test / skip := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 12))),
+      libraryDependencies ++= Seq(
+        `zio-test-sbt`,
+        `zio-test`,
+        "com.google.protobuf"  % "protobuf-java"    % "4.26.1" % "protobuf",
+        "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.15" % "protobuf",
+      ),
+      Compile / run / fork := true,
+      testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+      Compile / PB.targets := {
+        if (CrossVersion.partialVersion(scalaVersion.value) == Some((2, 12)))
+          Seq(
+          scalapb.gen(grpc = false)      -> (Compile / sourceManaged).value,
+          genModule("zio.http.grpc.ZIOHttpGRPCGen$")-> (Compile / sourceManaged).value
+        ) 
+        else Seq.empty
+      },
+      codeGenClasspath     := (sbtZioHttpGrpc / Compile / fullClasspath).value
+    )
+    .dependsOn(zioHttpJVM, sbtZioHttpGrpc)
+    .disablePlugins(ScalafixPlugin)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .enablePlugins(Shading.plugins(): _*)
