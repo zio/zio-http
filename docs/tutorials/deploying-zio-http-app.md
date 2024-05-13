@@ -1,5 +1,5 @@
 ---
-id: deploying-zio-http-application
+id: deploying-zio-http-app
 title: Deploying ZIO HTTP Application 
 ---
 

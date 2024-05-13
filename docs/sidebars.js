@@ -12,17 +12,19 @@ const sidebars = {
 
         
 
-        // Reference section
+        // Concepts section
         {
           type: "category",
-          collapsed: true,
-          link: { type: "doc", id: "reference/index" },
-          label: "Reference",
+          // collapsed: true,
+          link: { type: "doc", id: "concepts/intro" },
+          label: "Concepts",
           items: [
-            "reference/overview",
-            "reference/server", 
-            "reference/client", 
-            "reference/endpoint", 
+            "concepts/client",
+            "concepts/endpoint", 
+            "concepts/middleware", 
+            "concepts/request-handling", 
+            "cocncepts/routing", 
+            "concepts/server", 
 
             // Routing subsection
             {
@@ -109,6 +111,8 @@ const sidebars = {
           type: "category",
           label: "Tutorials",
           items: [
+            "tutorials/your-first-zio-http-app", 
+            "tutorials/deploying-zio-http-app", 
             "tutorials/testing-http-apps", 
           ],
         },

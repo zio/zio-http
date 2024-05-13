@@ -99,5 +99,4 @@ Open your browser and visit http://localhost:8080/hello.
 
 You should see the response `Hello, ZIO HTTP!`.
 
-
 Congratulations! 🎉 You have successfully built your first ZIO HTTP application! 🚀 
