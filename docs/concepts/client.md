@@ -87,7 +87,6 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/ClientWithDecompression.scala")
 ```
-
 In this example, a GET request sends to the `https://jsonplaceholder.typicode.com`endpoint and extract the response body as a string using the `body.asString` method.
 
 **Simple Client Example**
