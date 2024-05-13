@@ -290,6 +290,7 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-test`,
       `zio-test-sbt`,
       scalafmt.cross(CrossVersion.for3Use2_13),
+      scalametaParsers.cross(CrossVersion.for3Use2_13).exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
     ),
   )
   .settings(
