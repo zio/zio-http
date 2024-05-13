@@ -65,7 +65,7 @@ For example, if we have three middlewares `f1, f2, f3`
 
 `f1 ++ f2 ++ f3` applies on an http, from left to right with f1 first followed by others, like this
 
- ```
+```
   f3(f2(f1(http)))
 ```
 #### A simple usage of `++` combinator
@@ -163,7 +163,7 @@ val loggingMiddleware = Middleware.debug
 val timeoutMiddleware = Middleware.timeout(5.seconds)
 
 // Compose middleware
-val composedMiddleware = authMiddleware ++ loggingMiddleware ++ timeoutMiddleware```
+val composedMiddleware = authMiddleware ++ loggingMiddleware ++ timeoutMiddleware
 ```
 ## Built-in Middlewares
 
@@ -318,7 +318,6 @@ val mid1: Middleware[Any, Nothing, Nothing, Any, Int, Int] =
     isFalse = i => Middleware.succeed(i - 1)
   )  // Pure functions
 
-val mid2
 ```
 
 ### References

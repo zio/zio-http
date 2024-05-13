@@ -7,23 +7,6 @@ title: "Client"
 
 ZIO HTTP empowers us to interact with remote HTTP servers by sending requests and handling responses. This enables us to build robust and scalable HTTP clients using ZIO's functional programming concepts.
 
-## Creating an HTTP Client
-
-ZIO HTTP provides an intuitive way to create HTTP clients using the `Client` class. This builder allows us to specify various configuration options(optionally) for the client, such as connection timeouts, proxy settings and SSL configurations.
-
-```scala mdoc:silent 
-
-import zio.http._
-import zio._
-
-val client: Client = Client()
-  .connectTimeout(Duration.fromMillis(5000))  // Set connection timeout to 5 seconds
-  .proxy("localhost", 8888)                 // Use proxy server on localhost:8888
-  .ssl()                                     // Enable SSL
-  .build
-```
-In this example, created an HTTP client with a connection timeout of 5 seconds, using a proxy server running on localhost at port 8888 and enabling SSL.
-
 ## Making HTTP Requests
 
 Once you have an HTTP client, you can use it to make various types of requests (GET, POST, PUT, DELETE, etc.) to external services. ZIO HTTP provides methods for constructing and sending requests.
@@ -35,7 +18,7 @@ import zio._
 
 val request = Request.get("https://api.example.com/data")
 
-val program: ZIO[Any, Throwable, Response] = client.send(request)
+val program: ZIO[Any, Throwable, Response] = Client.send(request)
 ```
 In this example,created a GET request to the `https://api.example.com/data` endpoint and send it using the HTTP client. The send method returns a Response representing the server's response to the request.
 
@@ -51,14 +34,14 @@ import zio._
 val request_data: Request = Request.get("https://api.example.com/data")
 
 val result: ZIO[Any, Throwable, String] =
-  client
+  Client
     .send(request_data)
     .flatMap(response => response.body.asString)
 ```
 
 In this example, a GET request sends to the `https://api.example.com/data `endpoint and extract the response body as a string using the `body.asString` method.
 
-**Example: Simple Client Example**
+**Simple Client Example**
 
 ```scala mdoc:passthrough
 import utils._
