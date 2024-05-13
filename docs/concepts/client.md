@@ -18,7 +18,7 @@ import zio._
 
 val request = Request.get("https://api.example.com/data")
 
-val program: ZIO[Any, Throwable, Response] = Client.send(request)
+val program: ZIO[Any, Throwable, Response] = ZClient.send(request)
 ```
 In this example,created a GET request to the `https://api.example.com/data` endpoint and send it using the HTTP client. The send method returns a Response representing the server's response to the request.
 
@@ -34,7 +34,7 @@ import zio._
 val request_data: Request = Request.get("https://api.example.com/data")
 
 val result: ZIO[Any, Throwable, String] =
-  Client
+  ZClient
     .send(request_data)
     .flatMap(response => response.body.asString)
 ```
