@@ -9,13 +9,14 @@ ZIO HTTP empowers us to interact with remote HTTP servers by sending requests an
 
 ## Creating an HTTP Client
 
-ZIO HTTP provides an intuitive way to create HTTP clients using the `HttpClientBuilder` class. This builder allows us to specify various configuration options(optionally) for the client, such as connection timeouts, proxy settings and SSL configurations.
+ZIO HTTP provides an intuitive way to create HTTP clients using the `Client` class. This builder allows us to specify various configuration options(optionally) for the client, such as connection timeouts, proxy settings and SSL configurations.
+
 ```scala mdoc:silent 
 
 import zio.http._
 import zio._
 
-val client: HttpClient = HttpClientBuilder()
+val client: Client = Client()
   .connectTimeout(Duration.fromMillis(5000))  // Set connection timeout to 5 seconds
   .proxy("localhost", 8888)                 // Use proxy server on localhost:8888
   .ssl()                                     // Enable SSL
@@ -32,8 +33,6 @@ Once you have an HTTP client, you can use it to make various types of requests (
 import zio.http._
 import zio._
 
-val client: HttpClient = ??? // Replace with your configured client
-
 val request = Request.get("https://api.example.com/data")
 
 val program: ZIO[Any, Throwable, Response] = client.send(request)
@@ -49,40 +48,22 @@ After sending a request, you can handle the response returned by the server. ZIO
 import zio.http._
 import zio._
 
-val client: HttpClient = ???
+val request_data: Request = Request.get("https://api.example.com/data")
 
-val request: Request = Request.get(uri"https://api.example.com/data")
-
-val program: ZIO[Any, Throwable, String] =
+val result: ZIO[Any, Throwable, String] =
   client
-    .send(request)
-    .flatMap(response => response.bodyAsString)
+    .send(request_data)
+    .flatMap(response => response.body.asString)
 ```
 
-In this example, a GET request sends to the `https://api.example.com/data `endpoint and extract the response body as a string using the `bodyAsString` method.
+In this example, a GET request sends to the `https://api.example.com/data `endpoint and extract the response body as a string using the `body.asString` method.
 
-**Example: Making a Simple HTTP Request**
+**Example: Simple Client Example**
 
-```scala mdoc:silent 
+```scala mdoc:passthrough
+import utils._
 
-import zio.http.model.headers.Headers
-import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
-import zio._
-
-object SimpleClient extends App {
-  val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
-  val url     = "http://sports.api.decathlon.com/groups/water-aerobics"
-  val headers = Headers.host("sports.api.decathlon.com")
-
-  val program = for {
-    res  <- Client.request(url, headers)
-    data <- res.bodyAsString
-    _    <- console.putStrLn { data }
-  } yield ()
-
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    program.exitCode.provideCustomLayer(env)
-}
+printSource("zio-http-example/src/main/scala/example/SimpleClient.scala")
 ```
 
 This example demonstrates how to create a simple HTTP client using ZIO HTTP to make requests to an external API. It sends a request to the specified URL with custom headers, retrieves the response body as a string and prints it to the console.
