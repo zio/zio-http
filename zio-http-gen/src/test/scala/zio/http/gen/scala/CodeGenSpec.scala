@@ -2,10 +2,16 @@ package zio.http.gen.scala
 
 import java.io.File
 import java.nio.file._
+
 import scala.jdk.CollectionConverters._
+import scala.meta._
+import scala.meta.internal.tokens.fixed
+import scala.util.{Failure, Success, Try}
+
 import zio.Scope
 import zio.test.TestAspect.flaky
 import zio.test._
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
@@ -14,18 +20,14 @@ import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.EndpointGen
 
-import scala.meta._
-import scala.meta.internal.tokens.fixed
-import scala.util.{Failure, Success, Try}
-
 object CodeGenSpec extends ZIOSpecDefault {
 
   private def fileShouldBe(dir: java.nio.file.Path, subPath: String, expectedFile: String): TestResult = {
-    val filePath      = dir.resolve(Paths.get(subPath))
-    val generated     = Files.readAllLines(filePath).asScala.mkString("\n")
+    val filePath  = dir.resolve(Paths.get(subPath))
+    val generated = Files.readAllLines(filePath).asScala.mkString("\n")
     isValidScala(generated) && {
-      val url = getClass.getResource(expectedFile)
-      val expected = java.nio.file.Paths.get(url.toURI.getPath)
+      val url           = getClass.getResource(expectedFile)
+      val expected      = java.nio.file.Paths.get(url.toURI.getPath)
       val expectedLines = Files.readAllLines(expected).asScala.mkString("\n")
       assertTrue(generated == expectedLines)
     }
@@ -229,7 +231,10 @@ object CodeGenSpec extends ZIOSpecDefault {
       },
       test("OpenAPI spec with inline schema request and response body containing scala keywords") {
         val openAPIString =
-          Files.readAllLines(Paths.get(getClass.getResource("/inline_schema_with_keywords.json").toURI)).asScala.mkString("\n")
+          Files
+            .readAllLines(Paths.get(getClass.getResource("/inline_schema_with_keywords.json").toURI))
+            .asScala
+            .mkString("\n")
         val openAPI       = OpenAPI.fromJson(openAPIString).getOrElse(OpenAPI.empty)
         val code          = EndpointGen.fromOpenAPI(openAPI)
 

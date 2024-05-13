@@ -80,10 +80,63 @@ object Code {
   }
 
   object Field {
+
+    // copied from scalameta scala.meta.tokens.Token (lines 55-99)
+    // I tried using `scala.meta.Term.Name(name).syntax`,
+    // but cross version build seems to be broken for scala 3 when scalameta dependency is added.
+    // Perhaps reflection can be used instead of manually hard coding the full list of keywords,
+    // but probably not worth the hassle…
+    private[this] val keywords = Set(
+      "abstract",
+      "case",
+      "catch",
+      "class",
+      "def",
+      "do",
+      "else",
+      "enum",
+      "export",
+      "extends",
+      "false",
+      "final",
+      "finally",
+      "for",
+      "forSome",
+      "given",
+      "if",
+      "implicit",
+      "import",
+      "lazy",
+      "match",
+      "macro",
+      "new",
+      "null",
+      "object",
+      "override",
+      "package",
+      "private",
+      "protected",
+      "return",
+      "sealed",
+      "super",
+      "then",
+      "this",
+      "throw",
+      "trait",
+      "true",
+      "try",
+      "type",
+      "val",
+      "var",
+      "while",
+      "with",
+      "yield",
+    )
+
     def apply(name: String): Field                       = apply(name, ScalaType.Inferred)
     def apply(name: String, fieldType: ScalaType): Field = {
-      // using scalameta to ensure name is valid (keywords wrapped with backticks)
-      new Field(scala.meta.Term.Name(name).syntax, fieldType) {}
+      val validScalaTermName = if (keywords(name)) s"`$name`" else name
+      new Field(validScalaTermName, fieldType) {}
     }
   }
 
