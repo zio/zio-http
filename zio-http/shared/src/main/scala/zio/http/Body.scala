@@ -238,10 +238,13 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] =
-    ZIO.succeed(file.length()).map { fileSize =>
-      FileBody(file, chunkSize, fileSize)
+  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
+    ZIO.blocking {
+      ZIO.succeed(file.length()).map { fileSize =>
+        FileBody(file, chunkSize, fileSize)
+      }
     }
+  }
 
   /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
