@@ -82,10 +82,12 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       ),
       suite("unreadable file")(
         test("should respond with 500") {
-          val tmpFile = File.createTempFile("test", "txt")
-          tmpFile.setReadable(false)
-          val res     = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy.run().map(_.status)
-          assertZIO(res)(equalTo(Status.Forbidden))
+          ZIO.blocking {
+            val tmpFile = File.createTempFile("test", "txt")
+            tmpFile.setReadable(false)
+            val res     = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy.run().map(_.status)
+            assertZIO(res)(equalTo(Status.Forbidden))
+          }
         } @@ unix,
       ),
       suite("invalid file")(

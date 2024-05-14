@@ -476,7 +476,7 @@ object Body {
                 else ZIO.fail(None)
             } yield bytes
           }
-          .ensuring(ZIO.succeed(fs.close()))
+          .ensuring(ZIO.attemptBlocking(fs.close()).ignoreLogged)
       }.flattenChunks
 
     override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
