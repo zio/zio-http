@@ -118,6 +118,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
             .mapZIO { field =>
               fieldQueue.offer(Take.single(field))
             }
+        // FIXME: .blocking here is temporary until we figure out a better way to avoid running effects within mapAccumImmediate
         _ <- ZIO
           .blocking(reader.runDrain)
           .catchAllCause(cause => fieldQueue.offer(Take.failCause(cause)))
