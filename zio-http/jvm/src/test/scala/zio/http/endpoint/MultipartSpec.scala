@@ -271,6 +271,6 @@ object MultipartSpec extends ZIOHttpSpec {
           )
         }
       },
-    ) @@ TestAspect.blocking,
+    ),
   )
 }
