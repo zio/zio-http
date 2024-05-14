@@ -11,7 +11,9 @@ val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 // CI Configuration
 ThisBuild / githubWorkflowJavaVersions := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
-  JavaSpec.temurin("8"),
+  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
+  JavaSpec.temurin("17"),
+  JavaSpec.temurin("21"),
 )
 ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
@@ -130,11 +132,11 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
-  .aggregate(aggregatedProjects: _*)
+  .aggregate(aggregatedProjects *)
 
 lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-http"))
-  .enablePlugins(Shading.plugins(): _*)
+  .enablePlugins(Shading.plugins() *)
   .settings(stdSettings("zio-http"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
@@ -353,7 +355,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     .disablePlugins(ScalafixPlugin)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
-  .enablePlugins(Shading.plugins(): _*)
+  .enablePlugins(Shading.plugins() *)
   .settings(stdSettings("zio-http-testkit"))
   .settings(publishSetting(true))
   .settings(Shading.shadingSettings())
