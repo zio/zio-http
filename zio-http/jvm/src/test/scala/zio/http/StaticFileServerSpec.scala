@@ -32,10 +32,14 @@ object StaticFileServerSpec extends HttpRunnableSpec {
 
   private val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
   private val resourceOk       =
-    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).sandbox.toRoutes.deploy
+    Handler
+      .fromResourceWithURL(new java.net.URI(s"jar:file:$testArchivePath!/TestFile.txt").toURL)
+      .sandbox
+      .toRoutes
+      .deploy
   private val resourceNotFound =
     Handler
-      .fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt"))
+      .fromResourceWithURL(new java.net.URI(s"jar:file:$testArchivePath!/NonExistent.txt").toURL)
       .sandbox
       .toRoutes
       .deploy
@@ -78,10 +82,12 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       ),
       suite("unreadable file")(
         test("should respond with 500") {
-          val tmpFile = File.createTempFile("test", "txt")
-          tmpFile.setReadable(false)
-          val res     = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy.run().map(_.status)
-          assertZIO(res)(equalTo(Status.Forbidden))
+          ZIO.blocking {
+            val tmpFile = File.createTempFile("test", "txt")
+            tmpFile.setReadable(false)
+            val res     = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy.run().map(_.status)
+            assertZIO(res)(equalTo(Status.Forbidden))
+          }
         } @@ unix,
       ),
       suite("invalid file")(

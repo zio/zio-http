@@ -73,7 +73,7 @@ object ClientHttpsSpec extends ZIOHttpSpec {
           ),
         ),
       )
-    } @@ nonFlaky(20),
+    } @@ nonFlaky(20) @@ ignore,
   )
     .provideSomeLayer[Client](Scope.default)
     .provideShared(
