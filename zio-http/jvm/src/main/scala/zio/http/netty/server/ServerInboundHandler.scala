@@ -174,7 +174,7 @@ private[zio] final case class ServerInboundHandler(
         upgradeToWebSocket(ctx, jRequest, socketApp, runtime)
         None
       case _                                                                        =>
-        val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
+        val jResponse = NettyResponseEncoder.encode(response)
 
         if (!jResponse.isInstanceOf[FullHttpResponse]) {
 
@@ -276,12 +276,14 @@ private[zio] final case class ServerInboundHandler(
   ): Unit = {
     jReq match {
       case jReq: FullHttpRequest =>
-        val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
-        runtime.runtime(ctx).unsafe.run {
-          val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
-          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
-          webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
-        }
+        val queue =
+          runtime.unsafeRunSync {
+            Queue.unbounded[WebSocketChannelEvent].tap { queue =>
+              val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
+              val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+              webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
+            }
+          }
         ctx
           .channel()
           .pipeline()
