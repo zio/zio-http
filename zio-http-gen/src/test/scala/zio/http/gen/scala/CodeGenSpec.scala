@@ -2,14 +2,17 @@ package zio.http.gen.scala
 
 import java.io.File
 import java.nio.file._
+
 import scala.jdk.CollectionConverters._
 import scala.meta._
 import scala.meta.parsers._
 import scala.meta.prettyprinters.XtensionSyntax
 import scala.util.{Failure, Success, Try}
+
 import zio.Scope
 import zio.test.TestAspect.{blocking, flaky}
 import zio.test._
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
