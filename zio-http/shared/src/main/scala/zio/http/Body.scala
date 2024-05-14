@@ -238,10 +238,11 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] =
-    ZIO.succeed(file.length()).map { fileSize =>
+  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
+    ZIO.attemptBlocking(file.length()).orDie.map { fileSize =>
       FileBody(file, chunkSize, fileSize)
     }
+  }
 
   /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
@@ -446,10 +447,9 @@ object Body {
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
-      with UnsafeBytes {
+      with UnsafeWriteable {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attempt {
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attemptBlocking {
       Files.readAllBytes(file.toPath)
     }
 
@@ -464,8 +464,8 @@ object Body {
       ZStream.unwrap {
         for {
           file <- ZIO.attempt(file)
-          fs   <- ZIO.attempt(new FileInputStream(file))
-          size = Math.min(chunkSize.toLong, file.length()).toInt
+          fs   <- ZIO.attemptBlocking(new FileInputStream(file))
+          size <- ZIO.attemptBlocking(Math.min(chunkSize.toLong, file.length()).toInt)
         } yield ZStream
           .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
             for {
@@ -476,11 +476,8 @@ object Body {
                 else ZIO.fail(None)
             } yield bytes
           }
-          .ensuring(ZIO.succeed(fs.close()))
+          .ensuring(ZIO.attemptBlocking(fs.close()).ignoreLogged)
       }.flattenChunks
-
-    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
-      Files.readAllBytes(file.toPath)
 
     override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
 
