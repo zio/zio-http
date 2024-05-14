@@ -314,5 +314,5 @@ object FormSpec extends ZIOHttpSpec {
     ) @@ sequential
 
   def spec =
-    suite("FormSpec")(urlEncodedSuite, multiFormSuite, multiFormStreamingSuite) @@ blocking
+    suite("FormSpec")(urlEncodedSuite, multiFormSuite, multiFormStreamingSuite)
 }
