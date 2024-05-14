@@ -239,7 +239,7 @@ object Body {
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
   def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
-    ZIO.succeed(file.length()).map { fileSize =>
+    ZIO.attemptBlocking(file.length()).orDie.map { fileSize =>
       FileBody(file, chunkSize, fileSize)
     }
   }
@@ -465,7 +465,7 @@ object Body {
         for {
           file <- ZIO.attempt(file)
           fs   <- ZIO.attemptBlocking(new FileInputStream(file))
-          size = Math.min(chunkSize.toLong, file.length()).toInt
+          size <- ZIO.attemptBlocking(Math.min(chunkSize.toLong, file.length()).toInt)
         } yield ZStream
           .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
             for {
