@@ -51,7 +51,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
         buffer     <- ZIO.succeed(new Buffer(bufferSize))
         abort      <- Promise.make[Nothing, Unit]
         fieldQueue <- Queue.bounded[Take[Throwable, FormField]](4)
-        reader = {
+        reader =
           source
             .mapAccumImmediate(initialState) { (state, byte) =>
               def handleBoundary(ast: Chunk[FormAST]): (StreamingForm.State, Option[FormField]) =
@@ -74,10 +74,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                     case Some(queue) =>
                       val takes = buffer.addByte(crlfBoundary, byte)
                       if (takes.nonEmpty) {
-                        // TODO: Temporary; need to come up with a better approach
-                        concurrent.blocking {
-                          runtime.unsafe.run(queue.offerAll(takes).raceFirst(abort.await))
-                        }.getOrThrowFiberFailure()
+                        runtime.unsafe.run(queue.offerAll(takes).raceFirst(abort.await)).getOrThrowFiberFailure()
                       }
                     case None        =>
                   }
@@ -90,21 +87,17 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                       ) {
                         val contentType = FormField.getContentType(newFormState.tree)
                         if (contentType.binary) {
-                          // TODO: Temporary; need to come up with a better approach
-                          concurrent.blocking {
-                            runtime.unsafe.run {
-                              for {
-                                newQueue          <- Queue.bounded[Take[Nothing, Byte]](3)
-                                _                 <- newQueue.offer(Take.chunk(newFormState.tree.collect {
-                                  case FormAST.Content(bytes) =>
-                                    bytes
-                                }.flatten))
-                                streamingFormData <- FormField
-                                  .incomingStreamingBinary(newFormState.tree, newQueue)
-                                  .mapError(_.asException)
-                                nextState = state.withCurrentQueue(newQueue)
-                              } yield (nextState, Some(streamingFormData))
-                            }
+                          runtime.unsafe.run {
+                            for {
+                              newQueue <- Queue.bounded[Take[Nothing, Byte]](3)
+                              _ <- newQueue.offer(Take.chunk(newFormState.tree.collect { case FormAST.Content(bytes) =>
+                                bytes
+                              }.flatten))
+                              streamingFormData <- FormField
+                                .incomingStreamingBinary(newFormState.tree, newQueue)
+                                .mapError(_.asException)
+                              nextState = state.withCurrentQueue(newQueue)
+                            } yield (nextState, Some(streamingFormData))
                           }.getOrThrowFiberFailure()
                         } else {
                           val nextState = state.withInNonStreamingPart(true)
@@ -125,12 +118,11 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
             .mapZIO { field =>
               fieldQueue.offer(Take.single(field))
             }
-        }
-        _ <- reader.runDrain.catchAllCause { cause =>
-          fieldQueue.offer(Take.failCause(cause))
-        }.ensuring(
-          fieldQueue.offer(Take.end),
-        ).forkScoped
+        _ <- ZIO
+          .blocking(reader.runDrain)
+          .catchAllCause(cause => fieldQueue.offer(Take.failCause(cause)))
+          .ensuring(fieldQueue.offer(Take.end))
+          .forkScoped
           .interruptible
         _ <- Scope.addFinalizerExit { exit =>
           // If the fieldStream fails, we need to make sure the reader stream can be interrupted, as it may be blocked
