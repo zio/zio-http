@@ -17,6 +17,8 @@
 package zio.http
 import java.nio.charset._
 
+import scala.util.Try
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -145,7 +147,7 @@ object FormField {
   private[http] def fromFormAST(
     ast: Chunk[FormAST],
     defaultCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): ZIO[Any, FormDecodingError, FormField] = {
+  ): Either[FormDecodingError, FormField] = {
     val extract =
       ast.foldLeft(
         (
@@ -167,11 +169,12 @@ object FormField {
       }
 
     for {
-      disposition <- ZIO.fromOption(extract._1).orElseFail(FormDataMissingContentDisposition)
-      name        <- ZIO.fromOption(extract._1.flatMap(_.fields.get("name"))).orElseFail(ContentDispositionMissingName)
-      charset     <- ZIO
-        .attempt(extract._2.flatMap(x => x.fields.get("charset").map(Charset.forName)).getOrElse(defaultCharset))
-        .mapError(e => InvalidCharset(e.getMessage))
+      disposition <- extract._1.toRight(FormDataMissingContentDisposition)
+      name        <- extract._1.flatMap(_.fields.get("name")).toRight(ContentDispositionMissingName)
+      charset     <-
+        Try {
+          extract._2.flatMap(x => x.fields.get("charset").map(Charset.forName)).getOrElse(defaultCharset)
+        }.toEither.left.map(e => InvalidCharset(e.getMessage))
       contentParts     = extract._4.tail // Skip the first empty line
       content          = contentParts.foldLeft(Chunk.empty[Byte])(_ ++ _.bytes)
       contentType      = extract._2
