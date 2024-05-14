@@ -2,6 +2,9 @@ package zio.http.gen.scala
 
 import java.nio.file.Path
 
+import scala.meta.Term
+import scala.meta.prettyprinters.XtensionSyntax
+
 import zio.http.{Method, Status}
 
 sealed trait Code extends Product with Serializable
@@ -74,10 +77,18 @@ object Code {
     schema: Boolean = true,
   ) extends ScalaType
 
-  final case class Field(name: String, fieldType: ScalaType) extends Code
+  sealed abstract case class Field private (name: String, fieldType: ScalaType) extends Code {
+    // only allow copy on fieldType, since name is mangled to be valid in smart constructor
+    def copy(fieldType: ScalaType): Field = new Field(name, fieldType) {}
+  }
 
   object Field {
-    def apply(name: String): Field = Field(name, ScalaType.Inferred)
+
+    def apply(name: String): Field                       = apply(name, ScalaType.Inferred)
+    def apply(name: String, fieldType: ScalaType): Field = {
+      val validScalaTermName = Term.Name(name).syntax
+      new Field(validScalaTermName, fieldType) {}
+    }
   }
 
   sealed trait Collection extends ScalaType {
@@ -133,23 +144,26 @@ object Code {
   }
   final case class QueryParamCode(name: String, queryType: CodecType)
   final case class HeadersCode(headers: List[HeaderCode])
-  object HeadersCode     { val empty: HeadersCode = HeadersCode(Nil)                      }
+  object HeadersCode     { val empty: HeadersCode = HeadersCode(Nil)                                         }
   final case class HeaderCode(name: String)
   final case class InCode(
     inType: String,
     name: Option[String],
     doc: Option[String],
+    streaming: Boolean,
   )
-  object InCode          { def apply(inType: String): InCode = InCode(inType, None, None) }
+  object InCode          { def apply(inType: String): InCode = InCode(inType, None, None, streaming = false) }
   final case class OutCode(
     outType: String,
     status: Status,
     mediaType: Option[String],
     doc: Option[String],
+    streaming: Boolean,
   )
   object OutCode         {
-    def apply(outType: String, status: Status): OutCode = OutCode(outType, status, None, None)
-    def json(outType: String, status: Status): OutCode  = OutCode(outType, status, Some("application/json"), None)
+    def apply(outType: String, status: Status): OutCode = OutCode(outType, status, None, None, streaming = false)
+    def json(outType: String, status: Status): OutCode  =
+      OutCode(outType, status, Some("application/json"), None, streaming = false)
   }
 
 }
