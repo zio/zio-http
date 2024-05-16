@@ -40,7 +40,6 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 
 The `@@` operator is used to attach middleware to an `Http` app. It allows you to chain multiple middleware functions for a sequence of transformations.
 
-
 Chaining middleware empowers you to build complex application behaviours by composing simpler middleware functions. This modular approach promotes code maintainability and reusability.
 
 ## Combining Middlewares
@@ -79,19 +78,7 @@ For example, if we have three middlewares `f1, f2, f3`
 
 * **when** to conditionally run a middleware (input of output Http meets some criteria)
 
-**Example: Composing Middleware**
 
-```scala mdoc:silent 
-import zio.http.Middleware
-
-// Define middleware functions
-val authMiddleware = Middleware.basicAuth("user", "password")
-val loggingMiddleware = Middleware.debug
-val timeoutMiddleware = Middleware.timeout(5.seconds)
-
-// Compose middleware
-val composedMiddleware = authMiddleware ++ loggingMiddleware ++ timeoutMiddleware
-```
 ## Built-in Middlewares
 
 ZIO HTTP provides a collection of built-in middleware functions such as authentication, logging, request validation and more. Some of the out-of-the-box middleware functions include:
@@ -110,63 +97,3 @@ ZIO HTTP provides a collection of built-in middleware functions such as authenti
 * **Middleware.addHeader:** Adds custom headers to outgoing responses.
 * **Middleware.cors:** Handles Cross-Origin Resource Sharing (CORS) for HTTP endpoints.
 * **Middleware.csrf:** Provides protection against Cross-Site Request Forgery (CSRF) attacks.
-
-## Creating Custom Middleware
-
-ZIO HTTP provides the flexibility to create custom middleware functions using the `Middleware.patchZIO` function. This allows to tailor middleware behavior to your application's specific needs.
-
-ZIO HTTP provides several helpful functions to construct custom middleware:
-
-* **identity:** Acts as a no-op, returning the input Http without any modifications, similar to the mathematical identity function.
-
-* **succeed:** Creates a middleware that always returns a successful Http with a specified value.
-
-
-* **fail:** Creates a middleware that always returns a failing Http with a provided error message.
-
-* **collect:** Constructs middleware using a function that takes an Http object and returns a middleware to be applied.
-
-* **collectZIO:** Similar to collect, but uses an effectful function (a ZIO effect) to create the middleware to be applied.
-
-* **codec:** Creates middleware for custom encoding and decoding between request/response types. It takes two functions: a decoder (converts input type to request) and an encoder (converts response to output type).
-
-* **fromHttp:** Constructs middleware from a predefined Http object.
- 
-## Transforming Middleware (Advanced Techniques)
-
-ZIO HTTP offers powerful ways to transform existing middleware functions, enabling to create more complex processing pipelines. Here's a breakdown of key transformation techniques:
-
-#### Transforming Output Type
-
-* **map and mapZIO**: These functions allows to modify the output type of the `Http` object produced by a middleware function.
-
-   - **map:** Takes a pure function that transforms the output value.
-  - **mapZIO:** Takes an effectful function (a `ZIO` effect) that transforms the output value.
-
-```scala mdoc:silent 
-val mid1: Middleware[Any, Nothing, Nothing, Any, Any, String] = middleware.map((i: Int) => i.toString)  // Pure transformation
-val mid2: Middleware[Any, Nothing, Nothing, Any, Any, String] = middleware.mapZIO((i: Int) => ZIO.succeed(s"$i"))  // Effectful transformation
-```
-
-#### Transforming Input Type
-
-* **contramap and contramapZIO:** These functions are used to modify the input type of the Http object a middleware function accepts.
-  - **contramap:** Takes a pure function that transforms the input value.
-  - **contramapZIO:** Takes an effectful function (a ZIO effect) that transforms the input value
-
-```scala mdoc:silent 
-val mid1: Middleware[Any, Nothing, Int, Int, String, Int] = middleware.contramap[String](_.toInt)  // Pure transformation
-val mid2: Middleware[Any, Nothing, Int, Int, String, Int] = middleware.contramapZIO[String](a => UIO(a.toInt)) // Effectful transformation
-```
-
-### Conditional Application for Middlewares
-
-* **when and whenZIO:** These functions conditionally apply a middleware based on a predicate function. They only execute the middleware if the predicate evaluates to `true`.
-  - **when:** Takes a pure predicate function.
-  - **whenZIO:** Takes an effectful predicate function (a `ZIO` effect).
-
-#### Logical Operators for Middleware Selection
-
-* **ifThenElse and ifThenElseZIO:** These functions allow you to select a middleware based on a predicate. They work similarly to the if-else construct in programming languages.
-  - **ifThenElse:** Takes pure functions for the `true` and `false` branches.
-  - **ifThenElseZIO:** Takes effectful functions (ZIO effects) for the `true` and `false` branches.
