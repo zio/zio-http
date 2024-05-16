@@ -27,16 +27,3 @@ Routes in ZIO HTTP can be defined to match specific paths and HTTP methods, allo
 ### Combining Routes
 
 ZIO HTTP allows you to combine multiple routes using the `++` operator. This enables you to build complex routing structures for your application.
-
-## Simple Routing Example
-
-To define routes in ZIO HTTP, you can use the `Http.collect` method, which accepts a partial function from requests to responses. Here's an example demonstrating how to create routes for a "Hello, World!" application:
-
-```scala mdoc:silent
-import zio.http._
-
-val app = Http.collect[Request] {
-  case Method.GET -> Root / "hello" => Response.text("Hello, World!")
-}
-```
-In this example, we define a simple HTTP route that responds with "Hello, World!" when a GET request is received for the `/hello` endpoint.

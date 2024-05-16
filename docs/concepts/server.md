@@ -43,19 +43,4 @@ ZIO HTTP allows us to configure server according to various parameters such as h
 - Middleware can be applied to the server to handle cross-cutting concerns such as logging, authentication, and error handling.
 - Middleware functions can be chained and composed to create complex behaviour.
 
-## Simple Server Example
-
-```scala mdoc:silent
-import zio._
-import zio.http._
-
-val app: HttpApp[Any, Nothing] =
-  Http.collect[Request] {
-    case Method.GET -> !! / "hello" => Response.text("Hello, World!")
-  }
-
-val run = Server.start(8080, app)
-```
-In this example, we created a simple HTTP server that listens on port 8080 and responds with "Hello, World!" to GET requests on the `/hello` path.
-
 

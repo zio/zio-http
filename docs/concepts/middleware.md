@@ -111,25 +111,6 @@ ZIO HTTP provides a collection of built-in middleware functions such as authenti
 * **Middleware.cors:** Handles Cross-Origin Resource Sharing (CORS) for HTTP endpoints.
 * **Middleware.csrf:** Provides protection against Cross-Site Request Forgery (CSRF) attacks.
 
-
-## Simple Middleware Example
-
-```scala mdoc:silent
-import zio._
-import zio.http._
-import zio.http.middleware._
-
-val loggingMiddleware: Middleware[Any, Nothing] =
-  Middleware.log
-
-val app: HttpApp[Any, Nothing] =
-  Http.collect[Request] {
-    case Method.GET -> !! / "hello" => Response.text("Hello, World!")
-  } @@ loggingMiddleware
-
-val run = Server.start(8080, app)
-```
-
 ## Creating Custom Middleware
 
 ZIO HTTP provides the flexibility to create custom middleware functions using the `Middleware.patchZIO` function. This allows to tailor middleware behavior to your application's specific needs.
@@ -188,6 +169,4 @@ val mid2: Middleware[Any, Nothing, Int, Int, String, Int] = middleware.contramap
 
 * **ifThenElse and ifThenElseZIO:** These functions allow you to select a middleware based on a predicate. They work similarly to the if-else construct in programming languages.
   - **ifThenElse:** Takes pure functions for the `true` and `false` branches.
-  - **ifThenElseZIO:** Takes effectful functions (ZIO effects) for the `true` and `false` branches
-
-
+  - **ifThenElseZIO:** Takes effectful functions (ZIO effects) for the `true` and `false` branches.

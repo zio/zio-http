@@ -62,27 +62,6 @@ ZIO HTTP empowers us to interact with remote HTTP servers by sending requests an
 - **SSL/TLS Support**: Provides secure communication with built-in SSL/TLS support.
 - **Integration with ZIO Ecosystem**: Works seamlessly with other ZIO modules for a cohesive functional approach.
 
-## Simple Client Example
-
-```scala mdoc:silent
-import zio.http._
-import zio._
-
-val url = URL.decode("https://api.example.com/data")
-
-val request = Request.get(url)
-
-val program = for {
-  client <- ZIO.service[Client]
-  response <- client.request(request)
-  body <- response.body.asString
-  _ <- Console.printLine(body)
-} yield ()
-
-val run = program.provide(Client.default, Scope.default)
-```
-
-In this example, we created a simple GET request to the https://api.example.com/data endpoint and sent it using the HTTP client. The response body is then printed to the console.
 
 
 
