@@ -49,7 +49,7 @@ ZIO HTTP empowers us to interact with remote HTTP servers by sending requests an
 
 - ZIO HTTP employs comprehensive error handling mechanisms:
   - Errors like network failures, timeouts, or invalid responses are represented as typed errors.
-  - Handle errors using ZIO combinators like `catchAll`, `orElse`, or `fold` to define appropriate behavior.
+  - Handle errors using ZIO combinators like `catchAll`, `orElse`, or `fold` to define appropriate behaviour.
 
 ### Perfect Features of ZIO HTTP Client:
 
@@ -57,7 +57,7 @@ ZIO HTTP empowers us to interact with remote HTTP servers by sending requests an
 - **Type Safety**: Utilizes Scala's type system to catch errors at compile time, enhancing code reliability.
 - **Asynchronous & Non-blocking**: Enables concurrent HTTP requests without blocking threads, optimizing resource utilization.
 - **Middleware Support**: Allows customization and extension through reusable middleware for logging, debugging, caching, authorization, etc.
-- **Flexible Configuration**: Tailors client behavior with configuration options like timeouts, redirects, and SSL settings.
+- **Flexible Configuration**: Tailors client behaviour with configuration options like timeouts, redirects, and SSL settings.
 - **WebSocket Support**: Facilitates bidirectional communication for real-time or streaming data scenarios.
 - **SSL/TLS Support**: Provides secure communication with built-in SSL/TLS support.
 - **Integration with ZIO Ecosystem**: Works seamlessly with other ZIO modules for a cohesive functional approach.
