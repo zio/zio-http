@@ -12,7 +12,7 @@ ZIO HTTP empowers us to interact with remote HTTP servers by sending requests an
 ### Client Creation:
 
 - Use `Client.request` (typically injected using dependency injection) to construct a ZIO effect representing the client interaction with the server.
-- This method allows specifying the URL, additional headers, and other parameters.
+- This method allows specifying the URL, additional headers and other parameters.
 
 ### Request Building:
 
@@ -33,7 +33,7 @@ ZIO HTTP empowers us to interact with remote HTTP servers by sending requests an
 
 ### Client Configuration (Optional):
 
-- Fine-tune the client's behavior with a `ZClient.Config` object:
+- Fine-tune the client's behaviour with a `ZClient.Config` object:
   - Set request timeouts to prevent waiting indefinitely for a response
   - Control whether to follow redirects automatically
   - Configure SSL settings for secure communication
@@ -62,44 +62,27 @@ ZIO HTTP empowers us to interact with remote HTTP servers by sending requests an
 - **SSL/TLS Support**: Provides secure communication with built-in SSL/TLS support.
 - **Integration with ZIO Ecosystem**: Works seamlessly with other ZIO modules for a cohesive functional approach.
 
+## Simple Client Example
 
-## Making HTTP Requests
-
-Once you have an HTTP client, you can use it to make various types of requests (GET, POST, PUT, DELETE, etc.) to external services. ZIO HTTP provides methods for constructing and sending requests.
-
-```scala mdoc:silent 
-
+```scala mdoc:silent
 import zio.http._
 import zio._
 
 val url = URL.decode("https://api.example.com/data")
 
-val request_default = Request.get(url) 
-```
-In this example,created a simple GET request to the `https://api.example.com/data` endpoint and send it using the HTTP client. The send method returns a Response representing the server's response to the request.
+val request = Request.get(url)
 
-## Handling Responses:
+val program = for {
+  client <- ZIO.service[Client]
+  response <- client.request(request)
+  body <- response.body.asString
+  _ <- Console.printLine(body)
+} yield ()
 
-After sending a request, you can handle the response returned by the server. ZIO HTTP provides various methods for processing response data, such as reading headers, accessing the body and handling status codes.
-
-```scala mdoc:silent 
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/ClientWithDecompression.scala")
+val run = program.provide(Client.default, Scope.default)
 ```
 
-In this example, a GET request sends to the `https://jsonplaceholder.typicode.com`endpoint and extract the response body as a string using the `body.asString` method.
-
-**Simple Client Example**
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/SimpleClient.scala")
-
-```
-
-This example demonstrates how to create a simple HTTP client using ZIO HTTP to make requests to an external API. It sends a request to the specified URL with custom headers, retrieves the response body as a string and prints it to the console.
+In this example, we created a simple GET request to the https://api.example.com/data endpoint and sent it using the HTTP client. The response body is then printed to the console.
 
 
 
