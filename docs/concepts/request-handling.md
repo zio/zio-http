@@ -7,6 +7,7 @@ title: "Request Handling "
 
 Request handling in ZIO HTTP involves extracting data from incoming HTTP requests and generating appropriate responses. This process is essential for building robust and scalable HTTP applications.
 
+## Key Concepts of Request Handling:
 
 **The** HttpRequest **object** encapsulates all information about the incoming request, including:
 
@@ -15,7 +16,7 @@ Request handling in ZIO HTTP involves extracting data from incoming HTTP request
 - **Headers**: Key-value pairs containing additional information from the client.
 - **Body**: The request body containing data sent from the client (if applicable).
 
-## Extracting Data from Requests
+### Extracting Data from Requests
 
 - ZIO HTTP provides utilities to extract various parts of an HTTP request:
   - **Path Parameters**: Extract dynamic segments from the URL path.
