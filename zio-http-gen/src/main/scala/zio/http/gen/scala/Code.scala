@@ -2,6 +2,9 @@ package zio.http.gen.scala
 
 import java.nio.file.Path
 
+import scala.meta.Term
+import scala.meta.prettyprinters.XtensionSyntax
+
 import zio.http.{Method, Status}
 
 sealed trait Code extends Product with Serializable
@@ -74,10 +77,18 @@ object Code {
     schema: Boolean = true,
   ) extends ScalaType
 
-  final case class Field(name: String, fieldType: ScalaType) extends Code
+  sealed abstract case class Field private (name: String, fieldType: ScalaType) extends Code {
+    // only allow copy on fieldType, since name is mangled to be valid in smart constructor
+    def copy(fieldType: ScalaType): Field = new Field(name, fieldType) {}
+  }
 
   object Field {
-    def apply(name: String): Field = Field(name, ScalaType.Inferred)
+
+    def apply(name: String): Field                       = apply(name, ScalaType.Inferred)
+    def apply(name: String, fieldType: ScalaType): Field = {
+      val validScalaTermName = Term.Name(name).syntax
+      new Field(validScalaTermName, fieldType) {}
+    }
   }
 
   sealed trait Collection extends ScalaType {
