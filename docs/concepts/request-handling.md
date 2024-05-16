@@ -5,7 +5,8 @@ title: "Request Handling "
 
 # Request Handling
 
-Handling incoming HTTP requests is a fundamental aspect of development with ZIO HTTP. This section covers the process of extracting data from requests, processing it, and generating appropriate responses.
+Request handling in ZIO HTTP involves extracting data from incoming HTTP requests and generating appropriate responses. This process is essential for building robust and scalable HTTP applications.
+
 
 **The** HttpRequest **object** encapsulates all information about the incoming request, including:
 
@@ -16,46 +17,32 @@ Handling incoming HTTP requests is a fundamental aspect of development with ZIO 
 
 ## Extracting Data from Requests
 
-ZIO HTTP provides a flexible and type-safe mechanism for extracting data from incoming HTTP requests. This involves pattern matching on the request attributes to access specific information.
+- ZIO HTTP provides utilities to extract various parts of an HTTP request:
+  - **Path Parameters**: Extract dynamic segments from the URL path.
+  - **Query Parameters**: Retrieve values from the query string.
+  - **Headers**: Access HTTP headers for additional metadata.
+  - **Request Body**: Read and parse the request body, which can be in different formats such as JSON, XML, or plain text.
 
-```scala
+### Generating Responses
+
+- After processing the request, generate a response using ZIO HTTP's response utilities:
+  - **Status Codes**: Set the appropriate HTTP status code (e.g., 200 OK, 404 Not Found).
+  - **Response Body**: Include the response body, which can be in various formats such as JSON, XML, or plain text.
+  - **Headers**: Add HTTP headers to the response for additional metadata.
+
+## Simple Request Handling Example
+
+```scala mdoc:silent
+import zio._
 import zio.http._
 
-val app = Http.collectZIO[Request] {
-    case req @ Method.GET -> !! / "fruits" / "a"  =>
-      UIO(Response.text("URL:" + req.url.path.asString + " Headers: " + req.getHeaders))
-    case req @ Method.POST -> !! / "fruits" / "a" =>
-      req.bodyAsString.map(Response.text(_))
-}
+val app: HttpApp[Any, Nothing] =
+  Http.collect[Request] {
+    case req @ Method.GET -> !! / "greet" / name =>
+      Response.text(s"Hello, $name!")
+  }
+
+val run = Server.start(8080, app)
 ```
 
-In this example:
-
-- For a GET request to `/fruits/a`, the server responds with the URL path and headers.
-- For a POST request to `/fruits/a`, the server responds with the request body as text.
-
-## Processing Requests
-
-Once data is extracted from the request, it can be processed as needed. This may involve performing computations, accessing databases or external services, or applying business logic to generate a response
-
-```scala
-import zio.http._
-
-val app = Http.collectM[Request] {
-  case Method.GET -> Root / "square" / int(num) =>
-    UIO(Response.text(s"Square of $num is ${num * num}"))
-}
-```
-In this example, the server calculates the square of an integer provided in the request path and responds with the result.
-
-## Generating Responses
-
-After processing the request data, a response is generated based on the desired outcome. ZIO HTTP provides constructors for creating various types of responses, including text, JSON, HTML, and binary data.
-
-```scala
-val app = Http.collectM[Request] {
-  case Method.GET -> Root / "json" =>
-    UIO(Response.jsonString("""{"message": "Hello, JSON!"}"""))
-}
-```
-In this example, the server responds with a JSON message when receiving a GET request to `/json`.
+In this example, we created a simple HTTP application that handles GET requests on the `/greet/{name}` path. The request handler extracts the `name` path parameter and generates a response with a greeting message.
