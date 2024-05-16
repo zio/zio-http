@@ -8,7 +8,7 @@ const sidebars = {
       // main documentation index
       link: { type: "doc", id: "index" },
       items: [
-        "installation", 
+        "installation",
 
         
 
@@ -32,12 +32,12 @@ const sidebars = {
               label: "Routing",
               items: [
                 "reference/routing/routes",
-                "reference/routing/route_pattern", 
+                "reference/routing/route_pattern",
                 "reference/routing/path_codec",
               ],
             },
-            
-                "reference/handler",
+
+            "reference/handler",
 
             // HTTP Messages subsection
             {
@@ -53,9 +53,9 @@ const sidebars = {
                   type: "category",
                   label: "Headers",
                   items: [
-                    "reference/headers/headers", 
-                    "reference/headers/session/cookies", 
-                    "reference/headers/session/flash", 
+                    "reference/headers/headers",
+                    "reference/headers/session/cookies",
+                    "reference/headers/session/flash",
                   ],
                 },
 
@@ -64,25 +64,31 @@ const sidebars = {
                   type: "category",
                   label: "Message Body",
                   items: [
-                    "reference/body/body", 
+                    "reference/body/body",
                     "reference/body/form",
                     "reference/body/binary_codecs",
-                    "reference/body/template", 
+                    "reference/body/template",
                   ],
                 },
-                
               ],
             },
-
+            {
+              type: "category",
+              label: "Declarative Endpoints",
+              items: [
+                "reference/endpoint",
+                "reference/http-codec",
+              ],
+            },
 
             // Aspects subsection
             {
               type: "category",
               label: "Aspects",
               items: [
-                "reference/aop/protocol-stack", 
-                "reference/aop/middleware", 
-                "reference/aop/handler_aspect", 
+                "reference/aop/protocol-stack",
+                "reference/aop/middleware",
+                "reference/aop/handler_aspect",
               ],
             },
 
@@ -91,8 +97,8 @@ const sidebars = {
               type: "category",
               label: "WebSocket",
               items: [
-                "reference/socket/socket", 
-                "reference/socket/websocketframe", 
+                "reference/socket/socket",
+                "reference/socket/websocketframe",
               ],
             },
           ],
@@ -107,7 +113,7 @@ const sidebars = {
         },
         "faq",
         {
-          // Subcategory: Tutorials 
+          // Subcategory: Tutorials
           type: "category",
           label: "Tutorials",
           items: [
@@ -116,30 +122,30 @@ const sidebars = {
             "tutorials/testing-http-apps", 
           ],
         },
+
         // Examples section
         {
           type: "category",
           label: "Examples",
           link: { type: "doc", id: "examples/index" },
           items: [
-            "examples/hello-world", 
-            "examples/http-client-server", 
-            "examples/https-client-server", 
+            "examples/hello-world",
+            "examples/http-client-server",
+            "examples/https-client-server",
             "examples/serving-static-files",
-            "examples/html-templating", 
-            "examples/websocket", 
-            "examples/streaming", 
-            "examples/endpoint", 
-            "examples/middleware-cors-handling", 
-            "examples/authentication", 
+            "examples/html-templating",
+            "examples/websocket",
+            "examples/streaming",
+            "examples/endpoint",
+            "examples/middleware-cors-handling",
+            "examples/authentication",
             "examples/graceful-shutdown",
-            "examples/cli", 
-            "examples/concrete-entity", 
-            "examples/multipart-form-data", 
+            "examples/cli",
+            "examples/concrete-entity",
+            "examples/multipart-form-data",
             "examples/server-sent-events-in-endpoints",
           ],
         },
-
         "faq",
       ],
     },

@@ -283,10 +283,10 @@ For failure outputs, we can describe the output properties using the `Endpoint#o
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/endpoint/EndpointWithError.scala")
+printSource("zio-http-example/src/main/scala/example/endpoint/style/DeclarativeProgrammingExample.scala")
 ```
 
-In the above example, we defined an endpoint that describes a path parameter `id` as input and returns a `Book` as output. If the book is not found, the endpoint returns a `NotFound` status code with a custom error message.
+In the above example, we defined an endpoint that describes a query parameter `id` as input and returns a `Book` as output. If the book is not found, the endpoint returns a `NotFound` status code with a custom error message.
 
 ### Multiple Failure Outputs Using `Endpoint#outError`
 

@@ -53,7 +53,7 @@ object NettyBodyWriter {
       case body: FileBody                     =>
         val file = body.file
         // Write the content.
-        ctx.write(new DefaultFileRegion(file, 0, file.length()))
+        ctx.write(new DefaultFileRegion(file, 0, body.fileSize))
 
         // Write the end marker.
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
