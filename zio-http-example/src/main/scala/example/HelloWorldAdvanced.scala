@@ -10,7 +10,7 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
-  val PORT = 0
+  val PORT = 58080
 
   val fooBar =
     Routes(
@@ -35,9 +35,8 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     val configLayer      = ZLayer.succeed(config)
     val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
-    (Server.install(fooBar ++ app).flatMap { port =>
-      Console.printLine(s"Started server on port: $port")
-    } *> ZIO.never)
+    (fooBar ++ app)
+      .serve[Any]
       .provide(configLayer, nettyConfigLayer, Server.customized)
   }
 }
