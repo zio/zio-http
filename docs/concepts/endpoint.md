@@ -1,13 +1,13 @@
 ---
 id: endpoint
-title: Endpoints
+title: "Endpoint"
 ---
 
 # Endpoint
 
 In ZIO HTTP, an `Endpoint` is a fundamental building block that represents a single HTTP route or operation. It offers a declarative approach to defining your API's contract, encompassing the HTTP method, path pattern, input parameters, output types and potential errors.
 
-## Key Concepts of Endpoints:
+## Key Concepts of Endpoint:
 
 
 ### Defining an Endpoint
