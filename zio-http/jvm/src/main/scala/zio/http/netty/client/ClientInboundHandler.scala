@@ -65,17 +65,9 @@ final class ClientInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
     msg match {
       case response: HttpResponse =>
-        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-          NettyResponse
-            .make(
-              ctx,
-              response,
-              rtm,
-              onComplete,
-              enableKeepAlive && HttpUtil.isKeepAlive(response),
-            )
-            .flatMap(onResponse.succeed)
-        }(unsafeClass, trace)
+        val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
+        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive)
+        onResponse.unsafe.done(Exit.succeed(resp))
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit
 

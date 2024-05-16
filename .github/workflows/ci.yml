@@ -25,7 +25,11 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.12.18, 2.13.12, 3.3.1]
-        java: [graal_graalvm@17, temurin@8]
+        java:
+          - graal_graalvm@17
+          - graal_graalvm@21
+          - temurin@17
+          - temurin@21
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
@@ -45,12 +49,30 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: sbt
 
-      - name: Setup Java (temurin@8)
-        if: matrix.java == 'temurin@8'
+      - name: Setup GraalVM (graal_graalvm@21)
+        if: matrix.java == 'graal_graalvm@21'
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: 21
+          distribution: graalvm
+          components: native-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: sbt
+
+      - name: Setup Java (temurin@17)
+        if: matrix.java == 'temurin@17'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 8
+          java-version: 17
+          cache: sbt
+
+      - name: Setup Java (temurin@21)
+        if: matrix.java == 'temurin@21'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
           cache: sbt
 
       - name: Check formatting
@@ -74,7 +96,7 @@ jobs:
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
 
       - name: Compress target directories
-        run: tar cf targets.tar zio-http-cli/target target zio-http/jvm/target zio-http-docs/target zio-http-gen/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
+        run: tar cf targets.tar sbt-zio-http-grpc/target zio-http-cli/target target zio-http/jvm/target zio-http-docs/target sbt-zio-http-grpc-tests/target zio-http-gen/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v4
@@ -108,12 +130,30 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: sbt
 
-      - name: Setup Java (temurin@8)
-        if: matrix.java == 'temurin@8'
+      - name: Setup GraalVM (graal_graalvm@21)
+        if: matrix.java == 'graal_graalvm@21'
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: 21
+          distribution: graalvm
+          components: native-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: sbt
+
+      - name: Setup Java (temurin@17)
+        if: matrix.java == 'temurin@17'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 8
+          java-version: 17
+          cache: sbt
+
+      - name: Setup Java (temurin@21)
+        if: matrix.java == 'temurin@21'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
           cache: sbt
 
       - name: Download target directories (2.12.18)
@@ -689,3 +729,161 @@ jobs:
         with:
           path: Main.txt
           key: jmh_benchmarks_${{ github.sha }}
+
+  runBenchmarks-simple:
+    name: Performance Benchmarks (PlainTextBenchmarkServer)
+    if: ${{ github.event_name == 'pull_request'}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.12]
+        java: [temurin@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Clean up
+        id: clean_up
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: sudo rm -rf *
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/checkout@v2
+        with:
+          repository: khajavi/FrameworkBenchmarks
+          path: FrameworkBenchMarks
+
+      - id: result
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          mkdir -p ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala
+          cp ./zio-http/zio-http-example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
+          cd ./FrameworkBenchMarks
+          cd ./frameworks/Scala/zio-http
+          git init .
+          git config user.email 'benchamrk@example.com'
+          git config user.name 'ZIO Benchmark'
+          git add build.sbt
+          git commit -m 'initial commit'
+          git tag v1.0.0
+          git clone https://github.com/${{github.event.pull_request.head.repo.owner.login}}/zio-http.git
+          cd zio-http
+          git checkout ${{github.event.pull_request.head.sha}}
+          cd ../../../..
+          ./tfb  --test zio-http | tee result
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+" | grep -oiE "[0-9]+" | head -1)
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+" | grep -oiE "[0-9]+")
+          echo "request_per_second=$RESULT_REQUEST" >> $GITHUB_OUTPUT
+          echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
+
+      - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
+        uses: peter-evans/commit-comment@v2
+        with:
+          sha: ${{github.event.pull_request.head.sha}}
+          body: |
+
+            **🚀 :** Performance Benchmarks (PlainTextBenchmarkServer)
+
+             concurrency: ${{steps.result.outputs.concurrency}}
+             requests/sec:  ${{steps.result.outputs.request_per_second}}
+
+      
+      - name: Performance Report
+        id: perf-report
+        env:
+          REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
+          CONCURRENCY: ${{steps.result.outputs.concurrency}}
+          PERFORMANCE_FLOOR: 300000
+        run: |
+          echo "** 🚀 Performance Benchmarks (PlainTextBenchmarkServer) Report 🚀 **" 
+
+          echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
+
+          if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
+            echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
+          else 
+            echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
+             exit 1
+          fi
+
+  runBenchmarks-effectful:
+    name: Performance Benchmarks (SimpleEffectBenchmarkServer)
+    if: ${{ github.event_name == 'pull_request'}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.12]
+        java: [temurin@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Clean up
+        id: clean_up
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: sudo rm -rf *
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/checkout@v2
+        with:
+          repository: khajavi/FrameworkBenchmarks
+          path: FrameworkBenchMarks
+
+      - id: result
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          mkdir -p ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala
+          cp ./zio-http/zio-http-example/src/main/scala/example/SimpleEffectBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
+          cd ./FrameworkBenchMarks
+          cd ./frameworks/Scala/zio-http
+          git init .
+          git config user.email 'benchamrk@example.com'
+          git config user.name 'ZIO Benchmark'
+          git add build.sbt
+          git commit -m 'initial commit'
+          git tag v1.0.0
+          git clone https://github.com/${{github.event.pull_request.head.repo.owner.login}}/zio-http.git
+          cd zio-http
+          git checkout ${{github.event.pull_request.head.sha}}
+          cd ../../../..
+          ./tfb  --test zio-http | tee result
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+" | grep -oiE "[0-9]+" | head -1)
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+" | grep -oiE "[0-9]+")
+          echo "request_per_second=$RESULT_REQUEST" >> $GITHUB_OUTPUT
+          echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
+
+      - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
+        uses: peter-evans/commit-comment@v2
+        with:
+          sha: ${{github.event.pull_request.head.sha}}
+          body: |
+
+            **🚀 :** Performance Benchmarks (SimpleEffectBenchmarkServer)
+
+             concurrency: ${{steps.result.outputs.concurrency}}
+             requests/sec:  ${{steps.result.outputs.request_per_second}}
+
+      
+      - name: Performance Report
+        id: perf-report
+        env:
+          REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
+          CONCURRENCY: ${{steps.result.outputs.concurrency}}
+          PERFORMANCE_FLOOR: 300000
+        run: |
+          echo "** 🚀 Performance Benchmarks (SimpleEffectBenchmarkServer) Report 🚀 **" 
+
+          echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
+
+          if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
+            echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
+          else 
+            echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
+             exit 1
+          fi

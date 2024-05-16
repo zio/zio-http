@@ -853,8 +853,8 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit trace: Trace): Handler[R, Throwable, Any, Response] = {
     Handler.fromZIO[R, Throwable, Response](
-      getFile.flatMap { file =>
-        ZIO.suspend {
+      ZIO.blocking {
+        getFile.flatMap { file =>
           if (!file.exists()) {
             ZIO.fail(new FileNotFoundException())
           } else if (file.isFile && !file.canRead) {

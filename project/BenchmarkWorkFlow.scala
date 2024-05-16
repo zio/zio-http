@@ -6,23 +6,23 @@ object BenchmarkWorkFlow {
     makeBenchmarkPass(
       "runBenchmarks-simple",
       "Performance Benchmarks (PlainTextBenchmarkServer)",
-      800000,
+      300000,
       "PlainTextBenchmarkServer",
     ),
     makeBenchmarkPass(
       "runBenchmarks-effectful",
       "Performance Benchmarks (SimpleEffectBenchmarkServer)",
-      500000,
+      300000,
       "SimpleEffectBenchmarkServer",
     ),
   )
 
   private def makeBenchmarkPass(id: String, name: String, performanceFloor: Int, server: String) =
     WorkflowJob(
-      runsOnExtraLabels = List("zio-http"),
+//      runsOnExtraLabels = List("zio-http"),
       id = id,
       name = name,
-      oses = List("centos"),
+      oses = List("ubuntu-latest"),
       cond = Some(
         "${{ github.event_name == 'pull_request'}}",
       ),
@@ -43,7 +43,7 @@ object BenchmarkWorkFlow {
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", s"v2"),
           Map(
-            "repository" -> "zio/FrameworkBenchmarks",
+            "repository" -> "khajavi/FrameworkBenchmarks",
             "path"       -> "FrameworkBenchMarks",
           ),
         ),
@@ -54,7 +54,17 @@ object BenchmarkWorkFlow {
             "mkdir -p ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala",
             s"cp ./zio-http/zio-http-example/src/main/scala/example/${server}.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
             "cd ./FrameworkBenchMarks",
-            """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
+            "cd ./frameworks/Scala/zio-http",
+            "git init .",
+            "git config user.email 'benchamrk@example.com'",
+            "git config user.name 'ZIO Benchmark'",
+            "git add build.sbt",
+            "git commit -m 'initial commit'",
+            "git tag v1.0.0",
+            "git clone https://github.com/${{github.event.pull_request.head.repo.owner.login}}/zio-http.git",
+            "cd zio-http",
+            "git checkout ${{github.event.pull_request.head.sha}}",
+            "cd ../../../..",
             "./tfb  --test zio-http | tee result",
             """RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+" | grep -oiE "[0-9]+" | head -1)""",
             """RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+" | grep -oiE "[0-9]+")""",
