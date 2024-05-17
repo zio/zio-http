@@ -295,29 +295,38 @@ object CodeGen {
       imports -> s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
   }
 
-  def renderInCode(inCode: Code.InCode): String = inCode match {
-    case Code.InCode(inType, Some(name), Some(doc)) =>
-      s""".in[$inType](name = "$name", doc = md""\"$doc"\"")"""
-    case Code.InCode(inType, Some(name), None)      =>
-      s""".in[$inType](name = "$name")"""
-    case Code.InCode(inType, None, Some(doc))       =>
-      s""".in[$inType](doc = md""\"$doc"\"")"""
-    case Code.InCode(inType, None, None)            =>
-      s".in[$inType]"
+  def renderInCode(inCode: Code.InCode): String = {
+    val stream = if (inCode.streaming) "Stream" else ""
+    inCode match {
+      case Code.InCode(inType, Some(name), Some(doc), _) =>
+        s""".in$stream[$inType](name = "$name", doc = md""\"$doc"\"")"""
+      case Code.InCode(inType, Some(name), None, _)      =>
+        s""".in$stream[$inType](name = "$name")"""
+      case Code.InCode(inType, None, Some(doc), _)       =>
+        s""".in$stream[$inType](doc = md""\"$doc"\"")"""
+      case Code.InCode(inType, None, None, _)            =>
+        s".in$stream[$inType]"
+    }
   }
 
-  def renderOutCode(outCode: Code.OutCode): String = outCode match {
-    case Code.OutCode(outType, status, _, Some(doc)) =>
-      s""".out[$outType](status = Status.$status, doc = md""\"$doc"\"")"""
-    case Code.OutCode(outType, status, _, None)      =>
-      s""".out[$outType](status = Status.$status)"""
+  def renderOutCode(outCode: Code.OutCode): String = {
+    val stream = if (outCode.streaming) "Stream" else ""
+    outCode match {
+      case Code.OutCode(outType, status, _, Some(doc), _) =>
+        s""".out$stream[$outType](status = Status.$status, doc = md""\"$doc"\"")"""
+      case Code.OutCode(outType, status, _, None, _)      =>
+        s""".out$stream[$outType](status = Status.$status)"""
+    }
   }
 
-  def renderOutErrorCode(errOutCode: Code.OutCode): String = errOutCode match {
-    case Code.OutCode(outType, status, _, Some(doc)) =>
-      s""".outError[$outType](status = Status.$status, doc = md""\"$doc"\"")"""
-    case Code.OutCode(outType, status, _, None)      =>
-      s""".outError[$outType](status = Status.$status)"""
+  def renderOutErrorCode(errOutCode: Code.OutCode): String = {
+    val stream = if (errOutCode.streaming) "Stream" else ""
+    errOutCode match {
+      case Code.OutCode(outType, status, _, Some(doc), _) =>
+        s""".outError$stream[$outType](status = Status.$status, doc = md""\"$doc"\"")"""
+      case Code.OutCode(outType, status, _, None, _)      =>
+        s""".outError$stream[$outType](status = Status.$status)"""
+    }
   }
 
 }
