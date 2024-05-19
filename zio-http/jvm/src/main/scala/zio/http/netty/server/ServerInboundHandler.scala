@@ -124,7 +124,7 @@ private[zio] final case class ServerInboundHandler(
         }
         cause match {
           case _: ReadTimeoutException =>
-            ctx.close()
+            ctx.close(): Unit
           case _                       =>
             super.exceptionCaught(ctx, t)
         }
@@ -306,7 +306,7 @@ private[zio] final case class ServerInboundHandler(
 
   private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
     val response = Response.notFound(jReq.uri())
-    attemptFastWrite(ctx, response)
+    attemptFastWrite(ctx, response): Unit
   }
 
   private def writeResponse(

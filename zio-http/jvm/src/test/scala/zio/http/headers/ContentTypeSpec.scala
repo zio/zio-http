@@ -16,6 +16,8 @@
 
 package zio.http.headers
 
+import scala.annotation.nowarn
+
 import zio.test._
 
 import zio.http.Header.ContentType
@@ -23,6 +25,7 @@ import zio.http.{MediaType, ZIOHttpSpec}
 
 object ContentTypeSpec extends ZIOHttpSpec {
 
+  @nowarn("msg=possible missing interpolator")
   override def spec = suite("ContentType header suite")(
     test("parsing of invalid ContentType values") {
       assertTrue(

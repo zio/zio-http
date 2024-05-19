@@ -19,7 +19,7 @@ package zio.http.netty
 import java.io.IOException
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, ChunkBuilder, Trace, Unsafe}
+import zio.{Chunk, ChunkBuilder}
 
 import zio.http.netty.AsyncBodyReader.State
 import zio.http.netty.NettyBody.UnsafeAsync
@@ -27,16 +27,15 @@ import zio.http.netty.NettyBody.UnsafeAsync
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
-abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInboundHandler[HttpContent](true) {
 
-  protected val unsafeClass: Unsafe = Unsafe.unsafe
+abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](true) {
 
   private var state: State                                 = State.Buffering
   private val buffer: ChunkBuilder[(Chunk[Byte], Boolean)] = ChunkBuilder.make[(Chunk[Byte], Boolean)]()
   private var previousAutoRead: Boolean                    = false
   private var ctx: ChannelHandlerContext                   = _
 
-  def connect(callback: UnsafeAsync): Unit = {
+  private[zio] def connect(callback: UnsafeAsync): Unit = {
     this.synchronized {
       state match {
         case State.Buffering =>
@@ -51,7 +50,7 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
             result.foreach { case (chunk, isLast) =>
               callback(chunk, isLast)
             }
-            ctx.read()
+            ctx.read(): Unit
           } else {
             throw new IllegalStateException("Attempting to read from a closed channel, which will never finish")
           }
@@ -69,7 +68,7 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
   }
 
   override def handlerRemoved(ctx: ChannelHandlerContext): Unit = {
-    ctx.channel().config().setAutoRead(previousAutoRead)
+    val _ = ctx.channel().config().setAutoRead(previousAutoRead)
   }
 
   override def channelRead0(
@@ -113,7 +112,7 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
           callback.fail(new IOException("Channel closed unexpectedly"))
       }
     }
-    ctx.fireChannelInactive()
+    ctx.fireChannelInactive(): Unit
   }
 }
 

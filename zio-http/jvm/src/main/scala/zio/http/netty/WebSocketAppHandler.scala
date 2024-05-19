@@ -68,9 +68,8 @@ private[zio] final class WebSocketAppHandler(
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     dispatch(ctx, ChannelEvent.exceptionCaught(cause))
     onComplete match {
-      case Some(promise) =>
-        promise.fail(cause)
-      case None          =>
+      case Some(promise) => promise.unsafe.done(Exit.fail(cause))
+      case None          => ()
     }
   }
 

@@ -66,11 +66,11 @@ object NettyBodyWriter {
                 case b: ByteArray => b.array
                 case other        => other.toArray
               }
-              writeArray(arr, isLast)
+              writeArray(arr, isLast): Unit
             }
 
             override def fail(cause: Throwable): Unit =
-              ctx.fireExceptionCaught(cause)
+              ctx.fireExceptionCaught(cause): Unit
           },
         )
         None
