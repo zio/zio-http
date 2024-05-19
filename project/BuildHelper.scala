@@ -9,7 +9,7 @@ object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.19"
   val Scala213         = "2.13.13"
   val Scala3           = "3.3.3"
-  val ScoverageVersion = "2.0.12"
+  val ScoverageVersion = "2.0.11"
   val JmhVersion       = "0.4.7"
   val SilencerVersion  = "1.7.17"
 
