@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.19, 2.13.14, 3.3.3]
+        scala: [2.12.19, 2.13.13, 3.3.3]
         java:
           - graal_graalvm@17
           - graal_graalvm@21
@@ -76,8 +76,8 @@ jobs:
           cache: sbt
 
       - name: Check formatting
-        if: matrix.scala == '2.13.14'
-        run: sbt ++2.13.14 fmtCheck
+        if: matrix.scala == '2.13.13'
+        run: sbt ++2.13.13 fmtCheck
 
       - name: Check that workflows are up to date
         run: sbt '++ ${{ matrix.scala }}' githubWorkflowCheck
@@ -87,10 +87,10 @@ jobs:
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
-        run: sbt ++2.13.14 doc
+        run: sbt ++2.13.13 doc
 
       - name: zio-http-shaded Tests
-        if: matrix.scala == '2.13.14'
+        if: matrix.scala == '2.13.13'
         env:
           PUBLISH_SHADED: true
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
@@ -111,7 +111,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [graal_graalvm@17]
     runs-on: ${{ matrix.os }}
     steps:
@@ -166,12 +166,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (2.13.14)
+      - name: Download target directories (2.13.13)
         uses: actions/download-artifact@v4
         with:
-          name: target-${{ matrix.os }}-2.13.14-${{ matrix.java }}
+          name: target-${{ matrix.os }}-2.13.13-${{ matrix.java }}
 
-      - name: Inflate target directories (2.13.14)
+      - name: Inflate target directories (2.13.13)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -222,7 +222,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -255,7 +255,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -289,7 +289,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -323,7 +323,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -357,7 +357,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -391,7 +391,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -425,7 +425,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -459,7 +459,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -493,7 +493,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -527,7 +527,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -561,7 +561,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -595,7 +595,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -736,7 +736,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -815,7 +815,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14]
+        scala: [2.13.13]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
