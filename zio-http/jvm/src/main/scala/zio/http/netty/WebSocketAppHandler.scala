@@ -47,6 +47,9 @@ private[zio] final class WebSocketAppHandler(
     event: ChannelEvent[JWebSocketFrame],
     close: Boolean = false,
   ): Unit = {
+    // IMPORTANT: Offering to the queue must be run synchronously to avoid messages being added in the wrong order
+    // Since the queue is unbounded, this will not block the event loop
+    // TODO: We need to come up with a design that doesn't involve running an effect to offer to the queue
     zExec.unsafeRunSync(queue.offer(event.map(frameFromNetty)))
     onComplete match {
       case Some(promise) if close => promise.unsafe.done(Exit.succeed(ChannelState.Invalid))
