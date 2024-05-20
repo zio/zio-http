@@ -187,7 +187,7 @@ private[zio] final case class ServerInboundHandler(
             }
 
           ctx.writeAndFlush(jResponse)
-          NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
+          NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx, isResponseCompressible(jRequest))
         } else {
           ctx.writeAndFlush(jResponse)
           None
@@ -203,6 +203,16 @@ private[zio] final case class ServerInboundHandler(
       case Exit.Success(response) if response ne null =>
         attemptFastWrite(ctx, response)
       case _                                          => false
+    }
+  }
+
+  private def isResponseCompressible(req: HttpRequest): Boolean = {
+    config.responseCompression match {
+      case None      => false
+      case Some(cfg) =>
+        val headers    = req.headers()
+        val headerName = Header.AcceptEncoding.name
+        cfg.options.exists(opt => headers.containsValue(headerName, opt.kind.name, true))
     }
   }
 
