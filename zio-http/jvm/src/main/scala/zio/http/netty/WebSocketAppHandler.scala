@@ -47,13 +47,11 @@ private[zio] final class WebSocketAppHandler(
     event: ChannelEvent[JWebSocketFrame],
     close: Boolean = false,
   ): Unit = {
-    zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-      queue.offer(event.map(frameFromNetty)) *>
-        (onComplete match {
-          case Some(promise) if close => promise.succeed(ChannelState.Invalid)
-          case _                      => ZIO.unit
-        }),
-    )
+    zExec.unsafeRunSync(queue.offer(event.map(frameFromNetty)))
+    onComplete match {
+      case Some(promise) if close => promise.unsafe.done(Exit.succeed(ChannelState.Invalid))
+      case _                      => ()
+    }
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
