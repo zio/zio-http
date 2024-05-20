@@ -174,7 +174,7 @@ private[zio] final case class ServerInboundHandler(
         upgradeToWebSocket(ctx, jRequest, socketApp, runtime)
         None
       case _                                                                        =>
-        val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
+        val jResponse = NettyResponseEncoder.encode(response)
 
         if (!jResponse.isInstanceOf[FullHttpResponse]) {
 
@@ -187,7 +187,7 @@ private[zio] final case class ServerInboundHandler(
             }
 
           ctx.writeAndFlush(jResponse)
-          NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
+          NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx, isResponseCompressible(jRequest))
         } else {
           ctx.writeAndFlush(jResponse)
           None
@@ -203,6 +203,16 @@ private[zio] final case class ServerInboundHandler(
       case Exit.Success(response) if response ne null =>
         attemptFastWrite(ctx, response)
       case _                                          => false
+    }
+  }
+
+  private def isResponseCompressible(req: HttpRequest): Boolean = {
+    config.responseCompression match {
+      case None      => false
+      case Some(cfg) =>
+        val headers    = req.headers()
+        val headerName = Header.AcceptEncoding.name
+        cfg.options.exists(opt => headers.containsValue(headerName, opt.kind.name, true))
     }
   }
 
@@ -276,12 +286,14 @@ private[zio] final case class ServerInboundHandler(
   ): Unit = {
     jReq match {
       case jReq: FullHttpRequest =>
-        val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
-        runtime.runtime(ctx).unsafe.run {
-          val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
-          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
-          webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
-        }
+        val queue =
+          runtime.unsafeRunSync {
+            Queue.unbounded[WebSocketChannelEvent].tap { queue =>
+              val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
+              val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+              webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
+            }
+          }
         ctx
           .channel()
           .pipeline()

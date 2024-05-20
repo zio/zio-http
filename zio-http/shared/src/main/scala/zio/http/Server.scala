@@ -34,13 +34,13 @@ trait Server {
    * Installs the given HTTP application into the server.
    */
   @deprecated("Install Routes instead. Will be removed in the next release.")
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R, Unit] =
+  def install[R](httpApp: HttpApp[R])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit] =
     install(httpApp.routes)
 
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace): URIO[R, Unit]
+  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
@@ -289,11 +289,13 @@ object Server extends ServerPlatformSpecific {
       def deflate(level: Int = DefaultLevel, bits: Int = DefaultBits, mem: Int = DefaultMem): CompressionOptions =
         CompressionOptions(level, bits, mem, CompressionType.Deflate)
 
-      sealed trait CompressionType
+      sealed trait CompressionType {
+        val name: String
+      }
 
       private[http] object CompressionType {
-        case object GZip    extends CompressionType
-        case object Deflate extends CompressionType
+        case object GZip    extends CompressionType { val name = "gzip"    }
+        case object Deflate extends CompressionType { val name = "deflate" }
 
         lazy val config: zio.Config[CompressionType] =
           zio.Config.string.mapOrFail {
@@ -339,29 +341,31 @@ object Server extends ServerPlatformSpecific {
   @deprecated("Serve Routes instead. Will be removed in the next release.")
   def serve[R](
     httpApp: HttpApp[R],
-  )(implicit trace: Trace): URIO[R with Server, Nothing] = {
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
-      install(httpApp) *>
+      install[R](httpApp) *>
       ZIO.logInfo("Server started") *>
       ZIO.never
   }
 
   @deprecated("Install Routes instead. Will be removed in the next release.")
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
+  def install[R](httpApp: HttpApp[R])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
   def serve[R](
     httpApp: Routes[R, Response],
-  )(implicit trace: Trace): URIO[R with Server, Nothing] = {
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
-      install(httpApp) *>
+      ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *>
       ZIO.logInfo("Server started") *>
       ZIO.never
   }
 
-  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
+  def install[R](
+    httpApp: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWith[Server](_.port)
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
@@ -416,8 +420,9 @@ object Server extends ServerPlatformSpecific {
   ) extends Server {
     override def install[R](httpApp: Routes[R, Response])(implicit
       trace: Trace,
+      tag: EnvironmentTag[R],
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
+      ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune[R]))
 
     override def port: Int = bindPort
 

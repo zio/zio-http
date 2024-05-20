@@ -27,11 +27,34 @@ The `ProtocolStack` data type has 5 type parameters, one for the ZIO environment
 
 - **Incoming Output**: This refers to the data leaving the middleware and heading towards the server or the next middleware in the chain. This could include modified request data or additional metadata added by the middleware.
 
-**Outgoing Input**: This refers to data coming into the middleware from the handler or the previous middleware in the chain. It typically includes the HTTP response from the server, including headers, status codes, and the response body.
+- **Outgoing Input**: This refers to data coming into the middleware from the handler or the previous middleware in the chain. It typically includes the HTTP response from the server, including headers, status codes, and the response body.
 
-**Outgoing Output**: This refers to data leaving the middleware and heading back to the client. It could include modified response data, additional headers, or any other transformations applied by the middleware.
+- **Outgoing Output**: This refers to data leaving the middleware and heading back to the client. It could include modified response data, additional headers, or any other transformations applied by the middleware.
 
 A `ProtocolStack` can be created by combining multiple middleware functions using the `++` operator. Using the `++` operator, we can stack multiple middleware functions on top of each other to create a composite middleware that applies each middleware in the order they are stacked.
+
+The diagram below illustrates how `ProtocolStack` works:
+
+<div style={{textAlign: 'center', margin: '10px'}}>
+
+![ProtocolStack Diagram](protocol-stack.svg)
+
+</div>
+
+Here is the flow of data through the `ProtocolStack`:
+
+1. The incoming input `II` is transformed by the first layer of the protocol stack to produce the incoming output `IO`.
+2. The incoming output `IO` is passed to the next layer of the protocol stack (if exists) to produce a new incoming output. This process continues until all layers have been applied.
+3. The incoming output `IO` is passed to the handler, which is the last layer where the actual processing of the request takes place. The handler processes the incoming output and produces the outgoing input `OI`.
+4. The outgoing input `OI` is passed to the last layer of the protocol stack to produce the outgoing output `OO`.
+5. The outgoing output `OO` is passed to the previous layer of the protocol stack (if exists) to produce a new outgoing output. This process continues until all layers have been applied.
+6. The outgoing output `OO` is returned as the final result of the protocol stack.
+
+<div style={{textAlign: 'center', margin: '10px'}}>
+
+![Multiple ProtocolStack Diagram](multiple-protocol-stack.svg)
+
+</div>
 
 ## Creating a ProtocolStack
 

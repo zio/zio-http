@@ -17,6 +17,14 @@ trait Middleware[-UpperEnv] { self =>
 
 This abstraction allows middleware to engage with the `Routes` environment, and also the ability to tweak existing routes or add/remove routes as needed.
 
+The diagram below illustrates how `Middleware` works:
+
+<div style={{textAlign: 'center', margin: '10px'}}>
+
+![Middleware Diagram](middleware.svg)
+
+</div>
+
 ## Usage
 
 The `@@` operator attaches middleware to routes and HTTP applications.  The example below shows a middleware attached to an `Routes`:

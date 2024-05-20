@@ -56,7 +56,7 @@ final class ClientInboundHandler(
         ctx.writeAndFlush(fullRequest)
       case _: HttpRequest               =>
         ctx.write(jReq)
-        NettyBodyWriter.writeAndFlush(req.body, None, ctx).foreach { effect =>
+        NettyBodyWriter.writeAndFlush(req.body, None, ctx, compressionEnabled = false).foreach { effect =>
           rtm.run(ctx, NettyRuntime.noopEnsuring)(effect)(Unsafe.unsafe, trace)
         }
     }
@@ -65,17 +65,9 @@ final class ClientInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
     msg match {
       case response: HttpResponse =>
-        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-          NettyResponse
-            .make(
-              ctx,
-              response,
-              rtm,
-              onComplete,
-              enableKeepAlive && HttpUtil.isKeepAlive(response),
-            )
-            .flatMap(onResponse.succeed)
-        }(unsafeClass, trace)
+        val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
+        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive)
+        onResponse.unsafe.done(Exit.succeed(resp))
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit
 
