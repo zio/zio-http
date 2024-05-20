@@ -289,11 +289,13 @@ object Server extends ServerPlatformSpecific {
       def deflate(level: Int = DefaultLevel, bits: Int = DefaultBits, mem: Int = DefaultMem): CompressionOptions =
         CompressionOptions(level, bits, mem, CompressionType.Deflate)
 
-      sealed trait CompressionType
+      sealed trait CompressionType {
+        val name: String
+      }
 
       private[http] object CompressionType {
-        case object GZip    extends CompressionType
-        case object Deflate extends CompressionType
+        case object GZip    extends CompressionType { val name = "gzip"    }
+        case object Deflate extends CompressionType { val name = "deflate" }
 
         lazy val config: zio.Config[CompressionType] =
           zio.Config.string.mapOrFail {
