@@ -31,7 +31,7 @@ import zio.http.netty.socket.NettySocketProtocol
 import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
-import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator, HttpRequest}
 
 final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
@@ -132,7 +132,7 @@ final case class NettyClientDriver private[netty] (
           toRemove.add(clientFailureHandler)
 
           pipeline.fireChannelRegistered()
-          pipeline.fireChannelActive()
+          pipeline.fireUserEventTriggered(ClientInboundHandler.SendRequest)
 
           val frozenToRemove = toRemove.toSet
 
