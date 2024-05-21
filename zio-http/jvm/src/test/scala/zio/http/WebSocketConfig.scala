@@ -18,13 +18,11 @@ package zio.http
 
 import zio._
 import zio.test.TestAspect._
-import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
+import zio.test.assertTrue
 
-import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
-import zio.http.{Client, DnsResolver}
-// import zio.http.netty.NettyConfig
 
 object WebSocketConfigSpec extends HttpRunnableSpec {
 

@@ -36,15 +36,6 @@ package object http extends UrlInterpolator with MdInterpolator {
   def withContext[C](fn: => C)(implicit c: WithContext[C]): ZIO[c.Env, c.Err, c.Out] =
     c.toZIO(fn)
 
-  abstract class RouteDecode[A](f: String => A) {
-    def unapply(a: String): Option[A] =
-      try {
-        Option(f(a))
-      } catch {
-        case _: Throwable => None
-      }
-  }
-
   def boolean(name: String): PathCodec[Boolean] = PathCodec.bool(name)
   def int(name: String): PathCodec[Int]         = PathCodec.int(name)
   def long(name: String): PathCodec[Long]       = PathCodec.long(name)

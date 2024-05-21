@@ -26,7 +26,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
  * HTTP applications can be installed into a [[zio.http.Server]], which is
  * capable of using them to serve requests.
  */
-@deprecated("Use Routes instead. Will be removed in the next release.")
+@deprecated("Use Routes instead. Will be removed in the next release.", "3.0.0-RC7")
 final case class HttpApp[-Env](routes: Routes[Env, Response])
     extends PartialFunction[Request, ZIO[Env, Response, Response]] { self =>
   private var _tree: HttpApp.Tree[_] = null.asInstanceOf[HttpApp.Tree[_]]
@@ -129,7 +129,7 @@ object HttpApp                                                     {
   /**
    * An HTTP application that does not handle any routes.
    */
-  @deprecated("Use Routes.empty instead. Will be removed in the next release.")
+  @deprecated("Use Routes.empty instead. Will be removed in the next release.", "3.0.0-RC7")
   val empty: HttpApp[Any] = HttpApp(Routes.empty)
 
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
