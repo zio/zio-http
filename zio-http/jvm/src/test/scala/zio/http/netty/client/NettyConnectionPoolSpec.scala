@@ -168,37 +168,50 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       },
     )
 
-  private def connectionPoolTimeoutTest =
-    test("client connection timeouts while in connection pool") {
-      def executeRequest(idx: Int) =
-        app
-          .deploy(
-            Request(
-              method = Method.POST,
-              body = Body.fromString(idx.toString),
-              headers = Headers.empty,
-            ),
-          )
-          .flatMap(_.body.asString)
+  private def connectionPoolTimeoutTest = {
+    suite("timeout")(
+      test("client connection timeouts while in connection pool") {
+        def executeRequest(idx: Int) =
+          app
+            .deploy(
+              Request(
+                method = Method.POST,
+                body = Body.fromString(idx.toString),
+                headers = Headers.empty,
+              ),
+            )
+            .flatMap(_.body.asString)
 
-      val init =
-        ZIO.foreachPar((1 to N).toList)(executeRequest)
+        val init =
+          ZIO.foreachPar((1 to N).toList)(executeRequest)
 
-      val res =
-        init *> ZIO.foreach((1 to N).toList)(executeRequest).delay(1.seconds)
+        val res =
+          init *> ZIO.foreach((1 to N).toList)(executeRequest).delay(1.seconds)
 
-      assertZIO(res)(
-        equalTo(
-          (1 to N).map(_.toString).toList,
-        ),
-      )
-    }.provideSome[Client & Scope](
+        assertZIO(res)(
+          equalTo(
+            (1 to N).map(_.toString).toList,
+          ),
+        )
+      },
+      test("idle timeout is refreshed on each request") {
+        val f = Handler
+          .fromZIO(ZIO.succeed(Response.text("ok")).delay(150.millis))
+          .toRoutes
+          .deploy(Request())
+          .map(_.status)
+          .map(assert(_)(equalTo(Status.Ok)))
+
+        ZIO.collectAll(List.fill(4)(f)).map(_.foldLeft(assertCompletes)(_ && _))
+      },
+    ).provideSome[Client & Scope](
       ZLayer(appKeepAliveEnabled.unit),
       DynamicServer.live,
       ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort),
       testNettyServerConfig,
       Server.customized,
     ) @@ withLiveClock
+  }
 
   private def connectionPoolShutdownSpec =
     test("connections are closed when pool is closed") {
