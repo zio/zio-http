@@ -16,7 +16,6 @@
 
 package zio.http
 
-import java.io.{PrintWriter, StringWriter}
 import java.nio.charset._
 
 import zio._
@@ -341,7 +340,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   ): HandlerAspect[Any, Unit] =
     HandlerAspect.interceptIncomingHandler[Any, Unit] {
       Handler.fromFunctionExit[Request] { request =>
-        if (verify(request)) Exit.succeed(request -> ())
+        if (verify(request)) Exit.succeed((request, ()))
         else Exit.fail(Response.status(responseStatus).addHeaders(responseHeaders))
       }
     }
@@ -447,7 +446,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * The identity middleware, which has no effect on request or response.
    */
   val identity: HandlerAspect[Any, Unit] =
-    interceptHandler[Any, Unit](Handler.identity[Request].map(_ -> ()))(Handler.identity)
+    interceptHandler[Any, Unit](Handler.identity[Request].map((_, ())))(Handler.identity)
 
   /**
    * Creates conditional middleware that switches between one middleware and
@@ -565,7 +564,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   def interceptOutgoingHandler[Env](
     handler: Handler[Env, Nothing, Response, Response],
   ): HandlerAspect[Env, Unit] =
-    interceptHandler[Env, Unit](Handler.identity[Request].map(_ -> ()))(handler)
+    interceptHandler[Env, Unit](Handler.identity[Request].map((_, ())))(handler)
 
   /**
    * Creates a new middleware using transformation functions
@@ -794,7 +793,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     f: Response => Response,
   ): HandlerAspect[Any, Unit] =
     HandlerAspect(
-      ProtocolStack.interceptHandler(Handler.identity[Request].map(_ -> ()))(Handler.fromFunctionZIO[Response] {
+      ProtocolStack.interceptHandler(Handler.identity[Request].map((_, ())))(Handler.fromFunctionZIO[Response] {
         response =>
           if (condition(response)) ZIO.succeed(f(response)) else ZIO.succeed(response)
       }),
@@ -809,7 +808,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   ): HandlerAspect[Env, Unit] =
     HandlerAspect(
       ProtocolStack.interceptHandler[Env, Request, (Request, Unit), Response, Response](
-        Handler.identity[Request].map(_ -> ()),
+        Handler.identity[Request].map((_, ())),
       )(Handler.fromFunctionZIO[Response] { response =>
         condition(response)
           .flatMap[Env, Response, Response](bool => if (bool) f(response) else ZIO.succeed(response))

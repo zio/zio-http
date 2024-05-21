@@ -7,7 +7,7 @@ object utils {
       try {
         Source.fromFile("../" + path)
       } catch {
-        case _ => Source.fromFile(path)
+        case _: Throwable => Source.fromFile(path)
       }
 
     if (lines.isEmpty) {

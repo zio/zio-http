@@ -72,7 +72,7 @@ final case class WebSocketApp[-R](
       Response.fromSocketApp(self.provideEnvironment(env))
     }
 
-  @deprecated("Use toRoutes. Will be removed in the next release.")
+  @deprecated("Use toRoutes. Will be removed in the next release.", "3.0.0-RC7")
   def toHttpAppWS(implicit trace: Trace): HttpApp[R] =
     Handler.fromZIO(self.toResponse).toHttpApp
 

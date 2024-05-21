@@ -17,11 +17,11 @@
 package zio.http.netty.client
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Exit, Promise, Trace, Unsafe}
+import zio.{Exit, Promise, Unsafe}
 
 import zio.http.Response
 import zio.http.internal.ChannelState
-import zio.http.netty.{NettyResponse, NettyRuntime}
+import zio.http.netty.NettyResponse
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
@@ -33,7 +33,7 @@ final class WebSocketClientInboundHandler(
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   override def channelActive(ctx: ChannelHandlerContext): Unit =
-    ctx.fireChannelActive()
+    ctx.fireChannelActive(): Unit
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     onResponse.unsafe.done(Exit.succeed(NettyResponse(msg)))

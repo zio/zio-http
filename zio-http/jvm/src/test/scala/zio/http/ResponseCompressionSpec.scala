@@ -73,7 +73,12 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
         ),
     )
 
-  private val app                              = text ++ stream
+  private val file: Routes[Any, Response] =
+    Routes(
+      Method.GET / "file" -> Handler.fromResource("TestStatic/TestFile1.txt"),
+    ).sandbox
+
+  private val app                              = text ++ stream ++ file
   private lazy val serverConfig: Server.Config = Server.Config.default.port(0).responseCompression()
 
   override def spec =
@@ -99,6 +104,22 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       },
       test("with Response.stream (chunked)") {
         streamTest("stream-chunked")
+      },
+      test("with files") {
+        for {
+          server       <- ZIO.service[Server]
+          client       <- ZIO.service[Client]
+          _            <- server.install(app)
+          response     <- client.request(
+            Request(
+              method = Method.GET,
+              url = URL(Path.root / "file", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(server.port))),
+            )
+              .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
+          )
+          res          <- response.body.asChunk
+          decompressed <- decompressed(res)
+        } yield assertTrue(decompressed == "This file is added for testing Static File Server.")
       },
     ).provide(
       ZLayer.succeed(serverConfig),

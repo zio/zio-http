@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -105,7 +107,9 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   ): ProtocolStack[Env1, IncomingIn, MiddleIncoming, MiddleOutgoing, OutgoingOut] =
     Concat(self, that)
 }
-object ProtocolStack                                                                   {
+
+@nowarn("msg=shadows")
+object ProtocolStack {
   def cond[IncomingIn](predicate: IncomingIn => Boolean): CondBuilder[IncomingIn] = new CondBuilder(predicate)
 
   def condZIO[IncomingIn]: CondZIOBuilder[IncomingIn] = new CondZIOBuilder[IncomingIn](())
@@ -200,7 +204,7 @@ object ProtocolStack                                                            
     def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] = incoming0(in)
 
     def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut] =
-      outgoing0(state, in)
+      outgoing0((state, in))
   }
   private[http] final case class Cond[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
     predicate: IncomingIn => Boolean,

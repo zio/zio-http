@@ -16,11 +16,14 @@
 
 package zio.http.template
 
+import scala.annotation.nowarn
+
 import zio.test.{assertTrue, check, checkAll}
 
 import zio.http.ZIOHttpSpec
 import zio.http.template.HtmlGen.{tagGen, voidTagGen}
 
+@nowarn("msg=possible missing interpolator")
 object DomSpec extends ZIOHttpSpec {
   def spec = suite("DomSpec")(
     test("empty") {

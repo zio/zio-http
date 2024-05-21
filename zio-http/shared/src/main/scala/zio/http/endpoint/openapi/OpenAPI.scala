@@ -18,6 +18,7 @@ package zio.http.endpoint.openapi
 
 import java.net.URI
 
+import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 import scala.util.matching.Regex
 
@@ -499,6 +500,7 @@ object OpenAPI {
    *   to link to parameters that are defined at the OpenAPI Object’s
    *   components/parameters.
    */
+  @nowarn("msg=possible missing interpolator")
   final case class PathItem(
     @fieldName("$ref") ref: Option[String],
     summary: Option[String],
@@ -1194,6 +1196,7 @@ object OpenAPI {
     implicit def schema[T: Schema]: Schema[ReferenceOr[T]] =
       DeriveSchema.gen[ReferenceOr[T]]
 
+    @nowarn("msg=possible missing interpolator")
     final case class Reference(
       @fieldName("$ref") ref: String,
       summary: Option[Doc] = None,

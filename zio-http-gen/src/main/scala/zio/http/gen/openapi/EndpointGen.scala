@@ -655,7 +655,7 @@ final case class EndpointGen() {
       case JsonSchema.ArrayType(Some(schema))                               =>
         schemaToCode(schema, openAPI, name, annotations)
       // TODO use additionalProperties
-      case JsonSchema.Object(properties, additionalProperties, required)    =>
+      case JsonSchema.Object(properties, _, required)                       =>
         val fields            = properties.map { case (name, schema) =>
           val field = schemaToField(schema, openAPI, name, annotations)
             .getOrElse(
