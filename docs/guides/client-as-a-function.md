@@ -9,7 +9,7 @@ This example demonstrates the simplest possible "client" implementation in ZIO H
 
 ## Example
 
-```scala mdoc:compile
+```scala mdoc:passthrough
 import zio._
 import zio.http._
 import zio.http.model._

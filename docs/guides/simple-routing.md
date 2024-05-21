@@ -4,7 +4,7 @@ This example demonstrates how to set up simple routing in ZIO HTTP. We will defi
 
 ## Example
 
-```scala mdoc:compile
+```scala mdoc:passthrough
 import zio._
 import zio.http._
 import zio.http.model._

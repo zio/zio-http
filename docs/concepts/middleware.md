@@ -66,7 +66,40 @@ For example, if we have three middlewares `f1, f2, f3`
 ```
   f3(f2(f1(http)))
 ```
+## Middleware Combinators in ZIO HTTP
 
+In ZIO HTTP, middleware functions can be combined using various combinators. The supported operators include:
+
+* **`++`**: Combines two middleware functions without changing their input/output types.
+* **`>>>`**: Similar to `++`, but allows for different input/output types (horizontal composition).
+* **`<<<`**: Similar to `>>>`, but applies the middleware functions in reverse order.
+* **`<>`**: An alias for orElse, which applies the second middleware if the first one fails.
+
+### Example of Middleware Combinators
+Here is an example demonstrating the use of these combinators:
+
+```scala mdoc:passthrough
+import zio._
+import zio.http._
+import zio.http.middleware._
+
+val authMiddleware = Middleware.basicAuth("user", "password")
+val loggingMiddleware = Middleware.debug
+val timeoutMiddleware = Middleware.timeout(5.seconds)
+
+// Using `++` combinator
+val combinedMiddleware1 = authMiddleware ++ loggingMiddleware ++ timeoutMiddleware
+
+// Using `>>>` combinator
+val combinedMiddleware2 = authMiddleware >>> loggingMiddleware >>> timeoutMiddleware
+
+// Using `<<<` combinator
+val combinedMiddleware3 = timeoutMiddleware <<< loggingMiddleware <<< authMiddleware
+
+// Using `<>` combinator
+val combinedMiddleware4 = Middleware.fail("error") <> Middleware.addHeader("X-Environment", "Dev")
+
+```
 
 #### Other Operators:
 

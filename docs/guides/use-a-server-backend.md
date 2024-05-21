@@ -11,8 +11,7 @@ This example shows how to both serve an application using an embedded HTTP serve
 
 ## Example
 
-```scala mdoc:compile
-package guide.howto.use_server_backend
+```scala mdoc:passthrough
 
 import zio._
 import zio.http._
