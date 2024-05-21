@@ -136,13 +136,13 @@ object NettyConnectionPool {
     channel: JChannel,
     timeout: Duration,
   ): Boolean = {
-    val pipeline = channel.pipeline()
-    pipeline.remove(Names.ReadTimeoutHandler)
-    pipeline.addBefore(
-      Names.ClientReadTimeoutErrorHandler,
-      Names.ReadTimeoutHandler,
-      new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS),
-    )
+    channel
+      .pipeline()
+      .replace(
+        Names.ReadTimeoutHandler,
+        Names.ReadTimeoutHandler,
+        new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS),
+      )
     channel.isOpen
   }
 
