@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -242,6 +244,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           .outError[String](Status.BadRequest)
           .out[String] ?? Doc.p("doc")
 
+        @nowarn("msg=dead code")
         val handler = api.implement {
           Handler.fromFunction { case (accountId, name, instanceName, args, env) =>
             throw new RuntimeException("I can't code")

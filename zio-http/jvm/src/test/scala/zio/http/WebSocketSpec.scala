@@ -35,9 +35,9 @@ object WebSocketSpec extends HttpRunnableSpec {
         id  <- DynamicServer.deploy {
           Handler.webSocket { channel =>
             channel.receiveAll {
-              case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
-              case event @ Unregistered => msg.add(event, true)
-              case event                => msg.add(event)
+              case event @ Read(frame)      => channel.send(Read(frame)) *> msg.add(event)
+              case event: Unregistered.type => msg.add(event, isDone = true)
+              case event                    => msg.add(event)
             }
           }.toRoutes
         }
@@ -126,9 +126,9 @@ object WebSocketSpec extends HttpRunnableSpec {
         id  <- DynamicServer.deploy {
           Handler.webSocket { channel =>
             channel.receiveAll {
-              case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
-              case event @ Unregistered => msg.add(event, true)
-              case event                => msg.add(event)
+              case event @ Read(frame)      => channel.send(Read(frame)) *> msg.add(event)
+              case event: Unregistered.type => msg.add(event, isDone = true)
+              case event                    => msg.add(event)
             }
           }.toRoutes
         }

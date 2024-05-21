@@ -53,10 +53,10 @@ final class ClientInboundHandler(
   private def sendRequest(ctx: ChannelHandlerContext): Unit = {
     jReq match {
       case fullRequest: FullHttpRequest =>
-        ctx.writeAndFlush(fullRequest)
+        ctx.writeAndFlush(fullRequest): Unit
       case _: HttpRequest               =>
         ctx.write(jReq)
-        NettyBodyWriter.writeAndFlush(req.body, None, ctx).foreach { effect =>
+        NettyBodyWriter.writeAndFlush(req.body, None, ctx, compressionEnabled = false).foreach { effect =>
           rtm.run(ctx, NettyRuntime.noopEnsuring)(effect)(Unsafe.unsafe, trace)
         }
     }
@@ -77,5 +77,6 @@ final class ClientInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
     ctx.fireExceptionCaught(error)
+    ()
   }
 }

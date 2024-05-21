@@ -608,7 +608,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * the handler has been appropriately sandboxed, turning all possible failures
    * into well-formed HTTP responses.
    */
-  @deprecated("Use toRoutes instead. Will be removed in the next release.")
+  @deprecated("Use toRoutes instead. Will be removed in the next release.", "3.0.0-RC7")
   def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response, trace: Trace): HttpApp[R] = {
     val handler: Handler[R, Response, Request, Response] =
       self.asInstanceOf[Handler[R, Response, Request, Response]]

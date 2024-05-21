@@ -16,9 +16,13 @@
 
 package zio.http.netty
 
+import scala.annotation.tailrec
+
 import zio.Chunk.ByteArray
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.stream.ZStream
 
 import zio.http.Body
 import zio.http.Body._
@@ -27,10 +31,17 @@ import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody, Unsafe
 import io.netty.buffer.Unpooled
 import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
+import io.netty.handler.stream.ChunkedNioFile
 
 object NettyBodyWriter {
 
-  def writeAndFlush(body: Body, contentLength: Option[Long], ctx: ChannelHandlerContext)(implicit
+  @tailrec
+  def writeAndFlush(
+    body: Body,
+    contentLength: Option[Long],
+    ctx: ChannelHandlerContext,
+    compressionEnabled: Boolean,
+  )(implicit
     trace: Trace,
   ): Option[Task[Unit]] = {
 
@@ -46,19 +57,21 @@ object NettyBodyWriter {
     }
 
     body match {
-      case body: ByteBufBody                  =>
+      case body: ByteBufBody                    =>
         ctx.write(new DefaultHttpContent(body.byteBuf))
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         None
-      case body: FileBody                     =>
-        val file = body.file
-        // Write the content.
-        ctx.write(new DefaultFileRegion(file, 0, body.fileSize))
-
-        // Write the end marker.
+      case body: FileBody if compressionEnabled =>
+        // We need to stream the file when compression is enabled otherwise the response encoding fails
+        val stream = ZStream.fromFile(body.file)
+        val size   = Some(body.fileSize)
+        val s      = StreamBody(stream, knownContentLength = size, mediaType = body.mediaType)
+        NettyBodyWriter.writeAndFlush(s, size, ctx, compressionEnabled)
+      case body: FileBody                       =>
+        ctx.write(new DefaultFileRegion(body.file, 0, body.fileSize))
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         None
-      case AsyncBody(async, _, _, _)          =>
+      case AsyncBody(async, _, _, _)            =>
         async(
           new UnsafeAsync {
             override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
@@ -66,18 +79,18 @@ object NettyBodyWriter {
                 case b: ByteArray => b.array
                 case other        => other.toArray
               }
-              writeArray(arr, isLast)
+              writeArray(arr, isLast): Unit
             }
 
             override def fail(cause: Throwable): Unit =
-              ctx.fireExceptionCaught(cause)
+              ctx.fireExceptionCaught(cause): Unit
           },
         )
         None
-      case AsciiStringBody(asciiString, _, _) =>
+      case AsciiStringBody(asciiString, _, _)   =>
         writeArray(asciiString.array(), isLast = true)
         None
-      case StreamBody(stream, _, _, _)        =>
+      case StreamBody(stream, _, _, _)          =>
         Some(
           contentLength.orElse(body.knownContentLength) match {
             case Some(length) =>
@@ -118,13 +131,13 @@ object NettyBodyWriter {
               }
           },
         )
-      case ArrayBody(data, _, _)              =>
+      case ArrayBody(data, _, _)                =>
         writeArray(data, isLast = true)
         None
-      case ChunkBody(data, _, _)              =>
+      case ChunkBody(data, _, _)                =>
         writeArray(data.toArray, isLast = true)
         None
-      case EmptyBody                          =>
+      case EmptyBody                            =>
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         None
     }

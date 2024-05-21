@@ -3,8 +3,7 @@ package zio.http
 import zio._
 import zio.test._
 
-import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
-import zio.http.{Method, Status, WebSocketFrame}
+import zio.http.ChannelEvent.Read
 
 object TestClientSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
