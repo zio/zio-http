@@ -43,7 +43,7 @@ final class ClientInboundHandler(
   override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit =
     evt match {
       case ClientInboundHandler.SendRequest => sendRequest(ctx)
-      case _                                => ctx.fireUserEventTriggered(evt)
+      case _                                => ctx.fireUserEventTriggered(evt): Unit
     }
 
   private def sendRequest(ctx: ChannelHandlerContext): Unit = {
