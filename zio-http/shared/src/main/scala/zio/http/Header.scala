@@ -17,7 +17,7 @@
 package zio.http
 
 import java.net.URI
-import java.nio.charset.{Charset, StandardCharsets, UnsupportedCharsetException}
+import java.nio.charset.{Charset, UnsupportedCharsetException}
 import java.time.ZonedDateTime
 import java.util.Base64
 

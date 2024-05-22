@@ -18,6 +18,8 @@ package zio.http
 
 import java.net.ConnectException
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout, withLiveClock}
@@ -84,7 +86,7 @@ object ClientSpec extends HttpRunnableSpec {
           .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get("/"))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
-      } yield assertTrue(loggedUrl == s"$baseURL/")
+      } yield assertTrue(loggedUrl == s"$baseURL/"): @nowarn
     },
     test("reading of unfinished body must fail") {
       val app         = Handler.fromStreamChunked(ZStream.never).sandbox.toRoutes

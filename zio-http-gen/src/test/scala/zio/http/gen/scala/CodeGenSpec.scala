@@ -1,12 +1,11 @@
 package zio.http.gen.scala
 
-import java.io.File
 import java.nio.file._
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.meta._
 import scala.meta.parsers._
-import scala.meta.prettyprinters.XtensionSyntax
 import scala.util.{Failure, Success, Try}
 
 import zio.Scope
@@ -16,11 +15,11 @@ import zio.test._
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
-import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.Inline
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.EndpointGen
 
+@nowarn("msg=missing interpolator")
 object CodeGenSpec extends ZIOSpecDefault {
 
   private def fileShouldBe(dir: java.nio.file.Path, subPath: String, expectedFile: String): TestResult = {

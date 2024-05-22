@@ -57,7 +57,6 @@ object EndpointGen {
     method: Protobuf.Method,
   ): Code.EndpointCode = {
     val pathSegments = List(service, method.name).map(Code.PathSegmentCode.apply)
-    val imports      = Nil
     val endpoint     = Code.EndpointCode(
       method = Method.POST,
       pathPatternCode = Code.PathPatternCode(pathSegments),
