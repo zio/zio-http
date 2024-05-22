@@ -17,7 +17,6 @@
 package zio.http.internal
 
 import zio._
-
 import zio.http.Boundary
 import zio.http.internal.FormAST._
 
@@ -29,8 +28,9 @@ private[http] object FormState {
 
   final class FormStateBuffer(boundary: Boundary) extends FormState { self =>
 
-    private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make[FormAST]()
-    private val buffer: ChunkBuilder.Byte    = new ChunkBuilder.Byte
+    private val tree0: ChunkBuilder[FormAST]    = ChunkBuilder.make[FormAST]()
+    private val buffer: ChunkBuilder.Byte       = new ChunkBuilder.Byte
+    private val boundaryMatches: Array[Boolean] = new Array[Boolean](boundary.closingBoundaryBytes.size)
 
     private var lastByte: OptionalByte = OptionalByte.None
     private var isBufferEmpty          = true
@@ -54,6 +54,17 @@ private[http] object FormState {
 
       val crlf = byte == '\n' && !lastByte.isEmpty && lastByte.get == '\r'
 
+      var boundaryDetected = false;
+      val addThis          = if (!this.lastByte.isEmpty && buffer.knownSize == -1) 1 else 0
+      val pos              = buffer.knownSize + 1 + addThis
+      if (pos <= boundary.closingBoundaryBytes.size) {
+        boundaryMatches.update(pos, boundary.closingBoundaryBytes(pos) == byte)
+      }
+
+      if (pos == boundary.closingBoundaryBytes.size) {
+        boundaryDetected = boundaryMatches.forall(_ == true)
+      }
+
       def flush(ast: FormAST): Unit = {
         buffer.clear()
         lastByte = OptionalByte.None
@@ -72,7 +83,7 @@ private[http] object FormState {
           case ClosingBoundary(_)       => BoundaryClosed(tree)
         }
 
-      } else if (crlf && (phase eq Phase.Part2)) {
+      } else if ((crlf || boundaryDetected) && (phase eq Phase.Part2)) {
         val ast = FormAST.makePart2(buffer.result(), boundary)
 
         ast match {
