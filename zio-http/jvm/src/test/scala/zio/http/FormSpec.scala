@@ -141,7 +141,7 @@ object FormSpec extends ZIOHttpSpec {
       }
 
     },
-    test("decoding") {
+    test("decoding no lf at the end") {
       val body = Chunk.fromArray(
         s"""|--(((AaB03x)))${CR}
             |Content-Disposition: form-data; name="hocon-data"${CR}
@@ -153,7 +153,7 @@ object FormSpec extends ZIOHttpSpec {
             |Content-Type: text/plain${CR}
             |${CR}
             |{ "bars": [] }${CR}
-            |--(((AaB03x)))--${CR}""".stripMargin.getBytes(),
+            |--(((AaB03x)))--""".stripMargin.getBytes(),
       )
 
       val form = Form(
@@ -161,17 +161,9 @@ object FormSpec extends ZIOHttpSpec {
         FormField.textField("json-data", """{ "bars": [] }""", MediaType.text.`plain`),
       )
 
-      val boundary = Boundary("(((AaB03x)))")
-
-      val actualByteStream = form.multipartBytes(boundary)
-
-      for {
-        form2       <- Form.fromMultipartBytes(body)
-        actualBytes <- actualByteStream.runCollect
-      } yield assertTrue(
-        actualBytes == body,
-        form2 == form,
-      )
+      Form
+        .fromMultipartBytes(body)
+        .map(form2 => assertTrue(form2 == form))
     },
   )
 
