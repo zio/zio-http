@@ -17,16 +17,13 @@
 package zio.http
 
 import java.nio.charset.StandardCharsets
-
 import scala.annotation.nowarn
-
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-
-import zio.stream.{ZStream, ZStreamAspect}
-
+import zio.stream.ZStream
+import zio.stream.ZStreamAspect
 import zio.http.Header.ContentTransferEncoding
 import zio.http.forms.Fixtures._
 
@@ -86,7 +83,7 @@ object FormSpec extends ZIOHttpSpec {
         form2 == form,
       )
     },
-    test("encoding with custom paramaters [charset]") {
+    test("encoding with custom parameters [charset]") {
 
       val form = Form(
         FormField.textField(
@@ -143,6 +140,38 @@ object FormSpec extends ZIOHttpSpec {
         )
       }
 
+    },
+    test("decoding") {
+      val body = Chunk.fromArray(
+        s"""|--(((AaB03x)))${CR}
+            |Content-Disposition: form-data; name="hocon-data"${CR}
+            |Content-Type: text/plain${CR}
+            |${CR}
+            |foos: []${CR}
+            |--(((AaB03x)))${CR}
+            |Content-Disposition: form-data; name="json-data"${CR}
+            |Content-Type: text/plain${CR}
+            |${CR}
+            |{ "bars": [] }${CR}
+            |--(((AaB03x)))--${CRLF}""".stripMargin.getBytes(),
+      )
+
+      val form = Form(
+        FormField.textField("hocon-data", "foos: []", MediaType.text.`plain`),
+        FormField.textField("json-data", """{ "bars": [] }""", MediaType.text.`plain`),
+      )
+
+      val boundary = Boundary("(((AaB03x)))")
+
+      val actualByteStream = form.multipartBytes(boundary)
+
+      for {
+        form2       <- Form.fromMultipartBytes(body)
+        actualBytes <- actualByteStream.runCollect
+      } yield assertTrue(
+        actualBytes == body,
+        form2 == form,
+      )
     },
   )
 
