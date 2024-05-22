@@ -153,7 +153,7 @@ object FormSpec extends ZIOHttpSpec {
             |Content-Type: text/plain${CR}
             |${CR}
             |{ "bars": [] }${CR}
-            |--(((AaB03x)))--${CRLF}""".stripMargin.getBytes(),
+            |--(((AaB03x)))--${CR}""".stripMargin.getBytes(),
       )
 
       val form = Form(
