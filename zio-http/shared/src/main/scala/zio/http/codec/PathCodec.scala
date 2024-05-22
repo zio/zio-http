@@ -387,7 +387,7 @@ object PathCodec          {
   def apply(value: String): PathCodec[Unit] = {
     val path = Path(value)
 
-    path.segments match {
+    (path.segments: @unchecked) match {
       case Chunk()                 => PathCodec.empty
       case Chunk(first, rest @ _*) =>
         rest.foldLeft[PathCodec[Unit]](Segment(SegmentCodec.literal(first))) { (pathSpec, segment) =>

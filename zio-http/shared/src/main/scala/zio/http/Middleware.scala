@@ -17,12 +17,14 @@ package zio.http
 
 import java.io.File
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.metrics._
 
 import zio.http.codec.{PathCodec, SegmentCodec}
-import zio.http.endpoint.EndpointMiddleware.None.Err
 
+@nowarn("msg=shadows type")
 trait Middleware[-UpperEnv] { self =>
 
   def apply[Env1 <: UpperEnv, Err](app: Routes[Env1, Err]): Routes[Env1, Err]
@@ -42,6 +44,8 @@ trait Middleware[-UpperEnv] { self =>
         self(that(routes))
     }
 }
+
+@nowarn("msg=shadows type")
 object Middleware extends HandlerAspects {
 
   /**
@@ -122,12 +126,12 @@ object Middleware extends HandlerAspects {
             case Some(origin) =>
               config.allowedOrigin(origin) match {
                 case Some(allowOrigin) if config.allowedMethods.contains(request.method) =>
-                  corsHeaders(allowOrigin, acrhHeader, isPreflight = false) -> (request, ())
+                  (corsHeaders(allowOrigin, acrhHeader, isPreflight = false), (request, ()))
                 case _                                                                   =>
-                  Headers.empty -> (request, ())
+                  (Headers.empty, (request, ()))
               }
 
-            case None => Headers.empty -> (request, ())
+            case None => (Headers.empty, (request, ()))
           }
         },
       )(Handler.fromFunction[(Headers, Response)] { case (headers, response) =>

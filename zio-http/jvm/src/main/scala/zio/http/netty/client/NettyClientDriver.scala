@@ -159,13 +159,15 @@ final case class NettyClientDriver private[netty] (
             // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
             // so we don't need to fulfill `onResponse`
             nettyRuntime.unsafeRunSync {
-              ZIO.whenZIO(onComplete.interrupt)(
-                onResponse.fail(
-                  new PrematureChannelClosureException(
-                    "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+              ZIO
+                .whenZIO(onComplete.interrupt)(
+                  onResponse.fail(
+                    new PrematureChannelClosureException(
+                      "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+                    ),
                   ),
-                ),
-              )
+                )
+                .unit
             }
           }
         }

@@ -57,7 +57,7 @@ private[http] trait WithContextConstructorLowPriorityImplicits1 extends WithCont
 
         ZIO.suspendSucceed {
           FiberRef.currentEnvironment.get.flatMap(environment =>
-            z(environment.unsafe.get(tag1_), environment.unsafe.get(tag2_)),
+            z(environment.unsafe.get[Ctx1](tag1_), environment.unsafe.get[Ctx2](tag2_)),
           )
         }
       }
@@ -82,7 +82,11 @@ private[http] trait WithContextConstructorLowPriorityImplicits1 extends WithCont
           implicit val tag3_ = tag3.tag
           implicit val usf   = Unsafe.unsafe
           FiberRef.currentEnvironment.get.flatMap(environment =>
-            z(environment.unsafe.get(tag1_), environment.unsafe.get(tag2_), environment.unsafe.get(tag3_)),
+            z(
+              environment.unsafe.get[Ctx1](tag1_),
+              environment.unsafe.get[Ctx2](tag2_),
+              environment.unsafe.get[Ctx3](tag3_),
+            ),
           )
         }
 
@@ -113,10 +117,10 @@ private[http] trait WithContextConstructorLowPriorityImplicits1 extends WithCont
           implicit val usf   = Unsafe.unsafe
           FiberRef.currentEnvironment.get.flatMap(environment =>
             z(
-              environment.unsafe.get(tag1_),
-              environment.unsafe.get(tag2_),
-              environment.unsafe.get(tag3_),
-              environment.unsafe.get(tag4_),
+              environment.unsafe.get[Ctx1](tag1_),
+              environment.unsafe.get[Ctx2](tag2_),
+              environment.unsafe.get[Ctx3](tag3_),
+              environment.unsafe.get[Ctx4](tag4_),
             ),
           )
         }
@@ -150,11 +154,11 @@ private[http] trait WithContextConstructorLowPriorityImplicits1 extends WithCont
           implicit val usf   = Unsafe.unsafe
           FiberRef.currentEnvironment.get.flatMap(environment =>
             z(
-              environment.unsafe.get(tag1_),
-              environment.unsafe.get(tag2_),
-              environment.unsafe.get(tag3_),
-              environment.unsafe.get(tag4_),
-              environment.unsafe.get(tag5_),
+              environment.unsafe.get[Ctx1](tag1_),
+              environment.unsafe.get[Ctx2](tag2_),
+              environment.unsafe.get[Ctx3](tag3_),
+              environment.unsafe.get[Ctx4](tag4_),
+              environment.unsafe.get[Ctx5](tag5_),
             ),
           )
         }
@@ -177,7 +181,7 @@ private[http] trait WithContextConstructorLowPriorityImplicits2 extends WithCont
         implicit val usf  = Unsafe.unsafe
 
         ZIO.suspendSucceed {
-          FiberRef.currentEnvironment.get.flatMap(environment => z(environment.unsafe.get(tag_)))
+          FiberRef.currentEnvironment.get.flatMap(environment => z(environment.unsafe.get[Ctx0](tag_)))
         }
       }
     }
@@ -200,7 +204,7 @@ private[http] trait WithContextConstructorLowPriorityImplicits3 extends WithCont
           implicit val tag2_ = tag2.tag
           implicit val usf   = Unsafe.unsafe
           FiberRef.currentEnvironment.get.map(environment =>
-            z(environment.unsafe.get(tag1_), environment.unsafe.get(tag2_)),
+            z(environment.unsafe.get[Ctx1](tag1_), environment.unsafe.get[Ctx2](tag2_)),
           )
         }
 
@@ -224,7 +228,11 @@ private[http] trait WithContextConstructorLowPriorityImplicits3 extends WithCont
           implicit val tag3_ = tag3.tag
           implicit val usf   = Unsafe.unsafe
           FiberRef.currentEnvironment.get.map(environment =>
-            z(environment.unsafe.get(tag1_), environment.unsafe.get(tag2_), environment.unsafe.get(tag3_)),
+            z(
+              environment.unsafe.get[Ctx1](tag1_),
+              environment.unsafe.get[Ctx2](tag2_),
+              environment.unsafe.get[Ctx3](tag3_),
+            ),
           )
         }
     }
@@ -250,10 +258,10 @@ private[http] trait WithContextConstructorLowPriorityImplicits3 extends WithCont
           implicit val usf   = Unsafe.unsafe
           FiberRef.currentEnvironment.get.map(environment =>
             z(
-              environment.unsafe.get(tag1_),
-              environment.unsafe.get(tag2_),
-              environment.unsafe.get(tag3_),
-              environment.unsafe.get(tag4_),
+              environment.unsafe.get[Ctx1](tag1_),
+              environment.unsafe.get[Ctx2](tag2_),
+              environment.unsafe.get[Ctx3](tag3_),
+              environment.unsafe.get[Ctx4](tag4_),
             ),
           )
         }
@@ -287,11 +295,11 @@ private[http] trait WithContextConstructorLowPriorityImplicits3 extends WithCont
           implicit val usf   = Unsafe.unsafe
           FiberRef.currentEnvironment.get.map(environment =>
             z(
-              environment.unsafe.get(tag1_),
-              environment.unsafe.get(tag2_),
-              environment.unsafe.get(tag3_),
-              environment.unsafe.get(tag4_),
-              environment.unsafe.get(tag5_),
+              environment.unsafe.get[Ctx1](tag1_),
+              environment.unsafe.get[Ctx2](tag2_),
+              environment.unsafe.get[Ctx3](tag3_),
+              environment.unsafe.get[Ctx4](tag4_),
+              environment.unsafe.get[Ctx5](tag5_),
             ),
           )
         }

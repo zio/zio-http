@@ -271,7 +271,7 @@ sealed trait Doc { self =>
           renderHelpDoc(right)
 
         case Doc.Raw(value, RawDocType.Plain) =>
-          writer.append(value)
+          writer.append(value): Unit
 
         case Doc.Raw(_, docType) =>
           throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")

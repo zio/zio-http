@@ -44,7 +44,7 @@ final class ClientResponseStreamHandler(
         onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
       else {
         onComplete.unsafe.done(Exit.succeed(ChannelState.Invalid))
-        ctx.close()
+        ctx.close(): Unit
       }
     }
   }

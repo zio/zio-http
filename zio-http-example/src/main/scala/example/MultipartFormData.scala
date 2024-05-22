@@ -1,5 +1,7 @@
 package example
 
+import scala.annotation.nowarn
+
 import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import zio.http._
@@ -41,6 +43,7 @@ object MultipartFormData extends ZIOAppDefault {
         },
     ).sandbox
 
+  @nowarn("msg=dead code")
   private def program: ZIO[Client with Server with Scope, Throwable, Unit] =
     for {
       port         <- Server.install(app)
