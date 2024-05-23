@@ -20,7 +20,7 @@ libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 
 ## Using g8 Template
 
-To set up a ZIO Http project using the provided g8 template we can run the following command on our terminal:
+To set up a ZIO HTTP project using the provided g8 template we can run the following command on our terminal:
 
 ```shell
 sbt new zio/zio-http.g8
