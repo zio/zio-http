@@ -54,13 +54,13 @@ object DualSSLSpec extends ZIOHttpSpec {
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
-  val app: HttpApp[Any] = Routes(
+  val app: Routes[Any, Response] = Routes(
     Method.GET / "success" -> handler((req: Request) =>
       Response.text(
         req.remoteCertificate.map { _.asInstanceOf[X509Certificate].getSubjectX500Principal.getName() }.getOrElse(""),
       ),
     ),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   val httpUrl =
     URL.decode("http://localhost:8073/success").toOption.get

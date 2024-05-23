@@ -54,6 +54,19 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
         reader =
           source
             .mapAccumImmediate(initialState) { (state, byte) =>
+              def handleBoundary(ast: Chunk[FormAST]): (StreamingForm.State, Option[FormField]) =
+                if (state.inNonStreamingPart) {
+                  FormField.fromFormAST(ast, charset) match {
+                    case Right(formData) =>
+                      buffer.reset()
+                      (state.reset, Some(formData))
+                    case Left(e)         => throw e.asException
+                  }
+                } else {
+                  buffer.reset()
+                  (state.reset, None)
+                }
+
               state.formState match {
                 case formState: FormState.FormStateBuffer =>
                   val nextFormState = formState.append(byte)
@@ -94,54 +107,23 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                         (state, None)
                       }
                     case FormState.BoundaryEncapsulated(ast)     =>
-                      if (state.inNonStreamingPart) {
-                        runtime.unsafe.run {
-                          FormField
-                            .fromFormAST(ast, charset)
-                            .mapBoth(
-                              _.asException,
-                              { formData =>
-                                buffer.reset()
-                                (state.reset, Some(formData))
-                              },
-                            )
-                        }.getOrThrowFiberFailure()
-                      } else {
-                        buffer.reset()
-                        (state.reset, None)
-                      }
+                      handleBoundary(ast)
                     case FormState.BoundaryClosed(ast)           =>
-                      if (state.inNonStreamingPart) {
-                        runtime.unsafe.run {
-                          FormField
-                            .fromFormAST(ast, charset)
-                            .mapBoth(
-                              _.asException,
-                              { formData =>
-                                buffer.reset()
-                                (state.reset, Some(formData))
-                              },
-                            )
-                        }
-                          .getOrThrowFiberFailure()
-                      } else {
-                        buffer.reset()
-                        (state.reset, None)
-                      }
+                      handleBoundary(ast)
                   }
-
-                case _ =>
+                case _                                    =>
                   (state, None)
               }
             }
             .mapZIO { field =>
               fieldQueue.offer(Take.single(field))
             }
-        _ <- reader.runDrain.catchAllCause { cause =>
-          fieldQueue.offer(Take.failCause(cause))
-        }.ensuring(
-          fieldQueue.offer(Take.end),
-        ).forkScoped
+        // FIXME: .blocking here is temporary until we figure out a better way to avoid running effects within mapAccumImmediate
+        _ <- ZIO
+          .blocking(reader.runDrain)
+          .catchAllCause(cause => fieldQueue.offer(Take.failCause(cause)))
+          .ensuring(fieldQueue.offer(Take.end))
+          .forkScoped
           .interruptible
         _ <- Scope.addFinalizerExit { exit =>
           // If the fieldStream fails, we need to make sure the reader stream can be interrupted, as it may be blocked

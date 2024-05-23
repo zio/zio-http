@@ -49,7 +49,7 @@ object StaticServer extends ZIOAppDefault {
                             else Handler.notFound)
       } yield http
     },
-  ).sandbox.toHttpApp
+  ).sandbox
 
   val run = Server.serve(app).provide(Server.default)
 

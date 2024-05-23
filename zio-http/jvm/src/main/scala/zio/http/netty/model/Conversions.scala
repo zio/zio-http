@@ -87,7 +87,7 @@ private[netty] object Conversions {
     )
 
   private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
-    val nettyHeaders  = new DefaultHttpHeaders(true)
+    val nettyHeaders  = new DefaultHttpHeaders()
     val setCookieName = Header.SetCookie.name
     val iter          = headers.iterator
     while (iter.hasNext) {

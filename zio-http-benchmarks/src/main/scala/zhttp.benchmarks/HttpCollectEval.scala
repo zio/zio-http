@@ -15,8 +15,8 @@ class HttpCollectEval {
   private val MAX  = 10000
   private val req  = Request()
   private val res  = Response.ok
-  private val app  = Routes.singleton(handler(res)).toHttpApp
-  private val http = Routes(Route.route(Method.ANY / "text")(handler(res))).toHttpApp
+  private val app  = Routes.singleton(handler(res))
+  private val http = Routes(Route.route(Method.ANY / "text")(handler(res)))
 
   private val base: PartialFunction[Int, Int] = { case 0 => 1 }
   private val baseTotal: Int => Int           = _ => 1
@@ -29,7 +29,7 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkHttp(): Unit = {
-    (0 to MAX).foreach(_ => http(Request.get(url = URL(Root / "text"))))
+    (0 to MAX).foreach(_ => http(Request.get(url = URL(Path.root / "text"))))
     ()
   }
 

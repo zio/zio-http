@@ -31,7 +31,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
   private val app =
     Routes(
       Method.GET / "health" -> handler(ZIO.succeed(Response.ok).delay(1 second)),
-    ).toHttpApp
+    )
 
   private val midA = Middleware.addHeader("X-Custom", "A")
   private val midB = Middleware.addHeader("X-Custom", "B")
@@ -40,23 +40,23 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
     suite("headers suite")(
       test("addHeaders") {
         val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
-        val headers    = (Handler.ok @@ middleware).toHttpApp.headerValues
+        val headers    = (Handler.ok @@ middleware).headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA") && contains("ValueB"))
       },
       test("addHeader") {
         val middleware = addHeader("KeyA", "ValueA")
-        val headers    = (Handler.ok @@ middleware).toHttpApp.headerValues
+        val headers    = (Handler.ok @@ middleware).headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA"))
       },
       test("updateHeaders") {
         val middleware = updateHeaders(_ => Headers("KeyA", "ValueA"))
-        val headers    = (Handler.ok @@ middleware).toHttpApp.headerValues
+        val headers    = (Handler.ok @@ middleware).headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA"))
       },
       test("removeHeader") {
         val middleware = removeHeader("KeyA")
         val headers    =
-          (Handler.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware).toHttpApp rawHeader "KeyA"
+          (Handler.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware) rawHeader "KeyA"
         assertZIO(headers.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
@@ -73,7 +73,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
       },
       test("log 404 status method url and time") {
         for {
-          _   <- runApp((Handler.notFound @@ debug).toHttpApp)
+          _   <- runApp(Handler.notFound.toRoutes @@ debug)
           log <- TestConsole.output
         } yield assertTrue(
           log.size == 1,
@@ -220,7 +220,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
             Method.ANY / PathCodec.trailing -> handler { (_: Path, req: Request) =>
               Response.text(req.url.encode)
             },
-          ).toHttpApp @@ dropTrailingSlash(onlyIfNoQueryParams = true)
+          ) @@ dropTrailingSlash(onlyIfNoQueryParams = true)
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
@@ -240,7 +240,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
         )
 
         checkAll(urls zip Gen.fromIterable(Seq(true, false))) { case (url, expected, perm) =>
-          val app      = (Handler.ok @@ redirectTrailingSlash(perm)).toHttpApp
+          val app      = (Handler.ok @@ redirectTrailingSlash(perm)).toRoutes
           val location = if (url != expected) Some(expected) else None
           val status   =
             if (url == expected) Status.Ok
@@ -268,7 +268,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
         )
 
         checkAll(urls) { url =>
-          val app = (Handler.ok @@ redirectTrailingSlash(true)).toHttpApp
+          val app = Handler.ok @@ redirectTrailingSlash(true)
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
@@ -317,9 +317,9 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
 
   private def condZIO(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
-  private def runApp[R](app: HttpApp[R]): ZIO[R, Response, Response] = {
+  private def runApp[R](app: Routes[R, Response]): ZIO[R, Response, Response] = {
     for {
-      fib <- app.runZIO { Request.get(url = URL(Root / "health")) }.fork
+      fib <- app.runZIO { Request.get(url = URL(Path.root / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res

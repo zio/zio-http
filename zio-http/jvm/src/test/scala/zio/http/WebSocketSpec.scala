@@ -35,11 +35,11 @@ object WebSocketSpec extends HttpRunnableSpec {
         id  <- DynamicServer.deploy {
           Handler.webSocket { channel =>
             channel.receiveAll {
-              case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
-              case event @ Unregistered => msg.add(event, true)
-              case event                => msg.add(event)
+              case event @ Read(frame)      => channel.send(Read(frame)) *> msg.add(event)
+              case event: Unregistered.type => msg.add(event, isDone = true)
+              case event                    => msg.add(event)
             }
-          }.toHttpAppWS
+          }.toRoutes
         }
 
         res <- ZIO.scoped {
@@ -85,7 +85,7 @@ object WebSocketSpec extends HttpRunnableSpec {
             case _            =>
               ZIO.unit
           }
-        }.toHttpAppWS.deployWS
+        }.toRoutes.deployWS
 
         // Setup Client
         // Client closes the connection after 1 second
@@ -112,7 +112,7 @@ object WebSocketSpec extends HttpRunnableSpec {
     } @@ nonFlaky,
     test("Multiple websocket upgrades") {
       val app   =
-        Handler.webSocket(channel => channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))).toHttpAppWS.deployWS
+        Handler.webSocket(channel => channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))).toRoutes.deployWS
       val codes = ZIO
         .foreach(1 to 1024)(_ => app.runZIO(WebSocketApp.unit).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
@@ -126,11 +126,11 @@ object WebSocketSpec extends HttpRunnableSpec {
         id  <- DynamicServer.deploy {
           Handler.webSocket { channel =>
             channel.receiveAll {
-              case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
-              case event @ Unregistered => msg.add(event, true)
-              case event                => msg.add(event)
+              case event @ Read(frame)      => channel.send(Read(frame)) *> msg.add(event)
+              case event: Unregistered.type => msg.add(event, isDone = true)
+              case event                    => msg.add(event)
             }
-          }.toHttpAppWS
+          }.toRoutes
         }
 
         res <- ZIO.scoped {
@@ -179,7 +179,7 @@ object WebSocketSpec extends HttpRunnableSpec {
                   case _                                                            => ZIO.unit
                 }
               }
-          }.toHttpAppWS
+          }.toRoutes
         }
 
         queue1 <- Queue.unbounded[String]

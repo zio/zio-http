@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package zio.http
 
 import zio._
@@ -21,40 +22,14 @@ import zio.http.Routes.ApplyContextAspect
 import zio.http.codec.PathCodec
 
 /**
- * Represents a collection of routes, each of which is defined by a pattern and
- * a handler. This data type can be thought of as modeling a routing table,
- * which decides where to direct every endpoint in an API based on both method
- * and path of the request.
+ * An HTTP application is a collection of routes, all of whose errors have been
+ * handled through conversion into HTTP responses.
  *
- * When you are done building a collection of routes, you typically convert the
- * routes into an [[zio.http.HttpApp]] value, which can be done with the
- * `toHttpApp` method.
- *
- * Routes may have handled or unhandled errors. A route of type `Route[Env,
- * Throwable]`, for example, has not handled its errors by converting them into
- * responses. Such unfinished routes cannot yet be converted into
- * [[zio.http.HttpApp]] values. First, you must handle errors with the
- * `handleError` or `handleErrorCause` methods.
+ * HTTP applications can be installed into a [[zio.http.Server]], which is
+ * capable of using them to serve requests.
  */
-final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Err]]) { self =>
-
-  /**
-   * Returns the concatenation of these routes with the specified routes.
-   */
-  def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
-    new Routes(self.routes ++ that.routes)
-
-  /**
-   * Appends the specified route to this collection of routes.
-   */
-  def :+[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
-    new Routes(routes :+ route)
-
-  /**
-   * Prepends the specified route to this collection of routes.
-   */
-  def +:[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
-    new Routes(route +: routes)
+final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
+  private var _tree: Routes.Tree[_] = null.asInstanceOf[Routes.Tree[_]]
 
   def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)
@@ -70,14 +45,32 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def @@[Env0]: ApplyContextAspect[Env, Err, Env0] =
     new ApplyContextAspect[Env, Err, Env0](self)
 
-  def apply(request: Request)(implicit ev: Err <:< Response, trace: Trace): ZIO[Env, Response, Response] =
-    self.toHttpApp.apply(request)
+  /**
+   * Combines this HTTP application with the specified HTTP application. In case
+   * of route conflicts, the routes in this HTTP application take precedence
+   * over the routes in the specified HTTP application.
+   */
+  def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
+    copy(routes = routes ++ that.routes)
 
-  def asEnvType[Env2](implicit ev: Env2 <:< Env): Routes[Env2, Err] =
-    self.asInstanceOf[Routes[Env2, Err]]
+  /**
+   * Prepend the specified route to this HttpApp
+   */
+  def +:[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
+    copy(routes = route +: routes)
 
-  def asErrorType[Err2](implicit ev: Err <:< Err2): Routes[Env, Err2] =
-    self.asInstanceOf[Routes[Env, Err2]]
+  /**
+   * Appends the specified route to this HttpApp
+   */
+  def :+[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
+    copy(routes = routes :+ route)
+
+  /**
+   * Executes the HTTP application with the specified request input, returning
+   * an effect that will either succeed or fail with a Response.
+   */
+  def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response] =
+    runZIO(request)
 
   /**
    * Handles all typed errors in the routes by converting them into responses.
@@ -109,14 +102,14 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
 
   /**
    * Allows the transformation of the Err type through an Effectful program
-   * allowing one to build up a Routes in Stages delegates to the Route
+   * allowing one to build up a HttpApp in Stages delegates to the Route
    */
   def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Routes[Env, Err1] =
     new Routes(routes.map(_.mapErrorZIO(fxn)))
 
   /**
    * Allows the transformation of the Err type through a function allowing one
-   * to build up a Routes in Stages delegates to the Route
+   * to build up a HttpApp in Stages delegates to the Route
    */
   def mapError[Err1](fxn: Err => Err1): Routes[Env, Err1] =
     new Routes(routes.map(_.mapError(fxn)))
@@ -155,15 +148,25 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
     new Routes(routes.map(_.handleErrorRequestCauseZIO(f)))
 
   /**
-   * Returns new routes that have each been provided the specified environment,
-   * thus eliminating their requirement for any specific environment.
+   * Checks to see if the HTTP application may be defined at the specified
+   * request input. Note that it is still possible for an HTTP application to
+   * return a 404 Not Found response, which cannot be detected by this method.
+   * This method only checks for the presence of a handler that handles the
+   * method and path of the specified request.
+   */
+  def isDefinedAt(request: Request)(implicit ev: Err <:< Response): Boolean =
+    tree(Trace.empty, ev).get(request.method, request.path).nonEmpty
+
+  /**
+   * Provides the specified environment to the HTTP application, returning a new
+   * HTTP application that has no environmental requirements.
    */
   def provideEnvironment(env: ZEnvironment[Env]): Routes[Any, Err] =
-    new Routes(routes.map(_.provideEnvironment(env)))
+    copy(routes = routes.map(_.provideEnvironment(env)))
 
   def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] = {
 
-    class RouteFailure[+Err](val err: Cause[Err]) extends Throwable(null, null, true, false) {
+    class RouteFailure[+Err0](val err: Cause[Err0]) extends Throwable(null, null, true, false) {
       override def getMessage: String = err.unified.headOption.fold("<unknown>")(_.message)
 
       override def getStackTrace(): Array[StackTraceElement] =
@@ -173,11 +176,6 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
         err.find { case Cause.Die(throwable, _) => throwable }
           .orElse(err.find { case Cause.Fail(value: Throwable, _) => value })
           .orNull
-
-      def fillSuppressed()(implicit unsafe: Unsafe): Unit =
-        if (getSuppressed().length == 0) {
-          err.unified.iterator.drop(1).foreach(unified => addSuppressed(unified.toThrowable))
-        }
 
       override def toString =
         err.prettyPrint
@@ -196,59 +194,122 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   }
 
   /**
+   * A shortcut for `Server.install(routes) *> ZIO.never`
+   */
+  def serve[Env1 <: Env](implicit
+    ev: Err <:< Response,
+    trace: Trace,
+    tag: EnvironmentTag[Env1],
+  ): URIO[Env1 with Server, Nothing] = {
+    Server.serve[Env1](self.handleError(_.asInstanceOf[Response]))
+  }
+
+  def run(
+    method: Method = Method.GET,
+    path: Path = Path.root,
+    headers: Headers = Headers.empty,
+    body: Body = Body.empty,
+  )(implicit ev: Err <:< Response): ZIO[Env, Nothing, Response] =
+    runZIO(Request(method = method, url = URL.root.path(path), headers = headers, body = body))
+
+  /**
+   * An alias for `apply`.
+   */
+  def runZIO(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Nothing, Response] =
+    toHandler(ev)(request)
+
+  /**
    * Returns new routes that automatically translate all failures into
    * responses, using best-effort heuristics to determine the appropriate HTTP
    * status code, and attaching error details using the HTTP header `Warning`.
    */
   def sandbox(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.sandbox))
+    Routes(routes.map(_.sandbox))
 
   /**
-   * Returns new routes that are all timed out by the specified maximum
-   * duration.
+   * Returns a new HTTP application whose requests will be timed out after the
+   * specified duration elapses.
    */
   def timeout(duration: Duration)(implicit trace: Trace): Routes[Env, Err] =
     self @@ Middleware.timeout(duration)
 
   /**
-   * Converts the routes into an app, which can be done only when errors are
-   * handled and converted into responses.
+   * Converts the HTTP application into a request handler.
    */
-  def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] =
-    HttpApp(asErrorType[Response])
+  def toHandler(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] = {
+    implicit val trace: Trace = Trace.empty
+    Handler
+      .fromFunctionHandler[Request] { req =>
+        val chunk = tree.get(req.method, req.path)
+
+        if (chunk.length == 0) Handler.notFound
+        else if (chunk.length == 1) chunk(0)
+        else {
+          // TODO: Support precomputed fallback among all chunk elements:
+          chunk.tail.foldLeft(chunk.head) { (acc, h) =>
+            acc.catchAll { response =>
+              if (response.status == Status.NotFound) h
+              else Handler.fail(response)
+            }
+          }
+        }
+      }
+      .merge
+  }
 
   /**
-   * Returns new routes whose handlers are transformed by the specified
+   * Returns new new HttpApp whose handlers are transformed by the specified
    * function.
    */
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
   ): Routes[Env1, Err] =
     new Routes(routes.map(_.transform(f)))
+
+  /**
+   * Accesses the underlying tree that provides fast dispatch to handlers.
+   */
+  def tree(implicit trace: Trace, ev: Err <:< Response): Routes.Tree[Env] = {
+    if (_tree eq null) {
+      _tree = Routes.Tree.fromRoutes(routes.asInstanceOf[Chunk[Route[Env, Response]]])
+    }
+    _tree.asInstanceOf[Routes.Tree[Env]]
+  }
 }
-object Routes extends RoutesVersionSpecific {
+
+object Routes extends RoutesCompanionVersionSpecific {
 
   /**
-   * Constructs new routes from a varargs of individual routes.
+   * An HTTP application that does not handle any routes.
    */
-  def apply[Env, Err](route: zio.http.Route[Env, Err], routes: zio.http.Route[Env, Err]*): Routes[Env, Err] =
-    new Routes(Chunk(route) ++ Chunk.fromIterable(routes))
+  val empty: Routes[Any, Nothing] = Routes(Chunk.empty)
 
-  /**
-   * A empty routes value that contains no routes inside it.
-   */
-  val empty: Routes[Any, Nothing] = new Routes(Chunk.empty)
+  def apply[Env, Err](route: Route[Env, Err], routes: Route[Env, Err]*): Routes[Env, Err] =
+    Routes(Chunk.fromIterable(route +: routes))
 
-  /**
-   * Constructs new routes from an iterable of individual routes.
-   */
-  def fromIterable[Env, Err](iterable: Iterable[Route[Env, Err]]): Routes[Env, Err] =
-    new Routes(Chunk.fromIterable(iterable))
+  def fromIterable[Env, Err](routes: Iterable[Route[Env, Err]]): Routes[Env, Err] =
+    Routes(Chunk.fromIterable(routes))
 
-  /**
-   * Constructs a singleton route from a handler that handles all possible
-   * methods and paths. You would only use this method for testing.
-   */
   def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))
+
+  private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
+    final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
+      Tree(self.tree ++ that.tree)
+
+    final def add[Env1 <: Env](route: Route[Env1, Response])(implicit trace: Trace): Tree[Env1] =
+      Tree(self.tree.add(route.routePattern, route.toHandler))
+
+    final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit trace: Trace): Tree[Env1] =
+      Tree(self.tree.addAll(routes.map(r => (r.routePattern, r.toHandler))))
+
+    final def get(method: Method, path: Path): Chunk[RequestHandler[Env, Response]] =
+      tree.get(method, path)
+  }
+  private[http] object Tree                                                                         {
+    val empty: Tree[Any] = Tree(RoutePattern.Tree.empty)
+
+    def fromRoutes[Env](routes: Chunk[zio.http.Route[Env, Response]])(implicit trace: Trace): Tree[Env] =
+      empty.addAll(routes)
+  }
 }

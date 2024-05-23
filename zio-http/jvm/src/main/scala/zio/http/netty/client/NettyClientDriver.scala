@@ -28,10 +28,10 @@ import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
-import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
+import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
-import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator, HttpRequest}
 
 final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
@@ -75,7 +75,7 @@ final case class NettyClientDriver private[netty] (
 
         if (location.scheme.isWebSocket) {
           val httpObjectAggregator = new HttpObjectAggregator(Int.MaxValue)
-          val inboundHandler       = new WebSocketClientInboundHandler(nettyRuntime, onResponse, onComplete)
+          val inboundHandler       = new WebSocketClientInboundHandler(onResponse, onComplete)
 
           pipeline.addLast(Names.HttpObjectAggregator, httpObjectAggregator)
           pipeline.addLast(Names.ClientInboundHandler, inboundHandler)
@@ -127,17 +127,12 @@ final case class NettyClientDriver private[netty] (
           pipeline.addLast(Names.ClientInboundHandler, clientInbound)
           toRemove.add(clientInbound)
 
-          val clientFailureHandler =
-            new ClientFailureHandler(
-              nettyRuntime,
-              onResponse,
-              onComplete,
-            )
+          val clientFailureHandler = new ClientFailureHandler(onResponse, onComplete)
           pipeline.addLast(Names.ClientFailureHandler, clientFailureHandler)
           toRemove.add(clientFailureHandler)
 
           pipeline.fireChannelRegistered()
-          pipeline.fireChannelActive()
+          pipeline.fireUserEventTriggered(ClientInboundHandler.SendRequest)
 
           val frozenToRemove = toRemove.toSet
 
@@ -155,26 +150,30 @@ final case class NettyClientDriver private[netty] (
       }
     }
 
-    f.ensuring(
-      ZIO
-        .unless(location.scheme.isWebSocket) {
-          // If the channel was closed and the promises were not completed, this will lead to the request hanging so we need
-          // to listen to the close future and complete the promises
-          NettyFutureExecutor
-            .executed(channel.closeFuture())
-            .interruptible
-            .zipRight(
-              // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
-              // so we don't need to fulfill `onResponse`
-              onComplete.interrupt && onResponse.fail(
-                new PrematureChannelClosureException(
-                  "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
-                ),
-              ),
-            )
+    f.ensuring {
+      // If the channel was closed and the promises were not completed, this will lead to the request hanging so we need
+      // to listen to the close future and complete the promises
+      ZIO.unless(location.scheme.isWebSocket) {
+        ZIO.succeedUnsafe { implicit u =>
+          channel.closeFuture().addListener { (_: ChannelFuture) =>
+            // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
+            // so we don't need to fulfill `onResponse`
+            nettyRuntime.unsafeRunSync {
+              ZIO
+                .whenZIO(onComplete.interrupt)(
+                  onResponse.fail(
+                    new PrematureChannelClosureException(
+                      "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+                    ),
+                  ),
+                )
+                .unit
+            }
+          }
         }
-        .forkScoped,
-    )
+      }
+    }
+
   }
 
   override def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit

@@ -29,15 +29,11 @@ import io.netty.handler.codec.http._
 private[zio] object NettyResponseEncoder {
   private val dateHeaderCache = CachedDateHeader.default
 
-  def encode(
-    ctx: ChannelHandlerContext,
-    response: Response,
-    runtime: NettyRuntime,
-  )(implicit unsafe: Unsafe, trace: Trace): HttpResponse = {
+  def encode(response: Response)(implicit unsafe: Unsafe): HttpResponse = {
     val body = response.body
     if (body.isComplete) {
-      val bytes = runtime.runtime(ctx).unsafe.run(body.asArray).getOrThrow()
-      fastEncode(response, bytes)
+      assert(body.isInstanceOf[Body.UnsafeBytes], "expected completed body to implement UnsafeBytes")
+      fastEncode(response, body.asInstanceOf[Body.UnsafeBytes].unsafeAsArray)
     } else {
       val status   = response.status
       val jHeaders = Conversions.headersToNetty(response.headers)
@@ -86,7 +82,9 @@ private[zio] object NettyResponseEncoder {
    */
   private def maybeAddDateHeader(headers: HttpHeaders, status: Status): Unit = {
     if (status.isInformational || status.isServerError || headers.contains(HttpHeaderNames.DATE)) ()
-    else headers.set(HttpHeaderNames.DATE, dateHeaderCache.get())
+    else {
+      val _ = headers.set(HttpHeaderNames.DATE, dateHeaderCache.get())
+    }
   }
 
 }

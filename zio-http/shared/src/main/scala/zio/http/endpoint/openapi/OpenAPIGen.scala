@@ -795,8 +795,14 @@ object OpenAPIGen {
       alternatives.map { codec =>
         val statusOrDefault =
           status(codec).map(OpenAPI.StatusOrDefault.StatusValue(_)).getOrElse(OpenAPI.StatusOrDefault.Default)
-        statusOrDefault -> (AtomizedMetaCodecs
-          .flatten(codec), contentAsJsonSchema(codec, referenceType = referenceType) _)
+        (
+          statusOrDefault,
+          (
+            AtomizedMetaCodecs
+              .flatten(codec),
+            contentAsJsonSchema(codec, referenceType = referenceType) _,
+          ),
+        )
       }
 
     groupMap(statusAndCodec) { case (status, _) => status } { case (_, atomizedAndSchema) =>
@@ -805,7 +811,7 @@ object OpenAPIGen {
       val mapped = values
         .foldLeft(Chunk.empty[(MediaType, (AtomizedMetaCodecs, JsonSchema))]) { case (acc, (atomized, schema)) =>
           if (atomized.content.size > 1) {
-            acc :+ (MediaType.multipart.`form-data` -> (atomized, schema(MediaType.multipart.`form-data`)))
+            acc :+ ((MediaType.multipart.`form-data`, (atomized, schema(MediaType.multipart.`form-data`))))
           } else {
             val mediaType = atomized.content.headOption match {
               case Some(MetaCodec(HttpCodec.Content(codec, _, _), _))       =>
@@ -816,14 +822,14 @@ object OpenAPIGen {
               case _                                                        =>
                 MediaType.application.`json`
             }
-            acc :+ (mediaType -> (atomized, schema(mediaType)))
+            acc :+ ((mediaType, (atomized, schema(mediaType))))
           }
         }
       status -> groupMap(mapped) { case (mediaType, _) => mediaType } { case (_, atomizedAndSchema) =>
         atomizedAndSchema
       }.map {
         case (mediaType, Chunk((atomized, schema))) if values.size == 1 =>
-          mediaType -> (schema, atomized)
+          (mediaType, (schema, atomized))
         case (mediaType, values)                                        =>
           val combinedAtomized: AtomizedMetaCodecs = values.map(_._1).reduce(_ ++ _)
           val combinedContentDoc                   = combinedAtomized.contentDocs.toCommonMark
@@ -838,7 +844,7 @@ object OpenAPIGen {
               .minify
               .description(combinedContentDoc)
           }
-          mediaType -> (alternativesSchema, combinedAtomized)
+          (mediaType, (alternativesSchema, combinedAtomized))
       }
     }
   }

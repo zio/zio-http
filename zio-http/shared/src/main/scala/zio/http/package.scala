@@ -33,14 +33,8 @@ package object http extends UrlInterpolator with MdInterpolator {
   def handlerTODO(message: String): Handler[Any, Nothing, Any, Nothing] =
     handler(ZIO.dieMessage(message))
 
-  abstract class RouteDecode[A](f: String => A) {
-    def unapply(a: String): Option[A] =
-      try {
-        Option(f(a))
-      } catch {
-        case _: Throwable => None
-      }
-  }
+  def withContext[C](fn: => C)(implicit c: WithContext[C]): ZIO[c.Env, c.Err, c.Out] =
+    c.toZIO(fn)
 
   def boolean(name: String): PathCodec[Boolean] = PathCodec.bool(name)
   def int(name: String): PathCodec[Int]         = PathCodec.int(name)
@@ -49,8 +43,7 @@ package object http extends UrlInterpolator with MdInterpolator {
   val trailing: PathCodec[Path]                 = PathCodec.trailing
   def uuid(name: String): PathCodec[UUID]       = PathCodec.uuid(name)
 
-  val Empty: Path = Path.empty
-  val Root: Path  = Path.root
+  val Root: PathCodec[Unit] = PathCodec.empty
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 

@@ -101,4 +101,5 @@ object SwaggerUI {
     }
     Routes.fromIterable(jsonRoutes) :+ uiRoute
   }
+
 }

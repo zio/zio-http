@@ -95,7 +95,7 @@ object NotFoundSpec extends ZIOHttpSpec {
   ): ZIO[R, Response, TestResult] = {
     val request = Request(method = method, url = URL.decode(url).toOption.get)
     for {
-      response <- service.toHttpApp.runZIO(request)
+      response <- service.runZIO(request)
       result = response.status == Status.NotFound
     } yield assertTrue(result)
   }
