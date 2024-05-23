@@ -16,14 +16,11 @@
 
 package zio.http
 
-import java.nio.charset.Charset
-
 import scala.util.control.NoStackTrace
 
-import zio.{Chunk, NonEmptyChunk}
+import zio.NonEmptyChunk
 
 import zio.http.codec.TextCodec
-import zio.http.internal.QueryParamEncoding
 
 sealed trait QueryParamsError extends Exception with NoStackTrace {
   override def getMessage(): String = message

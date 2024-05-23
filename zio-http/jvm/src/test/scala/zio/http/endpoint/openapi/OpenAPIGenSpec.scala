@@ -2232,7 +2232,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           Endpoint(Method.GET / "root" / string("name"))
             .in[Payload]
             .out[String]
-            .examplesIn("hi" -> ("name_value", Payload("input")))
+            .examplesIn(("hi", ("name_value", Payload("input"))))
 
         val openApi      =
           OpenAPIGen.fromEndpoints(
@@ -2333,7 +2333,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           Endpoint(Method.GET / "root" / string("name"))
             .inCodec(ContentCodec.content[Payload] | ContentCodec.content[String])
             .out[String]
-            .examplesIn("hi" -> ("name_value", Left(Payload("input"))), "ho" -> ("name_value2", Right("input")))
+            .examplesIn(("hi", ("name_value", Left(Payload("input")))), ("ho", ("name_value2", Right("input"))))
         val openApi      =
           OpenAPIGen.fromEndpoints(
             title = "Alternated input examples",

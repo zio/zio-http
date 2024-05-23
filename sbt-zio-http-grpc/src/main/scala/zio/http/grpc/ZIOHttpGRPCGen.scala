@@ -15,7 +15,7 @@ object ZIOHttpGRPCGen extends CodeGenApp {
 
   def process(request: CodeGenRequest): CodeGenResponse =
     ProtobufGenerator.parseParameters(request.parameter) match {
-      case Right(params) =>
+      case Right(_)    =>
         val services = request.filesToGenerate.flatMap(fromProtobuf(_).files)
         val schemas  = services.map(getImplicitSchemas(_)).map { case (pkg, tpes) =>
           schemasFile(pkg, tpes)
@@ -24,7 +24,7 @@ object ZIOHttpGRPCGen extends CodeGenApp {
           schemas ++ services.map(fileToPluginCode(_)),
           Set(CodeGeneratorResponse.Feature.FEATURE_PROTO3_OPTIONAL),
         )
-      case Left(error)   =>
+      case Left(error) =>
         CodeGenResponse.fail(error)
     }
 

@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.TestAspect.withLiveClock
 import zio.test._
@@ -32,6 +34,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
   val redir: Routes[Any, Response] =
     Route.handled(Method.GET / "redirect")(Handler.fromResponse(Response.redirect(URL.empty / "hello"))).toRoutes
 
+  @nowarn("msg=possible missing interpolator")
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("ZClientAspect")(
       test("debug") {

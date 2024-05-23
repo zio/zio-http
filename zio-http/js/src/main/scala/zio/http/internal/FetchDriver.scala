@@ -1,5 +1,6 @@
 package zio.http.internal
 
+import scala.collection.compat.immutable.ArraySeq
 import scala.scalajs.js
 import scala.scalajs.js.typedarray.Uint8Array
 
@@ -65,7 +66,7 @@ final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
     if (body.isEmpty) {
       ZIO.succeed(js.undefined)
     } else {
-      body.asArray.map { ar => Uint8Array.of(ar.map(_.toShort): _*) }
+      body.asArray.map { ar => Uint8Array.of(ArraySeq.unsafeWrapArray(ar.map(_.toShort)): _*) }
     }
 
   override def socket[Env1 <: Any](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit

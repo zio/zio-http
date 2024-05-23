@@ -126,6 +126,26 @@ object NettyConnectionPool {
     } yield ch
   }
 
+  /**
+   * Refreshes the idle timeout handler on the channel pipeline.
+   * @return
+   *   true if the handler was successfully refreshed prior to the channel being
+   *   closed
+   */
+  private def refreshIdleTimeoutHandler(
+    channel: JChannel,
+    timeout: Duration,
+  ): Boolean = {
+    channel
+      .pipeline()
+      .replace(
+        Names.ReadTimeoutHandler,
+        Names.ReadTimeoutHandler,
+        new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS),
+      )
+    channel.isOpen
+  }
+
   private final class ReadTimeoutErrorHandler(nettyRuntime: NettyRuntime)(implicit trace: Trace)
       extends ChannelInboundHandlerAdapter {
 
@@ -222,8 +242,10 @@ object NettyConnectionPool {
         // We retry a few times hoping to obtain an open channel
         // NOTE: We need to release the channel before retrying, so that it can be closed and removed from the pool
         // We do that in a forked fiber so that we don't "block" the current fiber while the new resource is obtained
-        if (channel.isOpen) ZIO.succeed(channel)
-        else invalidate(channel) *> release.forkDaemon *> ZIO.fail(None)
+        if (channel.isOpen && idleTimeout.fold(true)(refreshIdleTimeoutHandler(channel, _)))
+          ZIO.succeed(channel)
+        else
+          invalidate(channel) *> release.forkDaemon *> ZIO.fail(None)
       }
         .retry(retrySchedule(key))
         .catchAll {
