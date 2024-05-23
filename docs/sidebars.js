@@ -130,7 +130,6 @@ const sidebars = {
           items: [
             "tutorials/your-first-zio-http-app", 
             "tutorials/deploying-zio-http-app", 
-            "tutorials/testing-http-apps", 
           ],
         },
 
