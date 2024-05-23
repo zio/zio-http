@@ -93,7 +93,7 @@ private[cli] object HttpOptions {
      */
     private def fromSchema(schema: zio.schema.Schema[_]): Options[Json] = {
 
-      implicit def toJson[A](options: Options[A]): Options[Json] = options.map(value => Json.Str(value.toString()))
+      implicit def toJson[A0](options: Options[A0]): Options[Json] = options.map(value => Json.Str(value.toString()))
 
       lazy val emptyJson: Options[Json] = Options.Empty.map(_ => Json.Obj())
 

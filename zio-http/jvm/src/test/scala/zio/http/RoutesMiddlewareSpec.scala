@@ -20,8 +20,6 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
-import zio.http.Method
-
 object RoutesMiddlewareSpec extends ZIOHttpSpec with ExitAssertion {
 
   def spec: Spec[Any, Any] =

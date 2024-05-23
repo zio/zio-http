@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test._
 
@@ -28,6 +30,7 @@ import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.extractStatus
 
+@nowarn("msg=possible missing interpolator")
 object CustomErrorSpec extends ZIOHttpSpec {
   def spec = suite("CustomErrorSpec")(
     test("simple custom error response") {

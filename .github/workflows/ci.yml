@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.18, 2.13.12, 3.3.1]
+        scala: [2.12.19, 2.13.14, 3.3.3]
         java:
           - graal_graalvm@17
           - graal_graalvm@21
@@ -76,8 +76,8 @@ jobs:
           cache: sbt
 
       - name: Check formatting
-        if: matrix.scala == '2.13.12'
-        run: sbt ++2.13.12 fmtCheck
+        if: matrix.scala == '2.13.14'
+        run: sbt ++2.13.14 fmtCheck
 
       - name: Check that workflows are up to date
         run: sbt '++ ${{ matrix.scala }}' githubWorkflowCheck
@@ -87,10 +87,10 @@ jobs:
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
-        run: sbt ++2.13.12 doc
+        run: sbt ++2.13.14 doc
 
       - name: zio-http-shaded Tests
-        if: matrix.scala == '2.13.12'
+        if: matrix.scala == '2.13.14'
         env:
           PUBLISH_SHADED: true
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
@@ -111,7 +111,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [graal_graalvm@17]
     runs-on: ${{ matrix.os }}
     steps:
@@ -156,32 +156,32 @@ jobs:
           java-version: 21
           cache: sbt
 
-      - name: Download target directories (2.12.18)
+      - name: Download target directories (2.12.19)
         uses: actions/download-artifact@v4
         with:
-          name: target-${{ matrix.os }}-2.12.18-${{ matrix.java }}
+          name: target-${{ matrix.os }}-2.12.19-${{ matrix.java }}
 
-      - name: Inflate target directories (2.12.18)
+      - name: Inflate target directories (2.12.19)
         run: |
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (2.13.12)
+      - name: Download target directories (2.13.14)
         uses: actions/download-artifact@v4
         with:
-          name: target-${{ matrix.os }}-2.13.12-${{ matrix.java }}
+          name: target-${{ matrix.os }}-2.13.14-${{ matrix.java }}
 
-      - name: Inflate target directories (2.13.12)
+      - name: Inflate target directories (2.13.14)
         run: |
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.3.1)
+      - name: Download target directories (3.3.3)
         uses: actions/download-artifact@v4
         with:
-          name: target-${{ matrix.os }}-3.3.1-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.3.3-${{ matrix.java }}
 
-      - name: Inflate target directories (3.3.1)
+      - name: Inflate target directories (3.3.3)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -222,7 +222,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -233,7 +233,7 @@ jobs:
 
       - name: Add Scoverage
         id: add_plugin
-        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.0.9")' project/plugins.sbt
+        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.0.12")' project/plugins.sbt
 
       - name: Update Build Definition
         id: update_build_definition
@@ -255,7 +255,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -274,7 +274,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_CachedDateHeaderBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CachedDateHeaderBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_CachedDateHeaderBenchmark.txt
 
@@ -289,7 +289,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -308,7 +308,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_CookieDecodeBenchmark.txt
 
@@ -323,7 +323,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -342,7 +342,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_EndpointBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 EndpointBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_EndpointBenchmark.txt
 
@@ -357,7 +357,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -376,7 +376,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_HttpCollectEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCollectEval.txt
 
@@ -391,7 +391,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -410,7 +410,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_HttpCombineEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCombineEval.txt
 
@@ -425,7 +425,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -444,7 +444,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpNestedFlatMapEval.txt
 
@@ -459,7 +459,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -478,7 +478,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_HttpRouteTextPerf.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Main_HttpRouteTextPerf.txt
 
@@ -493,7 +493,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -512,7 +512,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ProbeContentTypeBenchmark.txt
 
@@ -527,7 +527,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -546,7 +546,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_SchemeDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_SchemeDecodeBenchmark.txt
 
@@ -561,7 +561,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -580,7 +580,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_ServerInboundHandlerBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ServerInboundHandlerBenchmark.txt
 
@@ -595,7 +595,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -614,7 +614,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
           cat > Main_UtilBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_UtilBenchmark.txt
 
@@ -736,7 +736,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -815,7 +815,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.12]
+        scala: [2.13.14]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:

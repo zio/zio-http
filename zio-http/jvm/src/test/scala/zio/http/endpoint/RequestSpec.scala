@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test._
 
@@ -30,6 +32,8 @@ import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.{extractStatus, testEndpoint, testEndpointWithHeaders}
 
+@nowarn("msg=possible missing interpolator")
+@nowarn("msg=dead code")
 object RequestSpec extends ZIOHttpSpec {
   def spec = suite("RequestSpec")(
     suite("handler")(
