@@ -37,7 +37,6 @@ final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
   nettyRuntime: NettyRuntime,
-  clientConfig: NettyConfig,
 ) extends ClientDriver {
 
   override type Connection = Channel
@@ -187,15 +186,14 @@ final case class NettyClientDriver private[netty] (
 object NettyClientDriver {
   private implicit val trace: Trace = Trace.empty
 
-  val live: ZLayer[NettyConfig, Throwable, ClientDriver] =
+  val live: URLayer[EventLoopGroups.Config, ClientDriver] =
     (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {
         for {
           eventLoopGroup <- ZIO.service[EventLoopGroup]
           channelFactory <- ZIO.service[ChannelFactory[Channel]]
           nettyRuntime   <- ZIO.service[NettyRuntime]
-          clientConfig   <- ZIO.service[NettyConfig]
-        } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
+        } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime)
       }
 
 }

@@ -76,7 +76,7 @@ private[zio] final case class NettyDriver(
       channelFactory <- ChannelFactories.Client.live.build
         .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](nettyConfig))
       nettyRuntime   <- NettyRuntime.live.build
-    } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get, nettyConfig)
+    } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get)
 
   override def toString: String = s"NettyDriver($serverConfig)"
 }
