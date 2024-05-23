@@ -543,7 +543,7 @@ val route =
 If we deploy this route and send a GET request to the `/internal-error` route with the `Accept: text/html` header, we will get the following response body:
 
 ```html
-<!DOCTYPE html><html><head><title>ZIO Http - Forbidden</title><style>
+<!DOCTYPE html><html><head><title>ZIO HTTP - Forbidden</title><style>
  body {
    font-family: monospace;
    font-size: 16px;

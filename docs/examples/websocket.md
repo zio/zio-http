@@ -4,7 +4,7 @@ title: "WebSocket Example"
 sidebar_label: "WebSocket Server & Client"
 ---
 
-This example shows how to create a WebSocket server using ZIO Http and how to write a client to connect to it.
+This example shows how to create a WebSocket server using ZIO HTTP and how to write a client to connect to it.
 
 ## Server
 
