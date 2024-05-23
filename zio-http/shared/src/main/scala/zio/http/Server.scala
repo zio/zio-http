@@ -247,13 +247,15 @@ object Server extends ServerPlatformSpecific {
         ResponseCompressionConfig(0, IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()))
     }
 
-    sealed trait CompressionOptions
+    sealed trait CompressionOptions {
+      val name: String
+    }
 
     object CompressionOptions {
 
-      final case class GZip(cfg: DeflateConfig)    extends CompressionOptions
-      final case class Deflate(cfg: DeflateConfig) extends CompressionOptions
-      final case class Brotli(cfg: BrotliConfig)   extends CompressionOptions
+      final case class GZip(cfg: DeflateConfig)    extends CompressionOptions { val name = "gzip"    }
+      final case class Deflate(cfg: DeflateConfig) extends CompressionOptions { val name = "deflate" }
+      final case class Brotli(cfg: BrotliConfig)   extends CompressionOptions { val name = "brotli"  }
 
       /**
        * @param level
