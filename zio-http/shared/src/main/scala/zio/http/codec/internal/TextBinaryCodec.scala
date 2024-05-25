@@ -2,6 +2,7 @@ package zio.http.codec.internal
 
 import java.time._
 import java.util.UUID
+import java.util.Currency
 
 import zio._
 
@@ -9,7 +10,6 @@ import zio.stream._
 
 import zio.schema._
 import zio.schema.codec._
-import java.util.Currency
 
 object TextBinaryCodec {
   private def errorCodec[A](schema: Schema[A]) =
