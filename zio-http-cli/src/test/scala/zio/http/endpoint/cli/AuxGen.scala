@@ -124,6 +124,7 @@ object AuxGen {
         StandardType.YearMonthType,
         StandardType.ZonedDateTimeType,
         StandardType.ZoneIdType,
+        StandardType.CurrencyType,
       ),
     )
     .map(Schema.Primitive(_))
