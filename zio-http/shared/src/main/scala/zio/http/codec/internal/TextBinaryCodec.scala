@@ -9,6 +9,7 @@ import zio.stream._
 
 import zio.schema._
 import zio.schema.codec._
+import java.util.Currency
 
 object TextBinaryCodec {
   private def errorCodec[A](schema: Schema[A]) =
@@ -249,6 +250,13 @@ object TextBinaryCodec {
                     (s: String) =>
                       try {
                         Right(ZonedDateTime.parse(s))
+                      } catch {
+                        case e: Exception => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
+                      }
+                  case StandardType.CurrencyType       =>
+                    (s: String) =>
+                      try {
+                        Right(Currency.getInstance(s))
                       } catch {
                         case e: Exception => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
                       }
