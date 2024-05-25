@@ -1,8 +1,7 @@
 package zio.http.codec.internal
 
 import java.time._
-import java.util.UUID
-import java.util.Currency
+import java.util.{UUID, Currency}
 
 import zio._
 
