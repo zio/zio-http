@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test._
 
@@ -27,6 +29,8 @@ import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.forms.Fixtures.formField
 
+@nowarn("msg=possible missing interpolator")
+@nowarn("msg=dead code")
 object MultipartSpec extends ZIOHttpSpec {
   def spec = suite("MultipartSpec")(
     suite("multipart/form-data")(
@@ -60,7 +64,7 @@ object MultipartSpec extends ZIOHttpSpec {
                     ),
                   )
                 }
-            result   <- route.toHttpApp.runZIO(Request.get(URL.decode("/test-form").toOption.get)).exit
+            result   <- route.toRoutes.runZIO(Request.get(URL.decode("/test-form").toOption.get)).exit
             response <- result match {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
@@ -116,7 +120,7 @@ object MultipartSpec extends ZIOHttpSpec {
                     ),
                   )
                 }
-            result   <- route.toHttpApp.runZIO(Request.get(URL.decode("/test-form").toOption.get)).exit
+            result   <- route.toRoutes.runZIO(Request.get(URL.decode("/test-form").toOption.get)).exit
             response <- result match {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
@@ -167,7 +171,7 @@ object MultipartSpec extends ZIOHttpSpec {
               FormField.binaryField("uploaded-image", bytes, MediaType.image.png),
             )
             boundary <- Boundary.randomUUID
-            result   <- route.toHttpApp
+            result   <- route.toRoutes
               .runZIO(
                 Request.post(URL.decode("/test-form").toOption.get, Body.fromMultipartForm(form, boundary)),
               )
@@ -243,7 +247,7 @@ object MultipartSpec extends ZIOHttpSpec {
 
           for {
             boundary   <- Boundary.randomUUID
-            result     <- route.toHttpApp
+            result     <- route.toRoutes
               .runZIO(
                 Request.post(URL.decode("/test-form").toOption.get, Body.fromMultipartForm(form, boundary)),
               )

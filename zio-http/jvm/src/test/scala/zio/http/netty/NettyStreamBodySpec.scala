@@ -22,7 +22,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
             body = Body.fromStream(streams.next(), len),
           ),
         ),
-    ).sandbox.toHttpApp
+    ).sandbox
 
   private def server(
     streams: Iterator[ZStream[Any, Throwable, Byte]],
@@ -69,7 +69,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
               ZStream.fromQueue(firstResponseQueue) @@ ZStreamAspect.rechunk(message.length / 3),
               ZStream.fromIterable(message.getBytes),
             ).iterator,
-            message.length,
+            message.length.toLong,
           )
           client                   <- ZIO.service[Client]
           firstResponse            <- makeRequest(client, port)

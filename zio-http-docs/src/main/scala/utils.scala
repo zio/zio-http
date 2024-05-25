@@ -7,7 +7,7 @@ object utils {
       try {
         Source.fromFile("../" + path)
       } catch {
-        case _ => Source.fromFile(path)
+        case _: Throwable => Source.fromFile(path)
       }
 
     if (lines.isEmpty) {
@@ -40,11 +40,11 @@ object utils {
     path: String,
     lines: Seq[(Int, Int)] = Seq.empty,
     comment: Boolean = true,
-    showLineNumbers: Boolean = true,
+    showLineNumbers: Boolean = false,
   ) = {
     val title     = if (comment) s"""title="$path"""" else ""
     val showLines = if (showLineNumbers) "showLineNumbers" else ""
-    println(s"""```${fileExtension(path)} ${title} ${showLines}"""")
+    println(s"""```${fileExtension(path)} ${title} ${showLines}""")
     println(readSource(path, lines))
     println("```")
   }

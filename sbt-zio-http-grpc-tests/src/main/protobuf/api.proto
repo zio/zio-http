@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package zio.http.grpc;
+
+service v1 {
+    rpc test (TestMsg) returns (TestMsg);
+}
+
+message TestMsg {
+    string a = 1;
+}

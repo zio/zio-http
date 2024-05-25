@@ -238,6 +238,7 @@ final case class EndpointGen() {
               status = status,
               mediaType = Some("application/json"),
               doc = None,
+              streaming = false,
             )
         case (OpenAPI.StatusOrDefault.StatusValue(status), OpenAPI.ReferenceOr.Or(response: OpenAPI.Response))    =>
           val (imports, code) =
@@ -283,6 +284,7 @@ final case class EndpointGen() {
             status = status,
             mediaType = Some("application/json"),
             doc = None,
+            streaming = false,
           )
       }.unzip
 
@@ -292,7 +294,7 @@ final case class EndpointGen() {
       pathPatternCode = Code.PathPatternCode(segments),
       queryParamsCode = queryParams,
       headersCode = Code.HeadersCode(headers),
-      inCode = Code.InCode(inType, None, None),
+      inCode = Code.InCode(inType),
       outCodes = outCodes.filterNot(_.status.isError).toList,
       errorsCode = outCodes.filter(_.status.isError).toList,
     )
@@ -653,7 +655,7 @@ final case class EndpointGen() {
       case JsonSchema.ArrayType(Some(schema))                               =>
         schemaToCode(schema, openAPI, name, annotations)
       // TODO use additionalProperties
-      case JsonSchema.Object(properties, additionalProperties, required)    =>
+      case JsonSchema.Object(properties, _, required)                       =>
         val fields            = properties.map { case (name, schema) =>
           val field = schemaToField(schema, openAPI, name, annotations)
             .getOrElse(

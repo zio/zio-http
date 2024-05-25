@@ -20,11 +20,10 @@ import java.net.ConnectException
 
 import zio.Config.Secret
 import zio.test.Assertion._
-import zio.test.TestAspect.{sequential, timeout, withLiveClock}
+import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test._
-import zio.{Scope, Trace, ZIO, ZLayer, durationInt}
+import zio.{Scope, ZIO, ZLayer}
 
-import zio.http.ZClient.{Config, DriverLive}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
@@ -56,7 +55,7 @@ object ClientProxySpec extends HttpRunnableSpec {
         for {
           port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           url  <- ZIO.fromEither(URL.decode(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(Handler.ok.toHttpApp)
+          id   <- DynamicServer.deploy(Handler.ok.toRoutes)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
           zclient <- ZIO.serviceWith[Client](_.proxy(proxy))
           out     <- zclient
@@ -76,7 +75,7 @@ object ClientProxySpec extends HttpRunnableSpec {
         for {
           port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           url  <- ZIO.fromEither(URL.decode(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(Handler.ok.toHttpApp)
+          id   <- DynamicServer.deploy(Handler.ok.toRoutes)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
           out <- Client
             .request(
@@ -101,7 +100,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           else
             Response.status(Status.Forbidden)
         }
-        .toHttpApp
+        .toRoutes
 
       val res =
         for {

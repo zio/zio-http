@@ -20,7 +20,6 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.atomic._
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Server.Config.ResponseCompressionConfig
 
@@ -33,7 +32,14 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R, Unit]
+  @deprecated("Install Routes instead. Will be removed in the next release.", "3.0.0-RC7")
+  def install[R](httpApp: HttpApp[R])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit] =
+    install(httpApp.routes)
+
+  /**
+   * Installs the given HTTP application into the server.
+   */
+  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
@@ -241,69 +247,118 @@ object Server extends ServerPlatformSpecific {
         ResponseCompressionConfig(0, IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()))
     }
 
-    /**
-     * @param level
-     *   defines compression level, {@code 1} yields the fastest compression and
-     *   {@code 9} yields the best compression. {@code 0} means no compression.
-     * @param bits
-     *   defines windowBits, The base two logarithm of the size of the history
-     *   buffer. The value should be in the range {@code 9} to {@code 15}
-     *   inclusive. Larger values result in better compression at the expense of
-     *   memory usage
-     * @param mem
-     *   defines memlevel, How much memory should be allocated for the internal
-     *   compression state. {@code 1} uses minimum memory and {@code 9} uses
-     *   maximum memory. Larger values result in better and faster compression
-     *   at the expense of memory usage
-     */
-    final case class CompressionOptions(
-      level: Int,
-      bits: Int,
-      mem: Int,
-      kind: CompressionOptions.CompressionType,
-    )
+    sealed trait CompressionOptions {
+      val name: String
+    }
 
     object CompressionOptions {
-      val DefaultLevel = 6
-      val DefaultBits  = 15
-      val DefaultMem   = 8
+
+      final case class GZip(cfg: DeflateConfig)    extends CompressionOptions { val name = "gzip"    }
+      final case class Deflate(cfg: DeflateConfig) extends CompressionOptions { val name = "deflate" }
+      final case class Brotli(cfg: BrotliConfig)   extends CompressionOptions { val name = "brotli"  }
+
+      /**
+       * @param level
+       *   defines compression level, {@code 1} yields the fastest compression
+       *   and {@code 9} yields the best compression. {@code 0} means no
+       *   compression.
+       * @param bits
+       *   defines windowBits, The base two logarithm of the size of the history
+       *   buffer. The value should be in the range {@code 9} to {@code 15}
+       *   inclusive. Larger values result in better compression at the expense
+       *   of memory usage
+       * @param mem
+       *   defines memlevel, How much memory should be allocated for the
+       *   internal compression state. {@code 1} uses minimum memory and
+       *   {@code 9} uses maximum memory. Larger values result in better and
+       *   faster compression at the expense of memory usage
+       */
+      final case class DeflateConfig(
+        level: Int,
+        bits: Int,
+        mem: Int,
+      )
+
+      object DeflateConfig {
+        val DefaultLevel = 6
+        val DefaultBits  = 15
+        val DefaultMem   = 8
+      }
+
+      final case class BrotliConfig(
+        quality: Int,
+        lgwin: Int,
+        mode: Mode,
+      )
+
+      object BrotliConfig {
+        val DefaultQuality = 4
+        val DefaultLgwin   = -1
+        val DefaultMode    = Mode.Text
+      }
+
+      sealed trait Mode
+      object Mode {
+        case object Generic extends Mode
+        case object Text    extends Mode
+        case object Font    extends Mode
+
+        def fromString(s: String): Mode = s.toLowerCase match {
+          case "generic" => Generic
+          case "text"    => Text
+          case "font"    => Font
+          case _         => Text
+        }
+      }
 
       /**
        * Creates GZip CompressionOptions. Defines defaults as per
        * io.netty.handler.codec.compression.GzipOptions#DEFAULT
        */
-      def gzip(level: Int = DefaultLevel, bits: Int = DefaultBits, mem: Int = DefaultMem): CompressionOptions =
-        CompressionOptions(level, bits, mem, CompressionType.GZip)
+      def gzip(
+        level: Int = DeflateConfig.DefaultLevel,
+        bits: Int = DeflateConfig.DefaultBits,
+        mem: Int = DeflateConfig.DefaultMem,
+      ): CompressionOptions =
+        CompressionOptions.GZip(DeflateConfig(level, bits, mem))
 
       /**
        * Creates Deflate CompressionOptions. Defines defaults as per
        * io.netty.handler.codec.compression.DeflateOptions#DEFAULT
        */
-      def deflate(level: Int = DefaultLevel, bits: Int = DefaultBits, mem: Int = DefaultMem): CompressionOptions =
-        CompressionOptions(level, bits, mem, CompressionType.Deflate)
+      def deflate(
+        level: Int = DeflateConfig.DefaultLevel,
+        bits: Int = DeflateConfig.DefaultBits,
+        mem: Int = DeflateConfig.DefaultMem,
+      ): CompressionOptions =
+        CompressionOptions.Deflate(DeflateConfig(level, bits, mem))
 
-      sealed trait CompressionType
-
-      private[http] object CompressionType {
-        case object GZip    extends CompressionType
-        case object Deflate extends CompressionType
-
-        lazy val config: zio.Config[CompressionType] =
-          zio.Config.string.mapOrFail {
-            case "gzip"    => Right(GZip)
-            case "deflate" => Right(Deflate)
-            case other     => Left(zio.Config.Error.InvalidData(message = s"Invalid compression type: $other"))
-          }
-      }
+      /**
+       * Creates Brotli CompressionOptions. Defines defaults as per
+       * io.netty.handler.codec.compression.BrotliOptions#DEFAULT
+       */
+      def brotli(
+        quality: Int = BrotliConfig.DefaultQuality,
+        lgwin: Int = BrotliConfig.DefaultLgwin,
+        mode: Mode = BrotliConfig.DefaultMode,
+      ): CompressionOptions =
+        CompressionOptions.Brotli(BrotliConfig(quality, lgwin, mode))
 
       lazy val config: zio.Config[CompressionOptions] =
         (
-          zio.Config.int("level").withDefault(DefaultLevel) ++
-            zio.Config.int("bits").withDefault(DefaultBits) ++
-            zio.Config.int("mem").withDefault(DefaultMem) ++
-            CompressionOptions.CompressionType.config.nested("type")
-        ).map { case (level, bits, mem, kind) =>
-          CompressionOptions(level, bits, mem, kind)
+          (zio.Config.int("level").withDefault(DeflateConfig.DefaultLevel) ++
+            zio.Config.int("bits").withDefault(DeflateConfig.DefaultBits) ++
+            zio.Config.int("mem").withDefault(DeflateConfig.DefaultMem)) ++
+            zio.Config.int("quantity").withDefault(BrotliConfig.DefaultQuality) ++
+            zio.Config.int("lgwin").withDefault(BrotliConfig.DefaultLgwin) ++
+            zio.Config.string("mode").map(Mode.fromString).withDefault(BrotliConfig.DefaultMode) ++
+            zio.Config.string("type")
+        ).map { case (level, bits, mem, quantity, lgwin, mode, typ) =>
+          typ.toLowerCase match {
+            case "gzip"    => gzip(level, bits, mem)
+            case "deflate" => deflate(level, bits, mem)
+            case "brotli"  => brotli(quantity, lgwin, mode)
+          }
         }
     }
   }
@@ -329,17 +384,34 @@ object Server extends ServerPlatformSpecific {
       }
   }
 
+  @deprecated("Serve Routes instead. Will be removed in the next release.", "3.0.0-RC7")
   def serve[R](
     httpApp: HttpApp[R],
-  )(implicit trace: Trace): URIO[R with Server, Nothing] = {
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
-      install(httpApp) *>
+      install[R](httpApp) *>
       ZIO.logInfo("Server started") *>
       ZIO.never
   }
 
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
+  @deprecated("Install Routes instead. Will be removed in the next release.", "3.0.0-RC7")
+  def install[R](httpApp: HttpApp[R])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWith[Server](_.port)
+  }
+
+  def serve[R](
+    httpApp: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
+    ZIO.logInfo("Starting the server...") *>
+      ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *>
+      ZIO.logInfo("Server started") *>
+      ZIO.never
+  }
+
+  def install[R](
+    httpApp: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWith[Server](_.port)
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
@@ -392,11 +464,13 @@ object Server extends ServerPlatformSpecific {
     driver: Driver,
     bindPort: Int,
   ) extends Server {
-    override def install[R](httpApp: HttpApp[R])(implicit
+    override def install[R](httpApp: Routes[R, Response])(implicit
       trace: Trace,
+      tag: EnvironmentTag[R],
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
+      ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune[R]))
 
     override def port: Int = bindPort
+
   }
 }

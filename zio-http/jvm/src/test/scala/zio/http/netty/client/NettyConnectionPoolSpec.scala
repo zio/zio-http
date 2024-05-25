@@ -34,7 +34,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     Method.POST / "streaming" -> handler((req: Request) => Response(body = Body.fromStreamChunked(req.body.asStream))),
     Method.GET / "slow"       -> handler(ZIO.sleep(1.hour).as(Response.text("done"))),
     Method.ANY / trailing     -> handler((_: Path, req: Request) => req.body.asString.map(Response.text(_))),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   private val connectionCloseHeader = Headers(Header.Connection.Close)
   private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)
@@ -168,7 +168,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       },
     )
 
-  private def connectionPoolTimeoutTest =
+  private def connectionPoolTimeoutTest = {
     test("client connection timeouts while in connection pool") {
       def executeRequest(idx: Int) =
         app
@@ -199,6 +199,25 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       testNettyServerConfig,
       Server.customized,
     ) @@ withLiveClock
+  } + test("idle timeout is refreshed on each request") {
+    val f = Handler
+      .fromZIO(ZIO.succeed(Response.text("ok")).delay(150.millis))
+      .toRoutes
+      .deploy(Request())
+      .map(_.status)
+      .map(assert(_)(equalTo(Status.Ok)))
+
+    ZIO.collectAll(List.fill(4)(f)).map(_.foldLeft(assertCompletes)(_ && _))
+  }.provideSome[Scope](
+    ZLayer(appKeepAliveEnabled.unit),
+    DynamicServer.live,
+    ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort),
+    testNettyServerConfig,
+    Server.customized,
+    Client.live,
+    ZLayer.succeed(Client.Config.default.idleTimeout(500.millis)),
+    DnsResolver.default,
+  ) @@ withLiveClock
 
   private def connectionPoolShutdownSpec =
     test("connections are closed when pool is closed") {

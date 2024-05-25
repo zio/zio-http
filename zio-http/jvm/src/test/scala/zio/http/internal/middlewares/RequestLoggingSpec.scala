@@ -30,13 +30,13 @@ object RequestLoggingSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     Method.GET / "error"  -> Handler.internalServerError,
     Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
     Method.GET / "defect" -> Handler.die(new Throwable("boom")),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("RequestLoggingSpec")(
       test("logs successful request") {
         for {
-          _       <- (app @@ requestLogging()).runZIO(Request.get(url = URL(Root / "ok")))
+          _       <- (app @@ requestLogging()).runZIO(Request.get(url = URL(Path.root / "ok")))
           entries <- ZTestLogger.logOutput
           first = entries.head
         } yield assertTrue(
@@ -53,7 +53,7 @@ object RequestLoggingSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       },
       test("logs successful request with different status code") {
         for {
-          _       <- (app @@ requestLogging()).runZIO(Request.get(url = URL(Root / "error")))
+          _       <- (app @@ requestLogging()).runZIO(Request.get(url = URL(Path.root / "error")))
           entries <- ZTestLogger.logOutput
           first = entries.head
         } yield assertTrue(
@@ -70,7 +70,7 @@ object RequestLoggingSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       },
       test("logs request failing with an error response") {
         for {
-          _       <- (app @@ requestLogging()).runZIO(Request.get(url = URL(Root / "fail"))).ignore
+          _       <- (app @@ requestLogging()).runZIO(Request.get(url = URL(Path.root / "fail"))).ignore
           entries <- ZTestLogger.logOutput
           first = entries.head
         } yield assertTrue(
@@ -88,7 +88,7 @@ object RequestLoggingSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       test("logs request resulting in a defect") {
         for {
           _       <- (app @@ requestLogging())
-            .runZIO(Request.get(url = URL(Root / "defect")))
+            .runZIO(Request.get(url = URL(Path.root / "defect")))
             .ignore
             .catchAllDefect(_ => ZIO.unit)
           entries <- ZTestLogger.logOutput

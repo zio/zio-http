@@ -52,7 +52,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         }
       },
     ),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   // TODO: test failure cases
 

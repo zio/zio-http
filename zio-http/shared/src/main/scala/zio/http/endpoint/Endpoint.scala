@@ -16,6 +16,7 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
 import zio._
@@ -45,6 +46,7 @@ import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
  * to generate a type-safe Scala client for the endpoint, and possibly, to
  * generate client libraries in other programming languages.
  */
+@nowarn("msg=type parameter .* defined")
 final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
   route: RoutePattern[PathInput],
   input: HttpCodec[HttpCodecType.RequestType, Input],
@@ -200,7 +202,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
         }
         .catchAllCause { cause =>
           asHttpCodecError(cause) match {
-            case Some(error) =>
+            case Some(_) =>
               Handler.fromFunctionZIO { (request: zio.http.Request) =>
                 val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                 val log      = ZIO.unit
@@ -217,7 +219,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
                 }
                 log.as(response)
               }
-            case None        =>
+            case None    =>
               Handler.failCause(cause)
           }
         }
@@ -727,6 +729,7 @@ object Endpoint {
       EndpointMiddleware.None,
     )
 
+  @nowarn("msg=type parameter .* defined")
   final case class OutErrors[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware, Err2](
     self: Endpoint[PathInput, Input, Err, Output, Middleware],
   ) extends AnyVal {

@@ -17,39 +17,33 @@
 package zio.http.netty.client
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Trace, Unsafe}
+import zio.{Exit, Promise, Unsafe}
 
 import zio.http.Response
 import zio.http.internal.ChannelState
-import zio.http.netty.{NettyResponse, NettyRuntime}
+import zio.http.netty.NettyResponse
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
 
 final class WebSocketClientInboundHandler(
-  rtm: NettyRuntime,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
-)(implicit trace: Trace)
-    extends SimpleChannelInboundHandler[FullHttpResponse](true) {
+) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
-  override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    ctx.fireChannelActive()
-  }
+  override def channelActive(ctx: ChannelHandlerContext): Unit =
+    ctx.fireChannelActive(): Unit
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-      onResponse.succeed(NettyResponse(msg))
-    }(unsafeClass, trace)
-
+    onResponse.unsafe.done(Exit.succeed(NettyResponse(msg)))
     ctx.fireChannelRead(msg.retain())
     ctx.pipeline().remove(ctx.name()): Unit
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-      onResponse.fail(error) *> onComplete.fail(error),
-    )(unsafeClass, trace)
+    val exit = Exit.fail(error)
+    onResponse.unsafe.done(exit)
+    onComplete.unsafe.done(exit)
   }
 }

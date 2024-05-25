@@ -213,7 +213,7 @@ object DnsResolver {
       refreshRate: Duration,
     )(implicit trace: Trace): ZIO[Scope, Nothing, DnsResolver] =
       for {
-        semaphore <- Semaphore.make(maxConcurrentResolutions)
+        semaphore <- Semaphore.make(maxConcurrentResolutions.toLong)
         entries   <- Ref.make(Map.empty[String, CacheEntry])
         cachingResolver = new CachingResolver(resolver, ttl, unknownHostTtl, maxCount, expireAction, semaphore, entries)
         _ <- cachingResolver.refreshAndCleanup().scheduleFork(Schedule.fixed(refreshRate))

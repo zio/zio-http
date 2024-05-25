@@ -1,32 +1,47 @@
 package zio.http.gen.scala
 
-import java.io.File
 import java.nio.file._
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
+import scala.meta._
+import scala.meta.parsers._
+import scala.util.{Failure, Success, Try}
 
 import zio.Scope
-import zio.test.TestAspect.flaky
+import zio.test.TestAspect.{blocking, flaky}
 import zio.test._
 
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
-import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.Inline
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.EndpointGen
 
+@nowarn("msg=missing interpolator")
 object CodeGenSpec extends ZIOSpecDefault {
 
   private def fileShouldBe(dir: java.nio.file.Path, subPath: String, expectedFile: String): TestResult = {
-    val filePath      = dir.resolve(Paths.get(subPath))
-    val generated     = Files.readAllLines(filePath).asScala.mkString("\n")
-    val url           = getClass.getResource(expectedFile)
-    val expected      = java.nio.file.Paths.get(url.toURI.getPath)
-    val expectedLines = Files.readAllLines(expected).asScala.mkString("\n")
-    assertTrue(generated == expectedLines)
+    val filePath  = dir.resolve(Paths.get(subPath))
+    val generated = Files.readAllLines(filePath).asScala.mkString("\n")
+    isValidScala(generated) && {
+      val url           = getClass.getResource(expectedFile)
+      val expected      = java.nio.file.Paths.get(url.toURI.getPath)
+      val expectedLines = Files.readAllLines(expected).asScala.mkString("\n")
+      assertTrue(generated == expectedLines)
+    }
   }
+
+  private def isValidScala(code: String): TestResult =
+    assert(Try(code.parse[Source]))(Assertion[Try[Parsed[Source]]](TestArrow.make[Try[Parsed[Source]], Boolean] {
+      case Failure(failed) => TestTrace.fail(ErrorMessage.throwable(failed))
+      case Success(parsed) =>
+        parsed.fold(
+          e => TestTrace.fail(s"Invalid Scala syntax: ${e.message}"),
+          _ => TestTrace.succeed(true),
+        )
+    }))
 
   private val java11OrNewer = {
     val version = System.getProperty("java.version")
@@ -217,6 +232,21 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/GeneratedValues.scala",
         )
       },
+      test("OpenAPI spec with inline schema request and response body containing scala keywords") {
+        val openAPIString =
+          Files
+            .readAllLines(Paths.get(getClass.getResource("/inline_schema_with_keywords.json").toURI))
+            .asScala
+            .mkString("\n")
+        val openAPI       = OpenAPI.fromJson(openAPIString).getOrElse(OpenAPI.empty)
+        val code          = EndpointGen.fromOpenAPI(openAPI)
+
+        val tempDir = Files.createTempDirectory("codegen")
+
+        CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
+
+        fileShouldBe(tempDir, "test/api/v1/Keywords.scala", "/EndpointWithRequestResponseBodyWithKeywordsInline.scala")
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test("Endpoint with array field in input") {
         val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
         val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)
@@ -231,5 +261,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/GeneratedUserNameArray.scala",
         )
       },
-    ) @@ java11OrNewer @@ flaky // Downloading scalafmt on CI is flaky
+    ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }

@@ -1,5 +1,7 @@
 package example.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.schema.{DeriveSchema, Schema}
@@ -17,6 +19,7 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
     implicit val schema: Schema[Book] = DeriveSchema.gen
   }
 
+  @nowarn("msg=parameter .* never used")
   abstract class AppError(message: String)
 
   case class BookNotFound(message: String, bookId: Int) extends AppError(message)
@@ -59,7 +62,7 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
         ZIO.fail(AuthenticationError("User is not authenticated", 123))
     }
 
-  val app = endpoint.implement(getBookHandler).toHttpApp @@ Middleware.debug
+  val routes = endpoint.implement(getBookHandler).toRoutes @@ Middleware.debug
 
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(routes).provide(Server.default)
 }

@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -92,7 +94,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     outF: Out => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
     for {
-      port   <- Server.install(route.toHttpApp @@ Middleware.requestLogging())
+      port   <- Server.install(route @@ Middleware.requestLogging())
       client <- ZIO.service[Client]
       executor = makeExecutor(client, port)
       out    <- executor(endpoint.apply(in))
@@ -106,7 +108,7 @@ object RoundtripSpec extends ZIOHttpSpec {
   ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
     ZIO.scoped[Client with Server] {
       for {
-        port   <- Server.install(route.toHttpApp @@ Middleware.requestLogging())
+        port   <- Server.install(route @@ Middleware.requestLogging())
         client <- ZIO.service[Client]
         out    <- client.request(in.updateURL(_.host("localhost").port(port))).orDie
         result <- outF(out)
@@ -128,7 +130,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     errorF: Err => ZIO[Any, Nothing, TestResult],
   ): ZIO[Client with Server with Scope, Out, TestResult] =
     for {
-      port <- Server.install(route.toHttpApp)
+      port <- Server.install(route)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
         .service[EndpointExecutor[Unit]]
@@ -242,16 +244,16 @@ object RoundtripSpec extends ZIOHttpSpec {
           .outError[String](Status.BadRequest)
           .out[String] ?? Doc.p("doc")
 
+        @nowarn("msg=dead code")
         val handler = api.implement {
           Handler.fromFunction { case (accountId, name, instanceName, args, env) =>
-            println(s"$accountId, $name, $instanceName, $args, $env")
             throw new RuntimeException("I can't code")
             s"$accountId, $name, $instanceName, $args, $env"
           }
         }
 
         for {
-          port     <- Server.install(handler.toHttpApp)
+          port     <- Server.install(handler.toRoutes)
           client   <- ZIO.service[Client]
           response <- client(
             Request.post(
@@ -358,10 +360,10 @@ object RoundtripSpec extends ZIOHttpSpec {
         val endpointRoute =
           endpoint.implement(Handler.identity)
 
-        val routes = endpointRoute
+        val routes = endpointRoute.toRoutes
 
-        val app = routes.toHttpApp @@ alwaysFailingMiddleware
-          .implement(_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
+        val app = routes @@ alwaysFailingMiddleware
+          .implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
 
         for {
           port <- Server.install(app)
@@ -397,10 +399,9 @@ object RoundtripSpec extends ZIOHttpSpec {
         val endpointRoute =
           endpoint.implement(Handler.identity)
 
-        val routes = endpointRoute
+        val routes = endpointRoute.toRoutes
 
-        val app = routes.toHttpApp @@ alwaysFailingMiddleware
-          .implement(_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
+        val app = routes @@ alwaysFailingMiddleware.implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
 
         for {
           port <- Server.install(app)
@@ -444,12 +445,10 @@ object RoundtripSpec extends ZIOHttpSpec {
             }
           }
 
-        val routes = endpointRoute
-
-        val app = routes.toHttpApp
+        val routes = endpointRoute.toRoutes
 
         for {
-          port <- Server.install(app)
+          port <- Server.install(routes)
           executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port)))
 
           cause <- ZIO

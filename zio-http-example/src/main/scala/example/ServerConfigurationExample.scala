@@ -9,7 +9,7 @@ import zio.http._
 object ServerConfigurationExample extends ZIOAppDefault {
   val httpApp = Routes(
     Method.GET / "hello" -> handler(Response.text("Hello, World!")),
-  ).sandbox.toHttpApp
+  ).sandbox
 
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
     Runtime.setConfigProvider(ConfigProvider.fromResourcePath())

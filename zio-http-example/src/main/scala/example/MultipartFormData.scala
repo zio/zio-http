@@ -1,12 +1,14 @@
 package example
 
+import scala.annotation.nowarn
+
 import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import zio.http._
 
 object MultipartFormData extends ZIOAppDefault {
 
-  private val app: HttpApp[Any] =
+  private val app: Routes[Any, Response] =
     Routes(
       Method.POST / "upload" ->
         handler { (req: Request) =>
@@ -39,8 +41,9 @@ object MultipartFormData extends ZIOAppDefault {
             } yield response
           else ZIO.succeed(Response(status = Status.NotFound))
         },
-    ).sandbox.toHttpApp
+    ).sandbox
 
+  @nowarn("msg=dead code")
   private def program: ZIO[Client with Server with Scope, Throwable, Unit] =
     for {
       port         <- Server.install(app)

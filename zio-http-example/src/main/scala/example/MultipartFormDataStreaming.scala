@@ -1,5 +1,7 @@
 package example
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.stream.{ZSink, ZStream}
@@ -8,7 +10,7 @@ import zio.http._
 
 object MultipartFormDataStreaming extends ZIOAppDefault {
 
-  private val app: HttpApp[Any] =
+  private val app: Routes[Any, Response] =
     Routes(
       Method.POST / "upload-simple"    -> handler { (req: Request) =>
         for {
@@ -61,8 +63,9 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
           } yield Response.text(count.toString)
         else ZIO.succeed(Response(status = Status.NotFound))
       },
-    ).sandbox.toHttpApp @@ Middleware.debug
+    ).sandbox @@ Middleware.debug
 
+  @nowarn("msg=dead code")
   private def program: ZIO[Server, Throwable, Unit] =
     for {
       port <- Server.install(app)
