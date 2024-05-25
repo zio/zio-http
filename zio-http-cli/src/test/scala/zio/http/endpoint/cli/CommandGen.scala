@@ -155,6 +155,7 @@ object CommandGen {
           case StandardType.LocalDateTimeType  => "date-time"
           case StandardType.MonthType          => "text"
           case StandardType.YearType           => "integer"
+          case StandardType.CurrencyType       => "currency"
         }
       case _                                 => "non primitive"
     }
