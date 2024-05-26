@@ -1,6 +1,5 @@
 package zio.http.gen.openapi
 
-import zio.{Config => zc}
 
 final case class Config(commonFieldsOnSuperType: Boolean)
 object Config {
