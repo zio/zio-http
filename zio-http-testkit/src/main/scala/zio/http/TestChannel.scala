@@ -19,9 +19,9 @@ case class TestChannel(
   ): ZIO[Env, Err, Unit] = {
     lazy val loop: ZIO[Env, Err, Unit] =
       in.take.flatMap {
-        case event @ ChannelEvent.ExceptionCaught(_) => f(event).unit
-        case event @ ChannelEvent.Unregistered       => f(event).unit
-        case event                                   => f(event) *> ZIO.yieldNow *> loop
+        case event: ChannelEvent.ExceptionCaught   => f(event).unit
+        case event: ChannelEvent.Unregistered.type => f(event).unit
+        case event                                 => f(event) *> ZIO.yieldNow *> loop
       }
 
     loop

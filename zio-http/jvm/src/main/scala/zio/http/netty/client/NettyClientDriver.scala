@@ -31,13 +31,12 @@ import zio.http.netty.socket.NettySocketProtocol
 import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
-import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator, HttpRequest}
 
 final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
   nettyRuntime: NettyRuntime,
-  clientConfig: NettyConfig,
 ) extends ClientDriver {
 
   override type Connection = Channel
@@ -132,7 +131,7 @@ final case class NettyClientDriver private[netty] (
           toRemove.add(clientFailureHandler)
 
           pipeline.fireChannelRegistered()
-          pipeline.fireChannelActive()
+          pipeline.fireUserEventTriggered(ClientInboundHandler.SendRequest)
 
           val frozenToRemove = toRemove.toSet
 
@@ -159,13 +158,15 @@ final case class NettyClientDriver private[netty] (
             // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
             // so we don't need to fulfill `onResponse`
             nettyRuntime.unsafeRunSync {
-              ZIO.whenZIO(onComplete.interrupt)(
-                onResponse.fail(
-                  new PrematureChannelClosureException(
-                    "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+              ZIO
+                .whenZIO(onComplete.interrupt)(
+                  onResponse.fail(
+                    new PrematureChannelClosureException(
+                      "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+                    ),
                   ),
-                ),
-              )
+                )
+                .unit
             }
           }
         }
@@ -185,15 +186,14 @@ final case class NettyClientDriver private[netty] (
 object NettyClientDriver {
   private implicit val trace: Trace = Trace.empty
 
-  val live: ZLayer[NettyConfig, Throwable, ClientDriver] =
+  val live: URLayer[EventLoopGroups.Config, ClientDriver] =
     (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {
         for {
           eventLoopGroup <- ZIO.service[EventLoopGroup]
           channelFactory <- ZIO.service[ChannelFactory[Channel]]
           nettyRuntime   <- ZIO.service[NettyRuntime]
-          clientConfig   <- ZIO.service[NettyConfig]
-        } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
+        } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime)
       }
 
 }

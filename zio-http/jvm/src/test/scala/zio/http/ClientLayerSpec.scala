@@ -2,11 +2,10 @@ package zio.http
 
 import java.util.concurrent.TimeUnit
 
-import zio.test.Assertion.{isGreaterThan, isLessThan, isWithin}
+import zio.test.Assertion.isWithin
 import zio.test.{TestAspect, assertZIO}
 import zio.{Clock, ZIO, ZLayer, durationInt}
 
-import zio.http.Client
 import zio.http.netty.NettyConfig
 
 object ClientLayerSpec extends ZIOHttpSpec {

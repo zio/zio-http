@@ -18,12 +18,11 @@ package zio.http.netty.model
 
 import scala.collection.AbstractIterator
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.Server.Config.CompressionOptions
 import zio.http._
 
-import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
+import com.aayushatharva.brotli4j.encoder.Encoder
+import io.netty.handler.codec.compression.StandardCompressionOptions
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 
@@ -87,7 +86,7 @@ private[netty] object Conversions {
     )
 
   private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
-    val nettyHeaders  = new DefaultHttpHeaders(true)
+    val nettyHeaders  = new DefaultHttpHeaders()
     val setCookieName = Header.SetCookie.name
     val iter          = headers.iterator
     while (iter.hasNext) {
@@ -132,13 +131,25 @@ private[netty] object Conversions {
     case _                   => None
   }
 
-  def compressionOptionsToNetty(compressionOptions: CompressionOptions): DeflateOptions =
-    compressionOptions.kind match {
-      case CompressionOptions.CompressionType.GZip    =>
-        StandardCompressionOptions.gzip(compressionOptions.level, compressionOptions.bits, compressionOptions.mem)
-      case CompressionOptions.CompressionType.Deflate =>
-        StandardCompressionOptions.deflate(compressionOptions.level, compressionOptions.bits, compressionOptions.mem)
+  def compressionOptionsToNetty(
+    compressionOptions: CompressionOptions,
+  ): io.netty.handler.codec.compression.CompressionOptions =
+    compressionOptions match {
+      case CompressionOptions.GZip(cfg)    =>
+        StandardCompressionOptions.gzip(cfg.level, cfg.bits, cfg.mem)
+      case CompressionOptions.Deflate(cfg) =>
+        StandardCompressionOptions.deflate(cfg.level, cfg.bits, cfg.mem)
+      case CompressionOptions.Brotli(cfg)  =>
+        StandardCompressionOptions.brotli(
+          new Encoder.Parameters().setQuality(cfg.quality).setWindow(cfg.lgwin).setMode(brotliModeToJava(cfg.mode)),
+        )
     }
+
+  def brotliModeToJava(brotli: CompressionOptions.Mode): Encoder.Mode = brotli match {
+    case CompressionOptions.Mode.Font    => Encoder.Mode.FONT
+    case CompressionOptions.Mode.Text    => Encoder.Mode.TEXT
+    case CompressionOptions.Mode.Generic => Encoder.Mode.GENERIC
+  }
 
   def versionToNetty(version: Version): HttpVersion = version match {
     case Version.Http_1_0 => HttpVersion.HTTP_1_0

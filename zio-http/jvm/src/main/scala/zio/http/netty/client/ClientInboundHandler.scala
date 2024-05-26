@@ -40,20 +40,16 @@ final class ClientInboundHandler(
     extends SimpleChannelInboundHandler[HttpObject](false) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
-  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    super.handlerAdded(ctx)
-  }
-
-  override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    sendRequest(ctx)
-  }
-
-  override def handlerRemoved(ctx: ChannelHandlerContext): Unit = super.handlerRemoved(ctx)
+  override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit =
+    evt match {
+      case ClientInboundHandler.SendRequest => sendRequest(ctx)
+      case _                                => ctx.fireUserEventTriggered(evt): Unit
+    }
 
   private def sendRequest(ctx: ChannelHandlerContext): Unit = {
     jReq match {
       case fullRequest: FullHttpRequest =>
-        ctx.writeAndFlush(fullRequest)
+        ctx.writeAndFlush(fullRequest): Unit
       case _: HttpRequest               =>
         ctx.write(jReq)
         NettyBodyWriter.writeAndFlush(req.body, None, ctx, compressionEnabled = false).foreach { effect =>
@@ -77,5 +73,10 @@ final class ClientInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
     ctx.fireExceptionCaught(error)
+    ()
   }
+}
+
+object ClientInboundHandler {
+  case object SendRequest
 }
