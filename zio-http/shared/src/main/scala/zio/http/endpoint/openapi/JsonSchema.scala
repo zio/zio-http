@@ -570,6 +570,7 @@ object JsonSchema {
           case StandardType.OffsetTimeType     => JsonSchema.String()
           case StandardType.OffsetDateTimeType => JsonSchema.String()
           case StandardType.ZonedDateTimeType  => JsonSchema.String()
+          case StandardType.CurrencyType       => JsonSchema.String()
         }
 
       case Schema.Optional(schema, _)    => fromZSchema(schema, refType).nullable(true)
