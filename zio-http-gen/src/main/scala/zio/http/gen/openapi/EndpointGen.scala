@@ -39,6 +39,12 @@ object EndpointGen {
         case None    => m - k
       }
   }
+
+  implicit class OptionCompanionCompatOps(o: Option.type) {
+    // scala 2.12 collection does not support Option.when natively, so we're adding this as an extension.
+    def when[A](p: => Boolean)(value: => A): Option[A] =
+      if (p) Some(value) else None
+  }
 }
 
 final case class EndpointGen(config: Config) {
@@ -150,7 +156,7 @@ final case class EndpointGen(config: Config) {
     // we don't need a separate code file, as it will be included in the sealed trait companion.
     // this var stores the bookkeeping of such case classes, and is later used to omit the redundant code files.
     var replacedCasesToOmitAsTopComponents = Set.empty[String]
-    val allComponents                      = componentNameToCodeFile.view.map { case (name, codeFile) =>
+    val allComponents: List[Code.File]     = componentNameToCodeFile.view.map { case (name, codeFile) =>
       traitToSubtypes
         .get(name)
         .fold(codeFile) { subtypes =>
@@ -166,12 +172,53 @@ final case class EndpointGen(config: Config) {
         }
     }.toList
 
-    allComponents.filterNot { cf =>
+    val noDuplicateFiles = allComponents.filterNot { cf =>
       cf.enums.isEmpty && cf.objects.isEmpty && cf.caseClasses.nonEmpty && cf.caseClasses.forall(cc =>
         replacedCasesToOmitAsTopComponents(cc.name),
       )
     }
+
+    noDuplicateFiles.map { cf =>
+      val mapType: Code.ScalaType => Code.ScalaType = mapCaseClasses { cc =>
+        cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (o @ Code.Field(_, scalaType), tail) =>
+          mapTypeRef(scalaType) { case Code.TypeRef(tName) =>
+            subtypeToTraits.get(tName).flatMap { set =>
+              Option.when(set.size == 1) {
+                Code.TypeRef(set.head + "." + tName)
+              }
+            }
+          }.fold(o)(o.copy) :: tail
+        })
+      }
+      cf.copy(
+        objects = cf.objects.map(mapType).asInstanceOf[List[Code.Object]],
+        caseClasses = cf.caseClasses.map(mapType).asInstanceOf[List[Code.CaseClass]],
+        enums = cf.enums.map(mapType).asInstanceOf[List[Code.Enum]],
+      )
+    }
   }
+
+  def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Option[Code.TypeRef]): Option[Code.ScalaType] =
+    sType match {
+      case tref: Code.TypeRef    => f(tref)
+      case Collection.Seq(inner) => Some(Collection.Seq(mapTypeRef(inner)(f).getOrElse(inner)))
+      case Collection.Set(inner) => Some(Collection.Set(mapTypeRef(inner)(f).getOrElse(inner)))
+      case Collection.Map(inner) => Some(Collection.Map(mapTypeRef(inner)(f).getOrElse(inner)))
+      case Collection.Opt(inner) => Some(Collection.Opt(mapTypeRef(inner)(f).getOrElse(inner)))
+      case _                     => None
+    }
+
+  def mapCaseClasses(f: Code.CaseClass => Code.CaseClass)(code: Code.ScalaType): Code.ScalaType =
+    code match {
+      case obj: Code.Object   =>
+        obj.copy(
+          caseClasses = obj.caseClasses.map(mapCaseClasses(f)).asInstanceOf[List[Code.CaseClass]],
+          objects = obj.objects.map(mapCaseClasses(f)).asInstanceOf[List[Code.Object]],
+        )
+      case cc: Code.CaseClass => f(cc)
+      case sum: Code.Enum     => sum.copy(cases = sum.cases.map(mapCaseClasses(f)).asInstanceOf[List[Code.CaseClass]])
+      case _                  => code
+    }
 
   def fromOpenAPI(openAPI: OpenAPI): Code.Files =
     Code.Files {
