@@ -65,11 +65,16 @@ components:
         - type: object
           required:
             - num_stripes
+            - dazzle
           properties:
             num_stripes:
               type: integer
               format: int32
               minimum: 0
+            dazzle:
+              type: array
+              items:
+                $ref: '#/components/schemas/Zebra'
     Lion:
       type: object
       required:
@@ -77,3 +82,5 @@ components:
       properties:
         eats:
           $ref: '#/components/schemas/Zebra'
+        enemy:
+          $ref: '#/components/schemas/Alligator'

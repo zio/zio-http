@@ -533,7 +533,7 @@ object CodeGenSpec extends ZIOSpecDefault {
               ) && fileShouldBe(
                 testDir,
                 "component/Animal.scala",
-                "/ComponentAnimalWithAbstractMembers.scala",
+                "/ComponentAnimalWithFieldsReferencingSubs.scala",
               ) && fileShouldBe(
                 testDir,
                 "component/Lion.scala",
