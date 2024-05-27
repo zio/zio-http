@@ -556,5 +556,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/GeneratedUserNameArray.scala",
         )
       },
-    ) @@ java11OrNewer /*@@ flaky*/ @@ blocking // Downloading scalafmt on CI is flaky
+    ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }
