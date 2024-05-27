@@ -178,19 +178,35 @@ final case class EndpointGen(config: Config) {
       )
     }
 
-    noDuplicateFiles.map { cf =>
-      val mapType: String => Code.ScalaType => Code.ScalaType = encapsulatingName =>
-        mapCaseClasses { cc =>
-          cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (o @ Code.Field(_, scalaType), tail) =>
-            mapTypeRef(scalaType) { case Code.TypeRef(tName) =>
-              subtypeToTraits.get(tName).flatMap { set =>
-                Option.when(set.size == 1 && set.head != encapsulatingName) {
-                  Code.TypeRef(set.head + "." + tName)
-                }
+    // After filtering out duplicate files, we can make sure  that in all the files left, all fields has proper types.
+    // The types may not be valid in case we reference a concrete subtype of a sealed trait,
+    // as the subtype is defined as an inner class encapsulated inside the trait's companion.
+    // Therefore, we can alter the type to include the enclosing trait/object's name.
+    //
+    // The following function will be used to alter the type of all fields needed.
+    // The `mapCaseClasses` helper takes a function that alters a case class,
+    // and lifts it such that we can apply it to any structure, and it'll take care to recurse when needed.
+    val mapType: String => Code.ScalaType => Code.ScalaType = encapsulatingName =>
+      mapCaseClasses { cc =>
+        cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (o @ Code.Field(_, scalaType), tail) =>
+          mapTypeRef(scalaType) { case Code.TypeRef(tName) =>
+            // We use the subtypeToTraits map to check if the type is a concrete subtype of a sealed trait.
+            // As of the time of writing this code, there should be only a single trait.
+            // In case future code generalizes to allow multiple mixins, this code should be updated.
+            subtypeToTraits.get(tName).flatMap { set =>
+              // If the type parameter has exactly 1 super type trait,
+              // and that trait's name is different from our enclosing object's name,
+              // then we should alter the type to include the object's name.
+              Option.when(set.size == 1 && set.head != encapsulatingName) {
+                Code.TypeRef(set.head + "." + tName)
               }
-            }.fold(o)(o.copy) :: tail
-          })
-        }
+            }
+          }.fold(o)(o.copy) :: tail
+        })
+      }
+
+    // The `mapType` function is used to alter any relevant part of each code file
+    noDuplicateFiles.map { cf =>
       cf.copy(
         objects = cf.objects.map(o => mapType(o.name)(o)).asInstanceOf[List[Code.Object]],
         caseClasses = cf.caseClasses.map(c => mapType(c.name)(c)).asInstanceOf[List[Code.CaseClass]],
@@ -199,6 +215,20 @@ final case class EndpointGen(config: Config) {
     }
   }
 
+  /**
+   * Given the type parameter of a field, we may want to alter it, e.g. by
+   * prepending the enclosing trait/object's name. This function will
+   * recursively alter the type of a field. Recursion is needed for types that
+   * contain a type parameter. e.g. transforming: {{{Chunk[Option[Zebra]]}}} to
+   * {{{Chunk[Option[Animal.Zebra]]}}}
+   *
+   * @param sType
+   *   the original type we want to alter
+   * @param f
+   *   a function that may alter the type, None means no altering is needed.
+   * @return
+   *   [[Option]] of the altered type, or None if no modification was needed.
+   */
   def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Option[Code.TypeRef]): Option[Code.ScalaType] =
     sType match {
       case tref: Code.TypeRef    => f(tref)
@@ -209,6 +239,17 @@ final case class EndpointGen(config: Config) {
       case _                     => None
     }
 
+  /**
+   * Given a function to alter a case class, this function will apply it to any
+   * structure recursively.
+   *
+   * @param f
+   *   function to transform a [[Code.CaseClass]]
+   * @param code
+   *   the structure to apply transformation of case classes on
+   * @return
+   *   the transformed structure
+   */
   def mapCaseClasses(f: Code.CaseClass => Code.CaseClass)(code: Code.ScalaType): Code.ScalaType =
     code match {
       case obj: Code.Object   =>
