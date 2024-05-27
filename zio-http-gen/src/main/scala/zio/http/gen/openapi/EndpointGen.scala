@@ -179,21 +179,22 @@ final case class EndpointGen(config: Config) {
     }
 
     noDuplicateFiles.map { cf =>
-      val mapType: Code.ScalaType => Code.ScalaType = mapCaseClasses { cc =>
-        cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (o @ Code.Field(_, scalaType), tail) =>
-          mapTypeRef(scalaType) { case Code.TypeRef(tName) =>
-            subtypeToTraits.get(tName).flatMap { set =>
-              Option.when(set.size == 1) {
-                Code.TypeRef(set.head + "." + tName)
+      val mapType: String => Code.ScalaType => Code.ScalaType = encapsulatingName =>
+        mapCaseClasses { cc =>
+          cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (o @ Code.Field(_, scalaType), tail) =>
+            mapTypeRef(scalaType) { case Code.TypeRef(tName) =>
+              subtypeToTraits.get(tName).flatMap { set =>
+                Option.when(set.size == 1 && set.head != encapsulatingName) {
+                  Code.TypeRef(set.head + "." + tName)
+                }
               }
-            }
-          }.fold(o)(o.copy) :: tail
-        })
-      }
+            }.fold(o)(o.copy) :: tail
+          })
+        }
       cf.copy(
-        objects = cf.objects.map(mapType).asInstanceOf[List[Code.Object]],
-        caseClasses = cf.caseClasses.map(mapType).asInstanceOf[List[Code.CaseClass]],
-        enums = cf.enums.map(mapType).asInstanceOf[List[Code.Enum]],
+        objects = cf.objects.map(o => mapType(o.name)(o)).asInstanceOf[List[Code.Object]],
+        caseClasses = cf.caseClasses.map(c => mapType(c.name)(c)).asInstanceOf[List[Code.CaseClass]],
+        enums = cf.enums.map(e => mapType(e.name)(e)).asInstanceOf[List[Code.Enum]],
       )
     }
   }
