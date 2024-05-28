@@ -17,6 +17,9 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  JAVA_OPTS: -Xms15G -Xmx15G -Xss10M -XX:MaxMetaspaceSize=2G -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
+  JVM_OPTS: -Xms15G -Xmx15G -Xss10M -XX:MaxMetaspaceSize=2G -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
+
 
 jobs:
   build:
@@ -790,7 +793,7 @@ jobs:
              concurrency: ${{steps.result.outputs.concurrency}}
              requests/sec:  ${{steps.result.outputs.request_per_second}}
 
-      
+
       - name: Performance Report
         id: perf-report
         env:
@@ -869,7 +872,7 @@ jobs:
              concurrency: ${{steps.result.outputs.concurrency}}
              requests/sec:  ${{steps.result.outputs.request_per_second}}
 
-      
+
       - name: Performance Report
         id: perf-report
         env:
