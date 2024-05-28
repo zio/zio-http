@@ -235,8 +235,7 @@ final case class EndpointGen(config: Config) {
    * @param f
    *   a function that may alter the type, None means no altering is needed.
    * @return
-   *   [[scala.Option]] of the altered type, or None if no modification was
-   *   needed.
+   *   The altered type, or gives back the input if no modification was needed.
    */
   def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Code.TypeRef): Code.ScalaType =
     sType match {
