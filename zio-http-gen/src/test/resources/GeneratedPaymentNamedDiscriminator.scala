@@ -12,7 +12,7 @@ object PaymentNamedDiscriminator {
   case class Card(
     number: String,
     cvv: String,
-  )
+  ) extends PaymentNamedDiscriminator
   object Card {
 
     implicit val codec: Schema[Card] = DeriveSchema.gen[Card]
@@ -21,7 +21,7 @@ object PaymentNamedDiscriminator {
   @caseName("cash")
   case class Cash(
     amount: Int,
-  )
+  ) extends PaymentNamedDiscriminator
   object Cash {
 
     implicit val codec: Schema[Cash] = DeriveSchema.gen[Cash]

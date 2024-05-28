@@ -62,10 +62,11 @@ object Code {
       Object(name, schema = false, endpoints, Nil, Nil, Nil)
   }
 
-  final case class CaseClass(name: String, fields: List[Field], companionObject: Option[Object]) extends ScalaType
+  final case class CaseClass(name: String, fields: List[Field], companionObject: Option[Object], mixins: List[String])
+      extends ScalaType
 
   object CaseClass {
-    def apply(name: String): CaseClass = CaseClass(name, Nil, None)
+    def apply(name: String, mixins: List[String]): CaseClass = CaseClass(name, Nil, None, mixins)
   }
 
   final case class Enum(
@@ -75,6 +76,7 @@ object Code {
     discriminator: Option[String] = None,
     noDiscriminator: Boolean = false,
     schema: Boolean = true,
+    abstractMembers: List[Field] = Nil,
   ) extends ScalaType
 
   sealed abstract case class Field private (name: String, fieldType: ScalaType) extends Code {

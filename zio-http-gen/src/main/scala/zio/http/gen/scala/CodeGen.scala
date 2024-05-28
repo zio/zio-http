@@ -86,20 +86,24 @@ object CodeGen {
           "\n}"
       Nil -> content
 
-    case Code.CaseClass(name, fields, companionObject) =>
+    case Code.CaseClass(name, fields, companionObject, mixins) =>
       val (imports, contents)    = fields.map(render(basePackage)).unzip
       val (coImports, coContent) =
         companionObject.map { co =>
           val (coImports, coContent) = render(basePackage)(co)
           (coImports, s"\n$coContent")
         }.getOrElse(Nil -> "")
+      val mixinsString           = mixins match {
+        case Nil => ""
+        case _   => mixins.mkString(" extends ", " with ", "")
+      }
       val content                =
         s"case class $name(\n" +
           contents.mkString(",\n").replace("val ", " ") +
-          "\n)" + coContent
+          "\n)" + mixinsString + coContent
       (imports.flatten ++ coImports).distinct -> content
 
-    case Code.Enum(name, cases, caseNames, discriminator, noDiscriminator, schema) =>
+    case Code.Enum(name, cases, caseNames, discriminator, noDiscriminator, schema, abstractMembers) =>
       val discriminatorAnnotation      =
         if (noDiscriminator) "@noDiscriminator\n" else ""
       val discriminatorNameAnnotation  =
@@ -118,15 +122,40 @@ object CodeGen {
           imports -> contents.mkString("\n")
         }
 
+      val (traitBodyImports, traitBody) = {
+        val traitBodyBuilder = new StringBuilder().append(' ')
+        var pre              = '{'
+        val imports          = abstractMembers.foldLeft(List.empty[Code.Import]) {
+          case (importsAcc, Code.Field(name, fieldType)) =>
+            val (imports, tpe) = render(basePackage)(fieldType)
+            if (tpe.isEmpty) importsAcc
+            else {
+              traitBodyBuilder += pre
+              pre = '\n'
+              traitBodyBuilder ++= "def "
+              traitBodyBuilder ++= name
+              traitBodyBuilder ++= ": "
+              traitBodyBuilder ++= tpe
+
+              imports ::: importsAcc
+            }
+        }
+        val body             =
+          if (pre == '{') "\n"
+          else traitBodyBuilder.append("\n}\n").result()
+
+        imports -> body
+      }
+
       val content =
         discriminatorAnnotation +
           discriminatorNameAnnotation +
-          s"sealed trait $name\n" +
+          s"sealed trait $name" + traitBody +
           s"object $name {\n" +
           (if (schema) s"\n\n implicit val codec: Schema[$name] = DeriveSchema.gen[$name]\n" else "") +
           casesContent +
           "\n}"
-      casesImports.flatten.distinct -> content
+      casesImports.foldRight(traitBodyImports)(_ ::: _).distinct -> content
 
     case col: Code.Collection =>
       col match {

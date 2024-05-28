@@ -1,6 +1,5 @@
 package zio.http.endpoint.cli
 
-import scala.annotation.tailrec
 import scala.language.implicitConversions
 import scala.util.Try
 

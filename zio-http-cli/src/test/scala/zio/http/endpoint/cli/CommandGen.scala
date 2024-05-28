@@ -1,7 +1,5 @@
 package zio.http.endpoint.cli
 
-import scala.annotation.tailrec
-
 import zio.cli._
 import zio.test._
 
