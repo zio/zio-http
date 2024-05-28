@@ -235,7 +235,8 @@ final case class EndpointGen(config: Config) {
    * @param f
    *   a function that may alter the type, None means no altering is needed.
    * @return
-   *   [[Option]] of the altered type, or None if no modification was needed.
+   *   [[scala.Option]] of the altered type, or None if no modification was
+   *   needed.
    */
   def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Code.TypeRef): Code.ScalaType =
     sType match {
@@ -252,7 +253,7 @@ final case class EndpointGen(config: Config) {
    * structure recursively.
    *
    * @param f
-   *   function to transform a [[Code.CaseClass]]
+   *   function to transform a [[zio.http.gen.scala.Code.CaseClass]]
    * @param code
    *   the structure to apply transformation of case classes on
    * @return
