@@ -121,7 +121,7 @@ object TestServerSpec extends ZIOHttpSpec {
 
   private def requestToCorrectPort =
     for {
-      port <- ZIO.serviceWith[Server](_.port)
+      port <- ZIO.serviceWithZIO[Server](_.port)
     } yield Request
       .get(url = URL.root.port(port))
       .addHeaders(Headers(Header.Accept(MediaType.text.`plain`)))

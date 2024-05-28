@@ -128,9 +128,10 @@ object SocketContractSpec extends ZIOHttpSpec {
   ): ZIO[Server, Nothing, (RuntimeFlags, Promise[Throwable, Unit])] =
     ZIO.serviceWithZIO[Server](server =>
       for {
-        p <- Promise.make[Throwable, Unit]
-        _ <- server.install(serverApp(p).toRoutes)
-      } yield (server.port, p),
+        p    <- Promise.make[Throwable, Unit]
+        _    <- server.install(serverApp(p).toRoutes)
+        port <- server.port
+      } yield (port, p),
     )
 
   private def testServerSetup(

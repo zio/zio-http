@@ -46,7 +46,7 @@ trait Server {
    *
    * @return
    */
-  def port: Int
+  def port[R]: URIO[R, Int]
 }
 
 object Server extends ServerPlatformSpecific {
@@ -396,7 +396,7 @@ object Server extends ServerPlatformSpecific {
 
   @deprecated("Install Routes instead. Will be removed in the next release.", "3.0.0-RC7")
   def install[R](httpApp: HttpApp[R])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWith[Server](_.port)
+    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
   def serve[R](
@@ -418,7 +418,7 @@ object Server extends ServerPlatformSpecific {
   def install[R](
     httpApp: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWith[Server](_.port)
+    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWithZIO[Server](_.port[R])
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
@@ -443,9 +443,23 @@ object Server extends ServerPlatformSpecific {
               )
           }.ignoreLogged,
         )
-        result <- driver.start.catchAllCause(cause => inFlightRequests.failCause(cause) *> ZIO.refailCause(cause))
-        _      <- inFlightRequests.succeed(result.inFlightRequests)
-      } yield ServerLive(driver, result.port)
+        initialInstall   <- Promise.make[Nothing, Unit]
+        serverStarted    <- Promise.make[Throwable, Int]
+        _                <-
+          (
+            initialInstall.await *>
+              driver.start.flatMap { result =>
+                inFlightRequests.succeed(result.inFlightRequests) &>
+                  serverStarted.succeed(result.port)
+              }
+                .catchAll(serverStarted.fail)
+          )
+            // In the case of failure of `Driver#.start` or interruption while we are waiting to be
+            // installed for the first time, we should should always fail the `serverStarted`
+            // promise to allow the finalizers to make progress.
+            .catchAllCause(cause => inFlightRequests.failCause(cause))
+            .forkScoped
+      } yield ServerLive(driver, initialInstall, serverStarted)
     }
   }
 
@@ -469,15 +483,24 @@ object Server extends ServerPlatformSpecific {
 
   private final case class ServerLive(
     driver: Driver,
-    bindPort: Int,
+    // A promise used to signal the first time `install`
+    // is called on this `Server` instance.
+    private val initialInstall: Promise[Nothing, Unit],
+    // A promise that represents the port of the "started" driver
+    // or a throwable if starting the driver failed for any reason.
+    private val serverStarted: Promise[Throwable, Int],
   ) extends Server {
     override def install[R](httpApp: Routes[R, Response])(implicit
       trace: Trace,
       tag: EnvironmentTag[R],
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune[R]))
+      for {
+        _ <- initialInstall.succeed(())
+        _ <- serverStarted.await.orDie
+        _ <- ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune[R]))
+      } yield ()
 
-    override def port: Int = bindPort
+    override def port[R]: URIO[R, Int] = serverStarted.await.orDie
 
   }
 }
