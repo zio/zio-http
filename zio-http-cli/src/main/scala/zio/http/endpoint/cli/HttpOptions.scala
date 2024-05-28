@@ -1,6 +1,5 @@
 package zio.http.endpoint.cli
 
-import scala.annotation.tailrec
 import scala.language.implicitConversions
 import scala.util.Try
 
@@ -185,6 +184,7 @@ private[cli] object HttpOptions {
         case StandardType.LocalDateTimeType  => Options.localDateTime(prefix.mkString("."))
         case StandardType.MonthType          => Options.text(prefix.mkString("."))
         case StandardType.YearType           => Options.integer(prefix.mkString("."))
+        case StandardType.CurrencyType       => Options.text(prefix.mkString("."))
       }
 
       loop(List(name), schema)

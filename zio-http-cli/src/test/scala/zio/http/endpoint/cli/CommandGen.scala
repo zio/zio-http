@@ -1,7 +1,5 @@
 package zio.http.endpoint.cli
 
-import scala.annotation.tailrec
-
 import zio.cli._
 import zio.test._
 
@@ -155,6 +153,7 @@ object CommandGen {
           case StandardType.LocalDateTimeType  => "date-time"
           case StandardType.MonthType          => "text"
           case StandardType.YearType           => "integer"
+          case StandardType.CurrencyType       => "currency"
         }
       case _                                 => "non primitive"
     }
