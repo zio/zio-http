@@ -9,8 +9,8 @@ val releaseDrafterVersion = "5"
 val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
 // CI Configuration
-ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms8G -Xmx8G -XX:+UseG1GC -Xss10M -XX:MaxMetaspaceSize=2G -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8")
-ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms8G -Xmx8G -XX:+UseG1GC -Xss10M -XX:MaxMetaspaceSize=2G -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8")
+ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
+ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 
 ThisBuild / githubWorkflowJavaVersions := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
