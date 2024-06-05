@@ -280,7 +280,7 @@ Routes(
       html(
         // Support for child nodes
         head(
-          title("ZIO Http"),
+          title("ZIO HTTP"),
         ),
         body(
           div(
@@ -340,7 +340,7 @@ HTTP/1.1 200 OK
 content-type: text/html
 content-length: 352
 
-<!DOCTYPE html><html><head><title>ZIO Http - Hello world!</title><style>
+<!DOCTYPE html><html><head><title>ZIO HTTP - Hello world!</title><style>
  body {
    font-family: monospace;
    font-size: 16px;

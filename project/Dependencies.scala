@@ -7,7 +7,8 @@ object Dependencies {
   val ScalaCompactCollectionVersion = "2.12.0"
   val ZioVersion                    = "2.1.1"
   val ZioCliVersion                 = "0.5.0"
-  val ZioSchemaVersion              = "1.1.1"
+  val ZioJsonVersion                = "0.6.2"
+  val ZioSchemaVersion              = "1.2.0"
   val SttpVersion                   = "3.3.18"
   val ZioConfigVersion              = "4.0.2"
 
@@ -27,6 +28,7 @@ object Dependencies {
       "io.netty" % "netty-transport-native-kqueue" % NettyVersion,
       "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-x86_64",
       "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-aarch_64",
+      "com.aayushatharva.brotli4j" % "brotli4j" % "1.16.0" % "provided",
     )
 
   val `netty-incubator` =
@@ -34,6 +36,7 @@ object Dependencies {
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
+  val `zio-json-yaml`       = "dev.zio" %% "zio-json-yaml"       % ZioJsonVersion
   val `zio-streams`         = "dev.zio" %% "zio-streams"         % ZioVersion
   val `zio-schema`          = "dev.zio" %% "zio-schema"          % ZioSchemaVersion
   val `zio-schema-json`     = "dev.zio" %% "zio-schema-json"     % ZioSchemaVersion

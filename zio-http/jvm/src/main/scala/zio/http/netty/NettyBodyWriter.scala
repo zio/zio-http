@@ -40,7 +40,6 @@ object NettyBodyWriter {
     body: Body,
     contentLength: Option[Long],
     ctx: ChannelHandlerContext,
-    compressionEnabled: Boolean,
   )(implicit
     trace: Trace,
   ): Option[Task[Unit]] = {
@@ -57,21 +56,16 @@ object NettyBodyWriter {
     }
 
     body match {
-      case body: ByteBufBody                    =>
+      case body: ByteBufBody                  =>
         ctx.write(new DefaultHttpContent(body.byteBuf))
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         None
-      case body: FileBody if compressionEnabled =>
+      case body: FileBody                     =>
         // We need to stream the file when compression is enabled otherwise the response encoding fails
         val stream = ZStream.fromFile(body.file)
-        val size   = Some(body.fileSize)
-        val s      = StreamBody(stream, knownContentLength = size, mediaType = body.mediaType)
-        NettyBodyWriter.writeAndFlush(s, size, ctx, compressionEnabled)
-      case body: FileBody                       =>
-        ctx.write(new DefaultFileRegion(body.file, 0, body.fileSize))
-        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-        None
-      case AsyncBody(async, _, _, _)            =>
+        val s      = StreamBody(stream, None, mediaType = body.mediaType)
+        NettyBodyWriter.writeAndFlush(s, None, ctx)
+      case AsyncBody(async, _, _, _)          =>
         async(
           new UnsafeAsync {
             override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
@@ -87,10 +81,10 @@ object NettyBodyWriter {
           },
         )
         None
-      case AsciiStringBody(asciiString, _, _)   =>
+      case AsciiStringBody(asciiString, _, _) =>
         writeArray(asciiString.array(), isLast = true)
         None
-      case StreamBody(stream, _, _, _)          =>
+      case StreamBody(stream, _, _, _)        =>
         Some(
           contentLength.orElse(body.knownContentLength) match {
             case Some(length) =>
@@ -131,13 +125,13 @@ object NettyBodyWriter {
               }
           },
         )
-      case ArrayBody(data, _, _)                =>
+      case ArrayBody(data, _, _)              =>
         writeArray(data, isLast = true)
         None
-      case ChunkBody(data, _, _)                =>
+      case ChunkBody(data, _, _)              =>
         writeArray(data.toArray, isLast = true)
         None
-      case EmptyBody                            =>
+      case EmptyBody                          =>
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         None
     }

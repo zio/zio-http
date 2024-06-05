@@ -1,7 +1,7 @@
 package zio.http.codec.internal
 
 import java.time._
-import java.util.UUID
+import java.util.{Currency, UUID}
 
 import zio._
 
@@ -249,6 +249,13 @@ object TextBinaryCodec {
                     (s: String) =>
                       try {
                         Right(ZonedDateTime.parse(s))
+                      } catch {
+                        case e: Exception => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
+                      }
+                  case StandardType.CurrencyType       =>
+                    (s: String) =>
+                      try {
+                        Right(Currency.getInstance(s))
                       } catch {
                         case e: Exception => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
                       }

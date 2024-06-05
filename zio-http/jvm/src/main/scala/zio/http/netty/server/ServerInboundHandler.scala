@@ -187,7 +187,7 @@ private[zio] final case class ServerInboundHandler(
               }
 
             ctx.writeAndFlush(jResponse)
-            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx, isResponseCompressible(jRequest))
+            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
           } else {
             ctx.writeAndFlush(jResponse)
             None
@@ -213,7 +213,7 @@ private[zio] final case class ServerInboundHandler(
       case Some(cfg) =>
         val headers    = req.headers()
         val headerName = Header.AcceptEncoding.name
-        cfg.options.exists(opt => headers.containsValue(headerName, opt.kind.name, true))
+        cfg.options.exists(opt => headers.containsValue(headerName, opt.name, true))
     }
   }
 
