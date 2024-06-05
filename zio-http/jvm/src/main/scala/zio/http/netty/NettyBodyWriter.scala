@@ -63,9 +63,8 @@ object NettyBodyWriter {
       case body: FileBody                     =>
         // We need to stream the file when compression is enabled otherwise the response encoding fails
         val stream = ZStream.fromFile(body.file)
-        val size   = Some(body.fileSize)
-        val s      = StreamBody(stream, knownContentLength = size, mediaType = body.mediaType)
-        NettyBodyWriter.writeAndFlush(s, size, ctx)
+        val s      = StreamBody(stream, None, mediaType = body.mediaType)
+        NettyBodyWriter.writeAndFlush(s, None, ctx)
       case AsyncBody(async, _, _, _)          =>
         async(
           new UnsafeAsync {
