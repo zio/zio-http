@@ -103,7 +103,7 @@ object GreetingClient extends ZIOAppDefault {
 
 ## Documentation
 
-Learn more on the [ZIO Http homepage](https://zio.dev/reference/)!
+Learn more on the [ZIO Http Docs](https://zio.dev/reference/)!
 
 ## Contributing
 
