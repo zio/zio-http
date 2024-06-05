@@ -17,6 +17,7 @@
 package zio.http
 
 import zio.test.Assertion.equalTo
+import zio.test.TestAspect.withLiveClock
 import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 import zio.{Scope, ZLayer}
 
@@ -35,6 +36,7 @@ object SSLSpec extends ZIOHttpSpec {
 
   val app: Routes[Any, Response] = Routes(
     Method.GET / "success" -> handler(Response.ok),
+    Method.GET / "file"    -> Handler.fromResource("TestStatic/TestFile1.txt"),
   ).sandbox
 
   val httpUrl =
@@ -42,6 +44,9 @@ object SSLSpec extends ZIOHttpSpec {
 
   val httpsUrl =
     URL.decode("https://localhost:8073/success").toOption.get
+
+  val staticFileUrl =
+    URL.decode("https://localhost:8073/file").toOption.get
 
   override def spec = suite("SSL")(
     Server
@@ -110,6 +115,19 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             Scope.default,
           ),
+          test("static files") {
+            val actual = Client
+              .request(Request.get(staticFileUrl))
+              .flatMap(_.body.asString)
+            assertZIO(actual)(equalTo("This file is added for testing Static File Server."))
+          }.provide(
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.Default)),
+            NettyClientDriver.live,
+            DnsResolver.default,
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+            Scope.default,
+          ) @@ withLiveClock,
         ),
       ),
   ).provideShared(
