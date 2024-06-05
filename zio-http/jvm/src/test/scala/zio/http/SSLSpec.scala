@@ -17,11 +17,12 @@
 package zio.http
 
 import zio.test.Assertion.equalTo
+import zio.test.TestAspect.withLiveClock
 import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 import zio.{Scope, ZLayer}
+
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
-import zio.test.TestAspect.withLiveClock
 
 object SSLSpec extends ZIOHttpSpec {
 
