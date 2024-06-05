@@ -187,7 +187,7 @@ private[zio] final case class ServerInboundHandler(
               }
 
             ctx.writeAndFlush(jResponse)
-            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx, isResponseCompressible(jRequest))
+            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
           } else {
             ctx.writeAndFlush(jResponse)
             None
