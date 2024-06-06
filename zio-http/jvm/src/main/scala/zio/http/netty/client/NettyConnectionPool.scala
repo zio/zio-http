@@ -120,9 +120,14 @@ object NettyConnectionPool {
           case _          => bootstrap
         }).connect()
       }
-      _             <- NettyFutureExecutor.executed(channelFuture)
       ch            <- ZIO.attempt(channelFuture.channel())
-      _             <- Scope.addFinalizer(NettyFutureExecutor.executed(ch.close()).when(ch.isOpen).ignoreLogged)
+      _             <- Scope.addFinalizer {
+        NettyFutureExecutor.executed {
+          channelFuture.cancel(true)
+          ch.close()
+        }.when(ch.isOpen).ignoreLogged
+      }
+      _             <- NettyFutureExecutor.executed(channelFuture)
     } yield ch
   }
 
