@@ -10,16 +10,21 @@ const sidebars = {
       items: [
         "installation",
 
-        // Reference section
+        
+
+        // Concepts section
         {
           type: "category",
-          collapsed: true,
-          link: { type: "doc", id: "reference/index" },
-          label: "Reference",
+          // collapsed: true,
+          link: { type: "doc", id: "concepts/intro" },
+          label: "Concepts",
           items: [
-            "reference/overview",
-            "reference/server",
-            "reference/client",
+            "concepts/client",
+            "concepts/endpoint", 
+            "concepts/middleware", 
+            "concepts/request-handling", 
+            "cocncepts/routing", 
+            "concepts/server", 
 
             // Routing subsection
             {
@@ -103,7 +108,18 @@ const sidebars = {
           label: "Guides",
           link: { type: "doc", id: "index" },
           items: [
-            "guides/integration-with-zio-config",
+            "guides/server-as-a-function",
+            "guides/client-as-a-function",
+            "guides/use-a-server-backend",
+            "guides/simple-routing",
+            "guides/nested-routes",
+            "guides/attach-context-to-a-request",
+            "guides/testing-http-apps",
+            "guides/integrate-with-zio-config",
+            "guides/cli-app-endpoint",
+            "guides/openapi-endpoint",
+            "guides/custom-middleware",
+            "guides/transform-types",
           ],
         },
         "faq",
@@ -111,7 +127,10 @@ const sidebars = {
           // Subcategory: Tutorials
           type: "category",
           label: "Tutorials",
-          items: ["tutorials/testing-http-apps"],
+          items: [
+            "tutorials/your-first-zio-http-app", 
+            "tutorials/deploying-zio-http-app", 
+          ],
         },
 
         // Examples section
