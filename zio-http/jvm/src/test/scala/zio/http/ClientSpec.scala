@@ -100,7 +100,8 @@ object ClientSpec extends HttpRunnableSpec {
       val effect = app.deployAndRequest(requestCode).runZIO(())
       assertZIO(effect)(isTrue)
     },
-    test("request can be timed out while awaiting connection") {
+    test("request can be timed out manually while awaiting connection") {
+      // Unfortunately we have to use a real URL here, as we can't really simulate a long connection time
       val url  = URL.decode("https://test.com").toOption.get
       val resp = ZIO.scoped(ZClient.request(Request.get(url))).timeout(500.millis)
       assertZIO(resp)(isNone)
