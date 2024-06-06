@@ -211,7 +211,8 @@ object WebSocketSpec extends HttpRunnableSpec {
   override def spec = suite("Server") {
     serve.as(List(websocketSpec))
   }
-    .provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@
+    .provideSome[DynamicServer & Server & Client](Scope.default)
+    .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@
     diagnose(30.seconds) @@ withLiveClock @@ sequential
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {

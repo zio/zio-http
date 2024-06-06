@@ -18,7 +18,7 @@ package zio.http
 
 import zio._
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.TestAspect.withLiveClock
+import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test._
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
@@ -74,6 +74,8 @@ object ContentTypeSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Content-type") {
       serve.as(List(contentSpec))
-    }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock
+    }
+      .provideSome[DynamicServer & Server & Client](Scope.default)
+      .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
   }
 }

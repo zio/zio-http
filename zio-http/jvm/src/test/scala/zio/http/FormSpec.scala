@@ -271,6 +271,33 @@ object FormSpec extends ZIOHttpSpec {
           collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
         )
       },
+      test("StreamingForm dynamically resizes") {
+        val N        = 1000
+        val expected = Chunk.fromArray(Array.fill(N)(scala.util.Random.nextInt()).map(_.toByte))
+        val form     =
+          Form(
+            Chunk(
+              FormField.binaryField(
+                name = "identifier",
+                data = Chunk(10.toByte),
+                mediaType = MediaType.application.`octet-stream`,
+              ),
+              FormField.StreamingBinary(
+                name = "blob",
+                data = ZStream.fromChunk(expected),
+                contentType = MediaType.application.`octet-stream`,
+              ),
+            ),
+          )
+        val boundary = Boundary("X-INSOMNIA-BOUNDARY")
+        for {
+          formBytes <- form.multipartBytes(boundary).runCollect
+          formByteStream = ZStream.fromChunk(formBytes)
+          streamingForm  = StreamingForm(formByteStream, boundary, 16)
+          out <- streamingForm.collectAll
+          res = out.get("blob").get.asInstanceOf[FormField.Binary].data
+        } yield assertTrue(res == expected)
+      } @@ timeout(3.seconds),
       test("decoding random form") {
         check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
           for {

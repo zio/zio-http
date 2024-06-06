@@ -20,7 +20,7 @@ import java.io.File
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{unix, withLiveClock}
+import zio.test.TestAspect.{sequential, unix, withLiveClock}
 import zio.test.assertZIO
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
@@ -46,7 +46,9 @@ object StaticFileServerSpec extends HttpRunnableSpec {
 
   override def spec = suite("StaticFileServerSpec") {
     serve.as(List(staticSpec))
-  }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock
+  }
+    .provideSome[DynamicServer & Server & Client](Scope.default)
+    .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
     suite("fromResource")(
