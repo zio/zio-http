@@ -16,6 +16,8 @@
 
 package zio.http
 
+import java.io.File
+
 import zio._
 
 import zio.http.Routes.ApplyContextAspect
@@ -292,6 +294,37 @@ object Routes extends RoutesCompanionVersionSpecific {
 
   def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))
+
+  /**
+   * Creates routes for serving static files from the directory `docRoot` at the
+   * url path `path`.
+   *
+   * Example: `Routes.serveDirectory(Path.empty / "assets", new
+   * File("/some/local/path"))`
+   *
+   * With this routes in place, a request to
+   * `https://www.domain.com/assets/folder/file1.jpg` would serve the local file
+   * `/some/local/path/folder/file1.jpg`.
+   */
+  def serveDirectory(path: Path, docRoot: File)(implicit trace: Trace): Routes[Any, Nothing] =
+    empty @@ Middleware.serveDirectory(path, docRoot)
+
+  /**
+   * Creates routes for serving static files from resources at the path `path`.
+   *
+   * Example: `Routes.serveResources(Path.empty / "assets")`
+   *
+   * With this routes in place, a request to
+   * `https://www.domain.com/assets/folder/file1.jpg` would serve the file
+   * `src/main/resources/folder/file1.jpg`.
+   *
+   * Provide a `resourcePrefix` if you want to limit the the resource files
+   * served. For instance, with `Routes.serveResources(Path.empty / "assets",
+   * "public")`, a request to `https://www.domain.com/assets/folder/file1.jpg`
+   * would serve the file `src/main/resources/public/folder/file1.jpg`.
+   */
+  def serveResources(path: Path, resourcePrefix: String = ".")(implicit trace: Trace): Routes[Any, Nothing] =
+    empty @@ Middleware.serveResources(path, resourcePrefix)
 
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
