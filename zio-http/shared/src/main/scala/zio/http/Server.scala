@@ -408,6 +408,13 @@ object Server extends ServerPlatformSpecific {
       ZIO.never
   }
 
+  def serve[R](
+    route: Route[R, Response],
+    routes: Route[R, Response]*,
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
+    serve(Routes(route, routes: _*))
+  }
+
   def install[R](
     httpApp: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
