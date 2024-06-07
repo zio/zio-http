@@ -9,7 +9,7 @@ Testing HTTP applications is a critical part of the development process. Utilizi
 
 We have comprehensive documentation on [ZIO Test](https://zio.dev/reference/test/) which is worth reading to understand how to write tests using ZIO effects.
 
-It is easy to test ZIO HTTP applications beacuse we can think of `HttpApp` as a function of `Request => ZIO[R, Response, Response]`. This means we can effortlessly provide a Request as input to the `HttpApp` and receive the corresponding Response as output using the runZIO method. By doing this we can test the behavior of the `HttpApp` in a controlled environment:
+It is easy to test ZIO HTTP applications because we can think of `HttpApp` as a function of `Request => ZIO[R, Response, Response]`. This means we can effortlessly provide a Request as input to the `HttpApp` and receive the corresponding Response as output using the runZIO method. By doing this we can test the behavior of the `HttpApp` in a controlled environment:
 
 ```scala mdoc:silent:reset
 import zio.test._
@@ -20,7 +20,7 @@ object ExampleSpec extends ZIOSpecDefault {
 
   def spec = suite("http")(
     test("should be ok") {
-      val app = Handler.ok.toHttpApp
+      val app = Handler.ok.toRoutes
       val req = Request.get(URL(Path.root))
       assertZIO(app.runZIO(req))(equalTo(Response.ok))
     }
