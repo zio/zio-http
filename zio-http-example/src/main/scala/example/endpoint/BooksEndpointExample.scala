@@ -44,7 +44,7 @@ object BooksEndpointExample extends ZIOAppDefault {
       "Endpoint to query books based on a search query",
     )
 
-  val booksRoute    = endpoint.implement(handler((query: String) => BookRepo.find(query)))
+  val booksRoute    = endpoint.implementHandler(handler((query: String) => BookRepo.find(query)))
   val openAPI       = OpenAPIGen.fromEndpoints(title = "Library API", version = "1.0", endpoint)
   val swaggerRoutes = SwaggerUI.routes("docs" / "openapi", openAPI)
   val routes        = Routes(booksRoute) ++ swaggerRoutes

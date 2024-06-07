@@ -17,7 +17,7 @@ object BadRequestSpec extends ZIOSpecDefault {
         val endpoint     = Endpoint(Method.GET / "test")
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
-        val route        = endpoint.implement(handler((_: Int) => ()))
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2").addHeader(Header.Accept(MediaType.text.`html`))
         val expectedBody =
@@ -38,7 +38,7 @@ object BadRequestSpec extends ZIOSpecDefault {
         val endpoint     = Endpoint(Method.GET / "test")
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
-        val route        = endpoint.implement(handler((_: Int) => ()))
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))
@@ -53,7 +53,7 @@ object BadRequestSpec extends ZIOSpecDefault {
         val endpoint     = Endpoint(Method.GET / "test")
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
-        val route        = endpoint.implement(handler((_: Int) => ()))
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.`atf`))
@@ -69,7 +69,7 @@ object BadRequestSpec extends ZIOSpecDefault {
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
           .emptyErrorResponse
-        val route        = endpoint.implement(handler((_: Int) => ()))
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.`atf`))
@@ -83,7 +83,7 @@ object BadRequestSpec extends ZIOSpecDefault {
         val endpoint     = Endpoint(Method.GET / "test")
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
-        val route        = endpoint.implement(handler((_: Int) => ()))
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))
@@ -99,7 +99,7 @@ object BadRequestSpec extends ZIOSpecDefault {
           .query(QueryCodec.queryInt("age"))
           .out[Unit]
           .outCodecError(default)
-        val route        = endpoint.implement(handler((_: Int) => ()))
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))

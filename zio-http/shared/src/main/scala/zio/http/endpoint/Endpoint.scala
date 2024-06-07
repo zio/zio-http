@@ -158,7 +158,32 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
-  def implement[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
+  def implement[Env](f: Input => ZIO[Env, Err, Output])(implicit
+    trace: Trace,
+  ): Route[Env, Nothing] =
+    implementHandler(Handler.fromFunctionZIO(f))
+
+  def implementEither(f: Input => Either[Err, Output])(implicit
+    trace: Trace,
+  ): Route[Any, Nothing] =
+    implementHandler[Any](Handler.fromFunctionHandler[Input](in => Handler.fromEither(f(in))))
+
+  def implementPurely(f: Input => Output)(implicit
+    trace: Trace,
+  ): Route[Any, Nothing] =
+    implementHandler[Any](Handler.fromFunctionHandler[Input](in => Handler.succeed(f(in))))
+
+  def implementAs(output: Output)(implicit
+    trace: Trace,
+  ): Route[Any, Nothing] =
+    implementHandler[Any](Handler.succeed(output))
+
+  def implementAsError(err: Err)(implicit
+    trace: Trace,
+  ): Route[Any, Nothing] =
+    implementHandler[Any](Handler.fail(err))
+
+  def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
 
     val handlers = self.alternatives.map { case (endpoint, condition) =>

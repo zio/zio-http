@@ -21,7 +21,7 @@ object ServerSentEventEndpoint extends ZIOAppDefault {
   val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent], None] =
     Endpoint(Method.GET / "sse").outStream[ServerSentEvent]
 
-  val sseRoute = sseEndpoint.implement(Handler.succeed(stream))
+  val sseRoute = sseEndpoint.implementHandler(Handler.succeed(stream))
 
   val routes: Routes[Any, Response] = sseRoute.toRoutes
 

@@ -53,7 +53,7 @@ object MultipartSpec extends ZIOHttpSpec {
                     HttpCodec.content[Int]("height", MediaType.text.`plain`) ++
                     HttpCodec.content[ImageMetadata]("metadata"),
                 )
-                .implement {
+                .implementHandler {
                   Handler.succeed(
                     (
                       ZStream.fromChunk(bytes),
@@ -109,7 +109,7 @@ object MultipartSpec extends ZIOHttpSpec {
                     HttpCodec.content[Int](MediaType.text.`plain`) ++
                     HttpCodec.content[ImageMetadata],
                 )
-                .implement {
+                .implementHandler {
                   Handler.succeed(
                     (
                       ZStream.fromChunk(bytes),
@@ -156,7 +156,7 @@ object MultipartSpec extends ZIOHttpSpec {
                 .in[String]("title")
                 .in[ImageMetadata]("metadata", Doc.p("Image metadata with description and creation date and time"))
                 .out[(Long, String, ImageMetadata)]
-                .implement {
+                .implementHandler {
                   Handler.fromFunctionZIO { case (stream, title, metadata) =>
                     stream.runCount.map(count => (count, title, metadata))
                   }
@@ -236,7 +236,7 @@ object MultipartSpec extends ZIOHttpSpec {
                 }
             }
           val route    =
-            endpoint.implement(Handler.identity[Any])
+            endpoint.implementHandler(Handler.identity[Any])
 
           val form =
             Form(
