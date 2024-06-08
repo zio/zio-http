@@ -43,7 +43,7 @@ Some of the key features of ZIO HTTP are:
 Setup via `build.sbt`:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-http" % "3.0.0-RC8"
+libraryDependencies += "dev.zio" %% "zio-http" % "3.0.0-RC7"
 ```
 
 **NOTES ON VERSIONING:**
@@ -103,7 +103,7 @@ object GreetingClient extends ZIOAppDefault {
 
 ## Documentation
 
-Learn more on the [ZIO Http Docs](https://zio.dev/zio-http/)!
+Learn more on the [ZIO Http homepage](https://github.com/zio/zio-http)!
 
 ## Contributing
 

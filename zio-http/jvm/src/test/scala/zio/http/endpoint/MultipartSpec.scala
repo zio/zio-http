@@ -23,6 +23,8 @@ import zio.test._
 
 import zio.stream.ZStream
 
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http.Method._
 import zio.http._
 import zio.http.codec._
@@ -275,6 +277,37 @@ object MultipartSpec extends ZIOHttpSpec {
           )
         }
       },
+      test("override default content type if set explicitly") {
+        import zio._
+        import zio.http._
+        import zio.http.codec._
+        import zio.http.endpoint.EndpointMiddleware.None
+        import zio.schema.DeriveSchema.gen
+        import zio.stream.ZStream
+
+        val endpoint: Endpoint[Int, Int, ZNothing, (Book, ZStream[Any, Nothing, Byte]), None] =
+          Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+            .outCodec(
+              HttpCodec.content[Book]("book", MediaType.application.`json`) ++
+                HttpCodec.binaryStream("file", MediaType.application.`octet-stream`) ++
+                HeaderCodec.contentType.expect(Header.ContentType(MediaType.multipart.`mixed`)),
+            )
+        for {
+          result <- (endpoint
+            .implement(handler { (id: Int) =>
+              (Book("John's Book", List("John Doe")), ZStream.from(Chunk.fromArray("the book file".getBytes)))
+            })
+            .toRoutes @@ Middleware.debug).run(path = Path.root / "books" / "123")
+        } yield assertTrue(
+          result.status == Status.Ok,
+          result.headers.getAll(Header.ContentType).map(_.mediaType) == Chunk(MediaType.multipart.`mixed`),
+        )
+      },
     ),
   )
+
+  case class Book(title: String, authors: List[String])
+  object Book {
+    implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
+  }
 }
