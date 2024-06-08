@@ -46,7 +46,7 @@ trait Server {
    *
    * @return
    */
-  def port[R]: URIO[R, Int]
+  def port: UIO[Int]
 }
 
 object Server extends ServerPlatformSpecific {
@@ -418,7 +418,7 @@ object Server extends ServerPlatformSpecific {
   def install[R](
     httpApp: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWithZIO[Server](_.port[R])
+    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
@@ -500,7 +500,7 @@ object Server extends ServerPlatformSpecific {
         _ <- ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune[R]))
       } yield ()
 
-    override def port[R]: URIO[R, Int] = serverStarted.await.orDie
+    override def port: UIO[Int] = serverStarted.await.orDie
 
   }
 }

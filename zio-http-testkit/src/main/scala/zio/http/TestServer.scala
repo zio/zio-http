@@ -109,7 +109,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
         ),
       )
 
-  override def port[R]: URIO[R, Int] = ZIO.succeed(bindPort)
+  override def port: UIO[Int] = ZIO.succeed(bindPort)
 }
 
 object TestServer {
