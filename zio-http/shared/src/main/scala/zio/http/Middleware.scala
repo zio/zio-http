@@ -16,6 +16,7 @@
 package zio.http
 
 import java.io.File
+import java.nio.charset.Charset
 
 import scala.annotation.nowarn
 
@@ -325,8 +326,9 @@ object Middleware extends HandlerAspects {
       }
 
     def fromDirectory(docRoot: File)(implicit trace: Trace): StaticServe[Any, Throwable] = make { (path, _) =>
-      val target = new File(docRoot.getAbsolutePath() + path.encode)
-      if (target.getCanonicalPath.startsWith(docRoot.getCanonicalPath)) Handler.fromFile(target)
+      val target = new File(docRoot.getAbsolutePath + path.encode)
+      if (target.getCanonicalPath.startsWith(docRoot.getCanonicalPath))
+        Handler.fromFile(target, Charset.defaultCharset())
       else {
         Handler.fromZIO(
           ZIO.logWarning(s"attempt to access file outside of docRoot: ${target.getAbsolutePath}"),
