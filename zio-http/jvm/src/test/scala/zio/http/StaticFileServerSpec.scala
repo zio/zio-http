@@ -20,7 +20,7 @@ import java.io.File
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{sequential, unix, withLiveClock}
+import zio.test.TestAspect.{mac, os, sequential, unix, withLiveClock}
 import zio.test.assertZIO
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
@@ -33,13 +33,13 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   private val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
   private val resourceOk       =
     Handler
-      .fromResourceWithURL(new java.net.URI(s"jar:file:$testArchivePath!/TestFile.txt").toURL)
+      .fromResourceWithURL(new java.net.URI(s"jar:file:$testArchivePath!/TestFile.txt").toURL, Charsets.Utf8)
       .sandbox
       .toRoutes
       .deploy
   private val resourceNotFound =
     Handler
-      .fromResourceWithURL(new java.net.URI(s"jar:file:$testArchivePath!/NonExistent.txt").toURL)
+      .fromResourceWithURL(new java.net.URI(s"jar:file:$testArchivePath!/NonExistent.txt").toURL, Charsets.Utf8)
       .sandbox
       .toRoutes
       .deploy
@@ -67,7 +67,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         },
         test("should have content-type") {
           val res = fileOk.run().debug("fileOk").map(_.header(Header.ContentType))
-          assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain))))
+          assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain, charset = Some(Charsets.Utf8)))))
         },
         test("should respond with empty if file not found") {
           val res = fileNotFound.run().map(_.status)
@@ -90,7 +90,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
             val res     = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy.run().map(_.status)
             assertZIO(res)(equalTo(Status.Forbidden))
           }
-        } @@ unix,
+        } @@ os(o => o.isUnix || o.isMac),
       ),
       suite("invalid file")(
         test("should respond with 500") {
@@ -118,7 +118,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         },
         test("should have content-type") {
           val res = resourceOk.run().map(_.header(Header.ContentType))
-          assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain))))
+          assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain, charset = Some(Charsets.Utf8)))))
         },
         test("should respond with empty if not found") {
           val res = resourceNotFound.run().debug("not found").map(_.status)
