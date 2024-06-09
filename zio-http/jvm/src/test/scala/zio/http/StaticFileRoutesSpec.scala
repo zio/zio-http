@@ -16,7 +16,6 @@
 
 package zio.http
 
-import java.lang.System
 import java.nio.file.{Files, Path => NIOPath}
 
 import zio._
@@ -32,7 +31,7 @@ object StaticFileRoutesSpec extends HttpRunnableSpec {
   private def deleteTempFile(tempPath: NIOPath) = ZIO.attempt(Files.deleteIfExists(tempPath)).ignore
   private val createAndDeleteTempFile           = createTempFile.flatMap(f => deleteTempFile(f).as(f))
 
-  override def spec = suite("StaticFileServerSpec") {
+  override def spec = suite("StaticFileRoutesSpec") {
     serve.as(List(staticSpec))
   }
     .provideSome[DynamicServer & Server & Client](Scope.default)
@@ -78,7 +77,9 @@ object StaticFileRoutesSpec extends HttpRunnableSpec {
           assert(response.status)(equalTo(Status.Ok)) &&
           assert(response.header(Header.ContentLength))(isSome(equalTo(Header.ContentLength(7L)))) &&
           assert(body)(equalTo("foo\nbar")) &&
-          assert(response.header(Header.ContentType))(isSome(equalTo(Header.ContentType(MediaType.text.plain))))
+          assert(response.header(Header.ContentType))(
+            isSome(equalTo(Header.ContentType(MediaType.text.plain, charset = Some(Charsets.Utf8)))),
+          )
         }
       },
       test("serve a non-existing resource") {

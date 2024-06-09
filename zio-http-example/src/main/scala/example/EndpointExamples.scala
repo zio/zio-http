@@ -19,11 +19,7 @@ object EndpointExamples extends ZIOAppDefault {
     Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
 
   val getUserRoute =
-    getUser.implement {
-      Handler.fromFunction[Int] { id =>
-        id
-      }
-    }
+    getUser.implement { id => ZIO.succeed(id) }
 
   val getUserPosts =
     Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
@@ -31,10 +27,8 @@ object EndpointExamples extends ZIOAppDefault {
       .out[List[String]] @@ auth
 
   val getUserPostsRoute =
-    getUserPosts.implement[Any] {
-      Handler.fromFunctionZIO[(Int, Int, String)] { case (id1: Int, id2: Int, query: String) =>
-        ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
-      }
+    getUserPosts.implement { case (id1: Int, id2: Int, query: String) =>
+      ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
     }
 
   val openAPI = OpenAPIGen.fromEndpoints(title = "Endpoint Example", version = "1.0", getUser, getUserPosts)
