@@ -294,9 +294,9 @@ object MultipartSpec extends ZIOHttpSpec {
             )
         for {
           result <- (endpoint
-            .implement(handler { (id: Int) =>
-              (Book("John's Book", List("John Doe")), ZStream.from(Chunk.fromArray("the book file".getBytes)))
-            })
+            .implementPurely(_ =>
+              (Book("John's Book", List("John Doe")), ZStream.from(Chunk.fromArray("the book file".getBytes))),
+            )
             .toRoutes @@ Middleware.debug).run(path = Path.root / "books" / "123")
         } yield assertTrue(
           result.status == Status.Ok,
