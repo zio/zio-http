@@ -133,12 +133,12 @@ object Response {
 
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
-  def error(status: Status.Error, message: String): Response = {
+  def error(status: Status.Error, message: String, includeWarning: Boolean = false): Response = {
     import zio.http.internal.OutputEncoder
 
     val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
 
-    Response(status = status, body = Body.fromString(message2))
+    Response(status = status, body = Body.fromString(message2), headers = if (includeWarning) Headers(Header.Warning(199, "API", message2)) else Headers.empty)
   }
 
   def error(status: Status.Error): Response =
