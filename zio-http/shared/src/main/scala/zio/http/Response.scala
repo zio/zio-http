@@ -138,7 +138,9 @@ object Response {
 
     val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
 
-    Response(status = status, body = Body.fromString(message2), headers = if (includeWarning) Headers(Header.Warning(199, "API", message2)) else Headers.empty)
+    val headers = if (includeWarning) Headers(Header.Warning(199, "API", message2)) else Headers.empty
+
+    Response(status = status, body = Body.fromString(message2), headers = headers)
   }
 
   def error(status: Status.Error): Response =
