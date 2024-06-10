@@ -109,11 +109,11 @@ object ResponseSpec extends ZIOHttpSpec {
         res.body.asString.map(s => assertTrue(s.endsWith(message)))
       },
       test("should not contain warning header by default") {
-        val res     = Response.error(Status.InternalServerError, "error")
+        val res = Response.error(Status.InternalServerError, "error")
         assertTrue(res.headers.get(Header.Warning).isEmpty)
       },
       test("should contain warning header when flag is set") {
-        val res = Response.error(Status.InternalServerError, "error", includeWarning = true)
+        val res     = Response.error(Status.InternalServerError, "error", includeWarning = true)
         val warning = res.headers.get(Header.Warning)
         assertTrue(warning.isDefined)
         assertTrue(warning.map(_.text).contains("error"))

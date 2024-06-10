@@ -99,9 +99,9 @@ object RouteSpec extends ZIOHttpSpec {
             )
 
           request = Request.get(URL.decode("/endpoint").toOption.get)
-          response      <- errorHandled.toRoutes.runZIO(request)
-          result        <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
-          message       <- response.body.asString
+          response <- errorHandled.toRoutes.runZIO(request)
+          result   <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
+          message  <- response.body.asString
 
         } yield assertTrue(
           extractStatus(response) == Status.InternalServerError,
@@ -117,8 +117,8 @@ object RouteSpec extends ZIOHttpSpec {
           )
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
-          response      <- errorHandled.toRoutes.runZIO(request)
-          message       <- response.body.asString
+          response <- errorHandled.toRoutes.runZIO(request)
+          message  <- response.body.asString
         } yield assertTrue(
           extractStatus(response) == Status.InternalServerError,
           message == "error accessing /endpoint: hmm...",
