@@ -159,7 +159,9 @@ object Response {
    * not polymorphic, but will attempt to inspect the runtime class of the
    * failure inside the cause, if any.
    */
-  def fromCause(cause: Cause[Any], includeWarning: Boolean = false): Response = {
+  def fromCause(cause: Cause[Any]): Response = fromCause(cause, includeWarning = false)
+
+  def fromCause(cause: Cause[Any], includeWarning: Boolean): Response = {
     cause.failureOrCause match {
       case Left(failure: Response)  => failure
       case Left(failure: Throwable) => fromThrowable(failure)
@@ -174,7 +176,9 @@ object Response {
    * Creates a new response from the specified cause, translating any typed
    * error to a response using the provided function.
    */
-  def fromCauseWith[E](cause: Cause[E], includeWarning: Boolean = false)(f: E => Response): Response = {
+  def fromCauseWith[E](cause: Cause[E])(f: E => Response): Response = fromCauseWith(cause, includeWarning = false)(f)
+
+  def fromCauseWith[E](cause: Cause[E], includeWarning: Boolean)(f: E => Response): Response = {
     cause.failureOrCause match {
       case Left(failure) => f(failure)
       case Right(cause)  => fromCause(cause, includeWarning)
