@@ -106,6 +106,13 @@ object ClientSpec extends HttpRunnableSpec {
       val resp = ZIO.scoped(ZClient.request(Request.get(url))).timeout(500.millis)
       assertZIO(resp)(isNone)
     } @@ timeout(5.seconds) @@ flaky(5),
+    test("authorization header without scheme") {
+      val app             =
+        Handler.fromFunction[Request](h => Response.text(h.headers.get("authorization").getOrElse(""))).sandbox.toRoutes
+      val responseContent =
+        app.deploy(Request(headers = Headers(Header.Authorization.Unparsed("", "my-token")))).flatMap(_.body.asString)
+      assertZIO(responseContent)(equalTo("my-token"))
+    } @@ timeout(5.seconds),
   )
 
   override def spec = {

@@ -1074,7 +1074,7 @@ object Header {
         s"""Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
           s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
       case Bearer(token)            => s"Bearer ${token.value.asString}"
-      case Unparsed(scheme, params) => s"$scheme ${params.value.asString}"
+      case Unparsed(scheme, params) => s"$scheme ${params.value.asString}".strip()
     }
 
     private def parseBasic(value: String): Either[String, Authorization] = {
