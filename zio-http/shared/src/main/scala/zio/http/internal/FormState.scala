@@ -17,6 +17,7 @@
 package zio.http.internal
 
 import zio._
+
 import zio.http.Boundary
 import zio.http.internal.FormAST._
 
@@ -56,13 +57,12 @@ private[http] object FormState {
       val crlf = byte == '\n' && !lastByte.isEmpty && lastByte.get == '\r'
 
       var boundaryDetected = false;
-      val addThis          = if (this.lastByte.isEmpty) 0 else 1
-      val pos              = bufferSize + addThis
-      if (pos < boundary.closingBoundaryBytes.size) {
-        boundaryMatches.update(pos, boundary.closingBoundaryBytes(pos) == byte)
+      val posInLine        = bufferSize + (if (this.lastByte.isEmpty) 0 else 1)
+      if (posInLine < boundary.closingBoundaryBytes.size) {
+        boundaryMatches.update(posInLine, boundary.closingBoundaryBytes(posInLine) == byte)
       }
 
-      if (pos == boundary.closingBoundaryBytes.size - 1) {
+      if (posInLine == boundary.closingBoundaryBytes.size - 1) {
         boundaryDetected = boundaryMatches.forall(_ == true)
       }
 
