@@ -101,19 +101,13 @@ object ResponseSpec extends ZIOHttpSpec {
         assertZIO(http.runZIO(()))(equalTo(ok))
       },
     ),
-    suite("error with message")(
-      test("should produce an error response with the message as the body") {
-        val message = "error"
-        val res     = Response.error(Status.InternalServerError, message)
-        assertTrue(extractStatus(res) == Status.InternalServerError)
-        res.body.asString.map(s => assertTrue(s.endsWith(message)))
-      },
+    suite("warning header")(
       test("should not contain warning header by default") {
-        val res = Response.error(Status.InternalServerError, "error")
+        val res = Response.internalServerError("error")
         assertTrue(res.headers.get(Header.Warning).isEmpty)
       },
       test("should contain warning header when flag is set") {
-        val res     = Response.error(Status.InternalServerError, "error", includeWarning = true)
+        val res     = Response.internalServerError("error", includeWarning = true)
         val warning = res.headers.get(Header.Warning)
         assertTrue(warning.isDefined)
         assertTrue(warning.map(_.text).contains("error"))

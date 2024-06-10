@@ -95,17 +95,18 @@ object RouteSpec extends ZIOHttpSpec {
 
           errorHandled = route
             .handleErrorRequestCauseZIO((req, c) =>
-              p.failCause(c).as(Response.internalServerError(s"error accessing ${req.path.encode}")),
+              p.failCause(c)
+                .as(Response.internalServerError(s"error accessing ${req.path.encode}", includeWarning = true)),
             )
 
           request = Request.get(URL.decode("/endpoint").toOption.get)
-          response <- errorHandled.toRoutes.runZIO(request)
-          result   <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
-          message  <- response.body.asString
+          response      <- errorHandled.toRoutes.runZIO(request)
+          result        <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
+          resultWarning <- ZIO.fromOption(response.headers.get(Header.Warning).map(_.text))
 
         } yield assertTrue(
           extractStatus(response) == Status.InternalServerError,
-          message == "error accessing /endpoint",
+          resultWarning == "error accessing /endpoint",
           result.contains("hmm..."),
         )
       },
@@ -113,15 +114,15 @@ object RouteSpec extends ZIOHttpSpec {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hmm...")) }
         val errorHandled =
           route.handleErrorRequest((e, req) =>
-            Response.internalServerError(s"error accessing ${req.path.encode}: ${e.getMessage}"),
+            Response.internalServerError(s"error accessing ${req.path.encode}: ${e.getMessage}", includeWarning = true),
           )
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
-          response <- errorHandled.toRoutes.runZIO(request)
-          message  <- response.body.asString
+          response      <- errorHandled.toRoutes.runZIO(request)
+          resultWarning <- ZIO.fromOption(response.headers.get(Header.Warning).map(_.text))
         } yield assertTrue(
           extractStatus(response) == Status.InternalServerError,
-          message == "error accessing /endpoint: hmm...",
+          resultWarning == "error accessing /endpoint: hmm...",
         )
       },
       test("handleErrorCause should handle defects") {
