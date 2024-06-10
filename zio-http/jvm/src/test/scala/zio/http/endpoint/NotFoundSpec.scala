@@ -43,7 +43,7 @@ object NotFoundSpec extends ZIOHttpSpec {
           Routes(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId)"
                 }
@@ -51,7 +51,7 @@ object NotFoundSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
               .query(query("name"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, name) =>
                   s"path(users, $userId, posts, $postId) query(name=$name)"
                 }
@@ -68,7 +68,7 @@ object NotFoundSpec extends ZIOHttpSpec {
           Routes(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId)"
                 }
@@ -76,7 +76,7 @@ object NotFoundSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
               .query(query("name"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, name) =>
                   s"path(users, $userId, posts, $postId) query(name=$name)"
                 }

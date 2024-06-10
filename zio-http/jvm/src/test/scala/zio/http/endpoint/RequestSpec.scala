@@ -44,7 +44,7 @@ object RequestSpec extends ZIOHttpSpec {
               Endpoint(GET / "users" / int("userId"))
                 .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { case (userId, correlationId) =>
                     s"path(users, $userId) header(correlationId=$correlationId)"
                   }
@@ -52,7 +52,7 @@ object RequestSpec extends ZIOHttpSpec {
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
                 .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { case (userId, postId, correlationId) =>
                     s"path(users, $userId, posts, $postId) header(correlationId=$correlationId)"
                   }
@@ -78,7 +78,7 @@ object RequestSpec extends ZIOHttpSpec {
               .query(query("id"))
               .out[Int](MediaType.text.`plain`)
           val routes   =
-            endpoint.implement {
+            endpoint.implementHandler {
               Handler.succeed(id)
             }
 
@@ -100,7 +100,7 @@ object RequestSpec extends ZIOHttpSpec {
               .query(query("id"))
               .out[Int](MediaType.text.`plain`)
           val routes   =
-            endpoint.implement {
+            endpoint.implementHandler {
               Handler.succeed(id)
             }
 
@@ -122,7 +122,7 @@ object RequestSpec extends ZIOHttpSpec {
               .query(query("id"))
               .out[Int](Status.NotFound)
           val routes   =
-            endpoint.implement {
+            endpoint.implementHandler {
               Handler.succeed(id)
             }
 
@@ -140,7 +140,7 @@ object RequestSpec extends ZIOHttpSpec {
               Endpoint(GET / "posts")
                 .query(queryInt("id"))
                 .out[Int]
-            val routes   = endpoint.implement { Handler.succeed(id) }
+            val routes   = endpoint.implementHandler { Handler.succeed(id) }
             for {
               response <- routes.toRoutes.runZIO(
                 Request.get(url"/posts?id=$notAnId").addHeader(Header.Accept(MediaType.application.`json`)),
@@ -159,7 +159,7 @@ object RequestSpec extends ZIOHttpSpec {
                 .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
                 .out[Int]
             val routes   =
-              endpoint.implement {
+              endpoint.implementHandler {
                 Handler.succeed(id)
               }
 
@@ -178,7 +178,7 @@ object RequestSpec extends ZIOHttpSpec {
               .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
               .out[Int]
           val routes   =
-            endpoint.implement {
+            endpoint.implementHandler {
               Handler.succeed(id)
             }
 
@@ -195,7 +195,7 @@ object RequestSpec extends ZIOHttpSpec {
             Routes(
               Endpoint(GET / "users" / int("userId"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { userId =>
                     s"path(users, $userId)"
                   }
@@ -204,7 +204,7 @@ object RequestSpec extends ZIOHttpSpec {
                 .query(query("name"))
                 .query(query("age"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { case (userId, postId, name, age) =>
                     s"path(users, $userId, posts, $postId) query(name=$name, age=$age)"
                   }
@@ -225,7 +225,7 @@ object RequestSpec extends ZIOHttpSpec {
               Endpoint(GET / "users")
                 .query(queryInt("userId") | query("userId"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { userId =>
                     val value = userId.fold(_.toString, identity)
                     s"path(users) query(userId=$value)"
@@ -240,11 +240,11 @@ object RequestSpec extends ZIOHttpSpec {
       test("broad api") {
         check(Gen.int, Gen.int, Gen.int, Gen.int) { (userId, postId, commentId, replyId) =>
           val broadUsers                       =
-            Endpoint(GET / "users").out[String](Doc.p("Created user id")).implement {
+            Endpoint(GET / "users").out[String](Doc.p("Created user id")).implementHandler {
               Handler.succeed("path(users)")
             }
           val broadUsersId                     =
-            Endpoint(GET / "users" / int("userId")).out[String].implement {
+            Endpoint(GET / "users" / int("userId")).out[String].implementHandler {
               Handler.fromFunction { userId =>
                 s"path(users, $userId)"
               }
@@ -252,7 +252,7 @@ object RequestSpec extends ZIOHttpSpec {
           val boardUsersPosts                  =
             Endpoint(GET / "users" / int("userId") / "posts")
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId, posts)"
                 }
@@ -260,7 +260,7 @@ object RequestSpec extends ZIOHttpSpec {
           val boardUsersPostsId                =
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId) =>
                   s"path(users, $userId, posts, $postId)"
                 }
@@ -271,7 +271,7 @@ object RequestSpec extends ZIOHttpSpec {
                 "users" / int("userId") / "posts" / int("postId") / "comments",
             )
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId) =>
                   s"path(users, $userId, posts, $postId, comments)"
                 }
@@ -282,15 +282,15 @@ object RequestSpec extends ZIOHttpSpec {
                 "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId"),
             )
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, commentId) =>
                   s"path(users, $userId, posts, $postId, comments, $commentId)"
                 }
               }
           val broadPosts                       =
-            Endpoint(GET / "posts").out[String].implement(Handler.succeed("path(posts)"))
+            Endpoint(GET / "posts").out[String].implementHandler(Handler.succeed("path(posts)"))
           val broadPostsId                     =
-            Endpoint(GET / "posts" / int("postId")).out[String].implement {
+            Endpoint(GET / "posts" / int("postId")).out[String].implementHandler {
               Handler.fromFunction { postId =>
                 s"path(posts, $postId)"
               }
@@ -298,7 +298,7 @@ object RequestSpec extends ZIOHttpSpec {
           val boardPostsComments               =
             Endpoint(GET / "posts" / int("postId") / "comments")
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { postId =>
                   s"path(posts, $postId, comments)"
                 }
@@ -306,15 +306,15 @@ object RequestSpec extends ZIOHttpSpec {
           val boardPostsCommentsId             =
             Endpoint(GET / "posts" / int("postId") / "comments" / int("commentId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (postId, commentId) =>
                   s"path(posts, $postId, comments, $commentId)"
                 }
               }
           val broadComments                    =
-            Endpoint(GET / "comments").out[String].implement(Handler.succeed("path(comments)"))
+            Endpoint(GET / "comments").out[String].implementHandler(Handler.succeed("path(comments)"))
           val broadCommentsId                  =
-            Endpoint(GET / "comments" / int("commentId")).out[String].implement {
+            Endpoint(GET / "comments" / int("commentId")).out[String].implementHandler {
               Handler.fromFunction { commentId =>
                 s"path(comments, $commentId)"
               }
@@ -322,7 +322,7 @@ object RequestSpec extends ZIOHttpSpec {
           val broadUsersComments               =
             Endpoint(GET / "users" / int("userId") / "comments")
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId, comments)"
                 }
@@ -330,7 +330,7 @@ object RequestSpec extends ZIOHttpSpec {
           val broadUsersCommentsId             =
             Endpoint(GET / "users" / int("userId") / "comments" / int("commentId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, commentId) =>
                   s"path(users, $userId, comments, $commentId)"
                 }
@@ -341,7 +341,7 @@ object RequestSpec extends ZIOHttpSpec {
                 "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies",
             )
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, commentId) =>
                   s"path(users, $userId, posts, $postId, comments, $commentId, replies)"
                 }
@@ -353,7 +353,7 @@ object RequestSpec extends ZIOHttpSpec {
                 "replies" / int("replyId"),
             )
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, commentId, replyId) =>
                   s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)"
                 }
@@ -411,7 +411,7 @@ object RequestSpec extends ZIOHttpSpec {
         check(Gen.alphaNumericString, Gen.alphaNumericString) { (queryValue, headerValue) =>
           val headerOrQuery             = HeaderCodec.name[String]("X-Header") | QueryCodec.query("header")
           val endpoint                  = Endpoint(GET / "test").out[String].inCodec(headerOrQuery)
-          val routes                    = endpoint.implement(Handler.identity).toRoutes
+          val routes                    = endpoint.implementHandler(Handler.identity).toRoutes
           val request                   = Request.get(
             URL
               .decode(s"/test?header=$queryValue")
@@ -446,7 +446,7 @@ object RequestSpec extends ZIOHttpSpec {
         val headerOrQuery     = HeaderCodec.name[String]("X-Header") | StatusCodec.status(Status.Created)
         val endpoint          = Endpoint(GET / "test").query(QueryCodec.queryBool("Created")).outCodec(headerOrQuery)
         val routes            =
-          endpoint.implement {
+          endpoint.implementHandler {
             Handler.fromFunction { created =>
               if (created) Right(()) else Left("not created")
             }
@@ -485,7 +485,7 @@ object RequestSpec extends ZIOHttpSpec {
                 .in[NewPost](Doc.p("New post"))
                 .out[PostCreated](Status.Created, MediaType.application.`json`)
             val routes   =
-              endpoint.implement(Handler.succeed(PostCreated(postId))).toRoutes
+              endpoint.implementHandler(Handler.succeed(PostCreated(postId))).toRoutes
             val request  =
               Request
                 .post(
@@ -513,7 +513,7 @@ object RequestSpec extends ZIOHttpSpec {
                 .in[NewPost]
                 .out[Int]
             val routes   =
-              endpoint.implement(Handler.succeed(postId)).toRoutes
+              endpoint.implementHandler(Handler.succeed(postId)).toRoutes
 
             for {
               response <- routes.runZIO(
@@ -532,7 +532,7 @@ object RequestSpec extends ZIOHttpSpec {
           check(Gen.chunkOfBounded(1, 1024)(Gen.byte)) { bytes =>
             val route = Endpoint(GET / "test-byte-stream")
               .outStream[Byte](Doc.p("Test data"))
-              .implement(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
+              .implementHandler(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
               .toRoutes
 
             for {
@@ -556,7 +556,7 @@ object RequestSpec extends ZIOHttpSpec {
           check(Gen.chunkOfBounded(1, 1024)(Gen.byte)) { bytes =>
             val route = Endpoint(GET / "test-byte-stream")
               .outStream[Byte](Status.Ok, MediaType.image.png)
-              .implement(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
+              .implementHandler(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
               .toRoutes
 
             for {
@@ -581,7 +581,7 @@ object RequestSpec extends ZIOHttpSpec {
             val route = Endpoint(POST / "test-byte-stream")
               .inStream[Byte]
               .out[Long]
-              .implement {
+              .implementHandler {
                 Handler.fromFunctionZIO { byteStream =>
                   byteStream.runCount
                 }

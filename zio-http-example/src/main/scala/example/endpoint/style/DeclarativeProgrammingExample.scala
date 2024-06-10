@@ -40,7 +40,7 @@ object DeclarativeProgrammingExample extends ZIOAppDefault {
   val getBookHandler: Handler[Any, NotFoundError, String, Book] =
     handler(BookRepo.find(_))
 
-  val routes = endpoint.implement(getBookHandler).toRoutes @@ Middleware.debug
+  val routes = endpoint.implementHandler(getBookHandler).toRoutes @@ Middleware.debug
 
   def run = Server.serve(routes).provide(Server.default)
 }

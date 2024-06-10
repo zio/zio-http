@@ -13,11 +13,7 @@ object ZIOHttpGRPCGenSpec extends ZIOSpecDefault {
         assertTrue(true)
       },
       test("plugin generates Endpoint") {
-        val impl = V1.test.implement {
-          Handler.fromFunction[TestMsg] { msg =>
-            msg
-          }
-        }
+        val impl = V1.test.implementPurely { msg => msg }
         assertTrue(true)
       },
     )

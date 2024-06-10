@@ -34,7 +34,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
           Routes(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId)"
                 }
@@ -42,7 +42,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
               .query(query("name"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, name) =>
                   s"path(users, $userId, posts, $postId) query(name=$name)"
                 }
@@ -63,7 +63,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId"))
               .query(query("details").optional)
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, details) =>
                   s"path(users, $userId, $details)"
                 }
@@ -83,7 +83,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
               .query(query("key").optional)
               .query(query("value").optional)
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, key, value) =>
                   s"path(users, $userId, $key, $value)"
                 }
@@ -103,7 +103,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("key"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, keys) =>
                   s"""path(users, $userId, ${keys.mkString(", ")})"""
                 }
@@ -132,7 +132,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("key").optional)
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, keys) =>
                   s"""path(users, $userId, $keys)"""
                 }
@@ -162,7 +162,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
               Endpoint(GET / "users" / int("userId"))
                 .query(queryAll("key") & queryAll("value"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { case (userId, keys, values) =>
                     s"""path(users, $userId, $keys, $values)"""
                   }
@@ -187,7 +187,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("multi") & query("single"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, multi, single) =>
                   s"""path(users, $userId, $multi, $single)"""
                 }
@@ -208,7 +208,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("left") | queryAllBool("right"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, eitherOfParameters) =>
                   s"path(users, $userId, $eitherOfParameters)"
                 }
@@ -238,7 +238,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
               Endpoint(GET / "users" / int("userId"))
                 .query(queryAll("left") | queryAll("right"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { case (userId, queryParams) =>
                     s"path(users, $userId, $queryParams)"
                   }
@@ -267,7 +267,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             Endpoint(GET / "users" / int("userId"))
               .query(queryAll("left") | query("right"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, queryParams) =>
                   s"path(users, $userId, $queryParams)"
                 }
@@ -295,7 +295,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
           Endpoint(GET / "users")
             .query(queryAllInt("ints"))
             .out[String]
-            .implement {
+            .implementHandler {
               Handler.fromFunction { case queryParams =>
                 s"path(users, $queryParams)"
               }
@@ -313,7 +313,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
         Endpoint(GET / "users")
           .query(queryAllInt("ints"))
           .out[String]
-          .implement {
+          .implementHandler {
             Handler.fromFunction { case queryParams =>
               s"path(users, $queryParams)"
             }
@@ -330,7 +330,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
           Endpoint(GET / "users")
             .query(queryInt("ints"))
             .out[String]
-            .implement {
+            .implementHandler {
               Handler.fromFunction { case queryParams =>
                 s"path(users, $queryParams)"
               }
