@@ -9,6 +9,9 @@ val releaseDrafterVersion = "5"
 val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
 // CI Configuration
+ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
+ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
+
 ThisBuild / githubWorkflowJavaVersions := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
@@ -292,8 +295,10 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-test`,
       `zio-test-sbt`,
       scalafmt.cross(CrossVersion.for3Use2_13),
-      scalametaParsers.cross(CrossVersion.for3Use2_13).exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
-      `zio-json-yaml` % Test
+      scalametaParsers
+        .cross(CrossVersion.for3Use2_13)
+        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
+      `zio-json-yaml` % Test,
     ),
   )
   .settings(
@@ -314,8 +319,8 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.15",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.15" % "protobuf",
-      "com.google.protobuf"  %  "protobuf-java"   % "4.26.1" % "protobuf"
-    )
+      "com.google.protobuf"   % "protobuf-java"   % "4.26.1"  % "protobuf",
+    ),
   )
   .settings(
     libraryDependencies ++= {
@@ -329,31 +334,31 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
   .dependsOn(zioHttpJVM, zioHttpGen)
 
 lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
-    .enablePlugins(LocalCodeGenPlugin)
-    .settings(stdSettings("sbt-zio-http-grpc-tests"))
-    .settings(publishSetting(false))
-    .settings(
-      Test / skip := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 12))),
-      libraryDependencies ++= Seq(
-        `zio-test-sbt`,
-        `zio-test`,
-        "com.google.protobuf"  % "protobuf-java"    % "4.26.1" % "protobuf",
-        "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.15" % "protobuf",
-      ),
-      Compile / run / fork := true,
-      testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-      Compile / PB.targets := {
-        if (CrossVersion.partialVersion(scalaVersion.value) == Some((2, 12)))
-          Seq(
-          scalapb.gen(grpc = false)      -> (Compile / sourceManaged).value,
-          genModule("zio.http.grpc.ZIOHttpGRPCGen$")-> (Compile / sourceManaged).value
-        ) 
-        else Seq.empty
-      },
-      codeGenClasspath     := (sbtZioHttpGrpc / Compile / fullClasspath).value
-    )
-    .dependsOn(zioHttpJVM, sbtZioHttpGrpc)
-    .disablePlugins(ScalafixPlugin)
+  .enablePlugins(LocalCodeGenPlugin)
+  .settings(stdSettings("sbt-zio-http-grpc-tests"))
+  .settings(publishSetting(false))
+  .settings(
+    Test / skip          := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 12))),
+    libraryDependencies ++= Seq(
+      `zio-test-sbt`,
+      `zio-test`,
+      "com.google.protobuf"   % "protobuf-java"   % "4.26.1"  % "protobuf",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.15" % "protobuf",
+    ),
+    Compile / run / fork := true,
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    Compile / PB.targets := {
+      if (CrossVersion.partialVersion(scalaVersion.value) == Some((2, 12)))
+        Seq(
+          scalapb.gen(grpc = false)                  -> (Compile / sourceManaged).value,
+          genModule("zio.http.grpc.ZIOHttpGRPCGen$") -> (Compile / sourceManaged).value,
+        )
+      else Seq.empty
+    },
+    codeGenClasspath     := (sbtZioHttpGrpc / Compile / fullClasspath).value,
+  )
+  .dependsOn(zioHttpJVM, sbtZioHttpGrpc)
+  .disablePlugins(ScalafixPlugin)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .enablePlugins(Shading.plugins() *)
@@ -386,17 +391,17 @@ lazy val docs = project
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       `jwt-core`,
-      "dev.zio" %% "zio-test"   % ZioVersion,
-      "dev.zio" %% "zio-config" % ZioConfigVersion,
+      "dev.zio" %% "zio-test"            % ZioVersion,
+      "dev.zio" %% "zio-config"          % ZioConfigVersion,
       "dev.zio" %% "zio-config-magnolia" % ZioConfigVersion,
-      "dev.zio" %% "zio-config-typesafe" % ZioConfigVersion
+      "dev.zio" %% "zio-config-typesafe" % ZioConfigVersion,
     ),
     publish / skip                             := true,
     mdocVariables ++= Map(
-      "ZIO_VERSION" -> ZioVersion,
+      "ZIO_VERSION"        -> ZioVersion,
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
       "ZIO_CONFIG_VERSION" -> ZioConfigVersion,
-    )
+    ),
   )
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)

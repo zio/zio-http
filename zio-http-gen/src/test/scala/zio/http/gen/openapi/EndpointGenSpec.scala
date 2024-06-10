@@ -657,6 +657,68 @@ object EndpointGenSpec extends ZIOSpecDefault {
           )
           assertTrue(scala.files.head == expected)
         },
+        test("endpoints with overlapping prefix") {
+          val endpoint1 = Endpoint(Method.GET / "api" / "v1" / "users")
+          val endpoint2 = Endpoint(Method.GET / "api" / "v1" / "users" / "info")
+          val openAPI   = OpenAPIGen.fromEndpoints(endpoint1, endpoint2)
+          val scala     = EndpointGen.fromOpenAPI(openAPI)
+          val expected1 = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          val expected2 = Code.File(
+            List("api", "v1", "users", "Info.scala"),
+            pkgPath = List("api", "v1", "users"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Info",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(
+                        Code.PathSegmentCode("api"),
+                        Code.PathSegmentCode("v1"),
+                        Code.PathSegmentCode("users"),
+                        Code.PathSegmentCode("info"),
+                      ),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          assertTrue(scala.files.toSet == Set(expected1, expected2))
+        },
       ),
       suite("data gen spec")(
         test("generates case class, companion object and schema") {

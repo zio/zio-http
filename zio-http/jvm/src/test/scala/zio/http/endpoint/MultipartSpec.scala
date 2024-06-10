@@ -23,6 +23,8 @@ import zio.test._
 
 import zio.stream.ZStream
 
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http.Method._
 import zio.http._
 import zio.http.codec._
@@ -53,7 +55,7 @@ object MultipartSpec extends ZIOHttpSpec {
                     HttpCodec.content[Int]("height", MediaType.text.`plain`) ++
                     HttpCodec.content[ImageMetadata]("metadata"),
                 )
-                .implement {
+                .implementHandler {
                   Handler.succeed(
                     (
                       ZStream.fromChunk(bytes),
@@ -109,7 +111,7 @@ object MultipartSpec extends ZIOHttpSpec {
                     HttpCodec.content[Int](MediaType.text.`plain`) ++
                     HttpCodec.content[ImageMetadata],
                 )
-                .implement {
+                .implementHandler {
                   Handler.succeed(
                     (
                       ZStream.fromChunk(bytes),
@@ -156,7 +158,7 @@ object MultipartSpec extends ZIOHttpSpec {
                 .in[String]("title")
                 .in[ImageMetadata]("metadata", Doc.p("Image metadata with description and creation date and time"))
                 .out[(Long, String, ImageMetadata)]
-                .implement {
+                .implementHandler {
                   Handler.fromFunctionZIO { case (stream, title, metadata) =>
                     stream.runCount.map(count => (count, title, metadata))
                   }
@@ -236,7 +238,7 @@ object MultipartSpec extends ZIOHttpSpec {
                 }
             }
           val route    =
-            endpoint.implement(Handler.identity[Any])
+            endpoint.implementHandler(Handler.identity[Any])
 
           val form =
             Form(
@@ -275,6 +277,37 @@ object MultipartSpec extends ZIOHttpSpec {
           )
         }
       },
+      test("override default content type if set explicitly") {
+        import zio._
+        import zio.http._
+        import zio.http.codec._
+        import zio.http.endpoint.EndpointMiddleware.None
+        import zio.schema.DeriveSchema.gen
+        import zio.stream.ZStream
+
+        val endpoint: Endpoint[Int, Int, ZNothing, (Book, ZStream[Any, Nothing, Byte]), None] =
+          Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+            .outCodec(
+              HttpCodec.content[Book]("book", MediaType.application.`json`) ++
+                HttpCodec.binaryStream("file", MediaType.application.`octet-stream`) ++
+                HeaderCodec.contentType.expect(Header.ContentType(MediaType.multipart.`mixed`)),
+            )
+        for {
+          result <- (endpoint
+            .implementPurely(_ =>
+              (Book("John's Book", List("John Doe")), ZStream.from(Chunk.fromArray("the book file".getBytes))),
+            )
+            .toRoutes @@ Middleware.debug).run(path = Path.root / "books" / "123")
+        } yield assertTrue(
+          result.status == Status.Ok,
+          result.headers.getAll(Header.ContentType).map(_.mediaType) == Chunk(MediaType.multipart.`mixed`),
+        )
+      },
     ),
   )
+
+  case class Book(title: String, authors: List[String])
+  object Book {
+    implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
+  }
 }

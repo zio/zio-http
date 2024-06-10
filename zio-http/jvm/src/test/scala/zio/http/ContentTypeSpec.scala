@@ -18,7 +18,7 @@ package zio.http
 
 import zio._
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.TestAspect.withLiveClock
+import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test._
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
@@ -34,7 +34,9 @@ object ContentTypeSpec extends HttpRunnableSpec {
     test("js") {
       val res =
         Handler.fromResource("TestFile3.js").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
-      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.application.`javascript`))))
+      assertZIO(res)(
+        isSome(equalTo(Header.ContentType(MediaType.application.`javascript`, charset = Some(Charsets.Utf8)))),
+      )
     },
     test("no extension") {
       val res = Handler.fromResource("TestFile4").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
@@ -43,7 +45,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
     test("css") {
       val res =
         Handler.fromResource("TestFile5.css").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
-      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.`css`))))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.`css`, charset = Some(Charsets.Utf8)))))
     },
     test("mp3") {
       val res =
@@ -74,6 +76,8 @@ object ContentTypeSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Content-type") {
       serve.as(List(contentSpec))
-    }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock
+    }
+      .provideSome[DynamicServer & Server & Client](Scope.default)
+      .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
   }
 }

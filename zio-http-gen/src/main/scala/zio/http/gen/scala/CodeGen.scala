@@ -65,7 +65,7 @@ object CodeGen {
 
     case Code.Object(name, schema, endpoints, objects, caseClasses, enums) =>
       val baseImports                      = if (endpoints.nonEmpty) EndpointImports else Nil
-      val (epImports, epContent)           = endpoints.map { case (k, v) =>
+      val (epImports, epContent)           = endpoints.toList.map { case (k, v) =>
         val (kImports, kContent) = render(basePackage)(k)
         val (vImports, vContent) = render(basePackage)(v)
         (kImports ++ vImports, s"$kContent=$vContent")

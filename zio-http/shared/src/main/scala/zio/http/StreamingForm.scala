@@ -18,6 +18,8 @@ package zio.http
 
 import java.nio.charset.Charset
 
+import scala.annotation.tailrec
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -172,14 +174,31 @@ object StreamingForm {
     new State(FormState.fromBoundary(boundary), None, _inNonStreamingPart = false)
   }
 
-  private final class Buffer(bufferSize: Int) {
-    private val buffer: Array[Byte] = new Array[Byte](bufferSize)
+  private final class Buffer(initialSize: Int) {
+    private var buffer: Array[Byte] = new Array[Byte](initialSize)
     private var length: Int         = 0
+
+    private def ensureHasCapacity(requiredCapacity: Int): Unit = {
+      @tailrec
+      def calculateNewCapacity(existing: Int, required: Int): Int = {
+        val newCap = existing * 2
+        if (newCap < required) calculateNewCapacity(newCap, required)
+        else newCap
+      }
+
+      val l = buffer.length
+      if (l <= requiredCapacity) {
+        val newArray = Array.ofDim[Byte](calculateNewCapacity(l, requiredCapacity))
+        java.lang.System.arraycopy(buffer, 0, newArray, 0, l)
+        buffer = newArray
+      } else ()
+    }
 
     def addByte(
       crlfBoundary: Chunk[Byte],
       byte: Byte,
     ): Chunk[Take[Nothing, Byte]] = {
+      ensureHasCapacity(length + crlfBoundary.length)
       buffer(length) = byte
       if (length < (crlfBoundary.length - 1)) {
         // Not enough bytes to check if we have the boundary

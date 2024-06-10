@@ -15,7 +15,7 @@ object SwaggerUISpec extends ZIOSpecDefault {
       test("should return the swagger ui page") {
         val getUser = Endpoint(Method.GET / "users" / int("userId")).out[Int]
 
-        val getUserRoute = getUser.implement { Handler.fromFunction[Int] { id => id } }
+        val getUserRoute = getUser.implementHandler { Handler.fromFunction[Int] { id => id } }
 
         val getUserPosts =
           Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
@@ -23,7 +23,7 @@ object SwaggerUISpec extends ZIOSpecDefault {
             .out[List[String]]
 
         val getUserPostsRoute =
-          getUserPosts.implement[Any] {
+          getUserPosts.implementHandler[Any] {
             Handler.fromFunctionZIO[(Int, Int, String)] { case (id1: Int, id2: Int, query: String) =>
               ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
             }
