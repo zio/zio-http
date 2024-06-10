@@ -29,7 +29,8 @@ private[http] object FormState {
   final class FormStateBuffer(boundary: Boundary) extends FormState { self =>
 
     private val tree0: ChunkBuilder[FormAST]    = ChunkBuilder.make[FormAST]()
-    private var buffer: Chunk[Byte]             = Chunk.empty
+    private var buffer: ChunkBuilder[Byte]      = new ChunkBuilder.Byte
+    private var bufferSize: Int                 = 0
     private val boundaryMatches: Array[Boolean] = new Array[Boolean](boundary.closingBoundaryBytes.size)
 
     private var lastByte: OptionalByte = OptionalByte.None
@@ -56,7 +57,7 @@ private[http] object FormState {
 
       var boundaryDetected = false;
       val addThis          = if (this.lastByte.isEmpty) 0 else 1
-      val pos              = buffer.knownSize + addThis
+      val pos              = bufferSize + addThis
       if (pos < boundary.closingBoundaryBytes.size) {
         boundaryMatches.update(pos, boundary.closingBoundaryBytes(pos) == byte)
       }
@@ -66,7 +67,8 @@ private[http] object FormState {
       }
 
       def flush(ast: FormAST): Unit = {
-        buffer = Chunk.empty
+        buffer.clear()
+        bufferSize = 0
         boundaryMatches.map(_ => false)
         lastByte = OptionalByte.None
         if (crlf && isBufferEmpty && (phase eq Phase.Part1)) phase0 = Phase.Part2
@@ -75,7 +77,7 @@ private[http] object FormState {
       }
 
       if (crlf && (phase eq Phase.Part1)) {
-        val ast = FormAST.makePart1(buffer, boundary)
+        val ast = FormAST.makePart1(buffer.result(), boundary)
 
         ast match {
           case content: Content         => flush(content); self
@@ -87,9 +89,10 @@ private[http] object FormState {
       } else if ((crlf || boundaryDetected) && (phase eq Phase.Part2)) {
         if (boundaryDetected) {
           val hyphen = "-".getBytes().head
-          buffer = buffer.appended(hyphen).appended(hyphen)
+          buffer += hyphen
+          buffer += hyphen
         }
-        val ast = FormAST.makePart2(buffer, boundary)
+        val ast = FormAST.makePart2(buffer.result(), boundary)
 
         ast match {
           case content: Content         =>
@@ -102,7 +105,8 @@ private[http] object FormState {
       } else {
         if (!lastByte.isEmpty) {
           if (isBufferEmpty) isBufferEmpty = false
-          buffer = buffer.appended(lastByte.get)
+          buffer += lastByte.get
+          bufferSize = bufferSize + 1
         }
         lastByte = OptionalByte.Some(byte)
         self
@@ -117,7 +121,8 @@ private[http] object FormState {
 
     def reset(): Unit = {
       tree0.clear()
-      buffer = Chunk.empty
+      buffer.clear()
+      bufferSize = 0
       boundaryMatches.map(_ => false)
       isBufferEmpty = true
       dropContents = false
