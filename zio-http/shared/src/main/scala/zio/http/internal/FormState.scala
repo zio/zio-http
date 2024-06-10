@@ -29,7 +29,7 @@ private[http] object FormState {
   final class FormStateBuffer(boundary: Boundary) extends FormState { self =>
 
     private val tree0: ChunkBuilder[FormAST]    = ChunkBuilder.make[FormAST]()
-    private var buffer: ChunkBuilder[Byte]      = new ChunkBuilder.Byte
+    private val buffer: ChunkBuilder[Byte]      = new ChunkBuilder.Byte
     private var bufferSize: Int                 = 0
     private val boundaryMatches: Array[Boolean] = new Array[Boolean](boundary.closingBoundaryBytes.size)
 
