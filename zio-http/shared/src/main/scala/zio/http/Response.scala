@@ -133,6 +133,8 @@ object Response {
 
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
+  def badRequest(message: String, includeWarning: Boolean): Response = error(Status.BadRequest, message, includeWarning)
+
   def error(status: Status.Error, message: String, includeWarning: Boolean = false): Response = {
     import zio.http.internal.OutputEncoder
 
@@ -140,7 +142,7 @@ object Response {
 
     val headers = if (includeWarning) Headers(Header.Warning(199, "API", message2)) else Headers.empty
 
-    Response(status = status, body = Body.fromString(message2), headers = headers)
+    Response(status = status, headers = headers)
   }
 
   def error(status: Status.Error): Response =
@@ -150,19 +152,21 @@ object Response {
 
   def forbidden(message: String): Response = error(Status.Forbidden, message)
 
+  def forbidden(message: String, includeWarning: Boolean): Response = error(Status.Forbidden, message, includeWarning)
+
   /**
    * Creates a new response from the specified cause. Note that this method is
    * not polymorphic, but will attempt to inspect the runtime class of the
    * failure inside the cause, if any.
    */
-  def fromCause(cause: Cause[Any]): Response = {
+  def fromCause(cause: Cause[Any], includeWarning: Boolean = false): Response = {
     cause.failureOrCause match {
       case Left(failure: Response)  => failure
       case Left(failure: Throwable) => fromThrowable(failure)
       case Left(failure: Cause[_])  => fromCause(failure)
       case _                        =>
-        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
-        else error(Status.InternalServerError, cause.prettyPrint.take(100))
+        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100), includeWarning)
+        else error(Status.InternalServerError, cause.prettyPrint.take(100), includeWarning)
     }
   }
 
@@ -170,10 +174,10 @@ object Response {
    * Creates a new response from the specified cause, translating any typed
    * error to a response using the provided function.
    */
-  def fromCauseWith[E](cause: Cause[E])(f: E => Response): Response = {
+  def fromCauseWith[E](cause: Cause[E], includeWarning: Boolean = false)(f: E => Response): Response = {
     cause.failureOrCause match {
       case Left(failure) => f(failure)
-      case Right(cause)  => fromCause(cause)
+      case Right(cause)  => fromCause(cause, includeWarning)
     }
   }
 
@@ -202,23 +206,26 @@ object Response {
    * Creates a new response for the specified throwable. Note that this method
    * relies on the runtime class of the throwable.
    */
-  def fromThrowable(throwable: Throwable): Response = {
+  def fromThrowable(throwable: Throwable, includeWarning: Boolean = false): Response = {
     throwable match { // TODO: Enhance
-      case _: AccessDeniedException           => error(Status.Forbidden, throwable.getMessage)
-      case _: IllegalAccessException          => error(Status.Forbidden, throwable.getMessage)
-      case _: IllegalAccessError              => error(Status.Forbidden, throwable.getMessage)
-      case _: NotDirectoryException           => error(Status.BadRequest, throwable.getMessage)
-      case _: IllegalArgumentException        => error(Status.BadRequest, throwable.getMessage)
-      case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage)
-      case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
-      case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
-      case _                                  => error(Status.InternalServerError, throwable.getMessage)
+      case _: AccessDeniedException           => error(Status.Forbidden, throwable.getMessage, includeWarning)
+      case _: IllegalAccessException          => error(Status.Forbidden, throwable.getMessage, includeWarning)
+      case _: IllegalAccessError              => error(Status.Forbidden, throwable.getMessage, includeWarning)
+      case _: NotDirectoryException           => error(Status.BadRequest, throwable.getMessage, includeWarning)
+      case _: IllegalArgumentException        => error(Status.BadRequest, throwable.getMessage, includeWarning)
+      case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage, includeWarning)
+      case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage, includeWarning)
+      case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage, includeWarning)
+      case _                                  => error(Status.InternalServerError, throwable.getMessage, includeWarning)
     }
   }
 
   def gatewayTimeout: Response = error(Status.GatewayTimeout)
 
   def gatewayTimeout(message: String): Response = error(Status.GatewayTimeout, message)
+
+  def gatewayTimeout(message: String, includeWarning: Boolean): Response =
+    error(Status.GatewayTimeout, message, includeWarning)
 
   /**
    * Creates a response with content-type set to text/html
@@ -234,9 +241,15 @@ object Response {
 
   def httpVersionNotSupported(message: String): Response = error(Status.HttpVersionNotSupported, message)
 
+  def httpVersionNotSupported(message: String, includeWarning: Boolean): Response =
+    error(Status.HttpVersionNotSupported, message, includeWarning)
+
   def internalServerError: Response = error(Status.InternalServerError)
 
   def internalServerError(message: String): Response = error(Status.InternalServerError, message)
+
+  def internalServerError(message: String, includeWarning: Boolean): Response =
+    error(Status.InternalServerError, message, includeWarning)
 
   /**
    * Creates a response with content-type set to application/json
@@ -252,17 +265,28 @@ object Response {
 
   def networkAuthenticationRequired(message: String): Response = error(Status.NetworkAuthenticationRequired, message)
 
+  def networkAuthenticationRequired(message: String, includeWarning: Boolean): Response =
+    error(Status.NetworkAuthenticationRequired, message, includeWarning)
+
   def notExtended: Response = error(Status.NotExtended)
 
   def notExtended(message: String): Response = error(Status.NotExtended, message)
+
+  def notExtended(message: String, includeWarning: Boolean): Response =
+    error(Status.NotExtended, message, includeWarning)
 
   def notFound: Response = error(Status.NotFound)
 
   def notFound(message: String): Response = error(Status.NotFound, message)
 
+  def notFound(message: String, includeWarning: Boolean): Response = error(Status.NotFound, message, includeWarning)
+
   def notImplemented: Response = error(Status.NotImplemented)
 
   def notImplemented(message: String): Response = error(Status.NotImplemented, message)
+
+  def notImplemented(message: String, includeWarning: Boolean): Response =
+    error(Status.NotImplemented, message, includeWarning)
 
   /**
    * Creates an empty response with status 200
@@ -291,6 +315,9 @@ object Response {
 
   def serviceUnavailable(message: String): Response = error(Status.ServiceUnavailable, message)
 
+  def serviceUnavailable(message: String, includeWarning: Boolean): Response =
+    error(Status.ServiceUnavailable, message, includeWarning)
+
   /**
    * Creates an empty response with the provided Status
    */
@@ -310,6 +337,9 @@ object Response {
   def unauthorized: Response = error(Status.Unauthorized)
 
   def unauthorized(message: String): Response = error(Status.Unauthorized, message)
+
+  def unauthorized(message: String, includeWarning: Boolean): Response =
+    error(Status.Unauthorized, message, includeWarning)
 
   private lazy val contentTypeJson: Headers        = Headers(Header.ContentType(MediaType.application.json).untyped)
   private lazy val contentTypeHtml: Headers        = Headers(Header.ContentType(MediaType.text.html).untyped)
