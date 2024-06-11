@@ -35,7 +35,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
    * Runs the streaming form and collects all parts in memory, returning a Form
    */
   def collectAll(implicit trace: Trace): ZIO[Any, Throwable, Form] =
-    fields.mapZIO {
+    streamFormFields(bufferUpToBoundary = true).mapZIO {
       case sb: FormField.StreamingBinary =>
         sb.collect
       case other: FormField              =>
@@ -45,12 +45,17 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
     }
 
   def fields(implicit trace: Trace): ZStream[Any, Throwable, FormField] =
+    streamFormFields(bufferUpToBoundary = false)
+
+  private def streamFormFields(
+    bufferUpToBoundary: Boolean,
+  )(implicit trace: Trace): ZStream[Any, Throwable, FormField] =
     ZStream.unwrapScoped {
       implicit val unsafe: Unsafe = Unsafe.unsafe
 
       for {
         runtime    <- ZIO.runtime[Any]
-        buffer     <- ZIO.succeed(new Buffer(bufferSize, crlfBoundary))
+        buffer     <- ZIO.succeed(new Buffer(bufferSize, crlfBoundary, bufferUpToBoundary))
         abort      <- Promise.make[Nothing, Unit]
         fieldQueue <- Queue.bounded[Take[Throwable, FormField]](4)
         state  = initialState
@@ -189,7 +194,7 @@ object StreamingForm {
     new State(FormState.fromBoundary(boundary), None, _inNonStreamingPart = false)
   }
 
-  private final class Buffer(bufferSize: Int, crlfBoundary: Array[Byte]) {
+  private final class Buffer(bufferSize: Int, crlfBoundary: Array[Byte], bufferUpToBoundary: Boolean) {
     private var buffer: Array[Byte] = Array.ofDim(bufferSize)
     private var index: Int          = 0
     private val boundarySize        = crlfBoundary.length
@@ -246,7 +251,7 @@ object StreamingForm {
         val toTake = idx + 1 - boundarySize
         if (toTake == 0) Chunk(Take.end)
         else Chunk(Take.chunk(Chunk.fromArray(buffer.take(toTake))), Take.end)
-      } else if (isLastByte && byte != '-' && !matchesPartialBoundary(idx)) {
+      } else if (!bufferUpToBoundary && isLastByte && byte != '-' && !matchesPartialBoundary(idx)) {
         reset()
         Chunk(Take.chunk(Chunk.fromArray(buffer.take(idx + 1))))
       } else {
