@@ -835,8 +835,8 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
 
   private def replaceErrorResponse(request: Request, response: Response): Response = {
     def htmlResponse: Body = {
-      val message: String = response.header(Header.Warning).map(_.text).getOrElse("")
-      val data            = Template.container(s"${response.status}") {
+      val message = getWarningMessageFromResponse(response)
+      val data    = Template.container(s"${response.status}") {
         div(
           div(
             styles := "text-align: center",
@@ -871,12 +871,22 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
       response
   }
 
+  private def getWarningMessageFromResponse(response: Response): String = {
+    val message = response.body.toString
+
+    if (message.startsWith("warning: ")) {
+      message
+    } else {
+      ""
+    }
+  }
+
   private def formatErrorMessage(response: Response) = {
-    val errorMessage: String = response.header(Header.Warning).map(_.text).getOrElse("")
-    val status               = response.status.code
+    val message = getWarningMessageFromResponse(response)
+    val status  = response.status.code
     s"${scala.Console.BOLD}${scala.Console.RED}${response.status} ${scala.Console.RESET} - " +
       s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
-      s"$errorMessage"
+      s"$message"
   }
 
   private[http] val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(

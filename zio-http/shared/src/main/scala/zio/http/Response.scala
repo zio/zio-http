@@ -140,9 +140,7 @@ object Response {
 
     val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
 
-    val headers = if (includeWarning) Headers(Header.Warning(199, "API", message2)) else Headers.empty
-
-    Response(status = status, headers = headers)
+    Response(status, body = if (includeWarning) Body.fromString(s"warning: $message2") else Body.empty)
   }
 
   def error(status: Status.Error): Response =
@@ -210,7 +208,9 @@ object Response {
    * Creates a new response for the specified throwable. Note that this method
    * relies on the runtime class of the throwable.
    */
-  def fromThrowable(throwable: Throwable, includeWarning: Boolean = false): Response = {
+  def fromThrowable(throwable: Throwable): Response = fromThrowable(throwable, includeWarning = false)
+
+  def fromThrowable(throwable: Throwable, includeWarning: Boolean): Response = {
     throwable match { // TODO: Enhance
       case _: AccessDeniedException           => error(Status.Forbidden, throwable.getMessage, includeWarning)
       case _: IllegalAccessException          => error(Status.Forbidden, throwable.getMessage, includeWarning)

@@ -102,11 +102,11 @@ object RouteSpec extends ZIOHttpSpec {
           request = Request.get(URL.decode("/endpoint").toOption.get)
           response      <- errorHandled.toRoutes.runZIO(request)
           result        <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
-          resultWarning <- ZIO.fromOption(response.headers.get(Header.Warning).map(_.text))
+          resultWarning <- response.body.asString
 
         } yield assertTrue(
           extractStatus(response) == Status.InternalServerError,
-          resultWarning == "error accessing /endpoint",
+          resultWarning == "warning: error accessing /endpoint",
           result.contains("hmm..."),
         )
       },
@@ -119,10 +119,10 @@ object RouteSpec extends ZIOHttpSpec {
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
           response      <- errorHandled.toRoutes.runZIO(request)
-          resultWarning <- ZIO.fromOption(response.headers.get(Header.Warning).map(_.text))
+          resultWarning <- response.body.asString
         } yield assertTrue(
           extractStatus(response) == Status.InternalServerError,
-          resultWarning == "error accessing /endpoint: hmm...",
+          resultWarning == "warning: error accessing /endpoint: hmm...",
         )
       },
       test("handleErrorCause should handle defects") {
