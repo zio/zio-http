@@ -338,6 +338,30 @@ object FormSpec extends ZIOHttpSpec {
           )
         }
       } @@ samples(10),
+      test("output stream maintains the same chunk structure as the input stream") {
+        val form           = Form(
+          Chunk(
+            FormField.StreamingBinary(
+              name = "blob",
+              data = ZStream.fromChunk(Chunk(1, 2).map(_.toByte)) ++
+                ZStream.fromChunk(Chunk(3).map(_.toByte)),
+              contentType = MediaType.application.`octet-stream`,
+            ),
+          ),
+        )
+        val boundary       = Boundary("X-INSOMNIA-BOUNDARY")
+        val formByteStream = form.multipartBytes(boundary)
+        val streamingForm  = StreamingForm(formByteStream, boundary)
+        val expected       = Chunk(Chunk[Byte](1, 2), Chunk[Byte](3))
+        streamingForm.fields.flatMap {
+          case sb: FormField.StreamingBinary => sb.data
+          case _                             => ZStream.empty
+        }
+          .mapChunks(Chunk.single)
+          .filter(_.nonEmpty)
+          .runCollect
+          .map { c => assertTrue(c == expected) }
+      },
     ) @@ sequential
 
   def spec =
