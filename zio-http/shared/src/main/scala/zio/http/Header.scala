@@ -1055,8 +1055,11 @@ object Header {
     }
 
     def parse(value: String): Either[String, Authorization] = {
-      val parts = value.split(" ")
-      if (parts.length >= 2) {
+      val parts  = value.strip().split(" ")
+      val nParts = parts.length
+      if (nParts == 1) {
+        Right(Unparsed("", parts(0)))
+      } else if (nParts >= 2) {
         parts(0).toLowerCase match {
           case "basic"  => parseBasic(parts(1))
           case "digest" => parseDigest(parts.tail.mkString(" "))

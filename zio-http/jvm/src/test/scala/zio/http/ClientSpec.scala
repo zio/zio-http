@@ -108,7 +108,14 @@ object ClientSpec extends HttpRunnableSpec {
     } @@ timeout(5.seconds) @@ flaky(5),
     test("authorization header without scheme") {
       val app             =
-        Handler.fromFunction[Request](h => Response.text(h.headers.get("authorization").getOrElse(""))).sandbox.toRoutes
+        Handler
+          .fromFunction[Request] { req =>
+            req.headers.get(Header.Authorization) match {
+              case Some(h) => Response.text(h.renderedValue)
+              case None    => Response.unauthorized("missing auth")
+            }
+          }
+          .toRoutes
       val responseContent =
         app.deploy(Request(headers = Headers(Header.Authorization.Unparsed("", "my-token")))).flatMap(_.body.asString)
       assertZIO(responseContent)(equalTo("my-token"))
