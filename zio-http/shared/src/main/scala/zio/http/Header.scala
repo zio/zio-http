@@ -1055,7 +1055,7 @@ object Header {
     }
 
     def parse(value: String): Either[String, Authorization] = {
-      val parts  = value.strip().split(" ")
+      val parts  = value.split(" ").filter(_.nonEmpty)
       val nParts = parts.length
       if (nParts == 1) {
         Right(Unparsed("", parts(0)))
