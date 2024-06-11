@@ -160,7 +160,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
   private def initialState: StreamingForm.State =
     StreamingForm.initialState(boundary)
 
-  private def crlfBoundary: Array[Byte] = Array[Byte](13, 10) ++ boundary.encapsulationBoundaryBytes.toArray
+  private def crlfBoundary: Array[Byte] = Array[Byte](13, 10) ++ boundary.encapsulationBoundaryBytes.toArray[Byte]
 }
 
 object StreamingForm {
