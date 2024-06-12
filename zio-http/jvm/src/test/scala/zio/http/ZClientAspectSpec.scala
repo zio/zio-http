@@ -100,6 +100,29 @@ object ZClientAspectSpec extends ZIOHttpSpec {
           extractStatus(response) == Status.Ok,
         ),
       ),
+      test("curl request logger") {
+
+        for {
+          port       <- Server.install(routes)
+          baseClient <- ZIO.service[Client]
+          client = baseClient
+            .url(
+              URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
+            )
+            .batched @@ ZClientAspect.curlLogger(logEffect = m => Console.printLine(m).orDie)
+          response <- client.request(Request.get(URL.empty / "hello"))
+          output   <- TestConsole.output
+        } yield assertTrue(
+          output.mkString("") ==
+            s"""curl \\
+               |  --verbose \\
+               |  --request GET \\
+               |  --header 'user-agent:${Client.defaultUAHeader.renderedValue}' \\
+               |  'http://localhost:${port}/hello'
+               |""".stripMargin,
+          extractStatus(response) == Status.Ok,
+        )
+      },
     ).provide(
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.customized,
