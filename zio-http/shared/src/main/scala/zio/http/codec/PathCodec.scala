@@ -501,24 +501,57 @@ object PathCodec          {
           result = subtree.value
           i = i + 1
         } else {
-          // Slower fallback path. Have to evaluate all predicates at this node:
           val flattened = subtree.othersFlat
 
-          var index = 0
           subtree = null
+          flattened.length match {
+            case 0 => // No predicates to evaluate
+            case 1 => // Only 1 predicate to evaluate (most common)
+              val (codec, subtree0) = flattened(0)
+              val matched           = codec.matches(segments, i)
+              if (matched > 0) {
+                subtree = subtree0
+                result = subtree0.value
+                i = i + matched
+              }
+            case n => // Slowest fallback path. Have to to find the first predicate where the subpath returns a result
+              val matches         = Array.ofDim[Int](n)
+              var index           = 0
+              var nPositive       = 0
+              var lastPositiveIdx = -1
+              while (index < n) {
+                val (codec, _) = flattened(index)
+                val n          = codec.matches(segments, i)
+                if (n > 0) {
+                  matches(index) = n
+                  nPositive += 1
+                  lastPositiveIdx = index
+                }
+                index += 1
+              }
 
-          while ((index < flattened.length) && (subtree eq null)) {
-            val tuple   = flattened(index)
-            val matched = tuple._1.matches(segments, i)
-
-            if (matched >= 0) {
-              subtree = tuple._2
-              result = subtree.value
-              i = i + matched
-            } else {
-              // No match found. Keep looking at alternate routes:
-              index += 1
-            }
+              nPositive match {
+                case 0 => ()
+                case 1 =>
+                  subtree = flattened(lastPositiveIdx)._2
+                  result = subtree.value
+                  i = i + matches(lastPositiveIdx)
+                case _ =>
+                  index = 0
+                  while (index < n && (subtree eq null)) {
+                    val matched = matches(index)
+                    if (matched > 0) {
+                      val (_, subtree0) = flattened(index)
+                      val subpath       = path.dropLeadingSlash.drop(i + matched)
+                      if (subtree0.get(subpath).nonEmpty) {
+                        subtree = subtree0
+                        result = subtree.value
+                        i += matched
+                      }
+                    }
+                    index += 1
+                  }
+              }
           }
 
           if (subtree eq null) {
