@@ -540,7 +540,6 @@ object PathCodec          {
                   index = 0
                   while (index < n && (subtree eq null)) {
                     val matched = matches(index)
-                    // Checking whether we got a match alone is
                     if (matched > 0) {
                       val (_, subtree0) = flattened(index)
                       val subpath       = path.dropLeadingSlash.drop(i + matched)
