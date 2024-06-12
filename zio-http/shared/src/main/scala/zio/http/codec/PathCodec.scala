@@ -18,10 +18,10 @@ package zio.http.codec
 
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
-
 import zio._
-
 import zio.http._
+
+import scala.annotation.nowarn
 
 /**
  * A codec for paths, which consists of segments, where each segment may be a
@@ -485,6 +485,7 @@ object PathCodec          {
     def add[A1 >: A](segments: Iterable[SegmentCodec[_]], value: A1): SegmentSubtree[A1] =
       self ++ SegmentSubtree.single(segments, value)
 
+    @nowarn
     def get(path: Path): Chunk[A] = {
       val segments = path.segments
       var subtree  = self
@@ -501,24 +502,38 @@ object PathCodec          {
           result = subtree.value
           i = i + 1
         } else {
-          // Slower fallback path. Have to evaluate all predicates at this node:
           val flattened = subtree.othersFlat
 
-          var index = 0
           subtree = null
-
-          while ((index < flattened.length) && (subtree eq null)) {
-            val tuple   = flattened(index)
-            val matched = tuple._1.matches(segments, i)
-
-            if (matched >= 0) {
-              subtree = tuple._2
-              result = subtree.value
-              i = i + matched
-            } else {
-              // No match found. Keep looking at alternate routes:
-              index += 1
-            }
+          flattened.length match {
+            case 0 => // No predicates to evaluate
+            case 1 => // Only 1 predicate to evaluate (most common)
+              val (codec, subtree0) = flattened(0)
+              val matched           = codec.matches(segments, i)
+              if (matched > 0) {
+                subtree = subtree0
+                result = subtree0.value
+                i = i + matched
+              }
+            case _ => // Slowest fallback path. Have to to find the first predicate where the subpath returns a result
+              var index = 0
+              val size  = flattened.length
+              while (index <= size && (subtree eq null)) {
+                val (codec, subtree0) = flattened(index)
+                val matched           = codec.matches(segments, i)
+                // Checking whether we got a match alone is
+                if (
+                  matched > 0 && {
+                    val subpath = path.dropLeadingSlash.drop(i + matched)
+                    subtree0.get(subpath).nonEmpty
+                  }
+                ) {
+                  subtree = subtree0
+                  result = subtree.value
+                  i += matched
+                }
+                index += 1
+              }
           }
 
           if (subtree eq null) {
