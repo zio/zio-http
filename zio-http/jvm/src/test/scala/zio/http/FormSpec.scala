@@ -86,7 +86,7 @@ object FormSpec extends ZIOHttpSpec {
         form2 == form,
       )
     },
-    test("encoding with custom paramaters [charset]") {
+    test("encoding with custom parameters [charset]") {
 
       val form = Form(
         FormField.textField(
@@ -143,6 +143,30 @@ object FormSpec extends ZIOHttpSpec {
         )
       }
 
+    },
+    test("decoding no lf at the end") {
+      val body = Chunk.fromArray(
+        s"""|--(((AaB03x)))${CR}
+            |Content-Disposition: form-data; name="hocon-data"${CR}
+            |Content-Type: text/plain${CR}
+            |${CR}
+            |foos: []${CR}
+            |--(((AaB03x)))${CR}
+            |Content-Disposition: form-data; name="json-data"${CR}
+            |Content-Type: text/plain${CR}
+            |${CR}
+            |{ "bars": [] }${CR}
+            |--(((AaB03x)))--""".stripMargin.getBytes(),
+      )
+
+      val form = Form(
+        FormField.textField("hocon-data", "foos: []", MediaType.text.`plain`),
+        FormField.textField("json-data", """{ "bars": [] }""", MediaType.text.`plain`),
+      )
+
+      Form
+        .fromMultipartBytes(body)
+        .map(form2 => assertTrue(form2 == form))
     },
   )
 
