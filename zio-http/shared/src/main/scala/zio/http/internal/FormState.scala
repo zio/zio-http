@@ -89,9 +89,8 @@ private[http] object FormState {
 
       } else if ((crlf || boundaryDetected) && (phase eq Phase.Part2)) {
         if (boundaryDetected) {
-          val hyphen = "-".getBytes().head
-          buffer += hyphen
-          buffer += hyphen
+          buffer += '-'
+          buffer += '-'
         }
         val ast = FormAST.makePart2(buffer.result(), boundary)
 
