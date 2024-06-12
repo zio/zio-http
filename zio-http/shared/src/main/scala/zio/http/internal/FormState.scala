@@ -106,7 +106,7 @@ private[http] object FormState {
         if (!lastByte.isEmpty) {
           if (isBufferEmpty) isBufferEmpty = false
           buffer += lastByte.get
-          bufferSize = bufferSize + 1
+          bufferSize += 1
         }
         lastByte = OptionalByte.Some(byte)
         self
