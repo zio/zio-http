@@ -32,7 +32,8 @@ private[http] object FormState {
     private val tree0: ChunkBuilder[FormAST]    = ChunkBuilder.make[FormAST]()
     private val buffer: ChunkBuilder[Byte]      = new ChunkBuilder.Byte
     private var bufferSize: Int                 = 0
-    private val boundaryMatches: Array[Boolean] = new Array[Boolean](boundary.closingBoundaryBytes.size)
+    private val closingBoundaryBytesSize        = boundary.closingBoundaryBytes.size
+    private var boundaryMatches: Array[Boolean] = new Array[Boolean](closingBoundaryBytesSize)
 
     private var lastByte: OptionalByte = OptionalByte.None
     private var isBufferEmpty          = true
@@ -58,18 +59,18 @@ private[http] object FormState {
 
       var boundaryDetected = false;
       val posInLine        = bufferSize + (if (this.lastByte.isEmpty) 0 else 1)
-      if (posInLine < boundary.closingBoundaryBytes.size) {
+      if (posInLine < closingBoundaryBytesSize) {
         boundaryMatches.update(posInLine, boundary.closingBoundaryBytes(posInLine) == byte)
       }
 
-      if (posInLine == boundary.closingBoundaryBytes.size - 1) {
+      if (posInLine == closingBoundaryBytesSize - 1) {
         boundaryDetected = boundaryMatches.forall(_ == true)
       }
 
       def flush(ast: FormAST): Unit = {
         buffer.clear()
         bufferSize = 0
-        boundaryMatches.map(_ => false)
+        boundaryMatches = new Array[Boolean](closingBoundaryBytesSize)
         lastByte = OptionalByte.None
         if (crlf && isBufferEmpty && (phase eq Phase.Part1)) phase0 = Phase.Part2
         if (ast.isContent && dropContents) () else addToTree(ast)
@@ -123,7 +124,7 @@ private[http] object FormState {
       tree0.clear()
       buffer.clear()
       bufferSize = 0
-      boundaryMatches.map(_ => false)
+      boundaryMatches = new Array[Boolean](closingBoundaryBytesSize)
       isBufferEmpty = true
       dropContents = false
       phase0 = Phase.Part1
