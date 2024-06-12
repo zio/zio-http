@@ -18,10 +18,10 @@ package zio.http.codec
 
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
-import zio._
-import zio.http._
 
-import scala.annotation.nowarn
+import zio._
+
+import zio.http._
 
 /**
  * A codec for paths, which consists of segments, where each segment may be a
@@ -485,7 +485,6 @@ object PathCodec          {
     def add[A1 >: A](segments: Iterable[SegmentCodec[_]], value: A1): SegmentSubtree[A1] =
       self ++ SegmentSubtree.single(segments, value)
 
-    @nowarn
     def get(path: Path): Chunk[A] = {
       val segments = path.segments
       var subtree  = self
