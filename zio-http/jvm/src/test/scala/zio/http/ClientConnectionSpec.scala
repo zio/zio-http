@@ -51,6 +51,8 @@ object ClientConnectionSpec extends HttpRunnableSpec {
   }
 
   private object TestResolver extends DnsResolver {
+    import scala.collection.compat._
+
     override def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] = {
       ZIO.succeed {
         Chunk.from((0 to 10).map { i =>
