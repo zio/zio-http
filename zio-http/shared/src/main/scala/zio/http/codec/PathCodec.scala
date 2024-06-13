@@ -546,8 +546,7 @@ object PathCodec          {
                     val matched = matches(index)
                     if (matched > 0) {
                       val (_, subtree0) = flattened(index)
-                      val from          = i + matched
-                      if (from >= nSegments || subtree0.get(path, from).nonEmpty) {
+                      if (subtree0.get(path, i + matched).nonEmpty) {
                         subtree = subtree0
                         result = subtree.value
                         i += matched
