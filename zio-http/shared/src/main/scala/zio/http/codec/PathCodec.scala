@@ -485,13 +485,17 @@ object PathCodec          {
     def add[A1 >: A](segments: Iterable[SegmentCodec[_]], value: A1): SegmentSubtree[A1] =
       self ++ SegmentSubtree.single(segments, value)
 
-    def get(path: Path): Chunk[A] = {
-      val segments = path.segments
-      var subtree  = self
-      var result   = subtree.value
-      var i        = 0
+    def get(path: Path): Chunk[A] =
+      get(path, 0)
 
-      while (i < segments.length) {
+    private def get(path: Path, from: Int): Chunk[A] = {
+      val segments  = path.segments
+      val nSegments = segments.length
+      var subtree   = self
+      var result    = subtree.value
+      var i         = from
+
+      while (i < nSegments) {
         val segment = segments(i)
 
         if (subtree.literals.contains(segment)) {
@@ -499,7 +503,7 @@ object PathCodec          {
           subtree = subtree.literals(segment)
 
           result = subtree.value
-          i = i + 1
+          i += 1
         } else {
           val flattened = subtree.othersFlat
 
@@ -512,7 +516,7 @@ object PathCodec          {
               if (matched > 0) {
                 subtree = subtree0
                 result = subtree0.value
-                i = i + matched
+                i += matched
               }
             case n => // Slowest fallback path. Have to to find the first predicate where the subpath returns a result
               val matches         = Array.ofDim[Int](n)
@@ -535,15 +539,14 @@ object PathCodec          {
                 case 1 =>
                   subtree = flattened(lastPositiveIdx)._2
                   result = subtree.value
-                  i = i + matches(lastPositiveIdx)
+                  i += matches(lastPositiveIdx)
                 case _ =>
                   index = 0
                   while (index < n && (subtree eq null)) {
                     val matched = matches(index)
                     if (matched > 0) {
                       val (_, subtree0) = flattened(index)
-                      val subpath       = path.dropLeadingSlash.drop(i + matched)
-                      if (subtree0.get(subpath).nonEmpty) {
+                      if (subtree0.get(path, i + matched).nonEmpty) {
                         subtree = subtree0
                         result = subtree.value
                         i += matched
@@ -556,7 +559,7 @@ object PathCodec          {
 
           if (subtree eq null) {
             result = Chunk.empty
-            i = segments.length
+            i = nSegments
           }
         }
       }
