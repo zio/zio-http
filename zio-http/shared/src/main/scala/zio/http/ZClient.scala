@@ -249,23 +249,6 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
 object ZClient extends ZClientPlatformSpecific {
 
-  val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
-    implicit val trace: Trace = Trace.empty
-    ZLayer.scoped {
-      for {
-        config         <- ZIO.service[Config]
-        driver         <- ZIO.service[ClientDriver]
-        dnsResolver    <- ZIO.service[DnsResolver]
-        connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
-        baseClient = fromDriver(new DriverLive(driver)(connectionPool)(config))
-      } yield
-        if (config.addUserAgentHeader)
-          baseClient.addHeader(defaultUAHeader)
-        else
-          baseClient
-    }
-  }
-
   def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
     ZClient(
       Version.Default,
