@@ -32,6 +32,7 @@ import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, ChannelHandler,
 import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator, HttpRequest}
+import io.netty.util.concurrent.GenericFutureListener
 
 final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
@@ -51,7 +52,7 @@ final case class NettyClientDriver private[netty] (
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
-    val f = NettyRequestEncoder.encode(req).flatMap { jReq =>
+    NettyRequestEncoder.encode(req).flatMap { jReq =>
       for {
         _     <- Scope.addFinalizer {
           ZIO.attempt {
@@ -135,26 +136,7 @@ final case class NettyClientDriver private[netty] (
 
           val frozenToRemove = toRemove.toSet
 
-          new ChannelInterface {
-            override def resetChannel: ZIO[Any, Throwable, ChannelState] =
-              ZIO.attempt {
-                frozenToRemove.foreach(pipeline.remove)
-                ChannelState.Reusable // channel can be reused
-              }
-
-            override def interrupt: ZIO[Any, Throwable, Unit] =
-              NettyFutureExecutor.executed(channel.disconnect())
-          }
-        }
-      }
-    }
-
-    f.ensuring {
-      // If the channel was closed and the promises were not completed, this will lead to the request hanging so we need
-      // to listen to the close future and complete the promises
-      ZIO.unless(location.scheme.isWebSocket) {
-        ZIO.succeedUnsafe { implicit u =>
-          channel.closeFuture().addListener { (_: ChannelFuture) =>
+          val closeListener: GenericFutureListener[ChannelFuture] = (_: ChannelFuture) =>
             // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
             // so we don't need to fulfill `onResponse`
             nettyRuntime.unsafeRunSync {
@@ -167,12 +149,24 @@ final case class NettyClientDriver private[netty] (
                   ),
                 )
                 .unit
-            }
+            }(Unsafe.unsafe, trace)
+
+          channel.closeFuture().addListener(closeListener)
+
+          new ChannelInterface {
+            override def resetChannel: ZIO[Any, Throwable, ChannelState] =
+              ZIO.attempt {
+                channel.closeFuture().removeListener(closeListener)
+                frozenToRemove.foreach(pipeline.remove)
+                ChannelState.Reusable // channel can be reused
+              }
+
+            override def interrupt: ZIO[Any, Throwable, Unit] =
+              NettyFutureExecutor.executed(channel.disconnect())
           }
         }
       }
     }
-
   }
 
   override def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
