@@ -18,7 +18,6 @@ package zio.http
 
 import zio.test._
 import zio.test.Assertion._
-import zio.{Chunk, ZIO}
 
 object RoutesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
@@ -97,19 +96,3 @@ object RoutesSpec extends ZIOHttpSpec {
   )
 }
 
-trait ZIOHttpSpec extends DefaultRunnableSpec {
-
-  def handler: PartialFunction[Request, ZIO[Any, Throwable, Response]]
-  def app: HttpApp[Any, Throwable]
-
-  def extractStatus(response: Response): Status
-
-  def spec: ZSpec[Environment, Failure]
-
-  override def spec: ZSpec[Environment, Failure] =
-    suite("ZIO HTTP Spec")(
-      test("test example") {
-        assertCompletes
-      }
-    )
-}
