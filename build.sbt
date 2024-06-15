@@ -267,6 +267,10 @@ lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
   .settings(
     stdSettings("zio-http-htmx"),
     publishSetting(true),
+    libraryDependencies ++= Seq(
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
   )
   .dependsOn(zioHttpJVM)
 
