@@ -1,7 +1,8 @@
 package zio.http.htmx
 
-import zio.http.template.button
 import zio.test.{ZIOSpecDefault, assertTrue}
+
+import zio.http.template.button
 
 case object HtmxSpec extends ZIOSpecDefault {
   override def spec = suite("HtmxSpec")(
