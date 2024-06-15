@@ -17,6 +17,8 @@
 package zio.http
 
 import zio.test._
+import zio.test.Assertion._
+import zio.{Chunk, ZIO}
 
 object RoutesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
@@ -71,5 +73,43 @@ object RoutesSpec extends ZIOHttpSpec {
         )
       }
     },
+    test("anyOf method matches correct route") {
+      val handler = Http.collect[Request] {
+        case req if req.method == Method.GET && req.url.path == "/test1" => Response.text("Handler for test1")
+        case req if req.method == Method.GET && req.url.path == "/test2" => Response.text("Handler for test2")
+        case _ => Response.status(Status.NotFound)
+      }
+
+      val routes = Routes(
+        RoutePattern(GET, "/") / Routes.anyOf("test1", "test2") -> handler
+      )
+
+      for {
+        result1 <- routes.run(Request(GET, Path("/test1")))
+        result2 <- routes.run(Request(GET, Path("/test2")))
+        result3 <- routes.run(Request(GET, Path("/unknown")))
+      } yield {
+        assert(extractStatus(result1))(equalTo(Status.OK)) &&
+        assert(extractStatus(result2))(equalTo(Status.OK)) &&
+        assert(extractStatus(result3))(equalTo(Status.NotFound))
+      }
+    }
   )
+}
+
+trait ZIOHttpSpec extends DefaultRunnableSpec {
+
+  def handler: PartialFunction[Request, ZIO[Any, Throwable, Response]]
+  def app: HttpApp[Any, Throwable]
+
+  def extractStatus(response: Response): Status
+
+  def spec: ZSpec[Environment, Failure]
+
+  override def spec: ZSpec[Environment, Failure] =
+    suite("ZIO HTTP Spec")(
+      test("test example") {
+        assertCompletes
+      }
+    )
 }

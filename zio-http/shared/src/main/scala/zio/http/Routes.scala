@@ -148,6 +148,15 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     trace: Trace,
   ): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleErrorRequestCauseZIO(f)))
+  
+  /**
+   * Creates a route pattern that matches any one of the provided paths.
+   */
+  def anyOf(paths: Seq[String]): RoutePattern[Unit] = {
+    paths.foldLeft(RoutePattern(Method.GET, PathCodec.empty)) { (acc, path) =>
+      acc / PathCodec.literal(path)
+    }
+  }
 
   /**
    * Checks to see if the HTTP application may be defined at the specified
