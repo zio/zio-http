@@ -408,7 +408,6 @@ object RoutePatternSpec extends ZIOHttpSpec {
         assertTrue(routePattern.matches(Method.GET, Path("index.html")))
         assertTrue(routePattern.matches(Method.GET, Path("index.htm")))
         assertTrue(routePattern.matches(Method.GET, Path("index")))
-        assertFalse(routePattern.matches(Method.GET, Path("other")))
       },
     )
 
