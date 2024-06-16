@@ -413,12 +413,6 @@ object RoutePatternSpec extends ZIOHttpSpec {
         println("Testing routePattern with index.htm path:")
         println(routePattern.matches(Method.GET, Path("index.htm")))
       
-        println("Testing routePattern with index path:")
-        println(routePattern.matches(Method.GET, Path("index")))
-      
-        println("Testing routePattern with other path:")
-        println(routePattern.matches(Method.GET, Path("other")))
-      
         assertTrue(routePattern.matches(Method.GET, Path("")))
         assertTrue(routePattern.matches(Method.GET, Path("index.html")))
         assertTrue(routePattern.matches(Method.GET, Path("index.htm")))
