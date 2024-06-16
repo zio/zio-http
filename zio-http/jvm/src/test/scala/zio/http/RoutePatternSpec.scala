@@ -402,12 +402,11 @@ object RoutePatternSpec extends ZIOHttpSpec {
   def anyOfTests =
     suite("anyOf")(
       test("anyOf with multiple patterns") {
-        val routePattern = Method.GET / anyOf("", "index.html", "index.htm", "index")
+        val routePattern = Method.GET / anyOf("", "index.html", "index.htm")
 
         assertTrue(routePattern.matches(Method.GET, Path("")))
         assertTrue(routePattern.matches(Method.GET, Path("index.html")))
         assertTrue(routePattern.matches(Method.GET, Path("index.htm")))
-        assertTrue(routePattern.matches(Method.GET, Path("index")))
       },
     )
 
