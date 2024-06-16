@@ -167,10 +167,9 @@ object RoutePattern {
   /**
    * Creates a RoutePattern that matches any of the specified paths.
    */
-  def anyOf(paths: String*): RoutePattern[Unit] = {
+  def anyOf(paths: String*): PathCodec[Unit] = {
     val codecs: List[PathCodec[Unit]] = paths.map(PathCodec.literal).toList
-    val combinedCodec: PathCodec[Unit] = codecs.reduceLeftOption(_ ++ _).getOrElse(PathCodec.empty)
-    RoutePattern(Method.GET, combinedCodec)
+    codecs.reduceLeftOption(_ ++ _).getOrElse(PathCodec.empty)
   }
 
   /**
