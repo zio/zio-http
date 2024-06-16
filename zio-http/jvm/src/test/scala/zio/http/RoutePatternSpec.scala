@@ -399,6 +399,18 @@ object RoutePatternSpec extends ZIOHttpSpec {
         assertTrue(routePattern.format((1, "abc")) == Right(Path("/users/1/posts/abc")))
       },
     )
+  def anyOfTests =
+    suite("anyOf")(
+      test("anyOf with multiple patterns") {
+        val routePattern = Method.GET / anyOf("", "index.html", "index.htm", "index")
+
+        assertTrue(routePattern.decode(Method.GET, Path("")).isRight) &&
+        assertTrue(routePattern.decode(Method.GET, Path("index.html")).isRight) &&
+        assertTrue(routePattern.decode(Method.GET, Path("index.htm")).isRight) &&
+        assertTrue(routePattern.decode(Method.GET, Path("index")).isRight) &&
+        assertTrue(routePattern.decode(Method.GET, Path("other")).isLeft)
+      },
+    )
 
   def spec =
     suite("RoutePatternSpec")(
@@ -406,5 +418,6 @@ object RoutePatternSpec extends ZIOHttpSpec {
       rendering,
       formatting,
       tree,
+      anyOfTests,
     )
 }

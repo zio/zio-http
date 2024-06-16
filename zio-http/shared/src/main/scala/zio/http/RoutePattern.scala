@@ -165,6 +165,15 @@ object RoutePattern {
   def fromMethod(method: Method): RoutePattern[Unit] = RoutePattern(method, PathCodec.empty)
 
   /**
+   * Creates a RoutePattern that matches any of the specified paths.
+   */
+  def anyOf(paths: String*): RoutePattern[Unit] = {
+    val codecs: List[PathCodec[Unit]] = paths.map(PathCodec.literal).toList
+    val combinedCodec: PathCodec[Unit] = codecs.reduceLeftOption(_ ++ _).getOrElse(PathCodec.empty)
+    RoutePattern(Method.GET, combinedCodec)
+  }
+
+  /**
    * A tree of route patterns, indexed by method and path.
    */
   private[http] final case class Tree[+A](roots: ListMap[Method, SegmentSubtree[A]]) { self =>
