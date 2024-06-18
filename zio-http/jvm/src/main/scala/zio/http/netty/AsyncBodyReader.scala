@@ -77,13 +77,13 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
 
     this.synchronized {
       state match {
-        case State.Buffering        =>
+        case State.Buffering                                                 =>
           content.forEachByte(byteAppender)
-        case State.Direct(callback) =>
-          val chunk =
-            if (content.readableBytes() > 0) Chunk.fromArray(ByteBufUtil.getBytes(content))
-            else Chunk.empty
+        case State.Direct(callback) if content.readableBytes() > 0 || isLast =>
+          val chunk = Chunk.fromArray(ByteBufUtil.getBytes(content))
           callback(chunk, isLast)
+        case _                                                               =>
+          ()
       }
       if (isLast) {
         readingDone = true
