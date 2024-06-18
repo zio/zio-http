@@ -342,8 +342,6 @@ object Body {
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)
 
-  private[zio] trait UnsafeWriteable extends Body
-
   private[zio] trait UnsafeBytes extends Body {
     private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte]
   }
@@ -352,7 +350,7 @@ object Body {
    * Helper to create empty Body
    */
 
-  private[zio] object EmptyBody extends Body with UnsafeWriteable with UnsafeBytes {
+  private[zio] object EmptyBody extends Body with UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = zioEmptyArray
 
@@ -383,7 +381,6 @@ object Body {
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
       with UnsafeBytes { self =>
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
@@ -414,7 +411,6 @@ object Body {
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
       with UnsafeBytes { self =>
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data)
@@ -446,8 +442,7 @@ object Body {
     fileSize: Long,
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
-  ) extends Body
-      with UnsafeWriteable {
+  ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attemptBlocking {
       Files.readAllBytes(file.toPath)

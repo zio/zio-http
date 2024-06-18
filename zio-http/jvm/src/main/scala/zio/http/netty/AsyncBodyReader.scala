@@ -27,38 +27,32 @@ import zio.http.netty.NettyBody.UnsafeAsync
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
+import io.netty.util.ByteProcessor
 
 abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](true) {
 
-  private var state: State                                 = State.Buffering
-  private val buffer: ChunkBuilder[(Chunk[Byte], Boolean)] = ChunkBuilder.make[(Chunk[Byte], Boolean)]()
-  private var previousAutoRead: Boolean                    = false
-  private var ctx: ChannelHandlerContext                   = _
+  private var state: State               = State.Buffering
+  private val buffer: ChunkBuilder.Byte  = new ChunkBuilder.Byte
+  private var previousAutoRead: Boolean  = false
+  private var readingDone: Boolean       = false
+  private var ctx: ChannelHandlerContext = _
 
   private[zio] def connect(callback: UnsafeAsync): Unit = {
     this.synchronized {
       state match {
         case State.Buffering =>
-          val result: Chunk[(Chunk[Byte], Boolean)] = buffer.result()
-          val readingDone: Boolean                  = result.lastOption match {
-            case None              => false
-            case Some((_, isLast)) => isLast
-          }
-          buffer.clear() // GC
-
-          if (ctx.channel.isOpen || readingDone) {
-            state = State.Direct(callback)
-            result.foreach { case (chunk, isLast) =>
-              callback(chunk, isLast)
-            }
-            ctx.read(): Unit
-          } else {
+          val chunk = buffer.result()
+          if (chunk.nonEmpty || readingDone)
+            callback(chunk, readingDone)
+          else if (!ctx.channel().isOpen)
             throw new IllegalStateException("Attempting to read from a closed channel, which will never finish")
-          }
-
-        case State.Direct(_) =>
+          else ()
+        case _: State.Direct =>
           throw new IllegalStateException("Cannot connect twice")
       }
+      ctx.read()
+      state = State.Direct(callback)
+      buffer.clear()
     }
   }
 
@@ -76,22 +70,31 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
     ctx: ChannelHandlerContext,
     msg: HttpContent,
   ): Unit = {
-    val isLast = msg.isInstanceOf[LastHttpContent]
-    val chunk  = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
+    val isLast  = msg.isInstanceOf[LastHttpContent]
+    val content = msg.content()
 
     this.synchronized {
       state match {
         case State.Buffering        =>
-          buffer += ((chunk, isLast))
+          content.forEachByte(byteAppender)
         case State.Direct(callback) =>
+          val chunk =
+            if (content.readableBytes() > 0) Chunk.fromArray(ByteBufUtil.getBytes(msg.content())) else Chunk.empty
           callback(chunk, isLast)
-          ctx.read()
       }
+      if (isLast) {
+        readingDone = true
+        ctx.channel().pipeline().remove(this)
+      } else {
+        ctx.read()
+      }
+      ()
     }
+  }
 
-    if (isLast) {
-      ctx.channel().pipeline().remove(this)
-    }: Unit
+  private val byteAppender: ByteProcessor = (b: Byte) => {
+    buffer.addOne(b)
+    true
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {

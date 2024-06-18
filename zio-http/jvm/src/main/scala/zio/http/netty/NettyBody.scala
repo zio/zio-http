@@ -18,18 +18,18 @@ package zio.http.netty
 
 import java.nio.charset.Charset
 
+import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, Task, Trace, Unsafe, ZIO}
 
 import zio.stream.ZStream
 
-import zio.http.Body.{UnsafeBytes, UnsafeWriteable}
+import zio.http.Body.UnsafeBytes
 import zio.http.internal.BodyEncoding
-import zio.http.{Body, Boundary, Header, Headers, MediaType}
+import zio.http.{Body, Boundary, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{Channel => JChannel}
 import io.netty.util.AsciiString
+
 object NettyBody extends BodyEncoding {
 
   /**
@@ -73,7 +73,6 @@ object NettyBody extends BodyEncoding {
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
       with UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
@@ -101,11 +100,10 @@ object NettyBody extends BodyEncoding {
   }
 
   private[zio] final case class ByteBufBody(
-    val byteBuf: ByteBuf,
+    byteBuf: ByteBuf,
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
       with UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(ByteBufUtil.getBytes(byteBuf))
@@ -137,11 +135,16 @@ object NettyBody extends BodyEncoding {
     knownContentLength: Option[Long],
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
-  ) extends Body
-      with UnsafeWriteable {
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
+  ) extends Body {
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] =
+      asChunk.map(_.toArray)
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
+      Promise.make[Throwable, Chunk[Byte]].flatMap { promise =>
+        ZIO.attempt(unsafeAsync(new AsyncChunkBuilder(promise, bufferSize)(Unsafe.unsafe))) *>
+          promise.await
+      }
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream
@@ -161,11 +164,11 @@ object NettyBody extends BodyEncoding {
             } catch {
               case e: Throwable => emit(ZIO.fail(Option(e)))
             },
-          streamBufferSize,
+          bufferSize,
         )
 
     // No need to create a large buffer when we know the response is small
-    private[this] def streamBufferSize: Int = {
+    private[this] def bufferSize: Int = {
       val cl = knownContentLength.getOrElse(4096L)
       if (cl <= 16L) 16
       else if (cl >= 4096) 4096
@@ -188,4 +191,47 @@ object NettyBody extends BodyEncoding {
     def apply(message: Chunk[Byte], isLast: Boolean): Unit
     def fail(cause: Throwable): Unit
   }
+
+  private final class AsyncChunkBuilder(
+    promise: Promise[Throwable, Chunk[Byte]],
+    sizeHint: Int,
+  )(implicit unsafe: Unsafe)
+      extends UnsafeAsync {
+
+    private var isFirst = true
+
+    private val builder: ChunkBuilder.Byte = {
+      val b = new ChunkBuilder.Byte()
+      b.sizeHint(sizeHint)
+      b
+    }
+
+    override def apply(bytes: Chunk[Byte], isLast: Boolean): Unit = {
+      if (isLast && isFirst) {
+        promise.unsafe.done(Exit.succeed(bytes))
+      } else {
+        if (isFirst) isFirst = false
+        bytes match {
+          case bytes: Chunk.ByteArray =>
+            // Prevent boxing by accessing the byte array directly
+            var i    = 0
+            val arr  = bytes.array
+            val size = arr.length
+            while (i < size) {
+              builder.addOne(arr(i))
+              i += 1
+            }
+          case _                      =>
+            builder.addAll(bytes)
+        }
+        if (isLast) {
+          promise.unsafe.done(Exit.succeed(builder.result()))
+        }
+      }
+    }
+
+    override def fail(cause: Throwable): Unit =
+      promise.unsafe.done(Exit.fail(cause))
+  }
+
 }
