@@ -61,7 +61,7 @@ final case class NettyClientDriver private[netty] (
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
-  )(implicit trace: Trace): RIO[Scope, ChannelInterface] = ZIO.suspendSucceed {
+  )(implicit trace: Trace): RIO[Scope, ChannelInterface] =
     NettyRequestEncoder
       .encode(req)
       .tapSome { case fullReq: FullHttpRequest =>
@@ -115,7 +115,6 @@ final case class NettyClientDriver private[netty] (
             }
         }
       }
-  }
 
   private def requestWebsocket(
     channel: Channel,
