@@ -523,6 +523,7 @@ object JsonSchema {
               .map(_.name),
           )
           .deprecated(deprecated(record))
+          .description(record.annotations.collectFirst { case description(value) => value })
       case collection: Schema.Collection[_, _]                                                    =>
         collection match {
           case Schema.Sequence(elementSchema, _, _, _, _) =>
