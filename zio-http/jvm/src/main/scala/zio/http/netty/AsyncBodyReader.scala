@@ -32,7 +32,7 @@ import io.netty.util.ByteProcessor
 abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](true) {
 
   private var state: State               = State.Buffering
-  private val buffer: ChunkBuilder.Byte  = new ChunkBuilder.Byte
+  private var buffer: ChunkBuilder.Byte  = new ChunkBuilder.Byte
   private var previousAutoRead: Boolean  = false
   private var readingDone: Boolean       = false
   private var ctx: ChannelHandlerContext = _
@@ -42,17 +42,19 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
       state match {
         case State.Buffering =>
           val chunk = buffer.result()
-          if (chunk.nonEmpty || readingDone)
+          if (readingDone) {
             callback(chunk, readingDone)
-          else if (!ctx.channel().isOpen)
+          } else if (ctx.channel().isOpen) {
+            if (chunk.nonEmpty) callback(chunk, readingDone) else ()
+            ctx.read()
+          } else {
             throw new IllegalStateException("Attempting to read from a closed channel, which will never finish")
-          else ()
+          }
         case _: State.Direct =>
           throw new IllegalStateException("Cannot connect twice")
       }
-      ctx.read()
       state = State.Direct(callback)
-      buffer.clear()
+      buffer = null // GC
     }
   }
 
@@ -79,7 +81,8 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
           content.forEachByte(byteAppender)
         case State.Direct(callback) =>
           val chunk =
-            if (content.readableBytes() > 0) Chunk.fromArray(ByteBufUtil.getBytes(msg.content())) else Chunk.empty
+            if (content.readableBytes() > 0) Chunk.fromArray(ByteBufUtil.getBytes(content))
+            else Chunk.empty
           callback(chunk, isLast)
       }
       if (isLast) {
