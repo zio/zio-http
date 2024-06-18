@@ -161,8 +161,16 @@ object NettyBody extends BodyEncoding {
             } catch {
               case e: Throwable => emit(ZIO.fail(Option(e)))
             },
-          4096,
+          streamBufferSize,
         )
+
+    // No need to create a large buffer when we know the response is small
+    private[this] def streamBufferSize: Int = {
+      val cl = knownContentLength.getOrElse(4096L)
+      if (cl <= 16L) 16
+      else if (cl >= 4096) 4096
+      else Integer.highestOneBit(cl.toInt - 1) << 1 // Round to next power of 2
+    }
 
     override def isComplete: Boolean = false
 
