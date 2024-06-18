@@ -4149,9 +4149,9 @@ object Header {
 
     final case class Comment(comment: String) extends UserAgent
 
-    private val productRegex  = """(?i)([a-z0-9]+)(?:/([a-z0-9.]+))?""".r
-    private val commentRegex  = """(?i)\((.*)$""".r
-    private val completeRegex = s"""^(?i)([a-z0-9]+)(?:/([a-z0-9.]+))(.*)$$""".r
+    private val productRegex  = "(?i)([a-z0-9]+)(?:/([a-z0-9.]+))?".r
+    private val commentRegex  = """(?i)\((.*)""".r
+    private val completeRegex = "(?i)([a-z0-9]+)(?:/([a-z0-9.]+))(.*)".r
 
     def parse(userAgent: String): Either[String, UserAgent] = {
       userAgent match {

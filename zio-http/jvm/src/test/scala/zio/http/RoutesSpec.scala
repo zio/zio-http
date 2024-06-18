@@ -18,6 +18,8 @@ package zio.http
 
 import zio.test._
 
+import zio.http.codec.PathCodec
+
 object RoutesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
@@ -70,6 +72,22 @@ object RoutesSpec extends ZIOHttpSpec {
           extractStatus(twoonetwo) == Status.InternalServerError,
         )
       }
+    },
+    test("nest routes") {
+      import PathCodec._
+      import zio._
+      case object IdFormatError
+      val routes = literal("to") / Routes(
+        Method.GET / "other"             -> handler(ZIO.fail(IdFormatError)),
+        Method.GET / "do" / string("id") -> handler { (id: String, _: Request) => Response.text(s"GET /to/do/${id}") },
+      ).handleError { case IdFormatError =>
+        Response.badRequest
+      }
+      routes
+        .run(
+          path = Path.root / "to" / "do" / "123",
+        )
+        .map(response => assertTrue(response.status == Status.Ok))
     },
   )
 }
