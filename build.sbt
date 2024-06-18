@@ -294,7 +294,6 @@ lazy val zioHttpTools = (project in file("zio-http-tools"))
   .settings(stdSettings("zio-http-tools"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
-  .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
   .dependsOn(zioHttpJVM)
 
 lazy val zioHttpGen = (project in file("zio-http-gen"))
