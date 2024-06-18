@@ -19,14 +19,13 @@ object JSClientSpec extends ZIOSpecDefault {
           } yield assertTrue(response.status.isSuccess, string.startsWith("<!doctype html>"))
         },
         test("Get with User Agent") {
-          // Should not fail after fixing regex of Header
           val client = (for {
             response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").get("") }
             string   <- response.body.asString
           } yield (response, string)).provideSome[Scope](ZClient.default)
           for {
-            isFailure <- client.isFailure
-          } yield assertTrue(isFailure)
+            isSuccess <- client.isSuccess
+          } yield assertTrue(isSuccess)
         }, // calling a real website is not the best idea.
         // Should be replaced with a local server, as soon as we have js server support
       ),
