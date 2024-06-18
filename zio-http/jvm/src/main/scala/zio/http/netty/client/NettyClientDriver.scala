@@ -18,18 +18,17 @@ package zio.http.netty.client
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
 import zio.http.internal.ChannelState
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-
-import io.netty.channel.{Channel, ChannelFactory, EventLoopGroup}
+import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, EventLoopGroup}
 import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import io.netty.util.concurrent.GenericFutureListener
 
 final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
@@ -60,7 +59,7 @@ final case class NettyClientDriver private[netty] (
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
-  )(implicit trace: Trace): RIO[Scope, ChannelInterface] =
+  )(implicit trace: Trace): RIO[Scope, ChannelInterface] = ZIO.suspendSucceed {
     NettyRequestEncoder
       .encode(req)
       .tapSome { case fullReq: FullHttpRequest =>
@@ -72,6 +71,14 @@ final case class NettyClientDriver private[netty] (
         }
       }
       .map { jReq =>
+        val closeListener: GenericFutureListener[ChannelFuture] = { (_: ChannelFuture) =>
+          // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
+          // so we don't need to fulfill `onResponse`
+          nettyRuntime.unsafeRunSync {
+            onComplete.interrupt && onResponse.fail(NettyClientDriver.PrematureChannelClosure)
+          }(Unsafe.unsafe, trace): Unit
+        }
+
         val pipeline = channel.pipeline()
 
         pipeline.addLast(
@@ -88,9 +95,11 @@ final case class NettyClientDriver private[netty] (
           .fireChannelRegistered()
           .fireUserEventTriggered(ClientInboundHandler.SendRequest)
 
+        channel.closeFuture().addListener(closeListener)
         new ChannelInterface {
           override def resetChannel: ZIO[Any, Throwable, ChannelState] = {
             ZIO.attempt {
+              channel.closeFuture().removeListener(closeListener)
               pipeline.remove(Names.ClientInboundHandler)
               pipeline.remove(Names.ClientFailureHandler)
               ChannelState.Reusable // channel can be reused
@@ -98,16 +107,13 @@ final case class NettyClientDriver private[netty] (
           }
 
           override def interrupt: ZIO[Any, Throwable, Unit] =
-            NettyFutureExecutor.executed(channel.disconnect())
+            ZIO.suspendSucceed {
+              channel.closeFuture().removeListener(closeListener)
+              NettyFutureExecutor.executed(channel.disconnect())
+            }
         }
       }
-      .ensuring(
-        NettyFutureExecutor
-          .executed(channel.closeFuture())
-          .interruptible
-          .zipRight(onComplete.interrupt && onResponse.fail(NettyClientDriver.PrematureChannelClosure))
-          .forkScoped,
-      )
+  }
 
   private def requestWebsocket(
     channel: Channel,
