@@ -18,12 +18,14 @@ package zio.http.netty.client
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
 import zio.http.internal.ChannelState
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
+
 import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, EventLoopGroup}
 import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
