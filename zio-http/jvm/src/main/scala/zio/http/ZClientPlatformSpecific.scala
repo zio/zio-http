@@ -8,7 +8,22 @@ import zio.http.netty.client.NettyClientDriver
 
 trait ZClientPlatformSpecific {
 
-  def customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client]
+  lazy val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.scoped {
+      for {
+        config         <- ZIO.service[Config]
+        driver         <- ZIO.service[ClientDriver]
+        dnsResolver    <- ZIO.service[DnsResolver]
+        connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
+        baseClient = ZClient.fromDriver(new ZClient.DriverLive(driver)(connectionPool)(config))
+      } yield
+        if (config.addUserAgentHeader)
+          baseClient.addHeader(ZClient.defaultUAHeader)
+        else
+          baseClient
+    }
+  }
 
   lazy val live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
