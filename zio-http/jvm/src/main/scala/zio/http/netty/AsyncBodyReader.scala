@@ -44,6 +44,7 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
             case None              => false
             case Some((_, isLast)) => isLast
           }
+          buffer.clear() // GC
 
           if (ctx.channel.isOpen || readingDone) {
             state = State.Direct(callback)

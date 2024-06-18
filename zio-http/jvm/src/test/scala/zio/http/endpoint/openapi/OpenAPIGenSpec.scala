@@ -4,7 +4,7 @@ import zio.json.ast.Json
 import zio.test._
 import zio.{Scope, ZIO}
 
-import zio.schema.annotation.{caseName, discriminatorName, noDiscriminator, optionalField, transientField}
+import zio.schema.annotation._
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Method.{GET, POST}
@@ -113,6 +113,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     case class NestedThree(name: String) extends SimpleNestedSealedTrait
   }
 
+  @description("A simple payload")
   case class Payload(content: String)
 
   object Payload {
@@ -2251,36 +2252,29 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    "/root/{name}" : {
                              |      "get" : {
                              |        "parameters" : [
-                             |
-                             |            {
+                             |          {
                              |            "name" : "name",
                              |            "in" : "path",
                              |            "required" : true,
-                             |            "schema" :
-                             |              {
-                             |              "type" :
-                             |                "string"
+                             |            "schema" : {
+                             |              "type" : "string"
                              |            },
                              |            "examples" : {
-                             |              "hi" :
-                             |                {
+                             |              "hi" : {
                              |                "value" : "name_value"
                              |              }
                              |            },
                              |            "style" : "simple"
                              |          }
                              |        ],
-                             |        "requestBody" :
-                             |          {
+                             |        "requestBody" : {
                              |          "content" : {
                              |            "application/json" : {
-                             |              "schema" :
-                             |                {
+                             |              "schema" : {
                              |                "$ref" : "#/components/schemas/Payload"
                              |              },
                              |              "examples" : {
-                             |                "hi" :
-                             |                  {
+                             |                "hi" : {
                              |                  "value" : {
                              |                    "content" : "input"
                              |                  }
@@ -2291,14 +2285,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "required" : true
                              |        },
                              |        "responses" : {
-                             |          "200" :
-                             |            {
+                             |          "200" : {
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" :
-                             |                  {
-                             |                  "type" :
-                             |                    "string"
+                             |                "schema" : {
+                             |                  "type" : "string"
                              |                }
                              |              }
                              |            }
@@ -2309,19 +2300,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  },
                              |  "components" : {
                              |    "schemas" : {
-                             |      "Payload" :
-                             |        {
-                             |        "type" :
-                             |          "object",
+                             |      "Payload" : {
+                             |        "type" : "object",
                              |        "properties" : {
                              |          "content" : {
-                             |            "type" :
-                             |              "string"
+                             |            "type" : "string"
                              |          }
                              |        },
                              |        "required" : [
                              |          "content"
-                             |        ]
+                             |        ],
+                             |        "description" : "A simple payload"
                              |      }
                              |    }
                              |  }
@@ -2351,55 +2340,45 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    "/root/{name}" : {
                              |      "get" : {
                              |        "parameters" : [
-                             |
-                             |            {
+                             |          {
                              |            "name" : "name",
                              |            "in" : "path",
                              |            "required" : true,
-                             |            "schema" :
-                             |              {
-                             |              "type" :
-                             |                "string"
+                             |            "schema" : {
+                             |              "type" : "string"
                              |            },
                              |            "examples" : {
-                             |              "hi" :
-                             |                {
+                             |              "hi" : {
                              |                "value" : "name_value"
                              |              },
-                             |              "ho" :
-                             |                {
+                             |              "ho" : {
                              |                "value" : "name_value2"
                              |              }
                              |            },
                              |            "style" : "simple"
                              |          }
                              |        ],
-                             |        "requestBody" :
-                             |          {
+                             |        "requestBody" : {
                              |          "content" : {
                              |            "application/json" : {
-                             |              "schema" :
-                             |                {
+                             |              "schema" : {
                              |                "anyOf" : [
                              |                  {
                              |                    "$ref" : "#/components/schemas/Payload"
                              |                  },
                              |                  {
-                             |                    "type" :
-                             |                      "string"
+                             |                    "type" : "string"
                              |                  }
                              |                ],
                              |                "description" : ""
                              |              },
                              |              "examples" : {
-                             |                "hi" :
-                             |                  {
+                             |                "hi" : {
                              |                  "value" : {
                              |                    "content" : "input"
                              |                  }
                              |                },
-                             |                "ho" :
-                             |                  {
+                             |                "ho" : {
                              |                  "value" : "input"
                              |                }
                              |              }
@@ -2408,14 +2387,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "required" : true
                              |        },
                              |        "responses" : {
-                             |          "200" :
-                             |            {
+                             |          "200" : {
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" :
-                             |                  {
-                             |                  "type" :
-                             |                    "string"
+                             |                "schema" : {
+                             |                  "type" : "string"
                              |                }
                              |              }
                              |            }
@@ -2426,19 +2402,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  },
                              |  "components" : {
                              |    "schemas" : {
-                             |      "Payload" :
-                             |        {
-                             |        "type" :
-                             |          "object",
+                             |      "Payload" : {
+                             |        "type" : "object",
                              |        "properties" : {
                              |          "content" : {
-                             |            "type" :
-                             |              "string"
+                             |            "type" : "string"
                              |          }
                              |        },
                              |        "required" : [
                              |          "content"
-                             |        ]
+                             |        ],
+                             |        "description" : "A simple payload"
                              |      }
                              |    }
                              |  }
