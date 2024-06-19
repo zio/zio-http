@@ -1,8 +1,9 @@
 package zio.http.tools
 
+import scala.io.Source
+
 import zio._
 import zio.json._
-import scala.io.Source
 
 /////////////////////////
 // READING AND PARSING //
@@ -28,16 +29,14 @@ case class MimeDb(mimeTypes: Map[String, MimeType]) extends AnyVal {
 object MimeDb {
   implicit val decoder: JsonDecoder[MimeDb] = JsonDecoder.map[String, MimeType].map(MimeDb(_))
 
-  //     lazy val `event-stream`: MediaType             = new MediaType("text", "event-stream", Compressible, NotBinary)
+  // These types are not in the mime-db json
   val extraTypes = Map(
     "text/event-stream" -> MimeType(None, None, Some(true), None),
   )
 
-  /**
-   * Fetches the MIME types database from the jshttp/mime-db repository and
-   * returns a MimeDb object
-   */
-  def fetch = {
+  // Fetches the MIME types database from the jshttp/mime-db repository and
+  // returns a MimeDb object
+  def fetch: Task[MimeDb] = ZIO.attemptBlocking {
     val url = "https://raw.githubusercontent.com/jshttp/mime-db/master/db.json"
 
     val source   = Source.fromURL(url)
@@ -80,23 +79,17 @@ case class MediaTypeInfo(
 ) {
 
   def binary: Boolean = {
-    // If the main type is "image", "video", "audio", or "application" (excluding text-based applications), it is likely binary.
+    // If the main type is "image", "video", "audio", or "application", it is likely binary.
     // Additionally, if the MIME type is not compressible, it is likely binary.
     mainType match {
-      case "image" | "video" | "audio" => true
+      case "image" | "video" | "audio" | "font" | "model" | "multipart" => true
       case "application" => !subType.startsWith("xml") && !subType.endsWith("json") && !subType.endsWith("javascript")
+      case "text"        => false
       case _             => !compressible
     }
   }
 
-  /**
-   * Renders the media type info as a Scala code snippet
-   *
-   * {{{
-   * lazy val `${subType}`: MediaType =
-   *   new MediaType("$mainType", "$subType", compressible = $compressible$extensionsString)
-   * }}}
-   */
+  // Renders the media type info as a Scala code snippet
   def render: String = {
     val extensionsString =
       if (extensions.isEmpty) ""
@@ -118,16 +111,7 @@ object MediaTypeInfo {
   }
 }
 
-/**
- * Renders a group of media types as a Scala code snippet
- *
- * {{{
- * object <mainType> {
- *   <render each subType>
- *   lazy val all: List[MediaType] = List(<subTypes>)
- *   lazy val any: MediaType       = new MediaType("$mainType", "*")
- * }}}
- */
+// Renders a group of media types as a Scala code snippet
 case class MediaTypeGroup(
   mainType: String,
   subTypes: List[MediaTypeInfo],
@@ -145,36 +129,24 @@ object ${RenderUtils.snakeCase(mainType)} {
 }
 
 object GenerateMediaTypes extends ZIOAppDefault {
-  val run = {
-    val mediaTypes      = MediaTypeInfo.fromMimeDb(MimeDb.fetch)
-    val mediaTypeGroups =
-      mediaTypes
-        .groupBy(_.mainType)
-        .map { case (mainType, subTypes) =>
-          MediaTypeGroup(mainType, subTypes)
-        }
-        .toList
-
-    val file           = MediaTypeFile(mediaTypeGroups)
-    val mediaTypesPath = "../zio-http/shared/src/main/scala/zio/http/MediaTypes.scala"
-    ZIO.writeFile(mediaTypesPath, file.render)
-  }
+  val run =
+    for {
+      mimeDb <- MimeDb.fetch
+      mediaTypes      = MediaTypeInfo.fromMimeDb(mimeDb)
+      mediaTypeGroups =
+        mediaTypes
+          .groupBy(_.mainType)
+          .map { case (mainType, subTypes) =>
+            MediaTypeGroup(mainType, subTypes)
+          }
+          .toList
+      file            = MediaTypeFile(mediaTypeGroups)
+      mediaTypesPath  = "../zio-http/shared/src/main/scala/zio/http/MediaTypes.scala"
+      _ <- ZIO.writeFile(mediaTypesPath, file.render)
+    } yield ()
 }
 
-/**
- * Renders a list of media type groups as a Scala code snippet
- *
- * {{{
- * package zio.http
- *
- * private[zio] trait MediaTypesGenerated {
- *   lazy val allMediaTypes: List[MediaType] =
- *     group_1.all ++ group_2.all ++ group_3.all
- *   lazy val any: MediaType = new MediaType("*", "*")
- *
- *   <render each group>
- * }}}
- */
+// Renders a list of media type groups as a Scala code snippet
 case class MediaTypeFile(
   groups: List[MediaTypeGroup],
 ) {
