@@ -35,7 +35,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
       val res =
         Handler.fromResource("TestFile3.js").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(
-        isSome(equalTo(Header.ContentType(MediaType.application.`javascript`, charset = Some(Charsets.Utf8)))),
+        isSome(equalTo(Header.ContentType(MediaType.text.`javascript`, charset = Some(Charsets.Utf8)))),
       )
     },
     test("no extension") {
@@ -50,7 +50,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
     test("mp3") {
       val res =
         Handler.fromResource("TestFile6.mp3").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
-      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.audio.`mpeg`))))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.audio.`mp3`))))
     },
     test("unidentified extension") {
       val res =

@@ -717,5 +717,81 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/EndpointsWithOverlappingPath.scala",
         )
       },
+      test("Additional properties") {
+        val json    = """{
+                     |  "info": {
+                     |    "title": "Animals Service",
+                     |    "version": "0.0.1"
+                     |  },
+                     |  "servers": [
+                     |    {
+                     |      "url": "http://127.0.0.1:5000/"
+                     |    }
+                     |  ],
+                     |  "tags": [
+                     |    {
+                     |      "name": "Animals_API"
+                     |    }
+                     |  ],
+                     |  "paths": {
+                     |    "/api/v1/zoo": {
+                     |      "get": {
+                     |        "operationId": "get_animals",
+                     |        "tags": [
+                     |          "Animals_API"
+                     |        ],
+                     |        "description": "Get all animals count",
+                     |        "responses": {
+                     |          "200": {
+                     |            "content": {
+                     |              "application/json": {
+                     |                "schema": {
+                     |                  "$ref": "#/components/schemas/Animals"
+                     |                }
+                     |              }
+                     |            }
+                     |          }
+                     |        }
+                     |      }
+                     |    }
+                     |  },
+                     |  "openapi": "3.0.3",
+                     |  "components": {
+                     |    "schemas": {
+                     |      "Animals": {
+                     |        "type": "object",
+                     |        "required": [
+                     |          "total",
+                     |          "counts"
+                     |        ],
+                     |        "properties": {
+                     |          "total": {
+                     |            "type": "integer",
+                     |            "format": "int32"
+                     |          },
+                     |          "counts": {
+                     |            "type": "object",
+                     |            "additionalProperties": {
+                     |              "type": "integer",
+                     |              "format": "int32"
+                     |            }
+                     |          }
+                     |        }
+                     |      }
+                     |    }
+                     |  }
+                     |}""".stripMargin
+        val openAPI = OpenAPI.fromJson(json).toOption.get
+        val code    = EndpointGen.fromOpenAPI(openAPI)
+        val tempDir = Files.createTempDirectory("codegen")
+
+        CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
+
+        fileShouldBe(
+          tempDir,
+          "test/component/Animals.scala",
+          "/AnimalWithMap.scala",
+        )
+      },
     ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }

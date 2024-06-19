@@ -721,9 +721,9 @@ final case class EndpointGen(config: Config) {
       case JsonSchema.Integer(_)     => None
       case JsonSchema.String(_, _)   => None // this could maybe be im proved to generate a string type with validation
       case JsonSchema.Boolean        => None
-      case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
+      case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive)                            =>
         throw new Exception("OneOf schemas with primitive types are not supported")
-      case JsonSchema.OneOfSchema(schemas)                                  =>
+      case JsonSchema.OneOfSchema(schemas)                                                             =>
         val discriminatorInfo                       =
           annotations.collectFirst { case JsonSchema.MetaData.Discriminator(discriminator) => discriminator }
         val discriminator: Option[String]           = discriminatorInfo.map(_.propertyName)
@@ -783,7 +783,7 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.AllOfSchema(schemas)                                  =>
+      case JsonSchema.AllOfSchema(schemas)                                                             =>
         val genericFieldIndex = Iterator.from(0)
         val unvalidatedFields = schemas.map(_.withoutAnnotations).flatMap {
           case schema @ JsonSchema.Object(_, _, _)            =>
@@ -828,9 +828,9 @@ final case class EndpointGen(config: Config) {
             enums = Nil,
           ),
         )
-      case JsonSchema.AnyOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
+      case JsonSchema.AnyOfSchema(schemas) if schemas.exists(_.isPrimitive)                            =>
         throw new Exception("AnyOf schemas with primitive types are not supported")
-      case JsonSchema.AnyOfSchema(schemas)                                  =>
+      case JsonSchema.AnyOfSchema(schemas)                                                             =>
         val discriminatorInfo                    =
           annotations.collectFirst { case JsonSchema.MetaData.Discriminator(discriminator) => discriminator }
         val discriminator: Option[String]        = discriminatorInfo.map(_.propertyName)
@@ -887,12 +887,15 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Number(_)                                             => None
-      case JsonSchema.ArrayType(None)                                       => None
-      case JsonSchema.ArrayType(Some(schema))                               =>
+      case JsonSchema.Number(_)                                                                        => None
+      case JsonSchema.ArrayType(None)                                                                  => None
+      case JsonSchema.ArrayType(Some(schema))                                                          =>
         schemaToCode(schema, openAPI, name, annotations)
-      // TODO use additionalProperties
-      case obj @ JsonSchema.Object(properties, _, _)                        =>
+      case JsonSchema.Object(properties, additionalProperties, _)
+          if properties.nonEmpty && additionalProperties.isRight =>
+        // Can't be an object and a map at the same time
+        throw new Exception("Object with properties and additionalProperties is not supported")
+      case obj @ JsonSchema.Object(properties, additionalProperties, _) if additionalProperties.isLeft =>
         val unvalidatedFields = fieldsOfObject(openAPI, annotations)(obj)
         val fields            = validateFields(unvalidatedFields)
         val nested            =
@@ -925,8 +928,10 @@ final case class EndpointGen(config: Config) {
             enums = Nil,
           ),
         )
-
-      case JsonSchema.Enum(enums) =>
+      case JsonSchema.Object(_, _, _)                                                                  =>
+        // properties.isEmpty && additionalProperties.isRight
+        throw new IllegalArgumentException("Top-level maps are not supported")
+      case JsonSchema.Enum(enums)                                                                      =>
         Some(
           Code.File(
             List("component", name.capitalize + ".scala"),
@@ -947,8 +952,8 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Null        => throw new Exception("Null query parameters are not supported")
-      case JsonSchema.AnyJson     => throw new Exception("AnyJson query parameters are not supported")
+      case JsonSchema.Null    => throw new Exception("Null query parameters are not supported")
+      case JsonSchema.AnyJson => throw new Exception("AnyJson query parameters are not supported")
     }
   }
 
@@ -1038,6 +1043,20 @@ final case class EndpointGen(config: Config) {
             Some(Code.Primitive.ScalaString.seq),
           )
         tpe.map(Code.Field(name, _))
+      case JsonSchema.Object(properties, additionalProperties, _)
+          if properties.nonEmpty && additionalProperties.isRight =>
+        // Can't be an object and a map at the same time
+        throw new Exception("Object with properties and additionalProperties is not supported")
+      case JsonSchema.Object(properties, additionalProperties, _)
+          if properties.isEmpty && additionalProperties.isRight =>
+        Some(
+          Code.Field(
+            name,
+            Code.Collection.Map(
+              schemaToField(additionalProperties.toOption.get, openAPI, name, annotations).get.fieldType,
+            ),
+          ),
+        )
       case JsonSchema.Object(_, _, _)                               =>
         Some(Code.Field(name, Code.TypeRef(name.capitalize)))
       case JsonSchema.Enum(_)                                       =>
