@@ -137,13 +137,16 @@ object NettyBody extends BodyEncoding {
     override val boundary: Option[Boundary] = None,
   ) extends Body {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] =
-      asChunk.map(_.toArray)
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-      Promise.make[Throwable, Chunk[Byte]].flatMap { promise =>
-        ZIO.attempt(unsafeAsync(new AsyncChunkBuilder(promise, bufferSize)(Unsafe.unsafe))) *>
-          promise.await
+      ZIO.async { cb =>
+        try {
+          // Cap at 100kB as a precaution in case the server sends an invalid content length
+          unsafeAsync(UnsafeAsync.Aggregating(bufferSize(1024 * 100))(cb))
+        } catch {
+          case e: Throwable => cb(ZIO.fail(e))
+        }
       }
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
@@ -151,27 +154,18 @@ object NettyBody extends BodyEncoding {
         .async[Any, Throwable, Byte](
           emit =>
             try {
-              unsafeAsync(new UnsafeAsync {
-                override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
-                  emit(ZIO.succeed(message))
-                  if (isLast) {
-                    emit(ZIO.fail(None))
-                  }
-                }
-                override def fail(cause: Throwable): Unit                       =
-                  emit(ZIO.fail(Some(cause)))
-              })
+              unsafeAsync(new UnsafeAsync.Streaming(emit))
             } catch {
               case e: Throwable => emit(ZIO.fail(Option(e)))
             },
-          bufferSize,
+          bufferSize(4096),
         )
 
     // No need to create a large buffer when we know the response is small
-    private[this] def bufferSize: Int = {
+    private[this] def bufferSize(maxSize: Int): Int = {
       val cl = knownContentLength.getOrElse(4096L)
       if (cl <= 16L) 16
-      else if (cl >= 4096) 4096
+      else if (cl >= maxSize) maxSize
       else Integer.highestOneBit(cl.toInt - 1) << 1 // Round to next power of 2
     }
 
@@ -192,46 +186,29 @@ object NettyBody extends BodyEncoding {
     def fail(cause: Throwable): Unit
   }
 
-  private final class AsyncChunkBuilder(
-    promise: Promise[Throwable, Chunk[Byte]],
-    sizeHint: Int,
-  )(implicit unsafe: Unsafe)
-      extends UnsafeAsync {
+  private[zio] object UnsafeAsync {
+    private val FailNone = Exit.fail(None)
 
-    private var isFirst = true
+    final case class Aggregating(bufferInitialSize: Int)(callback: Task[Chunk[Byte]] => Unit)(implicit trace: Trace)
+        extends UnsafeAsync {
 
-    private val builder: ChunkBuilder.Byte = {
-      val b = new ChunkBuilder.Byte()
-      b.sizeHint(sizeHint)
-      b
-    }
-
-    override def apply(bytes: Chunk[Byte], isLast: Boolean): Unit = {
-      if (isLast && isFirst) {
-        promise.unsafe.done(Exit.succeed(bytes))
-      } else {
-        if (isFirst) isFirst = false
-        bytes match {
-          case bytes: Chunk.ByteArray =>
-            // Prevent boxing by accessing the byte array directly
-            var i    = 0
-            val arr  = bytes.array
-            val size = arr.length
-            while (i < size) {
-              builder.addOne(arr(i))
-              i += 1
-            }
-          case _                      =>
-            builder.addAll(bytes)
-        }
-        if (isLast) {
-          promise.unsafe.done(Exit.succeed(builder.result()))
-        }
+      def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+        assert(isLast)
+        callback(ZIO.succeed(message))
       }
+
+      def fail(cause: Throwable): Unit =
+        callback(ZIO.fail(cause))
     }
 
-    override def fail(cause: Throwable): Unit =
-      promise.unsafe.done(Exit.fail(cause))
-  }
+    final class Streaming(emit: ZStream.Emit[Any, Throwable, Byte, Unit])(implicit trace: Trace) extends UnsafeAsync {
+      def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+        if (message.nonEmpty) emit(ZIO.succeed(message))
+        if (isLast) emit(FailNone)
+      }
 
+      def fail(cause: Throwable): Unit =
+        emit(ZIO.fail(Some(cause)))
+    }
+  }
 }
