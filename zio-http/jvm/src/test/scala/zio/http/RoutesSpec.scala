@@ -89,5 +89,24 @@ object RoutesSpec extends ZIOHttpSpec {
         )
         .map(response => assertTrue(response.status == Status.Ok))
     },
+    test("alternative path segments") {
+      val app = Routes(
+        Method.GET / anyOf("foo", "bar", "baz") -> Handler.ok,
+      )
+
+      for {
+        foo <- app.runZIO(Request.get("/foo"))
+        bar <- app.runZIO(Request.get("/bar"))
+        baz <- app.runZIO(Request.get("/baz"))
+        box <- app.runZIO(Request.get("/box"))
+      } yield {
+        assertTrue(
+          extractStatus(foo) == Status.Ok,
+          extractStatus(bar) == Status.Ok,
+          extractStatus(baz) == Status.Ok,
+          extractStatus(box) == Status.NotFound,
+        )
+      }
+    },
   )
 }

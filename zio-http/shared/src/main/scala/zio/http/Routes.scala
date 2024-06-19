@@ -20,6 +20,7 @@ import java.io.File
 
 import zio._
 
+import zio.http.HttpApp.Tree
 import zio.http.Routes.ApplyContextAspect
 import zio.http.codec.PathCodec
 
@@ -331,10 +332,11 @@ object Routes extends RoutesCompanionVersionSpecific {
       Tree(self.tree ++ that.tree)
 
     final def add[Env1 <: Env](route: Route[Env1, Response])(implicit trace: Trace): Tree[Env1] =
-      Tree(self.tree.add(route.routePattern, route.toHandler))
+      Tree(self.tree.addAll(route.routePattern.alternatives.map(alt => (alt, route.toHandler))))
 
     final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit trace: Trace): Tree[Env1] =
-      Tree(self.tree.addAll(routes.map(r => (r.routePattern, r.toHandler))))
+      // only change to flatMap when Scala 2.12 is dropped
+      Tree(self.tree.addAll(routes.map(r => r.routePattern.alternatives.map(alt => (alt, r.toHandler))).flatten))
 
     final def get(method: Method, path: Path): Chunk[RequestHandler[Env, Response]] =
       tree.get(method, path)

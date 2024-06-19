@@ -345,10 +345,10 @@ object Route                   {
       handler: Handler[Env1, Response, In, Response],
     )(implicit zippable: Zippable.Out[Params, Request, In], trace: Trace): Route[Env1, Nothing] = {
       val handler2: Handler[Any, Nothing, RoutePattern[_], Handler[Env1, Response, Request, Response]] = {
-        Handler.fromFunction[RoutePattern[_]] { _ =>
+        Handler.fromFunction[RoutePattern[_]] { pattern =>
           val paramHandler =
             Handler.fromFunctionZIO[(rpm.Context, Request)] { case (ctx, request) =>
-              rpm.routePattern.decode(request.method, request.path) match {
+              pattern.asInstanceOf[RoutePattern[rpm.PathInput]].decode(request.method, request.path) match {
                 case Left(error)  => ZIO.dieMessage(error)
                 case Right(value) =>
                   val params = rpm.zippable.zip(value, ctx)

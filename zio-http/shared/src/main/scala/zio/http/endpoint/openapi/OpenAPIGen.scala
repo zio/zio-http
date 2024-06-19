@@ -248,6 +248,8 @@ object OpenAPIGen {
             }
           }),
         )
+      case PathCodec.Fallback(left, _)                  =>
+        loop(left, annotations)
     }
 
     loop(codec, annotations).map { case (sc, annotations) =>

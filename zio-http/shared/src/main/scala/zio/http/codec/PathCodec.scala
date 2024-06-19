@@ -16,6 +16,7 @@
 
 package zio.http.codec
 
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
@@ -61,6 +62,58 @@ sealed trait PathCodec[A] { self =>
     }
   }
 
+  private[http] def orElse(value: PathCodec[Unit])(implicit ev: A =:= Unit): PathCodec[Unit] =
+    Fallback(self.asInstanceOf[PathCodec[Unit]], value)
+
+  private def fallbackAlternatives(f: Fallback[_]): List[PathCodec[Any]] = {
+    @tailrec
+    def loop(codecs: List[PathCodec[_]], result: List[PathCodec[_]]): List[PathCodec[_]] =
+      if (codecs.isEmpty) result
+      else
+        codecs.head match {
+          case PathCodec.Annotated(codec, _)              =>
+            loop(codec :: codecs.tail, result)
+          case PathCodec.Segment(SegmentCodec.Literal(_)) =>
+            loop(codecs.tail, result :+ codecs.head)
+          case PathCodec.Segment(SegmentCodec.Empty)      =>
+            loop(codecs.tail, result)
+          case Fallback(left, right)                      =>
+            loop(left :: right :: codecs.tail, result)
+          case other                                      =>
+            throw new IllegalStateException(s"Alternative path segments should only contain literals, found: $other")
+        }
+    loop(List(f.left, f.right), List.empty).asInstanceOf[List[PathCodec[Any]]]
+  }
+
+  final def alternatives: List[PathCodec[A]] = {
+    var alts                                                      = List.empty[PathCodec[Any]]
+    def loop(codec: PathCodec[_], combiner: Combiner[_, _]): Unit = codec match {
+      case Concat(left, right, combiner) =>
+        loop(left, combiner)
+        loop(right, combiner)
+      case f: Fallback[_]                =>
+        if (alts.isEmpty) alts = fallbackAlternatives(f)
+        else
+          alts ++= alts.flatMap { alt =>
+            fallbackAlternatives(f).map(fa =>
+              Concat(alt, fa.asInstanceOf[PathCodec[Any]], combiner.asInstanceOf[Combiner.WithOut[Any, Any, Any]]),
+            )
+          }
+      case Segment(SegmentCodec.Empty)   =>
+        alts :+= codec.asInstanceOf[PathCodec[Any]]
+      case pc                            =>
+        if (alts.isEmpty) alts :+= pc.asInstanceOf[PathCodec[Any]]
+        else
+          alts = alts
+            .map(l =>
+              Concat(l, pc.asInstanceOf[PathCodec[Any]], combiner.asInstanceOf[Combiner.WithOut[Any, Any, Any]])
+                .asInstanceOf[PathCodec[Any]],
+            )
+    }
+    loop(self, Combiner.leftUnit[Unit])
+    alts.asInstanceOf[List[PathCodec[A]]]
+  }
+
   final def asType[B](implicit ev: A =:= B): PathCodec[B] = self.asInstanceOf[PathCodec[B]]
 
   /**
@@ -84,9 +137,17 @@ sealed trait PathCodec[A] { self =>
       val opt = instructions(i)
 
       opt match {
-        case Match(value) =>
+        case Match(value)     =>
           if (j >= segments.length || segments(j) != value) {
             fail = "Expected path segment \"" + value + "\" but found end of path"
+            i = instructions.length
+          } else {
+            stack.push(())
+            j = j + 1
+          }
+        case MatchAny(values) =>
+          if (j >= segments.length || !values.contains(segments(j))) {
+            fail = "Expected one of the following path segments: " + values.mkString(", ") + " but found end of path"
             i = instructions.length
           } else {
             stack.push(())
@@ -227,6 +288,7 @@ sealed trait PathCodec[A] { self =>
       case Concat(left, right, _)        => left.doc + right.doc
       case Annotated(codec, annotations) =>
         codec.doc + annotations.collectFirst { case MetaData.Documented(doc) => doc }.getOrElse(Doc.empty)
+      case Fallback(left, right)         => left.doc + right.doc
     }
 
   /**
@@ -264,6 +326,8 @@ sealed trait PathCodec[A] { self =>
 
       case PathCodec.TransformOrFail(api, _, g) =>
         g.asInstanceOf[Any => Either[String, Any]](value).flatMap(loop(api, _))
+      case Fallback(left, _)                    =>
+        loop(left, value)
     }
 
     loop(self, value).map { path =>
@@ -298,6 +362,9 @@ sealed trait PathCodec[A] { self =>
             case SegmentCodec.Trailing       => Opt.TrailingOpt
           })
 
+        case f: Fallback[_] =>
+          Chunk(Opt.MatchAny(fallbacks(f)))
+
         case Concat(left, right, combiner) =>
           loop(left) ++ loop(right) ++ Chunk(Opt.Combine(combiner))
 
@@ -308,6 +375,26 @@ sealed trait PathCodec[A] { self =>
     if (_optimize eq null) _optimize = loop(self).toArray
 
     _optimize
+  }
+
+  private def fallbacks(f: Fallback[_]): Set[String] = {
+    @tailrec
+    def loop(codecs: List[PathCodec[_]], result: Set[String]): Set[String] =
+      if (codecs.isEmpty) result
+      else
+        codecs.head match {
+          case PathCodec.Annotated(codec, _)                  =>
+            loop(codec :: codecs.tail, result)
+          case PathCodec.Segment(SegmentCodec.Literal(value)) =>
+            loop(codecs.tail, result + value)
+          case PathCodec.Segment(SegmentCodec.Empty)          =>
+            loop(codecs.tail, result)
+          case Fallback(left, right)                          =>
+            loop(left :: right :: codecs.tail, result)
+          case other                                          =>
+            throw new IllegalStateException(s"Alternative path segments should only contain literals, found: $other")
+        }
+    loop(List(f.left, f.right), Set.empty)
   }
 
   /**
@@ -324,6 +411,9 @@ sealed trait PathCodec[A] { self =>
 
       case PathCodec.TransformOrFail(api, _, _) =>
         loop(api)
+
+      case PathCodec.Fallback(left, _) =>
+        loop(left)
     }
 
     loop(self)
@@ -341,6 +431,8 @@ sealed trait PathCodec[A] { self =>
       case PathCodec.Segment(segment) => segment.render
 
       case PathCodec.TransformOrFail(api, _, _) => loop(api)
+
+      case PathCodec.Fallback(left, _) => loop(left)
     }
 
     loop(self)
@@ -360,6 +452,9 @@ sealed trait PathCodec[A] { self =>
 
       case PathCodec.TransformOrFail(api, _, _) =>
         loop(api)
+
+      case PathCodec.Fallback(left, _) =>
+        loop(left)
     }
 
     loop(self)
@@ -418,6 +513,8 @@ object PathCodec          {
 
   def uuid(name: String): PathCodec[java.util.UUID] = Segment(SegmentCodec.uuid(name))
 
+  private[http] final case class Fallback[A](left: PathCodec[Unit], right: PathCodec[Unit]) extends PathCodec[A]
+
   private[http] final case class Segment[A](segment: SegmentCodec[A]) extends PathCodec[A]
 
   private[http] final case class Concat[A, B, C](
@@ -458,6 +555,7 @@ object PathCodec          {
   private[http] sealed trait Opt
   private[http] object Opt {
     final case class Match(value: String)                     extends Opt
+    final case class MatchAny(values: Set[String])            extends Opt
     final case class Combine(combiner: Combiner[_, _])        extends Opt
     case object IntOpt                                        extends Opt
     case object LongOpt                                       extends Opt
