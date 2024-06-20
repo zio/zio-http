@@ -18,18 +18,18 @@ package zio.http.netty
 
 import java.nio.charset.Charset
 
+import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, Task, Trace, Unsafe, ZIO}
 
 import zio.stream.ZStream
 
-import zio.http.Body.{UnsafeBytes, UnsafeWriteable}
+import zio.http.Body.UnsafeBytes
 import zio.http.internal.BodyEncoding
-import zio.http.{Body, Boundary, Header, Headers, MediaType}
+import zio.http.{Body, Boundary, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{Channel => JChannel}
 import io.netty.util.AsciiString
+
 object NettyBody extends BodyEncoding {
 
   /**
@@ -73,7 +73,6 @@ object NettyBody extends BodyEncoding {
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
       with UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
@@ -101,11 +100,10 @@ object NettyBody extends BodyEncoding {
   }
 
   private[zio] final case class ByteBufBody(
-    val byteBuf: ByteBuf,
+    byteBuf: ByteBuf,
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
       with UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(ByteBufUtil.getBytes(byteBuf))
@@ -137,38 +135,37 @@ object NettyBody extends BodyEncoding {
     knownContentLength: Option[Long],
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
-  ) extends Body
-      with UnsafeWriteable {
+  ) extends Body {
+
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
+      ZIO.async { cb =>
+        try {
+          // Cap at 100kB as a precaution in case the server sends an invalid content length
+          unsafeAsync(UnsafeAsync.Aggregating(bufferSize(1024 * 100))(cb))
+        } catch {
+          case e: Throwable => cb(ZIO.fail(e))
+        }
+      }
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream
         .async[Any, Throwable, Byte](
           emit =>
             try {
-              unsafeAsync(new UnsafeAsync {
-                override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
-                  emit(ZIO.succeed(message))
-                  if (isLast) {
-                    emit(ZIO.fail(None))
-                  }
-                }
-                override def fail(cause: Throwable): Unit                       =
-                  emit(ZIO.fail(Some(cause)))
-              })
+              unsafeAsync(new UnsafeAsync.Streaming(emit))
             } catch {
               case e: Throwable => emit(ZIO.fail(Option(e)))
             },
-          streamBufferSize,
+          bufferSize(4096),
         )
 
     // No need to create a large buffer when we know the response is small
-    private[this] def streamBufferSize: Int = {
+    private[this] def bufferSize(maxSize: Int): Int = {
       val cl = knownContentLength.getOrElse(4096L)
       if (cl <= 16L) 16
-      else if (cl >= 4096) 4096
+      else if (cl >= maxSize) maxSize
       else Integer.highestOneBit(cl.toInt - 1) << 1 // Round to next power of 2
     }
 
@@ -187,5 +184,31 @@ object NettyBody extends BodyEncoding {
   private[zio] trait UnsafeAsync {
     def apply(message: Chunk[Byte], isLast: Boolean): Unit
     def fail(cause: Throwable): Unit
+  }
+
+  private[zio] object UnsafeAsync {
+    private val FailNone = Exit.fail(None)
+
+    final case class Aggregating(bufferInitialSize: Int)(callback: Task[Chunk[Byte]] => Unit)(implicit trace: Trace)
+        extends UnsafeAsync {
+
+      def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+        assert(isLast)
+        callback(ZIO.succeed(message))
+      }
+
+      def fail(cause: Throwable): Unit =
+        callback(ZIO.fail(cause))
+    }
+
+    final class Streaming(emit: ZStream.Emit[Any, Throwable, Byte, Unit])(implicit trace: Trace) extends UnsafeAsync {
+      def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+        if (message.nonEmpty) emit(ZIO.succeed(message))
+        if (isLast) emit(FailNone)
+      }
+
+      def fail(cause: Throwable): Unit =
+        emit(ZIO.fail(Some(cause)))
+    }
   }
 }
