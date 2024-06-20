@@ -1,11 +1,14 @@
 package zhttp.benchmarks
 
-import org.openjdk.jmh.annotations._
+import java.util.concurrent.TimeUnit
+
+import scala.annotation.nowarn
+
 import zio._
+
 import zio.http._
 
-import java.util.concurrent.TimeUnit
-import scala.annotation.nowarn
+import org.openjdk.jmh.annotations._
 
 @nowarn
 @State(org.openjdk.jmh.annotations.Scope.Benchmark)
