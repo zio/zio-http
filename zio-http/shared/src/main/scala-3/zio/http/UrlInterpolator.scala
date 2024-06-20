@@ -92,9 +92,7 @@ private[http] object UrlInterpolatorMacro {
               '{$acc + $part}
             }
 
-          '{
-            URL.fromURI(new java.net.URI($concatenated)).get
-           }
+          '{ URL.fromURI(new java.net.URI($concatenated)).get }
       }
     }
 

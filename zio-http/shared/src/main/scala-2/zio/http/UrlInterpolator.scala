@@ -81,9 +81,7 @@ private[http] object UrlInterpolatorMacro {
                 q"$acc + $part"
               }
 
-            q"_root_.zio.http.URL.fromURI(new _root_.java.net.URI($concatenated)).get"
-
-            c.Expr[URL](result)
+            c.Expr[URL](q"_root_.zio.http.URL.fromURI(new _root_.java.net.URI($concatenated)).get")
         }
     }
   }
