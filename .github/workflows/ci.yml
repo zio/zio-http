@@ -285,6 +285,40 @@ jobs:
           name: Jmh_Main_CachedDateHeaderBenchmark
           path: Main_CachedDateHeaderBenchmark.txt
 
+  Jmh_ClientBenchmark:
+    name: Jmh ClientBenchmark
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.14]
+        java: [temurin@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
+          cat > Main_ClientBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ClientBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ClientBenchmark.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Main_ClientBenchmark
+          path: Main_ClientBenchmark.txt
+
   Jmh_CookieDecodeBenchmark:
     name: Jmh CookieDecodeBenchmark
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -627,7 +661,7 @@ jobs:
 
   Jmh_cache:
     name: Cache Jmh benchmarks
-    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     strategy:
       matrix:
@@ -642,6 +676,13 @@ jobs:
 
       - name: Format_Main_CachedDateHeaderBenchmark
         run: cat Main_CachedDateHeaderBenchmark.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_ClientBenchmark
+
+      - name: Format_Main_ClientBenchmark
+        run: cat Main_ClientBenchmark.txt >> Main_benchmarks.txt
 
       - uses: actions/download-artifact@v3
         with:
