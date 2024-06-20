@@ -34,13 +34,8 @@ private[http] object UrlInterpolatorMacro {
         val result = URL.decode(p) match {
           case Left(error) => c.abort(c.enclosingPosition, s"Invalid URL: ${error.getMessage}")
           case Right(url)  =>
-            if (url.isAbsolute) {
-              val uri = url.encode
-              q"_root_.zio.http.URL.fromAbsoluteURI(new _root_.java.net.URI($uri)).get"
-            } else {
-              val uri = url.encode
-              q"_root_.zio.http.URL.fromRelativeURI(new _root_.java.net.URI($uri)).get"
-            }
+            val uri = url.encode
+            q"_root_.zio.http.URL.fromURI(new _root_.java.net.URI($uri)).get"
         }
         c.Expr[URL](result)
       case Apply(_, List(Apply(_, staticPartLiterals)))                  =>
@@ -86,11 +81,7 @@ private[http] object UrlInterpolatorMacro {
                 q"$acc + $part"
               }
 
-            val result = if (url.isAbsolute) {
-              q"_root_.zio.http.URL.fromAbsoluteURI(new _root_.java.net.URI($concatenated)).get"
-            } else {
-              q"_root_.zio.http.URL.fromRelativeURI(new _root_.java.net.URI($concatenated)).get"
-            }
+            q"_root_.zio.http.URL.fromURI(new _root_.java.net.URI($concatenated)).get"
 
             c.Expr[URL](result)
         }
