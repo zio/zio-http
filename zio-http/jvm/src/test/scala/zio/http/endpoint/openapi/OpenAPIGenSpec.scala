@@ -714,6 +714,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                   .content[NotFoundError]
                   .examples("not found" -> NotFoundError("not found")),
             )
+            .examplesOut("other" -> Right(NotFoundError("other")))
 
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
         val json         = toJsonAst(generated)
@@ -727,24 +728,20 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  "paths" : {
             |    "/static" : {
             |      "get" : {
-            |        "requestBody" :
-            |          {
+            |        "requestBody" : {
             |          "content" : {
             |            "application/json" : {
-            |              "schema" :
-            |                {
+            |              "schema" : {
             |                "$ref" : "#/components/schemas/SimpleInputBody"
             |              },
             |              "examples" : {
-            |                "john" :
-            |                  {
+            |                "john" : {
             |                  "value" : {
             |                    "name" : "John",
             |                    "age" : 42
             |                  }
             |                },
-            |                "jane" :
-            |                  {
+            |                "jane" : {
             |                  "value" : {
             |                    "name" : "Jane",
             |                    "age" : 43
@@ -756,12 +753,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          "required" : true
             |        },
             |        "responses" : {
-            |          "default" :
-            |            {
+            |          "default" : {
             |            "content" : {
             |              "application/json" : {
-            |                "schema" :
-            |                  {
+            |                "schema" : {
             |                  "anyOf" : [
             |                    {
             |                      "$ref" : "#/components/schemas/SimpleOutputBody"
@@ -773,22 +768,24 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |                  "description" : ""
             |                },
             |                "examples" : {
-            |                  "john" :
-            |                    {
+            |                  "john" : {
             |                    "value" : {
             |                      "userName" : "John",
             |                      "score" : 42
             |                    }
             |                  },
-            |                  "jane" :
-            |                    {
+            |                  "jane" : {
             |                    "value" : {
             |                      "userName" : "Jane",
             |                      "score" : 43
             |                    }
             |                  },
-            |                  "not found" :
-            |                    {
+            |                  "other" : {
+            |                    "value" : {
+            |                      "message" : "other"
+            |                    }
+            |                  },
+            |                  "not found" : {
             |                    "value" : {
             |                      "message" : "not found"
             |                    }
@@ -803,32 +800,25 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  },
             |  "components" : {
             |    "schemas" : {
-            |      "NotFoundError" :
-            |        {
-            |        "type" :
-            |          "object",
+            |      "NotFoundError" : {
+            |        "type" : "object",
             |        "properties" : {
             |          "message" : {
-            |            "type" :
-            |              "string"
+            |            "type" : "string"
             |          }
             |        },
             |        "required" : [
             |          "message"
             |        ]
             |      },
-            |      "SimpleInputBody" :
-            |        {
-            |        "type" :
-            |          "object",
+            |      "SimpleInputBody" : {
+            |        "type" : "object",
             |        "properties" : {
             |          "name" : {
-            |            "type" :
-            |              "string"
+            |            "type" : "string"
             |          },
             |          "age" : {
-            |            "type" :
-            |              "integer",
+            |            "type" : "integer",
             |            "format" : "int32"
             |          }
             |        },
@@ -837,18 +827,14 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          "age"
             |        ]
             |      },
-            |      "SimpleOutputBody" :
-            |        {
-            |        "type" :
-            |          "object",
+            |      "SimpleOutputBody" : {
+            |        "type" : "object",
             |        "properties" : {
             |          "userName" : {
-            |            "type" :
-            |              "string"
+            |            "type" : "string"
             |          },
             |          "score" : {
-            |            "type" :
-            |              "integer",
+            |            "type" : "integer",
             |            "format" : "int32"
             |          }
             |        },
