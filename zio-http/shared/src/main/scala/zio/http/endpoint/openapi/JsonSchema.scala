@@ -197,6 +197,7 @@ sealed trait JsonSchema extends Product with Serializable { self =>
 
   def isCollection: Boolean = self match {
     case _: JsonSchema.ArrayType => true
+    case obj: JsonSchema.Object  => obj.properties.isEmpty && obj.additionalProperties.isRight
     case _                       => false
   }
 
