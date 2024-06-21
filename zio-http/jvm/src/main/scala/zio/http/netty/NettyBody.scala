@@ -137,7 +137,10 @@ object NettyBody extends BodyEncoding {
     override val boundary: Option[Boundary] = None,
   ) extends Body {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map {
+      case b: Chunk.ByteArray => b.array
+      case other              => other.toArray
+    }
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
       ZIO.async { cb =>
