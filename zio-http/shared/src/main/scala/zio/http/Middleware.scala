@@ -337,7 +337,11 @@ object Middleware extends HandlerAspects {
     }
 
     def fromResource(resourcePrefix: String)(implicit trace: Trace): StaticServe[Any, Throwable] = make { (path, _) =>
-      Handler.fromResource(s"${resourcePrefix}/${path.dropLeadingSlash.encode}")
+      if (resourcePrefix.startsWith(".")) {
+        Handler.forbidden("Resource prefix cannot start with \".\"")
+      } else {
+        Handler.fromResource(s"${resourcePrefix}/${path.dropLeadingSlash.encode}")
+      }
     }
 
   }
@@ -391,21 +395,17 @@ object Middleware extends HandlerAspects {
     toMiddleware(path, StaticServe.fromDirectory(docRoot))
 
   /**
-   * Creates a middleware for serving static files from resources at the path
-   * `path`.
+   * Creates a middleware for serving static files from resources directory
+   * `resourcePrefix` at the path `path`.
    *
-   * Example: `val serveResources = Middleware.serveResources(Path.empty /
-   * "assets")`
+   * Example: `Middleware.serveResources(Path.empty / "assets", "webapp")`
    *
    * With this middleware in place, a request to
    * `https://www.domain.com/assets/folder/file1.jpg` would serve the file
-   * `src/main/resources/folder/file1.jpg`.
+   * `src/main/resources/webapp/folder/file1.jpg`.
    *
-   * Provide a `resourcePrefix` if you want to limit the the resource files
-   * served. For instance, with `Middleware.serveResources(Path.empty /
-   * "assets", "public")`, a request to
-   * `https://www.domain.com/assets/folder/file1.jpg` would serve the file
-   * `src/main/resources/public/folder/file1.jpg`.
+   * The `resourcePrefix` defaults to `"public"`. To prevent insecure sharing of
+   * resource files, `resourcePrefix` is prohibited from starting with `"."`.
    */
   def serveResources(path: Path, resourcePrefix: String = ".")(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromResource(resourcePrefix))
