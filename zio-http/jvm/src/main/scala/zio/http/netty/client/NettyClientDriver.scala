@@ -62,8 +62,8 @@ final case class NettyClientDriver private[netty] (
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] =
-    NettyRequestEncoder
-      .encode(req)
+    ZIO
+      .succeed(NettyRequestEncoder.encode(req))
       .tapSome { case fullReq: FullHttpRequest =>
         Scope.addFinalizer {
           ZIO.succeed {

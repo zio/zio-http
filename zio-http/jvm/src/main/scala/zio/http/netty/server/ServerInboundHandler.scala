@@ -29,6 +29,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.Body.WebsocketBody
 import zio.http._
 import zio.http.netty._
+import zio.http.netty.client.NettyRequestEncoder
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
@@ -38,6 +39,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.ssl.SslHandler
 import io.netty.handler.timeout.ReadTimeoutException
+import io.netty.util.ReferenceCountUtil
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -52,7 +54,7 @@ private[zio] final case class ServerInboundHandler(
   private var runtime: NettyRuntime      = _
 
   val inFlightRequests: LongAdder = new LongAdder()
-  val readClientCert              = config.sslConfig.exists(_.includeClientCert)
+  private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
 
   def refreshApp(): Unit = {
     val pair = appRef.get()
@@ -67,36 +69,31 @@ private[zio] final case class ServerInboundHandler(
     }
   }
 
+  private val releaseRequest = () => inFlightRequests.decrement()
+
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     msg match {
       case jReq: HttpRequest =>
-        val req = makeZioRequest(ctx, jReq)
         inFlightRequests.increment()
-
-        val releaseRequest = { () =>
-          inFlightRequests.decrement()
-          jReq match {
-            case jFullReq: FullHttpRequest =>
-              if (jFullReq.refCnt() > 0) {
-                val _ = jFullReq.release()
-              }
-            case _                         =>
-          }
-          ()
-        }
-
         ensureHasApp()
-        val exit =
+
+        try {
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            Exit.succeed(Response.fromThrowable(throwable))
-          } else
-            app(req)
-        if (!attemptImmediateWrite(ctx, exit)) {
-          writeResponse(ctx, runtime, exit, jReq)(releaseRequest)
-        } else {
-          releaseRequest()
+            attemptFastWrite(ctx, Response.fromThrowable(throwable))
+            releaseRequest()
+          } else {
+            val req  = makeZioRequest(ctx, jReq)
+            val exit = app(req)
+            if (attemptImmediateWrite(ctx, exit)) {
+              releaseRequest()
+            } else {
+              writeResponse(ctx, runtime, exit, req)(releaseRequest)
+            }
+          }
+        } finally {
+          ReferenceCountUtil.safeRelease(jReq)
         }
 
       case msg: HttpContent =>
@@ -167,11 +164,11 @@ private[zio] final case class ServerInboundHandler(
     ctx: ChannelHandlerContext,
     runtime: NettyRuntime,
     response: Response,
-    jRequest: HttpRequest,
+    request: Request,
   ): Task[Option[Task[Unit]]] = {
     response.body match {
       case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
-        upgradeToWebSocket(ctx, jRequest, socketApp, runtime).as(None)
+        upgradeToWebSocket(ctx, request, socketApp, runtime).as(None)
       case _                                                                        =>
         ZIO.attempt {
           val jResponse = NettyResponseEncoder.encode(response)
@@ -204,16 +201,6 @@ private[zio] final case class ServerInboundHandler(
       case Exit.Success(response) if response ne null =>
         attemptFastWrite(ctx, response)
       case _                                          => false
-    }
-  }
-
-  private def isResponseCompressible(req: HttpRequest): Boolean = {
-    config.responseCompression match {
-      case None      => false
-      case Some(cfg) =>
-        val headers    = req.headers()
-        val headerName = Header.AcceptEncoding.name
-        cfg.options.exists(opt => headers.containsValue(headerName, opt.name, true))
     }
   }
 
@@ -273,50 +260,41 @@ private[zio] final case class ServerInboundHandler(
    */
   private def upgradeToWebSocket(
     ctx: ChannelHandlerContext,
-    jReq: HttpRequest,
+    request: Request,
     webSocketApp: WebSocketApp[Any],
     runtime: NettyRuntime,
   ): Task[Unit] = {
-    jReq match {
-      case jReq: FullHttpRequest =>
-        Queue
-          .unbounded[WebSocketChannelEvent]
-          .tap { queue =>
-            ZIO.suspend {
-              val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
-              val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
-              webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
-            }
-          }
-          .flatMap { queue =>
-            ZIO.attempt {
-              ctx
-                .channel()
-                .pipeline()
-                .addLast(
-                  new WebSocketServerProtocolHandler(
-                    NettySocketProtocol
-                      .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
-                      .build(),
-                  ),
-                )
-                .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, None))
-
-              val retained = jReq.retainedDuplicate()
-              val _        = ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }
-            }
-          }
-      case jReq: HttpRequest     =>
+    Queue
+      .unbounded[WebSocketChannelEvent]
+      .tap { queue =>
         ZIO.suspend {
-          val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
-          fullRequest.headers().setAll(jReq.headers())
-          upgradeToWebSocket(ctx: ChannelHandlerContext, fullRequest, webSocketApp, runtime)
+          val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
+          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+          webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
         }
-    }
+      }
+      .flatMap { queue =>
+        ZIO.attempt {
+          ctx
+            .channel()
+            .pipeline()
+            .addLast(
+              new WebSocketServerProtocolHandler(
+                NettySocketProtocol
+                  .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
+                  .build(),
+              ),
+            )
+            .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, None))
+
+          val jReq = NettyRequestEncoder.encode(request)
+          ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(jReq) }: Unit
+        }
+      }
   }
 
-  private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
-    val response = Response.notFound(jReq.uri())
+  private def writeNotFound(ctx: ChannelHandlerContext, req: Request): Unit = {
+    val response = Response.notFound(req.url.encode)
     attemptFastWrite(ctx, response): Unit
   }
 
@@ -324,7 +302,7 @@ private[zio] final case class ServerInboundHandler(
     ctx: ChannelHandlerContext,
     runtime: NettyRuntime,
     exit: ZIO[Any, Response, Response],
-    jReq: HttpRequest,
+    req: Request,
   )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
       exit.sandbox.catchAll { error =>
@@ -343,12 +321,12 @@ private[zio] final case class ServerInboundHandler(
           if (response ne null) {
             val done = attemptFastWrite(ctx, response)
             if (!done)
-              attemptFullWrite(ctx, runtime, response, jReq)
+              attemptFullWrite(ctx, runtime, response, req)
             else
               ZIO.none
           } else {
             if (ctx.channel().isOpen) {
-              writeNotFound(ctx, jReq)
+              writeNotFound(ctx, req)
             }
             ZIO.none
           }

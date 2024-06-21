@@ -24,17 +24,16 @@ import zio.http.netty.client.ClientResponseStreamHandler
 import zio.http.netty.model.Conversions
 import zio.http.{Body, Header, Response}
 
-import io.netty.buffer.Unpooled
+import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 
 object NettyResponse {
 
   def apply(jRes: FullHttpResponse)(implicit unsafe: Unsafe): Response = {
-    val status       = Conversions.statusFromNetty(jRes.status())
-    val headers      = Conversions.headersFromNetty(jRes.headers())
-    val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
-    val data         = NettyBody.fromByteBuf(copiedBuffer, headers.headers.get(Header.ContentType.name))
+    val status  = Conversions.statusFromNetty(jRes.status())
+    val headers = Conversions.headersFromNetty(jRes.headers())
+    val data    = NettyBody.fromByteBuf(jRes.content(), headers.headers.get(Header.ContentType.name))
 
     Response(status, headers, data)
   }
