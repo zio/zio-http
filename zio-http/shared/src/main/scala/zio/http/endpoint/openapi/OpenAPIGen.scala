@@ -340,6 +340,20 @@ object OpenAPIGen {
                   .nullable(optional(metadata))
                   .description(description(metadata))
                   .annotate(annotations)
+              case (JsonSchema.Object(p, _, r), JsonSchema.Null)                =>
+                JsonSchema
+                  .Object(p, Left(false), r)
+                  .deprecated(deprecated(metadata))
+                  .nullable(optional(metadata))
+                  .description(description(metadata))
+                  .annotate(annotations)
+              case (JsonSchema.Null, JsonSchema.Object(p, _, r))                =>
+                JsonSchema
+                  .Object(p, Left(false), r)
+                  .deprecated(deprecated(metadata))
+                  .nullable(optional(metadata))
+                  .description(description(metadata))
+                  .annotate(annotations)
               case _ => throw new IllegalArgumentException("Multipart content without name.")
             }
 
@@ -798,8 +812,7 @@ object OpenAPIGen {
         (
           statusOrDefault,
           (
-            AtomizedMetaCodecs
-              .flatten(codec),
+            AtomizedMetaCodecs.flatten(codec),
             contentAsJsonSchema(codec, referenceType = referenceType) _,
           ),
         )

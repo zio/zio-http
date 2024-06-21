@@ -2442,6 +2442,18 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                                        |    "components" : {}
                                        |}""".stripMargin))
       },
+      test("Non content codecs are ignored when building multipart schema") {
+        // We only test there is no exception when building the schema
+        val endpoint =
+          Endpoint(RoutePattern.POST / "post")
+            .in[Int]("foo")
+            .in[Boolean]("bar")
+            .query(QueryCodec.query("q"))
+            .out[Unit]
+
+        SwaggerUI.routes("docs/openapi", OpenAPIGen.fromEndpoints(endpoint))
+        assertCompletes
+      },
     )
 
 }
