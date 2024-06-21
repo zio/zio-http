@@ -35,18 +35,16 @@ final class ClientResponseStreamHandler(
 
   private implicit val unsafe: Unsafe = Unsafe.unsafe
 
+  override def onLastMessage(): Unit =
+    if (keepAlive)
+      onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
+    else
+      onComplete.unsafe.done(Exit.succeed(ChannelState.Invalid))
+
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
     val isLast = msg.isInstanceOf[LastHttpContent]
     super.channelRead0(ctx, msg)
-
-    if (isLast) {
-      if (keepAlive)
-        onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
-      else {
-        onComplete.unsafe.done(Exit.succeed(ChannelState.Invalid))
-        ctx.close(): Unit
-      }
-    }
+    if (isLast && !keepAlive) ctx.close(): Unit
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =

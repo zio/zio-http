@@ -77,6 +77,8 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
     val _ = ctx.channel().config().setAutoRead(previousAutoRead)
   }
 
+  protected def onLastMessage(): Unit = ()
+
   override def channelRead0(
     ctx: ChannelHandlerContext,
     msg: HttpContent,
@@ -86,6 +88,12 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
     this.synchronized {
       val isLast  = msg.isInstanceOf[LastHttpContent]
       val content = ByteBufUtil.getBytes(msg.content())
+
+      if (isLast) {
+        readingDone = true
+        ctx.channel().pipeline().remove(this)
+        onLastMessage()
+      }
 
       state match {
         case State.Buffering                                            =>
@@ -103,13 +111,7 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
           callback(Chunk.fromArray(content), isLast)
       }
 
-      if (isLast) {
-        readingDone = true
-        ctx.channel().pipeline().remove(this)
-      } else {
-        ctx.read()
-      }
-      ()
+      if (!isLast) ctx.read(): Unit
     }
   }
 
@@ -137,6 +139,8 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
 }
 
 object AsyncBodyReader {
+  private val FnUnit = () => ()
+
   sealed trait State
 
   object State {
