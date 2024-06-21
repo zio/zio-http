@@ -119,7 +119,7 @@ object EndpointGen {
   )
 
   def withDoc[A] = Mapper[CliReprOf[Codec[A]], Doc](
-    (repr, doc) => CliRepr(repr.value ?? doc, repr.repr.copy(body = repr.repr.body.map(_ ?? doc))),
+    (repr, doc) => CliRepr(repr.value ?? doc, repr.repr.describeOptions(doc)),
     anyDoc,
   )
 

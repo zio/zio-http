@@ -284,7 +284,9 @@ object HttpContentCodec {
     def only[A](implicit schema: Schema[A]): HttpContentCodec[A] = {
       HttpContentCodec(
         ListMap(
-          MediaType.text.`plain` ->
+          MediaType.text.`plain`               ->
+            BinaryCodecWithSchema(zio.http.codec.internal.TextBinaryCodec.fromSchema[A](schema), schema),
+          MediaType.application.`octet-stream` ->
             BinaryCodecWithSchema(zio.http.codec.internal.TextBinaryCodec.fromSchema[A](schema), schema),
         ),
       )
