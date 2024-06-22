@@ -29,7 +29,7 @@ import zio.schema.Schema
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec.HttpCodec.{Annotated, Metadata}
-import zio.http.codec.internal.EncoderDecoder
+import zio.http.codec.internal.{AtomizedCodecs, EncoderDecoder}
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -47,6 +47,27 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   self =>
 
   private lazy val encoderDecoder: EncoderDecoder[AtomTypes, Value] = EncoderDecoder(self)
+
+  private def statusCodecs: Chunk[SimpleCodec[Status, _]] =
+    self.asInstanceOf[HttpCodec[_, _]] match {
+      case HttpCodec.Fallback(left, right, _, _)  => left.statusCodecs ++ right.statusCodecs
+      case HttpCodec.Combine(left, right, _)      => left.statusCodecs ++ right.statusCodecs
+      case HttpCodec.Annotated(codec, _)          => codec.statusCodecs
+      case HttpCodec.TransformOrFail(codec, _, _) => codec.statusCodecs
+      case HttpCodec.Empty                        => Chunk.empty
+      case HttpCodec.Halt                         => Chunk.empty
+      case atom: HttpCodec.Atom[_, _]             =>
+        atom match {
+          case HttpCodec.Status(codec, _) => Chunk.single(codec)
+          case _                          => Chunk.empty
+        }
+    }
+
+  private lazy val statusCodes: Set[Status] = statusCodecs.collect { case SimpleCodec.Specified(status) =>
+    status
+  }.toSet
+
+  private lazy val matchesAnyStatus: Boolean = statusCodecs.contains(SimpleCodec.Unspecified[Status]())
 
   /**
    * Returns a new codec that is the same as this one, but has attached docs,
@@ -237,6 +258,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       if (actual == expected) Right(())
       else Left(s"Expected ${expected} but found ${actual}"),
     )(_ => expected)
+
+  private[http] def matchesStatus(status: Status) =
+    matchesAnyStatus || statusCodes.contains(status)
 
   def named(name: String): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Named(name))

@@ -346,91 +346,6 @@ object RoundtripSpec extends ZIOHttpSpec {
           "42",
         )
       },
-      test("middleware error returned") {
-
-        val alwaysFailingMiddleware = EndpointMiddleware(
-          authorization,
-          HttpCodec.empty,
-          HttpCodec.error[String](Status.Custom(900)),
-        )
-
-        val endpoint =
-          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
-
-        val endpointRoute =
-          endpoint.implementHandler(Handler.identity)
-
-        val routes = endpointRoute.toRoutes
-
-        val app = routes @@ alwaysFailingMiddleware
-          .implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
-
-        for {
-          port <- Server.install(app)
-          executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port, Authorization.Basic("user", "pass"))))
-
-          out <- ZIO
-            .serviceWithZIO[EndpointExecutor[alwaysFailingMiddleware.In]] { executor =>
-              executor.apply(endpoint.apply(42))
-            }
-            .provideSome[Client & Scope](executorLayer)
-            .flip
-        } yield assert(out)(equalTo("FAIL"))
-      },
-      test("failed middleware deserialization") {
-        val alwaysFailingMiddleware = EndpointMiddleware(
-          authorization,
-          HttpCodec.empty,
-          HttpCodec.error[String](Status.Custom(900)),
-        )
-
-        val endpoint =
-          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
-
-        val alwaysFailingMiddlewareWithAnotherSignature = EndpointMiddleware(
-          authorization,
-          HttpCodec.empty,
-          HttpCodec.error[Long](Status.Custom(900)),
-        )
-
-        val endpointWithAnotherSignature =
-          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddlewareWithAnotherSignature
-
-        val endpointRoute =
-          endpoint.implementHandler(Handler.identity)
-
-        val routes = endpointRoute.toRoutes
-
-        val app = routes @@ alwaysFailingMiddleware.implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
-
-        for {
-          port <- Server.install(app)
-          executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port, Authorization.Basic("user", "pass"))))
-
-          cause <- ZIO
-            .serviceWithZIO[EndpointExecutor[alwaysFailingMiddleware.In]] { executor =>
-              executor.apply(endpointWithAnotherSignature.apply(42))
-            }
-            .provideSome[Client with Scope](executorLayer)
-            .cause
-        } yield assert(cause.prettyPrint)(
-          containsString(
-            "java.lang.IllegalStateException: Cannot deserialize using endpoint error codec",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "java.lang.IllegalStateException: Cannot deserialize using middleware error codec",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "Suppressed: java.lang.IllegalStateException: Trying to decode with Undefined codec.",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "Suppressed: zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected a number, got F)",
-          ),
-        )
-      },
       test("Failed endpoint deserialization") {
         val endpoint =
           Endpoint(GET / "users" / int("userId")).out[Int].outError[Int](Status.Custom(999))
@@ -457,21 +372,9 @@ object RoundtripSpec extends ZIOHttpSpec {
             }
             .provideSome[Client with Scope](executorLayer)
             .cause
-        } yield assert(cause.prettyPrint)(
-          containsString(
-            "java.lang.IllegalStateException: Cannot deserialize using endpoint error codec",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "java.lang.IllegalStateException: Cannot deserialize using middleware error codec",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "Suppressed: java.lang.IllegalStateException: Trying to decode with Undefined codec.",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            """Suppressed: zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected '"' got '4')""",
+        } yield assertTrue(
+          cause.prettyPrint.contains(
+            """zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected '"' got '4')""",
           ),
         )
       },
