@@ -313,14 +313,21 @@ sealed trait PathCodec[A] { self =>
   /**
    * Renders the path codec as a string.
    */
-  def render: String = {
+  def render: String =
+    render("{", "}")
+
+  /**
+   * Renders the path codec as a string. Surrounds the path variables with the
+   * specified prefix and suffix.
+   */
+  def render(prefix: String, suffix: String): String = {
     def loop(path: PathCodec[_]): String = path match {
       case PathCodec.Annotated(codec, _)    =>
         loop(codec)
       case PathCodec.Concat(left, right, _) =>
         loop(left) + loop(right)
 
-      case PathCodec.Segment(segment) => segment.render
+      case PathCodec.Segment(segment) => segment.render(prefix, suffix)
 
       case PathCodec.TransformOrFail(api, _, _) =>
         loop(api)
@@ -329,7 +336,10 @@ sealed trait PathCodec[A] { self =>
     loop(self)
   }
 
-  private[zio] def renderIgnoreTrailing: String = {
+  private[zio] def renderIgnoreTrailing: String =
+    renderIgnoreTrailing("{", "}")
+
+  private[zio] def renderIgnoreTrailing(prefix: String, suffix: String): String = {
     def loop(path: PathCodec[_]): String = path match {
       case PathCodec.Annotated(codec, _)    =>
         loop(codec)
@@ -338,7 +348,7 @@ sealed trait PathCodec[A] { self =>
 
       case PathCodec.Segment(SegmentCodec.Trailing) => ""
 
-      case PathCodec.Segment(segment) => segment.render
+      case PathCodec.Segment(segment) => segment.render(prefix, suffix)
 
       case PathCodec.TransformOrFail(api, _, _) => loop(api)
     }

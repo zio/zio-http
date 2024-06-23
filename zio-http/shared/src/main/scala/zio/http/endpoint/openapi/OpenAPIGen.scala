@@ -213,13 +213,20 @@ object OpenAPIGen {
             )
         case path: HttpCodec.Path[_]                          => metaCodecFromPathCodec(path.pathCodec, annotations)
         case atom: HttpCodec.Atom[_, A]                       => Chunk(MetaCodec(atom, annotations))
-        case map: HttpCodec.TransformOrFail[_, _, _]          => flattenedAtoms(map.api, annotations)
+        case map: HttpCodec.TransformOrFail[_, _, _]          =>
+          flattenedAtoms(map.api, annotations.map(_.transformOrFail(map.g.asInstanceOf[Any => Either[String, Any]])))
         case HttpCodec.Empty                                  => Chunk.empty
         case HttpCodec.Halt                                   => Chunk.empty
         case _: HttpCodec.Fallback[_, _, _]       => in.alternatives.map(_._1).flatMap(flattenedAtoms(_, annotations))
         case HttpCodec.Annotated(api, annotation) =>
           flattenedAtoms(api, annotations :+ annotation.asInstanceOf[HttpCodec.Metadata[Any]])
       }
+  }
+
+  def method(in: Chunk[MetaCodec[SimpleCodec[Method, _]]]): Method = {
+    if (in.size > 1) throw new Exception("Multiple methods not supported")
+    in.collectFirst { case MetaCodec(SimpleCodec.Specified(method: Method), _) => method }
+      .getOrElse(throw new Exception("No method specified"))
   }
 
   def metaCodecFromPathCodec(
@@ -531,12 +538,6 @@ object OpenAPIGen {
         else codec.render
       }
       OpenAPI.Path.fromString(pathString).getOrElse(throw new Exception(s"Invalid path: $pathString"))
-    }
-
-    def method(in: Chunk[MetaCodec[SimpleCodec[Method, _]]]): Method = {
-      if (in.size > 1) throw new Exception("Multiple methods not supported")
-      in.collectFirst { case MetaCodec(SimpleCodec.Specified(method: Method), _) => method }
-        .getOrElse(throw new Exception("No method specified"))
     }
 
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {

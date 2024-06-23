@@ -50,18 +50,21 @@ sealed trait SegmentCodec[A] { self =>
   final def nonEmpty: Boolean = !isEmpty
 
   final def render: String = {
-    if (_render == "") _render = self.asInstanceOf[SegmentCodec[_]] match {
-      case _: SegmentCodec.Empty.type    => s""
-      case SegmentCodec.Literal(value)   => s"/$value"
-      case SegmentCodec.IntSeg(name)     => s"/{$name}"
-      case SegmentCodec.LongSeg(name)    => s"/{$name}"
-      case SegmentCodec.Text(name)       => s"/{$name}"
-      case SegmentCodec.BoolSeg(name)    => s"/{$name}"
-      case SegmentCodec.UUID(name)       => s"/{$name}"
-      case _: SegmentCodec.Trailing.type => s"/..."
-    }
+    if (_render == "") _render = render("{", "}")
     _render
   }
+
+  final def render(prefix: String, suffix: String): String =
+    self.asInstanceOf[SegmentCodec[_]] match {
+      case _: SegmentCodec.Empty.type    => s""
+      case SegmentCodec.Literal(value)   => s"/$value"
+      case SegmentCodec.IntSeg(name)     => s"/$prefix$name$suffix"
+      case SegmentCodec.LongSeg(name)    => s"/$prefix$name$suffix"
+      case SegmentCodec.Text(name)       => s"/$prefix$name$suffix"
+      case SegmentCodec.BoolSeg(name)    => s"/$prefix$name$suffix"
+      case SegmentCodec.UUID(name)       => s"/$prefix$name$suffix"
+      case _: SegmentCodec.Trailing.type => s"/..."
+    }
 
   final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =
     PathCodec.Segment(self).transform(f)(g)

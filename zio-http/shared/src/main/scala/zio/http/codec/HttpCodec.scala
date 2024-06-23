@@ -627,6 +627,19 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         case Metadata.Documented(doc) => Metadata.Documented(doc)
         case Metadata.Deprecated(doc) => Metadata.Deprecated(doc)
       }
+
+    def transformOrFail[Value2](f: Value => Either[String, Value2]): Metadata[Value2] =
+      this match {
+        case Metadata.Named(name)     => Metadata.Named(name)
+        case Metadata.Optional()      => Metadata.Optional()
+        case Metadata.Examples(ex)    =>
+          Metadata.Examples(ex.collect {
+            case (k, v) if f(v).isRight =>
+              k -> f(v).toOption.get
+          })
+        case Metadata.Documented(doc) => Metadata.Documented(doc)
+        case Metadata.Deprecated(doc) => Metadata.Deprecated(doc)
+      }
   }
 
   object Metadata {
