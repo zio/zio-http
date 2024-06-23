@@ -19,6 +19,8 @@ package zio.http
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+import zio.http.Routes.Tree
+
 /**
  * An HTTP application is a collection of routes, all of whose errors have been
  * handled through conversion into HTTP responses.
@@ -137,10 +139,10 @@ object HttpApp                                                     {
       Tree(self.tree ++ that.tree)
 
     final def add[Env1 <: Env](route: Route[Env1, Response])(implicit trace: Trace): Tree[Env1] =
-      Tree(self.tree.add(route.routePattern, route.toHandler))
+      Tree(self.tree.addAll(route.routePattern.alternatives.map(alt => (alt, route.toHandler))))
 
     final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit trace: Trace): Tree[Env1] =
-      Tree(self.tree.addAll(routes.map(r => (r.routePattern, r.toHandler))))
+      Tree[Env1](self.tree.addAll(routes.map(r => r.routePattern.alternatives.map(alt => (alt, r.toHandler))).flatten))
 
     final def get(method: Method, path: Path): Chunk[RequestHandler[Env, Response]] =
       tree.get(method, path)
