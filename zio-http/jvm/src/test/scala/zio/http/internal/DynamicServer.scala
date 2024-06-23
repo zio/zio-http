@@ -95,7 +95,7 @@ object DynamicServer {
 
     def get(id: Id): UIO[Option[Routes[Any, Response]]] = ref.get.map(_.get(id))
 
-    def port: ZIO[Any, Nothing, Int] = start.map(_.port)
+    def port: ZIO[Any, Nothing, Int] = start.flatMap(_.port)
 
     def setStart(s: Server): UIO[Boolean] = pr.complete(ZIO.attempt(s).orDie)
 

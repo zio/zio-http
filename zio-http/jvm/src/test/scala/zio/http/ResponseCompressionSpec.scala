@@ -88,10 +88,11 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           server       <- ZIO.service[Server]
           client       <- ZIO.service[Client]
           _            <- server.install(app)
+          port         <- server.port
           response     <- client.request(
             Request(
               method = Method.GET,
-              url = URL(Path.root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(server.port))),
+              url = URL(Path.root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
             )
               .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
@@ -110,10 +111,11 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           server       <- ZIO.service[Server]
           client       <- ZIO.service[Client]
           _            <- server.install(app)
+          port         <- server.port
           response     <- client.request(
             Request(
               method = Method.GET,
-              url = URL(Path.root / "file", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(server.port))),
+              url = URL(Path.root / "file", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
             )
               .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
@@ -134,10 +136,11 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       server       <- ZIO.service[Server]
       client       <- ZIO.service[Client]
       _            <- server.install(app)
+      port         <- server.port
       response     <- client.request(
         Request(
           method = Method.GET,
-          url = URL(Path.root / endpoint, kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(server.port))),
+          url = URL(Path.root / endpoint, kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
         )
           .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
       )

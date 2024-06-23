@@ -105,7 +105,7 @@ object TestServerExampleSpec extends ZIOSpecDefault {
     test("test hello and fallback routes") {
       for {
         client <- ZIO.service[Client]
-        port   <- ZIO.serviceWith[Server](_.port)
+        port   <- ZIO.serviceWithZIO[Server](_.port)
         testRequest = Request
           .get(url = URL.root.port(port))
           .addHeaders(Headers(Header.Accept(MediaType.text.`plain`)))
