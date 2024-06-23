@@ -66,17 +66,17 @@ object StaticFileRoutesSpec extends HttpRunnableSpec {
     ),
     suite("serveResources")(
       test("serve an existing resource") {
-        val existing = "TestFile.txt"
+        val existing = "TestFile1.txt"
         val path     = Path.root / "assets"
-        val routes   = Routes.serveResources(path, ".").sandbox.deploy
+        val routes   = Routes.serveResources(path, "TestStatic").sandbox.deploy
         val request  = Request.get(URL(path / existing))
         for {
           response <- routes(request)
           body     <- response.body.asString
         } yield {
           assert(response.status)(equalTo(Status.Ok)) &&
-          assert(response.header(Header.ContentLength))(isSome(equalTo(Header.ContentLength(7L)))) &&
-          assert(body)(equalTo("foo\nbar")) &&
+          assert(response.header(Header.ContentLength))(isSome(equalTo(Header.ContentLength(50L)))) &&
+          assert(body)(equalTo("This file is added for testing Static File Server.")) &&
           assert(response.header(Header.ContentType))(
             isSome(equalTo(Header.ContentType(MediaType.text.plain, charset = Some(Charsets.Utf8)))),
           )
@@ -85,9 +85,16 @@ object StaticFileRoutesSpec extends HttpRunnableSpec {
       test("serve a non-existing resource") {
         val nonExisting = "Nothing.txt"
         val path        = Path.root / "assets"
-        val routes      = Routes.serveResources(path, ".").sandbox.deploy
+        val routes      = Routes.serveResources(path, "TestStatic").sandbox.deploy
         val request     = Request.get(URL(path / nonExisting))
         assertZIO(routes(request).map(_.status))(equalTo(Status.NotFound))
+      },
+      test("insecurely serve a resource from \".\"") {
+        val existing = "TestFile.txt"
+        val path     = Path.root / "assets"
+        val routes   = Routes.serveResources(path, ".")
+        val request  = Request.get(URL(path / existing))
+        assertZIO(routes(request).map(_.status))(equalTo(Status.InternalServerError))
       },
     ),
   ) @@ TestAspect.blocking

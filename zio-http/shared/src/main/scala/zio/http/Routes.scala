@@ -311,20 +311,27 @@ object Routes extends RoutesCompanionVersionSpecific {
     empty @@ Middleware.serveDirectory(path, docRoot)
 
   /**
-   * Creates routes for serving static files from resources at the path `path`.
+   * Creates routes for serving static files at URL path `path` from resources
+   * with the given `resourcePrefix`.
    *
-   * Example: `Routes.serveResources(Path.empty / "assets")`
+   * Example: `Routes.serveResources(Path.empty / "assets", "webapp")`
    *
    * With this routes in place, a request to
    * `https://www.domain.com/assets/folder/file1.jpg` would serve the file
-   * `src/main/resources/folder/file1.jpg`.
+   * `src/main/resources/webapp/folder/file1.jpg`. Note how the URL path is
+   * removed and the resourcePrefix prepended.
    *
-   * Provide a `resourcePrefix` if you want to limit the the resource files
-   * served. For instance, with `Routes.serveResources(Path.empty / "assets",
-   * "public")`, a request to `https://www.domain.com/assets/folder/file1.jpg`
-   * would serve the file `src/main/resources/public/folder/file1.jpg`.
+   * Most build systems support resources in the `src/main/resources` directory.
+   * In the above example, the file `src/main/resources/webapp/folder/file1.jpg`
+   * would be served.
+   *
+   * The `resourcePrefix` defaults to `"public"`. To prevent insecure sharing of
+   * resource files, `resourcePrefix` must start with a `/` followed by at least
+   * 1
+   * [[java.lang.Character.isJavaIdentifierStart(x\$1:Char)* valid java identifier character]].
+   * The `/` will be prepended if it is not present.
    */
-  def serveResources(path: Path, resourcePrefix: String = ".")(implicit trace: Trace): Routes[Any, Nothing] =
+  def serveResources(path: Path, resourcePrefix: String = "public")(implicit trace: Trace): Routes[Any, Nothing] =
     empty @@ Middleware.serveResources(path, resourcePrefix)
 
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
