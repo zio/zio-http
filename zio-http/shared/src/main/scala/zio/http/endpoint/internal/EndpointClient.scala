@@ -29,7 +29,7 @@ private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddl
 ) {
   def execute(client: Client, invocation: Invocation[P, I, E, O, M])(
     mi: invocation.middleware.In,
-  )(implicit alt: Alternator[E, invocation.middleware.Err], trace: Trace): ZIO[Scope, alt.Out, O] = {
+  )(implicit alt: Alternator[E, invocation.middleware.Err], trace: Trace): ZIO[Scope, E, O] = {
     val request0 = endpoint.input.encodeRequest(invocation.input)
     val request  = request0.copy(url = endpointRoot ++ request0.url)
 
@@ -44,28 +44,12 @@ private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddl
         )
 
     client.request(withDefaultAcceptHeader).orDie.flatMap { response =>
-      if (response.status.isSuccess) {
+      if (endpoint.output.matchesStatus(response.status)) {
         endpoint.output.decodeResponse(response).orDie
+      } else if (endpoint.error.matchesStatus(response.status)) {
+        endpoint.error.decodeResponse(response).orDie.flip
       } else {
-        // Preferentially decode an error from the handler, before falling back
-        // to decoding the middleware error:
-        val handlerError =
-          endpoint.error
-            .decodeResponse(response)
-            .map(e => alt.left(e))
-            .mapError(t => new IllegalStateException("Cannot deserialize using endpoint error codec", t))
-
-        val middlewareError =
-          invocation.middleware.error
-            .decodeResponse(response)
-            .map(e => alt.right(e))
-            .mapError(t => new IllegalStateException("Cannot deserialize using middleware error codec", t))
-
-        handlerError.catchAllCause { handlerCause =>
-          middlewareError.catchAllCause { middlewareCause =>
-            ZIO.failCause(handlerCause ++ middlewareCause)
-          }
-        }.orDie.flip
+        ZIO.die(new IllegalStateException(s"Status code: ${response.status} is not defined in the endpoint"))
       }
     }
   }
