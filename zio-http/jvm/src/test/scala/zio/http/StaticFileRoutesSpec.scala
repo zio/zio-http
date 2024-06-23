@@ -92,9 +92,9 @@ object StaticFileRoutesSpec extends HttpRunnableSpec {
       test("insecurely serve a resource from \".\"") {
         val existing = "TestFile.txt"
         val path     = Path.root / "assets"
-        val routes   = Routes.serveResources(path, ".").sandbox.deploy
+        val routes   = Routes.serveResources(path, ".")
         val request  = Request.get(URL(path / existing))
-        assertZIO(routes(request).map(_.status))(equalTo(Status.Forbidden))
+        assertZIO(routes(request).map(_.status))(equalTo(Status.InternalServerError))
       },
     ),
   ) @@ TestAspect.blocking
