@@ -17,20 +17,21 @@
 package zio.http.netty.client
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Task, Trace, ZIO}
+import zio.{Task, Trace, Unsafe, ZIO}
 
-import zio.http.Request
 import zio.http.netty._
 import zio.http.netty.model.Conversions
+import zio.http.{Body, Request}
 
-import io.netty.buffer.Unpooled
+import io.netty.buffer.{ByteBuf, EmptyByteBuf, Unpooled}
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, DefaultHttpRequest, HttpHeaderNames, HttpRequest}
+
 private[zio] object NettyRequestEncoder {
 
   /**
    * Converts a ZIO HTTP request to a Netty HTTP request.
    */
-  def encode(req: Request)(implicit trace: Trace): Task[HttpRequest] = {
+  def encode(req: Request): HttpRequest = {
     val method   = Conversions.methodToNetty(req.method)
     val jVersion = Conversions.versionToNetty(req.version)
 
@@ -48,19 +49,17 @@ private[zio] object NettyRequestEncoder {
       case _                                                     =>
     }
 
-    if (req.body.isComplete) {
-      req.body.asArray.map { array =>
+    req.body match {
+      case body: Body.UnsafeBytes =>
+        val array   = body.unsafeAsArray(Unsafe.unsafe)
         val content = Unpooled.wrappedBuffer(array)
 
-        val writerIndex = content.writerIndex()
-        headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString)
+        headers.set(HttpHeaderNames.CONTENT_LENGTH, array.length.toString)
 
         val jReq = new DefaultFullHttpRequest(jVersion, method, path, content)
         jReq.headers().set(headers)
         jReq
-      }
-    } else {
-      ZIO.attempt {
+      case _                      =>
         req.body.knownContentLength match {
           case Some(length) =>
             headers.set(HttpHeaderNames.CONTENT_LENGTH, length.toString)
@@ -68,7 +67,6 @@ private[zio] object NettyRequestEncoder {
             headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked")
         }
         new DefaultHttpRequest(jVersion, method, path, headers)
-      }
     }
   }
 }

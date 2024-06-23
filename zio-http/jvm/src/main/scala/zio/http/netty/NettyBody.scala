@@ -55,8 +55,11 @@ object NettyBody extends BodyEncoding {
    * Helper to create Body from ByteBuf
    */
   private[zio] def fromByteBuf(byteBuf: ByteBuf, contentTypeHeader: Option[String]): Body = {
-    val (mediaType, boundary) = mediaTypeAndBoundary(contentTypeHeader)
-    ByteBufBody(byteBuf, mediaType, boundary)
+    if (byteBuf.readableBytes() == 0) Body.EmptyBody
+    else {
+      val (mediaType, boundary) = mediaTypeAndBoundary(contentTypeHeader)
+      Body.ArrayBody(ByteBufUtil.getBytes(byteBuf), mediaType, boundary)
+    }
   }
 
   private def mediaTypeAndBoundary(contentTypeHeader: Option[String]) = {
@@ -97,37 +100,6 @@ object NettyBody extends BodyEncoding {
       copy(mediaType = Some(newMediaType), boundary = Some(newBoundary))
 
     override def knownContentLength: Option[Long] = Some(asciiString.length().toLong)
-  }
-
-  private[zio] final case class ByteBufBody(
-    byteBuf: ByteBuf,
-    override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[Boundary] = None,
-  ) extends Body
-      with UnsafeBytes {
-
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(ByteBufUtil.getBytes(byteBuf))
-
-    override def isComplete: Boolean = true
-
-    override def isEmpty: Boolean = false
-
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asArray.map(Chunk.fromArray)
-
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-      ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
-
-    override def toString(): String = s"Body.fromByteBuf($byteBuf)"
-
-    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
-      ByteBufUtil.getBytes(byteBuf)
-
-    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
-
-    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
-      copy(mediaType = Some(newMediaType), boundary = Some(newBoundary))
-
-    override def knownContentLength: Option[Long] = Some(byteBuf.readableBytes().toLong)
   }
 
   private[zio] final case class AsyncBody(
