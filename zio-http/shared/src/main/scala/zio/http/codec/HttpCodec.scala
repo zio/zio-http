@@ -80,6 +80,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     that: HttpCodec[AtomTypes1, Value2],
   )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] = {
     if (self eq HttpCodec.Halt) that.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
+    else if (that eq HttpCodec.Halt) self.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
     else {
       HttpCodec
         .Fallback(self, that, alternator, HttpCodec.Fallback.Condition.IsHttpCodecError)
