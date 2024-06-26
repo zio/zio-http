@@ -2,6 +2,8 @@ package zio.http.gen.openapi
 
 import java.nio.file._
 
+import scala.util.Try
+
 import zio._
 import zio.test._
 
@@ -9,7 +11,7 @@ import zio.http._
 import zio.http.codec.HeaderCodec
 import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.endpoint._
-import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.Inline
+import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.scala.Code
@@ -1073,6 +1075,10 @@ object EndpointGenSpec extends ZIOSpecDefault {
           )
 
           assertTrue(scala.files.head == expected)
+        },
+        test("generates case class for response with compact schema") {
+          val endpoint = Endpoint(Method.POST / "api" / "v1" / "data").out[Chunk[Data]](status = Status.Ok)
+          assertTrue(OpenAPIGen.fromEndpoints("", "", Compact, endpoint).components.get.schemas.size == 4)
         },
         test("generates case class with seq field for request") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
