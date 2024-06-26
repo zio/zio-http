@@ -638,6 +638,7 @@ object JsonSchema {
     schema match {
       case enumSchema: Schema.Enum[_] => refForTypeId(enumSchema.id, referenceType)
       case record: Schema.Record[_]   => refForTypeId(record.id, referenceType)
+      case lazySchema: Schema.Lazy[_] => nominal(lazySchema.schema, referenceType)
       case _                          => None
     }
 
