@@ -347,7 +347,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       output,
       error,
       codecError,
-      doc,
+      self.doc,
       mw,
     )
 
@@ -381,7 +381,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       output,
       error,
       codecError,
-      doc,
+      self.doc,
       mw,
     )
 
@@ -611,7 +611,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       output = (contentCodec ++ StatusCodec.status(Status.Ok) ?? doc) | self.output,
       error,
       codecError,
-      doc,
+      self.doc,
       mw,
     )
   }
@@ -635,7 +635,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       output = (contentCodec ++ StatusCodec.status(status) ?? doc) | self.output,
       error,
       codecError,
-      doc,
+      self.doc,
       mw,
     )
   }
@@ -671,7 +671,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       output = (contentCodec ++ StatusCodec.status(status)) | self.output,
       error,
       codecError,
-      doc,
+      self.doc,
       mw,
     )
   }
@@ -689,7 +689,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
       output = ((contentCodec ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
       codecError,
-      doc,
+      self.doc,
       mw,
     )
   }
@@ -701,6 +701,18 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     combiner: Combiner[Input, A],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
+
+  /**
+   * Adds tags to the endpoint. The are used for documentation generation. For
+   * example to group endpoints for OpenAPI.
+   */
+  def tag(tag: String, tags: String*): Endpoint[PathInput, Input, Err, Output, Middleware] =
+    copy(doc = doc.tag(tag +: tags))
+
+  /**
+   * A list of tags for this endpoint.
+   */
+  def tags: List[String] = doc.tags
 
   /**
    * Transforms the input of this endpoint using the specified functions. This
