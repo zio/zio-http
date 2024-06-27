@@ -383,13 +383,13 @@ object Body {
   ) extends Body
       with UnsafeBytes { self =>
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = Exit.succeed(data.toArray)
 
     override def isComplete: Boolean = true
 
     override def isEmpty: Boolean = data.isEmpty
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(data)
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = Exit.succeed(data)
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
@@ -413,13 +413,13 @@ object Body {
   ) extends Body
       with UnsafeBytes { self =>
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data)
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = Exit.succeed(data)
 
     override def isComplete: Boolean = true
 
     override def isEmpty: Boolean = data.isEmpty
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(Chunk.fromArray(data))
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = Exit.succeed(Chunk.fromArray(data))
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
@@ -531,8 +531,8 @@ object Body {
 
   }
 
-  private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])(Trace.empty)
+  private val zioEmptyArray = Exit.succeed(Array.emptyByteArray)
 
-  private val zioEmptyChunk = ZIO.succeed(Chunk.empty[Byte])(Trace.empty)
+  private val zioEmptyChunk = Exit.succeed(Chunk.empty[Byte])
 
 }
