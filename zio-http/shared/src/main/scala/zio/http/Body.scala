@@ -383,7 +383,7 @@ object Body {
   ) extends Body
       with UnsafeBytes { self =>
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = Exit.succeed(data.toArray)
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
 
     override def isComplete: Boolean = true
 
