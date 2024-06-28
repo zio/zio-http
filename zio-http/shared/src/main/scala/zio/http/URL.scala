@@ -93,6 +93,8 @@ final case class URL(
     hash
   }
 
+  override def toString(): String = encode
+
   def host: Option[String] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.host)
