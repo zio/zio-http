@@ -44,8 +44,14 @@ sealed trait SegmentCodec[A] { self =>
     case _                  => false
   }
 
+  final def ~[B](that: SegmentCodec[B])(implicit combiner: Combiner[A, B]): SegmentCodec[combiner.Out] =
+    SegmentCodec.Combined(self, that, combiner)
+
   // Returns number of segments matched, or -1 if not matched:
   def matches(segments: Chunk[String], index: Int): Int
+
+  // Returns the range of the first subsegment matched, or null if not matched:
+  def submatch(sub: String, from: Int): Range
 
   final def nonEmpty: Boolean = !isEmpty
 
@@ -54,17 +60,45 @@ sealed trait SegmentCodec[A] { self =>
     _render
   }
 
-  final def render(prefix: String, suffix: String): String =
-    self.asInstanceOf[SegmentCodec[_]] match {
-      case _: SegmentCodec.Empty.type    => s""
-      case SegmentCodec.Literal(value)   => s"/$value"
-      case SegmentCodec.IntSeg(name)     => s"/$prefix$name$suffix"
-      case SegmentCodec.LongSeg(name)    => s"/$prefix$name$suffix"
-      case SegmentCodec.Text(name)       => s"/$prefix$name$suffix"
-      case SegmentCodec.BoolSeg(name)    => s"/$prefix$name$suffix"
-      case SegmentCodec.UUID(name)       => s"/$prefix$name$suffix"
-      case _: SegmentCodec.Trailing.type => s"/..."
+  final def render(prefix: String, suffix: String): String = {
+    val b = new StringBuilder
+
+    def loop(s: SegmentCodec[_]): Unit = {
+      s match {
+        case _: SegmentCodec.Empty.type            => ()
+        case SegmentCodec.Literal(value)           =>
+          b appendAll value
+        case SegmentCodec.IntSeg(name)             =>
+          b appendAll prefix
+          b appendAll name
+          b appendAll suffix
+        case SegmentCodec.LongSeg(name)            =>
+          b appendAll prefix
+          b appendAll name
+          b appendAll suffix
+        case SegmentCodec.Text(name)               =>
+          b appendAll prefix
+          b appendAll name
+          b appendAll suffix
+        case SegmentCodec.BoolSeg(name)            =>
+          b appendAll prefix
+          b appendAll name
+          b appendAll suffix
+        case SegmentCodec.UUID(name)               =>
+          b appendAll prefix
+          b appendAll name
+          b appendAll suffix
+        case SegmentCodec.Combined(left, right, _) =>
+          loop(left)
+          loop(right)
+        case _: SegmentCodec.Trailing.type         =>
+          b appendAll "..."
+      }
     }
+    if (self ne SegmentCodec.Empty) b append '/'
+      loop(self.asInstanceOf[SegmentCodec[_]])
+    b.result()
+  }
 
   final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =
     PathCodec.Segment(self).transform(f)(g)
@@ -101,6 +135,8 @@ object SegmentCodec          {
     def format(unit: Unit): Path = Path(s"")
 
     def matches(segments: Chunk[String], index: Int): Int = 0
+
+    def submatch(sub: String, from: Int): Range = null
   }
 
   private[http] final case class Literal(value: String) extends SegmentCodec[Unit] {
@@ -111,6 +147,13 @@ object SegmentCodec          {
       if (index < 0 || index >= segments.length) -1
       else if (value == segments(index)) 1
       else -1
+    }
+
+    // TODO: Optimize
+    def submatch(sub: String, from: Int): Range = {
+      val s = sub.indexOf(value.drop(from))
+      if (s == -1) null
+      else Range.inclusive(s + from, s + from + value.length - 1)
     }
   }
   private[http] final case class BoolSeg(name: String) extends SegmentCodec[Boolean] {
@@ -124,6 +167,18 @@ object SegmentCodec          {
 
         if (segment == "true" || segment == "false") 1 else -1
       }
+
+    def submatch(sub: String, from: Int): Range = {
+      // TODO: Optimize
+      sub.drop(from).indexOf("true") match {
+        case -1 =>
+          sub.drop(from).indexOf("false") match {
+            case -1 => null
+            case s  => Range.inclusive(s + from, s + from + 4)
+          }
+        case s  => Range.inclusive(s + from, s + from + 3)
+      }
+    }
   }
   private[http] final case class IntSeg(name: String) extends SegmentCodec[Int] {
 
@@ -146,7 +201,11 @@ object SegmentCodec          {
         if (defined && i >= 1) 1 else -1
       }
     }
+
+    def submatch(sub: String, from: Int): Range =
+      submatchNumber(sub, from)
   }
+
   private[http] final case class LongSeg(name: String) extends SegmentCodec[Long] {
 
     def format(value: Long): Path = Path(s"/$value")
@@ -168,6 +227,8 @@ object SegmentCodec          {
         if (defined && i >= 1) 1 else -1
       }
     }
+
+    def submatch(sub: String, from: Int): Range = submatchNumber(sub, from)
   }
   private[http] final case class Text(name: String) extends SegmentCodec[String] {
 
@@ -176,6 +237,8 @@ object SegmentCodec          {
     def matches(segments: Chunk[String], index: Int): Int =
       if (index < 0 || index >= segments.length) -1
       else 1
+
+    def submatch(sub: String, from: Int): Range = Range.inclusive(from, sub.length - 1)
   }
   private[http] final case class UUID(name: String) extends SegmentCodec[java.util.UUID] {
 
@@ -212,6 +275,43 @@ object SegmentCodec          {
         if (defined && i == 36) 1 else -1
       }
     }
+
+    def submatch(sub: String, from: Int): Range = ???
+  }
+
+  private[http] final case class Combined[A, B, C](
+    left: SegmentCodec[A],
+    right: SegmentCodec[B],
+    combiner: Combiner.WithOut[A, B, C],
+  ) extends SegmentCodec[C] {
+    override def format(value: C): Path = {
+      val (l, r) = combiner.separate(value)
+      val lf     = left.format(l)
+      val rf     = right.format(r)
+      lf ++ rf
+    }
+
+    override def matches(segments: Chunk[String], index: Int): Int = {
+      if (index < 0 || index >= segments.length) -1
+      else {
+        val SegmentCodec = segments(index)
+        val s            = SegmentCodec.length
+        val r1           = left.submatch(SegmentCodec, 0)
+        val r2           = right.submatch(SegmentCodec, 0)
+        if ((r1 eq null) || (r2 eq null)) -1
+        else {
+          if (r1.start == 0 && r2.end == s - 1 && r1.end >= r2.end - 1) 1
+          else -1
+        }
+      }
+    }
+
+    override def submatch(sub: String, from: Int): Range = {
+      val r1 = left.submatch(sub, from)
+      val r2 = right.submatch(sub, from)
+      if (r1.end >= r2.end && r1.start < r2.start) Range.inclusive(r1.start, r2.end)
+      else null
+    }
   }
 
   case object Trailing extends SegmentCodec[Path] { self =>
@@ -219,5 +319,32 @@ object SegmentCodec          {
 
     def matches(segments: Chunk[String], index: Int): Int =
       (segments.length - index).max(0)
+
+    override def submatch(sub: String, from: Int): Range = Range.inclusive(from, sub.length - 1)
+  }
+
+  private def submatchNumber(sub: String, from: Int): Range = {
+    if (sub.isEmpty) return null
+    var i     = from
+    var first = -1
+    var last  = -1
+    val size  = sub.length
+    while (i < size && last == -1) {
+      val c = sub.charAt(i)
+      if (first == -1) {
+        if (c == '-' && i + 1 < size && sub.charAt(i + 1).isDigit) {
+          first = i
+          i += 1
+        } else if (c.isDigit) {
+          first = i
+        }
+      } else if (!c.isDigit) {
+        last = i - 1
+      }
+      i += 1
+    }
+    if (first == -1) null
+    else if (last == -1) Range.inclusive(first, size - 1)
+    else Range.inclusive(first, last)
   }
 }

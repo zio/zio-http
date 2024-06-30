@@ -16,13 +16,13 @@
 
 package zio.http.codec
 
-import scala.annotation.tailrec
+import scala.annotation.{tailrec}
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
-
 import zio._
-
 import zio.http._
+
+import scala.collection.mutable
 
 /**
  * A codec for paths, which consists of segments, where each segment may be a
@@ -263,6 +263,15 @@ sealed trait PathCodec[A] { self =>
             case Right(value)  =>
               stack.push(value)
           }
+
+        case SubSegmentOpts(ops) =>
+          val error = decodeSubstring(segments(j), ops, stack)
+          if (error != null) {
+            fail = error
+            i = instructions.length
+          } else {
+            j += 1
+          }
       }
 
       i = i + 1
@@ -275,6 +284,130 @@ sealed trait PathCodec[A] { self =>
       } else {
         Right(stack.pop().asInstanceOf[A])
       }
+    }
+  }
+
+  private def decodeSubstring(
+    value: String,
+    instructions: Array[Opt],
+    stack: java.util.Deque[Any],
+  ): String = {
+    import Opt._
+
+    var i    = 0
+    var j    = 0
+    val size = value.length
+    while (i < instructions.length) {
+      val opt = instructions(i)
+      opt match {
+        case Match(toMatch)     =>
+          val size0 = toMatch.length
+          if ((size - j) < size0) {
+            return "Expected segment separator \"" + value + "\" but found end of segment"
+          } else if (value.regionMatches(false, j, toMatch, 0, size0)) {
+            stack.push(())
+            j += size0
+          } else {
+            return "Expected segment separator \"" + toMatch + "\""
+          }
+        case Combine(combiner0) =>
+          val combiner = combiner0.asInstanceOf[Combiner[Any, Any]]
+          val right    = stack.pop()
+          val left     = stack.pop()
+          stack.push(combiner.combine(left, right))
+        case StringOpt          =>
+          // Here things get "interesting" (aka annoying). We don't have a way of knowing when a string ends,
+          // so we have to look ahead to the next operator and figure out where it begins
+          val end = indexOfNextCodec(value, instructions, i, j)
+          if (end == -1) { // If this wasn't the last codec, let the error handler of the next codec handle this
+            stack.push(value.substring(j))
+            j = size
+          } else {
+            stack.push(value.substring(j, end))
+            j = end
+          }
+        case IntOpt | LongOpt   =>
+          var sub = null.asInstanceOf[String]
+          val end = value.indexWhere(!_.isDigit, j)
+          if (end == -1) {
+            sub = value.substring(j)
+            j = size
+          } else if (end == j) {
+            return "Expected integer path segment but found end of segment"
+          } else {
+            sub = value.substring(j, end)
+            j = end
+          }
+          if (opt == IntOpt) stack.push(sub.toInt) else stack.push(sub.toLong)
+        case UUIDOpt            =>
+          if ((size - j) < 36) {
+            return "Expected UUID path segment but found end of segment"
+          } else {
+            val sub = value.substring(j, j + 36)
+            try {
+              stack.push(java.util.UUID.fromString(sub))
+            } catch {
+              case _: IllegalArgumentException => return "Expected UUID path segment but found: " + sub
+            }
+            j += 36
+          }
+        case BoolOpt            =>
+          if (value.regionMatches(true, j, "true", 0, 4)) {
+            stack.push(true)
+            j += 4
+          } else if (value.regionMatches(true, j, "false", 0, 5)) {
+            stack.push(false)
+            j += 5
+          } else {
+            return "Expected boolean path segment but found end of segment"
+          }
+        case TrailingOpt        =>
+          ???
+        case _                  =>
+          throw new IllegalStateException("Unexpected instruction in substring decoder")
+      }
+      i += 1
+    }
+    if (j != size) "Expected end of segment but found: " + value.substring(j)
+    else null
+  }
+
+  private val UuidRegex = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".r
+
+  private def indexOfNextCodec(value: String, instructions: Array[Opt], fromI: Int, idx: Int) = {
+    import Opt._
+
+    var nextOpt = null.asInstanceOf[Opt]
+    var j1      = fromI + 1
+    val size    = value.length
+
+    while ((nextOpt eq null) && j1 < instructions.length) {
+      instructions(j1) match {
+        case op @ (Match(_) | IntOpt | LongOpt | UUIDOpt | BoolOpt) =>
+          nextOpt = op
+        case _                                                      =>
+          j1 += 1
+      }
+    }
+
+    nextOpt match {
+      case null             =>
+        -1
+      case Match(toMatch)   =>
+        value.indexOf(toMatch, idx, size)
+      case IntOpt | LongOpt =>
+        value.indexWhere(_.isDigit, idx)
+      case BoolOpt          =>
+        val t = value.indexOf("true", idx)
+        if (t == -1) value.indexOf("false", idx) else t
+      case UUIDOpt          =>
+        val sub  = value.substring(idx)
+        val arr  = UuidRegex.split(sub)
+        val head = arr(0)
+        if (head == sub) -1
+        else idx + head.length
+      case _                =>
+        throw new IllegalStateException("Unexpected instruction in substring decoder: " + nextOpt)
     }
   }
 
@@ -346,33 +479,47 @@ sealed trait PathCodec[A] { self =>
   private var _optimize: Array[Opt] = null.asInstanceOf[Array[Opt]]
 
   private[http] def optimize: Array[Opt] = {
-    def loop(pattern: PathCodec[_]): Chunk[Opt] =
+
+    def loopSegment(segment: SegmentCodec[_], fresh: Boolean)(implicit b: mutable.ArrayBuilder[Opt]): Unit =
+      segment match {
+        case SegmentCodec.Empty                           => b += Opt.Unit
+        case SegmentCodec.Literal(value)                  => b += Opt.Match(value)
+        case SegmentCodec.IntSeg(_)                       => b += Opt.IntOpt
+        case SegmentCodec.LongSeg(_)                      => b += Opt.LongOpt
+        case SegmentCodec.Text(_)                         => b += Opt.StringOpt
+        case SegmentCodec.UUID(_)                         => b += Opt.UUIDOpt
+        case SegmentCodec.BoolSeg(_)                      => b += Opt.BoolOpt
+        case SegmentCodec.Trailing                        => b += Opt.TrailingOpt
+        case SegmentCodec.Combined(left, right, combiner) =>
+          val ab = if (fresh) mutable.ArrayBuilder.make[Opt] else b
+          loopSegment(left, fresh = false)(ab)
+          loopSegment(right, fresh = false)(ab)
+          ab += Opt.Combine(combiner)
+          if (fresh) b += Opt.SubSegmentOpts(ab.result().asInstanceOf[Array[Opt]])
+      }
+
+    def loop(pattern: PathCodec[_])(implicit b: mutable.ArrayBuilder[Opt]): Unit =
       pattern match {
         case PathCodec.Annotated(codec, _) =>
           loop(codec)
         case PathCodec.Segment(segment)    =>
-          Chunk(segment.asInstanceOf[SegmentCodec[_]] match {
-            case SegmentCodec.Empty          => Opt.Unit
-            case SegmentCodec.Literal(value) => Opt.Match(value)
-            case SegmentCodec.IntSeg(_)      => Opt.IntOpt
-            case SegmentCodec.LongSeg(_)     => Opt.LongOpt
-            case SegmentCodec.Text(_)        => Opt.StringOpt
-            case SegmentCodec.UUID(_)        => Opt.UUIDOpt
-            case SegmentCodec.BoolSeg(_)     => Opt.BoolOpt
-            case SegmentCodec.Trailing       => Opt.TrailingOpt
-          })
-
-        case f: Fallback[_] =>
-          Chunk(Opt.MatchAny(fallbacks(f)))
-
+          loopSegment(segment, fresh = true)
+        case f: Fallback[_]                =>
+          b += Opt.MatchAny(fallbacks(f))
         case Concat(left, right, combiner) =>
-          loop(left) ++ loop(right) ++ Chunk(Opt.Combine(combiner))
-
-        case TransformOrFail(api, f, _) =>
-          loop(api) :+ Opt.MapOrFail(f.asInstanceOf[Any => Either[String, Any]])
+          loop(left)
+          loop(right)
+          b += Opt.Combine(combiner)
+        case TransformOrFail(api, f, _)    =>
+          loop(api)
+          b += Opt.MapOrFail(f)
       }
 
-    if (_optimize eq null) _optimize = loop(self).toArray
+    if (_optimize eq null) {
+      implicit val b = mutable.ArrayBuilder.make[Opt]
+      loop(self)
+      _optimize = b.result()
+    }
 
     _optimize
   }
@@ -409,17 +556,15 @@ sealed trait PathCodec[A] { self =>
    */
   def render(prefix: String, suffix: String): String = {
     def loop(path: PathCodec[_]): String = path match {
-      case PathCodec.Annotated(codec, _)    =>
+      case PathCodec.Annotated(codec, _)        =>
         loop(codec)
-      case PathCodec.Concat(left, right, _) =>
+      case PathCodec.Concat(left, right, _)     =>
         loop(left) + loop(right)
-
-      case PathCodec.Segment(segment) => segment.render(prefix, suffix)
-
+      case PathCodec.Segment(segment)           =>
+        segment.render(prefix, suffix)
       case PathCodec.TransformOrFail(api, _, _) =>
         loop(api)
-
-      case PathCodec.Fallback(left, _) =>
+      case PathCodec.Fallback(left, _)          =>
         loop(left)
     }
 
@@ -517,6 +662,8 @@ object PathCodec          {
 
   implicit def path(value: String): PathCodec[Unit] = apply(value)
 
+  implicit def segment[A](codec: SegmentCodec[A]): PathCodec[A] = Segment(codec)
+
   def string(name: String): PathCodec[String] = Segment(SegmentCodec.string(name))
 
   def trailing: PathCodec[Path] = Segment(SegmentCodec.Trailing)
@@ -574,6 +721,7 @@ object PathCodec          {
     case object BoolOpt                                       extends Opt
     case object TrailingOpt                                   extends Opt
     case object Unit                                          extends Opt
+    final case class SubSegmentOpts(ops: Array[Opt])          extends Opt
     final case class MapOrFail(f: Any => Either[String, Any]) extends Opt
   }
 
