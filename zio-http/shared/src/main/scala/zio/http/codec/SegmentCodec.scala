@@ -15,11 +15,10 @@
  */
 package zio.http.codec
 
-import scala.language.implicitConversions
-
 import zio.Chunk
-
 import zio.http.Path
+
+import scala.language.implicitConversions
 
 sealed trait SegmentCodec[A] { self =>
   private var _hashCode: Int  = 0
@@ -50,8 +49,8 @@ sealed trait SegmentCodec[A] { self =>
   // Returns number of segments matched, or -1 if not matched:
   def matches(segments: Chunk[String], index: Int): Int
 
-  // Returns the range of the first subsegment matched, or null if not matched:
-  def submatch(sub: String, from: Int): Range
+ // Returns the last index of the subsegment matched, or -1 if not matched
+  def inSegmentUntil(segment: String, from: Int): Int
 
   final def nonEmpty: Boolean = !isEmpty
 
@@ -67,35 +66,35 @@ sealed trait SegmentCodec[A] { self =>
       s match {
         case _: SegmentCodec.Empty.type            => ()
         case SegmentCodec.Literal(value)           =>
-          b appendAll value
+          b.appendAll(value)
         case SegmentCodec.IntSeg(name)             =>
-          b appendAll prefix
-          b appendAll name
-          b appendAll suffix
+          b.appendAll(prefix)
+          b.appendAll(name)
+          b.appendAll(suffix)
         case SegmentCodec.LongSeg(name)            =>
-          b appendAll prefix
-          b appendAll name
-          b appendAll suffix
+          b.appendAll(prefix)
+          b.appendAll(name)
+          b.appendAll(suffix)
         case SegmentCodec.Text(name)               =>
-          b appendAll prefix
-          b appendAll name
-          b appendAll suffix
+          b.appendAll(prefix)
+          b.appendAll(name)
+          b.appendAll(suffix)
         case SegmentCodec.BoolSeg(name)            =>
-          b appendAll prefix
-          b appendAll name
-          b appendAll suffix
+          b.appendAll(prefix)
+          b.appendAll(name)
+          b.appendAll(suffix)
         case SegmentCodec.UUID(name)               =>
-          b appendAll prefix
-          b appendAll name
-          b appendAll suffix
+          b.appendAll(prefix)
+          b.appendAll(name)
+          b.appendAll(suffix)
         case SegmentCodec.Combined(left, right, _) =>
           loop(left)
           loop(right)
         case _: SegmentCodec.Trailing.type         =>
-          b appendAll "..."
+          b.appendAll("...")
       }
     }
-    if (self ne SegmentCodec.Empty) b append '/'
+    if (self ne SegmentCodec.Empty) b.append('/')
       loop(self.asInstanceOf[SegmentCodec[_]])
     b.result()
   }
@@ -136,7 +135,8 @@ object SegmentCodec          {
 
     def matches(segments: Chunk[String], index: Int): Int = 0
 
-    def submatch(sub: String, from: Int): Range = null
+    override def inSegmentUntil(segment: String, from: Int): Int = from
+
   }
 
   private[http] final case class Literal(value: String) extends SegmentCodec[Unit] {
@@ -149,13 +149,12 @@ object SegmentCodec          {
       else -1
     }
 
-    // TODO: Optimize
-    def submatch(sub: String, from: Int): Range = {
-      val s = sub.indexOf(value.drop(from))
-      if (s == -1) null
-      else Range.inclusive(s + from, s + from + value.length - 1)
-    }
+    override def inSegmentUntil(segment: String, from: Int): Int =
+      if (segment.startsWith(value, from)) from + value.length
+      else -1
+
   }
+
   private[http] final case class BoolSeg(name: String) extends SegmentCodec[Boolean] {
 
     def format(value: Boolean): Path = Path(s"/$value")
@@ -168,42 +167,39 @@ object SegmentCodec          {
         if (segment == "true" || segment == "false") 1 else -1
       }
 
-    def submatch(sub: String, from: Int): Range = {
-      // TODO: Optimize
-      sub.drop(from).indexOf("true") match {
-        case -1 =>
-          sub.drop(from).indexOf("false") match {
-            case -1 => null
-            case s  => Range.inclusive(s + from, s + from + 4)
-          }
-        case s  => Range.inclusive(s + from, s + from + 3)
-      }
-    }
+    override def inSegmentUntil(segment: String, from: Int): Int =
+        if (segment.startsWith("true", from)) from + 4
+        else if (segment.startsWith("false", from)) from + 5
+        else -1
+
   }
+
   private[http] final case class IntSeg(name: String) extends SegmentCodec[Int] {
 
     def format(value: Int): Path = Path(s"/$value")
 
-    def matches(segments: Chunk[String], index: Int): Int = {
+    def matches(segments: Chunk[String], index: Int): Int =
       if (index < 0 || index >= segments.length) -1
       else {
-        val SegmentCodec = segments(index)
-        var i            = 0
-        var defined      = true
-        if (SegmentCodec.length > 1 && SegmentCodec.charAt(0) == '-') i += 1
-        while (i < SegmentCodec.length) {
-          if (!SegmentCodec.charAt(i).isDigit) {
-            defined = false
-            i = SegmentCodec.length
-          }
-          i += 1
-        }
-        if (defined && i >= 1) 1 else -1
+       val lastIndex = inSegmentUntil(segments(index), 0)
+         if (lastIndex == -1 || lastIndex + 1  != segments(index).length) -1
+         else 1
       }
-    }
 
-    def submatch(sub: String, from: Int): Range =
-      submatchNumber(sub, from)
+    override def inSegmentUntil(segment: String, from: Int): Int =
+      if (segment.isEmpty || from >= segment.length) {
+        -1
+      } else {
+        var i = from
+        val isNegative = segment.charAt(i) == '-'
+        // 10 digits is the maximum for an Int
+        val maxDigits = if (isNegative) 11 else 10
+        if (segment.length > 1 && isNegative) i += 1
+        while (segment.charAt(i).isDigit && i - from < maxDigits) i += 1
+        i
+      }
+
+
   }
 
   private[http] final case class LongSeg(name: String) extends SegmentCodec[Long] {
@@ -213,22 +209,26 @@ object SegmentCodec          {
     def matches(segments: Chunk[String], index: Int): Int = {
       if (index < 0 || index >= segments.length) -1
       else {
-        val SegmentCodec = segments(index)
-        var i            = 0
-        var defined      = true
-        if (SegmentCodec.length > 1 && SegmentCodec.charAt(0) == '-') i += 1
-        while (i < SegmentCodec.length) {
-          if (!SegmentCodec.charAt(i).isDigit) {
-            defined = false
-            i = SegmentCodec.length
-          }
-          i += 1
-        }
-        if (defined && i >= 1) 1 else -1
+        val lastIndex = inSegmentUntil(segments(index), 0)
+        if (lastIndex == -1 || lastIndex + 1  != segments(index).length) -1
+        else 1
       }
     }
 
-    def submatch(sub: String, from: Int): Range = submatchNumber(sub, from)
+    override def inSegmentUntil(segment: String, from: Int): Int = {
+      if (segment.isEmpty || from >= segment.length) {
+        -1
+      } else {
+        var i = from
+        val isNegative = segment.charAt(i) == '-'
+        // 19 digits is the maximum for a Long
+        val maxDigits = if (isNegative) 20 else 19
+        if (segment.length > 1 && isNegative) i += 1
+        while (segment.charAt(i).isDigit && i - from < maxDigits) i += 1
+        i
+      }
+    }
+
   }
   private[http] final case class Text(name: String) extends SegmentCodec[String] {
 
@@ -238,7 +238,9 @@ object SegmentCodec          {
       if (index < 0 || index >= segments.length) -1
       else 1
 
-    def submatch(sub: String, from: Int): Range = Range.inclusive(from, sub.length - 1)
+    override def inSegmentUntil(segment: String, from: Int): Int =
+      segment.length
+
   }
   private[http] final case class UUID(name: String) extends SegmentCodec[java.util.UUID] {
 
@@ -247,43 +249,54 @@ object SegmentCodec          {
     def matches(segments: Chunk[String], index: Int): Int = {
       if (index < 0 || index >= segments.length) -1
       else {
-        val SegmentCodec = segments(index)
-
-        var i       = 0
-        var defined = true
-        var group   = 0
-        var count   = 0
-        while (i < SegmentCodec.length) {
-          val char = SegmentCodec.charAt(i)
-          if ((char >= 48 && char <= 57) || (char >= 65 && char <= 70) || (char >= 97 && char <= 102))
-            count += 1
-          else if (char == 45) {
-            if (
-              group > 4 || (group == 0 && count != 8) || ((group == 1 || group == 2 || group == 3) && count != 4) || (group == 4 && count != 12)
-            ) {
-              defined = false
-              i = SegmentCodec.length
-            }
-            count = 0
-            group += 1
-          } else {
-            defined = false
-            i = SegmentCodec.length
-          }
-          i += 1
-        }
-        if (defined && i == 36) 1 else -1
+        val lastIndex = inSegmentUntil(segments(index), 0)
+        if (lastIndex == -1 || lastIndex + 1  != segments(index).length) -1
+        else 1
       }
     }
 
-    def submatch(sub: String, from: Int): Range = ???
+    override def inSegmentUntil(segment: String, from: Int): Int = {
+      var i       = from
+      var defined = true
+      var group   = 0
+      var count   = 0
+      if (segment.length + from < 36) return -1
+      while (i < 36 && defined) {
+        val char = segment.charAt(i)
+        if ((char >= 48 && char <= 57) || (char >= 65 && char <= 70) || (char >= 97 && char <= 102))
+          count += 1
+        else if (char == 45) {
+          if (
+            group > 4 || (group == 0 && count != 8) || ((group == 1 || group == 2 || group == 3) && count != 4) || (group == 4 && count != 12)
+          ) {
+            defined = false
+            i = segment.length
+          }
+          count = 0
+          group += 1
+        } else {
+          defined = false
+          i = segment.length
+        }
+        i += 1
+      }
+      if (defined && from + 36 == i) i else -1
+    }
+
   }
 
   private[http] final case class Combined[A, B, C](
     left: SegmentCodec[A],
     right: SegmentCodec[B],
     combiner: Combiner.WithOut[A, B, C],
-  ) extends SegmentCodec[C] {
+  ) extends SegmentCodec[C] { self =>
+    val flattened: List[SegmentCodec[_]] = {
+      def loop(s: SegmentCodec[_]): List[SegmentCodec[_]] = s match {
+        case SegmentCodec.Combined(l, r, _) => loop(l) ++ loop(r)
+        case _                              => List(s)
+      }
+      loop(self)
+    }
     override def format(value: C): Path = {
       val (l, r) = combiner.separate(value)
       val lf     = left.format(l)
@@ -291,27 +304,38 @@ object SegmentCodec          {
       lf ++ rf
     }
 
-    override def matches(segments: Chunk[String], index: Int): Int = {
-      if (index < 0 || index >= segments.length) -1
-      else {
-        val SegmentCodec = segments(index)
-        val s            = SegmentCodec.length
-        val r1           = left.submatch(SegmentCodec, 0)
-        val r2           = right.submatch(SegmentCodec, 0)
-        if ((r1 eq null) || (r2 eq null)) -1
+    override def matches(segments: Chunk[String], index: Int): Int =
+        if (index < 0 || index >= segments.length) -1
         else {
-          if (r1.start == 0 && r2.end == s - 1 && r1.end >= r2.end - 1) 1
-          else -1
+          val segment = segments(index)
+          val length  = segment.length
+          var from = 0
+          var i = 0
+          while (i < flattened.length) {
+                if (from >= length) return -1
+                val codec = flattened(i)
+                val s     = codec.inSegmentUntil(segment, from)
+                if (s == -1) return -1
+                from = s
+                i += 1
+          }
+          1
         }
+
+
+    override def inSegmentUntil(segment: String, from: Int): Int = {
+      var i = from
+      var j = 0
+      while (j < flattened.length) {
+        val codec = flattened(j)
+        val s     = codec.inSegmentUntil(segment, i)
+        if (s == -1) return -1
+        i = s
+        j += 1
       }
+      i
     }
 
-    override def submatch(sub: String, from: Int): Range = {
-      val r1 = left.submatch(sub, from)
-      val r2 = right.submatch(sub, from)
-      if (r1.end >= r2.end && r1.start < r2.start) Range.inclusive(r1.start, r2.end)
-      else null
-    }
   }
 
   case object Trailing extends SegmentCodec[Path] { self =>
@@ -320,31 +344,8 @@ object SegmentCodec          {
     def matches(segments: Chunk[String], index: Int): Int =
       (segments.length - index).max(0)
 
-    override def submatch(sub: String, from: Int): Range = Range.inclusive(from, sub.length - 1)
+    override def inSegmentUntil(segment: String, from: Int): Int =
+      segment.length
   }
 
-  private def submatchNumber(sub: String, from: Int): Range = {
-    if (sub.isEmpty) return null
-    var i     = from
-    var first = -1
-    var last  = -1
-    val size  = sub.length
-    while (i < size && last == -1) {
-      val c = sub.charAt(i)
-      if (first == -1) {
-        if (c == '-' && i + 1 < size && sub.charAt(i + 1).isDigit) {
-          first = i
-          i += 1
-        } else if (c.isDigit) {
-          first = i
-        }
-      } else if (!c.isDigit) {
-        last = i - 1
-      }
-      i += 1
-    }
-    if (first == -1) null
-    else if (last == -1) Range.inclusive(first, size - 1)
-    else Range.inclusive(first, last)
-  }
 }

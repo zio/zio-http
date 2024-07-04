@@ -28,6 +28,8 @@ object CommandGen {
         case SegmentCodec.Literal(_)    => ("", "")
         case SegmentCodec.Trailing      => ("", "")
         case SegmentCodec.Empty         => ("", "")
+        case SegmentCodec.Combined(left, right, combiner) =>
+         ???
       }
 
     fromSegment(segment)
