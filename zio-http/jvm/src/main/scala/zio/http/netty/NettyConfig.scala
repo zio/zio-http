@@ -20,22 +20,37 @@ import java.util.concurrent.TimeUnit
 
 import zio.{Config, Duration}
 
-import zio.http.netty.NettyConfig.{ExecutionMode, LeakDetectionLevel}
+import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 import io.netty.util.ResourceLeakDetector
 
 final case class NettyConfig(
+  avoidContextSwitching: Boolean,
   leakDetectionLevel: LeakDetectionLevel,
   channelType: ChannelType,
-  executionMode: ExecutionMode,
   nThreads: Int,
   shutdownQuietPeriodDuration: Duration,
   shutdownTimeoutDuration: Duration,
 ) extends EventLoopGroups.Config { self =>
 
-  def channelType(channelType: ChannelType): NettyConfig = self.copy(channelType = channelType)
+  /**
+   * Attempts to avoid context switching between thread pools by executing
+   * requests within Netty's event loop until the first async/blocking boundary.
+   *
+   * Enabling this setting can improve performance for short-lived CPU-bound
+   * tasks, but can also lead to degraded performance if the request handler
+   * performs CPU-heavy work prior to the first async boundary.
+   *
+   * '''WARNING:''' Do not use this mode if the ZIO executor is configured to
+   * use virtual threads
+   *
+   * @see
+   *   For more info on caveats of this mode, see <a
+   *   href="https://github.com/zio/zio-http/pull/2782">related issue </a>
+   */
+  def avoidContextSwitching(value: Boolean): NettyConfig = self.copy(avoidContextSwitching = value)
 
-  def executionMode(value: ExecutionMode): NettyConfig = self.copy(executionMode = value)
+  def channelType(channelType: ChannelType): NettyConfig = self.copy(channelType = channelType)
 
   /**
    * Configure the server to use the leak detection level provided.
@@ -59,7 +74,8 @@ final case class NettyConfig(
 
 object NettyConfig {
   lazy val config: Config[NettyConfig] =
-    (LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
+    (Config.boolean("minimize-context-switching").withDefault(NettyConfig.default.avoidContextSwitching) ++
+      LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
       Config
         .string("channel-type")
         .mapOrFail {
@@ -71,18 +87,17 @@ object NettyConfig {
           case other    => Left(Config.Error.InvalidData(message = s"Invalid channel type: $other"))
         }
         .withDefault(NettyConfig.default.channelType) ++
-      ExecutionMode.config.nested("execution-mode").withDefault(NettyConfig.default.executionMode) ++
       Config.int("max-threads").withDefault(NettyConfig.default.nThreads) ++
       Config.duration("shutdown-quiet-period").withDefault(NettyConfig.default.shutdownQuietPeriodDuration) ++
       Config.duration("shutdown-timeout").withDefault(NettyConfig.default.shutdownTimeoutDuration)).map {
-      case (leakDetectionLevel, channelType, executionMode, maxThreads, quietPeriod, timeout) =>
-        NettyConfig(leakDetectionLevel, channelType, executionMode, maxThreads, quietPeriod, timeout)
+      case (avoidCtxSwitch, leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout) =>
+        NettyConfig(avoidCtxSwitch, leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout)
     }
 
   lazy val default: NettyConfig = NettyConfig(
+    avoidContextSwitching = false,
     LeakDetectionLevel.SIMPLE,
     ChannelType.AUTO,
-    ExecutionMode.Default,
     0,
     // Defaults taken from io.netty.util.concurrent.AbstractEventExecutor
     Duration.fromSeconds(2),
@@ -120,39 +135,6 @@ object NettyConfig {
         case "advanced" => Right(LeakDetectionLevel.ADVANCED)
         case "paranoid" => Right(LeakDetectionLevel.PARANOID)
         case other      => Left(Config.Error.InvalidData(message = s"Invalid leak detection level: $other"))
-      }
-  }
-
-  sealed trait ExecutionMode
-
-  object ExecutionMode {
-
-    /**
-     * Delegate all effect handling to the ZIO runtime
-     */
-    case object Default extends ExecutionMode
-
-    /**
-     * Run requests on Netty's event loop thread until the first async boundary.
-     *
-     * Selecting this mode can improve performance for short-lived CPU-bound
-     * tasks, but can also lead to degraded performance if the request handler
-     * performs CPU-heavy work prior to the first async boundary.
-     *
-     * '''WARNING:''' Do not use this mode if the ZIO executor is configured to
-     * use virtual threads
-     *
-     * @see
-     *   For more info on caveats of this mode, see <a
-     *   href="https://github.com/zio/zio-http/pull/2782">related issue </a>
-     */
-    case object MinimizeContextSwitching extends ExecutionMode
-
-    lazy val config: Config[ExecutionMode] =
-      Config.string.mapOrFail {
-        case "default"                  => Right(ExecutionMode.Default)
-        case "minimizeContextSwitching" => Right(ExecutionMode.MinimizeContextSwitching)
-        case other                      => Left(Config.Error.InvalidData(message = s"Invalid execution mode: $other"))
       }
   }
 }

@@ -22,16 +22,13 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import io.netty.channel._
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 
-private[zio] final class NettyRuntime(
-  zioRuntime: Runtime[Any],
-  executionMode: NettyConfig.ExecutionMode,
-) {
-  private[this] val rtm         = zioRuntime.unsafe
-  private[this] val attemptSync = executionMode == NettyConfig.ExecutionMode.MinimizeContextSwitching
+private[zio] final class NettyRuntime(zioRuntime: Runtime[Any]) {
+  private[this] val rtm = zioRuntime.unsafe
 
   def run(
     ctx: ChannelHandlerContext,
     ensured: () => Unit,
+    preferOnCurrentThread: Boolean,
   )(
     program: ZIO[Any, Throwable, Any],
   )(implicit unsafe: Unsafe, trace: Trace): Unit = {
@@ -52,7 +49,7 @@ private[zio] final class NettyRuntime(
     def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit =
       ctx.channel().closeFuture().removeListener(close): Unit
 
-    val forkOrExit = if (attemptSync) rtm.runOrFork(program) else Left(rtm.fork(program))
+    val forkOrExit = if (preferOnCurrentThread) rtm.runOrFork(program) else Left(rtm.fork(program))
 
     forkOrExit match {
       case Left(fiber) =>
@@ -93,7 +90,7 @@ private[zio] object NettyRuntime {
     ZLayer.fromZIO {
       ZIO
         .runtime[Any]
-        .map(new NettyRuntime(_, NettyConfig.ExecutionMode.Default))
+        .map(new NettyRuntime(_))
     }
   }
 }

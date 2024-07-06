@@ -45,7 +45,7 @@ import io.netty.util.ReferenceCountUtil
 private[zio] final case class ServerInboundHandler(
   appRef: AppRef,
   config: Server.Config,
-  executionMode: NettyConfig.ExecutionMode,
+  avoidCtxSwitching: Boolean,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
@@ -61,7 +61,7 @@ private[zio] final case class ServerInboundHandler(
     val pair = appRef.get()
 
     this.app = pair._1
-    this.runtime = new NettyRuntime(pair._2, executionMode)
+    this.runtime = new NettyRuntime(pair._2)
   }
 
   private def ensureHasApp(): Unit = {
@@ -305,7 +305,7 @@ private[zio] final case class ServerInboundHandler(
     exit: ZIO[Any, Response, Response],
     req: Request,
   )(ensured: () => Unit): Unit = {
-    runtime.run(ctx, ensured) {
+    runtime.run(ctx, ensured, preferOnCurrentThread = avoidCtxSwitching) {
       exit.sandbox.catchAll { error =>
         error.failureOrCause
           .fold[UIO[Response]](
@@ -364,7 +364,7 @@ object ServerInboundHandler {
         appRef   <- ZIO.service[AppRef]
         config   <- ZIO.service[Server.Config]
         nettyCfg <- ZIO.service[NettyConfig]
-      } yield ServerInboundHandler(appRef, config, nettyCfg.executionMode)
+      } yield ServerInboundHandler(appRef, config, nettyCfg.avoidContextSwitching)
     }
   }
 
