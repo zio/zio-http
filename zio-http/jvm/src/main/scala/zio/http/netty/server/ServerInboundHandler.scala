@@ -45,6 +45,7 @@ import io.netty.util.ReferenceCountUtil
 private[zio] final case class ServerInboundHandler(
   appRef: AppRef,
   config: Server.Config,
+  executionMode: NettyConfig.ExecutionMode,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
@@ -60,7 +61,7 @@ private[zio] final case class ServerInboundHandler(
     val pair = appRef.get()
 
     this.app = pair._1
-    this.runtime = new NettyRuntime(pair._2)
+    this.runtime = new NettyRuntime(pair._2, executionMode)
   }
 
   private def ensureHasApp(): Unit = {
@@ -112,11 +113,11 @@ private[zio] final case class ServerInboundHandler(
             (msg ne null) && msg.contains("Connection reset")
           } =>
       case t =>
-        if (runtime ne null) {
-          runtime.run(ctx, () => {}) {
+        if ((runtime ne null) && config.logWarningOnFatalError) {
+          runtime.unsafeRunSync {
             // We cannot return the generated response from here, but still calling the handler for its side effect
             // for example logging.
-            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError)
+            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t))
           }
         }
         cause match {
@@ -353,17 +354,17 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
 
   val live: ZLayer[
-    AppRef & Server.Config,
+    AppRef & Server.Config & NettyConfig,
     Nothing,
     ServerInboundHandler,
   ] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
-        appRef <- ZIO.service[AppRef]
-        config <- ZIO.service[Server.Config]
-
-      } yield ServerInboundHandler(appRef, config)
+        appRef   <- ZIO.service[AppRef]
+        config   <- ZIO.service[Server.Config]
+        nettyCfg <- ZIO.service[NettyConfig]
+      } yield ServerInboundHandler(appRef, config, nettyCfg.executionMode)
     }
   }
 
