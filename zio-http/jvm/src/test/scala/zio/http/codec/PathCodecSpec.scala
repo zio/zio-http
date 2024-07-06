@@ -17,9 +17,12 @@
 package zio.http.codec
 
 import java.util.UUID
+
 import scala.util.Try
+
 import zio._
 import zio.test._
+
 import zio.http._
 import zio.http.codec.PathCodec.Segment
 import zio.http.codec._
@@ -118,7 +121,7 @@ object PathCodecSpec extends ZIOHttpSpec {
           val codec = PathCodec.empty /
             string("foo") /
             "instances" /
-            SegmentCodec.int("a") ~ "_" ~ SegmentCodec.int("b") /
+            int("a") ~ "_" ~ int("b") /
             "bar" /
             int("baz")
 
@@ -128,7 +131,7 @@ object PathCodecSpec extends ZIOHttpSpec {
           val codec = PathCodec.empty /
             string("foo") /
             "foo" /
-            SegmentCodec.uuid("a") ~ "__" ~ SegmentCodec.int("b") /
+            uuid("a") ~ "__" ~ int("b") /
             "bar" /
             int("baz")
 
@@ -140,7 +143,7 @@ object PathCodecSpec extends ZIOHttpSpec {
           val codec = PathCodec.empty /
             string("foo") /
             "foo" /
-            SegmentCodec.string("a") ~ "__" ~ SegmentCodec.int("b") /
+            string("a") ~ "__" ~ int("b") /
             "bar" /
             int("baz")
           assertTrue(codec.decode(Path("/abc/foo/cba__13/bar/42")) == Right(("abc", "cba", 13, 42)))
@@ -149,16 +152,25 @@ object PathCodecSpec extends ZIOHttpSpec {
           val codec = PathCodec.empty /
             string("foo") /
             "foo" /
-            SegmentCodec.string("a") ~ SegmentCodec.int("b") /
+            string("a") ~ int("b") /
             "bar" /
             int("baz")
           assertTrue(codec.decode(Path("/abc/foo/cba13/bar/42")) == Right(("abc", "cba", 13, 42)))
+        },
+        test("string before long") {
+          val codec = PathCodec.empty /
+            string("foo") /
+            "foo" /
+            string("a") ~ long("b") /
+            "bar" /
+            int("baz")
+          assertTrue(codec.decode(Path("/abc/foo/cba133333333333/bar/42")) == Right(("abc", "cba", 133333333333L, 42)))
         },
         test("trailing literal") {
           val codec = PathCodec.empty /
             string("foo") /
             "instances" /
-            SegmentCodec.int("a") ~ "what" /
+            int("a") ~ "what" /
             "bar" /
             int("baz")
 
@@ -202,7 +214,7 @@ object PathCodecSpec extends ZIOHttpSpec {
         test("/users/{first-name}_{last-name}") {
           val codec =
             PathCodec.empty / PathCodec.literal("users") /
-              SegmentCodec.string("first-name") ~ "_" ~ SegmentCodec.string("last-name")
+              string("first-name") ~ "_" ~ string("last-name")
 
           assertTrue(codec.render == "/users/{first-name}_{last-name}")
         },

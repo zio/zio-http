@@ -16,13 +16,14 @@
 
 package zio.http.codec
 
-import scala.annotation.{tailrec}
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-import scala.language.implicitConversions
-import zio._
-import zio.http._
-
 import scala.collection.mutable
+import scala.language.implicitConversions
+
+import zio._
+
+import zio.http._
 
 /**
  * A codec for paths, which consists of segments, where each segment may be a
@@ -209,7 +210,7 @@ sealed trait PathCodec[A] { self =>
             val segment = segments(j)
             j = j + 1
             try {
-              stack.push(java.util.UUID.fromString(segment.toString))
+              stack.push(java.util.UUID.fromString(segment))
             } catch {
               case _: IllegalArgumentException =>
                 fail = s"Expected UUID path segment but found ${segment}"
@@ -225,9 +226,9 @@ sealed trait PathCodec[A] { self =>
             val segment = segments(j)
             j = j + 1
 
-            if (segment == "true") {
+            if (segment.equalsIgnoreCase("true")) {
               stack.push(true)
-            } else if (segment == "false") {
+            } else if (segment.equalsIgnoreCase("false")) {
               stack.push(false)
             } else {
               fail = s"Expected boolean path segment but found ${segment}"
@@ -303,12 +304,12 @@ sealed trait PathCodec[A] { self =>
         case Match(toMatch)     =>
           val size0 = toMatch.length
           if ((size - j) < size0) {
-            return "Expected segment separator \"" + value + "\" but found end of segment"
-          } else if (value.regionMatches(false, j, toMatch, 0, size0)) {
+            return "Expected \"" + toMatch + "\" in segment " + value + " but found end of segment"
+          } else if (value.startsWith(toMatch, j)) {
             stack.push(())
             j += size0
           } else {
-            return "Expected segment separator \"" + toMatch + "\""
+            return "Expected \"" + toMatch + "\" in segment " + value + " but found: " + value.substring(j)
           }
         case Combine(combiner0) =>
           val combiner = combiner0.asInstanceOf[Combiner[Any, Any]]
@@ -326,22 +327,47 @@ sealed trait PathCodec[A] { self =>
             stack.push(value.substring(j, end))
             j = end
           }
-        case IntOpt | LongOpt   =>
-          var sub = null.asInstanceOf[String]
-          val end = value.indexWhere(!_.isDigit, j)
-          if (end == -1) {
-            sub = value.substring(j)
-            j = size
-          } else if (end == j) {
+        case IntOpt             =>
+          val isNegative = value(j) == '-'
+          if (isNegative) j += 1
+          var end        = j
+          while (end < size && value(end).isDigit) end += 1
+          if (end == j) {
             return "Expected integer path segment but found end of segment"
+          } else if (end - j > 10) {
+            return "Expected integer path segment but found: " + value.substring(j, end)
           } else {
-            sub = value.substring(j, end)
-            j = end
+
+            try {
+              val int = Integer.parseInt(value, j, end, 10)
+              j = end
+              if (isNegative) stack.push(-int) else stack.push(int)
+            } catch {
+              case _: NumberFormatException =>
+                return "Expected integer path segment but found: " + value.substring(j, end)
+            }
           }
-          if (opt == IntOpt) stack.push(sub.toInt) else stack.push(sub.toLong)
+        case LongOpt            =>
+          val isNegative = value(j) == '-'
+          if (isNegative) j += 1
+          var end        = j
+          while (end < size && value(end).isDigit) end += 1
+          if (end == j) {
+            return "Expected long path segment but found end of segment"
+          } else if (end - j > 19) {
+            return "Expected long path segment but found: " + value.substring(j, end)
+          } else {
+            try {
+              val long = java.lang.Long.parseLong(value, j, end, 10)
+              j = end
+              if (isNegative) stack.push(-long) else stack.push(long)
+            } catch {
+              case _: NumberFormatException => return "Expected long path segment but found: " + value.substring(j, end)
+            }
+          }
         case UUIDOpt            =>
           if ((size - j) < 36) {
-            return "Expected UUID path segment but found end of segment"
+            return "Remaining path segment " + value.substring(j) + " is too short to be a UUID"
           } else {
             val sub = value.substring(j, j + 36)
             try {
@@ -362,7 +388,10 @@ sealed trait PathCodec[A] { self =>
             return "Expected boolean path segment but found end of segment"
           }
         case TrailingOpt        =>
-          ???
+          // TrailingOpt must be invalid, since it wants to extract a path,
+          // which is not possible in a sub part of a segment.
+          // The equivalent of trailing here is just StringOpt
+          throw new IllegalStateException("TrailingOpt is not allowed in a sub segment")
         case _                  =>
           throw new IllegalStateException("Unexpected instruction in substring decoder")
       }
@@ -372,14 +401,11 @@ sealed trait PathCodec[A] { self =>
     else null
   }
 
-  private val UuidRegex = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".r
-
-  private def indexOfNextCodec(value: String, instructions: Array[Opt], fromI: Int, idx: Int) = {
+  private def indexOfNextCodec(value: String, instructions: Array[Opt], fromI: Int, idx: Int): Int = {
     import Opt._
 
     var nextOpt = null.asInstanceOf[Opt]
     var j1      = fromI + 1
-    val size    = value.length
 
     while ((nextOpt eq null) && j1 < instructions.length) {
       instructions(j1) match {
@@ -394,18 +420,26 @@ sealed trait PathCodec[A] { self =>
       case null             =>
         -1
       case Match(toMatch)   =>
-        value.indexOf(toMatch, idx, size)
+        if (idx + toMatch.length > value.length) -1
+        else if (toMatch.length == 1) value.indexOf(toMatch.charAt(0).toInt, idx)
+        else value.indexOf(toMatch, idx)
       case IntOpt | LongOpt =>
         value.indexWhere(_.isDigit, idx)
       case BoolOpt          =>
-        val t = value.indexOf("true", idx)
-        if (t == -1) value.indexOf("false", idx) else t
+        val t = value.regionMatches(true, idx, "true", 0, 4)
+        if (t) idx + 4 else if (value.regionMatches(true, idx, "false", 0, 5)) idx + 5 else -1
       case UUIDOpt          =>
-        val sub  = value.substring(idx)
-        val arr  = UuidRegex.split(sub)
-        val head = arr(0)
-        if (head == sub) -1
-        else idx + head.length
+        val until = SegmentCodec.UUID.isUUIDUntil(value, idx)
+        if (until == -1) -1 else idx + until
+      case MatchAny(values) =>
+        var end      = -1
+        val valuesIt = values.iterator
+        while (valuesIt.hasNext && end == -1) {
+          val value = valuesIt.next()
+          val index = value.indexOf(value, idx)
+          if (index != -1) end = index
+        }
+        end
       case _                =>
         throw new IllegalStateException("Unexpected instruction in substring decoder: " + nextOpt)
     }
@@ -512,12 +546,12 @@ sealed trait PathCodec[A] { self =>
           b += Opt.Combine(combiner)
         case TransformOrFail(api, f, _)    =>
           loop(api)
-          b += Opt.MapOrFail(f)
+          b += Opt.MapOrFail(f.asInstanceOf[Any => Either[String, Any]])
       }
 
     if (_optimize eq null) {
-      implicit val b = mutable.ArrayBuilder.make[Opt]
-      loop(self)
+      val b: mutable.ArrayBuilder[Opt] = mutable.ArrayBuilder.make[Opt]
+      loop(self)(b)
       _optimize = b.result()
     }
 

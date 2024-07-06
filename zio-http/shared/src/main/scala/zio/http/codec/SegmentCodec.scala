@@ -15,10 +15,15 @@
  */
 package zio.http.codec
 
-import zio.Chunk
-import zio.http.Path
-
+import scala.annotation.implicitNotFound
 import scala.language.implicitConversions
+
+import zio.Chunk
+
+import zio.http.Path
+import zio.http.codec.Combiner.WithOut
+import zio.http.codec.PathCodec.MetaData
+import zio.http.codec.SegmentCodec._
 
 sealed trait SegmentCodec[A] { self =>
   private var _hashCode: Int  = 0
@@ -30,6 +35,12 @@ sealed trait SegmentCodec[A] { self =>
     case that: SegmentCodec[_] => (this.getClass == that.getClass) && (this.render == that.render)
     case _                     => false
   }
+
+  final def example(name: String, example: A): PathCodec[A] =
+    PathCodec.segment(self).annotate(MetaData.Examples(Map(name -> example)))
+
+  final def examples(examples: (String, A)*): PathCodec[A] =
+    PathCodec.segment(self).annotate(MetaData.Examples(examples.toMap))
 
   def format(value: A): Path
 
@@ -43,13 +54,20 @@ sealed trait SegmentCodec[A] { self =>
     case _                  => false
   }
 
-  final def ~[B](that: SegmentCodec[B])(implicit combiner: Combiner[A, B]): SegmentCodec[combiner.Out] =
-    SegmentCodec.Combined(self, that, combiner)
+  final def ??(doc: Doc): PathCodec[A] = PathCodec.Segment(self).??(doc)
+
+  final def ~[B](
+    that: SegmentCodec[B],
+  )(implicit combiner: Combiner[A, B], combinable: Combinable[B, SegmentCodec[B]]): SegmentCodec[combiner.Out] =
+    combinable.combine(self, that)
+
+  final def ~(that: String)(implicit combiner: Combiner[A, Unit]): SegmentCodec[combiner.Out] =
+    self.~(SegmentCodec.literal(that))(combiner, Combinable.combinableLiteral)
 
   // Returns number of segments matched, or -1 if not matched:
   def matches(segments: Chunk[String], index: Int): Int
 
- // Returns the last index of the subsegment matched, or -1 if not matched
+  // Returns the last index of the subsegment matched, or -1 if not matched
   def inSegmentUntil(segment: String, from: Int): Int
 
   final def nonEmpty: Boolean = !isEmpty
@@ -95,7 +113,7 @@ sealed trait SegmentCodec[A] { self =>
       }
     }
     if (self ne SegmentCodec.Empty) b.append('/')
-      loop(self.asInstanceOf[SegmentCodec[_]])
+    loop(self.asInstanceOf[SegmentCodec[_]])
     b.result()
   }
 
@@ -112,6 +130,179 @@ sealed trait SegmentCodec[A] { self =>
     PathCodec.Segment(self).transformOrFailRight(f)(g)
 }
 object SegmentCodec          {
+
+  @implicitNotFound("Segments of type ${B} cannot be appended to a multi-value segment")
+  sealed trait Combinable[B, S <: SegmentCodec[B]] {
+    def combine[A](self: SegmentCodec[A], that: SegmentCodec[B])(implicit
+      combiner: Combiner[A, B],
+    ): SegmentCodec[combiner.Out]
+  }
+  private[codec] object Combinable                 {
+
+    implicit val combinableString: Combinable[String, SegmentCodec[String]] =
+      new Combinable[String, SegmentCodec[String]] {
+        override def combine[A](self: SegmentCodec[A], that: SegmentCodec[String])(implicit
+          combiner: Combiner[A, String],
+        ): SegmentCodec[combiner.Out] = {
+          self match {
+            case SegmentCodec.Empty                => that.asInstanceOf[SegmentCodec[combiner.Out]]
+            case SegmentCodec.Text(name)           =>
+              throw new IllegalArgumentException(
+                "Cannot combine two string segments. Their names are " + name + " and " + that
+                  .asInstanceOf[SegmentCodec.Text]
+                  .name,
+              )
+            case c: SegmentCodec.Combined[_, _, _] =>
+              val last = c.flattened.last
+              last match {
+                case text: SegmentCodec.Text =>
+                  throw new IllegalArgumentException(
+                    "Cannot combine two string segments. Their names are" + text.name + " and " + that
+                      .asInstanceOf[Text]
+                      .name,
+                  )
+                case _                       =>
+                  SegmentCodec.Combined(self, that, combiner.asInstanceOf[WithOut[A, String, combiner.Out]])
+              }
+            case _                                 =>
+              SegmentCodec.Combined(self, that, combiner.asInstanceOf[Combiner.WithOut[A, String, combiner.Out]])
+          }
+        }
+      }
+    implicit val combinableInt: Combinable[Int, SegmentCodec[Int]]          =
+      new Combinable[Int, SegmentCodec[Int]] {
+        override def combine[A](self: SegmentCodec[A], that: SegmentCodec[Int])(implicit
+          combiner: Combiner[A, Int],
+        ): SegmentCodec[combiner.Out] = {
+          self match {
+            case SegmentCodec.Empty                => that.asInstanceOf[SegmentCodec[combiner.Out]]
+            case SegmentCodec.IntSeg(name)         =>
+              throw new IllegalArgumentException(
+                "Cannot combine two numeric segments. Their names are " + name + " and " + that
+                  .asInstanceOf[SegmentCodec.IntSeg]
+                  .name,
+              )
+            case SegmentCodec.LongSeg(name)        =>
+              throw new IllegalArgumentException(
+                "Cannot combine two numeric segments. Their names are " + name + " and " + that
+                  .asInstanceOf[SegmentCodec.IntSeg]
+                  .name,
+              )
+            case c: SegmentCodec.Combined[_, _, _] =>
+              val last = c.flattened.last
+              if (last.isInstanceOf[SegmentCodec.IntSeg] || last.isInstanceOf[SegmentCodec.LongSeg]) {
+                val lastName =
+                  last match {
+                    case SegmentCodec.IntSeg(name)  => name
+                    case SegmentCodec.LongSeg(name) => name
+                    case _                          => ""
+                  }
+                throw new IllegalArgumentException(
+                  "Cannot combine two numeric segments. Their names are " + lastName + " and " + that
+                    .asInstanceOf[SegmentCodec.IntSeg]
+                    .name,
+                )
+              } else {
+                SegmentCodec.Combined(self, that, combiner.asInstanceOf[Combiner.WithOut[A, Int, combiner.Out]])
+              }
+            case _                                 =>
+              SegmentCodec.Combined(self, that, combiner.asInstanceOf[Combiner.WithOut[A, Int, combiner.Out]])
+          }
+        }
+      }
+    implicit val combinableLong: Combinable[Long, SegmentCodec[Long]]       =
+      new Combinable[Long, SegmentCodec[Long]] {
+        override def combine[A](self: SegmentCodec[A], that: SegmentCodec[Long])(implicit
+          combiner: Combiner[A, Long],
+        ): SegmentCodec[combiner.Out] = {
+          self match {
+            case SegmentCodec.Empty                => that.asInstanceOf[SegmentCodec[combiner.Out]]
+            case SegmentCodec.IntSeg(name)         =>
+              throw new IllegalArgumentException(
+                "Cannot combine two numeric segments. Their names are " + name + " and " + that
+                  .asInstanceOf[SegmentCodec.LongSeg]
+                  .name,
+              )
+            case SegmentCodec.LongSeg(name)        =>
+              throw new IllegalArgumentException(
+                "Cannot combine two numeric segments. Their names are " + name + " and " + that
+                  .asInstanceOf[SegmentCodec.LongSeg]
+                  .name,
+              )
+            case c: SegmentCodec.Combined[_, _, _] =>
+              val last = c.flattened.last
+              if (last.isInstanceOf[SegmentCodec.IntSeg] || last.isInstanceOf[SegmentCodec.LongSeg]) {
+                val lastName =
+                  last match {
+                    case SegmentCodec.IntSeg(name)  => name
+                    case SegmentCodec.LongSeg(name) => name
+                    case _                          => ""
+                  }
+                throw new IllegalArgumentException(
+                  "Cannot combine two numeric segments. Their names are " + lastName + " and " + that
+                    .asInstanceOf[SegmentCodec.LongSeg]
+                    .name,
+                )
+              } else {
+                SegmentCodec.Combined(self, that, combiner.asInstanceOf[Combiner.WithOut[A, Long, combiner.Out]])
+              }
+            case _                                 =>
+              SegmentCodec.Combined(self, that, combiner.asInstanceOf[Combiner.WithOut[A, Long, combiner.Out]])
+          }
+        }
+      }
+    implicit val combinableBool: Combinable[Boolean, SegmentCodec[Boolean]] =
+      new Combinable[Boolean, SegmentCodec[Boolean]] {
+        override def combine[A](self: SegmentCodec[A], that: SegmentCodec[Boolean])(implicit
+          combiner: Combiner[A, Boolean],
+        ): SegmentCodec[combiner.Out] = {
+          self match {
+            case SegmentCodec.Empty => that.asInstanceOf[SegmentCodec[combiner.Out]]
+            case _                  =>
+              SegmentCodec.Combined(self, that, combiner.asInstanceOf[Combiner.WithOut[A, Boolean, combiner.Out]])
+          }
+        }
+      }
+    implicit val combinableUUID: Combinable[UUID, SegmentCodec[UUID]]       =
+      new Combinable[UUID, SegmentCodec[UUID]] {
+        override def combine[A](self: SegmentCodec[A], that: SegmentCodec[UUID])(implicit
+          combiner: Combiner[A, UUID],
+        ): SegmentCodec[combiner.Out] = {
+          self match {
+            case SegmentCodec.Empty => that.asInstanceOf[SegmentCodec[combiner.Out]]
+            case _                  =>
+              SegmentCodec.Combined(self, that, combiner.asInstanceOf[Combiner.WithOut[A, UUID, combiner.Out]])
+          }
+        }
+      }
+    implicit val combinableLiteral: Combinable[Unit, SegmentCodec[Unit]]    =
+      new Combinable[Unit, SegmentCodec[Unit]] {
+        override def combine[A](self: SegmentCodec[A], that: SegmentCodec[Unit])(implicit
+          combiner: Combiner[A, Unit],
+        ): SegmentCodec[combiner.Out] = {
+          self match {
+            case SegmentCodec.Empty          => that.asInstanceOf[SegmentCodec[combiner.Out]]
+            case SegmentCodec.Literal(value) =>
+              SegmentCodec
+                .Literal(value + that.asInstanceOf[SegmentCodec.Literal].value)
+                .asInstanceOf[SegmentCodec[combiner.Out]]
+            case SegmentCodec.Combined(l, r, c) if r.isInstanceOf[SegmentCodec.Literal] =>
+              SegmentCodec
+                .Combined(
+                  l.asInstanceOf[SegmentCodec[Any]],
+                  SegmentCodec
+                    .Literal(r.asInstanceOf[SegmentCodec.Literal].value + that.asInstanceOf[SegmentCodec.Literal].value)
+                    .asInstanceOf[SegmentCodec[Any]],
+                  c.asInstanceOf[Combiner.WithOut[Any, Any, Any]],
+                )
+                .asInstanceOf[SegmentCodec[combiner.Out]]
+            case _                                                                      =>
+              SegmentCodec.Combined(self, that, combiner.asInstanceOf[Combiner.WithOut[A, Unit, combiner.Out]])
+          }
+        }
+      }
+  }
+
   def bool(name: String): SegmentCodec[Boolean] = SegmentCodec.BoolSeg(name)
 
   val empty: SegmentCodec[Unit] = SegmentCodec.Empty
@@ -168,9 +359,9 @@ object SegmentCodec          {
       }
 
     override def inSegmentUntil(segment: String, from: Int): Int =
-        if (segment.startsWith("true", from)) from + 4
-        else if (segment.startsWith("false", from)) from + 5
-        else -1
+      if (segment.startsWith("true", from)) from + 4
+      else if (segment.startsWith("false", from)) from + 5
+      else -1
 
   }
 
@@ -181,24 +372,23 @@ object SegmentCodec          {
     def matches(segments: Chunk[String], index: Int): Int =
       if (index < 0 || index >= segments.length) -1
       else {
-       val lastIndex = inSegmentUntil(segments(index), 0)
-         if (lastIndex == -1 || lastIndex + 1  != segments(index).length) -1
-         else 1
+        val lastIndex = inSegmentUntil(segments(index), 0)
+        if (lastIndex == -1 || lastIndex + 1 != segments(index).length) -1
+        else 1
       }
 
     override def inSegmentUntil(segment: String, from: Int): Int =
       if (segment.isEmpty || from >= segment.length) {
         -1
       } else {
-        var i = from
+        var i          = from
         val isNegative = segment.charAt(i) == '-'
         // 10 digits is the maximum for an Int
-        val maxDigits = if (isNegative) 11 else 10
+        val maxDigits  = if (isNegative) 11 else 10
         if (segment.length > 1 && isNegative) i += 1
-        while (segment.charAt(i).isDigit && i - from < maxDigits) i += 1
+        while (i + 1 < segment.length && i - from < maxDigits && segment.charAt(i).isDigit) i += 1
         i
       }
-
 
   }
 
@@ -210,7 +400,7 @@ object SegmentCodec          {
       if (index < 0 || index >= segments.length) -1
       else {
         val lastIndex = inSegmentUntil(segments(index), 0)
-        if (lastIndex == -1 || lastIndex + 1  != segments(index).length) -1
+        if (lastIndex == -1 || lastIndex + 1 != segments(index).length) -1
         else 1
       }
     }
@@ -219,12 +409,12 @@ object SegmentCodec          {
       if (segment.isEmpty || from >= segment.length) {
         -1
       } else {
-        var i = from
+        var i          = from
         val isNegative = segment.charAt(i) == '-'
         // 19 digits is the maximum for a Long
-        val maxDigits = if (isNegative) 20 else 19
+        val maxDigits  = if (isNegative) 20 else 19
         if (segment.length > 1 && isNegative) i += 1
-        while (segment.charAt(i).isDigit && i - from < maxDigits) i += 1
+        while (i + 1 < segment.length && i - from < maxDigits && segment.charAt(i).isDigit) i += 1
         i
       }
     }
@@ -250,12 +440,17 @@ object SegmentCodec          {
       if (index < 0 || index >= segments.length) -1
       else {
         val lastIndex = inSegmentUntil(segments(index), 0)
-        if (lastIndex == -1 || lastIndex + 1  != segments(index).length) -1
+        if (lastIndex == -1 || lastIndex + 1 != segments(index).length) -1
         else 1
       }
     }
 
-    override def inSegmentUntil(segment: String, from: Int): Int = {
+    override def inSegmentUntil(segment: String, from: Int): Int =
+      UUID.isUUIDUntil(segment, from)
+  }
+
+  private[http] object UUID {
+    def isUUIDUntil(segment: String, from: Int): Int = {
       var i       = from
       var defined = true
       var group   = 0
@@ -297,7 +492,7 @@ object SegmentCodec          {
       }
       loop(self)
     }
-    override def format(value: C): Path = {
+    override def format(value: C): Path  = {
       val (l, r) = combiner.separate(value)
       val lf     = left.format(l)
       val rf     = right.format(r)
@@ -305,23 +500,22 @@ object SegmentCodec          {
     }
 
     override def matches(segments: Chunk[String], index: Int): Int =
-        if (index < 0 || index >= segments.length) -1
-        else {
-          val segment = segments(index)
-          val length  = segment.length
-          var from = 0
-          var i = 0
-          while (i < flattened.length) {
-                if (from >= length) return -1
-                val codec = flattened(i)
-                val s     = codec.inSegmentUntil(segment, from)
-                if (s == -1) return -1
-                from = s
-                i += 1
-          }
-          1
+      if (index < 0 || index >= segments.length) -1
+      else {
+        val segment = segments(index)
+        val length  = segment.length
+        var from    = 0
+        var i       = 0
+        while (i < flattened.length) {
+          if (from >= length) return -1
+          val codec = flattened(i)
+          val s     = codec.inSegmentUntil(segment, from)
+          if (s == -1) return -1
+          from = s
+          i += 1
         }
-
+        1
+      }
 
     override def inSegmentUntil(segment: String, from: Int): Int = {
       var i = from
