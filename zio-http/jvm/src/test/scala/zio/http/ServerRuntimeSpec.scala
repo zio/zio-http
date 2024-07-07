@@ -76,6 +76,34 @@ object ServerRuntimeSpec extends HttpRunnableSpec {
             .zipRight(server.deploy.body.run(path = Path.root / "test", method = Method.GET))
             .flatMap(_.asString(Charsets.Utf8))
             .map(b => assertTrue(b == "1"))
+        } +
+        test("initMiddleware runs at the outmost middleware boundary") {
+          val ref = Ref.unsafe.make("")(Unsafe.unsafe)
+
+          val outer = HandlerAspect.interceptPatchZIO(_ => ref.update(_ + "outer_")) { (resp, _) =>
+            val existing = resp.rawHeader("bar").getOrElse("")
+            ZIO.succeed(Response.Patch.addHeader("bar", existing + "outer2_"))
+          }
+
+          val inner = HandlerAspect.interceptPatchZIO(_ => ref.update(_ + "inner_")) { (resp, _) =>
+            val existing = resp.rawHeader("bar").getOrElse("")
+            ZIO.succeed(Response.Patch.addHeader("bar", existing + "inner2_"))
+          }
+
+          val routes = Routes(RoutePattern.GET -> handler(ref.get.map(Response.text))) @@ inner
+
+          Driver.setDefaultMiddleware(outer) *>
+            ZIO
+              .scoped(serve)
+              .zipRight(routes.deploy.run())
+              .flatMap { resp =>
+                resp.body.asString.map { b =>
+                  assertTrue(
+                    b == "outer_inner_",
+                    resp.headers.get("bar") == Some("inner2_outer2_"),
+                  )
+                }
+              }
         }
     }
       .provide(

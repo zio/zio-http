@@ -33,4 +33,19 @@ trait Driver {
 
 object Driver extends DriverPlatformSpecific {
   final case class StartResult(port: Int, inFlightRequests: LongAdder)
+
+  /* NOTE for developers: This FiberRef allows instrumentation of zio-http apps
+   * via javaagent for the purposes of monitoring / tracing / etc. via 3rd party
+   * tooling. Do not change the type as it might break the instrumentation.
+   */
+  final val defaultMiddleware: FiberRef[Option[HandlerAspect[Any, Unit]]] =
+    FiberRef.unsafe.make(Option.empty[HandlerAspect[Any, Unit]])(Unsafe.unsafe)
+
+  /**
+   * Sets a middleware that will be applied to all routes by default. This
+   * middleware runs at the outermost boundary of the application (i.e., applies
+   * first to requests and last to responses).
+   */
+  def setDefaultMiddleware(middleware: HandlerAspect[Any, Unit])(implicit trace: Trace): UIO[Unit] =
+    defaultMiddleware.set(Some(middleware))
 }
