@@ -101,7 +101,7 @@ jobs:
           I will automatically update the README.md file whenever there is a new change for README.md, e.g.
             - After each release, I will update the version in the installation section.
             - After any changes to the "docs/index.md" file, I will update the README.md file accordingly.
-        branch: zio-http-website/update-readme
+        branch: zio-sbt-website/update-readme
         commit-message: Update README.md
         token: ${{ steps.generate-token.outputs.token }}
         delete-branch: true
