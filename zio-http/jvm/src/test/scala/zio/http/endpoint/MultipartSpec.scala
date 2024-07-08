@@ -198,7 +198,7 @@ object MultipartSpec extends ZIOHttpSpec {
             fields.foldLeft(
               Endpoint(POST / "test-form")
                 .copy(output = HttpCodec.status(Status.Ok))
-                .asInstanceOf[Endpoint[Any, Any, Any, Any, EndpointMiddleware.None]],
+                .asInstanceOf[Endpoint[Any, Any, Any, Any, AuthType.None]],
             ) { case (ep, (ff, schema, name, isStreaming)) =>
               if (isStreaming)
                 name match {
@@ -281,11 +281,10 @@ object MultipartSpec extends ZIOHttpSpec {
         import zio._
         import zio.http._
         import zio.http.codec._
-        import zio.http.endpoint.EndpointMiddleware.None
         import zio.schema.DeriveSchema.gen
         import zio.stream.ZStream
 
-        val endpoint: Endpoint[Int, Int, ZNothing, (Book, ZStream[Any, Nothing, Byte]), None] =
+        val endpoint: Endpoint[Int, Int, ZNothing, (Book, ZStream[Any, Nothing, Byte]), AuthType.None] =
           Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
             .outCodec(
               HttpCodec.content[Book]("book", MediaType.application.`json`) ++
