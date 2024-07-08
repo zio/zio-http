@@ -3,7 +3,6 @@ package zio.http.endpoint.cli
 import zio._
 import zio.cli._
 
-import zio.http._
 import zio.http.endpoint._
 
 /*
@@ -17,7 +16,7 @@ object HttpCommand {
   /*
    * Transforms an Endpoint in its corresponding Command[CliRequest].
    */
-  def getCommand[M <: EndpointMiddleware](endpoint: Endpoint[_, _, _, _, M], cliStyle: Boolean): Command[CliRequest] = {
+  def getCommand(endpoint: Endpoint[_, _, _, _, _], cliStyle: Boolean): Command[CliRequest] = {
     val cliEndpoint = CliEndpoint.fromEndpoint(endpoint)
 
     val doc = cliEndpoint.doc.toPlaintext()
@@ -43,9 +42,9 @@ object HttpCommand {
   /*
    * Transforms a chunk of Endpoints in a Command to use directly in the CliApp.
    */
-  def fromEndpoints[M <: EndpointMiddleware](
+  def fromEndpoints(
     name: String,
-    endpoints: Chunk[Endpoint[_, _, _, _, M]],
+    endpoints: Chunk[Endpoint[_, _, _, _, _]],
     cliStyle: Boolean,
   ): Command[CliRequest] = {
 

@@ -26,7 +26,7 @@ object EndpointGen {
   def fromInputCodec[Input](
     doc: Doc,
     input: HttpCodec[CodecType, Input],
-  ): Endpoint[Path, Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  ): Endpoint[Path, Input, ZNothing, ZNothing, AuthType.None] =
     Endpoint(
       RoutePattern.any,
       input,
@@ -34,7 +34,7 @@ object EndpointGen {
       HttpCodec.unused,
       HttpContentCodec.responseErrorCodec,
       doc,
-      EndpointMiddleware.None,
+      AuthType.None,
     )
 
   lazy val anyCliEndpoint: Gen[Any, CliReprOf[CliEndpoint]] =
