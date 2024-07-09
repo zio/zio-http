@@ -136,7 +136,7 @@ object Response {
   def error(status: Status.Error, message: String): Response = {
     import zio.http.internal.OutputEncoder
 
-    val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
+    val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message).replace("\n", " ")
 
     Response(status = status, headers = Headers(Header.Warning(199, "ZIO HTTP", message2)))
   }
