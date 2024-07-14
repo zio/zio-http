@@ -55,7 +55,7 @@ object NettyResponse {
       onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
       Response(status, headers, Body.empty)
     } else {
-      val contentType = headers.get(Header.ContentType)
+      val contentType     = headers.get(Header.ContentType)
       val responseHandler = new ClientResponseStreamHandler(onComplete, keepAlive, status)
       ctx
         .pipeline()
@@ -65,7 +65,11 @@ object NettyResponse {
           responseHandler,
         ): Unit
 
-      val data = NettyBody.fromAsync(callback => responseHandler.connect(callback), knownContentLength, contentType.map(_.renderedValue))
+      val data = NettyBody.fromAsync(
+        callback => responseHandler.connect(callback),
+        knownContentLength,
+        contentType.map(_.renderedValue),
+      )
       Response(status, headers, data)
     }
   }

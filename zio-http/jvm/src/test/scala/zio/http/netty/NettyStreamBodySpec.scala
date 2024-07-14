@@ -3,7 +3,9 @@ package zio.http.netty
 import zio._
 import zio.test.TestAspect.withLiveClock
 import zio.test.{Spec, TestEnvironment, assertTrue}
+
 import zio.stream.{ZPipeline, ZStream, ZStreamAspect}
+
 import zio.http.ZClient.Config
 import zio.http._
 import zio.http.internal.HttpRunnableSpec
@@ -102,29 +104,31 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
         }
       },
       test("properly decodes body's boundary") {
-        def trackablePart(content : String): ZIO[Any, Nothing, (MultipartMixed.Part, Promise[Nothing, Boolean])] = {
-          zio.Promise.make[Nothing, Boolean].map{ p =>
+        def trackablePart(content: String): ZIO[Any, Nothing, (MultipartMixed.Part, Promise[Nothing, Boolean])] = {
+          zio.Promise.make[Nothing, Boolean].map { p =>
             MultipartMixed.Part(
               Headers(Header.ContentType(MediaType.text.`plain`)),
               ZStream(content)
                 .via(ZPipeline.utf8Encode)
-                .ensuring(p.succeed(true))
+                .ensuring(p.succeed(true)),
             ) ->
-            p
+              p
           }
         }
-        def trackableMultipartMixed(b : Boundary)(partsContents : String*): ZIO[Any, Nothing, (MultipartMixed, Seq[Promise[Nothing, Boolean]])] = {
+        def trackableMultipartMixed(
+          b: Boundary,
+        )(partsContents: String*): ZIO[Any, Nothing, (MultipartMixed, Seq[Promise[Nothing, Boolean]])] = {
           ZIO
             .foreach(partsContents)(trackablePart)
-            .map{ tps =>
+            .map { tps =>
               val (parts, promisises) = tps.unzip
-              val mpm = MultipartMixed.fromParts(ZStream.fromIterable(parts), b, 1)
+              val mpm                 = MultipartMixed.fromParts(ZStream.fromIterable(parts), b, 1)
               (mpm, promisises)
             }
         }
 
-        def serve(resp : Response): ZIO[Any, Throwable, RuntimeFlags] = {
-          val app = Routes( Method.GET / "it" -> handler( resp ) )
+        def serve(resp: Response): ZIO[Any, Throwable, RuntimeFlags] = {
+          val app = Routes(Method.GET / "it" -> handler(resp))
           for {
             portPromise <- Promise.make[Throwable, Int]
             _           <- Server
@@ -141,40 +145,40 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           } yield port
         }
 
-        for{
-          mpmAndPromises <- trackableMultipartMixed(Boundary("this_is_a_boundary"))("this is the boring part 1", "and this is the boring part two")
+        for {
+          mpmAndPromises <- trackableMultipartMixed(Boundary("this_is_a_boundary"))(
+            "this is the boring part 1",
+            "and this is the boring part two",
+          )
           (mpm, promises) = mpmAndPromises
-          resp = Response(body = Body.fromStreamChunked(mpm.source).contentType(MediaType.multipart.`mixed`, mpm.boundary))
+          resp            = Response(body =
+            Body.fromStreamChunked(mpm.source).contentType(MediaType.multipart.`mixed`, mpm.boundary),
+          )
             .addHeader(Header.ContentType(MediaType.multipart.`mixed`, Some(mpm.boundary)))
-          port <- serve(resp)
-          client                   <- ZIO.service[Client]
+          port   <- serve(resp)
+          client <- ZIO.service[Client]
           req = Request.get(s"http://localhost:$port/it")
-          actualResp <- client(req)
-          actualMpm <- actualResp.body.asMultipartMixed
-          partsResults <- actualMpm
-            .parts
-            .zipWithIndex
-            .mapZIO{
-              case (part, idx) =>
-                val pr = promises(idx.toInt)
-                pr.isDone <*>
-                part.toBody.asString  <*>
-                pr.isDone
-            }
-            .runCollect
+          actualResp   <- client(req)
+          actualMpm    <- actualResp.body.asMultipartMixed
+          partsResults <- actualMpm.parts.zipWithIndex.mapZIO { case (part, idx) =>
+            val pr = promises(idx.toInt)
+            pr.isDone <*>
+              part.toBody.asString <*>
+              pr.isDone
+          }.runCollect
         } yield {
-          zio.test.assertTrue{
-            actualResp.headers(Header.ContentType) == resp.headers(Header.ContentType)  &&
-              actualResp.body.boundary == Some(mpm.boundary)  &&
-              actualMpm.boundary == mpm.boundary  &&
-              partsResults == Chunk(
-                //todo: due to server side buffering can't really expect the promises to be uncompleted BEFORE pulling on the client side
-                (true, "this is the boring part 1", true),
-                (true, "and this is the boring part two", true)
-              )
+          zio.test.assertTrue {
+            actualResp.headers(Header.ContentType) == resp.headers(Header.ContentType) &&
+            actualResp.body.boundary == Some(mpm.boundary) &&
+            actualMpm.boundary == mpm.boundary &&
+            partsResults == Chunk(
+              // todo: due to server side buffering can't really expect the promises to be uncompleted BEFORE pulling on the client side
+              (true, "this is the boring part 1", true),
+              (true, "and this is the boring part two", true),
+            )
           }
         }
-      }
+      },
     ).provide(
       singleConnectionClient,
       Scope.default,
