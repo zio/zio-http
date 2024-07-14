@@ -155,6 +155,19 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
         case _            => Seq.empty
       }
     },
+    libraryDependencies ++= Seq(
+      "software.amazon.smithy" % "smithy-model" % "1.50.0",
+      "software.amazon.smithy" % "smithy-openapi" % "1.50.0",  // Add this dependency
+      "com.typesafe" % "config" % "1.4.1",  // For reading configuration files if needed
+      "org.scalatest" %% "scalatest" % "3.2.10" % Test,  // For testing
+      "io.circe" %% "circe-core" % "0.14.1",
+      "io.circe" %% "circe-generic" % "0.14.1",
+      "io.circe" %% "circe-parser" % "0.14.1",
+      "dev.zio" %% "zio-http" % "3.0.0-RC9", // Adding ZIO HTTP dependency
+      "com.google.code.gson" % "gson" % "2.8.9", // Adding Gson dependency
+      "dev.zio" %% "zio-http-gen" % "3.0.0-RC9",
+      "org.scala-lang.modules" %% "scala-java8-compat" % "0.9.1"
+    )
   )
   .jvmSettings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
