@@ -162,8 +162,8 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           actualMpm    <- actualResp.body.asMultipartMixed
           partsResults <- actualMpm.parts.zipWithIndex.mapZIO { case (part, idx) =>
             val pr = promises(idx.toInt)
-            pr.isDone <*>
-              part.toBody.asString <*>
+            // todo: due to server side buffering can't really expect the promises to be uncompleted BEFORE pulling on the client side
+            part.toBody.asString <*>
               pr.isDone
           }.runCollect
         } yield {
@@ -173,8 +173,8 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
             actualMpm.boundary == mpm.boundary &&
             partsResults == Chunk(
               // todo: due to server side buffering can't really expect the promises to be uncompleted BEFORE pulling on the client side
-              (true, "this is the boring part 1", true),
-              (true, "and this is the boring part two", true),
+              ("this is the boring part 1", true),
+              ("and this is the boring part two", true),
             )
           }
         }
