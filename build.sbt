@@ -166,7 +166,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       "dev.zio" %% "zio-http" % "3.0.0-RC9", // Adding ZIO HTTP dependency
       "com.google.code.gson" % "gson" % "2.8.9", // Adding Gson dependency
       "dev.zio" %% "zio-http-gen" % "3.0.0-RC9",
-      "org.scala-lang.modules" %% "scala-java8-compat" % "0.9.1"
+      "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2"
     )
   )
   .jvmSettings(
