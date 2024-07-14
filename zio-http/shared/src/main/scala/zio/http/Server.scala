@@ -447,7 +447,7 @@ object Server extends ServerPlatformSpecific {
         serverStarted    <- Promise.make[Throwable, Int]
         _                <-
           (for {
-            _      <- initialInstall.await
+            _      <- initialInstall.await.interruptible
             result <- driver.start
             _      <- inFlightRequests.succeed(result.inFlightRequests)
             _      <- serverStarted.succeed(result.port)
