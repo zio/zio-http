@@ -12,7 +12,7 @@ import org.scalajs.dom.ReadableStream
 
 case class FetchBody(
   content: ReadableStream[Uint8Array],
-  contentType: Option[Header.ContentType]
+  contentType: Option[Header.ContentType],
 ) extends Body {
 
   /**
@@ -69,7 +69,7 @@ case class FetchBody(
 
 object FetchBody {
 
-  def fromResponse(result: org.scalajs.dom.Response, contentType : Option[Header.ContentType]): Body = {
+  def fromResponse(result: org.scalajs.dom.Response, contentType: Option[Header.ContentType]): Body = {
     FetchBody(result.body, contentType)
   }
 }

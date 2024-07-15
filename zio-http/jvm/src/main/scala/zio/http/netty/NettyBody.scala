@@ -17,12 +17,16 @@
 package zio.http.netty
 
 import java.nio.charset.Charset
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.stream.ZStream
+
 import zio.http.Body.UnsafeBytes
 import zio.http.internal.BodyEncoding
 import zio.http.{Body, Boundary, Header, MediaType}
+
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.util.AsciiString
 
@@ -41,7 +45,7 @@ object NettyBody extends BodyEncoding {
     AsyncBody(
       unsafeAsync,
       knownContentLength,
-      contentTypeHeader
+      contentTypeHeader,
     )
   }
 
@@ -55,13 +59,12 @@ object NettyBody extends BodyEncoding {
     }
   }
 
-
   override def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
 
   private[zio] final case class AsciiStringBody(
     asciiString: AsciiString,
-    override val contentType: Option[Header.ContentType] = None
+    override val contentType: Option[Header.ContentType] = None,
   ) extends Body
       with UnsafeBytes {
 
@@ -89,7 +92,7 @@ object NettyBody extends BodyEncoding {
   private[zio] final case class AsyncBody(
     unsafeAsync: UnsafeAsync => Unit,
     knownContentLength: Option[Long],
-    override val contentType: Option[Header.ContentType] = None
+    override val contentType: Option[Header.ContentType] = None,
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map {

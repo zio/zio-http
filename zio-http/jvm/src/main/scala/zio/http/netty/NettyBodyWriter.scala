@@ -55,7 +55,7 @@ object NettyBodyWriter {
     }
 
     body match {
-      case body: FileBody                     =>
+      case body: FileBody                  =>
         // We need to stream the file when compression is enabled otherwise the response encoding fails
         val stream = ZStream.fromFile(body.file)
         val s      = StreamBody(stream, None, contentType = body.contentType)
@@ -126,7 +126,7 @@ object NettyBodyWriter {
       case ChunkBody(data, _)              =>
         writeArray(data.toArray, isLast = true)
         None
-      case EmptyBody                          =>
+      case EmptyBody                       =>
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         None
     }
