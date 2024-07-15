@@ -307,14 +307,15 @@ object JsonSchema {
 
   def fromSegmentCodec(codec: SegmentCodec[_]): JsonSchema =
     codec match {
-      case SegmentCodec.BoolSeg(_) => JsonSchema.Boolean
-      case SegmentCodec.IntSeg(_)  => JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)
-      case SegmentCodec.LongSeg(_) => JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)
-      case SegmentCodec.Text(_)    => JsonSchema.String()
-      case SegmentCodec.UUID(_)    => JsonSchema.String(JsonSchema.StringFormat.UUID)
-      case SegmentCodec.Literal(_) => throw new IllegalArgumentException("Literal segment is not supported.")
-      case SegmentCodec.Empty      => throw new IllegalArgumentException("Empty segment is not supported.")
-      case SegmentCodec.Trailing   => throw new IllegalArgumentException("Trailing segment is not supported.")
+      case SegmentCodec.BoolSeg(_)        => JsonSchema.Boolean
+      case SegmentCodec.IntSeg(_)         => JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)
+      case SegmentCodec.LongSeg(_)        => JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)
+      case SegmentCodec.Text(_)           => JsonSchema.String()
+      case SegmentCodec.UUID(_)           => JsonSchema.String(JsonSchema.StringFormat.UUID)
+      case SegmentCodec.Literal(_)        => throw new IllegalArgumentException("Literal segment is not supported.")
+      case SegmentCodec.Empty             => throw new IllegalArgumentException("Empty segment is not supported.")
+      case SegmentCodec.Trailing          => throw new IllegalArgumentException("Trailing segment is not supported.")
+      case SegmentCodec.Combined(_, _, _) => throw new IllegalArgumentException("Combined segment is not supported.")
     }
 
   def fromZSchemaMulti(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchemas = {

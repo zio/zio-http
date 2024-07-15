@@ -705,14 +705,15 @@ object OpenAPIGen {
 
     def segmentToJson(codec: SegmentCodec[_], value: Any): Json = {
       codec match {
-        case SegmentCodec.Empty      => throw new Exception("Empty segment not allowed")
-        case SegmentCodec.Literal(_) => throw new Exception("Literal segment not allowed")
-        case SegmentCodec.BoolSeg(_) => Json.Bool(value.asInstanceOf[Boolean])
-        case SegmentCodec.IntSeg(_)  => Json.Num(value.asInstanceOf[Int])
-        case SegmentCodec.LongSeg(_) => Json.Num(value.asInstanceOf[Long])
-        case SegmentCodec.Text(_)    => Json.Str(value.asInstanceOf[String])
-        case SegmentCodec.UUID(_)    => Json.Str(value.asInstanceOf[UUID].toString)
-        case SegmentCodec.Trailing   => throw new Exception("Trailing segment not allowed")
+        case SegmentCodec.Empty             => throw new Exception("Empty segment not allowed")
+        case SegmentCodec.Literal(_)        => throw new Exception("Literal segment not allowed")
+        case SegmentCodec.BoolSeg(_)        => Json.Bool(value.asInstanceOf[Boolean])
+        case SegmentCodec.IntSeg(_)         => Json.Num(value.asInstanceOf[Int])
+        case SegmentCodec.LongSeg(_)        => Json.Num(value.asInstanceOf[Long])
+        case SegmentCodec.Text(_)           => Json.Str(value.asInstanceOf[String])
+        case SegmentCodec.UUID(_)           => Json.Str(value.asInstanceOf[UUID].toString)
+        case SegmentCodec.Trailing          => throw new Exception("Trailing segment not allowed")
+        case SegmentCodec.Combined(_, _, _) => throw new Exception("Combined segment not allowed")
       }
     }
 
