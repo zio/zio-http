@@ -8,6 +8,11 @@ val releaseDrafterVersion = "5"
 // Setting default log level to INFO
 val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
+//snapshot resolver
+val snapshotResolver = "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+
+ThisBuild / resolvers += snapshotResolver
+
 // CI Configuration
 ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")

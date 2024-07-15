@@ -7,6 +7,8 @@ import scala.meta.prettyprinters.XtensionSyntax
 
 import zio.http.{Method, Status}
 
+import com.sun.tools.javac.code.TypeMetadata.Annotations
+
 sealed trait Code extends Product with Serializable
 
 object Code {
@@ -79,17 +81,29 @@ object Code {
     abstractMembers: List[Field] = Nil,
   ) extends ScalaType
 
-  sealed abstract case class Field private (name: String, fieldType: ScalaType) extends Code {
+  final case class Annotation(value: String)
+
+  sealed abstract case class Field private (name: String, fieldType: ScalaType, annotations: List[Annotation])
+      extends Code {
     // only allow copy on fieldType, since name is mangled to be valid in smart constructor
-    def copy(fieldType: ScalaType): Field = new Field(name, fieldType) {}
+    def copy(fieldType: ScalaType = fieldType, annotations: List[Annotation] = annotations): Field =
+      new Field(name, fieldType, annotations) {}
   }
 
   object Field {
 
-    def apply(name: String): Field                       = apply(name, ScalaType.Inferred)
-    def apply(name: String, fieldType: ScalaType): Field = {
+    def apply(name: String): Field                                               = apply(name, ScalaType.Inferred)
+    def apply(name: String, fieldType: ScalaType): Field                         = {
       val validScalaTermName = Term.Name(name).syntax
-      new Field(validScalaTermName, fieldType) {}
+      new Field(validScalaTermName, fieldType, Nil) {}
+    }
+    def apply(name: String, fieldType: ScalaType, annotation: Annotation): Field = {
+      val validScalaTermName = Term.Name(name).syntax
+      new Field(validScalaTermName, fieldType, List(annotation)) {}
+    }
+    def apply(name: String, fieldType: ScalaType, annotations: List[Annotation]): Field = {
+      val validScalaTermName = Term.Name(name).syntax
+      new Field(validScalaTermName, fieldType, annotations) {}
     }
   }
 

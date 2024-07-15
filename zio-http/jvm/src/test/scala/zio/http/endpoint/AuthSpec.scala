@@ -27,7 +27,7 @@ object AuthSpec extends ZIOSpecDefault {
         val endpoint = Endpoint(Method.GET / "test").out[String](MediaType.text.`plain`)
         val routes   =
           Routes(
-            endpoint.implementHandler(handler((_: Unit) => ZIO.serviceWith[AuthContext](_.value))),
+            endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
           ) @@ basicAuthContext
         val response = routes.run(
           Request(
