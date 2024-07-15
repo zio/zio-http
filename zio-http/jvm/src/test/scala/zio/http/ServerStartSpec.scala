@@ -51,6 +51,15 @@ object ServerStartSpec extends HttpRunnableSpec {
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       )
     },
+    test("application can shutdown if server is not started") {
+      ZIO
+        .succeed(assertCompletes)
+        .provide(
+          Server.customized.unit,
+          ZLayer.succeed(Server.Config.default.port(8089)),
+          ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+        )
+    },
   )
 
   override def spec: Spec[TestEnvironment with Scope, Any] = serverStartSpec @@ withLiveClock
