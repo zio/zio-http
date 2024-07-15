@@ -170,20 +170,33 @@ trait Body { self =>
    */
   def isEmpty: Boolean
 
+  def contentType : Option[Header.ContentType]
+
+  def contentType(newContentType : Header.ContentType) : Body
+
   /**
    * Returns the media type for this Body
    */
-  def mediaType: Option[MediaType]
+  final def mediaType: Option[MediaType] =
+    contentType.map(_.mediaType)
 
   /**
    * Updates the media type attached to this body, returning a new Body with the
    * updated media type
    */
-  def contentType(newMediaType: MediaType): Body
+  final def contentType(newMediaType: MediaType): Body =
+    this contentType{
+      this.contentType.map(_.copy(mediaType = newMediaType))
+        .getOrElse(Header.ContentType(newMediaType))
+    }
 
-  def contentType(newMediaType: MediaType, newBoundary: Boundary): Body
+  final def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
+    contentType(
+      Header.ContentType(newMediaType, Some(newBoundary))
+    )
 
-  private[zio] def boundary: Option[Boundary]
+  private[zio] final def boundary: Option[Boundary] =
+    contentType.flatMap(_.boundary)
 
 }
 
@@ -226,7 +239,11 @@ object Body {
    * Constructs a [[zio.http.Body]] from a chunk of bytes and sets the media
    * type.
    */
-  def fromChunk(data: Chunk[Byte], mediaType: MediaType): Body = ChunkBody(data, mediaType = Some(mediaType))
+  def fromChunk(data: Chunk[Byte], mediaType: MediaType): Body =
+    fromChunk(data, Header.ContentType(mediaType))
+
+  def fromChunk(data: Chunk[Byte], contentType : Header.ContentType) : Body =
+    ChunkBody(data, Some(contentType))
 
   /**
    * Constructs a [[zio.http.Body]] from an array of bytes.
@@ -254,7 +271,10 @@ object Body {
   )(implicit trace: Trace): Body = {
     val bytes = form.multipartBytes(specificBoundary)
 
-    StreamBody(bytes, knownContentLength = None, Some(MediaType.multipart.`form-data`), Some(specificBoundary))
+    StreamBody(bytes, knownContentLength = None, Some(
+      Header.ContentType(
+      MediaType.multipart.`form-data`, Some(specificBoundary))
+    ))
   }
 
   /**
@@ -266,7 +286,8 @@ object Body {
     form: Form,
   )(implicit trace: Trace): UIO[Body] =
     form.multipartBytesUUID.map { case (boundary, bytes) =>
-      StreamBody(bytes, knownContentLength = None, Some(MediaType.multipart.`form-data`), Some(boundary))
+      StreamBody(bytes, knownContentLength = None, Some(Header.ContentType(
+        MediaType.multipart.`form-data`, Some(boundary))))
     }
 
   /**
@@ -365,21 +386,15 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = Array.empty[Byte]
 
-    override private[zio] def boundary: Option[Boundary] = None
-
-    override def mediaType: Option[MediaType] = None
-
-    override def contentType(newMediaType: MediaType): Body = EmptyBody
-
-    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body = EmptyBody
+    override def contentType(newContentType: Header.ContentType): Body = this
+    override def contentType : Option[Header.ContentType] = None
 
     override def knownContentLength: Option[Long] = Some(0L)
   }
 
   private[zio] final case class ChunkBody(
     data: Chunk[Byte],
-    override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[Boundary] = None,
+    override val contentType: Option[Header.ContentType] = None
   ) extends Body
       with UnsafeBytes { self =>
 
@@ -398,18 +413,14 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
-    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
-
-    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(data.length.toLong)
   }
 
   private[zio] final case class ArrayBody(
     data: Array[Byte],
-    override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[Boundary] = None,
+    override val contentType: Option[Header.ContentType] = None,
   ) extends Body
       with UnsafeBytes { self =>
 
@@ -428,10 +439,7 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data
 
-    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
-
-    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(data.length.toLong)
   }
@@ -440,8 +448,7 @@ object Body {
     file: java.io.File,
     chunkSize: Int = 1024 * 4,
     fileSize: Long,
-    override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[Boundary] = None,
+    override val contentType: Option[Header.ContentType] = None
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attemptBlocking {
@@ -474,10 +481,7 @@ object Body {
           .ensuring(ZIO.attemptBlocking(fs.close()).ignoreLogged)
       }.flattenChunks
 
-    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
-
-    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(fileSize)
   }
@@ -485,8 +489,7 @@ object Body {
   private[zio] final case class StreamBody(
     stream: ZStream[Any, Throwable, Byte],
     knownContentLength: Option[Long],
-    override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[Boundary] = None,
+    override val contentType: Option[Header.ContentType] = None
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
@@ -499,10 +502,7 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
-
-    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
+    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
   }
 
   private[zio] final case class WebsocketBody(socketApp: WebSocketApp[Any]) extends Body {
@@ -515,17 +515,13 @@ object Body {
     def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.empty
 
-    private[zio] def boundary: Option[Boundary] = None
-
     def isComplete: Boolean = true
 
     def isEmpty: Boolean = true
 
-    def mediaType: Option[MediaType] = None
+    def contentType: Option[Header.ContentType] = None
 
-    def contentType(newMediaType: zio.http.MediaType): zio.http.Body = this
-
-    def contentType(newMediaType: zio.http.MediaType, newBoundary: zio.http.Boundary): zio.http.Body = this
+    def contentType(newContentType: Header.ContentType): zio.http.Body = this
 
     override def knownContentLength: Option[Long] = Some(0L)
 

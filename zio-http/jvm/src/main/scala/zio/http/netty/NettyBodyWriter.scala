@@ -58,9 +58,9 @@ object NettyBodyWriter {
       case body: FileBody                     =>
         // We need to stream the file when compression is enabled otherwise the response encoding fails
         val stream = ZStream.fromFile(body.file)
-        val s      = StreamBody(stream, None, mediaType = body.mediaType)
+        val s      = StreamBody(stream, None, contentType = body.contentType)
         NettyBodyWriter.writeAndFlush(s, None, ctx)
-      case AsyncBody(async, _, _, _)          =>
+      case AsyncBody(async, _, _)          =>
         async(
           new UnsafeAsync {
             override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
@@ -76,10 +76,10 @@ object NettyBodyWriter {
           },
         )
         None
-      case AsciiStringBody(asciiString, _, _) =>
+      case AsciiStringBody(asciiString, _) =>
         writeArray(asciiString.array(), isLast = true)
         None
-      case StreamBody(stream, _, _, _)        =>
+      case StreamBody(stream, _, _)        =>
         Some(
           contentLength.orElse(body.knownContentLength) match {
             case Some(length) =>
@@ -120,10 +120,10 @@ object NettyBodyWriter {
               }
           },
         )
-      case ArrayBody(data, _, _)              =>
+      case ArrayBody(data, _)              =>
         writeArray(data, isLast = true)
         None
-      case ChunkBody(data, _, _)              =>
+      case ChunkBody(data, _)              =>
         writeArray(data.toArray, isLast = true)
         None
       case EmptyBody                          =>
