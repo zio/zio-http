@@ -126,12 +126,16 @@ object CodeGen {
         val traitBodyBuilder = new StringBuilder().append(' ')
         var pre              = '{'
         val imports          = abstractMembers.foldLeft(List.empty[Code.Import]) {
-          case (importsAcc, Code.Field(name, fieldType)) =>
+          case (importsAcc, Code.Field(name, fieldType, annotations)) =>
             val (imports, tpe) = render(basePackage)(fieldType)
             if (tpe.isEmpty) importsAcc
             else {
               traitBodyBuilder += pre
               pre = '\n'
+              annotations.foreach { annotation =>
+                traitBodyBuilder ++= annotation.value
+                traitBodyBuilder += '\n'
+              }
               traitBodyBuilder ++= "def "
               traitBodyBuilder ++= name
               traitBodyBuilder ++= ": "
@@ -173,10 +177,11 @@ object CodeGen {
           imports -> s"Option[$tpe]"
       }
 
-    case Code.Field(name, fieldType) =>
+    case Code.Field(name, fieldType, annotations) =>
       val (imports, tpe) = render(basePackage)(fieldType)
+      val annotationsStr = annotations.map(_.value).mkString("\n")
       val content        = if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
-      imports -> content
+      imports -> (annotationsStr + content)
 
     case Code.Primitive.ScalaBoolean => Nil                                 -> "Boolean"
     case Code.Primitive.ScalaByte    => Nil                                 -> "Byte"
