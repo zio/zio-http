@@ -126,12 +126,16 @@ object CodeGen {
         val traitBodyBuilder = new StringBuilder().append(' ')
         var pre              = '{'
         val imports          = abstractMembers.foldLeft(List.empty[Code.Import]) {
-          case (importsAcc, Code.Field(name, fieldType)) =>
+          case (importsAcc, Code.Field(name, fieldType, annotations)) =>
             val (imports, tpe) = render(basePackage)(fieldType)
             if (tpe.isEmpty) importsAcc
             else {
               traitBodyBuilder += pre
               pre = '\n'
+              annotations.foreach { annotation =>
+                traitBodyBuilder ++= annotation.value
+                traitBodyBuilder += '\n'
+              }
               traitBodyBuilder ++= "def "
               traitBodyBuilder ++= name
               traitBodyBuilder ++= ": "
@@ -159,24 +163,27 @@ object CodeGen {
 
     case col: Code.Collection =>
       col match {
-        case Code.Collection.Seq(elementType) =>
+        case Code.Collection.Seq(elementType, nonEmpty) =>
           val (imports, tpe) = render(basePackage)(elementType)
-          (Code.Import("zio.Chunk") :: imports) -> s"Chunk[$tpe]"
-        case Code.Collection.Set(elementType) =>
+          if (nonEmpty) (Code.Import("zio.NonEmptyChunk") :: imports) -> s"NonEmptyChunk[$tpe]"
+          else (Code.Import("zio.Chunk") :: imports)                  -> s"Chunk[$tpe]"
+        case Code.Collection.Set(elementType, nonEmpty) =>
           val (imports, tpe) = render(basePackage)(elementType)
-          imports -> s"Set[$tpe]"
-        case Code.Collection.Map(elementType) =>
+          if (nonEmpty) (Code.Import("zio.prelude.NonEmptySet") :: imports) -> s"NonEmptySet[$tpe]"
+          else imports                                                      -> s"Set[$tpe]"
+        case Code.Collection.Map(elementType)           =>
           val (imports, tpe) = render(basePackage)(elementType)
           imports -> s"Map[String, $tpe]"
-        case Code.Collection.Opt(elementType) =>
+        case Code.Collection.Opt(elementType)           =>
           val (imports, tpe) = render(basePackage)(elementType)
           imports -> s"Option[$tpe]"
       }
 
-    case Code.Field(name, fieldType) =>
+    case Code.Field(name, fieldType, annotations) =>
       val (imports, tpe) = render(basePackage)(fieldType)
+      val annotationsStr = annotations.map(_.value).mkString("\n")
       val content        = if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
-      imports -> content
+      imports -> (annotationsStr + content)
 
     case Code.Primitive.ScalaBoolean => Nil                                 -> "Boolean"
     case Code.Primitive.ScalaByte    => Nil                                 -> "Byte"

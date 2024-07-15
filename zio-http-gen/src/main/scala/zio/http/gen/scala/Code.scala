@@ -7,14 +7,16 @@ import scala.meta.prettyprinters.XtensionSyntax
 
 import zio.http.{Method, Status}
 
+import com.sun.tools.javac.code.TypeMetadata.Annotations
+
 sealed trait Code extends Product with Serializable
 
 object Code {
   sealed trait ScalaType extends Code { self =>
-    def seq: Collection.Seq = Collection.Seq(self)
-    def set: Collection.Set = Collection.Set(self)
-    def map: Collection.Map = Collection.Map(self)
-    def opt: Collection.Opt = Collection.Opt(self)
+    def seq(nonEmpty: Boolean): Collection.Seq = Collection.Seq(self, nonEmpty)
+    def set(nonEmpty: Boolean): Collection.Set = Collection.Set(self, nonEmpty)
+    def map: Collection.Map                    = Collection.Map(self)
+    def opt: Collection.Opt                    = Collection.Opt(self)
   }
 
   object ScalaType {
@@ -79,17 +81,29 @@ object Code {
     abstractMembers: List[Field] = Nil,
   ) extends ScalaType
 
-  sealed abstract case class Field private (name: String, fieldType: ScalaType) extends Code {
+  final case class Annotation(value: String)
+
+  sealed abstract case class Field private (name: String, fieldType: ScalaType, annotations: List[Annotation])
+      extends Code {
     // only allow copy on fieldType, since name is mangled to be valid in smart constructor
-    def copy(fieldType: ScalaType): Field = new Field(name, fieldType) {}
+    def copy(fieldType: ScalaType = fieldType, annotations: List[Annotation] = annotations): Field =
+      new Field(name, fieldType, annotations) {}
   }
 
   object Field {
 
-    def apply(name: String): Field                       = apply(name, ScalaType.Inferred)
-    def apply(name: String, fieldType: ScalaType): Field = {
+    def apply(name: String): Field                                               = apply(name, ScalaType.Inferred)
+    def apply(name: String, fieldType: ScalaType): Field                         = {
       val validScalaTermName = Term.Name(name).syntax
-      new Field(validScalaTermName, fieldType) {}
+      new Field(validScalaTermName, fieldType, Nil) {}
+    }
+    def apply(name: String, fieldType: ScalaType, annotation: Annotation): Field = {
+      val validScalaTermName = Term.Name(name).syntax
+      new Field(validScalaTermName, fieldType, List(annotation)) {}
+    }
+    def apply(name: String, fieldType: ScalaType, annotations: List[Annotation]): Field = {
+      val validScalaTermName = Term.Name(name).syntax
+      new Field(validScalaTermName, fieldType, annotations) {}
     }
   }
 
@@ -98,10 +112,10 @@ object Code {
   }
 
   object Collection {
-    final case class Seq(elementType: ScalaType) extends Collection
-    final case class Set(elementType: ScalaType) extends Collection
-    final case class Map(elementType: ScalaType) extends Collection
-    final case class Opt(elementType: ScalaType) extends Collection
+    final case class Seq(elementType: ScalaType, nonEmpty: Boolean) extends Collection
+    final case class Set(elementType: ScalaType, nonEmpty: Boolean) extends Collection
+    final case class Map(elementType: ScalaType)                    extends Collection
+    final case class Opt(elementType: ScalaType)                    extends Collection
   }
 
   sealed trait Primitive extends ScalaType
