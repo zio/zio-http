@@ -24,6 +24,7 @@ import zio._
 import zio.test._
 
 import zio.http._
+import zio.http.codec.PathCodec.Segment
 import zio.http.codec._
 
 object PathCodecSpec extends ZIOHttpSpec {
@@ -115,6 +116,67 @@ object PathCodecSpec extends ZIOHttpSpec {
           )
         },
       ),
+      suite("decoding with sub-segment codecs")(
+        test("int") {
+          val codec = PathCodec.empty /
+            string("foo") /
+            "instances" /
+            int("a") ~ "_" ~ int("b") /
+            "bar" /
+            int("baz")
+
+          assertTrue(codec.decode(Path("/abc/instances/123_13/bar/42")) == Right(("abc", 123, 13, 42)))
+        },
+        test("uuid") {
+          val codec = PathCodec.empty /
+            string("foo") /
+            "foo" /
+            uuid("a") ~ "__" ~ int("b") /
+            "bar" /
+            int("baz")
+
+          val id = UUID.randomUUID()
+          val p  = s"/abc/foo/${id}__13/bar/42"
+          assertTrue(codec.decode(Path(p)) == Right(("abc", id, 13, 42)))
+        },
+        test("string before literal") {
+          val codec = PathCodec.empty /
+            string("foo") /
+            "foo" /
+            string("a") ~ "__" ~ int("b") /
+            "bar" /
+            int("baz")
+          assertTrue(codec.decode(Path("/abc/foo/cba__13/bar/42")) == Right(("abc", "cba", 13, 42)))
+        },
+        test("string before int") {
+          val codec = PathCodec.empty /
+            string("foo") /
+            "foo" /
+            string("a") ~ int("b") /
+            "bar" /
+            int("baz")
+          assertTrue(codec.decode(Path("/abc/foo/cba13/bar/42")) == Right(("abc", "cba", 13, 42)))
+        },
+        test("string before long") {
+          val codec = PathCodec.empty /
+            string("foo") /
+            "foo" /
+            string("a") ~ long("b") /
+            "bar" /
+            int("baz")
+          assertTrue(codec.decode(Path("/abc/foo/cba133333333333/bar/42")) == Right(("abc", "cba", 133333333333L, 42)))
+        },
+        test("trailing literal") {
+          val codec = PathCodec.empty /
+            string("foo") /
+            "instances" /
+            int("a") ~ "what" /
+            "bar" /
+            int("baz")
+
+          assertTrue(codec.decode(Path("/abc/instances/123what/bar/42")) == Right(("abc", 123, 42)))
+        },
+      ),
       suite("representation")(
         test("empty") {
           val codec = PathCodec.empty
@@ -148,6 +210,13 @@ object PathCodecSpec extends ZIOHttpSpec {
             ) / PathCodec.string("post-id")
 
           assertTrue(codec.render == "/users/{user-id}/posts/{post-id}")
+        },
+        test("/users/{first-name}_{last-name}") {
+          val codec =
+            PathCodec.empty / PathCodec.literal("users") /
+              string("first-name") ~ "_" ~ string("last-name")
+
+          assertTrue(codec.render == "/users/{first-name}_{last-name}")
         },
         test("transformed") {
           val codec =
