@@ -113,6 +113,24 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     case class NestedThree(name: String) extends SimpleNestedSealedTrait
   }
 
+  @description("A recursive structure")
+  case class Recursive(
+    nestedOption: Option[Recursive],
+    nestedList: List[Recursive],
+    nestedMap: Map[String, Recursive],
+    nestedSet: Set[Recursive],
+    nestedEither: Either[Recursive, Recursive],
+    nestedTuple: (Recursive, Recursive),
+    nestedOverAnother: NestedRecursive,
+  )
+  object Recursive               {
+    implicit val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
+  }
+  case class NestedRecursive(next: Recursive)
+  object NestedRecursive         {
+    implicit val schema: Schema[NestedRecursive] = DeriveSchema.gen[NestedRecursive]
+  }
+
   @description("A simple payload")
   case class Payload(content: String)
 
@@ -2439,6 +2457,120 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
 
         SwaggerUI.routes("docs/openapi", OpenAPIGen.fromEndpoints(endpoint))
         assertCompletes
+      },
+      test("Recursive schema") {
+        val endpoint     = Endpoint(RoutePattern.POST / "folder")
+          .out[Recursive]
+        val openApi      = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(openApi)
+        val expectedJson =
+          """
+            |{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "",
+            |    "version" : ""
+            |  },
+            |  "paths" : {
+            |    "/folder" : {
+            |      "post" : {
+            |        "responses" : {
+            |          "200" :
+            |            {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "$ref" : "#/components/schemas/Recursive"
+            |                }
+            |              }
+            |            }
+            |          }
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "NestedRecursive" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "next" : {
+            |            "$ref" : "#/components/schemas/Recursive"
+            |          }
+            |        },
+            |        "required" : [
+            |          "next"
+            |        ]
+            |      },
+            |      "Recursive" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "nestedSet" : {
+            |            "type" :
+            |              "array",
+            |            "items" : {
+            |              "$ref" : "#/components/schemas/Recursive"
+            |            }
+            |          },
+            |          "nestedEither" : {
+            |            "oneOf" : [
+            |              {
+            |                "$ref" : "#/components/schemas/Recursive"
+            |              },
+            |              {
+            |                "$ref" : "#/components/schemas/Recursive"
+            |              }
+            |            ]
+            |          },
+            |          "nestedTuple" : {
+            |            "allOf" : [
+            |              {
+            |                "$ref" : "#/components/schemas/Recursive"
+            |              },
+            |              {
+            |                "$ref" : "#/components/schemas/Recursive"
+            |              }
+            |            ]
+            |          },
+            |          "nestedOption" : {
+            |            "$ref" : "#/components/schemas/Recursive"
+            |          },
+            |          "nestedList" : {
+            |            "type" :
+            |              "array",
+            |            "items" : {
+            |              "$ref" : "#/components/schemas/Recursive"
+            |            }
+            |          },
+            |          "nestedOverAnother" : {
+            |            "$ref" : "#/components/schemas/NestedRecursive"
+            |          }
+            |        },
+            |        "additionalProperties" :
+            |          {
+            |          "$ref" : "#/components/schemas/Recursive"
+            |        },
+            |        "required" : [
+            |          "nestedOption",
+            |          "nestedList",
+            |          "nestedMap",
+            |          "nestedSet",
+            |          "nestedEither",
+            |          "nestedTuple",
+            |          "nestedOverAnother"
+            |        ],
+            |        "description" : "A recursive structure"
+            |      }
+            |    }
+            |  }
+            |}
+            |""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
       },
     )
 
