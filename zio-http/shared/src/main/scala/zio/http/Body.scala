@@ -208,13 +208,17 @@ object Body {
    */
   val empty: Body = EmptyBody
 
-  final case class ContentType(mediaType: MediaType, boundary: Option[Boundary] = None, charset: Option[Charset] = None) {
-    def asHeader : Header.ContentType =
+  final case class ContentType(
+    mediaType: MediaType,
+    boundary: Option[Boundary] = None,
+    charset: Option[Charset] = None,
+  ) {
+    def asHeader: Header.ContentType =
       Header.ContentType(mediaType, boundary, charset)
   }
 
   object ContentType {
-    def fromHeader(h : Header.ContentType) : ContentType =
+    def fromHeader(h: Header.ContentType): ContentType =
       ContentType(h.mediaType, h.boundary, h.charset)
   }
 
