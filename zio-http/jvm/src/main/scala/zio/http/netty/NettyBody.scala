@@ -45,7 +45,7 @@ object NettyBody extends BodyEncoding {
     AsyncBody(
       unsafeAsync,
       knownContentLength,
-      contentTypeHeader,
+      contentTypeHeader.map(Body.ContentType.fromHeader),
     )
   }
 
@@ -55,7 +55,7 @@ object NettyBody extends BodyEncoding {
   private[zio] def fromByteBuf(byteBuf: ByteBuf, contentTypeHeader: Option[Header.ContentType]): Body = {
     if (byteBuf.readableBytes() == 0) Body.EmptyBody
     else {
-      Body.ArrayBody(ByteBufUtil.getBytes(byteBuf), contentTypeHeader)
+      Body.ArrayBody(ByteBufUtil.getBytes(byteBuf), contentTypeHeader.map(Body.ContentType.fromHeader))
     }
   }
 
@@ -64,7 +64,7 @@ object NettyBody extends BodyEncoding {
 
   private[zio] final case class AsciiStringBody(
     asciiString: AsciiString,
-    override val contentType: Option[Header.ContentType] = None,
+    override val contentType: Option[Body.ContentType] = None,
   ) extends Body
       with UnsafeBytes {
 
@@ -84,7 +84,7 @@ object NettyBody extends BodyEncoding {
 
     private[zio] override def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = asciiString.array()
 
-    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(asciiString.length().toLong)
   }
@@ -92,7 +92,7 @@ object NettyBody extends BodyEncoding {
   private[zio] final case class AsyncBody(
     unsafeAsync: UnsafeAsync => Unit,
     knownContentLength: Option[Long],
-    override val contentType: Option[Header.ContentType] = None,
+    override val contentType: Option[Body.ContentType] = None,
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map {
@@ -136,7 +136,7 @@ object NettyBody extends BodyEncoding {
 
     override def toString(): String = s"AsyncBody($unsafeAsync)"
 
-    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
   }
 
   private[zio] trait UnsafeAsync {

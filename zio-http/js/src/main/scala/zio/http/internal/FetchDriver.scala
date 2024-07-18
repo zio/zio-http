@@ -44,7 +44,7 @@ final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
             Response(
               status = Status.fromInt(response.status),
               headers = respHeaders,
-              body = FetchBody.fromResponse(response, ct),
+              body = FetchBody.fromResponse(response, ct.map(Body.ContentType.fromHeader)),
             )
           }
 

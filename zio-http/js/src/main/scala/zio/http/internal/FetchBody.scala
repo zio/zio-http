@@ -12,7 +12,7 @@ import org.scalajs.dom.ReadableStream
 
 case class FetchBody(
   content: ReadableStream[Uint8Array],
-  contentType: Option[Header.ContentType],
+  contentType: Option[Body.ContentType],
 ) extends Body {
 
   /**
@@ -64,12 +64,12 @@ case class FetchBody(
    * Updates the media type attached to this body, returning a new Body with the
    * updated media type
    */
-  override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
+  override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 }
 
 object FetchBody {
 
-  def fromResponse(result: org.scalajs.dom.Response, contentType: Option[Header.ContentType]): Body = {
+  def fromResponse(result: org.scalajs.dom.Response, contentType: Option[Body.ContentType]): Body = {
     FetchBody(result.body, contentType)
   }
 }

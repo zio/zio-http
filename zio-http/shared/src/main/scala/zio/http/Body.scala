@@ -170,9 +170,9 @@ trait Body { self =>
    */
   def isEmpty: Boolean
 
-  def contentType: Option[Header.ContentType]
+  def contentType: Option[Body.ContentType]
 
-  def contentType(newContentType: Header.ContentType): Body
+  def contentType(newContentType: Body.ContentType): Body
 
   /**
    * Returns the media type for this Body
@@ -188,12 +188,12 @@ trait Body { self =>
     this contentType {
       this.contentType
         .map(_.copy(mediaType = newMediaType))
-        .getOrElse(Header.ContentType(newMediaType))
+        .getOrElse(Body.ContentType(newMediaType))
     }
 
   final def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
     contentType(
-      Header.ContentType(newMediaType, Some(newBoundary)),
+      Body.ContentType(newMediaType, Some(newBoundary)),
     )
 
   private[zio] final def boundary: Option[Boundary] =
@@ -207,6 +207,16 @@ object Body {
    * A body that contains no data.
    */
   val empty: Body = EmptyBody
+
+  final case class ContentType(mediaType: MediaType, boundary: Option[Boundary] = None, charset: Option[Charset] = None) {
+    def asHeader : Header.ContentType =
+      Header.ContentType(mediaType, boundary, charset)
+  }
+
+  object ContentType {
+    def fromHeader(h : Header.ContentType) : ContentType =
+      ContentType(h.mediaType, h.boundary, h.charset)
+  }
 
   /**
    * Constructs a [[zio.http.Body]] from a value based on a zio-schema
@@ -241,9 +251,9 @@ object Body {
    * type.
    */
   def fromChunk(data: Chunk[Byte], mediaType: MediaType): Body =
-    fromChunk(data, Header.ContentType(mediaType))
+    fromChunk(data, Body.ContentType(mediaType))
 
-  def fromChunk(data: Chunk[Byte], contentType: Header.ContentType): Body =
+  def fromChunk(data: Chunk[Byte], contentType: Body.ContentType): Body =
     ChunkBody(data, Some(contentType))
 
   /**
@@ -276,7 +286,7 @@ object Body {
       bytes,
       knownContentLength = None,
       Some(
-        Header.ContentType(MediaType.multipart.`form-data`, Some(specificBoundary)),
+        Body.ContentType(MediaType.multipart.`form-data`, Some(specificBoundary)),
       ),
     )
   }
@@ -293,7 +303,7 @@ object Body {
       StreamBody(
         bytes,
         knownContentLength = None,
-        Some(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
+        Some(Body.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
       )
     }
 
@@ -393,15 +403,15 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = Array.empty[Byte]
 
-    override def contentType(newContentType: Header.ContentType): Body = this
-    override def contentType: Option[Header.ContentType]               = None
+    override def contentType(newContentType: Body.ContentType): Body = this
+    override def contentType: Option[Body.ContentType]               = None
 
     override def knownContentLength: Option[Long] = Some(0L)
   }
 
   private[zio] final case class ChunkBody(
     data: Chunk[Byte],
-    override val contentType: Option[Header.ContentType] = None,
+    override val contentType: Option[Body.ContentType] = None,
   ) extends Body
       with UnsafeBytes { self =>
 
@@ -420,14 +430,14 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
-    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(data.length.toLong)
   }
 
   private[zio] final case class ArrayBody(
     data: Array[Byte],
-    override val contentType: Option[Header.ContentType] = None,
+    override val contentType: Option[Body.ContentType] = None,
   ) extends Body
       with UnsafeBytes { self =>
 
@@ -446,7 +456,7 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data
 
-    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(data.length.toLong)
   }
@@ -455,7 +465,7 @@ object Body {
     file: java.io.File,
     chunkSize: Int = 1024 * 4,
     fileSize: Long,
-    override val contentType: Option[Header.ContentType] = None,
+    override val contentType: Option[Body.ContentType] = None,
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attemptBlocking {
@@ -488,7 +498,7 @@ object Body {
           .ensuring(ZIO.attemptBlocking(fs.close()).ignoreLogged)
       }.flattenChunks
 
-    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(fileSize)
   }
@@ -496,7 +506,7 @@ object Body {
   private[zio] final case class StreamBody(
     stream: ZStream[Any, Throwable, Byte],
     knownContentLength: Option[Long],
-    override val contentType: Option[Header.ContentType] = None,
+    override val contentType: Option[Body.ContentType] = None,
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
@@ -509,7 +519,7 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-    override def contentType(newContentType: Header.ContentType): Body = copy(contentType = Some(newContentType))
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
   }
 
   private[zio] final case class WebsocketBody(socketApp: WebSocketApp[Any]) extends Body {
@@ -526,9 +536,9 @@ object Body {
 
     def isEmpty: Boolean = true
 
-    def contentType: Option[Header.ContentType] = None
+    def contentType: Option[Body.ContentType] = None
 
-    def contentType(newContentType: Header.ContentType): zio.http.Body = this
+    def contentType(newContentType: Body.ContentType): zio.http.Body = this
 
     override def knownContentLength: Option[Long] = Some(0L)
 
