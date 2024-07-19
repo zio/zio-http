@@ -321,13 +321,13 @@ object JsonSchema {
   def fromZSchemaMulti(
     schema: Schema[_],
     refType: SchemaStyle = SchemaStyle.Inline,
-    seen: Set[Predef.String] = Set.empty,
+    seen: Set[java.lang.String] = Set.empty,
   ): JsonSchemas = {
     val ref = nominal(schema, refType)
     if (ref.exists(seen.contains)) {
       JsonSchemas(RefSchema(ref.get), ref, Map.empty)
     } else {
-      val seenAndRef = seen ++ ref
+      val seenWithCurrent = seen ++ ref
       schema match {
         case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]]) =>
           JsonSchemas(fromZSchema(enum0, SchemaStyle.Inline), ref, Map.empty)
@@ -344,7 +344,7 @@ object JsonSchema {
                 val nested = fromZSchemaMulti(
                   c.schema,
                   refType,
-                  seenAndRef,
+                  seenWithCurrent,
                 )
                 nested.children ++ key.map(_ -> nested.root)
               }
@@ -357,7 +357,7 @@ object JsonSchema {
               val nested = fromZSchemaMulti(
                 field.schema,
                 refType,
-                seenAndRef,
+                seenWithCurrent,
               )
               nested.rootRef.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
             }
@@ -366,9 +366,9 @@ object JsonSchema {
         case collection: Schema.Collection[_, _]                                               =>
           collection match {
             case Schema.Sequence(elementSchema, _, _, _, _) =>
-              arraySchemaMulti(refType, ref, elementSchema, seenAndRef)
+              arraySchemaMulti(refType, ref, elementSchema, seenWithCurrent)
             case Schema.Map(_, valueSchema, _)              =>
-              val nested = fromZSchemaMulti(valueSchema, refType, seenAndRef)
+              val nested = fromZSchemaMulti(valueSchema, refType, seenWithCurrent)
               if (valueSchema.isInstanceOf[Schema.Primitive[_]]) {
                 JsonSchemas(
                   JsonSchema.Object(
@@ -391,35 +391,35 @@ object JsonSchema {
                 )
               }
             case Schema.Set(elementSchema, _)               =>
-              arraySchemaMulti(refType, ref, elementSchema, seenAndRef)
+              arraySchemaMulti(refType, ref, elementSchema, seenWithCurrent)
           }
         case Schema.Transform(schema, _, _, _, _)                                              =>
-          fromZSchemaMulti(schema, refType, seenAndRef)
+          fromZSchemaMulti(schema, refType, seenWithCurrent)
         case Schema.Primitive(_, _)                                                            =>
           JsonSchemas(fromZSchema(schema, SchemaStyle.Inline), ref, Map.empty)
         case Schema.Optional(schema, _)                                                        =>
-          fromZSchemaMulti(schema, refType, seenAndRef)
+          fromZSchemaMulti(schema, refType, seenWithCurrent)
         case Schema.Fail(_, _)                                                                 =>
           throw new IllegalArgumentException("Fail schema is not supported.")
         case Schema.Tuple2(left, right, _)                                                     =>
-          val leftSchema  = fromZSchemaMulti(left, refType, seenAndRef)
-          val rightSchema = fromZSchemaMulti(right, refType, seenAndRef)
+          val leftSchema  = fromZSchemaMulti(left, refType, seenWithCurrent)
+          val rightSchema = fromZSchemaMulti(right, refType, seenWithCurrent)
           JsonSchemas(
             AllOfSchema(Chunk(leftSchema.root, rightSchema.root)),
             ref,
             leftSchema.children ++ rightSchema.children,
           )
         case Schema.Either(left, right, _)                                                     =>
-          val leftSchema  = fromZSchemaMulti(left, refType, seenAndRef)
-          val rightSchema = fromZSchemaMulti(right, refType, seenAndRef)
+          val leftSchema  = fromZSchemaMulti(left, refType, seenWithCurrent)
+          val rightSchema = fromZSchemaMulti(right, refType, seenWithCurrent)
           JsonSchemas(
             OneOfSchema(Chunk(leftSchema.root, rightSchema.root)),
             ref,
             leftSchema.children ++ rightSchema.children,
           )
         case Schema.Fallback(left, right, fullDecode, _)                                       =>
-          val leftSchema  = fromZSchemaMulti(left, refType, seenAndRef)
-          val rightSchema = fromZSchemaMulti(right, refType, seenAndRef)
+          val leftSchema  = fromZSchemaMulti(left, refType, seenWithCurrent)
+          val rightSchema = fromZSchemaMulti(right, refType, seenWithCurrent)
           val candidates  =
             if (fullDecode)
               Chunk(
@@ -450,7 +450,7 @@ object JsonSchema {
     refType: SchemaStyle,
     ref: Option[java.lang.String],
     elementSchema: Schema[_],
-    seen: Set[Predef.String],
+    seen: Set[java.lang.String],
   ): JsonSchemas = {
     val nested = fromZSchemaMulti(elementSchema, refType, seen)
     if (elementSchema.isInstanceOf[Schema.Primitive[_]]) {
