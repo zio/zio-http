@@ -80,6 +80,22 @@ object DomSpec extends ZIOHttpSpec {
         assertTrue(dom.encode == """<a href="https://www.zio-http.com" title="click me!"></a>""")
       },
     ),
+    test("element with non value required attribute") {
+      val dom = Dom.element(
+        "input",
+        Dom.booleanAttr("required"),
+      )
+
+      assertTrue(dom.encode == """<input required/>""")
+    },
+    test("element with value required attribute") {
+      val dom = Dom.element(
+        "input",
+        Dom.booleanAttr("required", Some(true)),
+      )
+
+      assertTrue(dom.encode == """<input required="true"/>""")
+    },
     test("element with attribute & children") {
       val dom = Dom.element(
         "a",
