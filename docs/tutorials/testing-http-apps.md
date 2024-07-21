@@ -41,7 +41,7 @@ testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 
 Now, based on the requirement we can use any of the following test utilities:
 
-## TestClinet
+## TestClient
 
 The `TestClient`
 
