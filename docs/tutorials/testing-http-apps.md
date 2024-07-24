@@ -80,7 +80,7 @@ object TestUsingTestClient extends ZIOSpecDefault {
 
 ## TestServer
 
-WIth the `TestServer` we can write tests for our HTTP applications by starting a live server instance on the localhost.
+With the `TestServer` we can write tests for our HTTP applications by starting a live server instance on the localhost.
 
 Using the following methods we can define the behavior of the `TestServer`:
 
