@@ -287,7 +287,7 @@ private[zio] final case class ServerInboundHandler(
             )
             .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, None))
 
-          val jReq = NettyRequestEncoder.encode(request)
+          val jReq = NettyRequestEncoder.encodeWs(request)
           ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(jReq) }: Unit
         }
       }

@@ -16,14 +16,13 @@
 
 package zio.http.netty.client
 
+import zio.Unsafe
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Task, Trace, Unsafe, ZIO}
 
-import zio.http.netty._
 import zio.http.netty.model.Conversions
-import zio.http.{Body, Request}
+import zio.http.{Body, Request, URL}
 
-import io.netty.buffer.{ByteBuf, EmptyByteBuf, Unpooled}
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, DefaultHttpRequest, HttpHeaderNames, HttpRequest}
 
 private[zio] object NettyRequestEncoder {
@@ -34,12 +33,7 @@ private[zio] object NettyRequestEncoder {
   def encode(req: Request): HttpRequest = {
     val method   = Conversions.methodToNetty(req.method)
     val jVersion = Conversions.versionToNetty(req.version)
-
-    def replaceEmptyPathWithSlash(url: zio.http.URL) = if (url.path.isEmpty) url.addLeadingSlash else url
-
-    // As per the spec, the path should contain only the relative path.
-    // Host and port information should be in the headers.
-    val path = replaceEmptyPathWithSlash(req.url).relative.addLeadingSlash.encode
+    val path     = extractPathFromUrl(req.url)
 
     val headers = Conversions.headersToNetty(req.allHeaders)
 
@@ -69,4 +63,26 @@ private[zio] object NettyRequestEncoder {
         new DefaultHttpRequest(jVersion, method, path, headers)
     }
   }
+
+  /**
+   * Converts a ZIO HTTP request to a Netty HTTP request which is used to
+   * upgrade to a WebSocket connection.
+   */
+  def encodeWs(req: Request): DefaultFullHttpRequest = {
+    val jreq = new DefaultFullHttpRequest(
+      Conversions.versionToNetty(req.version),
+      Conversions.methodToNetty(req.method),
+      extractPathFromUrl(req.url),
+    )
+    jreq.headers().setAll(Conversions.headersToNetty(req.allHeaders))
+    jreq
+  }
+
+  private def extractPathFromUrl(url: URL): String = {
+    // As per the spec, the path should contain only the relative path.
+    // Host and port information should be in the headers.
+    val url0 = if (url.path.isEmpty) url.addLeadingSlash else url
+    url0.relative.addLeadingSlash.encode
+  }
+
 }
