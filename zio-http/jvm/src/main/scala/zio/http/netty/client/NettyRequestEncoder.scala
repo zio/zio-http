@@ -20,7 +20,7 @@ import zio.Unsafe
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.netty.model.Conversions
-import zio.http.{Body, Request, URL}
+import zio.http.{Body, Request}
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, DefaultHttpRequest, HttpHeaderNames, HttpRequest}
@@ -33,7 +33,7 @@ private[zio] object NettyRequestEncoder {
   def encode(req: Request): HttpRequest = {
     val method   = Conversions.methodToNetty(req.method)
     val jVersion = Conversions.versionToNetty(req.version)
-    val path     = extractPathFromUrl(req.url)
+    val path     = Conversions.urlToNetty(req.url)
 
     val headers = Conversions.headersToNetty(req.allHeaders)
 
@@ -62,27 +62,6 @@ private[zio] object NettyRequestEncoder {
         }
         new DefaultHttpRequest(jVersion, method, path, headers)
     }
-  }
-
-  /**
-   * Converts a ZIO HTTP request to a Netty HTTP request which is used to
-   * upgrade to a WebSocket connection.
-   */
-  def encodeWs(req: Request): DefaultFullHttpRequest = {
-    val jreq = new DefaultFullHttpRequest(
-      Conversions.versionToNetty(req.version),
-      Conversions.methodToNetty(req.method),
-      extractPathFromUrl(req.url),
-    )
-    jreq.headers().setAll(Conversions.headersToNetty(req.allHeaders))
-    jreq
-  }
-
-  private def extractPathFromUrl(url: URL): String = {
-    // As per the spec, the path should contain only the relative path.
-    // Host and port information should be in the headers.
-    val url0 = if (url.path.isEmpty) url.addLeadingSlash else url
-    url0.relative.addLeadingSlash.encode
   }
 
 }
