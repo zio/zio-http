@@ -66,7 +66,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo("foo\nbar"))
         },
         test("should have content-type") {
-          val res = fileOk.run().debug("fileOk").map(_.header(Header.ContentType))
+          val res = fileOk.run().map(_.header(Header.ContentType))
           assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain, charset = Some(Charsets.Utf8)))))
         },
         test("should respond with empty if file not found") {
@@ -121,7 +121,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain, charset = Some(Charsets.Utf8)))))
         },
         test("should respond with empty if not found") {
-          val res = resourceNotFound.run().debug("not found").map(_.status)
+          val res = resourceNotFound.run().map(_.status)
           assertZIO(res)(equalTo(Status.NotFound))
         },
       ),

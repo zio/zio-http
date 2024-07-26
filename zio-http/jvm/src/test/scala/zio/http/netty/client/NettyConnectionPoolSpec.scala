@@ -195,7 +195,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     }.provideSome[Client & Scope](
       ZLayer(appKeepAliveEnabled.unit),
       DynamicServer.live,
-      ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort),
+      ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
       testNettyServerConfig,
       Server.customized,
     ) @@ withLiveClock
@@ -211,7 +211,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
   }.provideSome[Scope](
     ZLayer(appKeepAliveEnabled.unit),
     DynamicServer.live,
-    ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort),
+    ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
     testNettyServerConfig,
     Server.customized,
     Client.live,
