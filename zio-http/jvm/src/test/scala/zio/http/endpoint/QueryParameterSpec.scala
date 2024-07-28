@@ -21,7 +21,15 @@ import zio._
 import zio.test._
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryAll, queryAllBool, queryAllInt, queryAllOptionalInt, queryInt, queryOptional}
+import zio.http.codec.HttpCodec.{
+  query,
+  queryAll,
+  queryAllBool,
+  queryAllInt,
+  queryAllOptionalInt,
+  queryInt,
+  queryOptional,
+}
 import zio.http.endpoint.EndpointMiddleware.None
 import zio.http.endpoint.EndpointSpec.testEndpoint
 
@@ -115,46 +123,51 @@ object QueryParameterSpec extends ZIOHttpSpec {
         .out[String]
       val testRoutes = testEndpoint(
         Routes(
-        soEndpoint
-          .implementHandler {
-            Handler.fromFunction {case ((a,b,c,d,e,f,g,h,i,j),k,l,m,n,o)=>
+          soEndpoint.implementHandler {
+            Handler.fromFunction { case ((a, b, c, d, e, f, g, h, i, j), k, l, m, n, o) =>
               s"so?$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o"
             }
           },
         ),
       ) _
-      testRoutes(s"/so?a=a&b=b&c=c&d=d&e=e&f=f&g=g&h=h&i=i&j=j&k=k&l=l&m=m&n=n&o=o", "so?Some(a),Some(b),Some(c),Some(d),Some(e),Some(f),Some(g),Some(h),Some(i),Some(j),Some(k),Some(l),Some(m),Some(n),Some(o)") // &&
+      testRoutes(
+        s"/so?a=a&b=b&c=c&d=d&e=e&f=f&g=g&h=h&i=i&j=j&k=k&l=l&m=m&n=n&o=o",
+        "so?Some(a),Some(b),Some(c),Some(d),Some(e),Some(f),Some(g),Some(h),Some(i),Some(j),Some(k),Some(l),Some(m),Some(n),Some(o)",
+      ) // &&
       testRoutes(s"/so", "so?None,None,None,None,None,None,None,None,None,None,None,None,None,None,None")
 
     },
     test("many query parameters") {
       val testRoutes = testEndpoint(
         Routes(
-        Endpoint(Method.GET / "so")
-          .query[String](query("a"))
-          .query[String](query("b"))
-          .query[String](query("c"))
-          .query[String](query("d"))
-          .query[String](query("e"))
-          .query[String](query("f"))
-          .query[String](query("g"))
-          .query[String](query("h"))
-          .query[String](query("i"))
-          .query[String](query("j"))
-          .query[String](query("k"))
-          .query[String](query("l"))
-          .query[String](query("m"))
-          .query[String](query("n"))
-          .query[String](query("o"))
-          .out[String]
-          .implementHandler {
-            Handler.fromFunction {p=>
-              s"so?$p"
-            }
-          },
+          Endpoint(Method.GET / "so")
+            .query[String](query("a"))
+            .query[String](query("b"))
+            .query[String](query("c"))
+            .query[String](query("d"))
+            .query[String](query("e"))
+            .query[String](query("f"))
+            .query[String](query("g"))
+            .query[String](query("h"))
+            .query[String](query("i"))
+            .query[String](query("j"))
+            .query[String](query("k"))
+            .query[String](query("l"))
+            .query[String](query("m"))
+            .query[String](query("n"))
+            .query[String](query("o"))
+            .out[String]
+            .implementHandler {
+              Handler.fromFunction { p =>
+                s"so?$p"
+              }
+            },
         ),
       ) _
-      testRoutes(s"/so?a=a&b=b&c=c&d=d&e=e&f=f&g=g&h=h&i=i&j=j&k=k&l=l&m=m&n=n&o=o", "so?((a,b,c,d,e,f,g,h,i,j),k,l,m,n,o)")
+      testRoutes(
+        s"/so?a=a&b=b&c=c&d=d&e=e&f=f&g=g&h=h&i=i&j=j&k=k&l=l&m=m&n=n&o=o",
+        "so?((a,b,c,d,e,f,g,h,i,j),k,l,m,n,o)",
+      )
     },
     test("query parameters with multiple values") {
       check(Gen.int, Gen.listOfN(3)(Gen.alphaNumericString)) { (userId, keys) =>
