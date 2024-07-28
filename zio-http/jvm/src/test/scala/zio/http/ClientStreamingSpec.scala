@@ -208,7 +208,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           port   <- server(streamingServer)
           client <- ZIO.service[Client]
           result <- check(Gen.int(1, N)) { chunkSize =>
-            (for {
+            for {
               bytes <- Random.nextBytes(N)
               form = Form(
                 Chunk(
@@ -233,7 +233,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               collected.map.contains("file"),
               collected.map.contains("foo"),
               collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
-            )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
+            )
           }
         } yield result
       } @@ samples(20) @@ TestAspect.ifEnvNotSet("CI"),

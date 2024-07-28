@@ -42,7 +42,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     ZLayer.make[Server & Client & Scope](
       Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get @@ ZClientAspect.debug)),
+      Client.customized.map(env => ZEnvironment(env.get)),
       ClientDriver.shared,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

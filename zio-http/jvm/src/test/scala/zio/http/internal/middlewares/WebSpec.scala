@@ -249,8 +249,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
 
           for {
             url      <- ZIO.fromEither(URL.decode(url))
-            response <- app.runZIO(Request.get(url = url)).debug("response")
-            _        <- ZIO.debug(response.headerOrFail(Header.Location))
+            response <- app.runZIO(Request.get(url = url))
           } yield assertTrue(
             extractStatus(response) == status,
             response.header(Header.Location) == location.map(l => Header.Location(URL.decode(l).toOption.get)),
