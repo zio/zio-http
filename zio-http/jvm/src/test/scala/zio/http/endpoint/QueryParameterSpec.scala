@@ -21,7 +21,7 @@ import zio._
 import zio.test._
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryAll, queryAllBool, queryAllInt, queryInt}
+import zio.http.codec.HttpCodec.{query, queryAll, queryAllBool, queryAllInt, queryAllOptionalInt, queryInt, queryOptional}
 import zio.http.endpoint.EndpointMiddleware.None
 import zio.http.endpoint.EndpointSpec.testEndpoint
 
@@ -97,33 +97,35 @@ object QueryParameterSpec extends ZIOHttpSpec {
     },
     test("many optional query parameters") {
       val soEndpoint = Endpoint(Method.GET / "so")
-        .query[Option[String]](query("a").optional)
-        .query[Option[String]](query("b").optional)
-        .query[Option[String]](query("c").optional)
-        .query[Option[String]](query("d").optional)
-        .query[Option[String]](query("e").optional)
-        .query[Option[String]](query("f").optional)
-        .query[Option[String]](query("g").optional)
-        .query[Option[String]](query("h").optional)
-        .query[Option[String]](query("i").optional)
-        .query[Option[String]](query("j").optional)
-        .query[Option[String]](query("k").optional)
-        .query[Option[String]](query("l").optional)
-                  .query[Option[String]](query("m").optional)
-        //          .query[Option[String]](query("n").optional)
-        //          .query[Option[String]](query("o").optional)
+        .query[Option[String]](queryOptional("a"))
+        .query[Option[String]](queryOptional("b"))
+        .query[Option[String]](queryOptional("c"))
+        .query[Option[String]](queryOptional("d"))
+        .query[Option[String]](queryOptional("e"))
+        .query[Option[String]](queryOptional("f"))
+        .query[Option[String]](queryOptional("g"))
+        .query[Option[String]](queryOptional("h"))
+        .query[Option[String]](queryOptional("i"))
+        .query[Option[String]](queryOptional("j"))
+        .query[Option[String]](queryOptional("k"))
+        .query[Option[String]](queryOptional("l"))
+        .query[Option[String]](queryOptional("m"))
+        .query[Option[String]](queryOptional("n"))
+        .query[Option[String]](queryOptional("o"))
         .out[String]
       val testRoutes = testEndpoint(
         Routes(
         soEndpoint
           .implementHandler {
-            Handler.fromFunction {p=>
-              s"so?$p"
+            Handler.fromFunction {case ((a,b,c,d,e,f,g,h,i,j),k,l,m,n,o)=>
+              s"so?$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o"
             }
           },
         ),
       ) _
-      testRoutes(s"/so", "so?((None,None,None,None,None,None,None,None,None,None),None,None)")
+      testRoutes(s"/so?a=a&b=b&c=c&d=d&e=e&f=f&g=g&h=h&i=i&j=j&k=k&l=l&m=m&n=n&o=o", "so?Some(a),Some(b),Some(c),Some(d),Some(e),Some(f),Some(g),Some(h),Some(i),Some(j),Some(k),Some(l),Some(m),Some(n),Some(o)") // &&
+      testRoutes(s"/so", "so?None,None,None,None,None,None,None,None,None,None,None,None,None,None,None")
+
     },
     test("many query parameters") {
       val testRoutes = testEndpoint(
@@ -351,7 +353,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
       val testRoutes = testEndpoint(
         Routes(
           Endpoint(GET / "users")
-            .query(queryAllInt("ints"))
+            .query(queryAllOptionalInt("ints"))
             .out[String]
             .implementHandler {
               Handler.fromFunction { case queryParams =>

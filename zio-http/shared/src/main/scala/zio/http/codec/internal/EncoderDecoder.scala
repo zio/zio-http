@@ -287,9 +287,10 @@ private[codec] object EncoderDecoder {
 
         val params = queryParams.queryParamsOrElse(query.name, Nil)
 
-        if (params.isEmpty)
-          throw HttpCodecError.MissingQueryParam(query.name)
-        else {
+//        if (params.isEmpty)
+//          throw HttpCodecError.MissingQueryParam(query.name)
+//        else
+        {
           val parsedParams = params.collect(query.textCodec)
           inputs(i) = parsedParams
         }

@@ -311,7 +311,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
       override def apply(in: In1): ZIO[R1, Err1, Out1] = {
-        println(this)
         self(in).foldCauseZIO(
           cause => onFailure(cause)(in),
           out => onSuccess(out)(in),
