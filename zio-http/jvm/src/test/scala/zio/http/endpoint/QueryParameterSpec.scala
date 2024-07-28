@@ -17,13 +17,12 @@
 package zio.http.endpoint
 
 import java.time.Instant
-
 import zio._
 import zio.test._
-
 import zio.http.Method._
 import zio.http._
 import zio.http.codec.HttpCodec.{query, queryAll, queryAllBool, queryAllInt, queryInt}
+import zio.http.endpoint.EndpointMiddleware.None
 import zio.http.endpoint.EndpointSpec.testEndpoint
 
 object QueryParameterSpec extends ZIOHttpSpec {
@@ -95,6 +94,65 @@ object QueryParameterSpec extends ZIOHttpSpec {
         testRoutes(s"/users/$userId?key=&value=$value", s"path(users, $userId, Some(), Some($value))") &&
         testRoutes(s"/users/$userId?key=$key&value=$value", s"path(users, $userId, Some($key), Some($value))")
       }
+    },
+    test("many optional query parameters") {
+      val soEndpoint = Endpoint(Method.GET / "so")
+        .query[Option[String]](query("a").optional)
+        .query[Option[String]](query("b").optional)
+        .query[Option[String]](query("c").optional)
+        .query[Option[String]](query("d").optional)
+        .query[Option[String]](query("e").optional)
+        .query[Option[String]](query("f").optional)
+        .query[Option[String]](query("g").optional)
+        .query[Option[String]](query("h").optional)
+        .query[Option[String]](query("i").optional)
+        .query[Option[String]](query("j").optional)
+        .query[Option[String]](query("k").optional)
+        .query[Option[String]](query("l").optional)
+                  .query[Option[String]](query("m").optional)
+        //          .query[Option[String]](query("n").optional)
+        //          .query[Option[String]](query("o").optional)
+        .out[String]
+      val testRoutes = testEndpoint(
+        Routes(
+        soEndpoint
+          .implementHandler {
+            Handler.fromFunction {p=>
+              s"so?$p"
+            }
+          },
+        ),
+      ) _
+      testRoutes(s"/so", "so?((None,None,None,None,None,None,None,None,None,None),None,None)")
+    },
+    test("many query parameters") {
+      val testRoutes = testEndpoint(
+        Routes(
+        Endpoint(Method.GET / "so")
+          .query[String](query("a"))
+          .query[String](query("b"))
+          .query[String](query("c"))
+          .query[String](query("d"))
+          .query[String](query("e"))
+          .query[String](query("f"))
+          .query[String](query("g"))
+          .query[String](query("h"))
+          .query[String](query("i"))
+          .query[String](query("j"))
+          .query[String](query("k"))
+          .query[String](query("l"))
+          .query[String](query("m"))
+          .query[String](query("n"))
+          .query[String](query("o"))
+          .out[String]
+          .implementHandler {
+            Handler.fromFunction {p=>
+              s"so?$p"
+            }
+          },
+        ),
+      ) _
+      testRoutes(s"/so?a=a&b=b&c=c&d=d&e=e&f=f&g=g&h=h&i=i&j=j&k=k&l=l&m=m&n=n&o=o", "so?((a,b,c,d,e,f,g,h,i,j),k,l,m,n,o)")
     },
     test("query parameters with multiple values") {
       check(Gen.int, Gen.listOfN(3)(Gen.alphaNumericString)) { (userId, keys) =>
