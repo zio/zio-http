@@ -17,19 +17,13 @@
 package zio.http.endpoint
 
 import java.time.Instant
+
 import zio._
 import zio.test._
+
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{
-  query,
-  queryAll,
-  queryAllBool,
-  queryAllInt,
-  queryAllOptionalInt,
-  queryInt,
-  queryOptional,
-}
+import zio.http.codec.HttpCodec._
 import zio.http.endpoint.EndpointMiddleware.None
 import zio.http.endpoint.EndpointSpec.testEndpoint
 

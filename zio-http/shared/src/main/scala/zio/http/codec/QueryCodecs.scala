@@ -16,9 +16,10 @@
 
 package zio.http.codec
 import zio.Chunk
-import zio.http.codec.HttpCodec.{Annotated, Metadata}
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.codec.HttpCodec.Query.QueryParamHint
+import zio.http.codec.HttpCodec.{Annotated, Metadata}
 
 private[codec] trait QueryCodecs {
 
