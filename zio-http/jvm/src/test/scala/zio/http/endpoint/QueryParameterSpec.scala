@@ -98,7 +98,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
       }
     },
     test("many optional query parameters") {
-      val soEndpoint = Endpoint(Method.GET / "so")
+      val soEndpoint = Endpoint(GET / "so")
         .query[Option[String]](queryOptional("a"))
         .query[Option[String]](queryOptional("b"))
         .query[Option[String]](queryOptional("c"))
@@ -134,7 +134,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("many query parameters") {
       val testRoutes = testEndpoint(
         Routes(
-          Endpoint(Method.GET / "so")
+          Endpoint(GET / "so")
             .query[String](query("a"))
             .query[String](query("b"))
             .query[String](query("c"))
@@ -389,7 +389,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
       testRoutes
         .runZIO(Request.get("/users"))
-        .map(resp => assertTrue(resp.status == Status.BadRequest))
+        .map(resp => assertTrue(resp.status == zio.http.Status.BadRequest))
     },
     test("multiple query parameter values to single value query parameter codec") {
       val testRoutes =
@@ -406,7 +406,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
       testRoutes
         .runZIO(Request.get(URL.decode("/users?ints=1&ints=2").toOption.get))
-        .map(resp => assertTrue(resp.status == Status.BadRequest))
+        .map(resp => assertTrue(resp.status == zio.http.Status.BadRequest))
     },
   )
 }
