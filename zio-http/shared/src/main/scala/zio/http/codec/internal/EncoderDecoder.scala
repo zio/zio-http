@@ -216,11 +216,6 @@ private[codec] object EncoderDecoder {
       } else {
         false
       }
-    private val isEventStream               = if (flattened.content.length == 1) {
-      isEventStreamBody(flattened.content(0))
-    } else {
-      false
-    }
     private val onlyTheLastFieldIsStreaming =
       if (flattened.content.size > 1) {
         !flattened.content.init.exists(isByteStreamBody) && isByteStreamBody(flattened.content.last)
@@ -533,26 +528,20 @@ private[codec] object EncoderDecoder {
           case SimpleCodec.Specified(method) => Some(method)
         }
       } else None
-    private def encodeBody(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Body = {
+    private def encodeBody(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Body =
       if (isByteStream) {
         Body.fromStreamChunked(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
       } else {
-        if (inputs.length > 1) {
-          Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes), formBoundary)
-        } else {
-          if (isEventStream) {
-            Body.fromCharSequenceStreamChunked(
-              inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode),
-            )
-          } else if (inputs.length < 1) {
+        inputs.length match {
+          case 0 =>
             Body.empty
-          } else {
+          case 1 =>
             val bodyCodec = flattened.content(0)
             bodyCodec.erase.encodeToBody(inputs(0), outputTypes)
-          }
+          case _ =>
+            Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes), formBoundary)
         }
       }
-    }
 
     private def encodeMultipartFormData(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Form = {
       Form(
@@ -581,8 +570,7 @@ private[codec] object EncoderDecoder {
         if (inputs.length > 1) {
           Headers(Header.ContentType(MediaType.multipart.`form-data`))
         } else {
-          if (isEventStream) Headers(Header.ContentType(MediaType.text.`event-stream`))
-          else if (flattened.content.length < 1) Headers.empty
+          if (flattened.content.length < 1) Headers.empty
           else {
             val mediaType = flattened
               .content(0)
@@ -598,14 +586,6 @@ private[codec] object EncoderDecoder {
       codec match {
         case BodyCodec.Multiple(codec, _) if codec.defaultMediaType.binary => true
         case _                                                             => false
-      }
-
-    private def isEventStreamBody(codec: BodyCodec[_]): Boolean =
-      codec match {
-        case BodyCodec.Multiple(codec, _)
-            if codec.lookup(MediaType.text.`event-stream`).exists(_.schema == Schema[ServerSentEvent]) =>
-          true
-        case _ => false
       }
   }
 
