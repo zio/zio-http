@@ -224,7 +224,7 @@ The `Response.fromServerSentEvents` method creates a response with a stream of s
 
 ```scala
 object Response {
-  def fromServerSentEvents(stream: ZStream[Any, Nothing, ServerSentEvent]): Response = ???
+  def fromServerSentEvents(stream: ZStream[Any, Nothing, ServerSentEvent[String]]): Response = ???
 }
 ```
 
@@ -239,7 +239,7 @@ import java.time.format.DateTimeFormatter.ISO_LOCAL_TIME
 
 object ServerSentExample extends ZIOAppDefault {
 
-  val stream: ZStream[Any, Nothing, ServerSentEvent] =
+  val stream: ZStream[Any, Nothing, ServerSentEvent[String]] =
     ZStream.repeatWithSchedule(
       ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now)),
       Schedule.spaced(1.second),
