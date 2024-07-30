@@ -273,7 +273,7 @@ sealed trait Route[-Env, +Err] { self =>
    */
   def location: Trace
 
-  def nest(prefix: PathCodec[Unit])(implicit ev: Err <:< Response): Route[Env, Err] =
+  def nest(prefix: PathCodec[Unit]): Route[Env, Err] =
     self match {
       case Provided(route, env)                     => Provided(route.nest(prefix), env)
       case Augmented(route, aspect)                 => Augmented(route.nest(prefix), aspect)
