@@ -446,18 +446,16 @@ object Server extends ServerPlatformSpecific {
         initialInstall   <- Promise.make[Nothing, Unit]
         serverStarted    <- Promise.make[Throwable, Int]
         _                <-
-          (
-            initialInstall.await *>
-              driver.start.flatMap { result =>
-                inFlightRequests.succeed(result.inFlightRequests) &>
-                  serverStarted.succeed(result.port)
-              }
-                .catchAll(serverStarted.fail)
-          )
+          (for {
+            _      <- initialInstall.await.interruptible
+            result <- driver.start
+            _      <- inFlightRequests.succeed(result.inFlightRequests)
+            _      <- serverStarted.succeed(result.port)
+          } yield ())
             // In the case of failure of `Driver#.start` or interruption while we are waiting to be
-            // installed for the first time, we should should always fail the `serverStarted`
-            // promise to allow the finalizers to make progress.
-            .catchAllCause(cause => inFlightRequests.failCause(cause))
+            // installed for the first time, we should always fail the `serverStarted` and 'inFlightRequests'
+            // promises to allow the finalizers to make progress.
+            .onError(c => inFlightRequests.refailCause(c) *> serverStarted.refailCause(c))
             .forkScoped
       } yield ServerLive(driver, initialInstall, serverStarted)
     }

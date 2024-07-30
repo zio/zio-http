@@ -27,7 +27,7 @@ import zio.http.netty.client.NettyClientDriver
 object SSLSpec extends ZIOHttpSpec {
 
   val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
-  val config    = Server.Config.default.port(8073).ssl(sslConfig)
+  val config    = Server.Config.default.port(8073).ssl(sslConfig).logWarningOnFatalError(false)
 
   val clientSSL1 = ClientSSLConfig.FromCertResource("server.crt")
   val clientSSL2 = ClientSSLConfig.FromCertResource("ss2.crt.pem")

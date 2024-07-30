@@ -312,7 +312,7 @@ private[cli] object HttpOptions {
   private[cli] def optionsFromSegment(segment: SegmentCodec[_]): Options[String] = {
     def fromSegment[A](segment: SegmentCodec[A]): Options[String] =
       segment match {
-        case SegmentCodec.UUID(name)     =>
+        case SegmentCodec.UUID(name)        =>
           Options
             .text(name)
             .mapOrFail(str =>
@@ -324,13 +324,14 @@ private[cli] object HttpOptions {
               },
             )
             .map(_.toString)
-        case SegmentCodec.Text(name)     => Options.text(name)
-        case SegmentCodec.IntSeg(name)   => Options.integer(name).map(_.toInt).map(_.toString)
-        case SegmentCodec.LongSeg(name)  => Options.integer(name).map(_.toInt).map(_.toString)
-        case SegmentCodec.BoolSeg(name)  => Options.boolean(name).map(_.toString)
-        case SegmentCodec.Literal(value) => Options.Empty.map(_ => value)
-        case SegmentCodec.Trailing       => Options.none.map(_.toString)
-        case SegmentCodec.Empty          => Options.none.map(_.toString)
+        case SegmentCodec.Text(name)        => Options.text(name)
+        case SegmentCodec.IntSeg(name)      => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.LongSeg(name)     => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.BoolSeg(name)     => Options.boolean(name).map(_.toString)
+        case SegmentCodec.Literal(value)    => Options.Empty.map(_ => value)
+        case SegmentCodec.Trailing          => Options.none.map(_.toString)
+        case SegmentCodec.Empty             => Options.none.map(_.toString)
+        case SegmentCodec.Combined(_, _, _) => throw new IllegalArgumentException("Combined segment not supported")
       }
 
     fromSegment(segment)

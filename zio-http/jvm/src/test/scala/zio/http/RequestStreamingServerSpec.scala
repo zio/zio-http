@@ -78,16 +78,14 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
           val host       = req.headers.get(Header.Host).get
           val newRequest =
             req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
-          ZIO.debug(s"#1: got response, forwarding") *>
-            ZIO.serviceWithZIO[Client] { client =>
-              client.request(newRequest)
-            }
+          ZIO.serviceWithZIO[Client] { client =>
+            client.request(newRequest)
+          }
         },
         Method.POST / "2" -> handler { (req: Request) =>
-          ZIO.debug("#2: got response, collecting") *>
-            req.body.asChunk.map { body =>
-              Response.text(body.length.toString)
-            }
+          req.body.asChunk.map { body =>
+            Response.text(body.length.toString)
+          }
         },
       ).sandbox
       val sizes = Chunk(0, 8192, 1024 * 1024)

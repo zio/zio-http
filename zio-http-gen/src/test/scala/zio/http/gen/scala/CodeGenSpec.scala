@@ -182,7 +182,6 @@ object CodeGenSpec extends ZIOSpecDefault {
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
         val tempDir = Files.createTempDirectory("codegen")
-        println(tempDir)
         CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(
@@ -240,7 +239,6 @@ object CodeGenSpec extends ZIOSpecDefault {
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
         val tempDir = Files.createTempDirectory("codegen")
-        println(tempDir)
         CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(

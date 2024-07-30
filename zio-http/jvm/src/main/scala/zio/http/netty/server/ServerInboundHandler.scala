@@ -20,7 +20,6 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.LongAdder
 
-import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
 import zio._
@@ -29,7 +28,6 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.Body.WebsocketBody
 import zio.http._
 import zio.http.netty._
-import zio.http.netty.client.NettyRequestEncoder
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
@@ -287,7 +285,12 @@ private[zio] final case class ServerInboundHandler(
             )
             .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, None))
 
-          val jReq = NettyRequestEncoder.encode(request)
+          val jReq = new DefaultFullHttpRequest(
+            Conversions.versionToNetty(request.version),
+            Conversions.methodToNetty(request.method),
+            Conversions.urlToNetty(request.url),
+          )
+          jReq.headers().setAll(Conversions.headersToNetty(request.allHeaders))
           ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(jReq) }: Unit
         }
       }

@@ -210,7 +210,7 @@ object MultipartMixedSpec extends ZIOHttpSpec {
 
     test("property") {
       check(gens.genTestCase) { testCase =>
-        zio.Console.printLine(testCase) *> testCase.runTests
+        testCase.runTests
       }
     } @@ TestAspect.shrinks(0)
 
@@ -248,8 +248,8 @@ object MultipartMixedSpec extends ZIOHttpSpec {
           gens.breaker.fixed(512),
         )
 
-        val innerTests = inner.runTests.map(_.label("inner")).debug("inner")
-        val outerTests = outer.runTests.map(_.label("outer")).debug("outer")
+        val innerTests = inner.runTests.map(_.label("inner"))
+        val outerTests = outer.runTests.map(_.label("outer"))
 
         val nestedTests = {
           val expectedNested = Nested.Multi(
@@ -262,7 +262,6 @@ object MultipartMixedSpec extends ZIOHttpSpec {
           outer.partsToNested.map { collected =>
             zio.test.assert(collected)(Assertion.equalTo(expectedNested)).label("nestedTests")
           }
-            .debug("nestedTests")
         }
 
         (innerTests <*> outerTests <*> nestedTests).map { case (i, o, n) =>
@@ -308,8 +307,8 @@ object MultipartMixedSpec extends ZIOHttpSpec {
           gens.breaker.fixed(512),
         )
 
-        val innerTests = inner.runTests.map(_.label("inner")).debug("inner")
-        val outerTests = outer.runTests.map(_.label("outer")).debug("outer")
+        val innerTests = inner.runTests.map(_.label("inner"))
+        val outerTests = outer.runTests.map(_.label("outer"))
 
         val nestedTests = {
           val expectedNested = Nested.Multi(
@@ -322,7 +321,6 @@ object MultipartMixedSpec extends ZIOHttpSpec {
           outer.partsToNested.map { collected =>
             zio.test.assert(collected)(Assertion.equalTo(expectedNested)).label("nestedTests")
           }
-            .debug("nestedTests")
         }
 
         (innerTests <*> outerTests <*> nestedTests).map { case (i, o, n) =>
@@ -364,8 +362,8 @@ object MultipartMixedSpec extends ZIOHttpSpec {
           gens.breaker.fixed(512),
         )
 
-        val innerTests = inner.runTests.map(_.label("inner")).debug("inner")
-        val outerTests = outer.runTests.map(_.label("outer")).debug("outer")
+        val innerTests = inner.runTests.map(_.label("inner"))
+        val outerTests = outer.runTests.map(_.label("outer"))
 
         val nestedTests = {
           val expectedNested = Nested.Multi(
@@ -379,7 +377,6 @@ object MultipartMixedSpec extends ZIOHttpSpec {
           outer.partsToNested.map { collected =>
             zio.test.assert(collected)(Assertion.equalTo(expectedNested)).label("nestedTests")
           }
-            .debug("nestedTests")
         }
 
         (innerTests <*> outerTests <*> nestedTests).map { case (i, o, n) =>
