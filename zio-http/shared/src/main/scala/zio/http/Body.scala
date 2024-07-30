@@ -342,8 +342,6 @@ object Body {
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)
 
-  private[zio] trait UnsafeWriteable extends Body
-
   private[zio] trait UnsafeBytes extends Body {
     private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte]
   }
@@ -352,7 +350,7 @@ object Body {
    * Helper to create empty Body
    */
 
-  private[zio] object EmptyBody extends Body with UnsafeWriteable with UnsafeBytes {
+  private[zio] object EmptyBody extends Body with UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = zioEmptyArray
 
@@ -383,7 +381,6 @@ object Body {
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
       with UnsafeBytes { self =>
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
@@ -392,7 +389,7 @@ object Body {
 
     override def isEmpty: Boolean = data.isEmpty
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(data)
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = Exit.succeed(data)
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
@@ -414,16 +411,15 @@ object Body {
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
   ) extends Body
-      with UnsafeWriteable
       with UnsafeBytes { self =>
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data)
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = Exit.succeed(data)
 
     override def isComplete: Boolean = true
 
     override def isEmpty: Boolean = data.isEmpty
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(Chunk.fromArray(data))
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = Exit.succeed(Chunk.fromArray(data))
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
@@ -446,8 +442,7 @@ object Body {
     fileSize: Long,
     override val mediaType: Option[MediaType] = None,
     override val boundary: Option[Boundary] = None,
-  ) extends Body
-      with UnsafeWriteable {
+  ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attemptBlocking {
       Files.readAllBytes(file.toPath)
@@ -536,8 +531,8 @@ object Body {
 
   }
 
-  private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])(Trace.empty)
+  private val zioEmptyArray = Exit.succeed(Array.emptyByteArray)
 
-  private val zioEmptyChunk = ZIO.succeed(Chunk.empty[Byte])(Trace.empty)
+  private val zioEmptyChunk = Exit.succeed(Chunk.empty[Byte])
 
 }

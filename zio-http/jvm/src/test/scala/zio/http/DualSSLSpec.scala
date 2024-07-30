@@ -50,7 +50,7 @@ object DualSSLSpec extends ZIOHttpSpec {
     includeClientCert = true,
   )
 
-  val config = Server.Config.default.port(8073).ssl(sslConfigWithTrustedClient)
+  val config = Server.Config.default.port(8073).ssl(sslConfigWithTrustedClient).logWarningOnFatalError(false)
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 

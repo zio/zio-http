@@ -1,6 +1,7 @@
 package zio.http
 
 import java.io.{File, FileNotFoundException}
+import java.nio.charset.Charset
 import java.util.zip.ZipFile
 
 import zio.{Trace, ZIO}
@@ -13,21 +14,24 @@ trait HandlerPlatformSpecific {
   /**
    * Creates a handler from a resource path
    */
-  def fromResource(path: String)(implicit trace: Trace): Handler[Any, Throwable, Any, Response] =
+  def fromResource(path: String, charset: Charset = Charsets.Utf8)(implicit
+    trace: Trace,
+  ): Handler[Any, Throwable, Any, Response] =
     Handler.fromZIO {
       ZIO
         .attemptBlocking(getClass.getClassLoader.getResource(path))
         .map { resource =>
           if (resource == null) Handler.fail(new FileNotFoundException(s"Resource $path not found"))
-          else fromResourceWithURL(resource)
+          else fromResourceWithURL(resource, charset)
         }
     }.flatten
 
   private[zio] def fromResourceWithURL(
     url: java.net.URL,
+    charset: Charset,
   )(implicit trace: Trace): Handler[Any, Throwable, Any, Response] = {
     url.getProtocol match {
-      case "file" => Handler.fromFile(new File(url.getPath))
+      case "file" => Handler.fromFile(new File(url.getPath), charset)
       case "jar"  =>
         val path         = new java.net.URI(url.getPath).getPath // remove "file:" prefix and normalize whitespace
         val bangIndex    = path.indexOf('!')
@@ -56,8 +60,9 @@ trait HandlerPlatformSpecific {
                   .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
                 response      = Response(body = Body.fromStream(inZStream, contentLength))
               } yield mediaType.fold(response) { t =>
+                val charset0 = if (t.mainType == "text" || !t.binary) Some(charset) else None
                 response
-                  .addHeader(Header.ContentType(t))
+                  .addHeader(Header.ContentType(t, charset = charset0))
               }
             }
         }

@@ -18,6 +18,8 @@ package zio.http
 
 import zio.test._
 
+import zio.http.codec.PathCodec
+
 object RoutesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
@@ -46,6 +48,65 @@ object RoutesSpec extends ZIOHttpSpec {
       for {
         result <- app.runZIO(Request(body = body))
       } yield assertTrue(result.body == body)
+    },
+    test("routes with different path parameter arities should all be handled") {
+      val one    = Method.GET / string("first") -> Handler.ok
+      val getone = Request.get("/1")
+
+      val two    = Method.GET / string("prefix") / string("second") -> Handler.internalServerError
+      val gettwo = Request.get("/2/two")
+
+      val onetwo = Routes(one, two)
+      val twoone = Routes(two, one)
+
+      for {
+        onetwoone <- onetwo.runZIO(getone)
+        onetwotwo <- onetwo.runZIO(gettwo)
+        twooneone <- twoone.runZIO(getone)
+        twoonetwo <- twoone.runZIO(gettwo)
+      } yield {
+        assertTrue(
+          extractStatus(onetwoone) == Status.Ok,
+          extractStatus(onetwotwo) == Status.InternalServerError,
+          extractStatus(twooneone) == Status.Ok,
+          extractStatus(twoonetwo) == Status.InternalServerError,
+        )
+      }
+    },
+    test("nest routes") {
+      import PathCodec._
+      import zio._
+      case object IdFormatError
+      val routes = literal("to") / Routes(
+        Method.GET / "other"             -> handler(ZIO.fail(IdFormatError)),
+        Method.GET / "do" / string("id") -> handler { (id: String, _: Request) => Response.text(s"GET /to/do/${id}") },
+      ).handleError { case IdFormatError =>
+        Response.badRequest
+      }
+      routes
+        .run(
+          path = Path.root / "to" / "do" / "123",
+        )
+        .map(response => assertTrue(response.status == Status.Ok))
+    },
+    test("alternative path segments") {
+      val app = Routes(
+        Method.GET / anyOf("foo", "bar", "baz") -> Handler.ok,
+      )
+
+      for {
+        foo <- app.runZIO(Request.get("/foo"))
+        bar <- app.runZIO(Request.get("/bar"))
+        baz <- app.runZIO(Request.get("/baz"))
+        box <- app.runZIO(Request.get("/box"))
+      } yield {
+        assertTrue(
+          extractStatus(foo) == Status.Ok,
+          extractStatus(bar) == Status.Ok,
+          extractStatus(baz) == Status.Ok,
+          extractStatus(box) == Status.NotFound,
+        )
+      }
     },
   )
 }

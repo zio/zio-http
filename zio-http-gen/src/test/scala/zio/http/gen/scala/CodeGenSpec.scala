@@ -182,7 +182,6 @@ object CodeGenSpec extends ZIOSpecDefault {
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
         val tempDir = Files.createTempDirectory("codegen")
-        println(tempDir)
         CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(
@@ -240,7 +239,6 @@ object CodeGenSpec extends ZIOSpecDefault {
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
         val tempDir = Files.createTempDirectory("codegen")
-        println(tempDir)
         CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(
@@ -554,6 +552,243 @@ object CodeGenSpec extends ZIOSpecDefault {
           tempDir,
           "test/component/UserNameArray.scala",
           "/GeneratedUserNameArray.scala",
+        )
+      },
+      test("Endpoints with common prefix") {
+        val json    = """{
+                     |  "openapi": "3.0.0",
+                     |  "info": {
+                     |    "version": "1.0.0",
+                     |    "title": "Swagger Petstore",
+                     |    "license": {
+                     |      "name": "MIT"
+                     |    }
+                     |  },
+                     |  "servers": [
+                     |    {
+                     |      "url": "http://petstore.swagger.io/v1"
+                     |    }
+                     |  ],
+                     |  "paths": {
+                     |    "/pets": {
+                     |      "get": {
+                     |        "summary": "List all pets",
+                     |        "operationId": "listPets",
+                     |        "tags": [
+                     |          "pets"
+                     |        ],
+                     |        "parameters": [
+                     |          {
+                     |            "name": "limit",
+                     |            "in": "query",
+                     |            "description": "How many items to return at one time (max 100)",
+                     |            "required": false,
+                     |            "schema": {
+                     |              "type": "integer",
+                     |              "maximum": 100,
+                     |              "format": "int32"
+                     |            }
+                     |          }
+                     |        ],
+                     |        "responses": {
+                     |          "200": {
+                     |            "description": "A paged array of pets",
+                     |            "headers": {
+                     |              "x-next": {
+                     |                "description": "A link to the next page of responses",
+                     |                "schema": {
+                     |                  "type": "string"
+                     |                }
+                     |              }
+                     |            },
+                     |            "content": {
+                     |              "application/json": {
+                     |                "schema": {
+                     |                  "$ref": "#/components/schemas/Pets"
+                     |                }
+                     |              }
+                     |            }
+                     |          },
+                     |          "default": {
+                     |            "description": "unexpected error",
+                     |            "content": {
+                     |              "application/json": {
+                     |                "schema": {
+                     |                  "$ref": "#/components/schemas/Error"
+                     |                }
+                     |              }
+                     |            }
+                     |          }
+                     |        }
+                     |      },
+                     |      "post": {
+                     |        "summary": "Create a pet",
+                     |        "operationId": "createPets",
+                     |        "tags": [
+                     |          "pets"
+                     |        ],
+                     |        "requestBody": {
+                     |          "content": {
+                     |            "application/json": {
+                     |              "schema": {
+                     |                "$ref": "#/components/schemas/Pet"
+                     |              }
+                     |            }
+                     |          },
+                     |          "required": true
+                     |        },
+                     |        "responses": {
+                     |          "201": {
+                     |            "description": "Null response"
+                     |          },
+                     |          "default": {
+                     |            "description": "unexpected error",
+                     |            "content": {
+                     |              "application/json": {
+                     |                "schema": {
+                     |                  "$ref": "#/components/schemas/Error"
+                     |                }
+                     |              }
+                     |            }
+                     |          }
+                     |        }
+                     |      }
+                     |    }
+                     |  },
+                     |  "components": {
+                     |    "schemas": {
+                     |      "Pet": {
+                     |        "type": "object",
+                     |        "required": [
+                     |          "id",
+                     |          "name"
+                     |        ],
+                     |        "properties": {
+                     |          "id": {
+                     |            "type": "integer",
+                     |            "format": "int64"
+                     |          },
+                     |          "name": {
+                     |            "type": "string",
+                     |            "minLength": 3
+                     |          },
+                     |          "tag": {
+                     |            "type": "string"
+                     |          }
+                     |        }
+                     |      },
+                     |      "Pets": {
+                     |        "type": "array",
+                     |        "maxItems": 100,
+                     |        "items": {
+                     |          "$ref": "#/components/schemas/Pet"
+                     |        }
+                     |      },
+                     |      "Error": {
+                     |        "type": "object",
+                     |        "required": [
+                     |          "code",
+                     |          "message"
+                     |        ],
+                     |        "properties": {
+                     |          "code": {
+                     |            "type": "integer",
+                     |            "format": "int32"
+                     |          },
+                     |          "message": {
+                     |            "type": "string"
+                     |          }
+                     |        }
+                     |      }
+                     |    }
+                     |  }
+                     |}""".stripMargin
+        val openAPI = OpenAPI.fromJson(json).toOption.get
+        val code    = EndpointGen.fromOpenAPI(openAPI)
+        val tempDir = Files.createTempDirectory("codegen")
+
+        CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
+
+        fileShouldBe(
+          tempDir,
+          "test/Pets.scala",
+          "/EndpointsWithOverlappingPath.scala",
+        )
+      },
+      test("Additional properties") {
+        val json    = """{
+                     |  "info": {
+                     |    "title": "Animals Service",
+                     |    "version": "0.0.1"
+                     |  },
+                     |  "servers": [
+                     |    {
+                     |      "url": "http://127.0.0.1:5000/"
+                     |    }
+                     |  ],
+                     |  "tags": [
+                     |    {
+                     |      "name": "Animals_API"
+                     |    }
+                     |  ],
+                     |  "paths": {
+                     |    "/api/v1/zoo": {
+                     |      "get": {
+                     |        "operationId": "get_animals",
+                     |        "tags": [
+                     |          "Animals_API"
+                     |        ],
+                     |        "description": "Get all animals count",
+                     |        "responses": {
+                     |          "200": {
+                     |            "content": {
+                     |              "application/json": {
+                     |                "schema": {
+                     |                  "$ref": "#/components/schemas/Animals"
+                     |                }
+                     |              }
+                     |            }
+                     |          }
+                     |        }
+                     |      }
+                     |    }
+                     |  },
+                     |  "openapi": "3.0.3",
+                     |  "components": {
+                     |    "schemas": {
+                     |      "Animals": {
+                     |        "type": "object",
+                     |        "required": [
+                     |          "total",
+                     |          "counts"
+                     |        ],
+                     |        "properties": {
+                     |          "total": {
+                     |            "type": "integer",
+                     |            "format": "int32"
+                     |          },
+                     |          "counts": {
+                     |            "type": "object",
+                     |            "additionalProperties": {
+                     |              "type": "integer",
+                     |              "format": "int32"
+                     |            }
+                     |          }
+                     |        }
+                     |      }
+                     |    }
+                     |  }
+                     |}""".stripMargin
+        val openAPI = OpenAPI.fromJson(json).toOption.get
+        val code    = EndpointGen.fromOpenAPI(openAPI)
+        val tempDir = Files.createTempDirectory("codegen")
+
+        CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
+
+        fileShouldBe(
+          tempDir,
+          "test/component/Animals.scala",
+          "/AnimalWithMap.scala",
         )
       },
     ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky

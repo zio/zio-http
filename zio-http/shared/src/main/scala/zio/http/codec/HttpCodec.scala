@@ -29,7 +29,7 @@ import zio.schema.Schema
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec.HttpCodec.{Annotated, Metadata}
-import zio.http.codec.internal.EncoderDecoder
+import zio.http.codec.internal.{AtomizedCodecs, EncoderDecoder}
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -48,6 +48,27 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   private lazy val encoderDecoder: EncoderDecoder[AtomTypes, Value] = EncoderDecoder(self)
 
+  private def statusCodecs: Chunk[SimpleCodec[Status, _]] =
+    self.asInstanceOf[HttpCodec[_, _]] match {
+      case HttpCodec.Fallback(left, right, _, _)  => left.statusCodecs ++ right.statusCodecs
+      case HttpCodec.Combine(left, right, _)      => left.statusCodecs ++ right.statusCodecs
+      case HttpCodec.Annotated(codec, _)          => codec.statusCodecs
+      case HttpCodec.TransformOrFail(codec, _, _) => codec.statusCodecs
+      case HttpCodec.Empty                        => Chunk.empty
+      case HttpCodec.Halt                         => Chunk.empty
+      case atom: HttpCodec.Atom[_, _]             =>
+        atom match {
+          case HttpCodec.Status(codec, _) => Chunk.single(codec)
+          case _                          => Chunk.empty
+        }
+    }
+
+  private lazy val statusCodes: Set[Status] = statusCodecs.collect { case SimpleCodec.Specified(status) =>
+    status
+  }.toSet
+
+  private lazy val matchesAnyStatus: Boolean = statusCodecs.contains(SimpleCodec.Unspecified[Status]())
+
   /**
    * Returns a new codec that is the same as this one, but has attached docs,
    * which will render whenever docs are generated from the codec.
@@ -59,6 +80,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     that: HttpCodec[AtomTypes1, Value2],
   )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] = {
     if (self eq HttpCodec.Halt) that.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
+    else if (that eq HttpCodec.Halt) self.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
     else {
       HttpCodec
         .Fallback(self, that, alternator, HttpCodec.Fallback.Condition.IsHttpCodecError)
@@ -237,6 +259,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       if (actual == expected) Right(())
       else Left(s"Expected ${expected} but found ${actual}"),
     )(_ => expected)
+
+  private[http] def matchesStatus(status: Status) =
+    matchesAnyStatus || statusCodes.contains(status)
 
   def named(name: String): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Named(name))
@@ -624,6 +649,19 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         case Metadata.Named(name)     => Metadata.Named(name)
         case Metadata.Optional()      => Metadata.Optional()
         case Metadata.Examples(ex)    => Metadata.Examples(ex.map { case (k, v) => k -> f(v) })
+        case Metadata.Documented(doc) => Metadata.Documented(doc)
+        case Metadata.Deprecated(doc) => Metadata.Deprecated(doc)
+      }
+
+    def transformOrFail[Value2](f: Value => Either[String, Value2]): Metadata[Value2] =
+      this match {
+        case Metadata.Named(name)     => Metadata.Named(name)
+        case Metadata.Optional()      => Metadata.Optional()
+        case Metadata.Examples(ex)    =>
+          Metadata.Examples(ex.collect {
+            case (k, v) if f(v).isRight =>
+              k -> f(v).toOption.get
+          })
         case Metadata.Documented(doc) => Metadata.Documented(doc)
         case Metadata.Deprecated(doc) => Metadata.Deprecated(doc)
       }

@@ -39,7 +39,7 @@ object CustomErrorSpec extends ZIOHttpSpec {
           Endpoint(GET / "users" / int("userId"))
             .out[String]
             .outError[String](Status.Custom(customCode))
-            .implement {
+            .implementHandler {
               Handler.fromFunctionZIO { userId =>
                 ZIO.fail(s"path(users, $userId)")
               }
@@ -66,7 +66,7 @@ object CustomErrorSpec extends ZIOHttpSpec {
               HttpCodec.error[TestError.UnexpectedError](Status.InternalServerError),
               HttpCodec.error[TestError.InvalidUser](Status.NotFound),
             )
-            .implement {
+            .implementHandler {
               Handler.fromFunctionZIO { userId =>
                 if (userId == myUserId) ZIO.fail(TestError.InvalidUser(userId))
                 else ZIO.fail(TestError.UnexpectedError("something went wrong"))
@@ -100,7 +100,7 @@ object CustomErrorSpec extends ZIOHttpSpec {
             .in[User](Doc.p("User schema with id"))
             .out[String]
             .emptyErrorResponse
-            .implement {
+            .implementHandler {
               Handler.fromFunctionZIO { _ =>
                 ZIO.succeed("User ID is greater than 0")
               }

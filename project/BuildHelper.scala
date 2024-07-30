@@ -102,7 +102,7 @@ object BuildHelper extends ScalaSettings {
   )
 
   def meta = Seq(
-    ThisBuild / homepage   := Some(url("https://github.com/zio/zio-http")),
+    ThisBuild / homepage   := Some(url("https://zio.dev/zio-http")),
     ThisBuild / scmInfo    :=
       Some(
         ScmInfo(url("https://github.com/zio/zio-http"), "scm:git@github.com:zio/zio-http.git"),

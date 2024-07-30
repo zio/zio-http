@@ -86,7 +86,7 @@ object FormSpec extends ZIOHttpSpec {
         form2 == form,
       )
     },
-    test("encoding with custom paramaters [charset]") {
+    test("encoding with custom parameters [charset]") {
 
       val form = Form(
         FormField.textField(
@@ -143,6 +143,30 @@ object FormSpec extends ZIOHttpSpec {
         )
       }
 
+    },
+    test("decoding no lf at the end") {
+      val body = Chunk.fromArray(
+        s"""|--(((AaB03x)))${CR}
+            |Content-Disposition: form-data; name="hocon-data"${CR}
+            |Content-Type: text/plain${CR}
+            |${CR}
+            |foos: []${CR}
+            |--(((AaB03x)))${CR}
+            |Content-Disposition: form-data; name="json-data"${CR}
+            |Content-Type: text/plain${CR}
+            |${CR}
+            |{ "bars": [] }${CR}
+            |--(((AaB03x)))--""".stripMargin.getBytes(),
+      )
+
+      val form = Form(
+        FormField.textField("hocon-data", "foos: []", MediaType.text.`plain`),
+        FormField.textField("json-data", """{ "bars": [] }""", MediaType.text.`plain`),
+      )
+
+      Form
+        .fromMultipartBytes(body)
+        .map(form2 => assertTrue(form2 == form))
     },
   )
 
@@ -271,6 +295,33 @@ object FormSpec extends ZIOHttpSpec {
           collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
         )
       },
+      test("StreamingForm dynamically resizes") {
+        val N        = 1000
+        val expected = Chunk.fromArray(Array.fill(N)(scala.util.Random.nextInt()).map(_.toByte))
+        val form     =
+          Form(
+            Chunk(
+              FormField.binaryField(
+                name = "identifier",
+                data = Chunk(10.toByte),
+                mediaType = MediaType.application.`octet-stream`,
+              ),
+              FormField.StreamingBinary(
+                name = "blob",
+                data = ZStream.fromChunk(expected),
+                contentType = MediaType.application.`octet-stream`,
+              ),
+            ),
+          )
+        val boundary = Boundary("X-INSOMNIA-BOUNDARY")
+        for {
+          formBytes <- form.multipartBytes(boundary).runCollect
+          formByteStream = ZStream.fromChunk(formBytes)
+          streamingForm  = StreamingForm(formByteStream, boundary, 16)
+          out <- streamingForm.collectAll
+          res = out.get("blob").get.asInstanceOf[FormField.Binary].data
+        } yield assertTrue(res == expected)
+      } @@ timeout(3.seconds),
       test("decoding random form") {
         check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
           for {
@@ -311,6 +362,30 @@ object FormSpec extends ZIOHttpSpec {
           )
         }
       } @@ samples(10),
+      test("output stream maintains the same chunk structure as the input stream") {
+        val form           = Form(
+          Chunk(
+            FormField.StreamingBinary(
+              name = "blob",
+              data = ZStream.fromChunk(Chunk(1, 2).map(_.toByte)) ++
+                ZStream.fromChunk(Chunk(3).map(_.toByte)),
+              contentType = MediaType.application.`octet-stream`,
+            ),
+          ),
+        )
+        val boundary       = Boundary("X-INSOMNIA-BOUNDARY")
+        val formByteStream = form.multipartBytes(boundary)
+        val streamingForm  = StreamingForm(formByteStream, boundary)
+        val expected       = Chunk(Chunk[Byte](1, 2), Chunk[Byte](3))
+        streamingForm.fields.flatMap {
+          case sb: FormField.StreamingBinary => sb.data
+          case _                             => ZStream.empty
+        }
+          .mapChunks(Chunk.single)
+          .filter(_.nonEmpty)
+          .runCollect
+          .map { c => assertTrue(c == expected) }
+      },
     ) @@ sequential
 
   def spec =

@@ -95,7 +95,7 @@ class EndpointBenchmark {
       .out[ExampleData]
 
   val handledUsersPosts =
-    usersPosts.implement {
+    usersPosts.implementHandler {
       Handler.fromFunction { case (userId, postId, limit) =>
         ExampleData(userId, postId, limit)
       }
@@ -218,7 +218,7 @@ class EndpointBenchmark {
       ) / "seventh" / int("id5"),
   )
     .out[Unit]
-    .implement(Handler.unit)
+    .implementHandler(Handler.unit)
     .toRoutes
 
   // Collect DSL
@@ -333,20 +333,20 @@ class EndpointBenchmark {
 
   // API DSL
 
-  val broadUsers                       = Endpoint(Method.GET / "users").out[Unit].implement(Handler.unit)
+  val broadUsers                       = Endpoint(Method.GET / "users").out[Unit].implementHandler(Handler.unit)
   val broadUsersId                     =
-    Endpoint(Method.GET / "users" / int("userId")).out[Unit].implement(Handler.unit)
+    Endpoint(Method.GET / "users" / int("userId")).out[Unit].implementHandler(Handler.unit)
   val boardUsersPosts                  =
     Endpoint(Method.GET / "users" / int("userId") / "posts")
       .out[Unit]
-      .implement(Handler.unit)
+      .implementHandler(Handler.unit)
   val boardUsersPostsId                =
     Endpoint(
       Method.GET /
         "users" / int("userId") / "posts" / int("postId"),
     )
       .out[Unit]
-      .implement(Handler.unit)
+      .implementHandler(Handler.unit)
   val boardUsersPostsComments          =
     Endpoint(
       Method.GET /
@@ -355,7 +355,7 @@ class EndpointBenchmark {
         ) / "comments",
     )
       .out[Unit]
-      .implement(Handler.unit)
+      .implementHandler(Handler.unit)
   val boardUsersPostsCommentsId        =
     Endpoint(
       Method.GET /
@@ -364,14 +364,14 @@ class EndpointBenchmark {
         ) / "comments" / int("commentId"),
     )
       .out[Unit]
-      .implement(Handler.unit)
-  val broadPosts                       = Endpoint(Method.GET / "posts").out[Unit].implement(Handler.unit)
+      .implementHandler(Handler.unit)
+  val broadPosts                       = Endpoint(Method.GET / "posts").out[Unit].implementHandler(Handler.unit)
   val broadPostsId                     =
-    Endpoint(Method.GET / "posts" / int("postId")).out[Unit].implement(Handler.unit)
+    Endpoint(Method.GET / "posts" / int("postId")).out[Unit].implementHandler(Handler.unit)
   val boardPostsComments               =
     Endpoint(Method.GET / "posts" / int("postId") / "comments")
       .out[Unit]
-      .implement(Handler.unit)
+      .implementHandler(Handler.unit)
   val boardPostsCommentsId             =
     Endpoint(
       Method.GET /
@@ -380,14 +380,14 @@ class EndpointBenchmark {
         ),
     )
       .out[Unit]
-      .implement(Handler.unit)
-  val broadComments                    = Endpoint(Method.GET / "comments").out[Unit].implement(Handler.unit)
+      .implementHandler(Handler.unit)
+  val broadComments                    = Endpoint(Method.GET / "comments").out[Unit].implementHandler(Handler.unit)
   val broadCommentsId                  =
-    Endpoint(Method.GET / "comments" / int("commentId")).out[Unit].implement(Handler.unit)
+    Endpoint(Method.GET / "comments" / int("commentId")).out[Unit].implementHandler(Handler.unit)
   val broadUsersComments               =
     Endpoint(Method.GET / "users" / int("userId") / "comments")
       .out[Unit]
-      .implement(Handler.unit)
+      .implementHandler(Handler.unit)
   val broadUsersCommentsId             =
     Endpoint(
       Method.GET /
@@ -396,7 +396,7 @@ class EndpointBenchmark {
         ),
     )
       .out[Unit]
-      .implement(Handler.unit)
+      .implementHandler(Handler.unit)
   val boardUsersPostsCommentsReplies   =
     Endpoint(
       Method.GET /
@@ -406,7 +406,7 @@ class EndpointBenchmark {
         "replies",
     )
       .out[Unit]
-      .implement(Handler.unit)
+      .implementHandler(Handler.unit)
   val boardUsersPostsCommentsRepliesId =
     Endpoint(
       Method.GET /
@@ -415,7 +415,7 @@ class EndpointBenchmark {
         ) / "comments" / int("commentId") / "replies" / int("replyId"),
     )
       .out[Unit]
-      .implement(Handler.unit)
+      .implementHandler(Handler.unit)
 
   val broadApiApp =
     Routes(

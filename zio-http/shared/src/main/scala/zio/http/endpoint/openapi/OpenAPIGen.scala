@@ -213,13 +213,20 @@ object OpenAPIGen {
             )
         case path: HttpCodec.Path[_]                          => metaCodecFromPathCodec(path.pathCodec, annotations)
         case atom: HttpCodec.Atom[_, A]                       => Chunk(MetaCodec(atom, annotations))
-        case map: HttpCodec.TransformOrFail[_, _, _]          => flattenedAtoms(map.api, annotations)
+        case map: HttpCodec.TransformOrFail[_, _, _]          =>
+          flattenedAtoms(map.api, annotations.map(_.transformOrFail(map.g.asInstanceOf[Any => Either[String, Any]])))
         case HttpCodec.Empty                                  => Chunk.empty
         case HttpCodec.Halt                                   => Chunk.empty
         case _: HttpCodec.Fallback[_, _, _]       => in.alternatives.map(_._1).flatMap(flattenedAtoms(_, annotations))
         case HttpCodec.Annotated(api, annotation) =>
           flattenedAtoms(api, annotations :+ annotation.asInstanceOf[HttpCodec.Metadata[Any]])
       }
+  }
+
+  def method(in: Chunk[MetaCodec[SimpleCodec[Method, _]]]): Method = {
+    if (in.size > 1) throw new Exception("Multiple methods not supported")
+    in.collectFirst { case MetaCodec(SimpleCodec.Specified(method: Method), _) => method }
+      .getOrElse(throw new Exception("No method specified"))
   }
 
   def metaCodecFromPathCodec(
@@ -248,6 +255,8 @@ object OpenAPIGen {
             }
           }),
         )
+      case PathCodec.Fallback(left, _)                  =>
+        loop(left, annotations)
     }
 
     loop(codec, annotations).map { case (sc, annotations) =>
@@ -336,6 +345,20 @@ object OpenAPIGen {
                 // seems odd to allow additional properties for multipart. So just hardcode it to false
                 JsonSchema
                   .Object(p1 ++ p2, Left(false), r1 ++ r2)
+                  .deprecated(deprecated(metadata))
+                  .nullable(optional(metadata))
+                  .description(description(metadata))
+                  .annotate(annotations)
+              case (JsonSchema.Object(p, _, r), JsonSchema.Null)                =>
+                JsonSchema
+                  .Object(p, Left(false), r)
+                  .deprecated(deprecated(metadata))
+                  .nullable(optional(metadata))
+                  .description(description(metadata))
+                  .annotate(annotations)
+              case (JsonSchema.Null, JsonSchema.Object(p, _, r))                =>
+                JsonSchema
+                  .Object(p, Left(false), r)
                   .deprecated(deprecated(metadata))
                   .nullable(optional(metadata))
                   .description(description(metadata))
@@ -533,12 +556,6 @@ object OpenAPIGen {
       OpenAPI.Path.fromString(pathString).getOrElse(throw new Exception(s"Invalid path: $pathString"))
     }
 
-    def method(in: Chunk[MetaCodec[SimpleCodec[Method, _]]]): Method = {
-      if (in.size > 1) throw new Exception("Multiple methods not supported")
-      in.collectFirst { case MetaCodec(SimpleCodec.Specified(method: Method), _) => method }
-        .getOrElse(throw new Exception("No method specified"))
-    }
-
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
       val maybeDoc = Some(endpoint.doc + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
@@ -688,14 +705,15 @@ object OpenAPIGen {
 
     def segmentToJson(codec: SegmentCodec[_], value: Any): Json = {
       codec match {
-        case SegmentCodec.Empty      => throw new Exception("Empty segment not allowed")
-        case SegmentCodec.Literal(_) => throw new Exception("Literal segment not allowed")
-        case SegmentCodec.BoolSeg(_) => Json.Bool(value.asInstanceOf[Boolean])
-        case SegmentCodec.IntSeg(_)  => Json.Num(value.asInstanceOf[Int])
-        case SegmentCodec.LongSeg(_) => Json.Num(value.asInstanceOf[Long])
-        case SegmentCodec.Text(_)    => Json.Str(value.asInstanceOf[String])
-        case SegmentCodec.UUID(_)    => Json.Str(value.asInstanceOf[UUID].toString)
-        case SegmentCodec.Trailing   => throw new Exception("Trailing segment not allowed")
+        case SegmentCodec.Empty             => throw new Exception("Empty segment not allowed")
+        case SegmentCodec.Literal(_)        => throw new Exception("Literal segment not allowed")
+        case SegmentCodec.BoolSeg(_)        => Json.Bool(value.asInstanceOf[Boolean])
+        case SegmentCodec.IntSeg(_)         => Json.Num(value.asInstanceOf[Int])
+        case SegmentCodec.LongSeg(_)        => Json.Num(value.asInstanceOf[Long])
+        case SegmentCodec.Text(_)           => Json.Str(value.asInstanceOf[String])
+        case SegmentCodec.UUID(_)           => Json.Str(value.asInstanceOf[UUID].toString)
+        case SegmentCodec.Trailing          => throw new Exception("Trailing segment not allowed")
+        case SegmentCodec.Combined(_, _, _) => throw new Exception("Combined segment not allowed")
       }
     }
 
@@ -798,8 +816,7 @@ object OpenAPIGen {
         (
           statusOrDefault,
           (
-            AtomizedMetaCodecs
-              .flatten(codec),
+            AtomizedMetaCodecs.flatten(codec),
             contentAsJsonSchema(codec, referenceType = referenceType) _,
           ),
         )

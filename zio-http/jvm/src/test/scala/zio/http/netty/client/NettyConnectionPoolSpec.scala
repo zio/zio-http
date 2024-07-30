@@ -195,7 +195,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     }.provideSome[Client & Scope](
       ZLayer(appKeepAliveEnabled.unit),
       DynamicServer.live,
-      ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort),
+      ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
       testNettyServerConfig,
       Server.customized,
     ) @@ withLiveClock
@@ -211,7 +211,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
   }.provideSome[Scope](
     ZLayer(appKeepAliveEnabled.unit),
     DynamicServer.live,
-    ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort),
+    ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
     testNettyServerConfig,
     Server.customized,
     Client.live,
@@ -248,6 +248,37 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       serverTestLayer,
     ) @@ withLiveClock @@ nonFlaky(10)
+
+  private def connectionPoolIssuesSpec = {
+    suite("ConnectionPoolIssuesSpec")(
+      test("Reusing connections doesn't cause memory leaks") {
+        Random.nextString(1024 * 1024).flatMap { text =>
+          val resp = Response.text(text)
+          Handler
+            .succeed(resp)
+            .toRoutes
+            .deployAndRequest { client =>
+              ZIO.foreachParDiscard(0 to 10) { _ =>
+                ZIO
+                  .scoped[Any](client.request(Request()).flatMap(_.body.asArray))
+                  .repeatN(200)
+              }
+            }(Request())
+            .as(assertCompletes)
+        }
+      },
+    )
+  }.provide(
+    ZLayer(appKeepAliveEnabled.unit),
+    DynamicServer.live,
+    serverTestLayer,
+    Client.customized,
+    ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(1, 512, 60.seconds)),
+    NettyClientDriver.live,
+    DnsResolver.default,
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+    Scope.default,
+  )
 
   def connectionPoolSpec: Spec[Any, Throwable] =
     suite("ConnectionPool")(
@@ -310,7 +341,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     )
 
   override def spec: Spec[Scope, Throwable] = {
-    connectionPoolSpec @@ sequential @@ withLiveClock
+    (connectionPoolSpec + connectionPoolIssuesSpec) @@ sequential @@ withLiveClock
   }
 
 }

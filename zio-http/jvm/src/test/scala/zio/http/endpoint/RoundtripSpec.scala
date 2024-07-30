@@ -42,9 +42,9 @@ object RoundtripSpec extends ZIOHttpSpec {
     ZLayer.make[Server & Client & Scope](
       Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get @@ ZClientAspect.debug)),
+      Client.customized.map(env => ZEnvironment(env.get)),
       ClientDriver.shared,
-      NettyDriver.customized,
+      // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
@@ -149,7 +149,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId")).out[Post]
 
         val usersPostHandler =
-          usersPostAPI.implement {
+          usersPostAPI.implementHandler {
             Handler.fromFunction { case (userId, postId) =>
               Post(postId, "title", "body", userId)
             }
@@ -169,7 +169,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .header(HeaderCodec.accept)
 
         val usersPostHandler =
-          usersPostAPI.implement {
+          usersPostAPI.implementHandler {
             Handler.fromFunction { case (userId, postId, _) =>
               Post(postId, "title", "body", userId)
             }
@@ -190,7 +190,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .header(HeaderCodec.accept)
 
         val usersPostHandler =
-          usersPostAPI.implement {
+          usersPostAPI.implementHandler {
             Handler.fromFunction { case (userId, postId, _) =>
               Post(postId, "title", "body", userId)
             }
@@ -212,7 +212,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .out[Post]
 
         val handler =
-          api.implement {
+          api.implementHandler {
             Handler.fromFunction { case (id, userId, name, details) =>
               Post(id, name.getOrElse("-"), details.getOrElse("-"), userId)
             }
@@ -245,7 +245,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           .out[String] ?? Doc.p("doc")
 
         @nowarn("msg=dead code")
-        val handler = api.implement {
+        val handler = api.implementHandler {
           Handler.fromFunction { case (accountId, name, instanceName, args, env) =>
             throw new RuntimeException("I can't code")
             s"$accountId, $name, $instanceName, $args, $env"
@@ -268,7 +268,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           .in[Post]
           .out[String]
 
-        val route = api.implement {
+        val route = api.implementHandler {
           Handler.fromFunction { case (userId, post) =>
             s"userId: $userId, post: $post"
           }
@@ -283,7 +283,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       },
       test("byte stream input") {
         val api   = Endpoint(PUT / "upload").inStream[Byte].out[Long]
-        val route = api.implement {
+        val route = api.implementHandler {
           Handler.fromFunctionZIO { bytes =>
             bytes.runCount
           }
@@ -300,7 +300,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       },
       test("byte stream output") {
         val api   = Endpoint(GET / "download").query(QueryCodec.queryInt("count")).outStream[Byte]
-        val route = api.implement {
+        val route = api.implementHandler {
           Handler.fromFunctionZIO { count =>
             Random.nextBytes(count).map(chunk => ZStream.fromChunk(chunk).rechunk(1024))
           }
@@ -320,7 +320,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           .in[Post]("post")
           .out[String]
 
-        val route = api.implement {
+        val route = api.implementHandler {
           Handler.fromFunction { case (name, value, post) =>
             s"name: $name, value: $value, post: $post"
           }
@@ -337,98 +337,13 @@ object RoundtripSpec extends ZIOHttpSpec {
         val api = Endpoint(POST / "test")
           .outError[String](Status.Custom(999))
 
-        val route = api.implement(Handler.fail("42"))
+        val route = api.implementHandler(Handler.fail("42"))
 
         testEndpointError(
           api,
           Routes(route),
           (),
           "42",
-        )
-      },
-      test("middleware error returned") {
-
-        val alwaysFailingMiddleware = EndpointMiddleware(
-          authorization,
-          HttpCodec.empty,
-          HttpCodec.error[String](Status.Custom(900)),
-        )
-
-        val endpoint =
-          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
-
-        val endpointRoute =
-          endpoint.implement(Handler.identity)
-
-        val routes = endpointRoute.toRoutes
-
-        val app = routes @@ alwaysFailingMiddleware
-          .implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
-
-        for {
-          port <- Server.install(app)
-          executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port, Authorization.Basic("user", "pass"))))
-
-          out <- ZIO
-            .serviceWithZIO[EndpointExecutor[alwaysFailingMiddleware.In]] { executor =>
-              executor.apply(endpoint.apply(42))
-            }
-            .provideSome[Client & Scope](executorLayer)
-            .flip
-        } yield assert(out)(equalTo("FAIL"))
-      },
-      test("failed middleware deserialization") {
-        val alwaysFailingMiddleware = EndpointMiddleware(
-          authorization,
-          HttpCodec.empty,
-          HttpCodec.error[String](Status.Custom(900)),
-        )
-
-        val endpoint =
-          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
-
-        val alwaysFailingMiddlewareWithAnotherSignature = EndpointMiddleware(
-          authorization,
-          HttpCodec.empty,
-          HttpCodec.error[Long](Status.Custom(900)),
-        )
-
-        val endpointWithAnotherSignature =
-          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddlewareWithAnotherSignature
-
-        val endpointRoute =
-          endpoint.implement(Handler.identity)
-
-        val routes = endpointRoute.toRoutes
-
-        val app = routes @@ alwaysFailingMiddleware.implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
-
-        for {
-          port <- Server.install(app)
-          executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port, Authorization.Basic("user", "pass"))))
-
-          cause <- ZIO
-            .serviceWithZIO[EndpointExecutor[alwaysFailingMiddleware.In]] { executor =>
-              executor.apply(endpointWithAnotherSignature.apply(42))
-            }
-            .provideSome[Client with Scope](executorLayer)
-            .cause
-        } yield assert(cause.prettyPrint)(
-          containsString(
-            "java.lang.IllegalStateException: Cannot deserialize using endpoint error codec",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "java.lang.IllegalStateException: Cannot deserialize using middleware error codec",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "Suppressed: java.lang.IllegalStateException: Trying to decode with Undefined codec.",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "Suppressed: zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected a number, got F)",
-          ),
         )
       },
       test("Failed endpoint deserialization") {
@@ -439,7 +354,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           Endpoint(GET / "users" / int("userId")).out[Int].outError[String](Status.Custom(999))
 
         val endpointRoute =
-          endpoint.implement {
+          endpoint.implementHandler {
             Handler.fromFunctionZIO { id =>
               ZIO.fail(id)
             }
@@ -457,21 +372,9 @@ object RoundtripSpec extends ZIOHttpSpec {
             }
             .provideSome[Client with Scope](executorLayer)
             .cause
-        } yield assert(cause.prettyPrint)(
-          containsString(
-            "java.lang.IllegalStateException: Cannot deserialize using endpoint error codec",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "java.lang.IllegalStateException: Cannot deserialize using middleware error codec",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            "Suppressed: java.lang.IllegalStateException: Trying to decode with Undefined codec.",
-          ),
-        ) && assert(cause.prettyPrint)(
-          containsString(
-            """Suppressed: zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected '"' got '4')""",
+        } yield assertTrue(
+          cause.prettyPrint.contains(
+            """zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected '"' got '4')""",
           ),
         )
       },
@@ -482,7 +385,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           .inStream[Byte]("file")
           .out[String]
 
-        val route = api.implement {
+        val route = api.implementHandler {
           Handler.fromFunctionZIO { case (name, value, file) =>
             file.runCount.map { n =>
               s"name: $name, value: $value, count: $n"
@@ -506,7 +409,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           .inStream[Byte]("file")
           .out[String]
 
-        val route = api.implement {
+        val route = api.implementHandler {
           Handler.fromFunctionZIO { case (name, metadata, file) =>
             file.runCount.map { n =>
               s"name: $name, metadata: $metadata, count: $n"
@@ -555,7 +458,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)),
       ClientDriver.shared,
-      NettyDriver.customized,
+      // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,

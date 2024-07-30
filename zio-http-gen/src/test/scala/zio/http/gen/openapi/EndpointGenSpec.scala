@@ -2,6 +2,8 @@ package zio.http.gen.openapi
 
 import java.nio.file._
 
+import scala.util.Try
+
 import zio._
 import zio.test._
 
@@ -9,7 +11,7 @@ import zio.http._
 import zio.http.codec.HeaderCodec
 import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.endpoint._
-import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.Inline
+import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.scala.Code
@@ -657,6 +659,68 @@ object EndpointGenSpec extends ZIOSpecDefault {
           )
           assertTrue(scala.files.head == expected)
         },
+        test("endpoints with overlapping prefix") {
+          val endpoint1 = Endpoint(Method.GET / "api" / "v1" / "users")
+          val endpoint2 = Endpoint(Method.GET / "api" / "v1" / "users" / "info")
+          val openAPI   = OpenAPIGen.fromEndpoints(endpoint1, endpoint2)
+          val scala     = EndpointGen.fromOpenAPI(openAPI)
+          val expected1 = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          val expected2 = Code.File(
+            List("api", "v1", "users", "Info.scala"),
+            pkgPath = List("api", "v1", "users"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Info",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(
+                        Code.PathSegmentCode("api"),
+                        Code.PathSegmentCode("v1"),
+                        Code.PathSegmentCode("users"),
+                        Code.PathSegmentCode("info"),
+                      ),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          assertTrue(scala.files.toSet == Set(expected1, expected2))
+        },
       ),
       suite("data gen spec")(
         test("generates case class, companion object and schema") {
@@ -1011,6 +1075,10 @@ object EndpointGenSpec extends ZIOSpecDefault {
           )
 
           assertTrue(scala.files.head == expected)
+        },
+        test("generates case class for response with compact schema") {
+          val endpoint = Endpoint(Method.POST / "api" / "v1" / "data").out[Chunk[Data]](status = Status.Ok)
+          assertTrue(OpenAPIGen.fromEndpoints("", "", Compact, endpoint).components.get.schemas.size == 4)
         },
         test("generates case class with seq field for request") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]

@@ -64,6 +64,13 @@ private[netty] object Conversions {
       case Headers.Empty                  => new DefaultHttpHeaders()
     }
 
+  def urlToNetty(url: URL): String = {
+    // As per the spec, the path should contain only the relative path.
+    // Host and port information should be in the headers.
+    val url0 = if (url.path.isEmpty) url.addLeadingSlash else url
+    url0.relative.addLeadingSlash.encode
+  }
+
   private def nettyHeadersIterator(headers: HttpHeaders): Iterator[Header] =
     new AbstractIterator[Header] {
       private val nettyIterator = headers.iteratorCharSequence()

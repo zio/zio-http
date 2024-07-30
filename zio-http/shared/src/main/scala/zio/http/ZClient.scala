@@ -249,23 +249,6 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
 object ZClient extends ZClientPlatformSpecific {
 
-  val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
-    implicit val trace: Trace = Trace.empty
-    ZLayer.scoped {
-      for {
-        config         <- ZIO.service[Config]
-        driver         <- ZIO.service[ClientDriver]
-        dnsResolver    <- ZIO.service[DnsResolver]
-        connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
-        baseClient = fromDriver(new DriverLive(driver)(connectionPool)(config))
-      } yield
-        if (config.addUserAgentHeader)
-          baseClient.addHeader(defaultUAHeader)
-        else
-          baseClient
-    }
-  }
-
   def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
     ZClient(
       Version.Default,
@@ -682,26 +665,30 @@ object ZClient extends ZClientPlatformSpecific {
         case location: Location.Absolute =>
           ZIO.uninterruptibleMask { restore =>
             for {
-              onComplete <- Promise.make[Throwable, ChannelState]
-              onResponse <- Promise.make[Throwable, Response]
+              connectionAcquired <- Ref.make(false)
+              onComplete         <- Promise.make[Throwable, ChannelState]
+              onResponse         <- Promise.make[Throwable, Response]
               inChannelScope = outerScope match {
                 case Some(scope) => (zio: ZIO[Scope, Throwable, Unit]) => scope.extend(zio)
                 case None        => (zio: ZIO[Scope, Throwable, Unit]) => ZIO.scoped(zio)
               }
               channelFiber <- inChannelScope {
                 for {
-                  connection       <- connectionPool
-                    .get(
-                      location,
-                      clientConfig.proxy,
-                      clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
-                      clientConfig.maxInitialLineLength,
-                      clientConfig.maxHeaderSize,
-                      clientConfig.requestDecompression,
-                      clientConfig.idleTimeout,
-                      clientConfig.connectionTimeout,
-                      clientConfig.localAddress,
-                    )
+                  connection       <- restore(
+                    connectionPool
+                      .get(
+                        location,
+                        clientConfig.proxy,
+                        clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
+                        clientConfig.maxInitialLineLength,
+                        clientConfig.maxHeaderSize,
+                        clientConfig.requestDecompression,
+                        clientConfig.idleTimeout,
+                        clientConfig.connectionTimeout,
+                        clientConfig.localAddress,
+                      ),
+                  )
+                    .zipLeft(connectionAcquired.set(true))
                     .tapErrorCause(cause => onResponse.failCause(cause))
                     .map(_.asInstanceOf[driver.Connection])
                   channelInterface <-
@@ -742,7 +729,9 @@ object ZClient extends ZClientPlatformSpecific {
               }.forkDaemon // Needs to live as long as the channel is alive, as the response body may be streaming
               _ <- ZIO.addFinalizer(onComplete.interrupt)
               response <- restore(onResponse.await.onInterrupt {
-                onComplete.interrupt *> channelFiber.join.orDie
+                ZIO.unlessZIO(connectionAcquired.get)(channelFiber.interrupt) *>
+                  onComplete.interrupt *>
+                  channelFiber.await
               })
             } yield response
           }

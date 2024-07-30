@@ -119,11 +119,11 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         val app          = secureRoutes
         for {
           s1     <- app.runZIO(Request.get(URL(Path.root / "a")).copy(headers = successBasicHeader))
-          s1Body <- s1.body.asString.debug("s1Body")
+          s1Body <- s1.body.asString
           s2     <- app.runZIO(Request.get(URL(Path.root / "b" / "1")).copy(headers = successBasicHeader))
-          s2Body <- s2.body.asString.debug("s2Body")
+          s2Body <- s2.body.asString
           s3     <- app.runZIO(Request.get(URL(Path.root / "c" / "name")).copy(headers = successBasicHeader))
-          s3Body <- s3.body.asString.debug("s3Body")
+          s3Body <- s3.body.asString
           resultStatus = s1.status == Status.Ok && s2.status == Status.Ok && s3.status == Status.Ok
           resultBody   = s1Body == "user" && s2Body == "for id: 1: user" && s3Body == "for name: name: user"
         } yield assertTrue(resultStatus, resultBody)

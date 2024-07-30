@@ -106,24 +106,39 @@ object NettyConnectionPool {
 
     for {
       resolvedHosts <- dnsResolver.resolve(location.host)
-      pickedHost    <- Random.nextIntBounded(resolvedHosts.size)
-      host = resolvedHosts(pickedHost)
-      channelFuture <- ZIO.attempt {
-        val bootstrap = new Bootstrap()
-          .channelFactory(channelFactory)
-          .group(eventLoopGroup)
-          .remoteAddress(new InetSocketAddress(host, location.port))
-          .withOption[Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeout.map(_.toMillis.toInt))
-          .handler(initializer)
-        (localAddress match {
-          case Some(addr) => bootstrap.localAddress(addr)
-          case _          => bootstrap
-        }).connect()
+      hosts         <- Random.shuffle(resolvedHosts.toList)
+      hostsNec      <- ZIO.succeed(NonEmptyChunk.fromIterable(hosts.head, hosts.tail))
+      ch            <- collectFirstSuccess(hostsNec) { host =>
+        ZIO.suspend {
+          val bootstrap = new Bootstrap()
+            .channelFactory(channelFactory)
+            .group(eventLoopGroup)
+            .remoteAddress(new InetSocketAddress(host, location.port))
+            .withOption[Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeout.map(_.toMillis.toInt))
+            .handler(initializer)
+          localAddress.foreach(bootstrap.localAddress)
+
+          val channelFuture = bootstrap.connect()
+          val ch            = channelFuture.channel()
+          Scope.addFinalizer {
+            NettyFutureExecutor.executed {
+              channelFuture.cancel(true)
+              ch.close()
+            }.when(ch.isOpen).ignoreLogged
+          } *> NettyFutureExecutor.executed(channelFuture).as(ch)
+        }
       }
-      _             <- NettyFutureExecutor.executed(channelFuture)
-      ch            <- ZIO.attempt(channelFuture.channel())
-      _             <- Scope.addFinalizer(NettyFutureExecutor.executed(ch.close()).when(ch.isOpen).ignoreLogged)
     } yield ch
+  }
+
+  private def collectFirstSuccess[R, E, A, B](
+    as: NonEmptyChunk[A],
+  )(f: A => ZIO[R, E, B])(implicit trace: Trace): ZIO[R, E, B] = {
+    ZIO.suspendSucceed {
+      val it                 = as.iterator
+      def loop: ZIO[R, E, B] = f(it.next()).catchAll(e => if (it.hasNext) loop else ZIO.fail(e))
+      loop
+    }
   }
 
   /**

@@ -26,12 +26,11 @@ import zio.stream.ZStream
 
 import zio.http.Body
 import zio.http.Body._
-import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody, UnsafeAsync}
+import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, UnsafeAsync}
 
 import io.netty.buffer.Unpooled
 import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
-import io.netty.handler.stream.ChunkedNioFile
 
 object NettyBodyWriter {
 
@@ -56,10 +55,6 @@ object NettyBodyWriter {
     }
 
     body match {
-      case body: ByteBufBody                  =>
-        ctx.write(new DefaultHttpContent(body.byteBuf))
-        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-        None
       case body: FileBody                     =>
         // We need to stream the file when compression is enabled otherwise the response encoding fails
         val stream = ZStream.fromFile(body.file)

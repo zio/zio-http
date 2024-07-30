@@ -251,10 +251,11 @@ private[codec] object EncoderDecoder {
       val status             = encodeStatus(inputs.status)
       val method             = encodeMethod(inputs.method)
       val headers            = encodeHeaders(inputs.header)
-      val contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
+      def contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
       val body               = encodeBody(inputs.content, outputTypes)
 
-      f(URL(path, queryParams = query), status, method, headers ++ contentTypeHeaders, body)
+      val headers0 = if (headers.contains("content-type")) headers else headers ++ contentTypeHeaders
+      f(URL(path, queryParams = query), status, method, headers0, body)
     }
 
     private def decodePaths(path: Path, inputs: Array[Any]): Unit = {

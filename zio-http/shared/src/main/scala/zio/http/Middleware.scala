@@ -16,6 +16,7 @@
 package zio.http
 
 import java.io.File
+import java.nio.charset.Charset
 
 import scala.annotation.nowarn
 
@@ -325,8 +326,9 @@ object Middleware extends HandlerAspects {
       }
 
     def fromDirectory(docRoot: File)(implicit trace: Trace): StaticServe[Any, Throwable] = make { (path, _) =>
-      val target = new File(docRoot.getAbsolutePath() + path.encode)
-      if (target.getCanonicalPath.startsWith(docRoot.getCanonicalPath)) Handler.fromFile(target)
+      val target = new File(docRoot.getAbsolutePath + path.encode)
+      if (target.getCanonicalPath.startsWith(docRoot.getCanonicalPath))
+        Handler.fromFile(target, Charset.defaultCharset())
       else {
         Handler.fromZIO(
           ZIO.logWarning(s"attempt to access file outside of docRoot: ${target.getAbsolutePath}"),
@@ -334,8 +336,14 @@ object Middleware extends HandlerAspects {
       }
     }
 
-    def fromResource(implicit trace: Trace): StaticServe[Any, Throwable] = make { (path, _) =>
-      Handler.fromResource(path.dropLeadingSlash.encode)
+    def fromResource(resourcePrefix: String)(implicit trace: Trace): StaticServe[Any, Throwable] = make { (path, _) =>
+      // validate that resourcePrefix starts with an optional slash, followed by at least 1 java identifier character
+      val rp = if (resourcePrefix.startsWith("/")) resourcePrefix else "/" + resourcePrefix
+      if (rp.length < 2 || !Character.isJavaIdentifierStart(rp.charAt(1))) {
+        Handler.die(new IllegalArgumentException("resourcePrefix must have at least 1 valid character"))
+      } else {
+        Handler.fromResource(s"${resourcePrefix}/${path.dropLeadingSlash.encode}")
+      }
     }
 
   }
@@ -389,18 +397,28 @@ object Middleware extends HandlerAspects {
     toMiddleware(path, StaticServe.fromDirectory(docRoot))
 
   /**
-   * Creates a middleware for serving static files from resources at the path
-   * `path`.
+   * Creates a middleware for serving static files at URL path `path` from
+   * resources with the given `resourcePrefix`.
    *
-   * Example: `val serveResources = Middleware.serveResources(Path.empty /
-   * "assets")`
+   * Example: `Middleware.serveResources(Path.empty / "assets", "webapp")`
    *
    * With this middleware in place, a request to
    * `https://www.domain.com/assets/folder/file1.jpg` would serve the file
-   * `src/main/resources/folder/file1.jpg`.
+   * `src/main/resources/webapp/folder/file1.jpg`. Note how the URL path is
+   * removed and the resourcePrefix prepended.
+   *
+   * Most build systems support resources in the `src/main/resources` directory.
+   * In the above example, the file `src/main/resources/webapp/folder/file1.jpg`
+   * would be served.
+   *
+   * * The `resourcePrefix` defaults to `"public"`. To prevent insecure sharing
+   * of * resource files, `resourcePrefix` must start with a `/` followed by at
+   * least 1 *
+   * [[java.lang.Character.isJavaIdentifierStart(x\$1:Char)* valid java identifier character]].
+   * The `/` * will be prepended if it is not present.
    */
-  def serveResources(path: Path)(implicit trace: Trace): Middleware[Any] =
-    toMiddleware(path, StaticServe.fromResource)
+  def serveResources(path: Path, resourcePrefix: String = "public")(implicit trace: Trace): Middleware[Any] =
+    toMiddleware(path, StaticServe.fromResource(resourcePrefix))
 
   /**
    * Creates a middleware for managing the flash scope.

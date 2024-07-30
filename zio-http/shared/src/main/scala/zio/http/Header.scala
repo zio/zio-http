@@ -1055,8 +1055,11 @@ object Header {
     }
 
     def parse(value: String): Either[String, Authorization] = {
-      val parts = value.split(" ")
-      if (parts.length >= 2) {
+      val parts  = value.split(" ").filter(_.nonEmpty)
+      val nParts = parts.length
+      if (nParts == 1) {
+        Right(Unparsed("", parts(0)))
+      } else if (nParts >= 2) {
         parts(0).toLowerCase match {
           case "basic"  => parseBasic(parts(1))
           case "digest" => parseDigest(parts.tail.mkString(" "))
@@ -1074,7 +1077,7 @@ object Header {
         s"""Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
           s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
       case Bearer(token)            => s"Bearer ${token.value.asString}"
-      case Unparsed(scheme, params) => s"$scheme ${params.value.asString}"
+      case Unparsed(scheme, params) => s"$scheme ${params.value.asString}".strip()
     }
 
     private def parseBasic(value: String): Either[String, Authorization] = {
@@ -4146,9 +4149,9 @@ object Header {
 
     final case class Comment(comment: String) extends UserAgent
 
-    private val productRegex  = """(?i)([a-z0-9]+)(?:/([a-z0-9.]+))?""".r
-    private val commentRegex  = """(?i)\((.*)$""".r
-    private val completeRegex = s"""^(?i)([a-z0-9]+)(?:/([a-z0-9.]+))(.*)$$""".r
+    private val productRegex  = "(?i)([a-z0-9]+)(?:/([a-z0-9.]+))?".r
+    private val commentRegex  = """(?i)\((.*)""".r
+    private val completeRegex = "(?i)([a-z0-9]+)(?:/([a-z0-9.]+))(.*)".r
 
     def parse(userAgent: String): Either[String, UserAgent] = {
       userAgent match {

@@ -13,17 +13,29 @@ ZIO HTTP is designed in terms of **HTTP as function**, where both server and cli
 Some of the key features of ZIO HTTP are:
 
 **ZIO Native**: ZIO HTTP is built atop ZIO, a type-safe, composable, and asynchronous effect system for Scala. It inherits all the benefits of ZIO, including testability, composability, and type safety.
+
 **Cloud-Native**: ZIO HTTP is designed for cloud-native environments and supports building highly scalable and performant web applications. Built atop ZIO, it features built-in support for concurrency, parallelism, resource management, error handling, structured logging, configuration management, and metrics instrumentation.
+
 **Imperative and Declarative Endpoints**: ZIO HTTP provides a declarative API for defining HTTP endpoints besides the imperative API. With imperative endpoints, both the shape of the endpoint and the logic are defined together, while with declarative endpoints, the description of the endpoint is separated from its logic. Developers can choose the style that best fit their needs.
+
 **Type-Driven API Design**: Beside the fact that ZIO HTTP supports declarative endpoint descriptions, it also provides a type-driven API design that leverages Scala's type system to ensure correctness and safety at compile time. So the implementation of the endpoint is type-checked against the description of the endpoint.
+
 **Middleware Support**: ZIO HTTP offers middleware support for incorporating cross-cutting concerns such as logging, metrics, authentication, and more into your services.
+
 **Error Handling**: Built-in support exists for handling errors at the HTTP layer, distinguishing between handled and unhandled errors.
+
 **WebSockets**: Built-in support for WebSockets allows for the creation of real-time applications using ZIO HTTP.
+
 **Testkit**: ZIO HTTP provides first-class testing utilities that facilitate test writing without requiring a live server instance.
+
 **Interoperability**: Interoperability with existing Scala/Java libraries is provided, enabling seamless integration with functionality from the Scala/Java ecosystem through the importation of blocking and non-blocking operations.
+
 **JSON and Binary Codecs**: Built-in support for ZIO Schema enables encoding and decoding of request/response bodies, supporting various data types including JSON, Protobuf, Avro, and Thrift.
+
 **Template System**: A built-in DSL facilitates writing HTML templates using Scala code.
+
 **OpenAPI Support**: Built-in support is available for generating OpenAPI documentation for HTTP applications, and conversely, for generating HTTP endpoints from OpenAPI documentation.
+
 **ZIO HTTP CLI**: Command-line applications can be built to interact with HTTP APIs by leveraging the power of [ZIO CLI](https://zio.dev/zio-cli) and ZIO HTTP.
 
 ## Installation
@@ -31,7 +43,7 @@ Some of the key features of ZIO HTTP are:
 Setup via `build.sbt`:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-http" % "3.0.0-RC7"
+libraryDependencies += "dev.zio" %% "zio-http" % "3.0.0-RC9"
 ```
 
 **NOTES ON VERSIONING:**
@@ -91,7 +103,7 @@ object GreetingClient extends ZIOAppDefault {
 
 ## Documentation
 
-Learn more on the [ZIO Http homepage](https://github.com/zio/zio-http)!
+Learn more on the [ZIO Http homepage](https://zio.dev/zio-http)!
 
 ## Contributing
 

@@ -57,7 +57,7 @@ private[cli] final case class CliEndpoint(
 
   lazy val getOptions: List[HttpOptions] = url ++ headers ++ body
 
-  def describeOptions(description: Doc) =
+  def describeOptions(description: Doc): CliEndpoint =
     self.copy(
       body = self.body.map(_ ?? description),
       headers = self.headers.map(_ ?? description),
