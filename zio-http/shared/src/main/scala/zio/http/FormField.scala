@@ -160,7 +160,7 @@ object FormField {
         case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Disposition")       =>
           (Some(header), accum._2, accum._3, accum._4)
         case (accum, FormAST.EoL)                                                                         =>
-          (accum._1, accum._2, accum._3, accum._4 :+ FormAST.Content(Chunk[Byte](13, 10)))
+          (accum._1, accum._2, accum._3, accum._4 :+ FormAST.Content(FormAST.EoL.bytes))
         case (accum, content: FormAST.Content)                                                            =>
           (accum._1, accum._2, accum._3, accum._4 :+ content)
         case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Type")              =>
