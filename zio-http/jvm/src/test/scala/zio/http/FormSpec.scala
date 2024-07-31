@@ -386,6 +386,23 @@ object FormSpec extends ZIOHttpSpec {
           .runCollect
           .map { c => assertTrue(c == expected) }
       },
+      test("crlf not stripped") {
+        val content        = "1,2\r\n3,4\r\n"
+        val form           = Form(
+          Chunk(
+            FormField.textField("csv", content, MediaType.text.`csv`),
+          ),
+        )
+        val boundary       = Boundary("X-INSOMNIA-BOUNDARY")
+        val formByteStream = form.multipartBytes(boundary)
+        val streamingForm  = StreamingForm(formByteStream, boundary)
+        streamingForm.fields.mapZIO { field =>
+          field.asChunk
+        }.runCollect.map { chunks =>
+          val s = chunks.headOption.map(_.asString)
+          assertTrue(s.contains(content))
+        }
+      },
     ) @@ sequential
 
   def spec =
