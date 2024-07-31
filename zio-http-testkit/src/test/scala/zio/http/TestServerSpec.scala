@@ -1,13 +1,19 @@
 package zio.http
 
 import zio._
+import zio.http.endpoint.Endpoint
 import zio.test._
-
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
 
 object TestServerSpec extends ZIOHttpSpec {
   def status(response: Response): Status = response.status
+
+  object Api {
+    val hello: Route[Any, Nothing] =
+      Endpoint(RoutePattern.GET / "hello").out[String]
+        .implementAs("Hi")
+  }
 
   def spec = suite("TestServerSpec")(
     test("with state") {
@@ -102,6 +108,20 @@ object TestServerSpec extends ZIOHttpSpec {
         fallbackResponse <- client(Request.get(testRequest.url / "any"))
         fallbackBody     <- fallbackResponse.body.asString
       } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
+    }.provideSome[Client with Driver](
+      TestServer.layer,
+      Scope.default,
+    ),
+    test("with Endpoints API - 'GET /hello' returns 'Hi'") {
+        for {
+          client        <- ZIO.service[Client]
+          port          <- ZIO.serviceWithZIO[Server](_.port)
+          url           = URL.root.port(port) / "hello"
+          request       = Request.get(url = url).addHeaders(Headers(Header.Accept(MediaType.text.`plain`)))
+          _             <- TestServer.addRoute(Api.hello)
+          helloResponse <- client(request)
+          helloBody     <- helloResponse.body.asString
+        } yield assertTrue(helloBody == "Hi")
     }.provideSome[Client with Driver](
       TestServer.layer,
       Scope.default,
