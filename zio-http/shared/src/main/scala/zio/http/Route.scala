@@ -309,9 +309,6 @@ sealed trait Route[-Env, +Err] { self =>
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
-  @deprecated("Use toRoutes instead", "3.0.0-RC7")
-  final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = toHandler.toHttpApp
-
   final def toRoutes: Routes[Env, Err] = Routes(self)
 
   def transform[Env1](

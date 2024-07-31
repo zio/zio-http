@@ -20,7 +20,6 @@ import java.io.File
 
 import zio._
 
-import zio.http.HttpApp.Tree
 import zio.http.Routes.ApplyContextAspect
 import zio.http.codec.PathCodec
 
