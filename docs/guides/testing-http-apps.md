@@ -87,7 +87,7 @@ Using the `TestServer` we can write tests for our HTTP applications by starting 
 Using the following methods we can define the behavior of the `TestServer`:
 
 - `TestServer.addRequestResponse` - Adds an exact 1-1 behavior. It takes a request and a response and returns a `ZIO[TestServer, Nothing, Unit]`.
-- `TestServer.addRoute` and `TestServer.addRouts` - Adds a route definition to handle requests that are submitted by test cases. It takes a `Route` or `Routes` and returns a `ZIO[R with TestServer, Nothing, Unit]`.
+- `TestServer.addRoute` and `TestServer.addRoutes` - Adds a route definition to handle requests that are submitted by test cases. It takes a `Route` or `Routes` and returns a `ZIO[R with TestServer, Nothing, Unit]`.
 - `TestServer.install` - Installs a `HttpApp` to the `TestServer`.
 
 After defining the behavior of the test server, we can use the `TestServer.layer` to provide the `TestServer` to any test cases that require `Server`:
