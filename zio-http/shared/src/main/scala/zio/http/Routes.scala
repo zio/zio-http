@@ -117,7 +117,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def mapError[Err1](fxn: Err => Err1): Routes[Env, Err1] =
     new Routes(routes.map(_.mapError(fxn)))
 
-  def nest(prefix: PathCodec[Unit])(implicit trace: Trace, ev: Err <:< Response): Routes[Env, Err] =
+  def nest(prefix: PathCodec[Unit])(implicit trace: Trace): Routes[Env, Err] =
     new Routes(self.routes.map(_.nest(prefix)))
 
   /**

@@ -51,9 +51,9 @@ sealed trait PathCodec[A] { self =>
   final def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
     self ++ that
 
-  final def /[Env](routes: Routes[Env, Response])(implicit
+  final def /[Env, Err](routes: Routes[Env, Err])(implicit
     ev: PathCodec[A] <:< PathCodec[Unit],
-  ): Routes[Env, Response] =
+  ): Routes[Env, Err] =
     routes.nest(ev(self))
 
   final def annotate(metaData: MetaData[A]): PathCodec[A] = {
