@@ -285,16 +285,9 @@ private[codec] object EncoderDecoder {
       while (i < queries.length) {
         val query = queries(i).erase
 
-        val params = queryParams.queryParamsOrElse(query.name, Nil)
-
-//        if (params.isEmpty)
-//          throw HttpCodecError.MissingQueryParam(query.name)
-//        else
-        {
-          val parsedParams = params.collect(query.textCodec)
-          inputs(i) = parsedParams
-        }
-
+        val params       = queryParams.queryParamsOrElse(query.name, Nil)
+        val parsedParams = params.collect(query.textCodec)
+        inputs(i) = parsedParams
         i = i + 1
       }
     }

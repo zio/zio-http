@@ -88,7 +88,7 @@ private[codec] trait QueryCodecs {
       }(s => Right(s))
 
   private def maybeMultiValueCodec[A](name: String, textCodec: TextCodec[A]): QueryCodec[Chunk[A]] = Annotated(
-    HttpCodec.Query(name, textCodec, QueryParamHint.Any),
+    HttpCodec.Query(name, textCodec, QueryParamHint.Many),
     Metadata.Optional(),
   )
 }
