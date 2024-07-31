@@ -33,7 +33,7 @@ object NettyResponse {
   def apply(jRes: FullHttpResponse)(implicit unsafe: Unsafe): Response = {
     val status  = Conversions.statusFromNetty(jRes.status())
     val headers = Conversions.headersFromNetty(jRes.headers())
-    val data    = NettyBody.fromByteBuf(jRes.content(), headers.headers.get(Header.ContentType.name))
+    val data    = NettyBody.fromByteBuf(jRes.content(), headers.get(Header.ContentType))
 
     Response(status, headers, data)
   }
@@ -68,7 +68,7 @@ object NettyResponse {
       val data = NettyBody.fromAsync(
         callback => responseHandler.connect(callback),
         knownContentLength,
-        contentType.map(_.renderedValue),
+        contentType,
       )
       Response(status, headers, data)
     }

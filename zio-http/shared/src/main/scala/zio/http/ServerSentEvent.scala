@@ -16,9 +16,14 @@
 
 package zio.http
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio._
 
+import zio.stream.ZPipeline
+
+import zio.schema.codec.{BinaryCodec, DecodeError}
 import zio.schema.{DeriveSchema, Schema}
+
+import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
 
 /**
  * Server-Sent Event (SSE) as defined by
@@ -60,6 +65,22 @@ final case class ServerSentEvent(
 
 object ServerSentEvent {
   implicit lazy val schema: Schema[ServerSentEvent] = DeriveSchema.gen[ServerSentEvent]
+
+  implicit val contentCodec: HttpContentCodec[ServerSentEvent] = HttpContentCodec.from(
+    MediaType.text.`event-stream` -> BinaryCodecWithSchema.fromBinaryCodec(new BinaryCodec[ServerSentEvent] {
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, ServerSentEvent] =
+        throw new UnsupportedOperationException("ServerSentEvent decoding is not yet supported.")
+
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, ServerSentEvent] =
+        throw new UnsupportedOperationException("ServerSentEvent decoding is not yet supported.")
+
+      override def encode(value: ServerSentEvent): Chunk[Byte] =
+        Chunk.fromArray(value.encode.getBytes)
+
+      override def streamEncoder: ZPipeline[Any, Nothing, ServerSentEvent, Byte] =
+        ZPipeline.mapChunks(value => value.flatMap(c => c.encode.getBytes))
+    }),
+  )
 
   def heartbeat: ServerSentEvent = new ServerSentEvent("")
 }
