@@ -27,6 +27,7 @@ import zio.schema.codec.BinaryCodec
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
+import zio.http.codec.HttpCodec.Query
 import zio.http.codec._
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
@@ -40,6 +41,8 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
 
 }
 private[codec] object EncoderDecoder {
+  private val emptyStringChunk = Chunk("")
+
   def apply[AtomTypes, Value](
     httpCodec: HttpCodec[AtomTypes, Value],
   ): EncoderDecoder[AtomTypes, Value] = {
@@ -284,8 +287,21 @@ private[codec] object EncoderDecoder {
 
         if (params.isEmpty)
           throw HttpCodecError.MissingQueryParam(query.name)
-        else {
-          val parsedParams = params.collect(query.textCodec)
+        else if (
+          params == emptyStringChunk
+          && (query.hint == Query.QueryParamHint.Any || query.hint == Query.QueryParamHint.Many)
+        ) {
+          inputs(i) = Chunk.empty
+        } else {
+          val parsedParams     = params.map { p =>
+            val decoded = query.codec.codec.decode(Chunk.fromArray(p.getBytes(Charsets.Utf8)))
+            decoded match {
+              case Left(error)  => throw HttpCodecError.MalformedQueryParam(query.name, error)
+              case Right(value) => value
+            }
+          }
+          val validationErrors = parsedParams.flatMap(p => query.codec.schema.validate(p)(query.codec.schema))
+          if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
           inputs(i) = parsedParams
         }
 
@@ -482,7 +498,7 @@ private[codec] object EncoderDecoder {
           queryParams.addQueryParams(query.name, Chunk.empty[String])
         else
           inputCoerced.foreach { in =>
-            val value = query.textCodec.encode(in)
+            val value = query.codec.codec.encode(in).asString
             queryParams = queryParams.addQueryParam(query.name, value)
           }
 

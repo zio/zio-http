@@ -615,7 +615,8 @@ object OpenAPIGen {
           OpenAPI.Parameter.queryParameter(
             name = name,
             description = mc.docsOpt,
-            schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromTextCodec(codec))),
+            // TODO: For single field case classes we need to use the schema of the field
+            schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
             deprecated = mc.deprecated,
             style = OpenAPI.Parameter.Style.Form,
             explode = false,

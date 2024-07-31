@@ -49,7 +49,10 @@ private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddl
       } else if (endpoint.error.matchesStatus(response.status)) {
         endpoint.error.decodeResponse(response).orDie.flip
       } else {
-        ZIO.die(new IllegalStateException(s"Status code: ${response.status} is not defined in the endpoint"))
+        val error = endpoint.codecError.decodeResponse(response)
+        error
+          .flatMap(codecError => ZIO.die(codecError))
+          .orElse(ZIO.die(new IllegalStateException(s"Status code: ${response.status} is not defined in the endpoint")))
       }
     }
   }

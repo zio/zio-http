@@ -32,10 +32,31 @@ object TextBinaryCodec {
 
   implicit def fromSchema[A](implicit schema: Schema[A]): BinaryCodec[A] = {
     schema match {
-      case enum0: Schema.Enum[_]                => errorCodec(enum0)
-      case record: Schema.Record[_]             => errorCodec(record)
-      case collection: Schema.Collection[_, _]  => errorCodec(collection)
-      case Schema.Transform(schema, f, g, _, _) =>
+      case enum0: Schema.Enum[_]                               => errorCodec(enum0)
+      case record: Schema.Record[_] if record.fields.size == 1 =>
+        val fieldSchema = record.fields.head.schema
+        val codec       = fromSchema(fieldSchema).asInstanceOf[BinaryCodec[A]]
+        new BinaryCodec[A] {
+          override def encode(a: A): Chunk[Byte]                           =
+            codec.encode(record.deconstruct(a)(Unsafe.unsafe).head.get.asInstanceOf[A])
+          override def decode(c: Chunk[Byte]): Either[DecodeError, A]      =
+            codec
+              .decode(c)
+              .flatMap(a =>
+                record.construct(Chunk(a))(Unsafe.unsafe).left.map(s => DecodeError.ReadError(Cause.empty, s)),
+              )
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
+            ZPipeline.map(a => encode(a)).flattenChunks
+          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+            codec.streamDecoder.mapZIO(a =>
+              ZIO.fromEither(
+                record.construct(Chunk(a))(Unsafe.unsafe).left.map(s => DecodeError.ReadError(Cause.empty, s)),
+              ),
+            )
+        }
+      case record: Schema.Record[_]                            => errorCodec(record)
+      case collection: Schema.Collection[_, _]                 => errorCodec(collection)
+      case Schema.Transform(schema, f, g, _, _)                =>
         val codec = fromSchema(schema)
         new BinaryCodec[A] {
           override def encode(a: A): Chunk[Byte] = codec.encode(g(a).fold(e => throw new Exception(e), identity))
@@ -54,7 +75,7 @@ object TextBinaryCodec {
             }
           }
         }
-      case Schema.Primitive(_, _)               =>
+      case Schema.Primitive(_, _)                              =>
         new BinaryCodec[A] {
           val decode0: String => Either[DecodeError, Any] =
             schema match {
@@ -67,10 +88,10 @@ object TextBinaryCodec {
                     (s: String) => Right(s)
                   case StandardType.BoolType           =>
                     (s: String) =>
-                      try {
-                        Right(s.toBoolean)
-                      } catch {
-                        case e: Exception => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
+                      s.toLowerCase match {
+                        case "true" | "on" | "yes" | "1"  => Right(true)
+                        case "false" | "off" | "no" | "0" => Right(false)
+                        case _ => Left(DecodeError.ReadError(Cause.fail(new Exception("Invalid boolean value")), s))
                       }
                   case StandardType.ByteType           =>
                     (s: String) =>
@@ -286,8 +307,8 @@ object TextBinaryCodec {
               .map(s => decode(Chunk.fromArray(s.getBytes)).fold(throw _, identity))
               .mapErrorCause(e => Cause.fail(DecodeError.ReadError(e, e.squash.getMessage)))
         }
-      case Schema.Lazy(schema0)                 => fromSchema(schema0())
-      case _                                    => errorCodec(schema)
+      case Schema.Lazy(schema0)                                => fromSchema(schema0())
+      case _                                                   => errorCodec(schema)
     }
   }
 }
