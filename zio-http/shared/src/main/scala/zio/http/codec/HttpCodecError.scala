@@ -21,6 +21,7 @@ import scala.util.control.NoStackTrace
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Cause, Chunk}
 
+import zio.schema.codec.DecodeError
 import zio.schema.validation.ValidationError
 
 import zio.http.{Path, Status}
@@ -51,8 +52,8 @@ object HttpCodecError {
   final case class MissingQueryParam(queryParamName: String)                                   extends HttpCodecError {
     def message = s"Missing query parameter $queryParamName"
   }
-  final case class MalformedQueryParam(queryParamName: String, textCodec: TextCodec[_])        extends HttpCodecError {
-    def message = s"Malformed query parameter $queryParamName failed to decode using $textCodec"
+  final case class MalformedQueryParam(queryParamName: String, cause: DecodeError)             extends HttpCodecError {
+    def message = s"Malformed query parameter $queryParamName could not be decoded: $cause"
   }
   final case class MalformedBody(details: String, cause: Option[Throwable] = None)             extends HttpCodecError {
     def message = s"Malformed request body failed to decode: $details"
@@ -63,7 +64,7 @@ object HttpCodecError {
   object InvalidEntity {
     def wrap(errors: Chunk[ValidationError]): InvalidEntity =
       InvalidEntity(
-        errors.foldLeft("")((acc, err) => acc + err.message + "\n"),
+        errors.map(err => err.message).mkString("\n"),
         errors,
       )
   }
