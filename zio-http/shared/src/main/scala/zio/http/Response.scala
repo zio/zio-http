@@ -135,14 +135,15 @@ object Response {
 
   def error(status: Status.Error, message: String): Response = {
     import zio.http.internal.OutputEncoder
+    lazy val message2 = OutputEncoder.encodeHtml(message)
 
-    val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
+    if (message == null) Response(status = status)
+    else Response(status = status, body = Body.fromString(message2))
 
-    Response(status = status, headers = Headers(Header.Warning(199, "ZIO HTTP", message2)))
   }
 
   def error(status: Status.Error): Response =
-    error(status, status.text)
+    error(status, null)
 
   def forbidden: Response = error(Status.Forbidden)
 

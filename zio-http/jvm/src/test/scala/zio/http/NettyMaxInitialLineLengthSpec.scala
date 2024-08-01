@@ -52,7 +52,10 @@ object NettyMaxInitialLineLength extends ZIOHttpSpec {
 
         res  <- Client.request(Request(url = url, headers = headers, body = Body.fromString("some-body")))
         data <- res.body.asString
-      } yield assertTrue(extractStatus(res) == Status.InternalServerError, data == "")
+      } yield assertTrue(
+        extractStatus(res) == Status.InternalServerError,
+        data == "An HTTP line is larger than 14 bytes.",
+      )
     }.provide(
       Client.default,
       Server.customized,

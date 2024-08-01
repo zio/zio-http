@@ -68,9 +68,9 @@ object ServerSpec extends HttpRunnableSpec {
         val res = app.deploy.status.run()
         assertZIO(res)(equalTo(Status.NotFound))
       } +
-        test("header is set") {
+        test("header is not set") {
           val res = app.deploy.header(Header.ContentLength).run()
-          assertZIO(res)(isSome(equalTo(Header.ContentLength(0L))))
+          assertZIO(res)(isSome(equalTo(Header.ContentLength(1L))))
         }
     } +
       suite("error") {
@@ -79,9 +79,9 @@ object ServerSpec extends HttpRunnableSpec {
           val res = routes.deploy.status.run()
           assertZIO(res)(equalTo(Status.InternalServerError))
         } +
-          test("content is empty") {
+          test("content is not empty") {
             val res = routes.deploy.body.mapZIO(_.asString).run()
-            assertZIO(res)(isEmptyString)
+            assertZIO(res)(equalTo("SERVER_ERROR"))
           } +
           test("header is set") {
             val res = routes.deploy.header(Header.ContentLength).run()
@@ -94,9 +94,9 @@ object ServerSpec extends HttpRunnableSpec {
           val res = routes.deploy.status.run()
           assertZIO(res)(equalTo(Status.InternalServerError))
         } +
-          test("content is empty") {
+          test("content is not empty") {
             val res = routes.deploy.body.mapZIO(_.asString).run()
-            assertZIO(res)(isEmptyString)
+            assertZIO(res)(not(isEmptyString))
           } +
           test("header is set") {
             val res = routes.deploy.header(Header.ContentLength).run()
@@ -484,9 +484,9 @@ object ServerSpec extends HttpRunnableSpec {
       val res = routes.deploy.status.run()
       assertZIO(res)(equalTo(Status.InternalServerError))
     } +
-      test("content is empty") {
+      test("content is not empty") {
         val res = routes.deploy.body.mapZIO(_.asString).run()
-        assertZIO(res)(isEmptyString)
+        assertZIO(res)(equalTo("SERVER_ERROR"))
       } +
       test("header is set") {
         val res = routes.deploy.headers.run().map(_.header(Header.ContentLength))
