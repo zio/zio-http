@@ -387,7 +387,7 @@ object JsonSchema {
                     Chunk.empty,
                   ),
                   ref,
-                  nested.children + (nested.rootRef.get -> nested.root),
+                  nested.children ++ (nested.rootRef.map(_ -> nested.root),
                 )
               }
             case Schema.Set(elementSchema, _)               =>
