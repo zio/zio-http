@@ -736,7 +736,7 @@ object ZClient extends ZClientPlatformSpecific {
             } yield response
           }
         case Location.Relative           =>
-          ZIO.fail(throw new IllegalArgumentException("Absolute URL is required"))
+          ZIO.fail(new IllegalArgumentException("Absolute URL is required"))
       }
   }
 
