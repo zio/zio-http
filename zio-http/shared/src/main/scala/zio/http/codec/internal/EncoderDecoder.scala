@@ -149,81 +149,14 @@ private[codec] object EncoderDecoder {
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val formFieldEncoders: Chunk[(String, Any) => FormField] =
-      flattened.content.map { bodyCodec => (name: String, value: Any) =>
-        {
-          val (mediaType, codec) = {
-            bodyCodec match {
-              case BodyCodec.Single(codec, _)   =>
-                codec.choices.headOption
-              case BodyCodec.Multiple(codec, _) =>
-                codec.choices.headOption
-              case _                            =>
-                None
-            }
-          }.getOrElse {
-            throw HttpCodecError.CustomError(
-              "CodecNotFound",
-              s"Cannot encode multipart/form-data field $name: no codec found",
-            )
-          }
-
-          if (mediaType.binary) {
-            FormField.binaryField(
-              name,
-              codec.codec.asInstanceOf[BinaryCodec[Any]].encode(value),
-              mediaType,
-            )
-          } else {
-            FormField.textField(
-              name,
-              codec.codec.asInstanceOf[BinaryCodec[Any]].encode(value).asString,
-              mediaType,
-            )
-          }
-        }
-      }
-
-    implicit val trace: Trace = Trace.empty
-
-    private val formFieldDecoders: Chunk[FormField => IO[Throwable, Any]] =
-      flattened.content.map { bodyCodec => (field: FormField) =>
-        {
-          val mediaType = field.contentType
-          val codec     = {
-            bodyCodec match {
-              case BodyCodec.Empty              =>
-                None
-              case BodyCodec.Single(codec, _)   =>
-                codec.lookup(mediaType)
-              case BodyCodec.Multiple(codec, _) =>
-                codec.lookup(mediaType)
-            }
-          }.getOrElse { throw HttpCodecError.UnsupportedContentType(mediaType.fullType) }
-
-          field.asChunk.flatMap(chunk => ZIO.fromEither(codec.codec.decode(chunk)))
-
-        }
-      }
-    private val formBoundary                = Boundary("----zio-http-boundary-D4792A5C-93E0-43B5-9A1F-48E38FDE5714")
-    private val indexByName                 = flattened.content.zipWithIndex.map { case (codec, idx) =>
+    implicit val trace: Trace     = Trace.empty
+    private lazy val formBoundary = Boundary("----zio-http-boundary-D4792A5C-93E0-43B5-9A1F-48E38FDE5714")
+    private lazy val indexByName  = flattened.content.zipWithIndex.map { case (codec, idx) =>
       codec.name.getOrElse("field" + idx.toString) -> idx
     }.toMap
-    private val nameByIndex                 = indexByName.map(_.swap)
-    private val isByteStream                =
-      if (flattened.content.length == 1) {
-        isByteStreamBody(flattened.content(0))
-      } else {
-        false
-      }
-    private val onlyTheLastFieldIsStreaming =
-      if (flattened.content.size > 1) {
-        !flattened.content.init.exists(isByteStreamBody) && isByteStreamBody(flattened.content.last)
-      } else {
-        false
-      }
+    private lazy val nameByIndex  = indexByName.map(_.swap)
 
-    def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+    final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
     ): Task[Value] = ZIO.suspendSucceed {
       val inputsBuilder = flattened.makeInputsBuilder()
@@ -253,340 +186,235 @@ private[codec] object EncoderDecoder {
       f(URL(path, queryParams = query), status, method, headers0, body)
     }
 
-    private def decodePaths(path: Path, inputs: Array[Any]): Unit = {
-      assert(flattened.path.length == inputs.length)
-
-      var i = 0
-
-      while (i < inputs.length) {
-        val pathCodec = flattened.path(i).erase
-
-        val decoded = pathCodec.decode(path)
-
-        inputs(i) = decoded match {
-          case Left(error) =>
-            throw HttpCodecError.MalformedPath(path, pathCodec, error)
-
-          case Right(value) => value
-        }
-
-        i = i + 1
+    private def genericDecode[A, Codec](
+      a: A,
+      codecs: Chunk[Codec],
+      inputs: Array[Any],
+      decode: (Codec, A) => Any,
+    ): Unit = {
+      for (i <- 0 until inputs.length) {
+        val codec = codecs(i)
+        inputs(i) = decode(codec, a)
       }
     }
 
-    private def decodeQuery(queryParams: QueryParams, inputs: Array[Any]): Unit = {
-      var i       = 0
-      val queries = flattened.query
-      while (i < queries.length) {
-        val query = queries(i).erase
+    private def decodePaths(path: Path, inputs: Array[Any]): Unit =
+      genericDecode[Path, PathCodec[_]](
+        path,
+        flattened.path,
+        inputs,
+        (codec, path) => {
+          codec.erase.decode(path) match {
+            case Left(error)  => throw HttpCodecError.MalformedPath(path, codec, error)
+            case Right(value) => value
+          }
+        },
+      )
 
-        val params = queryParams.queryParamsOrElse(query.name, Nil)
+    private def decodeQuery(queryParams: QueryParams, inputs: Array[Any]): Unit =
+      genericDecode[QueryParams, HttpCodec.Query[_]](
+        queryParams,
+        flattened.query,
+        inputs,
+        (codec, queryParams) => {
+          val params = queryParams.queryParamsOrElse(codec.name, Nil)
 
-        if (params.isEmpty)
-          throw HttpCodecError.MissingQueryParam(query.name)
-        else {
-          val parsedParams = params.collect(query.textCodec)
-          inputs(i) = parsedParams
-        }
+          if (params.isEmpty)
+            throw HttpCodecError.MissingQueryParam(codec.name)
+          else {
+            params.collect(codec.erase.textCodec)
+          }
+        },
+      )
 
-        i = i + 1
-      }
-    }
+    private def decodeHeaders(headers: Headers, inputs: Array[Any]): Unit =
+      genericDecode[Headers, HttpCodec.Header[_]](
+        headers,
+        flattened.header,
+        inputs,
+        (codec, headers) =>
+          headers.get(codec.name) match {
+            case Some(value) =>
+              codec.erase.textCodec
+                .decode(value)
+                .getOrElse(throw HttpCodecError.MalformedHeader(codec.name, codec.textCodec))
 
-    private def decodeStatus(status: Status, inputs: Array[Any]): Unit = {
-      var i = 0
-      while (i < inputs.length) {
-        inputs(i) = flattened.status(i) match {
-          case _: SimpleCodec.Unspecified[_]   => status
-          case SimpleCodec.Specified(expected) =>
-            if (status != expected)
+            case None =>
+              throw HttpCodecError.MissingHeader(codec.name)
+          },
+      )
+
+    private def decodeStatus(status: Status, inputs: Array[Any]): Unit =
+      genericDecode[Status, SimpleCodec[Status, _]](
+        status,
+        flattened.status,
+        inputs,
+        (codec, status) =>
+          codec match {
+            case SimpleCodec.Specified(expected) if expected != status =>
               throw HttpCodecError.MalformedStatus(expected, status)
-            else ()
-        }
+            case _: SimpleCodec.Unspecified[_]                         => status
+            case _                                                     => ()
+          },
+      )
 
-        i = i + 1
-      }
-    }
-
-    private def decodeMethod(method: Method, inputs: Array[Any]): Unit = {
-      var i = 0
-      while (i < inputs.length) {
-        inputs(i) = flattened.method(i) match {
-          case _: SimpleCodec.Unspecified[_]   => method
-          case SimpleCodec.Specified(expected) =>
-            if (method != expected) throw HttpCodecError.MalformedMethod(expected, method)
-            else ()
-        }
-
-        i = i + 1
-      }
-    }
-
-    private def decodeHeaders(headers: Headers, inputs: Array[Any]): Unit = {
-      var i = 0
-      while (i < flattened.header.length) {
-        val header = flattened.header(i).erase
-
-        headers.get(header.name) match {
-          case Some(value) =>
-            inputs(i) = header.textCodec
-              .decode(value)
-              .getOrElse(throw HttpCodecError.MalformedHeader(header.name, header.textCodec))
-
-          case None =>
-            throw HttpCodecError.MissingHeader(header.name)
-        }
-
-        i = i + 1
-      }
-    }
+    private def decodeMethod(method: Method, inputs: Array[Any]): Unit =
+      genericDecode[Method, SimpleCodec[Method, _]](
+        method,
+        flattened.method,
+        inputs,
+        (codec, method) =>
+          codec match {
+            case SimpleCodec.Specified(expected) if expected != method =>
+              throw HttpCodecError.MalformedMethod(expected, method)
+            case _: SimpleCodec.Unspecified[_]                         => method
+            case _                                                     => ()
+          },
+      )
 
     private def decodeBody(body: Body, inputs: Array[Any])(implicit
       trace: Trace,
     ): Task[Unit] = {
-      if (isByteStream) {
-        ZIO.attempt(inputs(0) = body.asStream.orDie)
-      } else if (flattened.content.isEmpty) {
-        ZIO.unit
-      } else if (flattened.content.size == 1) {
-        val bodyCodec = flattened.content(0)
-        bodyCodec
-          .decodeFromBody(body)
-          .mapBoth(
-            { err => HttpCodecError.MalformedBody(err.getMessage(), Some(err)) },
-            result => inputs(0) = result,
-          )
+      val codecs = flattened.content
+
+      if (inputs.length < 2) {
+        // non multi-part
+        codecs.headOption.map { codec =>
+          codec
+            .decodeFromBody(body)
+            .mapBoth(
+              { err => HttpCodecError.MalformedBody(err.getMessage(), Some(err)) },
+              result => inputs(0) = result,
+            )
+        }.getOrElse(ZIO.unit)
       } else {
-        body.asMultipartFormStream.flatMap { form =>
-          if (onlyTheLastFieldIsStreaming)
-            processStreamingForm(form, inputs)
-          else
-            collectAndProcessForm(form, inputs)
-        }.zipRight {
-          ZIO.attempt {
-            var idx = 0
-            while (idx < inputs.length) {
-              if (inputs(idx) == null)
-                throw HttpCodecError.MalformedBody(
-                  s"Missing multipart/form-data field (${Try(nameByIndex(idx))}",
-                )
-              idx += 1
-            }
-          }
-        }
+        // multi-part
+        decodeForm(body.asMultipartFormStream, inputs) *> check(inputs)
       }
     }
 
-    private def processStreamingForm(form: StreamingForm, inputs: Array[Any])(implicit
-      trace: Trace,
-    ): ZIO[Any, Throwable, Unit] =
-      Promise.make[Throwable, Unit].flatMap { ready =>
-        form.fields.mapZIO { field =>
-          indexByName.get(field.name) match {
-            case Some(idx) =>
-              (flattened.content(idx) match {
-                case BodyCodec.Multiple(codec, _) if codec.defaultMediaType.binary =>
-                  field match {
-                    case FormField.Binary(_, data, _, _, _)          =>
-                      inputs(idx) = ZStream.fromChunk(data)
-                    case FormField.StreamingBinary(_, _, _, _, data) =>
-                      inputs(idx) = data
-                    case FormField.Text(_, value, _, _)              =>
-                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
-                    case FormField.Simple(_, value)                  =>
-                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
-                  }
-                  ZIO.unit
-                case _                                                             =>
-                  formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
-              })
-                .zipRight(
-                  ready
-                    .succeed(())
-                    .unless(
-                      inputs.exists(_ == null),
-                    ), // Marking as ready so the handler can start consuming the streaming field before this stream ends
-                )
-            case None      =>
-              ready.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
-          }
-        }.runDrain
-          .intoPromise(ready)
-          .forkDaemon
-          .zipRight(
-            ready.await,
-          )
-      }
-
-    private def collectAndProcessForm(form: StreamingForm, inputs: Array[Any])(implicit
-      trace: Trace,
-    ): ZIO[Any, Throwable, Unit] =
-      form.collectAll.flatMap { collectedForm =>
+    private def decodeForm(form: Task[StreamingForm], inputs: Array[Any]): ZIO[Any, Throwable, Unit] =
+      form.flatMap(_.collectAll).flatMap { collectedForm =>
         ZIO.foreachDiscard(collectedForm.formData) { field =>
-          indexByName.get(field.name) match {
-            case Some(idx) =>
-              flattened.content(idx) match {
-                case BodyCodec.Multiple(codec, _) if codec.defaultMediaType.binary =>
-                  field match {
-                    case FormField.Binary(_, data, _, _, _)          =>
-                      inputs(idx) = ZStream.fromChunk(data)
-                    case FormField.StreamingBinary(_, _, _, _, data) =>
-                      inputs(idx) = data
-                    case FormField.Text(_, value, _, _)              =>
-                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
-                    case FormField.Simple(_, value)                  =>
-                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
-                  }
-                  ZIO.unit
-                case _                                                             =>
-                  formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
-              }
-            case None      =>
-              ZIO.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
-          }
+          val codecs = flattened.content
+          val i      = indexByName
+            .get(field.name)
+            .getOrElse(throw HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
+          val codec  = codecs(i).erase
+          for {
+            decoded <- codec.decodeFromField(field)
+            _       <- ZIO.attempt { inputs(i) = decoded }
+          } yield ()
         }
       }
 
-    private def encodePath(inputs: Array[Any]): Path = {
-      var path: Path = Path.empty
-
-      var i = 0
-      while (i < inputs.length) {
-        val pathCodec = flattened.path(i).erase
-        val input     = inputs(i)
-
-        val encoded = pathCodec.encode(input) match {
-          case Left(error)  =>
-            throw HttpCodecError.MalformedPath(path, pathCodec, error)
-          case Right(value) => value
+    private def check(inputs: Array[Any]): ZIO[Any, Throwable, Unit] =
+      ZIO.attempt {
+        for (i <- 0 until inputs.length) {
+          if (inputs(i) == null)
+            throw HttpCodecError.MalformedBody(
+              s"Missing multipart/form-data field (${Try(nameByIndex(i))}",
+            )
         }
-        path = path ++ encoded
-
-        i = i + 1
       }
 
-      path
-    }
-
-    private def encodeQuery(inputs: Array[Any]): QueryParams = {
-      var queryParams = QueryParams.empty
-
-      var i = 0
-      while (i < inputs.length) {
-        val query = flattened.query(i).erase
+    private def genericEncode[A, Codec](
+      codecs: Chunk[Codec],
+      inputs: Array[Any],
+      init: A,
+      encoding: (Codec, Any, A) => A,
+    ): A = {
+      var res = init
+      for (i <- 0 until inputs.length) {
+        val codec = codecs(i)
         val input = inputs(i)
+        res = encoding(codec, input, res)
+      }
+      res
+    }
 
-        val inputCoerced = input.asInstanceOf[Chunk[Any]]
+    private def simpleEncode[A](codecs: Chunk[SimpleCodec[A, _]], inputs: Array[Any]): Option[A] =
+      codecs.headOption.map { codec =>
+        codec match {
+          case _: SimpleCodec.Unspecified[_] => inputs(0).asInstanceOf[A]
+          case SimpleCodec.Specified(elem)   => elem
+        }
+      }
 
-        if (inputCoerced.isEmpty)
-          queryParams.addQueryParams(query.name, Chunk.empty[String])
-        else
-          inputCoerced.foreach { in =>
-            val value = query.textCodec.encode(in)
-            queryParams = queryParams.addQueryParam(query.name, value)
+    private def encodePath(inputs: Array[Any]): Path =
+      genericEncode[Path, PathCodec[_]](
+        flattened.path,
+        inputs,
+        Path.empty,
+        (codec, a, acc) => {
+          val encoded = codec.erase.encode(a) match {
+            case Left(error)  =>
+              throw HttpCodecError.MalformedPath(acc, codec, error)
+            case Right(value) => value
           }
+          acc ++ encoded
+        },
+      )
 
-        i = i + 1
-      }
+    private def encodeQuery(inputs: Array[Any]): QueryParams =
+      genericEncode[QueryParams, HttpCodec.Query[_]](
+        flattened.query,
+        inputs,
+        QueryParams.empty,
+        (codec, input, queryParams) =>
+          queryParams.addQueryParams(
+            codec.name,
+            input.asInstanceOf[Chunk[Any]].map(in => codec.erase.textCodec.encode(in)),
+          ),
+      )
 
-      queryParams
-    }
+    private def encodeHeaders(inputs: Array[Any]): Headers =
+      genericEncode[Headers, HttpCodec.Header[_]](
+        flattened.header,
+        inputs,
+        Headers.empty,
+        (codec, input, headers) => headers ++ Headers(codec.name, codec.erase.textCodec.encode(input)),
+      )
 
-    private def encodeStatus(inputs: Array[Any]): Option[Status] = {
-      if (flattened.status.length == 0) {
-        None
-      } else {
-        flattened.status(0) match {
-          case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Status])
-          case SimpleCodec.Specified(status) => Some(status)
-        }
-      }
-    }
+    private def encodeStatus(inputs: Array[Any]): Option[Status] =
+      simpleEncode(flattened.status, inputs)
 
-    private def encodeHeaders(inputs: Array[Any]): Headers = {
-      var headers = Headers.empty
+    private def encodeMethod(inputs: Array[Any]): Option[Method] =
+      simpleEncode(flattened.method, inputs)
 
-      var i = 0
-      while (i < inputs.length) {
-        val header = flattened.header(i).erase
-        val input  = inputs(i)
-
-        val value = header.textCodec.encode(input)
-
-        headers = headers ++ Headers(header.name, value)
-
-        i = i + 1
-      }
-
-      headers
-    }
-
-    private def encodeMethod(inputs: Array[Any]): Option[zio.http.Method]                      =
-      if (flattened.method.nonEmpty) {
-        flattened.method.head match {
-          case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Method])
-          case SimpleCodec.Specified(method) => Some(method)
-        }
-      } else None
     private def encodeBody(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Body =
-      if (isByteStream) {
-        Body.fromStreamChunked(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
-      } else {
-        inputs.length match {
-          case 0 =>
-            Body.empty
-          case 1 =>
-            val bodyCodec = flattened.content(0)
-            bodyCodec.erase.encodeToBody(inputs(0), outputTypes)
-          case _ =>
-            Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes), formBoundary)
-        }
+      inputs.length match {
+        case 0 =>
+          Body.empty
+        case 1 =>
+          val bodyCodec = flattened.content(0)
+          bodyCodec.erase.encodeToBody(inputs(0), outputTypes)
+        case _ =>
+          Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes), formBoundary)
       }
 
     private def encodeMultipartFormData(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Form = {
-      Form(
-        flattened.content.zipWithIndex.map { case (bodyCodec, idx) =>
-          val input = inputs(idx)
-          val name  = nameByIndex(idx)
-          bodyCodec match {
-            case BodyCodec.Multiple(codec, _) if codec.defaultMediaType.binary =>
-              FormField.streamingBinaryField(
-                name,
-                input.asInstanceOf[ZStream[Any, Nothing, Byte]],
-                bodyCodec.mediaType(outputTypes).getOrElse(MediaType.application.`octet-stream`),
-              )
-            case _                                                             =>
-              formFieldEncoders(idx)(name, input)
-          }
-        }: _*,
-      )
-    }
-
-    private def encodeContentType(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Headers = {
-      if (isByteStream) {
-        val mediaType = flattened.content(0).mediaType(outputTypes).getOrElse(MediaType.application.`octet-stream`)
-        Headers(Header.ContentType(mediaType))
-      } else {
-        if (inputs.length > 1) {
-          Headers(Header.ContentType(MediaType.multipart.`form-data`))
-        } else {
-          if (flattened.content.length < 1) Headers.empty
-          else {
-            val mediaType = flattened
-              .content(0)
-              .mediaType(outputTypes)
-              .getOrElse(throw HttpCodecError.CustomError("InvalidHttpContentCodec", "No codecs found."))
-            Headers(Header.ContentType(mediaType))
-          }
-        }
+      val formFields = flattened.content.zipWithIndex.map { case (bodyCodec, idx) =>
+        val input = inputs(idx)
+        val name  = nameByIndex(idx)
+        bodyCodec.erase.encodeToField(input, outputTypes, name)
       }
+
+      Form(formFields: _*)
     }
 
-    private def isByteStreamBody(codec: BodyCodec[_]): Boolean =
-      codec match {
-        case BodyCodec.Multiple(codec, _) if codec.defaultMediaType.binary => true
-        case _                                                             => false
+    private def encodeContentType(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Headers =
+      inputs.length match {
+        case 0 =>
+          Headers.empty
+        case 1 =>
+          val mediaType = flattened
+            .content(0)
+            .mediaType(outputTypes)
+            .getOrElse(throw HttpCodecError.CustomError("InvalidHttpContentCodec", "No codecs found."))
+          Headers(Header.ContentType(mediaType))
+        case _ =>
+          Headers(Header.ContentType(MediaType.multipart.`form-data`))
       }
   }
-
 }
