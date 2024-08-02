@@ -12,6 +12,8 @@ import zio.http._
 import zio.http.codec.PathCodec.string
 import zio.http.codec.{ContentCodec, Doc, HttpCodec, QueryCodec}
 import zio.http.endpoint._
+import zio.http.endpoint.openapi.JsonSchema
+import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
 
 object OpenAPIGenSpec extends ZIOSpecDefault {
 
@@ -2457,6 +2459,22 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
 
         SwaggerUI.routes("docs/openapi", OpenAPIGen.fromEndpoints(endpoint))
         assertCompletes
+      },
+      // test("Ensure OpenAPI generation succeeds for Map[String, List[String]]") {
+      //   val schema        = Schema.map[String, List[String]]
+      //   val openAPISchema = JsonSchema.fromZSchemaMulti(schema, SchemaStyle.Reference)
+      //   assertTrue(openAPISchema != null)
+      // },
+      test("Failing test case for Map[String, List[String]] schema generation") {
+        val schema = Schema.map[String, List[String]]
+        val result =
+          try {
+            JsonSchema.fromZSchemaMulti(schema, SchemaStyle.Reference)
+            true
+          } catch {
+            case _: NoSuchElementException => false
+          }
+        assertTrue(result == false)
       },
       test("Recursive schema") {
         val endpoint     = Endpoint(RoutePattern.POST / "folder")
