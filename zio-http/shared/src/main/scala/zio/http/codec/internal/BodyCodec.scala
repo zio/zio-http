@@ -187,11 +187,9 @@ private[http] object BodyCodec {
       trace: Trace,
     ): FormField = {
       val (mediaType, BinaryCodecWithSchema(codec0, _)) = codec.chooseFirstOrDefault(mediaTypes)
-      val stream                                        = value >>> codec0.streamEncoder
-      // if (mediaType.binary) value.asInstanceOf[ZStream[Any, Nothing, Byte]] else value >>> codec0.streamEncoder
       FormField.streamingBinaryField(
         name,
-        stream,
+        value >>> codec0.streamEncoder,
         mediaType,
       )
     }
@@ -200,8 +198,6 @@ private[http] object BodyCodec {
       trace: Trace,
     ): Body = {
       val (mediaType, BinaryCodecWithSchema(codec0, _)) = codec.chooseFirstOrDefault(mediaTypes)
-      // if (mediaType.binary) Body.fromStreamChunked(value.asInstanceOf[ZStream[Any, Nothing, Byte]])
-      // else
       Body.fromStreamChunked(value >>> codec0.streamEncoder).contentType(mediaType)
     }
 
