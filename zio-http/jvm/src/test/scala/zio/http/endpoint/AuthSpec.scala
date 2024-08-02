@@ -109,7 +109,7 @@ object AuthSpec extends ZIOSpecDefault {
       test("Auth from query parameter") {
         val endpoint = Endpoint(Method.GET / "test")
           .out[String](MediaType.text.`plain`)
-          .auth(AuthType.Custom(HttpCodec.query("token")))
+          .auth(AuthType.Custom(HttpCodec.query[String]("token")))
         val routes   =
           Routes(
             endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
@@ -190,7 +190,7 @@ object AuthSpec extends ZIOSpecDefault {
         test("Auth from query parameter with context and endpoint client") {
           val endpoint = Endpoint(Method.GET / "test" / "query")
             .out[String](MediaType.text.`plain`)
-            .auth(AuthType.Custom(HttpCodec.query("token")))
+            .auth(AuthType.Custom(HttpCodec.query[String]("token")))
           val routes   =
             Routes(
               endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),

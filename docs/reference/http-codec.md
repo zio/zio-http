@@ -145,19 +145,19 @@ There are also predefined codecs for all the HTTP methods, e.g. `HttpCodec.conne
 
 ### QueryCodec
 
-The `QueryCodec[A]` is a codec for the query parameters of the HTTP message with type `A`. To be able to encode and decode query parameters, ZIO HTTP provides a wide range of query codecs. If we are dealing with a single query parameter we can use `HttpCodec.query`, `HttpCodec.queryBool`, `HttpCodec.queryInt`, and `HttpCodec.queryTo`:
+The `QueryCodec[A]` is a codec for the query parameters of the HTTP message with type `A`. To be able to encode and decode query parameters, ZIO HTTP provides a wide range of query codecs. If we are dealing with a single query parameter we can use `HttpCodec.query`, `HttpCodec.query[Boolean]`, `HttpCodec.query[Boolean]`, and `HttpCodec.queryTo`:
 
 ```scala mdoc:compile-only
 import zio.http._
 import zio.http.codec._
 import java.util.UUID
 
-val nameQueryCodec  : QueryCodec[String]         = HttpCodec.query("name")       // e.g. ?name=John
-val ageQueryCodec   : QueryCodec[Int]            = HttpCodec.queryInt("age")     // e.g. ?age=30 
-val activeQueryCodec: QueryCodec[Boolean]        = HttpCodec.queryBool("active") // e.g. ?active=true
+val nameQueryCodec  : QueryCodec[String]         = HttpCodec.query[String]("name")       // e.g. ?name=John
+val ageQueryCodec   : QueryCodec[Int]            = HttpCodec.query[Int]("age")     // e.g. ?age=30 
+val activeQueryCodec: QueryCodec[Boolean]        = HttpCodec.query[Boolean]("active") // e.g. ?active=true
 
 // e.g. ?uuid=43abea9e-0b0e-11ef-8d07-e755ec5cd767
-val uuidQueryCodec  : QueryCodec[UUID]           = HttpCodec.queryTo[UUID]("uuid") 
+val uuidQueryCodec  : QueryCodec[UUID]           = HttpCodec.query[UUID]("uuid") 
 ```
 
 We can combine multiple query codecs with `++`:
@@ -171,11 +171,11 @@ import zio.http._
 import zio.http.codec._
 import java.util.UUID
 
-val queryAllCodec    : QueryCodec[Chunk[String]] = HttpCodec.queryAll("q")      // e.g. ?q=one&q=two&q=three
-val queryAllIntCodec : QueryCodec[Chunk[Int]]    = HttpCodec.queryAllInt("id")  // e.g. ?ids=1&ids=2&ids=3
+val queryAllCodec    : QueryCodec[Chunk[String]] = HttpCodec.query[Chunk[String]]("q")      // e.g. ?q=one&q=two&q=three
+val queryAllIntCodec : QueryCodec[Chunk[Int]]    = HttpCodec.query[Chunk[Int]]("id")  // e.g. ?ids=1&ids=2&ids=3
 
 // e.g. ?uuid=43abea9e-0b0e-11ef-8d07-e755ec5cd767&uuid=43abea9e-0b0e-11ef-8d07-e755ec5cd768
-val queryAllUUIDCodec: QueryCodec[Chunk[UUID]]   = HttpCodec.queryAllTo[UUID]("uuid") 
+val queryAllUUIDCodec: QueryCodec[Chunk[UUID]]   = HttpCodec.query[Chunk[UUID]]("uuid") 
 ```
 
 ### StatusCodec
@@ -203,7 +203,7 @@ By combining two codecs using the `++` operator, we can create a new codec that 
 import zio.http.codec._
 
 // e.g. ?name=John&age=30
-val queryCodec: QueryCodec[(String, Int)]  = HttpCodec.query("name") ++ HttpCodec.queryInt("age")
+val queryCodec: QueryCodec[(String, Int)]  = HttpCodec.query[String]("name") ++ HttpCodec.query[Int]("age")
 ```
 
 ### Combining Codecs Alternatively
@@ -213,7 +213,7 @@ There is also a `|` operator that allows us to create a codec that can decode ei
 ```scala mdoc:silent
 import zio.http.codec._
 
-val eitherQueryCodec: QueryCodec[String] = HttpCodec.query("q") | HttpCodec.query("query")
+val eitherQueryCodec: QueryCodec[String] = HttpCodec.query[String]("q") | HttpCodec.query[String]("query")
 ```
 
 Assume we have a request
@@ -244,7 +244,7 @@ import zio._
 import zio.http._
 import zio.http.codec._
 
-val optionalQueryCodec: QueryCodec[Option[String]] = HttpCodec.query("q").optional
+val optionalQueryCodec: QueryCodec[Option[String]] = HttpCodec.query[String]("q").optional
 
 val request = Request(url = URL.root.copy(queryParams = QueryParams("query" -> "foo")))
 val result: Task[Option[String]] = optionalQueryCodec.decodeRequest(request)

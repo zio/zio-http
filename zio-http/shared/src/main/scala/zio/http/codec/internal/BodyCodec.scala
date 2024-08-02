@@ -96,14 +96,14 @@ private[http] object BodyCodec {
         case Left(error)                                                       => ZIO.fail(error)
         case Right(BinaryCodecWithSchema(_, schema)) if schema == Schema[Unit] =>
           ZIO.unit.asInstanceOf[IO[Throwable, A]]
-        case Right(BinaryCodecWithSchema(codec, schema))                       =>
-          body.asChunk.flatMap { chunk => ZIO.fromEither(codec.decode(chunk)) }.flatMap(validateZIO(schema))
+        case Right(bc @ BinaryCodecWithSchema(_, schema))                      =>
+          body.asChunk.flatMap { chunk => ZIO.fromEither(bc.codec.decode(chunk)) }.flatMap(validateZIO(schema))
       }
     }
 
     def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor])(implicit trace: Trace): Body = {
-      val (mediaType, BinaryCodecWithSchema(codec0, _)) = codec.chooseFirst(mediaTypes)
-      Body.fromChunk(codec0.encode(value)).contentType(mediaType)
+      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirst(mediaTypes)
+      Body.fromChunk(bc.codec.encode(value)).contentType(mediaType)
     }
 
     type Element = A
@@ -119,8 +119,8 @@ private[http] object BodyCodec {
       trace: Trace,
     ): IO[Throwable, ZStream[Any, Nothing, E]] = {
       ZIO.fromEither {
-        codecForBody(codec, body).map { case BinaryCodecWithSchema(codec, schema) =>
-          (body.asStream >>> codec.streamDecoder >>> validateStream(schema)).orDie
+        codecForBody(codec, body).map { case bc @ BinaryCodecWithSchema(_, schema) =>
+          (body.asStream >>> bc.codec.streamDecoder >>> validateStream(schema)).orDie
         }
       }
     }
@@ -128,8 +128,8 @@ private[http] object BodyCodec {
     def encodeToBody(value: ZStream[Any, Nothing, E], mediaTypes: Chunk[MediaTypeWithQFactor])(implicit
       trace: Trace,
     ): Body = {
-      val (mediaType, BinaryCodecWithSchema(codec0, _)) = codec.chooseFirst(mediaTypes)
-      Body.fromStreamChunked(value >>> codec0.streamEncoder).contentType(mediaType)
+      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirst(mediaTypes)
+      Body.fromStreamChunked(value >>> bc.codec.streamEncoder).contentType(mediaType)
     }
 
     type Element = E

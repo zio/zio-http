@@ -1,5 +1,10 @@
 package zio.http.endpoint.http
 
+import zio.Unsafe
+
+import zio.schema.Schema
+import zio.schema.codec.BinaryCodec
+
 import zio.http.MediaType
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
@@ -117,27 +122,32 @@ object HttpGen {
     }
 
   def queryVariables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
-    inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(name, _, _, _), _) =>
-      HttpVariable(
-        name,
-        mc.examples.values.headOption.map(_.toString),
-      )
-//      OpenAPI.ReferenceOr.Or(
-//        OpenAPI.Parameter.queryParameter(
-//          name = name,
-//          description = mc.docsOpt,
-//          schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromTextCodec(codec))),
-//          deprecated = mc.deprecated,
-//          style = OpenAPI.Parameter.Style.Form,
-//          explode = false,
-//          allowReserved = false,
-//          examples = mc.examples.map { case (name, value) =>
-//            name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
-//          },
-//          required = mc.required,
-//          ),
-//        )
-    }
+    inAtoms.query.collect {
+      case mc @ MetaCodec(HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _)  =>
+        HttpVariable(
+          name,
+          mc.examples.values.headOption.map((e: Any) => codec.codec.asInstanceOf[BinaryCodec[Any]].encode(e).asString),
+        ) :: Nil
+      case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _) =>
+        val recordSchema = (schema match {
+          case value if value.isInstanceOf[Schema.Optional[_]] => value.asInstanceOf[Schema.Optional[Any]].schema
+          case _                                               => schema
+        }).asInstanceOf[Schema.Record[Any]]
+        val examples     = mc.examples.values.headOption.map { ex =>
+          recordSchema.deconstruct(ex)(Unsafe.unsafe)
+        }
+        record.fieldAndCodecs.zipWithIndex.map { case ((field, codec), index) =>
+          HttpVariable(
+            field.name,
+            examples.map(values => {
+              val fieldValue = values(index)
+                .orElse(field.defaultValue)
+                .getOrElse(throw new Exception(s"No value or default value for field ${field.name}"))
+              codec.codec.encode(fieldValue).asString
+            }),
+          )
+        }
+    }.flatten
   }
 
   private def pathVariables(inAtoms: AtomizedMetaCodecs) = {
@@ -147,18 +157,6 @@ object HttpGen {
           mc.name.getOrElse(throw new Exception("Path parameter must have a name")),
           mc.examples.values.headOption.map(_.toString),
         )
-      //        OpenAPI.ReferenceOr.Or(
-      //          OpenAPI.Parameter.pathParameter(
-      //            name = mc.name.getOrElse(throw new Exception("Path parameter must have a name")),
-      //            description = mc.docsOpt.flatMap(_.flattened.filterNot(_ == pathDoc).reduceOption(_ + _)),
-      //            definition = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromSegmentCodec(codec))),
-      //            deprecated = mc.deprecated,
-      //            style = OpenAPI.Parameter.Style.Simple,
-      //            examples = mc.examples.map { case (name, value) =>
-      //              name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(segmentToJson(codec, value)))
-      //            },
-      //            ),
-      //          )
     }
   }
 

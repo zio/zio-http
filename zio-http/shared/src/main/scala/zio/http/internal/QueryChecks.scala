@@ -20,4 +20,7 @@ trait QueryChecks[+A] { self: QueryOps[A] with A =>
 
   def hasQueryParam(name: CharSequence): Boolean =
     queryParameters.seq.exists(_.getKey == name)
+
+  def valueCount(name: CharSequence): Int =
+    queryParameters.seq.count(_.getKey == name)
 }

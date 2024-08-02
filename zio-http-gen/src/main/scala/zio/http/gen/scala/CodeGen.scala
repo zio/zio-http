@@ -376,7 +376,7 @@ object CodeGen {
           val (imports, _) = renderQueryCode(Code.QueryParamCode(name, underlying))
           (Code.Import.FromBase(s"components.$newtypeName") :: imports) -> (newtypeName + ".Type")
       }
-      imports -> s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
+      imports -> s""".query(HttpCodec.query[$tpe]("$name"))"""
   }
 
   def renderInCode(inCode: Code.InCode): String = {

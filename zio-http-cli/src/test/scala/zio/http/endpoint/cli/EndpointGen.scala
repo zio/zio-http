@@ -6,7 +6,6 @@ import zio.test._
 import zio.schema.Schema
 
 import zio.http._
-import zio.http.codec.HttpCodec.Query.QueryParamHint
 import zio.http.codec._
 import zio.http.codec.internal.TextBinaryCodec
 import zio.http.endpoint._
@@ -106,7 +105,7 @@ object EndpointGen {
       val schema = schema0.asInstanceOf[Schema[Any]]
       val codec  = BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
       CliRepr(
-        HttpCodec.Query(name, codec, QueryParamHint.Any),
+        HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec)),
         CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
       )
     }

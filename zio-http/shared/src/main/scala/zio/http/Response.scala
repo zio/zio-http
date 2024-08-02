@@ -161,8 +161,8 @@ object Response {
       case Left(failure: Throwable) => fromThrowable(failure)
       case Left(failure: Cause[_])  => fromCause(failure)
       case _                        =>
-        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(10000))
-        else error(Status.InternalServerError, cause.prettyPrint.take(10000))
+        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint)
+        else error(Status.InternalServerError, cause.prettyPrint)
     }
   }
 

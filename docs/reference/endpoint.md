@@ -25,7 +25,7 @@ object Book {
 
 val endpoint =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.queryTo[String]("q") examples (("example1", "scala"), ("example2", "zio")))
+    .query(HttpCodec.query[String]("q") examples (("example1", "scala"), ("example2", "zio")))
     .out[List[Book]]
 ```
 
@@ -109,7 +109,7 @@ import zio.http.codec._
 ```scala mdoc:compile-only
 val endpoint: Endpoint[Unit, String, ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.queryTo[String]("q"))
+    .query(HttpCodec.query[String]("q"))
 ```
 
 QueryCodecs are composable, so we can combine multiple query parameters:
@@ -117,7 +117,7 @@ QueryCodecs are composable, so we can combine multiple query parameters:
 ```scala mdoc:compile-only
 val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.queryTo[String]("q") ++ QueryCodec.queryTo[Int]("limit"))
+    .query(HttpCodec.query[String]("q") ++ HttpCodec.query[Int]("limit"))
 ```
 
 Or we can use the `query` method multiple times:
@@ -125,8 +125,8 @@ Or we can use the `query` method multiple times:
 ```scala mdoc:compile-only
 val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.queryTo[String]("q"))
-    .query(QueryCodec.queryTo[Int]("limit"))
+    .query(HttpCodec.query[String]("q"))
+    .query(HttpCodec.query[Int]("limit"))
 ```
 
 Please note that as we add more properties to the endpoint, the input and output types of the endpoint change accordingly. For example, in the following example, we have an endpoint with a path parameter of type `String` and two query parameters of type `String` and `Int`. So the input type of the endpoint is `(String, String, Int)`:
@@ -134,8 +134,8 @@ Please note that as we add more properties to the endpoint, the input and output
 ```scala mdoc:compile-only
 val endpoint: Endpoint[String, (String, String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.string("genre"))
-    .query(QueryCodec.queryTo[String]("q"))
-    .query(QueryCodec.queryTo[Int]("limit"))
+    .query(HttpCodec.query[String]("q"))
+    .query(HttpCodec.query[Int]("limit"))
 ```
 
 When we implement the endpoint, the handler function should take the input type of a tuple that the first element is the "genre" path parameter, and the second and third elements are the query parameters "q" and "limit" respectively.
@@ -215,7 +215,7 @@ object Book {
 
 val endpoint: Endpoint[Unit, String, ZNothing, List[Book], AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.query("q"))
+    .query(HttpCodec.query[String]("q"))
     .out[List[Book]]
 ```
 
@@ -369,8 +369,8 @@ case class BookQuery(query: String, genre: String, title: String)
 
 val endpoint: Endpoint[String, (String, String, String), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.POST / "books" / PathCodec.string("genre"))
-    .query(QueryCodec.query("q"))
-    .query(QueryCodec.query("title"))
+    .query(HttpCodec.query[String]("q"))
+    .query(HttpCodec.query[String]("title"))
 
 val mappedEndpoint: Endpoint[String, BookQuery, ZNothing, ZNothing, AuthType.None] =
   endpoint.transformIn[BookQuery] { case (genre, q, title) => BookQuery(q, genre, title) } { i =>
@@ -390,7 +390,7 @@ Every property of an `Endpoint` API can be annotated with documentation, may be 
 val endpoint =
   Endpoint((RoutePattern.GET / "books") ?? Doc.p("Route for querying books"))
     .query(
-      QueryCodec.queryTo[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
+      HttpCodec.query[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
         "Query parameter for searching books",
       ),
     )
