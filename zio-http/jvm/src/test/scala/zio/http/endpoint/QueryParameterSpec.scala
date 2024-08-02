@@ -23,7 +23,8 @@ import zio.test._
 
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryAll, queryAllBool, queryAllInt, queryInt}
+import zio.http.codec.HttpCodec._
+import zio.http.endpoint.EndpointMiddleware.None
 import zio.http.endpoint.EndpointSpec.testEndpoint
 
 object QueryParameterSpec extends ZIOHttpSpec {
@@ -95,6 +96,125 @@ object QueryParameterSpec extends ZIOHttpSpec {
         testRoutes(s"/users/$userId?key=&value=$value", s"path(users, $userId, Some(), Some($value))") &&
         testRoutes(s"/users/$userId?key=$key&value=$value", s"path(users, $userId, Some($key), Some($value))")
       }
+    },
+    test("many optional query parameters") {
+      val soEndpoint = Endpoint(GET / "so")
+        .query[Option[String]](query("a").optional)
+        .query[Option[String]](query("b").optional)
+        .query[Option[String]](query("c").optional)
+        .query[Option[String]](query("d").optional)
+        .query[Option[String]](query("e").optional)
+        .query[Option[String]](query("f").optional)
+        .query[Option[String]](query("g").optional)
+        .query[Option[String]](query("h").optional)
+        .query[Option[String]](query("i").optional)
+        .query[Option[String]](query("j").optional)
+        .query[Option[String]](query("k").optional)
+        .query[Option[String]](query("l").optional)
+        .query[Option[String]](query("m").optional)
+        .query[Option[String]](query("n").optional)
+        .query[Option[String]](query("o").optional)
+        .out[String]
+      val testRoutes = testEndpoint(
+        Routes(
+          soEndpoint.implementHandler {
+            Handler.fromFunction { case ((a, b, c, d, e, f, g, h, i, j), k, l, m, n, o) =>
+              s"so?$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o"
+            }
+          },
+        ),
+      ) _
+      testRoutes(
+        s"/so?a=a&b=b&c=c&d=d&e=e&f=f&g=g&h=h&i=i&j=j&k=k&l=l&m=m&n=n&o=o",
+        "so?Some(a),Some(b),Some(c),Some(d),Some(e),Some(f),Some(g),Some(h),Some(i),Some(j),Some(k),Some(l),Some(m),Some(n),Some(o)",
+      ) &&
+      testRoutes(s"/so", "so?None,None,None,None,None,None,None,None,None,None,None,None,None,None,None")
+    },
+    test("many optional query all parameters") {
+      val soEndpoint = Endpoint(GET / "so")
+        .query[Option[Chunk[String]]](queryAll("a").optional)
+        .query[Option[Chunk[String]]](queryAll("b").optional)
+        .query[Option[Chunk[String]]](queryAll("c").optional)
+        .query[Option[Chunk[String]]](queryAll("d").optional)
+        .query[Option[Chunk[String]]](queryAll("e").optional)
+        .query[Option[Chunk[String]]](queryAll("f").optional)
+        .query[Option[Chunk[String]]](queryAll("g").optional)
+        .query[Option[Chunk[String]]](queryAll("h").optional)
+        .query[Option[Chunk[String]]](queryAll("i").optional)
+        .query[Option[Chunk[String]]](queryAll("j").optional)
+        .query[Option[Chunk[String]]](queryAll("k").optional)
+        .query[Option[Chunk[String]]](queryAll("l").optional)
+        .query[Option[Chunk[String]]](queryAll("m").optional)
+        .query[Option[Chunk[String]]](queryAll("n").optional)
+        .query[Option[Chunk[String]]](queryAll("o").optional)
+        .out[String]
+      val testRoutes = testEndpoint(
+        Routes(
+          soEndpoint.implementHandler {
+            Handler.fromFunction { case ((a, b, c, d, e, f, g, h, i, j), k, l, m, n, o) =>
+              s"so?$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o"
+            }
+          },
+        ),
+      ) _
+      testRoutes(
+        s"/so?a=a&b=b1&b=b2",
+        "so?Some(Chunk(a)),Some(Chunk(b1,b2)),None,None,None,None,None,None,None,None,None,None,None,None,None",
+      ) &&
+      testRoutes(s"/so", "so?None,None,None,None,None,None,None,None,None,None,None,None,None,None,None")
+    },
+    test("three optional query parameters") {
+      val soEndpoint = Endpoint(GET / "so")
+        .query[Option[String]](query("a").optional)
+        .query[Option[String]](query("b").optional)
+        .query[Option[String]](query("c").optional)
+        .out[String]
+      val testRoutes = testEndpoint(
+        Routes(
+          soEndpoint.implementHandler {
+            Handler.fromFunction { case (a, b, c) =>
+              s"so?$a,$b,$c"
+            }
+          },
+        ),
+      ) _
+      testRoutes(
+        s"/so?a=a&b=b&c=c",
+        "so?Some(a),Some(b),Some(c)",
+      ) &&
+      testRoutes(s"/so", "so?None,None,None")
+    },
+    test("many query parameters") {
+      val testRoutes = testEndpoint(
+        Routes(
+          Endpoint(GET / "so")
+            .query[String](query("a"))
+            .query[String](query("b"))
+            .query[String](query("c"))
+            .query[String](query("d"))
+            .query[String](query("e"))
+            .query[String](query("f"))
+            .query[String](query("g"))
+            .query[String](query("h"))
+            .query[String](query("i"))
+            .query[String](query("j"))
+            .query[String](query("k"))
+            .query[String](query("l"))
+            .query[String](query("m"))
+            .query[String](query("n"))
+            .query[String](query("o"))
+            .out[String]
+            .implementHandler {
+              Handler.fromFunction { p =>
+                s"so?$p"
+              }
+            },
+        ),
+      ) _
+      testRoutes(
+        s"/so?a=a&b=b&c=c&d=d&e=e&f=f&g=g&h=h&i=i&j=j&k=k&l=l&m=m&n=n&o=o",
+        "so?((a,b,c,d,e,f,g,h,i,j),k,l,m,n,o)",
+      )
     },
     test("query parameters with multiple values") {
       check(Gen.int, Gen.listOfN(3)(Gen.alphaNumericString)) { (userId, keys) =>
@@ -293,7 +413,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
       val testRoutes = testEndpoint(
         Routes(
           Endpoint(GET / "users")
-            .query(queryAllInt("ints"))
+            .query(queryAllOptionalInt("ints"))
             .out[String]
             .implementHandler {
               Handler.fromFunction { case queryParams =>
@@ -322,7 +442,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
       testRoutes
         .runZIO(Request.get("/users"))
-        .map(resp => assertTrue(resp.status == Status.BadRequest))
+        .map(resp => assertTrue(resp.status == zio.http.Status.BadRequest))
     },
     test("multiple query parameter values to single value query parameter codec") {
       val testRoutes =
@@ -339,7 +459,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
       testRoutes
         .runZIO(Request.get(URL.decode("/users?ints=1&ints=2").toOption.get))
-        .map(resp => assertTrue(resp.status == Status.BadRequest))
+        .map(resp => assertTrue(resp.status == zio.http.Status.BadRequest))
     },
   )
 }

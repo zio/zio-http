@@ -28,7 +28,8 @@ import zio.schema.Schema
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec.HttpCodec.{Annotated, Metadata}
+import zio.http.codec.HttpCodec.Query.QueryParamHint
+import zio.http.codec.HttpCodec.{Annotated, Metadata, Query}
 import zio.http.codec.internal.{AtomizedCodecs, EncoderDecoder}
 
 /**
@@ -280,9 +281,42 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     Annotated(
       if (self eq HttpCodec.Halt) HttpCodec.empty.asInstanceOf[HttpCodec[AtomTypes, Option[Value]]]
       else {
-        HttpCodec
+        def defaultFallback = HttpCodec
           .Fallback(self, HttpCodec.empty, Alternator.either, HttpCodec.Fallback.Condition.isMissingDataOnly)
           .transform[Option[Value]](either => either.fold(Some(_), _ => None))(_.toLeft(()))
+        self match {
+          case HttpCodec
+                .TransformOrFail(api, f @ _, g @ _) =>
+            if (api.isInstanceOf[HttpCodec.Query[_]]) {
+              api.asInstanceOf[HttpCodec.Query[_]] match {
+                case HttpCodec.Query(name, textCodec, Query.QueryParamHint.One, index)  =>
+                  HttpCodec
+                    .Query(name, textCodec, QueryParamHint.One, index)
+                    .transformOrFail {
+                      case chunk if chunk.size <= 1 => Right(chunk.headOption)
+                      case chunk                    =>
+                        Left(
+                          s"Expected maximally single value for query parameter $name, but got ${chunk.size} instead",
+                        )
+                    }(s => Right(Chunk.fromIterable(s)))
+                    .asInstanceOf[HttpCodec[AtomTypes, Option[Value]]]
+                case HttpCodec.Query(name, textCodec, Query.QueryParamHint.Many, index) =>
+                  HttpCodec
+                    .Query(name, textCodec, QueryParamHint.Many, index)
+                    .transform {
+                      case chunk if chunk.isEmpty => None
+                      case chunk                  => Some(chunk)
+                    } { _.getOrElse(Chunk.empty) }
+                    .asInstanceOf[HttpCodec[AtomTypes, Option[Value]]]
+                case _                                                                  =>
+                  defaultFallback
+              }
+            } else {
+              defaultFallback
+            }
+          case _ =>
+            defaultFallback
+        }
       },
       Metadata.Optional(),
     )
