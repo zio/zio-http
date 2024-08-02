@@ -2456,7 +2456,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             .in[Boolean]("bar")
             .query(QueryCodec.query("q"))
             .out[Unit]
-
         SwaggerUI.routes("docs/openapi", OpenAPIGen.fromEndpoints(endpoint))
         assertCompletes
       },
