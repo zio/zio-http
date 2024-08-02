@@ -2467,8 +2467,14 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       },
       test("Failing test case for Map[String, List[String]] schema generation") {
         val schema = Schema.map[String, List[String]]
-        val result = scala.util.Try(JsonSchema.fromZSchemaMulti(schema, SchemaStyle.Reference))
-        assertTrue(result.isFailure)
+        val result =
+          try {
+            JsonSchema.fromZSchemaMulti(schema, SchemaStyle.Reference)
+            true
+          } catch {
+            case _: NoSuchElementException => false
+          }
+        assertTrue(result == false)
       },
       test("Recursive schema") {
         val endpoint     = Endpoint(RoutePattern.POST / "folder")
