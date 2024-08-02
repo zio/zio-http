@@ -2460,7 +2460,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
         SwaggerUI.routes("docs/openapi", OpenAPIGen.fromEndpoints(endpoint))
         assertCompletes
       },
-      test("Ensure OpenAPI generation succeeds for Map[String, List[String]]") {
+      test("OpenAPI generation succeeds for Map[String, List[String]]") {
         val schema = Schema.map[String, List[String]]
         val result =
           try {
