@@ -15,11 +15,11 @@ import zio.http.endpoint.EndpointMiddleware.None
 object ServerSentEventEndpoint extends ZIOAppDefault {
   import HttpCodec._
 
-  val stream: ZStream[Any, Nothing, ServerSentEvent] =
+  val stream: ZStream[Any, Nothing, ServerSentEvent[String]] =
     ZStream.repeatWithSchedule(ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now)), Schedule.spaced(1.second))
 
-  val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent], None] =
-    Endpoint(Method.GET / "sse").outStream[ServerSentEvent]
+  val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], None] =
+    Endpoint(Method.GET / "sse").outStream[ServerSentEvent[String]]
 
   val sseRoute = sseEndpoint.implementHandler(Handler.succeed(stream))
 
