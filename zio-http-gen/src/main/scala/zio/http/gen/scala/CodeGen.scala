@@ -321,7 +321,7 @@ object CodeGen {
         case Code.CodecType.UUID    => List(Code.Import("java.util.UUID")) -> "UUID"
         case Code.CodecType.Literal => throw new Exception("Literal query params are not supported")
       }
-      imports -> s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
+      imports -> s""".query(HttpCodec.query[$tpe]("$name"))"""
   }
 
   def renderInCode(inCode: Code.InCode): String = {

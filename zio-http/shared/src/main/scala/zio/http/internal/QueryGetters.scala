@@ -104,4 +104,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
   def queryParamToOrElse[T](key: String, default: => T)(implicit codec: TextCodec[T]): T =
     queryParamTo[T](key).getOrElse(default)
 
+  private[http] def unsafeQueryParam(key: String): String =
+    queryParams(key).head
+
 }

@@ -149,7 +149,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   private val queryParamEndpoint =
     Endpoint(GET / "withQuery")
       .in[SimpleInputBody]
-      .query(QueryCodec.query("query"))
+      .query(HttpCodec.query[String]("query"))
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
@@ -854,7 +854,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                 HttpCodec
                   .content[SimpleInputBody] ?? Doc.p("simple input"),
             )
-            .query(QueryCodec.query("query"))
+            .query(HttpCodec.query[String]("query"))
             .outCodec(
               HttpCodec
                 .content[SimpleOutputBody] ?? Doc.p("simple output") |
@@ -2431,7 +2431,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           Endpoint(RoutePattern.POST / "post")
             .in[Int]("foo")
             .in[Boolean]("bar")
-            .query(QueryCodec.query("q"))
+            .query(HttpCodec.query[String]("q"))
             .out[Unit]
 
         SwaggerUI.routes("docs/openapi", OpenAPIGen.fromEndpoints(endpoint))
