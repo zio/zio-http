@@ -104,7 +104,7 @@ object EndpointGen {
   lazy val anyQuery: Gen[Any, CliReprOf[Codec[_]]] =
     Gen.alphaNumericStringBounded(1, 30).zip(anyStandardType).map { case (name, schema0) =>
       val schema = schema0.asInstanceOf[Schema[Any]]
-      val codec  = BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+      val codec  = CodecBuilderWithSchema(TextBinaryCodec.codecBuilder, schema)
       CliRepr(
         HttpCodec.Query(name, codec, QueryParamHint.Any),
         CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),

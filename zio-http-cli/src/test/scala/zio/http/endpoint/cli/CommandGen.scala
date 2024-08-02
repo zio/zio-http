@@ -121,7 +121,7 @@ object CommandGen {
       case _                      => ""
     }
 
-  def getType[A](codec: BinaryCodecWithSchema[A]): String =
+  def getType[A](codec: CodecBuilderWithSchema[A]): String =
     codec.schema match {
       case Schema.Primitive(standardType, _) =>
         standardType match {

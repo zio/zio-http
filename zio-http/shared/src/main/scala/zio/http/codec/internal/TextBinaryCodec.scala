@@ -10,6 +10,8 @@ import zio.stream._
 import zio.schema._
 import zio.schema.codec._
 
+import zio.http.codec.CodecBuilder
+
 object TextBinaryCodec {
   private def errorCodec[A](schema: Schema[A]) =
     new BinaryCodec[A] {
@@ -30,8 +32,30 @@ object TextBinaryCodec {
       )
     }
 
+  val codecBuilder = new CodecBuilder {
+    override def build[T](schema: Schema[T]): BinaryCodec[T] = TextBinaryCodec.fromSchema[T](schema)
+  }
+
   implicit def fromSchema[A](implicit schema: Schema[A]): BinaryCodec[A] = {
     schema match {
+      case Schema.Optional(schema, annotations)                =>
+        val codec = fromSchema(schema).asInstanceOf[BinaryCodec[Any]]
+        new BinaryCodec[A] {
+          override def encode(a: A): Chunk[Byte] = {
+            a match {
+              case Some(value) => codec.encode(value)
+              case None        => Chunk.empty
+            }
+          }
+
+          override def decode(c: Chunk[Byte]): Either[DecodeError, A]      =
+            if (c.isEmpty) Right(None.asInstanceOf[A])
+            else codec.decode(c).map(Some(_)).asInstanceOf[Either[DecodeError, A]]
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
+            ZPipeline.map(a => encode(a)).flattenChunks
+          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+            codec.streamDecoder.map(v => Some(v).asInstanceOf[A])
+        }
       case enum0: Schema.Enum[_]                               => errorCodec(enum0)
       case record: Schema.Record[_] if record.fields.size == 1 =>
         val fieldSchema = record.fields.head.schema

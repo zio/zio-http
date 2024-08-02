@@ -17,6 +17,7 @@
 package zio.http.endpoint
 
 import scala.annotation.nowarn
+import scala.util.chaining.scalaUtilChainingOps
 
 import zio._
 import zio.test.Assertion._

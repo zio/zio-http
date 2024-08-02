@@ -16,8 +16,16 @@
 
 package zio.http.internal
 
+import scala.jdk.CollectionConverters._
+
 trait QueryChecks[+A] { self: QueryOps[A] with A =>
 
   def hasQueryParam(name: CharSequence): Boolean =
     queryParameters.seq.exists(_.getKey == name)
+
+  def hasQueryParamValues(name: CharSequence, value: Seq[String]): Boolean =
+    queryParameters.seq.exists(p => p.getKey == name && p.getValue.asScala == value)
+
+  def valueCount(name: CharSequence): Int =
+    queryParameters.seq.count(_.getKey == name)
 }

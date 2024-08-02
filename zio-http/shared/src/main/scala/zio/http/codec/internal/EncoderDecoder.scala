@@ -41,7 +41,8 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
 
 }
 private[codec] object EncoderDecoder {
-  private val emptyStringChunk = Chunk("")
+  private val EmptyStringChunk = Chunk("")
+  private val EmptyChunk       = Chunk.empty[Nothing]
 
   def apply[AtomTypes, Value](
     httpCodec: HttpCodec[AtomTypes, Value],
@@ -283,15 +284,33 @@ private[codec] object EncoderDecoder {
       while (i < queries.length) {
         val query = queries(i).erase
 
-        val params = queryParams.queryParamsOrElse(query.name, Nil)
+        def params                 = queryParams.queryParamsOrElse(query.name, Nil)
+        val notHasParam            = !queryParams.hasQueryParam(query.name)
+        val singleEmptyStringParam = queryParams.hasQueryParamValues(query.name, EmptyStringChunk)
+        val isOptional             = query.codec.schema.isInstanceOf[Schema.Optional[_]]
+        val acceptAnyParamCount    = query.hint == Query.QueryParamHint.Any
+        val acceptExactlyOneParam  = query.hint == Query.QueryParamHint.One
 
-        if (params.isEmpty)
-          throw HttpCodecError.MissingQueryParam(query.name)
-        else if (
-          params == emptyStringChunk
-          && (query.hint == Query.QueryParamHint.Any || query.hint == Query.QueryParamHint.Many)
-        ) {
-          inputs(i) = Chunk.empty
+        if (isOptional && (notHasParam || singleEmptyStringParam)) inputs(i) = None
+        else if (acceptAnyParamCount && (notHasParam || singleEmptyStringParam)) inputs(i) = Chunk.empty
+        else if (notHasParam) throw HttpCodecError.MissingQueryParam(query.name)
+        else if (acceptExactlyOneParam) {
+          val count = queryParams.valueCount(query.name)
+          if (count != 1)
+            throw HttpCodecError.InvalidQueryParamCount(query.name, 1, count)
+          else {
+            val decoded          = {
+              query.codec.codec.decode(
+                Chunk.fromArray(queryParams.unsafeQueryParam(query.name).getBytes(Charsets.Utf8)),
+              ) match {
+                case Left(error)  => throw HttpCodecError.MalformedQueryParam(query.name, error)
+                case Right(value) => value
+              }
+            }
+            val validationErrors = query.codec.schema.validate(decoded)(query.codec.schema)
+            if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
+            inputs(i) = decoded
+          }
         } else {
           val parsedParams     = params.map { p =>
             val decoded = query.codec.codec.decode(Chunk.fromArray(p.getBytes(Charsets.Utf8)))
@@ -302,9 +321,19 @@ private[codec] object EncoderDecoder {
           }
           val validationErrors = parsedParams.flatMap(p => query.codec.schema.validate(p)(query.codec.schema))
           if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
-          inputs(i) = parsedParams
+          if (query.codec.schema.isInstanceOf[Schema.Optional[_]]) {
+            val flattenedParams = parsedParams.collect { case Some(value) => value }
+            if (flattenedParams.isEmpty) inputs(i) = None
+            else if (query.hint == Query.QueryParamHint.One) inputs(i) = Some(flattenedParams.head)
+            else inputs(i) = Some(flattenedParams)
+          } else if (query.hint == Query.QueryParamHint.One) {
+            if (parsedParams.length != 1)
+              throw HttpCodecError.InvalidQueryParamCount(query.name, 1, parsedParams.length)
+            inputs(i) = parsedParams.head
+          } else {
+            inputs(i) = parsedParams
+          }
         }
-
         i = i + 1
       }
     }
@@ -492,15 +521,21 @@ private[codec] object EncoderDecoder {
         val query = flattened.query(i).erase
         val input = inputs(i)
 
-        val inputCoerced = input.asInstanceOf[Chunk[Any]]
+        if (query.hint == Query.QueryParamHint.Zero)
+          queryParams = queryParams.addQueryParams(query.name, Chunk.empty[String])
+        else if (query.hint == Query.QueryParamHint.One)
+          queryParams = queryParams.addQueryParams(query.name, Chunk(query.codec.codec.encode(input).asString))
+        else {
+          val inputCoerced = input.asInstanceOf[Chunk[Any]]
 
-        if (inputCoerced.isEmpty)
-          queryParams.addQueryParams(query.name, Chunk.empty[String])
-        else
-          inputCoerced.foreach { in =>
-            val value = query.codec.codec.encode(in).asString
-            queryParams = queryParams.addQueryParam(query.name, value)
-          }
+          if (inputCoerced.isEmpty)
+            queryParams = queryParams.addQueryParams(query.name, Chunk.empty[String])
+          else
+            inputCoerced.foreach { in =>
+              val value = query.codec.codec.encode(in).asString
+              queryParams = queryParams.addQueryParam(query.name, value)
+            }
+        }
 
         i = i + 1
       }

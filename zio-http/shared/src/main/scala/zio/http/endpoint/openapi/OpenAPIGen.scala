@@ -96,7 +96,7 @@ object OpenAPIGen {
   final case class AtomizedMetaCodecs(
     method: Chunk[MetaCodec[SimpleCodec[Method, _]]],
     path: Chunk[MetaCodec[SegmentCodec[_]]],
-    query: Chunk[MetaCodec[HttpCodec.Query[_]]],
+    query: Chunk[MetaCodec[HttpCodec.Query[_, _]]],
     header: Chunk[MetaCodec[HttpCodec.Header[_]]],
     content: Chunk[MetaCodec[HttpCodec.Atom[HttpCodecType.Content, _]]],
     status: Chunk[MetaCodec[HttpCodec.Status[_]]],
@@ -108,8 +108,8 @@ object OpenAPIGen {
         )
       case MetaCodec(_: SegmentCodec[_], _)                   =>
         copy(path = path :+ metaCodec.asInstanceOf[MetaCodec[SegmentCodec[_]]])
-      case MetaCodec(_: HttpCodec.Query[_], _)                =>
-        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_]]])
+      case MetaCodec(_: HttpCodec.Query[_, _], _)             =>
+        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_, _]]])
       case MetaCodec(_: HttpCodec.Header[_], _)               =>
         copy(header = header :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Header[_]]])
       case MetaCodec(_: HttpCodec.Status[_], _)               =>

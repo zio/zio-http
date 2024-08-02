@@ -33,7 +33,7 @@ object OptionsGen {
       .optionsFromTextCodec(textCodec)(name)
       .map(value => textCodec.encode(value))
 
-  def encodeOptions[A](name: String, codec: BinaryCodecWithSchema[A]): Options[String] =
+  def encodeOptions[A](name: String, codec: CodecBuilderWithSchema[A]): Options[String] =
     HttpOptions
       .optionsFromSchema(codec)(name)
       .map(value => codec.codec.encode(value).asString)
@@ -86,7 +86,7 @@ object OptionsGen {
         .alphaNumericStringBounded(1, 30)
         .zip(anyStandardType.map { s =>
           val schema = s.asInstanceOf[Schema[Any]]
-          BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+          CodecBuilderWithSchema(TextBinaryCodec.codecBuilder, schema)
         })
         .map { case (name, codec) =>
           CliRepr(

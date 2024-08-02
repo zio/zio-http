@@ -278,7 +278,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Returns a new codec, where the value produced by this one is optional.
    */
-  final def optional: HttpCodec[AtomTypes, Option[Value]] =
+  def optional: HttpCodec[AtomTypes, Option[Value]] =
     Annotated(
       if (self eq HttpCodec.Halt) HttpCodec.empty.asInstanceOf[HttpCodec[AtomTypes, Option[Value]]]
       else {
@@ -584,32 +584,49 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
-  private[http] final case class Query[A](
+  private[http] final case class Query[A, Out](
     name: String,
-    codec: BinaryCodecWithSchema[A],
-    hint: Query.QueryParamHint,
+    codec: CodecBuilderWithSchema[A],
+    hint: Query.QueryParamHint.QueryParamHintWithOut[A, Out],
     index: Int = 0,
-  ) extends Atom[HttpCodecType.Query, Chunk[A]] {
+  ) extends Atom[HttpCodecType.Query, Out] {
     self =>
-    def erase: Query[Any] = self.asInstanceOf[Query[Any]]
+    def erase: Query[Any, Any] = self.asInstanceOf[Query[Any, Any]]
 
     def tag: AtomTag = AtomTag.Query
 
-    def index(index: Int): Query[A] = copy(index = index)
+    def index(index: Int): Query[A, Out] = copy(index = index)
+
+    override def optional: HttpCodec[HttpCodecType.Query, Option[Out]] =
+      Annotated(
+        Query(name, codec.optional, hint.optional, index),
+        Metadata.Optional(),
+      )
   }
 
   private[http] object Query {
 
     // Hint on how many query parameters codec expects
-    sealed trait QueryParamHint
-    object QueryParamHint {
-      case object One extends QueryParamHint
-
-      case object Many extends QueryParamHint
-
-      case object Zero extends QueryParamHint
-
-      case object Any extends QueryParamHint
+    sealed trait QueryParamHint[A] { self =>
+      type In = A
+      type Out
+      def optional: QueryParamHint.QueryParamHintWithOut[Option[A], Option[Out]] =
+        self.asInstanceOf[QueryParamHint.QueryParamHintWithOut[Option[A], Option[Out]]]
+    }
+    object QueryParamHint          {
+      def one[A]: QueryParamHint.QueryParamHintWithOut[A, A]         =
+        One.asInstanceOf[QueryParamHint.QueryParamHintWithOut[A, A]]
+      def many[A]: QueryParamHint.QueryParamHintWithOut[A, Chunk[A]] =
+        Many.asInstanceOf[QueryParamHint.QueryParamHintWithOut[A, Chunk[A]]]
+      def zero[A]: QueryParamHint.QueryParamHintWithOut[A, Unit]     =
+        Zero.asInstanceOf[QueryParamHint.QueryParamHintWithOut[A, Unit]]
+      def any[A]: QueryParamHint.QueryParamHintWithOut[A, Chunk[A]]  =
+        Any.asInstanceOf[QueryParamHint.QueryParamHintWithOut[A, Chunk[A]]]
+      type QueryParamHintWithOut[A, Out0] = QueryParamHint[A] { type Out = Out0 }
+      case object One  extends QueryParamHint[Any] { type Out = In        }
+      case object Many extends QueryParamHint[Any] { type Out = Chunk[In] }
+      case object Zero extends QueryParamHint[Any] { type Out = Unit      }
+      case object Any  extends QueryParamHint[Any] { type Out = Chunk[In] }
     }
   }
 

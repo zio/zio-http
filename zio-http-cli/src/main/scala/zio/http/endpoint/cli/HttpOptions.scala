@@ -262,7 +262,7 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class Query(override val name: String, codec: BinaryCodecWithSchema[_], doc: Doc = Doc.empty)
+  final case class Query(override val name: String, codec: CodecBuilderWithSchema[_], doc: Doc = Doc.empty)
       extends URLOptions {
     self =>
 
@@ -291,7 +291,7 @@ private[cli] object HttpOptions {
 
   }
 
-  private[cli] def optionsFromSchema[A](codec: BinaryCodecWithSchema[A]): String => Options[A] =
+  private[cli] def optionsFromSchema[A](codec: CodecBuilderWithSchema[A]): String => Options[A] =
     codec.schema match {
       case Schema.Primitive(standardType, _) =>
         standardType match {

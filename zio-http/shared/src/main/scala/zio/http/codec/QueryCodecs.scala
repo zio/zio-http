@@ -33,22 +33,25 @@ private[codec] trait QueryCodecs {
 
   def queryTo[A](name: String)(implicit codec: Schema[A]): QueryCodec[A] = singleValueCodec(name, codec)
 
-  def queryAll(name: String): QueryCodec[Chunk[String]] = multiValueCodec(name, Schema[String])
+  def queryAll(name: String, atLeastOne: Boolean = true): QueryCodec[Chunk[String]] =
+    multiValueCodec(name, Schema[String], atLeastOne)
 
-  def queryAllBool(name: String): QueryCodec[Chunk[Boolean]] = multiValueCodec(name, Schema[Boolean])
+  def queryAllBool(name: String, atLeastOne: Boolean = true): QueryCodec[Chunk[Boolean]] =
+    multiValueCodec(name, Schema[Boolean], atLeastOne)
 
-  def queryAllInt(name: String): QueryCodec[Chunk[Int]] = multiValueCodec(name, Schema[Int])
+  def queryAllInt(name: String, atLeastOne: Boolean = true): QueryCodec[Chunk[Int]] =
+    multiValueCodec(name, Schema[Int], atLeastOne)
 
-  def queryAllTo[A](name: String)(implicit codec: Schema[A]): QueryCodec[Chunk[A]] = multiValueCodec(name, codec)
+  def queryAllTo[A](name: String, atLeastOne: Boolean = true)(implicit codec: Schema[A]): QueryCodec[Chunk[A]] =
+    multiValueCodec(name, codec, atLeastOne)
 
   private def singleValueCodec[A](name: String, schema: Schema[A]): QueryCodec[A] =
-    HttpCodec
-      .Query(name, BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema), QueryParamHint.One)
-      .transformOrFail {
-        case chunk if chunk.size == 1 => Right(chunk.head)
-        case chunk => Left(s"Expected single value for query parameter $name, but got ${chunk.size} instead")
-      }(s => Right(Chunk(s)))
+    HttpCodec.Query(name, CodecBuilderWithSchema[A](TextBinaryCodec.codecBuilder, schema), QueryParamHint.one)
 
-  private def multiValueCodec[A](name: String, schema: Schema[A]): QueryCodec[Chunk[A]] =
-    HttpCodec.Query(name, BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema), QueryParamHint.Many)
+  private def multiValueCodec[A](name: String, schema: Schema[A], atLeastOne: Boolean): QueryCodec[Chunk[A]] =
+    HttpCodec.Query(
+      name,
+      CodecBuilderWithSchema[A](TextBinaryCodec.codecBuilder, schema),
+      if (atLeastOne) QueryParamHint.many else QueryParamHint.any,
+    )
 }

@@ -68,6 +68,9 @@ object HttpCodecError {
         errors,
       )
   }
+  final case class InvalidQueryParamCount(name: String, expected: Int, actual: Int)            extends HttpCodecError {
+    def message = s"Invalid query parameter count for $name: expected $expected but found $actual."
+  }
   final case class CustomError(name: String, message: String)                                  extends HttpCodecError
 
   final case class UnsupportedContentType(contentType: String) extends HttpCodecError {
