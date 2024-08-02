@@ -3,9 +3,12 @@ package zio.http.endpoint.cli
 import zio.ZNothing
 import zio.test._
 
+import zio.schema.{Schema, StandardType}
+
 import zio.http._
 import zio.http.codec.HttpCodec.Query.QueryParamHint
 import zio.http.codec._
+import zio.http.codec.internal.TextBinaryCodec
 import zio.http.endpoint._
 import zio.http.endpoint.cli.AuxGen._
 import zio.http.endpoint.cli.CliRepr.CliReprOf
@@ -99,13 +102,12 @@ object EndpointGen {
     }
 
   lazy val anyQuery: Gen[Any, CliReprOf[Codec[_]]] =
-    Gen.alphaNumericStringBounded(1, 30).zip(anyTextCodec).map { case (name, codec) =>
+    Gen.alphaNumericStringBounded(1, 30).zip(anyStandardType).map { case (name, schema0) =>
+      val schema = schema0.asInstanceOf[Schema[Any]]
+      val codec  = BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
       CliRepr(
         HttpCodec.Query(name, codec, QueryParamHint.Any),
-        codec match {
-          case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: Nil)
-          case _                         => CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil)
-        },
+        CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
       )
     }
 
