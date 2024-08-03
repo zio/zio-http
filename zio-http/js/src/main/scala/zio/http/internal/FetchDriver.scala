@@ -38,11 +38,15 @@ final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
                 },
               )
               .toFuture
-          } yield Response(
-            status = Status.fromInt(response.status),
-            headers = Headers.fromIterable(response.headers.map(h => Header.Custom(h(0), h(1)))),
-            body = FetchBody.fromResponse(response),
-          )
+          } yield {
+            val respHeaders = Headers.fromIterable(response.headers.map(h => Header.Custom(h(0), h(1))))
+            val ct          = respHeaders.get(Header.ContentType)
+            Response(
+              status = Status.fromInt(response.status),
+              headers = respHeaders,
+              body = FetchBody.fromResponse(response, ct.map(Body.ContentType.fromHeader)),
+            )
+          }
 
         }
     } yield response

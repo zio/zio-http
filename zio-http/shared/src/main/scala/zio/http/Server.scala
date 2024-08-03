@@ -32,13 +32,6 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  @deprecated("Install Routes instead. Will be removed in the next release.", "3.0.0-RC7")
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit] =
-    install(httpApp.routes)
-
-  /**
-   * Installs the given HTTP application into the server.
-   */
   def install[R](httpApp: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
 
   /**
@@ -382,21 +375,6 @@ object Server extends ServerPlatformSpecific {
         case (true, _)          => Enabled
         case (false, maxLength) => Disabled(maxLength)
       }
-  }
-
-  @deprecated("Serve Routes instead. Will be removed in the next release.", "3.0.0-RC7")
-  def serve[R](
-    httpApp: HttpApp[R],
-  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
-    ZIO.logInfo("Starting the server...") *>
-      install[R](httpApp) *>
-      ZIO.logInfo("Server started") *>
-      ZIO.never
-  }
-
-  @deprecated("Install Routes instead. Will be removed in the next release.", "3.0.0-RC7")
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
   def serve[R](

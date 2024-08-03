@@ -47,7 +47,7 @@ object CommandGen {
       case _: HttpOptions.Constant => false
       case _                       => true
     }.map {
-      case HttpOptions.Path(pathCodec, _)        =>
+      case HttpOptions.Path(pathCodec, _)    =>
         pathCodec.segments.toList.flatMap { case segment =>
           getSegment(segment) match {
             case (_, "")           => Nil
@@ -55,12 +55,12 @@ object CommandGen {
             case (name, codec)     => s"${getName(name, "")} $codec" :: Nil
           }
         }
-      case HttpOptions.Query(name, textCodec, _) =>
-        getType(textCodec) match {
+      case HttpOptions.Query(name, codec, _) =>
+        getType(codec) match {
           case ""    => s"[${getName(name, "")}]" :: Nil
           case codec => s"${getName(name, "")} $codec" :: Nil
         }
-      case _                                     => Nil
+      case _                                 => Nil
     }.foldRight(List[String]())(_ ++ _)
 
     val headersOptions = cliEndpoint.headers.filter {
@@ -119,6 +119,45 @@ object CommandGen {
       case TextCodec.LongCodec    => "integer"
       case TextCodec.BooleanCodec => ""
       case _                      => ""
+    }
+
+  def getType[A](codec: BinaryCodecWithSchema[A]): String =
+    codec.schema match {
+      case Schema.Primitive(standardType, _) =>
+        standardType match {
+          case StandardType.UnitType           => ""
+          case StandardType.StringType         => "text"
+          case StandardType.BoolType           => "bool"
+          case StandardType.ByteType           => "integer"
+          case StandardType.ShortType          => "integer"
+          case StandardType.IntType            => "integer"
+          case StandardType.LongType           => "integer"
+          case StandardType.FloatType          => "decimal"
+          case StandardType.DoubleType         => "decimal"
+          case StandardType.BinaryType         => "binary"
+          case StandardType.CharType           => "text"
+          case StandardType.UUIDType           => "text"
+          case StandardType.CurrencyType       => "currency"
+          case StandardType.BigDecimalType     => "decimal"
+          case StandardType.BigIntegerType     => "integer"
+          case StandardType.DayOfWeekType      => "integer"
+          case StandardType.MonthType          => "text"
+          case StandardType.MonthDayType       => "text"
+          case StandardType.PeriodType         => "text"
+          case StandardType.YearType           => "integer"
+          case StandardType.YearMonthType      => "text"
+          case StandardType.ZoneIdType         => "text"
+          case StandardType.ZoneOffsetType     => "text"
+          case StandardType.DurationType       => "text"
+          case StandardType.InstantType        => "instant"
+          case StandardType.LocalDateType      => "date"
+          case StandardType.LocalTimeType      => "time"
+          case StandardType.LocalDateTimeType  => "datetime"
+          case StandardType.OffsetTimeType     => "time"
+          case StandardType.OffsetDateTimeType => "datetime"
+          case StandardType.ZonedDateTimeType  => "datetime"
+        }
+      case _                                 => ""
     }
 
   def getPrimitive(schema: Schema[_]): String =

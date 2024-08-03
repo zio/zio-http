@@ -221,7 +221,7 @@ private[zio] final case class ServerInboundHandler(
     }
 
     val headers           = Conversions.headersFromNetty(nettyReq.headers())
-    val contentTypeHeader = headers.headers.get(Header.ContentType.name)
+    val contentTypeHeader = headers.get(Header.ContentType)
 
     nettyReq match {
       case nettyReq: FullHttpRequest =>
