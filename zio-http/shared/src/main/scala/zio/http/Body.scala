@@ -25,6 +25,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
+import zio.schema.Schema
 import zio.schema.codec.BinaryCodec
 
 import zio.http.internal.BodyEncoding
@@ -124,6 +125,11 @@ trait Body { self =>
         .fromBody(self)
     }
       .orElseFail(new IllegalStateException("Cannot decode body as multipart/mixed without a known boundary"))
+
+  def asServerSentEvents[T: Schema](implicit trace: Trace): ZStream[Any, Throwable, ServerSentEvent[T]] = {
+    val codec = ServerSentEvent.defaultBinaryCodec[T]
+    (asStream >>> codec.streamDecoder).debug("steam events")
+  }
 
   /**
    * Returns a stream that contains the bytes of the body. This method is safe
