@@ -16,12 +16,11 @@
 
 package zio.http
 
-import java.io.{FileInputStream, IOException}
+import java.io.FileInputStream
 import java.nio.charset._
 import java.nio.file._
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 

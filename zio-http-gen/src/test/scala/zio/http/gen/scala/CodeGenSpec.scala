@@ -8,12 +8,11 @@ import scala.meta._
 import scala.meta.parsers._
 import scala.util.{Failure, Success, Try}
 
-import zio.json.{JsonDecoder, JsonEncoder}
-import zio.test.Assertion.{hasSameElements, isFailure, isSuccess, throws}
+import zio.Scope
+import zio.json.JsonDecoder
+import zio.test.Assertion.{hasSameElements, isFailure, isSuccess}
 import zio.test.TestAspect.{blocking, flaky}
-import zio.test.TestFailure.fail
 import zio.test._
-import zio.{Scope, ZIO}
 
 import zio.schema.codec.JsonCodec
 

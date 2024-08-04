@@ -2,8 +2,6 @@ package zio.http.gen.openapi
 
 import java.nio.file._
 
-import scala.util.Try
-
 import zio._
 import zio.test._
 
@@ -918,7 +916,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
               Code.Object(
                 "Users",
                 extensions = Nil,
-                schema = false,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -936,7 +934,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.Object(
                     "POST",
                     extensions = Nil,
-                    schema = false,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -976,7 +974,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
               Code.Object(
                 "Users",
                 extensions = Nil,
-                schema = false,
+                schema = None,
                 endpoints = Map(
                   Code.Field("get") -> Code.EndpointCode(
                     Method.GET,
@@ -994,7 +992,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.Object(
                     "GET",
                     extensions = Nil,
-                    schema = false,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -1034,7 +1032,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
               Code.Object(
                 "Users",
                 extensions = Nil,
-                schema = false,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -1052,7 +1050,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.Object(
                     "POST",
                     extensions = Nil,
-                    schema = false,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -1098,7 +1096,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
               Code.Object(
                 "Users",
                 extensions = Nil,
-                schema = false,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -1175,7 +1173,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
               Code.Object(
                 "Foo",
                 extensions = Nil,
-                schema = false,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -1289,7 +1287,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.Object(
                     extensions = Nil,
                     name = "Bar",
-                    schema = true,
+                    schema = Some("DeriveSchema.gen"),
                     endpoints = Map(
                     ),
                     objects = Nil,
