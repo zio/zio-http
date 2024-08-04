@@ -319,7 +319,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         openAPIString.fromYaml match {
           case Left(error) => TestResult(TestArrow.make(_ => TestTrace.fail(ErrorMessage.text(error))))
           case Right(oapi) =>
-            val code = EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true))
+            val code =
+              EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false))
 
             val tempDir = Files.createTempDirectory("codegen")
             val testDir = tempDir.resolve("test")
@@ -365,7 +366,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         openAPIString.fromYaml match {
           case Left(error) => TestResult(TestArrow.make(_ => TestTrace.fail(ErrorMessage.text(error))))
           case Right(oapi) =>
-            val code = EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true))
+            val code =
+              EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false))
 
             val tempDir = Files.createTempDirectory("codegen")
             val testDir = tempDir.resolve("test")
@@ -435,7 +437,9 @@ object CodeGenSpec extends ZIOSpecDefault {
           case Left(error) => TestResult(TestArrow.make(_ => TestTrace.fail(ErrorMessage.text(error))))
           case Right(oapi) =>
             assert {
-              Try(EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true)))
+              Try(
+                EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)),
+              )
             }(isFailure)
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
@@ -461,7 +465,9 @@ object CodeGenSpec extends ZIOSpecDefault {
         openAPIString.fromYaml match {
           case Left(error) => TestResult(TestArrow.make(_ => TestTrace.fail(ErrorMessage.text(error))))
           case Right(oapi) =>
-            val t = Try(EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true)))
+            val t = Try(
+              EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)),
+            )
             assert(t)(isSuccess) && {
               val tempDir = Files.createTempDirectory("codegen")
               val testDir = tempDir.resolve("test")
@@ -508,7 +514,9 @@ object CodeGenSpec extends ZIOSpecDefault {
         openAPIString.fromYaml match {
           case Left(error) => TestResult(TestArrow.make(_ => TestTrace.fail(ErrorMessage.text(error))))
           case Right(oapi) =>
-            val t = Try(EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true)))
+            val t = Try(
+              EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)),
+            )
             assert(t)(isSuccess) && {
               val tempDir = Files.createTempDirectory("codegen")
               val testDir = tempDir.resolve("test")
@@ -539,7 +547,7 @@ object CodeGenSpec extends ZIOSpecDefault {
             }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
-      test("OpenAPI spec with inline schema response body with type aliases") {
+      test("OpenAPI spec with inline schema response body with newtype type aliases") {
 
         import zio.json.yaml.DecoderYamlOps
         implicit val decoder: JsonDecoder[OpenAPI] = JsonCodec.jsonDecoder(OpenAPI.schema)
@@ -559,7 +567,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         openAPIString.fromYaml match {
           case Left(error) => TestResult(TestArrow.make(_ => TestTrace.fail(ErrorMessage.text(error))))
           case Right(oapi) =>
-            val t = Try(EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true)))
+            val t =
+              Try(EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = true)))
             assert(t)(isSuccess) && {
               val tempDir = Files.createTempDirectory("codegen")
               val testDir = tempDir.resolve("test")
@@ -605,6 +614,58 @@ object CodeGenSpec extends ZIOSpecDefault {
                 testDir,
                 "component/Species.scala",
                 "/ComponentAliasSpecies.scala",
+              )
+            }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema response body with bare type aliases") {
+
+        import zio.json.yaml.DecoderYamlOps
+        implicit val decoder: JsonDecoder[OpenAPI] = JsonCodec.jsonDecoder(OpenAPI.schema)
+
+        val openAPIString =
+          Files
+            .readAllLines(
+              Paths.get(
+                getClass
+                  .getResource("/inline_schema_alias_primitives.yaml")
+                  .toURI,
+              ),
+            )
+            .asScala
+            .mkString("\n")
+
+        openAPIString.fromYaml match {
+          case Left(error) => TestResult(TestArrow.make(_ => TestTrace.fail(ErrorMessage.text(error))))
+          case Right(oapi) =>
+            val t = Try(
+              EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)),
+            )
+            assert(t)(isSuccess) && {
+              val tempDir = Files.createTempDirectory("codegen")
+              val testDir = tempDir.resolve("test")
+
+              CodeGen.writeFiles(t.get, testDir, "test", Some(scalaFmtPath))
+
+              allFilesShouldBe(
+                testDir.toFile,
+                List(
+                  "api/v1/zoo/info/Id.scala",
+                  "api/v1/zoo/list/Species.scala",
+                  "component/Animal.scala",
+                ),
+              ) && fileShouldBe(
+                testDir,
+                "api/v1/zoo/info/Id.scala",
+                "/EndpointForZooAnimalAliasedSegment.scala",
+              ) && fileShouldBe(
+                testDir,
+                "api/v1/zoo/list/Species.scala",
+                "/EndpointForZooSpeciesAliasedSegment.scala",
+              ) && fileShouldBe(
+                testDir,
+                "component/Animal.scala",
+                "/ComponentAnimalWithoutAliases.scala",
               )
             }
         }
@@ -860,5 +921,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/AnimalWithMap.scala",
         )
       },
-    ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
+    ) @@ java11OrNewer /* @@ flaky*/ @@ blocking // Downloading scalafmt on CI is flaky
 }
