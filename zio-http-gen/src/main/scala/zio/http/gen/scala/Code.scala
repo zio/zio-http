@@ -48,9 +48,14 @@ object Code {
     final case class FromBase(path: String) extends Import
   }
 
+  /**
+   * @param schema
+   *   \- value = "derive with" syntax, e.g. "DeriveSchema.gen" or just "derive"
+   */
   final case class Object(
     name: String,
-    schema: Boolean,
+    extensions: List[String],
+    schema: Option[String],
     endpoints: Map[Field, EndpointCode],
     objects: List[Object],
     caseClasses: List[CaseClass],
@@ -58,10 +63,38 @@ object Code {
   ) extends ScalaType
 
   object Object {
-    def schemaCompanion(str: String): Object = Object(str, schema = true, Map.empty, Nil, Nil, Nil)
+
+    def apply(
+      name: String,
+      extensions: List[String],
+      schema: Boolean,
+      endpoints: Map[Field, EndpointCode],
+      objects: List[Object],
+      caseClasses: List[CaseClass],
+      enums: List[Enum],
+    ): Object =
+      Object(name, extensions, if (schema) Some("DeriveSchema.gen") else None, endpoints, objects, caseClasses, enums)
+
+    def schemaCompanion(str: String): Object = Object(
+      name = str,
+      extensions = Nil,
+      schema = true,
+      endpoints = Map.empty,
+      objects = Nil,
+      caseClasses = Nil,
+      enums = Nil,
+    )
 
     def apply(name: String, endpoints: Map[Field, EndpointCode]): Object =
-      Object(name, schema = false, endpoints, Nil, Nil, Nil)
+      Object(
+        name = name,
+        extensions = Nil,
+        schema = false,
+        endpoints = endpoints,
+        objects = Nil,
+        caseClasses = Nil,
+        enums = Nil,
+      )
   }
 
   final case class CaseClass(name: String, fields: List[Field], companionObject: Option[Object], mixins: List[String])
@@ -151,12 +184,13 @@ object Code {
   }
   sealed trait CodecType
   object CodecType       {
-    case object Boolean extends CodecType
-    case object Int     extends CodecType
-    case object Literal extends CodecType
-    case object Long    extends CodecType
-    case object String  extends CodecType
-    case object UUID    extends CodecType
+    case object Boolean                                            extends CodecType
+    case object Int                                                extends CodecType
+    case object Literal                                            extends CodecType
+    case object Long                                               extends CodecType
+    case object String                                             extends CodecType
+    case object UUID                                               extends CodecType
+    case class Aliased(underlying: CodecType, newtypeName: String) extends CodecType
   }
   final case class QueryParamCode(name: String, queryType: CodecType)
   final case class HeadersCode(headers: List[HeaderCode])

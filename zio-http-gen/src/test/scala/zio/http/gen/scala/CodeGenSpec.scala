@@ -550,6 +550,76 @@ object CodeGenSpec extends ZIOSpecDefault {
             }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema response body with type aliases") {
+
+        import zio.json.yaml.DecoderYamlOps
+        implicit val decoder: JsonDecoder[OpenAPI] = JsonCodec.jsonDecoder(OpenAPI.schema)
+
+        val openAPIString =
+          Files
+            .readAllLines(
+              Paths.get(
+                getClass
+                  .getResource("/inline_schema_alias_primitives.yaml")
+                  .toURI,
+              ),
+            )
+            .asScala
+            .mkString("\n")
+
+        openAPIString.fromYaml match {
+          case Left(error) => TestResult(TestArrow.make(_ => TestTrace.fail(ErrorMessage.text(error))))
+          case Right(oapi) =>
+            val t = Try(EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true)))
+            assert(t)(isSuccess) && {
+              val tempDir = Files.createTempDirectory("codegen")
+              val testDir = tempDir.resolve("test")
+
+              CodeGen.writeFiles(t.get, testDir, "test", Some(scalaFmtPath))
+
+              allFilesShouldBe(
+                testDir.toFile,
+                List(
+                  "api/v1/zoo/info/Id.scala",
+                  "api/v1/zoo/list/Species.scala",
+                  "component/Age.scala",
+                  "component/Animal.scala",
+                  "component/Id.scala",
+                  "component/Name.scala",
+                  "component/Species.scala",
+                ),
+              ) && fileShouldBe(
+                testDir,
+                "api/v1/zoo/info/Id.scala",
+                "/EndpointForZooAnimalAliasedSegment.scala",
+              ) && fileShouldBe(
+                testDir,
+                "api/v1/zoo/list/Species.scala",
+                "/EndpointForZooSpeciesAliasedSegment.scala",
+              ) && fileShouldBe(
+                testDir,
+                "component/Animal.scala",
+                "/ComponentAnimalWithAliases.scala",
+              ) && fileShouldBe(
+                testDir,
+                "component/Age.scala",
+                "/ComponentAliasAge.scala",
+              ) && fileShouldBe(
+                testDir,
+                "component/Id.scala",
+                "/ComponentAliasId.scala",
+              ) && fileShouldBe(
+                testDir,
+                "component/Name.scala",
+                "/ComponentAliasName.scala",
+              ) && fileShouldBe(
+                testDir,
+                "component/Species.scala",
+                "/ComponentAliasSpecies.scala",
+              )
+            }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test("Endpoint with array field in input") {
         val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
         val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)
