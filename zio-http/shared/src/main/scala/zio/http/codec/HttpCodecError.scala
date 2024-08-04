@@ -18,7 +18,6 @@ package zio.http.codec
 
 import scala.util.control.NoStackTrace
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Cause, Chunk}
 
 import zio.schema.codec.DecodeError

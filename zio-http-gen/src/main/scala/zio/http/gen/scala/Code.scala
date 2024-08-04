@@ -1,7 +1,5 @@
 package zio.http.gen.scala
 
-import java.nio.file.Path
-
 import scala.meta.Term
 import scala.meta.prettyprinters.XtensionSyntax
 
@@ -64,21 +62,19 @@ object Code {
 
   object Object {
 
-    def apply(
+    def withDefaultSchemaDerivation(
       name: String,
       extensions: List[String],
-      schema: Boolean,
       endpoints: Map[Field, EndpointCode],
       objects: List[Object],
       caseClasses: List[CaseClass],
       enums: List[Enum],
     ): Object =
-      Object(name, extensions, if (schema) Some("DeriveSchema.gen") else None, endpoints, objects, caseClasses, enums)
+      Object(name, extensions, Some("DeriveSchema.gen"), endpoints, objects, caseClasses, enums)
 
-    def schemaCompanion(str: String): Object = Object(
+    def schemaCompanion(str: String): Object = withDefaultSchemaDerivation(
       name = str,
       extensions = Nil,
-      schema = true,
       endpoints = Map.empty,
       objects = Nil,
       caseClasses = Nil,
@@ -86,10 +82,10 @@ object Code {
     )
 
     def apply(name: String, endpoints: Map[Field, EndpointCode]): Object =
-      Object(
+      new Object(
         name = name,
         extensions = Nil,
-        schema = false,
+        schema = None,
         endpoints = endpoints,
         objects = Nil,
         caseClasses = Nil,

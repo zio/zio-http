@@ -348,7 +348,7 @@ final case class EndpointGen(config: Config) {
             Code.Object(
               name = className,
               extensions = Nil,
-              schema = false,
+              schema = None,
               endpoints = endpoints.toMap,
               objects = anonymousTypes.values.toList,
               caseClasses = Nil,
@@ -411,7 +411,7 @@ final case class EndpointGen(config: Config) {
                         Code.Object(
                           name = method.toString,
                           extensions = Nil,
-                          schema = false,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -450,7 +450,7 @@ final case class EndpointGen(config: Config) {
                         val obj  = Code.Object(
                           name = method.toString,
                           extensions = Nil,
-                          schema = false,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -498,7 +498,7 @@ final case class EndpointGen(config: Config) {
                         val obj  = Code.Object(
                           name = method.toString,
                           extensions = Nil,
-                          schema = false,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -626,10 +626,10 @@ final case class EndpointGen(config: Config) {
     }
 
   def schemaToType(openAPI: OpenAPI, name: String, schema: JsonSchema): Option[(List[Code.Import], String)] =
-    Option.when(schema.isPrimitive) {
+    if (schema.isPrimitive) {
       val field = schemaToField(schema, openAPI, name, Chunk.empty).get // .get is safe, always defined for primitives
-      CodeGen.render("")(field.fieldType)
-    }
+      Some(CodeGen.render("")(field.fieldType))
+    } else None
 
   @tailrec
   private def schemaToPathCodec(schema: JsonSchema, openAPI: OpenAPI, name: String): Code.PathSegmentCode = {

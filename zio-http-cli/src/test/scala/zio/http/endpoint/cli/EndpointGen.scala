@@ -3,7 +3,7 @@ package zio.http.endpoint.cli
 import zio.ZNothing
 import zio.test._
 
-import zio.schema.{Schema, StandardType}
+import zio.schema.Schema
 
 import zio.http._
 import zio.http.codec.HttpCodec.Query.QueryParamHint
