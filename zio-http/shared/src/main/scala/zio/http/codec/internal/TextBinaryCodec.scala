@@ -30,7 +30,7 @@ object TextBinaryCodec {
       )
     }
 
-  def fromSchema[A](schema: Schema[A]): BinaryCodec[A] = {
+  implicit def fromSchema[A](implicit schema: Schema[A]): BinaryCodec[A] = {
     schema match {
       case enum0: Schema.Enum[_]                => errorCodec(enum0)
       case record: Schema.Record[_]             => errorCodec(record)

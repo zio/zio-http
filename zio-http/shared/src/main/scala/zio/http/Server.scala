@@ -93,6 +93,13 @@ object Server extends ServerPlatformSpecific {
     /** Enables streaming request bodies */
     def enableRequestStreaming: Config = self.copy(requestStreaming = RequestStreaming.Enabled)
 
+    /**
+     * Enables conditional request streaming. Payloads smaller than sizeLimit
+     * will be aggregated, and larger payloads will be streamed.
+     */
+    def enableConditionalRequestStreaming(sizeLimit: Int): Config =
+      self.copy(requestStreaming = RequestStreaming.Conditional(sizeLimit))
+
     def gracefulShutdownTimeout(duration: Duration): Config = self.copy(gracefulShutdownTimeout = duration)
 
     def idleTimeout(duration: Duration): Config = self.copy(idleTimeout = Some(duration))
@@ -369,13 +376,42 @@ object Server extends ServerPlatformSpecific {
      */
     final case class Disabled(maximumContentLength: Int) extends RequestStreaming
 
+    /**
+     * Conditional streaming request bodies. Bodies smaller than the configured
+     * size limit will be aggregated, larger bodies will be streamed.
+     */
+    final case class Conditional(sizeLimit: Int) extends RequestStreaming
+
     lazy val config: zio.Config[RequestStreaming] =
-      (zio.Config.boolean("enabled").withDefault(true) ++
-        zio.Config.int("maximum-content-length").withDefault(1024 * 100)).map {
-        case (true, _)          => Enabled
-        case (false, maxLength) => Disabled(maxLength)
+      (zio.Config.string("mode").withDefault("enabled") ++
+        zio.Config.int("maximum-content-length").withDefault(1024 * 100) ++
+        zio.Config.int("conditional-size-limit").withDefault(1024 * 1024)).map {
+        case ("enabled", _, _)             => Enabled
+        case ("disabled", maxLength, _)    => Disabled(maxLength)
+        case ("conditional", _, sizeLimit) => Conditional(sizeLimit)
       }
   }
+
+  // sealed trait RequestStreaming
+
+  // object RequestStreaming {
+
+  //   /** Enable streaming request bodies */
+  //   case object Enabled extends RequestStreaming
+
+  //   /**
+  //    * Disable streaming request bodies. Bodies larger than the configured
+  //    * maximum content length will be rejected.
+  //    */
+  //   final case class Disabled(maximumContentLength: Int) extends RequestStreaming
+
+  //   lazy val config: zio.Config[RequestStreaming] =
+  //     (zio.Config.boolean("enabled").withDefault(true) ++
+  //       zio.Config.int("maximum-content-length").withDefault(1024 * 100)).map {
+  //       case (true, _)          => Enabled
+  //       case (false, maxLength) => Disabled(maxLength)
+  //     }
+  // }
 
   def serve[R](
     httpApp: Routes[R, Response],

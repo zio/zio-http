@@ -31,7 +31,9 @@ import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flush.FlushConsolidationHandler
+import io.netty.handler.stream.ChunkedWriteHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
+import io.netty.util.ReferenceCountUtil
 
 /**
  * Initializes the netty channel with default handlers
@@ -81,11 +83,44 @@ private[zio] final case class ServerChannelInitializer(
       )
     })
 
-    // ObjectAggregator
     cfg.requestStreaming match {
-      case RequestStreaming.Enabled                        =>
+      case RequestStreaming.Enabled =>
+      // No additional handlers needed; requests are streamed directly
+
       case RequestStreaming.Disabled(maximumContentLength) =>
+        // Add a handler to aggregate requests up to the maximum content length
         pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(maximumContentLength))
+
+      case RequestStreaming.Conditional(sizeLimit) =>
+        // Add a handler to aggregate requests up to the size limit
+        pipeline.addLast(new SimpleChannelInboundHandler[HttpObject] {
+          private var aggregatedSize = 0
+
+          override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
+            msg match {
+              case chunk: HttpContent =>
+                aggregatedSize += chunk.content().readableBytes()
+
+                if (aggregatedSize > sizeLimit) {
+                  // Request size exceeds the limit, switch to streaming
+                  ctx.pipeline().replace(this, "chunkedWriter", new ChunkedWriteHandler())
+                  val _: ChannelHandlerContext =
+                    ctx.fireChannelRead(ReferenceCountUtil.retain(chunk)) // Retain the chunk
+                } else {
+                  // Keep aggregating
+                  val _: ChannelHandlerContext = ctx.fireChannelRead(msg) // Continue processing the message
+                }
+
+              case _ =>
+                val _: ChannelHandlerContext = ctx.fireChannelRead(msg) // Continue processing the message
+            }
+          }
+
+          override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
+            cause.printStackTrace()
+            val _: ChannelHandlerContext = ctx.fireExceptionCaught(cause) // Propagate the exception
+          }
+        })
     }
 
     // ExpectContinueHandler
