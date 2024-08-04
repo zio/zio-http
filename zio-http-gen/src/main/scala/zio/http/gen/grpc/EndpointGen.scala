@@ -43,6 +43,7 @@ object EndpointGen {
     }
     val obj       = Code.Object(
       name = name.capitalize,
+      extensions = Nil,
       schema = false,
       endpoints = endpoints.toMap,
       objects = Nil,

@@ -917,6 +917,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
+                extensions = Nil,
                 schema = false,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
@@ -934,6 +935,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "POST",
+                    extensions = Nil,
                     schema = false,
                     endpoints = Map.empty,
                     objects = Nil,
@@ -973,6 +975,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
+                extensions = Nil,
                 schema = false,
                 endpoints = Map(
                   Code.Field("get") -> Code.EndpointCode(
@@ -990,6 +993,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "GET",
+                    extensions = Nil,
                     schema = false,
                     endpoints = Map.empty,
                     objects = Nil,
@@ -1029,6 +1033,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
+                extensions = Nil,
                 schema = false,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
@@ -1046,6 +1051,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "POST",
+                    extensions = Nil,
                     schema = false,
                     endpoints = Map.empty,
                     objects = Nil,
@@ -1091,6 +1097,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
+                extensions = Nil,
                 schema = false,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
@@ -1167,6 +1174,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Foo",
+                extensions = Nil,
                 schema = false,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
@@ -1279,6 +1287,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 ),
                 companionObject = Some(
                   Code.Object(
+                    extensions = Nil,
                     name = "Bar",
                     schema = true,
                     endpoints = Map(
