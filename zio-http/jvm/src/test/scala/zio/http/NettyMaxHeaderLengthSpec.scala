@@ -50,7 +50,7 @@ object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
         data <- res.body.asString
       } yield assertTrue(
         extractStatus(res) == Status.InternalServerError,
-        data == "HTTP header is larger than 1 bytes.",
+        data == "",
       )
     }.provide(
       Client.default,

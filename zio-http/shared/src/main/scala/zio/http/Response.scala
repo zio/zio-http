@@ -154,14 +154,23 @@ object Response {
    * not polymorphic, but will attempt to inspect the runtime class of the
    * failure inside the cause, if any.
    */
-  def fromCause(cause: Cause[Any]): Response = {
+  def fromCause(cause: Cause[Any]): Response = fromCause(cause, false)
+
+  /**
+   * Creates a new response from the specified cause. Note that this method is
+   * not polymorphic, but will attempt to inspect the runtime class of the
+   * failure inside the cause, if any.
+   */
+  def fromCause(cause: Cause[Any], errorInBody: Boolean): Response = {
     cause.failureOrCause match {
-      case Left(failure: Response)  => failure
-      case Left(failure: Throwable) => fromThrowable(failure)
-      case Left(failure: Cause[_])  => fromCause(failure)
-      case _                        =>
-        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(10000))
-        else error(Status.InternalServerError, cause.prettyPrint.take(10000))
+      case Left(failure: Response)  => if (errorInBody) failure else failure.copy(body = Body.empty)
+      case Left(failure: Throwable) => fromThrowable(failure, errorInBody)
+      case Left(failure: Cause[_])  => fromCause(failure, errorInBody)
+      case _                        => {
+        val msg = if (errorInBody) cause.prettyPrint.take(10000) else null
+        if (cause.isInterruptedOnly) error(Status.RequestTimeout, msg)
+        else error(Status.InternalServerError, msg)
+      }
     }
   }
 
@@ -215,6 +224,25 @@ object Response {
     }
   }
 
+  /**
+   * Creates a new response for the specified throwable. Note that this method
+   * relies on the runtime class of the throwable.
+   */
+  def fromThrowable(throwable: Throwable, msgInBody: Boolean): Response = {
+    val msg = if (msgInBody) throwable.getMessage() else null
+    throwable match { // TODO: Enhance
+      case _: AccessDeniedException           => error(Status.Forbidden, msg)
+      case _: IllegalAccessException          => error(Status.Forbidden, msg)
+      case _: IllegalAccessError              => error(Status.Forbidden, msg)
+      case _: NotDirectoryException           => error(Status.BadRequest, msg)
+      case _: IllegalArgumentException        => error(Status.BadRequest, msg)
+      case _: java.io.FileNotFoundException   => error(Status.NotFound, msg)
+      case _: java.net.ConnectException       => error(Status.ServiceUnavailable, msg)
+      case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, msg)
+      case _                                  => error(Status.InternalServerError, msg)
+    }
+  }
+
   def gatewayTimeout: Response = error(Status.GatewayTimeout)
 
   def gatewayTimeout(message: String): Response = error(Status.GatewayTimeout, message)
@@ -231,7 +259,8 @@ object Response {
 
   def httpVersionNotSupported: Response = error(Status.HttpVersionNotSupported)
 
-  def httpVersionNotSupported(message: String): Response = error(Status.HttpVersionNotSupported, message)
+  def httpVersionNotSupported(message: String): Response =
+    error(Status.HttpVersionNotSupported, message)
 
   def internalServerError: Response = error(Status.InternalServerError)
 
@@ -249,7 +278,8 @@ object Response {
 
   def networkAuthenticationRequired: Response = error(Status.NetworkAuthenticationRequired)
 
-  def networkAuthenticationRequired(message: String): Response = error(Status.NetworkAuthenticationRequired, message)
+  def networkAuthenticationRequired(message: String): Response =
+    error(Status.NetworkAuthenticationRequired, message)
 
   def notExtended: Response = error(Status.NotExtended)
 

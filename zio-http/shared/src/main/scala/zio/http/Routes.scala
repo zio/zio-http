@@ -30,8 +30,13 @@ import zio.http.codec.PathCodec
  * HTTP applications can be installed into a [[zio.http.Server]], which is
  * capable of using them to serve requests.
  */
-final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
-  private var _tree: Routes.Tree[_] = null.asInstanceOf[Routes.Tree[_]]
+final case class Routes[-Env, +Err](
+  routes: Chunk[zio.http.Route[Env, Err]],
+  private val _errorInBody: Boolean = false,
+) {
+  self =>
+  private lazy val _tree: Routes.Tree[_] =
+    Routes.Tree.fromRoutes(routes.asInstanceOf[Chunk[Route[Env, Response]]])
 
   def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)
@@ -80,10 +85,10 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * into ones that do handle their errors.
    */
   def handleError(f: Err => Response)(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleError(f)))
+    self.copy(routes = routes.map(_.handleError(f)))
 
   def handleErrorZIO(f: Err => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorZIO(f)))
+    self.copy(routes = routes.map(_.handleErrorZIO(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -91,7 +96,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * that do not handle their errors into ones that do handle their errors.
    */
   def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorCause(f)))
+    self.copy(routes = routes.map(_.handleErrorCause(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -100,24 +105,42 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * that do handle their errors.
    */
   def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorCauseZIO(f)))
+    self.copy(routes = routes.map(_.handleErrorCauseZIO(f)))
 
   /**
    * Allows the transformation of the Err type through an Effectful program
    * allowing one to build up Routes in Stages delegates to the Route.
    */
   def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Routes[Env, Err1] =
-    new Routes(routes.map(_.mapErrorZIO(fxn)))
+    self.copy(routes = routes.map(_.mapErrorZIO(fxn)))
 
   /**
    * Allows the transformation of the Err type through a function allowing one
    * to build up Routes in Stages delegates to the Route.
    */
   def mapError[Err1](fxn: Err => Err1): Routes[Env, Err1] =
-    new Routes(routes.map(_.mapError(fxn)))
+    self.copy(routes = routes.map(_.mapError(fxn)))
 
   def nest(prefix: PathCodec[Unit])(implicit trace: Trace): Routes[Env, Err] =
-    new Routes(self.routes.map(_.nest(prefix)))
+    self.copy(routes = self.routes.map(_.nest(prefix)))
+
+  /**
+   * Includes error details in the body of the response.
+   */
+  def includeErrorDetails: Routes[Env, Err] =
+    self.copy(routes = routes.map(_.includeErrorDetails), _errorInBody = true)
+
+  /**
+   * Excludes error details from the body of the response.
+   */
+  def excludeErrorDetails: Routes[Env, Err] =
+    self.copy(routes = routes.map(_.excludeErrorDetails), _errorInBody = false)
+
+  /**
+   * Excludes error details from the body of the response.
+   */
+  private[http] def errorInBody: Boolean =
+    _errorInBody
 
   /**
    * Handles all typed errors in the routes by converting them into responses,
@@ -126,7 +149,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * handle their errors.
    */
   def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorRequest(f)))
+    self.copy(routes = routes.map(_.handleErrorRequest(f)))
 
   /**
    * Handles all typed errors in the routes by converting them into responses,
@@ -135,7 +158,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * handle their errors.
    */
   def handleErrorRequestCause(f: (Request, Cause[Err]) => Response)(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorRequestCause(f)))
+    self.copy(routes = routes.map(_.handleErrorRequestCause(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -147,7 +170,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def handleErrorRequestCauseZIO(f: (Request, Cause[Err]) => ZIO[Any, Nothing, Response])(implicit
     trace: Trace,
   ): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorRequestCauseZIO(f)))
+    self.copy(routes = routes.map(_.handleErrorRequestCauseZIO(f)))
 
   /**
    * Checks to see if the HTTP application may be defined at the specified
@@ -223,7 +246,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   /**
    * Returns new routes that automatically translate all failures into
    * responses, using best-effort heuristics to determine the appropriate HTTP
-   * status code, and attaching error details using the HTTP header `Warning`.
+   * status code, and attaching error details to the body when using
+   * `includeErrorDetails.
    */
   def sandbox(implicit trace: Trace): Routes[Env, Nothing] =
     Routes(routes.map(_.sandbox))
@@ -236,7 +260,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     self @@ Middleware.timeout(duration)
 
   /**
-   * Converts the HTTP application into a request handler.
+   * Converts the HTTP application into a request handler .
    */
   def toHandler(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] = {
     implicit val trace: Trace = Trace.empty
@@ -244,7 +268,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
       .fromFunctionHandler[Request] { req =>
         val chunk = tree.get(req.method, req.path)
 
-        if (chunk.length == 0) Handler.notFound
+        if (chunk.length == 0) Handler.notFound(_errorInBody)
         else if (chunk.length == 1) chunk(0)
         else {
           // TODO: Support precomputed fallback among all chunk elements:
@@ -266,17 +290,13 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
   ): Routes[Env1, Err] =
-    new Routes(routes.map(_.transform(f)))
+    self.copy(routes = routes.map(_.transform(f)))
 
   /**
    * Accesses the underlying tree that provides fast dispatch to handlers.
    */
-  def tree(implicit trace: Trace, ev: Err <:< Response): Routes.Tree[Env] = {
-    if (_tree eq null) {
-      _tree = Routes.Tree.fromRoutes(routes.asInstanceOf[Chunk[Route[Env, Response]]])
-    }
+  def tree(implicit trace: Trace, ev: Err <:< Response): Routes.Tree[Env] =
     _tree.asInstanceOf[Routes.Tree[Env]]
-  }
 }
 
 object Routes extends RoutesCompanionVersionSpecific {
@@ -337,12 +357,20 @@ object Routes extends RoutesCompanionVersionSpecific {
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(self.tree ++ that.tree)
 
-    final def add[Env1 <: Env](route: Route[Env1, Response])(implicit trace: Trace): Tree[Env1] =
+    final def add[Env1 <: Env](route: Route[Env1, Response])(implicit
+      trace: Trace,
+    ): Tree[Env1] =
       Tree(self.tree.addAll(route.routePattern.alternatives.map(alt => (alt, route.toHandler))))
 
-    final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit trace: Trace): Tree[Env1] =
+    final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit
+      trace: Trace,
+    ): Tree[Env1] =
       // only change to flatMap when Scala 2.12 is dropped
-      Tree(self.tree.addAll(routes.map(r => r.routePattern.alternatives.map(alt => (alt, r.toHandler))).flatten))
+      Tree(
+        self.tree.addAll(
+          routes.map(r => r.routePattern.alternatives.map(alt => (alt, r.toHandler))).flatten,
+        ),
+      )
 
     final def get(method: Method, path: Path): Chunk[RequestHandler[Env, Response]] =
       tree.get(method, path)
@@ -350,7 +378,9 @@ object Routes extends RoutesCompanionVersionSpecific {
   private[http] object Tree                                                                         {
     val empty: Tree[Any] = Tree(RoutePattern.Tree.empty)
 
-    def fromRoutes[Env](routes: Chunk[zio.http.Route[Env, Response]])(implicit trace: Trace): Tree[Env] =
+    def fromRoutes[Env](routes: Chunk[zio.http.Route[Env, Response]])(implicit
+      trace: Trace,
+    ): Tree[Env] =
       empty.addAll(routes)
   }
 }

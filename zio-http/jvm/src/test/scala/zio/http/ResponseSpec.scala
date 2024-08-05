@@ -43,7 +43,9 @@ object ResponseSpec extends ZIOHttpSpec {
       },
       test("don't use Warning header") {
         assertZIO(ZIO.succeed(Response.fromCause(Cause.fail("error")).headers.contains("Warning")))(isFalse) &&
-        assertZIO(Response.fromCause(Cause.fail("error")).body.asString)(not(isEmptyString))
+        assertZIO(Response.fromCause(Cause.fail("error")).body.asString)(isEmptyString) &&
+        assertZIO(Response.fromCause(Cause.fail("error"), false).body.asString)(isEmptyString) &&
+        assertZIO(Response.fromCause(Cause.fail("error"), true).body.asString)(not(isEmptyString))
       },
     ),
     suite("fromThrowable")(
