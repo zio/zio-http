@@ -34,9 +34,13 @@ paths:
           schema:
             $ref: '#/components/schemas/Species'
           required: true
+        - in: query
+          name: max-age
+          schema:
+            $ref: '#/components/schemas/Age'
       tags:
         - Animals_API
-      description: List all animals of a certain species
+      description: List all animals of a certain species, possibly filtering results up to a certain age
       responses:
         "200":
           content:

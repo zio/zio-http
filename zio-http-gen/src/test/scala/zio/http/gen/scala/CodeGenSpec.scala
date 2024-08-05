@@ -657,11 +657,11 @@ object CodeGenSpec extends ZIOSpecDefault {
               ) && fileShouldBe(
                 testDir,
                 "api/v1/zoo/info/Id.scala",
-                "/EndpointForZooAnimalAliasedSegment.scala",
+                "/EndpointForZooAnimalUnAliasedSegment.scala",
               ) && fileShouldBe(
                 testDir,
                 "api/v1/zoo/list/Species.scala",
-                "/EndpointForZooSpeciesAliasedSegment.scala",
+                "/EndpointForZooSpeciesUnAliasedSegment.scala",
               ) && fileShouldBe(
                 testDir,
                 "component/Animal.scala",
@@ -921,5 +921,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/AnimalWithMap.scala",
         )
       },
-    ) @@ java11OrNewer /* @@ flaky*/ @@ blocking // Downloading scalafmt on CI is flaky
+    ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }
