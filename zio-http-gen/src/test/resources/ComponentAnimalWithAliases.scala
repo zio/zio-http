@@ -1,12 +1,14 @@
 package test.component
 
 import zio.schema._
+import zio.Chunk
 
 case class Animal(
-  id: Id.Type,
-  name: Name.Type,
   species: Species.Type,
+  name: Name.Type,
+  relatives: Chunk[Species.Type],
   age: Age.Type,
+  id: Id.Type,
 )
 object Animal {
 

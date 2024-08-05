@@ -60,6 +60,7 @@ components:
         - name
         - species
         - age
+        - relatives
       properties:
         id:
           $ref: '#/components/schemas/Id'
@@ -69,6 +70,10 @@ components:
           $ref: '#/components/schemas/Species'
         age:
           $ref: '#/components/schemas/Age'
+        relatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/Species'
     Age:
       type: integer
       format: int32
