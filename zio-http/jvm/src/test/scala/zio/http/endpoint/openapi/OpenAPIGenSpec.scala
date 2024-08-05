@@ -138,6 +138,15 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Payload] = DeriveSchema.gen[Payload]
   }
 
+  object Lazy {
+    case class A(b: B)
+
+    object A {
+      implicit val schema: Schema[A] = DeriveSchema.gen
+    }
+    case class B(i: Int)
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
@@ -2550,6 +2559,76 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |}
             |""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("Lazy schema") {
+        val endpoint     = Endpoint(RoutePattern.POST / "lazy")
+          .in[Lazy.A]
+          .out[Unit]
+        val openApi      = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(openApi)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info": {
+                             |    "title": "",
+                             |    "version": ""
+                             |  },
+                             |  "paths" : {
+                             |    "/lazy" : {
+                             |      "post" : {
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/A"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema": {
+                             |                  "type" : "null"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "A" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "b" : {
+                             |            "$ref" : "#/components/schemas/B"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "b"
+                             |        ]
+                             |      },
+                             |      "B" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "i" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "i"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        val expected     = toJsonAst(expectedJson)
+        assertTrue(json == expected)
       },
     )
 
