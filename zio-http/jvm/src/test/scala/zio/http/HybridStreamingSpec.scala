@@ -25,17 +25,18 @@ import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
 import zio.http.netty.NettyConfig
 
-object HybridStreamingServerSpec extends HttpRunnableSpec {
+object HybridRequestStreamingServerSpec extends HttpRunnableSpec {
   def extractStatus(res: Response): Status = res.status
 
-  private val AggregatedSize = 1024 * 10
-  private val configAppWithRequestStreaming =
+  private val MaxSize = 1024 * 10
+
+  private val configAppWithHybridRequestStreaming =
     Server.Config.default
       .port(0)
       .requestDecompression(true)
-      .hybridRequestStreaming(AggregatedSize)
+      .hybridRequestStreaming(MaxSize)
 
-  private val appWithReqStreaming = serve
+  private val appWithHybridReqStreaming = serve
 
   /**
    * Generates a string of the provided length and char.
@@ -46,9 +47,9 @@ object HybridStreamingServerSpec extends HttpRunnableSpec {
     new String(buffer)
   }
 
-  val streamingServerSpec = suite("HybridStreamingSpec")(
-    test("test unsafe large content") {
-      val size    = 1024 * 1024
+  val hybridStreamingServerSpec = suite("HybridStreamingServerSpec")(
+    test("small content should stream") {
+      val size    = MaxSize - 1
       val content = genString(size, '?')
       val routes  = Handler
         .fromFunctionZIO[Request] {
@@ -61,62 +62,47 @@ object HybridStreamingServerSpec extends HttpRunnableSpec {
       val res = routes.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
       assertZIO(res)(equalTo(size.toString))
     },
-    test("multiple body read") {
-      val app = Routes.singleton {
-        handler { (_: Path, req: Request) =>
-          for {
-            _ <- req.body.asChunk
-            _ <- req.body.asChunk
-          } yield Response.ok
+    test("large content should chunk") {
+      val size    = MaxSize + 1
+      val content = genString(size, '?')
+      val routes  = Handler
+        .fromFunctionZIO[Request] {
+          _.body.asStream.runCount
+            .map(bytesCount => Response.text(bytesCount.toString))
         }
-      }.sandbox
-      val res = app.deploy(Request()).map(_.status)
-      assertZIO(res)(equalTo(Status.InternalServerError))
+        .sandbox
+        .toRoutes
+
+      val res = routes.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
+      assertZIO(res)(equalTo(size.toString))
     },
-    suite("streaming request passed to client")({
-      val app   = Routes(
-        Method.POST / "1" -> handler { (req: Request) =>
-          val host       = req.headers.get(Header.Host).get
-          val newRequest =
-            req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
-          ZIO.serviceWithZIO[Client] { client =>
-            client.request(newRequest)
-          }
-        },
-        Method.POST / "2" -> handler { (req: Request) =>
-          req.body.asChunk.map { body =>
-            Response.text(body.length.toString)
-          }
-        },
-      ).sandbox
-      val sizes = Chunk(0, 8192, 1024 * 1024)
-      sizes.map { size =>
-        test(s"with body length $size") {
-          for {
-            testBytes <- Random.nextBytes(size)
-            res <- app.deploy(Request(method = Method.POST, url = URL.root / "1", body = Body.fromChunk(testBytes)))
-            str <- res.body.asString
-          } yield assertTrue(
-            extractStatus(res).isSuccess,
-            str == testBytes.length.toString,
-          )
+    test("boundary case") {
+      val size    = MaxSize
+      val content = genString(size, '?')
+      val routes  = Handler
+        .fromFunctionZIO[Request] {
+          _.body.asStream.runCount
+            .map(bytesCount => Response.text(bytesCount.toString))
         }
-      }
-    }: _*),
+        .sandbox
+        .toRoutes
+
+      val res = routes.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
+      assertZIO(res)(equalTo(size.toString))
+    },
   )
 
   override def spec =
-    suite("HybridStreamingServerSpec") {
+    suite("HybridRequestStreamingServerSpec") {
       suite("app with hybrid request streaming") {
-        appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec))
+        appWithHybridReqStreaming.as(List(requestBodySpec, hybridStreamingServerSpec))
       }
     }.provideSome[DynamicServer & Server & Client](Scope.default)
       .provideShared(
         DynamicServer.live,
-        ZLayer.succeed(configAppWithRequestStreaming),
+        ZLayer.succeed(configAppWithHybridRequestStreaming),
         Server.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         Client.default,
       ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
-
 }

@@ -31,8 +31,8 @@ import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flush.FlushConsolidationHandler
+import io.netty.handler.stream.ChunkedWriteHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
-import io.netty.handler.stream.{ChunkedWriteHandler}
 
 /**
  * Initializes the netty channel with default handlers
@@ -87,13 +87,16 @@ private[zio] final case class ServerChannelInitializer(
       case RequestStreaming.Enabled                        =>
       case RequestStreaming.Disabled(maximumContentLength) =>
         pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(maximumContentLength))
-      case RequestStreaming.Hybrid(aggregatedContentLength) => 
-        pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(aggregatedContentLength) {
-          override def handleOversizedMessage(ctx: ChannelHandlerContext, oversized: HttpMessage): Unit = {
-            ctx.pipeline().replace(this, "chunkedWriter", new ChunkedWriteHandler())
-            ctx.pipeline().fireChannelRead(oversized): Unit // Ignore the returned value
-          }
-        }) 
+      case RequestStreaming.Hybrid(maxAggregatedLength)    =>
+        pipeline.addLast(
+          Names.HttpObjectAggregator,
+          new HttpObjectAggregator(maxAggregatedLength) {
+            override def handleOversizedMessage(ctx: ChannelHandlerContext, oversized: HttpMessage): Unit = {
+              ctx.pipeline().replace(this, "chunkedWriter", new ChunkedWriteHandler())
+              ctx.pipeline().fireChannelRead(oversized): Unit // Explicitly ignore the returned value
+            }
+          },
+        )
     }
 
     // ExpectContinueHandler
