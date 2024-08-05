@@ -294,7 +294,7 @@ final case class EndpointGen(config: Config) {
   def fromOpenAPI(openAPI: OpenAPI): Code.Files =
     Code.Files {
       val componentsCode = extractComponents(openAPI)
-      val files = openAPI.paths.map { case (path, pathItem) =>
+      val files          = openAPI.paths.map { case (path, pathItem) =>
         val pathSegments = path.name.tail.replace('-', '_').split('/').toList
         val packageName  = pathSegments.init.mkString(".").replace("{", "").replace("}", "")
         val className    = pathSegments.last.replace("{", "").replace("}", "").capitalize
@@ -383,19 +383,21 @@ final case class EndpointGen(config: Config) {
     }
     // TODO: Resolve query and header parameters from components
     val queryParams         = params.collect {
-      case p if p.in == "query" => p.schema.get match {
-        case or: ReferenceOr.Or[JsonSchema] => schemaToQueryParamCodec(
-          or.value,
-          openAPI,
-          p.name,
-        )
-        case ReferenceOr.Reference(ref,  _, _) =>
-          val baref = ref.replaceFirst("^#/components/schemas/", "")
-          val schema = resolveSchemaRef(openAPI, baref)
-          val qCodec = schemaToQueryParamCodec(schema, openAPI, p.name)
-          if (!config.generateSafeTypeAliases) qCodec
-          else qCodec.copy(queryType = CodecType.Aliased(qCodec.queryType, baref))
-      }
+      case p if p.in == "query" =>
+        p.schema.get match {
+          case ReferenceOr.Or(value)            =>
+            schemaToQueryParamCodec(
+              value,
+              openAPI,
+              p.name,
+            )
+          case ReferenceOr.Reference(ref, _, _) =>
+            val baref  = ref.replaceFirst("^#/components/schemas/", "")
+            val schema = resolveSchemaRef(openAPI, baref)
+            val qCodec = schemaToQueryParamCodec(schema, openAPI, p.name)
+            if (!config.generateSafeTypeAliases) qCodec
+            else qCodec.copy(queryType = CodecType.Aliased(qCodec.queryType, baref))
+        }
     }
     val headers             = params.collect { case p if p.in == "header" => Code.HeaderCode(p.name) }.toList
     val (inImports, inType) =
@@ -558,13 +560,12 @@ final case class EndpointGen(config: Config) {
         schemaToPathCodec(schema, openAPI, param.name)
       case Some(OpenAPI.ReferenceOr.Reference(ref, _, _))   =>
         if (ref.startsWith("#/components/schemas/")) {
-          val baref = ref.replaceFirst("^#/components/schemas/", "")
+          val baref  = ref.replaceFirst("^#/components/schemas/", "")
           val schema = resolveSchemaRef(openAPI, baref)
           val pCodec = schemaToPathCodec(schema, openAPI, param.name)
           if (!config.generateSafeTypeAliases) pCodec
           else pCodec.copy(segmentType = CodecType.Aliased(pCodec.segmentType, baref))
-        }
-        else {
+        } else {
           val schema = resolveSchemaRef(openAPI, ref)
           val pCodec = schemaToPathCodec(schema, openAPI, param.name)
           pCodec
