@@ -16,8 +16,6 @@
 
 package zio.http.endpoint
 
-import java.time.Instant
-
 import zio._
 import zio.test._
 
@@ -296,9 +294,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
             .query(queryAllInt("ints"))
             .out[String]
             .implementHandler {
-              Handler.fromFunction { case queryParams =>
-                s"path(users, $queryParams)"
-              }
+              Handler.fromFunction { queryParams => s"path(users, $queryParams)" }
             },
         ),
       ) _

@@ -27,6 +27,7 @@ import zio.schema.codec.BinaryCodec
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
+import zio.http.codec.HttpCodec.Query
 import zio.http.codec._
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
@@ -40,6 +41,8 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
 
 }
 private[codec] object EncoderDecoder {
+  private val emptyStringChunk = Chunk("")
+
   def apply[AtomTypes, Value](
     httpCodec: HttpCodec[AtomTypes, Value],
   ): EncoderDecoder[AtomTypes, Value] = {
@@ -216,13 +219,29 @@ private[codec] object EncoderDecoder {
         queryParams,
         flattened.query,
         inputs,
-        (codec, queryParams) => {
-          val params = queryParams.queryParamsOrElse(codec.name, Nil)
+        (query, queryParams) => {
+          val params = queryParams.queryParamsOrElse(query.name, Nil)
 
           if (params.isEmpty)
-            throw HttpCodecError.MissingQueryParam(codec.name)
-          else {
-            params.collect(codec.erase.textCodec)
+            throw HttpCodecError.MissingQueryParam(query.name)
+          else if (
+            params == emptyStringChunk
+            && (query.hint == Query.QueryParamHint.Any || query.hint == Query.QueryParamHint.Many)
+          ) {
+            Chunk.empty
+          } else {
+            val parsedParams     = params.map { p =>
+              val decoded = query.codec.codec.decode(Chunk.fromArray(p.getBytes(Charsets.Utf8)))
+              decoded match {
+                case Left(error)  => throw HttpCodecError.MalformedQueryParam(query.name, error)
+                case Right(value) => value
+              }
+            }
+            val schema           = query.erase.codec.schema
+            val validationErrors =
+              parsedParams.flatMap(p => schema.validate(p)(schema))
+            if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
+            parsedParams
           }
         },
       )
@@ -364,7 +383,7 @@ private[codec] object EncoderDecoder {
         (codec, input, queryParams) =>
           queryParams.addQueryParams(
             codec.name,
-            input.asInstanceOf[Chunk[Any]].map(in => codec.erase.textCodec.encode(in)),
+            input.asInstanceOf[Chunk[Any]].map(in => codec.erase.codec.codec.encode(in).asString),
           ),
       )
 
