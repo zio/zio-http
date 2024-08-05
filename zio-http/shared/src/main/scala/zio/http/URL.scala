@@ -352,6 +352,36 @@ object URL {
     }
   }
 
+  private[http] def encodeHttpPath(url: URL): String = {
+    // As per the spec, the path should contain only the relative part and start with a slash.
+    // Host and port information should be in the headers.
+    // Query params are included while fragments are excluded.
+
+    val pathBuf = new StringBuilder(256)
+
+    val path = url.path
+
+    path.segments.foreach { segment =>
+      pathBuf.append('/')
+      pathBuf.append(segment)
+    }
+
+    if (pathBuf.isEmpty | path.hasTrailingSlash) {
+      pathBuf.append('/')
+    }
+
+    val qparams = url.queryParams
+
+    if (qparams.isEmpty) {
+      pathBuf.result()
+    } else {
+      // this branch could be more efficient with something like QueryParamEncoding.appendNonEmpty(pathBuf, qparams, Charsets.Http)
+      // that directly filtered the keys/values and appended to the buffer
+      // but for now the underlying Netty encoder requires the base url as a String anyway
+      QueryParamEncoding.default.encode(pathBuf.result(), qparams.normalize, Charsets.Http)
+    }
+  }
+
   private[http] def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
       scheme <- Scheme.decode(uri.getScheme)
