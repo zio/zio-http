@@ -88,12 +88,12 @@ private[zio] final case class ServerChannelInitializer(
       case RequestStreaming.Disabled(maximumContentLength) =>
         pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(maximumContentLength))
       case RequestStreaming.Hybrid(aggregatedContentLength) => 
-        pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(aggregatedContentLength)) {
-          override def handleOversizedMessage(ctx: ChannelHandlerContext, oversize: HttpMessage) : Unit = {
+        pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(aggregatedContentLength) {
+          override def handleOversizedMessage(ctx: ChannelHandlerContext, oversized: HttpMessage): Unit = {
             ctx.pipeline().replace(this, "chunkedWriter", new ChunkedWriteHandler())
-            ctx.pipeline().fireChannelRead(oversize): Unit // Ignore the returned value
+            ctx.pipeline().fireChannelRead(oversized): Unit // Ignore the returned value
           }
-        }
+        }) 
     }
 
     // ExpectContinueHandler
