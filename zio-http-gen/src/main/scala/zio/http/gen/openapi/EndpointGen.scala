@@ -294,7 +294,7 @@ final case class EndpointGen(config: Config) {
   def fromOpenAPI(openAPI: OpenAPI): Code.Files =
     Code.Files {
       val componentsCode = extractComponents(openAPI)
-      openAPI.paths.map { case (path, pathItem) =>
+      val files = openAPI.paths.map { case (path, pathItem) =>
         val pathSegments = path.name.tail.replace('-', '_').split('/').toList
         val packageName  = pathSegments.init.mkString(".").replace("{", "").replace("}", "")
         val className    = pathSegments.last.replace("{", "").replace("}", "").capitalize
@@ -362,7 +362,8 @@ final case class EndpointGen(config: Config) {
           caseClasses = Nil,
           enums = Nil,
         )
-      }.toList ++ componentsCode
+      }
+      files.toList ++ componentsCode
     }
 
   private def fieldName(op: OpenAPI.Operation, fallback: String) =
@@ -382,12 +383,19 @@ final case class EndpointGen(config: Config) {
     }
     // TODO: Resolve query and header parameters from components
     val queryParams         = params.collect {
-      case p if p.in == "query" =>
-        schemaToQueryParamCodec(
-          p.schema.get.asInstanceOf[ReferenceOr.Or[JsonSchema]].value,
+      case p if p.in == "query" => p.schema.get match {
+        case or: ReferenceOr.Or[JsonSchema] => schemaToQueryParamCodec(
+          or.value,
           openAPI,
           p.name,
         )
+        case ReferenceOr.Reference(ref,  _, _) =>
+          val baref = ref.replaceFirst("^#/components/schemas/", "")
+          val schema = resolveSchemaRef(openAPI, baref)
+          val qCodec = schemaToQueryParamCodec(schema, openAPI, p.name)
+          if (!config.generateSafeTypeAliases) qCodec
+          else qCodec.copy(queryType = CodecType.Aliased(qCodec.queryType, baref))
+      }
     }
     val headers             = params.collect { case p if p.in == "header" => Code.HeaderCode(p.name) }.toList
     val (inImports, inType) =
@@ -549,15 +557,18 @@ final case class EndpointGen(config: Config) {
       case Some(OpenAPI.ReferenceOr.Or(schema: JsonSchema)) =>
         schemaToPathCodec(schema, openAPI, param.name)
       case Some(OpenAPI.ReferenceOr.Reference(ref, _, _))   =>
-        val (baref, mutateCodec): (String, PathSegmentCode => PathSegmentCode) =
-          if (ref.startsWith("#/components/schemas/")) {
-            val baref = ref.replaceFirst("^#/components/schemas/", "")
-            baref -> ((psc: PathSegmentCode) => psc.copy(segmentType = CodecType.Aliased(psc.segmentType, baref)))
-          } else {
-            ref -> identity[PathSegmentCode]
-          }
-        val r = schemaToPathCodec(resolveSchemaRef(openAPI, baref), openAPI, param.name)
-        mutateCodec(r)
+        if (ref.startsWith("#/components/schemas/")) {
+          val baref = ref.replaceFirst("^#/components/schemas/", "")
+          val schema = resolveSchemaRef(openAPI, baref)
+          val pCodec = schemaToPathCodec(schema, openAPI, param.name)
+          if (!config.generateSafeTypeAliases) pCodec
+          else pCodec.copy(segmentType = CodecType.Aliased(pCodec.segmentType, baref))
+        }
+        else {
+          val schema = resolveSchemaRef(openAPI, ref)
+          val pCodec = schemaToPathCodec(schema, openAPI, param.name)
+          pCodec
+        }
       case None                                             =>
         // Not sure if open api allows path parameters without schema.
         // But string seems a good default

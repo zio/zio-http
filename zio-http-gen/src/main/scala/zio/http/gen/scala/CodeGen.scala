@@ -382,7 +382,7 @@ object CodeGen {
         case Code.CodecType.Literal => throw new Exception("Literal query params are not supported")
         case Code.CodecType.Aliased(underlying, newtypeName) =>
           val (imports, _) = renderQueryCode(Code.QueryParamCode(name, underlying))
-          (Code.Import.FromBase(s"components.$newtypeName") :: imports) -> newtypeName
+          (Code.Import.FromBase(s"components.$newtypeName") :: imports) -> (newtypeName + ".Type")
       }
       imports -> s""".query(QueryCodec.queryTo[$tpe]("$name"))"""
   }
