@@ -1287,7 +1287,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.Object(
                     extensions = Nil,
                     name = "Bar",
-                    schema = Some("DeriveSchema.gen"),
+                    schema = Some(Code.Object.SchemaCode.DeriveSchemaGen),
                     endpoints = Map(
                     ),
                     objects = Nil,
