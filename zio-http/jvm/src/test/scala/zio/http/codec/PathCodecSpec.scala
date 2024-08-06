@@ -127,10 +127,6 @@ object PathCodecSpec extends ZIOHttpSpec {
           val codec = SegmentCodec.uuid("entityId")
           val uuid  = UUID.randomUUID().toString()
           val path  = Chunk("api", uuid)
-
-          println(s"Testing UUID segment matches with path: $path and UUID: $uuid")
-          println(s"Segment codec: $codec")
-          println(s"Matching result: ${codec.matches(path, 1)}")
           assertTrue(codec.matches(path, 1) == 1)
         },
       ),
