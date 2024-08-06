@@ -116,6 +116,20 @@ object PathCodecSpec extends ZIOHttpSpec {
           )
         },
       ),
+      suite("UUID segment decoding")(
+        test("UUID segment decoding") {
+          val codec = PathCodec.empty / "api" / PathCodec.uuid("entityId")
+          val uuid  = UUID.randomUUID()
+          val path  = Path(s"/api/$uuid")
+          assertTrue(codec.decode(path) == Right(uuid))
+        },
+        test("UUID segment matches") {
+          val codec = SegmentCodec.uuid("entityId")
+          val uuid  = UUID.randomUUID().toString()
+          val path  = Chunk("api", uuid)
+          assertTrue(codec.matches(path, 1) == 1)
+        },
+      ),
       suite("decoding with sub-segment codecs")(
         test("int") {
           val codec = PathCodec.empty /
