@@ -439,9 +439,12 @@ object SegmentCodec          {
     def matches(segments: Chunk[String], index: Int): Int = {
       if (index < 0 || index >= segments.length) -1
       else {
-        val lastIndex = inSegmentUntil(segments(index), 0)
-        if (lastIndex == -1 || lastIndex + 1 != segments(index).length) -1
-        else 1
+        try {
+          java.util.UUID.fromString(segments(index))
+          1 // Valid UUID
+        } catch {
+          case _: IllegalArgumentException => -1 // Not a valid UUID
+        }
       }
     }
 
