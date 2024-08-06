@@ -921,5 +921,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           "/AnimalWithMap.scala",
         )
       },
-    ) @@ java11OrNewer /*@@ flaky*/ @@ blocking // Downloading scalafmt on CI is flaky
+    ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }
