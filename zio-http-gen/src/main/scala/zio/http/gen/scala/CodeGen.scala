@@ -94,17 +94,9 @@ object CodeGen {
           sb += '\n'
           sb ++= epc
         }
+        sb += '\n'
         sb += '\n' // redundant: may be dropped  - but altering all test examples is needed, so it'll match
-        schema.foreach { deriveWith =>
-          sb += '\n'
-          sb ++= " implicit val codec: Schema["
-          sb ++= name
-          sb ++= "] = "
-          sb ++= deriveWith
-          sb += '['
-          sb ++= name
-          sb += ']'
-        }
+        schema.foreach(_.codecLineWithStringBuilder(name, sb))
         sb += '\n' // redundant: may be dropped  - but altering all test examples is needed, so it'll match
         objectsContent.foreach { obj =>
           sb += '\n'

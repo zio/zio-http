@@ -1,9 +1,10 @@
 package test.component
 
 import zio.prelude.Newtype
+import zio.schema.Schema
 
 object Age extends Newtype[Int] {
 
-  implicit val codec: Schema[Age] = derive[Age]
+  implicit val schema: Schema[Age.Type] = Schema.primitive[Int].transform(wrap, unwrap)
 
 }

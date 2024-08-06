@@ -949,5 +949,5 @@ object CodeGenSpec extends ZIOSpecDefault {
         )
 
       },
-    ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
+    ) @@ java11OrNewer /*@@ flaky*/ @@ blocking // Downloading scalafmt on CI is flaky
 }

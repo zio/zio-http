@@ -123,7 +123,7 @@ final case class EndpointGen(config: Config) {
                 schemaToField(schema, openAPI, name, Chunk.empty).foreach {
                   case Code.Field(_, fieldType: Code.Primitive, _) =>
                     aliasedPrimitives = aliasedPrimitives.updated(name, fieldType)
-                  case _                                        => // do nothing, we only modify aliased primitives
+                  case _                                           => // do nothing, we only modify aliased primitives
                 }
             }
         }
@@ -231,6 +231,11 @@ final case class EndpointGen(config: Config) {
           // We use the subtypeToTraits map to check if the type is a concrete subtype of a sealed trait.
           // As of the time of writing this code, there should be only a single trait.
           // In case future code generalizes to allow multiple mixins, this code should be updated.
+          //
+          // If no mixins are found, we try to check maybe we deal with an aliased primitive,
+          // which in this case we should use the provided alias (with ".Type" appended).
+          //
+          // If no alias, and no mixins, we return the original type.
           subtypeToTraits
             .get(tName)
             .fold(aliasedPrimitives.getOrElse(tName, originalType)) { set =>
@@ -391,6 +396,7 @@ final case class EndpointGen(config: Config) {
               openAPI,
               p.name,
             )
+          // references are only possible in case of aliased primitives
           case ReferenceOr.Reference(ref, _, _) =>
             val baref  = ref.replaceFirst("^#/components/schemas/", "")
             val schema = resolveSchemaRef(openAPI, baref)
@@ -641,7 +647,14 @@ final case class EndpointGen(config: Config) {
         throw new Exception(s"Found reference to schema $key, but no components section found.")
     }
 
-  def schemaToType(openAPI: OpenAPI, name: String, schema: JsonSchema): Option[(List[Code.Import], String)] =
+  /**
+   * Used for aliased types to resolve into the wrapped primitive underlying
+   * type.
+   * @return
+   *   if primitive, a list of potential imports (e.g: for UUID, we need to
+   *   import java.util.UUID), and the primitive type name.
+   */
+  private def schemaToType(openAPI: OpenAPI, name: String, schema: JsonSchema): Option[(List[Code.Import], String)] =
     if (schema.isPrimitive) {
       val field = schemaToField(schema, openAPI, name, Chunk.empty).get // .get is safe, always defined for primitives
       Some(CodeGen.render("")(field.fieldType))
@@ -725,6 +738,25 @@ final case class EndpointGen(config: Config) {
       if (obj.required.contains(name)) field else field.copy(fieldType = field.fieldType.opt)
     }.toList
 
+  /**
+   * @param openAPI
+   * @param name
+   * @param wrapped
+   *   primitive type to be aliased as `name`
+   * @return
+   *   Code.File that have the following structure (e.g. for name="Name", and
+   *   wrapped = String):
+   *   {{{
+   *           package base.components
+   *
+   *           import zio.prelude.Newtype
+   *           import zio.schema.Schema
+   *
+   *           object Name extends Newtype[String] {
+   *             implicit val schema: Schema[Name.Type] = Schema.primitive[String].transform(wrap, unwrap)
+   *           }
+   *   }}}
+   */
   def aliasedSchemaToCode(openAPI: OpenAPI, name: String, wrapped: JsonSchema): Option[Code.File] = {
     if (!config.generateSafeTypeAliases) None
     else
@@ -732,12 +764,12 @@ final case class EndpointGen(config: Config) {
         Code.File(
           List("component", name.capitalize + ".scala"),
           pkgPath = List("component"),
-          imports = Code.Import("zio.prelude.Newtype") :: imports,
+          imports = Code.Import("zio.prelude.Newtype") :: Code.Import("zio.schema.Schema") :: imports,
           objects = List(
             Code.Object(
               name = name,
               extensions = List(s"Newtype[${wrappedType}]"),
-              schema = Some("derive"),
+              schema = Some(Code.Object.SchemaCode.AliasedNewtype(wrappedType)),
               endpoints = Map.empty,
               objects = Nil,
               caseClasses = Nil,
@@ -797,7 +829,12 @@ final case class EndpointGen(config: Config) {
 
       case JsonSchema.RefSchema(ref)            => throw new Exception(s"Unexpected reference schema: $ref")
       case JsonSchema.Integer(_, _, _, _, _, _) => aliasedSchemaToCode(openAPI, name, schema)
-      case JsonSchema.String(_, _, _, _)        => aliasedSchemaToCode(openAPI, name, schema)
+      case JsonSchema.String(_, _, _, _)        => aliasedSchemaToCode(openAPI, name, schema) /*
+         * this could maybe be improved to generate a string type with validation.
+         * in case of a Newtype alias, we can put validations inside the newtype object,
+         * and use `transformOrFail` with real validations instead of just a plain
+         * `transform` that simply `wrap` / `unwrap` the provided value.
+         */
       case JsonSchema.Boolean                   => aliasedSchemaToCode(openAPI, name, schema)
       case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
         throw new Exception("OneOf schemas with primitive types are not supported")
@@ -966,6 +1003,7 @@ final case class EndpointGen(config: Config) {
           ),
         )
       case JsonSchema.Number(_, _, _, _, _, _)      => aliasedSchemaToCode(openAPI, name, schema)
+      // should we provide support for (Newtype) aliasing arrays of primitives?
       case JsonSchema.ArrayType(None, _, _)         => None
       case JsonSchema.ArrayType(Some(schema), _, _) =>
         schemaToCode(schema, openAPI, name, annotations)

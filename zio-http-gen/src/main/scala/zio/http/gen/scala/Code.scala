@@ -46,14 +46,10 @@ object Code {
     final case class FromBase(path: String) extends Import
   }
 
-  /**
-   * @param schema
-   *   \- value = "derive with" syntax, e.g. "DeriveSchema.gen" or just "derive"
-   */
   final case class Object(
     name: String,
     extensions: List[String],
-    schema: Option[String],
+    schema: Option[Object.SchemaCode],
     endpoints: Map[Field, EndpointCode],
     objects: List[Object],
     caseClasses: List[CaseClass],
@@ -61,6 +57,34 @@ object Code {
   ) extends ScalaType
 
   object Object {
+
+    /**
+     * This is a means to provide implicit codec/schema in different ways. e.g.
+     * deriving with macros, or manual transforming on a primitive type.
+     */
+    sealed trait SchemaCode {
+      def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit
+    }
+    object SchemaCode       {
+      case object DeriveSchemaGen                      extends SchemaCode {
+        override def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit = {
+          sb ++= " implicit val codec: Schema["
+          sb ++= typeName
+          sb ++= "] = DeriveSchema.gen["
+          sb ++= typeName
+          sb += ']'
+        }
+      }
+      case class AliasedNewtype(primitiveType: String) extends SchemaCode {
+        override def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit = {
+          sb ++= " implicit val schema: Schema["
+          sb ++= typeName
+          sb ++= ".Type] = Schema.primitive["
+          sb ++= primitiveType
+          sb ++= "].transform(wrap, unwrap)"
+        }
+      }
+    }
 
     def withDefaultSchemaDerivation(
       name: String,
@@ -70,7 +94,7 @@ object Code {
       caseClasses: List[CaseClass],
       enums: List[Enum],
     ): Object =
-      Object(name, extensions, Some("DeriveSchema.gen"), endpoints, objects, caseClasses, enums)
+      Object(name, extensions, Some(SchemaCode.DeriveSchemaGen), endpoints, objects, caseClasses, enums)
 
     def schemaCompanion(str: String): Object = withDefaultSchemaDerivation(
       name = str,

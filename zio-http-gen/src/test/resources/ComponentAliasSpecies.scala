@@ -1,9 +1,10 @@
 package test.component
 
 import zio.prelude.Newtype
+import zio.schema.Schema
 
 object Species extends Newtype[String] {
 
-  implicit val codec: Schema[Species] = derive[Species]
+  implicit val schema: Schema[Species.Type] = Schema.primitive[String].transform(wrap, unwrap)
 
 }
