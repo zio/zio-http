@@ -43,7 +43,10 @@ sealed trait Dom { self =>
   private[template] def encode(state: EncodingState, encodeHtml: Boolean = true): CharSequence = self match {
     case Dom.Element(name, children) =>
       val encode     = if (name == "script" || name == "style") false else encodeHtml
-      val attributes = children.collect { case self: Dom.Attribute => self.encode }
+      val attributes = children.collect {
+        case self: Dom.Attribute        => self.encode
+        case self: Dom.BooleanAttribute => self.encode
+      }
 
       val innerState = state.inner
       val elements   = children.collect {
@@ -76,6 +79,9 @@ sealed trait Dom { self =>
     case Dom.Attribute(name, value)   => s"""$name="${OutputEncoder.encodeHtml(value.toString)}""""
     case Dom.Empty                    => ""
     case Dom.Raw(raw)                 => raw
+
+    case Dom.BooleanAttribute(name, None)        => s"$name"
+    case Dom.BooleanAttribute(name, Some(value)) => s"""$name="${value}""""
   }
 }
 
@@ -94,6 +100,8 @@ object Dom {
 
   def attr(name: CharSequence, value: CharSequence): Dom = Dom.Attribute(name, value)
 
+  def booleanAttr(name: CharSequence, value: Option[Boolean] = None): Dom = Dom.BooleanAttribute(name, value)
+
   def element(name: CharSequence, children: Dom*): Dom = Dom.Element(name, children)
 
   def empty: Dom = Empty
@@ -109,6 +117,8 @@ object Dom {
   private[zio] final case class Raw(raw: CharSequence) extends Dom
 
   private[zio] final case class Attribute(name: CharSequence, value: CharSequence) extends Dom
+
+  private[zio] final case class BooleanAttribute(name: CharSequence, value: Option[Boolean] = None) extends Dom
 
   private[zio] object Empty extends Dom
 }

@@ -25,6 +25,8 @@ import zio._
 import zio.stream.ZStream
 
 import zio.schema.Schema
+import zio.schema.annotation.validate
+import zio.schema.validation.Validation
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
@@ -584,7 +586,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   }
   private[http] final case class Query[A](
     name: String,
-    textCodec: TextCodec[A],
+    codec: BinaryCodecWithSchema[A],
     hint: Query.QueryParamHint,
     index: Int = 0,
   ) extends Atom[HttpCodecType.Query, Chunk[A]] {

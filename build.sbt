@@ -350,6 +350,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
   .settings(publishSetting(false))
   .settings(
     Test / skip          := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 12))),
+    ideSkipProject       := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 12))),
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
@@ -417,3 +418,8 @@ lazy val docs = project
   .dependsOn(zioHttpJVM)
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioHttpTestkit)
+
+Global / excludeLintKeys ++= Set(
+  sbtZioHttpGrpcTests / autoAPIMappings,
+  ideSkipProject,
+)
