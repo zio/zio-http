@@ -154,6 +154,13 @@ final case class ZClient[-Env, -In, +Err, +Out](
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err2, Out] =
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
+  /**
+   * Executes an HTTP request and transforms the response using the provided
+   * function
+   *
+   * @see
+   *   [[ZClient.quick]] for info on the usage of this method
+   */
   def quick(request: Request)(implicit
     trace: Trace,
     ev1: Body <:< In,
@@ -162,6 +169,13 @@ final case class ZClient[-Env, -In, +Err, +Out](
   ): RIO[Env, Response] =
     quickWith[Response](request)(identity)
 
+  /**
+   * Executes an HTTP request and transforms the response using the provided
+   * function
+   *
+   * @see
+   *   [[ZClient.quickWith]] for info on the usage of this method
+   */
   def quickWith[A](request: Request)(f: Response => A)(implicit
     trace: Trace,
     ev1: Body <:< In,
@@ -170,6 +184,13 @@ final case class ZClient[-Env, -In, +Err, +Out](
   ): RIO[Env, A] =
     quickWithZIO[Any, A](request)(r => ZIO.succeed(f(r)))
 
+  /**
+   * Executes an HTTP request and transforms the response using the provided
+   * function
+   *
+   * @see
+   *   [[ZClient.quickWithZIO]] for info on the usage of this method
+   */
   def quickWithZIO[R, A](request: Request)(f: Response => RIO[R, A])(implicit
     trace: Trace,
     ev1: Body <:< In,
@@ -184,6 +205,13 @@ final case class ZClient[-Env, -In, +Err, +Out](
       )
   }
 
+  /**
+   * Executes an HTTP request and transforms the response into a `ZStream` using
+   * the provided function
+   *
+   * @see
+   *   [[ZClient.quickWithStream]] for info on the usage of this method
+   */
   def quickWithStream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
     trace: Trace,
     ev1: Body <:< In,
@@ -198,6 +226,12 @@ final case class ZClient[-Env, -In, +Err, +Out](
       )
   }
 
+  /**
+   * Executes an HTTP request and extracts the response
+   *
+   * @see
+   *   [[ZClient.request]] for info on the usage of this method
+   */
   def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
     if (bodyEncoder == ZClient.BodyEncoder.identity)
       bodyDecoder.decodeZIO(
@@ -307,20 +341,70 @@ object ZClient extends ZClientPlatformSpecific { self =>
       driver,
     )
 
+  /**
+   * Executes an HTTP request and extracts the response
+   *
+   * '''NOTE''': This method materializes the full response into memory. If the
+   * response is streaming, it will await for it to be fully collected before
+   * resuming.
+   *
+   * @see
+   *   [[quickWithStream]] for a variant that allows you to extract a stream
+   *   from the Response
+   */
   def quick(request: Request)(implicit trace: Trace): RIO[Client, Response] =
     ZIO.serviceWithZIO[Client](_.quick(request))
 
+  /**
+   * More powerful variant of [[quick]] that allows to transform the `Response`
+   * before extracting it.
+   *
+   * '''NOTE''': This method materializes the full response into memory on exit.
+   * If the response is streaming, it will await for it to be fully collected
+   * before resuming.
+   */
   def quickWith[A](request: Request)(f: Response => A)(implicit trace: Trace): RIO[Client, A] =
     ZIO.serviceWithZIO[Client](_.quickWith(request)(f))
 
+  /**
+   * More powerful variant of [[quick]] that allows passing a function to
+   * transform the `Response` into a ZIO before extracting it
+   *
+   * '''NOTE''': This method materializes the full response into memory on exit.
+   * If the response is streaming, it will await for it to be fully collected
+   * before resuming.
+   */
   def quickWithZIO[R, A](request: Request)(f: Response => RIO[R, A])(implicit trace: Trace): RIO[Client & R, A] =
     ZIO.serviceWithZIO[Client](_.quickWithZIO(request)(f))
 
+  /**
+   * Executes an HTTP request, and transforms the response to a `ZStream` using
+   * the provided function. The resources associated with this request will be
+   * automatically cleaned up when the `ZStream` terminates.
+   *
+   * This method does not materialize the response body in memory, so it will
+   * resume as soon as the response is received, and it is safe to use with
+   * large response bodies
+   */
   def quickWithStream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
     trace: Trace,
   ): ZStream[Client & R, Throwable, A] =
     ZStream.serviceWithStream[Client](_.quickWithStream(request)(f))
 
+  /**
+   * Executes an HTTP request and extracts the response
+   *
+   * It is the responsibility of the user to ensure that the resources
+   * associated with the request are properly finalized via the returned
+   * `Scope`.
+   *
+   * '''NOTE''': The `Scope` must be closed ''after'' the body has been
+   * collected.
+   *
+   * @see
+   *   [[quick]] for a variant that doesn't require manual handling of the
+   *   request's resources (i.e., `Scope`)
+   */
   def request(request: Request)(implicit trace: Trace): ZIO[Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.request(request))
 
