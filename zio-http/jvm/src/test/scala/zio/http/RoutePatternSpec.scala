@@ -17,12 +17,12 @@
 package zio.http
 
 import scala.collection.Seq
-
 import zio.Chunk
 import zio.test._
-
 import zio.http.internal.HttpGen
 import zio.http.{int => _, uuid => _, _}
+
+import java.util.UUID
 
 object RoutePatternSpec extends ZIOHttpSpec {
   import zio.http.Method
@@ -106,8 +106,10 @@ object RoutePatternSpec extends ZIOHttpSpec {
 
         tree = tree.add(pattern, ())
 
-        assertTrue(tree.get(Method.GET, Path("/users")).nonEmpty) &&
-        assertTrue(tree.get(Method.POST, Path("/users")).isEmpty)
+        assertTrue(
+          tree.get(Method.GET, Path("/users")).nonEmpty,
+          tree.get(Method.POST, Path("/users")).isEmpty,
+        )
       },
       test("GET /users/{user-id}/posts/{post-id}") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
@@ -116,8 +118,28 @@ object RoutePatternSpec extends ZIOHttpSpec {
 
         tree = tree.add(pattern, ())
 
-        assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty) &&
-        assertTrue(tree.get(Method.GET, Path("/users/abc/posts/1")).isEmpty)
+        assertTrue(
+          tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty,
+          tree.get(Method.GET, Path("/users/abc/posts/1")).isEmpty,
+        )
+      },
+      test("GET /users/{string-param}/{user-id:uuid} issue 3005") {
+        val routePattern1 = Method.GET / "users" / string("param") / "abc" / uuid("id") / "hello"
+        val routePattern2 = Method.GET / "users" / string("param") / uuid("id") / "hello"
+
+        val id              = UUID.randomUUID()
+        var tree: Tree[Int] = RoutePattern.Tree.empty
+        tree = tree.add(routePattern1, 1)
+        tree = tree.add(routePattern2, 2)
+
+        val p1 = Path(s"/users/some_value/abc/$id/hello")
+        val p2 = Path(s"/users/some_value/$id/hello")
+        assertTrue(
+          routePattern1.decode(Method.GET, p1).is(_.right) == ("some_value", id),
+          routePattern2.decode(Method.GET, p2).is(_.right) == ("some_value", id),
+          tree.get(Method.GET, p1).contains(1),
+          tree.get(Method.GET, p2).contains(2),
+        )
       },
       test("on conflict, first one wins") {
         var tree: Tree[Int] = RoutePattern.Tree.empty
