@@ -438,13 +438,15 @@ object SegmentCodec          {
 
     def matches(segments: Chunk[String], index: Int): Int = {
       if (index < 0 || index >= segments.length) -1
+      else if (isValidUUID(segments(index))) 1
+      else -1
+    }
+
+    private def isValidUUID(segment: String): Boolean = {
+      if (segment.length != 36) false
       else {
-        try {
-          java.util.UUID.fromString(segments(index))
-          1 // Valid UUID
-        } catch {
-          case _: IllegalArgumentException => -1 // Not a valid UUID
-        }
+        val uuidPattern = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        segment.matches(uuidPattern)
       }
     }
 
