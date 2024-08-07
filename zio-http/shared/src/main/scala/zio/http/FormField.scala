@@ -77,6 +77,21 @@ sealed trait FormField {
       ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
   }
 
+  /**
+   * Gets the value of this form field as a chunk of bytes. If it is a text
+   * field, the value gets encoded as an UTF-8 byte stream.
+   */
+  final def asStream(implicit trace: Trace): ZStream[Any, Nothing, Byte] = this match {
+    case FormField.Text(_, value, _, _)                =>
+      ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+    case FormField.Binary(_, value, _, _, _)           =>
+      ZStream.fromChunk(value)
+    case FormField.StreamingBinary(_, _, _, _, stream) =>
+      stream
+    case FormField.Simple(_, value)                    =>
+      ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+  }
+
   def name(newName: String): FormField = this match {
     case FormField.Binary(_, data, contentType, transferEncoding, filename)          =>
       FormField.Binary(newName, data, contentType, transferEncoding, filename)
