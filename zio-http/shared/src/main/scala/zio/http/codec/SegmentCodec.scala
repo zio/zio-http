@@ -440,23 +440,24 @@ object SegmentCodec          {
       if (index < 0 || index >= segments.length) -1
       else {
         val lastIndex = inSegmentUntil(segments(index), 0)
-        if (lastIndex == -1 || lastIndex + 1 != segments(index).length) -1
+        if (lastIndex == -1 || lastIndex != segments(index).length) -1
         else 1
       }
     }
 
     override def inSegmentUntil(segment: String, from: Int): Int =
-      UUID.isUUIDUntil(segment, from)
+      UUID.inUUIDUntil(segment, from)
   }
 
   private[http] object UUID {
-    def isUUIDUntil(segment: String, from: Int): Int = {
+    def inUUIDUntil(segment: String, from: Int): Int = {
       var i       = from
       var defined = true
       var group   = 0
       var count   = 0
       if (segment.length + from < 36) return -1
-      while (i < 36 && defined) {
+      val until   = from + 36
+      while (i < until && defined) {
         val char = segment.charAt(i)
         if ((char >= 48 && char <= 57) || (char >= 65 && char <= 70) || (char >= 97 && char <= 102))
           count += 1
@@ -475,7 +476,7 @@ object SegmentCodec          {
         }
         i += 1
       }
-      if (defined && from + 36 == i) i else -1
+      if (defined && until == i) i else -1
     }
 
   }

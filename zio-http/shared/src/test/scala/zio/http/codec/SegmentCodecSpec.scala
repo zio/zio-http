@@ -1,5 +1,7 @@
 package zio.http.codec
 
+import java.util.UUID
+
 import scala.util._
 
 import zio._
@@ -91,5 +93,13 @@ object SegmentCodecSpec extends ZIOSpecDefault {
         uuidLongInt.failed.toOption.map(_.getMessage).contains(expectedErrorMsg),
       )
     },
+    suite("matches")(
+      test("uuid successful matches") {
+        val codec = SegmentCodec.uuid("entityId")
+        val uuid  = new UUID(101, 304)
+        val path  = Chunk("api", uuid.toString())
+        assertTrue(codec.matches(path, 1) == 1)
+      },
+    ),
   )
 }
