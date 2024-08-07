@@ -170,7 +170,7 @@ object Middleware extends HandlerAspects {
 
     new Middleware[Any] {
       def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
-        (routes @@ aspect) :+ optionsRoute
+        optionsRoute +: (routes @@ aspect)
     }
   }
 

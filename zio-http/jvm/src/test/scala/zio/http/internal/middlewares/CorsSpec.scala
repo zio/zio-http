@@ -35,7 +35,73 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
   } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
+  val appAllowAllHeaders = Routes(
+    Method.GET / "success" -> handler(Response.ok),
+  ).handleErrorCause { cause =>
+    Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
+  } @@ cors(
+    CorsConfig(
+      allowedOrigin = { case _ =>
+        Some(Header.AccessControlAllowOrigin.All)
+      },
+      allowedMethods = Header.AccessControlAllowMethods.All,
+      allowedHeaders = Header.AccessControlAllowHeaders.All,
+    ),
+  )
+
+  val appNoServerHeaders = Routes(
+    Method.GET / "success" -> handler(Response.ok),
+  ).handleErrorCause { cause =>
+    Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
+  } @@ cors(
+    CorsConfig(
+      allowedOrigin = { case _ =>
+        Some(Header.AccessControlAllowOrigin.All)
+      },
+      allowedMethods = Header.AccessControlAllowMethods.All,
+      allowedHeaders = Header.AccessControlAllowHeaders.None,
+    ),
+  )
+
   override def spec = suite("CorsSpec")(
+    test("OPTIONS request with allowAllHeaders server config") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "test-env"),
+              Header.AccessControlRequestMethod(Method.GET),
+            ),
+          )
+
+      for {
+        res <- appAllowAllHeaders.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.NoContent,
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+        res.hasHeader(Header.AccessControlAllowHeaders.All),
+      )
+    },
+    test("OPTIONS request with no headers allowed in server config") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "test-env"),
+              Header.AccessControlRequestMethod(Method.GET),
+            ),
+          )
+
+      for {
+        res <- appNoServerHeaders.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.NoContent,
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+        !res.hasHeader(Header.AccessControlAllowHeaders.All),
+      )
+    },
     test("OPTIONS request") {
       val request = Request
         .options(URL(Path.root / "success"))
