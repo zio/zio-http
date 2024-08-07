@@ -20,7 +20,7 @@ import zio.Unsafe
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.netty.model.Conversions
-import zio.http.{Body, Request}
+import zio.http.{Body, Request, URL}
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, DefaultHttpRequest, HttpHeaderNames, HttpRequest}
@@ -33,8 +33,8 @@ private[zio] object NettyRequestEncoder {
   def encode(req: Request): HttpRequest = {
     val method   = Conversions.methodToNetty(req.method)
     val jVersion = Conversions.versionToNetty(req.version)
-    val path     = Conversions.urlToNetty(req.url)
 
+    val path    = URL.encodeHttpPath(req.url)
     val headers = Conversions.headersToNetty(req.allHeaders)
 
     req.url.hostPort match {
