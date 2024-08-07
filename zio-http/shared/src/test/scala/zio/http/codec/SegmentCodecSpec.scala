@@ -96,8 +96,8 @@ object SegmentCodecSpec extends ZIOSpecDefault {
     suite("matches")(
       test("uuid successful matches") {
         val codec = SegmentCodec.uuid("entityId")
-        val uuid  = UUID.randomUUID().toString()
-        val path  = Chunk("api", uuid)
+        val uuid  = new UUID(101, 304)
+        val path  = Chunk("api", uuid.toString())
         assertTrue(codec.matches(path, 1) == 1)
       },
     ),
