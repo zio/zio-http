@@ -66,9 +66,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   override def spec: Spec[Any, Throwable] = {
     suite("KeepAliveSpec") {
       keepAliveSpec
-    }
-      .provideSome[DynamicServer & Server & Client](Scope.default)
-      .provide(DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
+    }.provide(DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
   }
 
 }

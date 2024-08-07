@@ -54,9 +54,9 @@ object DynamicAppTest extends ZIOHttpSpec {
         port <- Server.install(httpApp1)
         good   = URL.decode(s"http://localhost:$port/good").toOption.get
         better = URL.decode(s"http://localhost:$port/better").toOption.get
-        okResponse      <- Client.request(Request.get(good))
+        okResponse      <- Client.quick(Request.get(good))
         _               <- Server.install(httpApp2)
-        createdResponse <- Client.request(Request.get(better))
+        createdResponse <- Client.quick(Request.get(better))
       } yield assertTrue(
         extractStatus(okResponse) == Status.Ok &&
           extractStatus(createdResponse) == Status.Created,

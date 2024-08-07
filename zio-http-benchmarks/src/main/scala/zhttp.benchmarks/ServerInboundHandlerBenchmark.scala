@@ -71,8 +71,8 @@ class ServerInboundHandlerBenchmark {
 
     val waitForServerStarted: Task[Unit] = (for {
       client <- ZIO.service[Client]
-      _      <- client.request(Request(url = URL.decode(testUrl).toOption.get))
-    } yield ()).provide(ZClient.default, zio.Scope.default)
+      _      <- client.quick(Request(url = URL.decode(testUrl).toOption.get))
+    } yield ()).provide(ZClient.default)
 
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.fork(startServer))
     Unsafe.unsafe(implicit u =>
@@ -84,8 +84,8 @@ class ServerInboundHandlerBenchmark {
   def tearDown(): Unit = {
     val stopServer = (for {
       client <- ZIO.service[Client]
-      _      <- client.request(Request(url = URL.decode(shutdownUrl).toOption.get))
-    } yield ()).provide(ZClient.default, zio.Scope.default)
+      _      <- client.quick(Request(url = URL.decode(shutdownUrl).toOption.get))
+    } yield ()).provide(ZClient.default)
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(stopServer).getOrThrow())
   }
 

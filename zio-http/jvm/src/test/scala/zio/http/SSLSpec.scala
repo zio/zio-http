@@ -54,9 +54,7 @@ object SSLSpec extends ZIOHttpSpec {
       .as(
         List(
           test("succeed when client has the server certificate") {
-            val actual = Client
-              .request(Request.get(httpsUrl))
-              .map(_.status)
+            val actual = Client.quickWith(Request.get(httpsUrl))(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
             Client.customized,
@@ -64,14 +62,13 @@ object SSLSpec extends ZIOHttpSpec {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-            Scope.default,
           ),
           // Unfortunately if the channel closes before we create the request, we can't extract the DecoderException
           test(
             "fail with DecoderException or PrematureChannelClosureException when client doesn't have the server certificate",
           ) {
             Client
-              .request(Request.get(httpsUrl))
+              .quick(Request.get(httpsUrl))
               .fold(
                 { e =>
                   val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
@@ -87,12 +84,9 @@ object SSLSpec extends ZIOHttpSpec {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-            Scope.default,
           ),
           test("succeed when client has default SSL") {
-            val actual = Client
-              .request(Request.get(httpsUrl))
-              .map(_.status)
+            val actual = Client.quickWith(Request.get(httpsUrl))(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
             Client.customized,
@@ -100,12 +94,9 @@ object SSLSpec extends ZIOHttpSpec {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-            Scope.default,
           ),
           test("Https Redirect when client makes http request") {
-            val actual = Client
-              .request(Request.get(httpUrl))
-              .map(_.status)
+            val actual = Client.quickWith(Request.get(httpUrl))(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           }.provide(
             Client.customized,
@@ -113,12 +104,9 @@ object SSLSpec extends ZIOHttpSpec {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-            Scope.default,
           ),
           test("static files") {
-            val actual = Client
-              .request(Request.get(staticFileUrl))
-              .flatMap(_.body.asString)
+            val actual = Client.quickWithZIO(Request.get(staticFileUrl))(_.body.asString)
             assertZIO(actual)(equalTo("This file is added for testing Static File Server."))
           }.provide(
             Client.customized,
@@ -126,7 +114,6 @@ object SSLSpec extends ZIOHttpSpec {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-            Scope.default,
           ) @@ withLiveClock,
         ),
       ),

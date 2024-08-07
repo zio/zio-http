@@ -84,7 +84,6 @@ object ServerRuntimeSpec extends HttpRunnableSpec {
         ZLayer.succeed(Server.Config.default),
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         Client.default,
-        Scope.default,
         ZLayer.succeed(new Foo),
       ) @@ sequential @@ withLiveClock
 }

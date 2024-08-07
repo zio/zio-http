@@ -16,7 +16,7 @@
 
 package zio.http
 
-import java.io.{FileInputStream, IOException}
+import java.io.FileInputStream
 import java.nio.charset._
 import java.nio.file._
 
@@ -27,6 +27,7 @@ import zio.stream.ZStream
 
 import zio.schema.Schema
 import zio.schema.codec.BinaryCodec
+import zio.schema.codec.BinaryCodec.BinaryDecoder
 
 import zio.http.internal.BodyEncoding
 import zio.http.multipart.mixed.MultipartMixed
@@ -179,6 +180,12 @@ trait Body { self =>
   def contentType: Option[Body.ContentType]
 
   def contentType(newContentType: Body.ContentType): Body
+
+  /**
+   * Materializes the body of the request into memory
+   */
+  def materialize(implicit trace: Trace): Task[Body] =
+    asArray.map(Body.ArrayBody(_, self.contentType))
 
   /**
    * Returns the media type for this Body
@@ -390,8 +397,10 @@ object Body {
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)
 
-  private[zio] trait UnsafeBytes extends Body {
+  private[zio] trait UnsafeBytes extends Body { self =>
     private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte]
+
+    final override def materialize(implicit trace: Trace): Task[Body] = Exit.succeed(self)
   }
 
   /**

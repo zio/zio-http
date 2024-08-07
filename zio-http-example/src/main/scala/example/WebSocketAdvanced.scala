@@ -89,12 +89,13 @@ object WebSocketAdvancedClient extends ZIOAppDefault {
 
   @nowarn("msg=dead code")
   override val run =
-    (for {
-      _ <- webSocketHandler
-      _ <- Console.readLine.flatMap(sendChatMessage).forever.forkDaemon
-      _ <- ZIO.never
-    } yield ())
-      .provideSome[Scope](
+    ZIO
+      .scoped(for {
+        _ <- webSocketHandler
+        _ <- Console.readLine.flatMap(sendChatMessage).forever.forkDaemon
+        _ <- ZIO.never
+      } yield ())
+      .provide(
         Client.default,
         ZLayer(Queue.bounded[String](100)),
       )

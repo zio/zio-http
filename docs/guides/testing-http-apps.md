@@ -71,12 +71,12 @@ object TestUsingTestClient extends ZIOSpecDefault {
             Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
           )
         }
-        helloResponse    <- client(Request.get(URL.root / "hello" / "world"))
+        helloResponse    <- client.quick(Request.get(URL.root / "hello" / "world"))
         helloBody        <- helloResponse.body.asString
-        fallbackResponse <- client(Request.get(URL.root / "any"))
+        fallbackResponse <- client.quick(Request.get(URL.root / "any"))
         fallbackBody     <- fallbackResponse.body.asString
       } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
-    }.provide(TestClient.layer, Scope.default)
+    }.provide(TestClient.layer)
 }
 ```
 
@@ -119,12 +119,12 @@ object TestServerExampleSpec extends ZIOSpecDefault {
             },
           )
         }
-        helloResponse    <- client(Request.get(testRequest.url / "hello" / "world"))
+        helloResponse    <- client.quick(Request.get(testRequest.url / "hello" / "world"))
         helloBody        <- helloResponse.body.asString
-        fallbackResponse <- client(Request.get(testRequest.url / "any"))
+        fallbackResponse <- client.quick(Request.get(testRequest.url / "any"))
         fallbackBody     <- fallbackResponse.body.asString
       } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
-    }.provideSome[Client with Driver](TestServer.layer, Scope.default)
+    }.provideSome[Client with Driver](TestServer.layer)
   }.provide(
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,

@@ -18,8 +18,7 @@ object HttpsClient extends ZIOAppDefault {
   val clientConfig = ZClient.Config.default.ssl(sslConfig)
 
   val program = for {
-    res  <- ZClient.request(Request.get(url).addHeaders(headers))
-    data <- res.body.asString
+    data <- ZClient.quick(Request.get(url).addHeaders(headers))
     _    <- Console.printLine(data)
   } yield ()
 
@@ -30,7 +29,6 @@ object HttpsClient extends ZIOAppDefault {
       NettyClientDriver.live,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),
-      Scope.default,
     )
 
 }

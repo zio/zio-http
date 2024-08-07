@@ -259,7 +259,7 @@ object SimpleClientJson extends ZIOAppDefault {
 
   val program = for {
     // Pass headers to request
-    res <- Client.request(Request.get(url).addHeaders(headers))
+    res <- Client.quick(Request.get(url).addHeaders(headers))
     // List all response headers
     _ <- Console.printLine(res.headers.toList.mkString("\n"))
     data <-
@@ -272,7 +272,7 @@ object SimpleClientJson extends ZIOAppDefault {
   } yield ()
 
   override def run =
-    program.provide(Client.default, Scope.default)
+    program.provide(Client.default)
 
 }
 ```

@@ -101,7 +101,7 @@ object StaticServerSpec extends HttpRunnableSpec {
         .as(
           List(staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),
         )
-    }.provideSome[DynamicServer & Server & Client](Scope.default)
+    }
       .provideShared(
         DynamicServer.live,
         serverTestLayer,

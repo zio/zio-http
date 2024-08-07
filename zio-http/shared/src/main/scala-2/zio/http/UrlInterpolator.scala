@@ -70,7 +70,7 @@ private[http] object UrlInterpolatorMacro {
         URL.decode(example) match {
           case Left(error) =>
             c.abort(c.enclosingPosition, s"Invalid URL: ${error.getMessage}")
-          case Right(url)  =>
+          case Right(_)    =>
             val parts =
               staticParts.map { s => Literal(Constant(s)) }
                 .zipAll(args.map(_.tree), Literal(Constant("")), Literal(Constant("")))

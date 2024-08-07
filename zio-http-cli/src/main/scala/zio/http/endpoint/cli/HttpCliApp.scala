@@ -66,9 +66,9 @@ object HttpCliApp {
         for {
           request  <- req.toRequest(host, port, client)
           response <- client match {
-            case CliZIOClient(client)    => client.request(request).provide(Scope.default)
-            case CliZLayerClient(client) => Client.request(request).provide(Scope.default, client)
-            case DefaultClient()         => Client.request(request).provide(Scope.default, Client.default)
+            case CliZIOClient(client)    => client.quick(request)
+            case CliZLayerClient(client) => Client.quick(request).provide(client)
+            case DefaultClient()         => Client.quick(request).provide(Client.default)
           }
 
           _ <- Console.printLine(s"Got response")

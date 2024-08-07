@@ -26,10 +26,7 @@ object MyClient extends ZIOAppDefault {
   val localhost = URL.decode("http://localhost:8080").toOption.get
 
   @nowarn def run = {
-    val req = for {
-      resp <- ZClient.request(Request.get(localhost))
-      body <- resp.body.asString
-    } yield body
+    val req = ZClient.quickWithZIO(Request.get(localhost))(_.body.asString)
 
     val reqWithTimeout = // req.timeoutFail(new TimeoutException())(5.seconds)
       for {
@@ -47,7 +44,6 @@ object MyClient extends ZIOAppDefault {
         ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(2)),
         ZLayer.succeed(NettyConfig.default),
         DnsResolver.default,
-        Scope.default,
       )
       // .provide(Client.live, NettyClientDriver.fromConfig, ClientConfig.live(ClientConfig().fixedConnectionPool(2)))
       .debug("EXIT")

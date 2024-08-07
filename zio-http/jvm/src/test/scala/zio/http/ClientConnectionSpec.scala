@@ -39,7 +39,7 @@ object ClientConnectionSpec extends HttpRunnableSpec {
   override def spec = {
     suite("ClientConnectionSpec") {
       serve.as(tests)
-    }.provideSome[DynamicServer & Server & Client](Scope.default)
+    }
       .provideShared(
         DynamicServer.live,
         serverTestLayer,

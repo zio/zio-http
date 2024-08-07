@@ -9,11 +9,11 @@ object SimpleClient extends ZIOAppDefault {
 
   val program = for {
     client <- ZIO.service[Client]
-    res    <- client.url(url).get("/")
+    res    <- client.url(url).quick(Request.get("/"))
     data   <- res.body.asString
     _      <- Console.printLine(data)
   } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(Client.default)
 
 }

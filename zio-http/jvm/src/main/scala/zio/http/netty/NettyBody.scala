@@ -19,6 +19,7 @@ package zio.http.netty
 import java.nio.charset.Charset
 
 import zio._
+import zio.internal.OneShot
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
