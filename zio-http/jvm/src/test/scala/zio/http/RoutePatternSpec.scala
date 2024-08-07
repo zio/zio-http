@@ -135,8 +135,8 @@ object RoutePatternSpec extends ZIOHttpSpec {
         val p1 = Path(s"/users/some_value/abc/$id/hello")
         val p2 = Path(s"/users/some_value/$id/hello")
         assertTrue(
-          routePattern1.decode(Method.GET, p1).is(_.right) == ("some_value", id),
-          routePattern2.decode(Method.GET, p2).is(_.right) == ("some_value", id),
+          routePattern1.decode(Method.GET, p1) == Right(("some_value", id)),
+          routePattern2.decode(Method.GET, p2) == Right(("some_value", id)),
           tree.get(Method.GET, p1).contains(1),
           tree.get(Method.GET, p2).contains(2),
         )

@@ -139,13 +139,13 @@ object PathCodecSpec extends ZIOHttpSpec {
           val p  = s"/abc/foo/${id}__13/bar/42"
           assertTrue(codec.decode(Path(p)) == Right(("abc", id, 13, 42)))
         },
-        test("uuid with string") {
+        test("uuid after string") {
           val codec = PathCodec.empty / "foo" / "bar" / string("baz") / "xyz" / uuid(
             "id",
           ) / "abc"
           val id    = UUID.randomUUID()
           val p     = s"/foo/bar/some_value/xyz/$id/abc"
-          assertTrue(codec.decode(Path(p)).is(_.right) == ("some_value", id))
+          assertTrue(codec.decode(Path(p)) == Right(("some_value", id)))
         },
         test("string before literal") {
           val codec = PathCodec.empty /
