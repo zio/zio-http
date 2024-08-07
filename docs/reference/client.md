@@ -81,7 +81,7 @@ object Todo {
 }
 
 object ClientExample extends ZIOAppDefault {
-  val program: ZIO[Client & Scope, Throwable, Unit] = 
+  val program: ZIO[Client, Throwable, Unit] = 
     for {
       res   <- Client.quick(Request.get("http://jsonplaceholder.typicode.com/todos"))
       todos <- res.body.to[List[Todo]]
@@ -107,7 +107,7 @@ import zio._
 import zio.http._
 
 object ClientExample extends ZIOAppDefault {
-  val program: ZIO[Client & Scope, Throwable, Unit] = 
+  val program: ZIO[Client, Throwable, Unit] = 
     for {
       res   <- Client.quick(Request.get("http://jsonplaceholder.typicode.com/todos"))
       todos <- res.body.to[List[Todo]]
@@ -177,7 +177,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
         }
       }
 
-  val app: ZIO[Client with Scope, Throwable, Unit] =
+  val app: ZIO[Client, Throwable, Unit] =
     for {
       url    <- ZIO.fromEither(URL.decode("ws://ws.vi-server.org/mirror"))
       client <- ZIO.serviceWith[Client](_.url(url))
