@@ -8,6 +8,7 @@ import zio._
 import zio.stream._
 
 import zio.schema._
+import zio.schema.annotation.simpleEnum
 import zio.schema.codec._
 
 object TextBinaryCodec {
@@ -32,6 +33,57 @@ object TextBinaryCodec {
 
   implicit def fromSchema[A](implicit schema: Schema[A]): BinaryCodec[A] = {
     schema match {
+      case Schema.Optional(schema, _)                                                    =>
+        val codec = fromSchema(schema).asInstanceOf[BinaryCodec[Any]]
+        new BinaryCodec[A] {
+          override def encode(a: A): Chunk[Byte] = {
+            a match {
+              case Some(value) => codec.encode(value)
+              case None        => Chunk.empty
+            }
+          }
+
+          override def decode(c: Chunk[Byte]): Either[DecodeError, A]      =
+            if (c.isEmpty) Right(None.asInstanceOf[A])
+            else codec.decode(c).map(Some(_)).asInstanceOf[Either[DecodeError, A]]
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
+            ZPipeline.map(a => encode(a)).flattenChunks
+          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+            codec.streamDecoder.map(v => Some(v).asInstanceOf[A])
+        }
+      case enum0: Schema.Enum[_] if enum0.annotations.exists(_.isInstanceOf[simpleEnum]) =>
+        val stringCodec    = fromSchema(Schema.Primitive(StandardType.StringType)).asInstanceOf[BinaryCodec[String]]
+        val caseMap        = enum0.nonTransientCases
+          .map(case_ =>
+            case_.schema.asInstanceOf[Schema.CaseClass0[A]].defaultConstruct() ->
+              case_.caseName,
+          )
+          .toMap
+        val reverseCaseMap = caseMap.map(_.swap)
+        new BinaryCodec[A] {
+          override def encode(a: A): Chunk[Byte] = {
+            val caseName = caseMap(a.asInstanceOf[A])
+            stringCodec.encode(caseName)
+          }
+
+          override def decode(c: Chunk[Byte]): Either[DecodeError, A]      =
+            stringCodec.decode(c).flatMap { caseName =>
+              reverseCaseMap.get(caseName) match {
+                case Some(value) => Right(value.asInstanceOf[A])
+                case None        => Left(DecodeError.MissingCase(caseName, enum0))
+              }
+            }
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
+            ZPipeline.map(a => encode(a)).flattenChunks
+          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+            stringCodec.streamDecoder.mapZIO { caseName =>
+              reverseCaseMap.get(caseName) match {
+                case Some(value) => ZIO.succeed(value.asInstanceOf[A])
+                case None        => ZIO.fail(DecodeError.MissingCase(caseName, enum0))
+              }
+            }
+        }
+
       case enum0: Schema.Enum[_]                               => errorCodec(enum0)
       case record: Schema.Record[_] if record.fields.size == 1 =>
         val fieldSchema = record.fields.head.schema

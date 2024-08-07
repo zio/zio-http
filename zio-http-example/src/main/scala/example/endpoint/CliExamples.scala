@@ -36,8 +36,6 @@ object Post {
 }
 
 trait TestCliEndpoints {
-  import HttpCodec._
-  import zio.http.codec.PathCodec._
 
   val getUser =
     Endpoint(Method.GET / "users" / int("userId") ?? Doc.p("The unique identifier of the user"))
@@ -51,7 +49,7 @@ trait TestCliEndpoints {
         "posts" / int("postId") ?? Doc.p("The unique identifier of the post"),
     )
       .query(
-        query("user-name") ?? Doc.p(
+        HttpCodec.query[String]("user-name") ?? Doc.p(
           "The user's name",
         ),
       )
