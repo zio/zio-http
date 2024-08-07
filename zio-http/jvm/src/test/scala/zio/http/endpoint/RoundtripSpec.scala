@@ -29,15 +29,12 @@ import zio.schema.annotation.validate
 import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.authorization
 import zio.http.codec.HttpContentCodec.protobuf
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.netty.NettyConfig
-import zio.http.netty.server.NettyDriver
 
 object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =

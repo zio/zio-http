@@ -22,7 +22,6 @@ import zio._
 
 import zio.stream.ZStream
 
-import zio.schema.Schema
 import zio.schema.codec.BinaryCodec
 
 import zio.http.Header.Accept.MediaTypeWithQFactor

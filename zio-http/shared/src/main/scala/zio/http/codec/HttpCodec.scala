@@ -17,7 +17,6 @@
 package zio.http.codec
 
 import scala.annotation.tailrec
-import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 import zio._
@@ -25,13 +24,11 @@ import zio._
 import zio.stream.ZStream
 
 import zio.schema.Schema
-import zio.schema.annotation.validate
-import zio.schema.validation.Validation
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec.HttpCodec.{Annotated, Metadata}
-import zio.http.codec.internal.{AtomizedCodecs, EncoderDecoder}
+import zio.http.codec.internal.EncoderDecoder
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
