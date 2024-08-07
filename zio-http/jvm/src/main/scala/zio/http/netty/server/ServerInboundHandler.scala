@@ -79,7 +79,7 @@ private[zio] final case class ServerInboundHandler(
         try {
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            attemptFastWrite(ctx, Response.fromThrowable(throwable))
+            attemptFastWrite(ctx, Response.fromThrowable(throwable, app.errorInBody))
             releaseRequest()
           } else {
             val req  = makeZioRequest(ctx, jReq)
@@ -297,7 +297,8 @@ private[zio] final case class ServerInboundHandler(
   }
 
   private def writeNotFound(ctx: ChannelHandlerContext, req: Request): Unit = {
-    val response = Response.notFound(req.url.encode)
+    val response =
+      if (app.errorInBody) Response.notFound(req.url.encode) else Response.notFound
     attemptFastWrite(ctx, response): Unit
   }
 
@@ -350,7 +351,7 @@ private[zio] final case class ServerInboundHandler(
     }.unit.orDie
 
   private def withDefaultErrorResponse(cause: Throwable): Response =
-    Response.internalServerError(cause.getMessage)
+    if (app.errorInBody) Response.internalServerError(cause.getMessage) else Response.internalServerError
 }
 
 object ServerInboundHandler {

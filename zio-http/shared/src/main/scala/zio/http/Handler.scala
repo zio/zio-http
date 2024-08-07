@@ -551,6 +551,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
     self.mapErrorCause(Response.fromCause(_))
 
+  final def sandbox(errorInBody: Boolean)(implicit trace: Trace): Handler[R, Response, In, Out] =
+    self.mapErrorCause(Response.fromCause(_, errorInBody))
+
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
     self.map(_.status)
 
@@ -976,6 +979,15 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
         error(Status.NotFound, request.url.path.encode)
       }
 
+  /**
+   * Creates a handler that fails with a NotFound exception.
+   */
+  def notFound(errorInBody: Boolean): Handler[Any, Nothing, Request, Response] =
+    Handler
+      .fromFunctionHandler[Request] { request =>
+        error(Status.NotFound, if (errorInBody) request.url.path.encode else null)
+      }
+
   def notFound(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.NotFound, message)
 
@@ -1170,7 +1182,9 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             Exit.succeed(f(in))
           } catch {
-            case error: Throwable => Exit.die(error)
+            case error: Throwable if error.getMessage.contains("java.lang.Throwable: WEIRDERROR") =>
+              Exit.die(new Throwable("WEIRD2"))
+            case error: Throwable                                                                 => Exit.die(error)
           }
       }
   }

@@ -68,7 +68,7 @@ object ServerSpec extends HttpRunnableSpec {
         val res = app.deploy.status.run()
         assertZIO(res)(equalTo(Status.NotFound))
       } +
-        test("header is set") {
+        test("header is not set") {
           val res = app.deploy.header(Header.ContentLength).run()
           assertZIO(res)(isSome(equalTo(Header.ContentLength(0L))))
         }
@@ -81,7 +81,7 @@ object ServerSpec extends HttpRunnableSpec {
         } +
           test("content is empty") {
             val res = routes.deploy.body.mapZIO(_.asString).run()
-            assertZIO(res)(isEmptyString)
+            assertZIO(res)(equalTo(""))
           } +
           test("header is set") {
             val res = routes.deploy.header(Header.ContentLength).run()
@@ -486,7 +486,7 @@ object ServerSpec extends HttpRunnableSpec {
     } +
       test("content is empty") {
         val res = routes.deploy.body.mapZIO(_.asString).run()
-        assertZIO(res)(isEmptyString)
+        assertZIO(res)(equalTo(""))
       } +
       test("header is set") {
         val res = routes.deploy.headers.run().map(_.header(Header.ContentLength))
