@@ -322,7 +322,7 @@ object ClientWithRequestCompression extends ZIOAppDefault {
     for {
       url <- ZIO.from(URL.decode("http://localhost:8080"))
       res <-
-        Client.request(
+        Client.quick(
           Request
             .post(url, Body.fromChunk(compressStringToGzip("Hello, World!")))
             .addHeader(Header.ContentEncoding.GZip),
@@ -330,7 +330,7 @@ object ClientWithRequestCompression extends ZIOAppDefault {
       _   <- res.body.asString.debug("response: ")
     } yield ()
 
-  override val run = app.provide(Client.default, Scope.default)
+  override val run = app.provide(Client.default)
 }
 ```
 
@@ -440,7 +440,7 @@ object RequestStreamingServerExample extends ZIOAppDefault {
       },
     ).sandbox @@ Middleware.debug
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
+  override def run =
     Server
       .serve(routes)
       .provide(
@@ -461,7 +461,7 @@ object SimpleStreamingClientExample extends ZIOAppDefault {
   val app = for {
     url    <- ZIO.fromEither(URL.decode("http://localhost:8080/upload-stream"))
     client <- ZIO.serviceWith[Client](_.url(url) @@ ZClientAspect.requestLogging())
-    res    <- client.request(
+    res    <- client.quick(
       Request.post(
         path = "simple",
         body = Body.fromStreamChunked(
@@ -473,7 +473,7 @@ object SimpleStreamingClientExample extends ZIOAppDefault {
 
   } yield ()
 
-  def run = app.provide(Client.default, Scope.default)
+  def run = app.provide(Client.default)
 }
 ```
 
@@ -503,7 +503,7 @@ object FormFieldStreamingClientExample extends ZIOAppDefault {
         )
       },
     )
-    res <- client.request(
+    res <- client.quick(
       Request
         .post(
           path = "form-field",
@@ -514,7 +514,7 @@ object FormFieldStreamingClientExample extends ZIOAppDefault {
 
   } yield ()
 
-  def run = app.provide(Client.default, Scope.default)
+  def run = app.provide(Client.default)
 }
 ```
 

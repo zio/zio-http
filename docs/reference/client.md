@@ -34,7 +34,31 @@ object Client {
 The `Client` and `Scope` environments are required to perform the request and handle the response. For the `Client` environment, we can use the default client provided by ZIO HTTP (i.e., `Client.default`). The `Scope` environment is used to manage the lifecycle of resources such as connections, sockets, and other I/O-related resources that are acquired and released during the request-response operation.
 
 :::note
+The `Scope` returned by this method is responsible for running finalizers associated with an HTTP request. It must be closed (using `ZIO.scoped`) after the body of a request has been collected.
+
 To learn more about resource management and `Scope` in ZIO, refer to the [dedicated guide on this topic](https://zio.dev/reference/resource/scope) in the ZIO Core documentation.
+:::
+
+### "Quick" methods
+
+The handling of `Scope` can quickly become cumbersome in cases where we simply want to execute an HTTP request and not handle the lifetime of the HTTP request.
+For this reason, the Client contains some convenience methods prefixed with `quick`:
+
+```scala
+object Client {
+  def quick(request: Request): RIO[Client, Response]
+
+  def quickWith[A](request: Request)(f: Response => A): RIO[Client, A]
+
+  def quickWithZIO[R, A](request: Request)(f: Response => RIO[R, A]): RIO[Client & R, A]
+
+  def quickWithStream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A]): ZStream[Client & R, Throwable, A]
+}
+```
+
+::: warning
+The `quick`, `quickWith` and `quickWithZIO` methods will materialize the entire body of the request to memory.
+For extracting the body as a stream, use `quickWithStream` or use `Client.request` and manage the `Scope` manually instead
 :::
 
 Let's try to make a simple GET HTTP request using `Client`:
@@ -59,12 +83,12 @@ object Todo {
 object ClientExample extends ZIOAppDefault {
   val program: ZIO[Client & Scope, Throwable, Unit] = 
     for {
-      res   <- Client.request(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      res   <- Client.quick(Request.get("http://jsonplaceholder.typicode.com/todos"))
       todos <- res.body.to[List[Todo]]
       _     <- Console.printLine(s"The first task is '${todos.head.title}'")
     } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(Client.default)
 }
 ```
 
@@ -85,12 +109,12 @@ import zio.http._
 object ClientExample extends ZIOAppDefault {
   val program: ZIO[Client & Scope, Throwable, Unit] = 
     for {
-      res   <- Client.request(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      res   <- Client.quick(Request.get("http://jsonplaceholder.typicode.com/todos"))
       todos <- res.body.to[List[Todo]]
       _     <- Console.printLine(s"The first task is '${todos.head.title}'")
     } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(Client.default)
 }
 ```
 
@@ -157,12 +181,11 @@ object WebSocketSimpleClient extends ZIOAppDefault {
     for {
       url    <- ZIO.fromEither(URL.decode("ws://ws.vi-server.org/mirror"))
       client <- ZIO.serviceWith[Client](_.url(url))
-      _      <- client.socket(socketApp)
-      _      <- ZIO.never
+      _      <- ZIO.scoped(client.socket(socketApp) *> ZIO.never)
     } yield ()
 
   val run: ZIO[Any, Throwable, Any] =
-    app.provide(Client.default, Scope.default)
+    app.provide(Client.default)
 
 }
 ```
@@ -205,13 +228,13 @@ object User {
   implicit val schema = DeriveSchema.gen[User]
 }
 
-val program: ZIO[Scope with Client, Throwable, Unit] =
+val program: ZIO[Scope & Client, Throwable, Unit] =
   for {
     url    <- ZIO.fromEither(URL.decode("http://localhost:8080"))
     client <- ZIO.serviceWith[Client](_.url(url))
-    _      <- client.post("/users")(Body.from(User("John", 42)))
-    res    <- client.get("/users")
-    _      <- client.delete("/users/1")
+    _      <- ZIO.scoped(client.post("/users")(Body.from(User("John", 42))))
+    res    <- ZIO.scoped(client.get("/users"))
+    _      <- ZIO.scoped(client.delete("/users/1"))
     _      <- res.body.asString.debug
   } yield ()
 ```
@@ -257,10 +280,10 @@ object ClientWithDebugAspect extends ZIOAppDefault {
   val program =
     for {
       client <- ZIO.service[Client].map(_ @@ ZClientAspect.debug)
-      _      <- client.request(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      _      <- client.quick(Request.get("http://jsonplaceholder.typicode.com/todos"))
     } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(Client.default)
 }
 ```
 
