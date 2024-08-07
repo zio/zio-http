@@ -18,8 +18,10 @@ package zio.http
 
 import java.net.{InetSocketAddress, URI}
 
-import zio.ConfigProvider.Flat.util
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.stream.ZStream
 
 import zio.http.URL.Location
 import zio.http.internal._
@@ -152,6 +154,50 @@ final case class ZClient[-Env, -In, +Err, +Out](
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err2, Out] =
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
+  def quick(request: Request)(implicit
+    trace: Trace,
+    ev1: Body <:< In,
+    ev2: Out <:< Response,
+    ev3: Err <:< Throwable,
+  ): RIO[Env, Response] =
+    quickWith[Response](request)(identity)
+
+  def quickWith[A](request: Request)(f: Response => A)(implicit
+    trace: Trace,
+    ev1: Body <:< In,
+    ev2: Out <:< Response,
+    ev3: Err <:< Throwable,
+  ): RIO[Env, A] =
+    quickWithZIO[Any, A](request)(r => ZIO.succeed(f(r)))
+
+  def quickWithZIO[R, A](request: Request)(f: Response => RIO[R, A])(implicit
+    trace: Trace,
+    ev1: Body <:< In,
+    ev2: Out <:< Response,
+    ev3: Err <:< Throwable,
+  ): RIO[Env & R, A] = ZIO.scoped[Env & R] {
+    self
+      .request(request)
+      .foldZIO(
+        e => Exit.fail(ev3(e)),
+        out => ev2(out).collect.flatMap(f),
+      )
+  }
+
+  def quickWithStream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
+    trace: Trace,
+    ev1: Body <:< In,
+    ev2: Out <:< Response,
+    ev3: Err <:< Throwable,
+  ): ZStream[Env & R, Throwable, A] = ZStream.unwrapScoped[Env & R] {
+    self
+      .request(request)
+      .fold(
+        e => ZStream.fail(ev3(e)),
+        out => f(ev2(out)),
+      )
+  }
+
   def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
     if (bodyEncoder == ZClient.BodyEncoder.identity)
       bodyDecoder.decodeZIO(
@@ -247,7 +293,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def url(url: URL): ZClient[Env, In, Err, Out] = copy(url = url)
 }
 
-object ZClient extends ZClientPlatformSpecific {
+object ZClient extends ZClientPlatformSpecific { self =>
 
   def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
     ZClient(
@@ -261,8 +307,22 @@ object ZClient extends ZClientPlatformSpecific {
       driver,
     )
 
+  def quick(request: Request)(implicit trace: Trace): RIO[Client, Response] =
+    ZIO.serviceWithZIO[Client](_.quick(request))
+
+  def quickWith[A](request: Request)(f: Response => A)(implicit trace: Trace): RIO[Client, A] =
+    ZIO.serviceWithZIO[Client](_.quickWith(request)(f))
+
+  def quickWithZIO[R, A](request: Request)(f: Response => RIO[R, A])(implicit trace: Trace): RIO[Client & R, A] =
+    ZIO.serviceWithZIO[Client](_.quickWithZIO(request)(f))
+
+  def quickWithStream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
+    trace: Trace,
+  ): ZStream[Client & R, Throwable, A] =
+    ZStream.serviceWithStream[Client](_.quickWithStream(request)(f))
+
   def request(request: Request)(implicit trace: Trace): ZIO[Client & Scope, Throwable, Response] =
-    ZIO.serviceWithZIO[Client](c => c(request))
+    ZIO.serviceWithZIO[Client](_.request(request))
 
   def socket[R](socketApp: WebSocketApp[R])(implicit trace: Trace): ZIO[R with Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
@@ -748,4 +808,12 @@ object ZClient extends ZClientPlatformSpecific {
     Header.UserAgent.Product("Zio-Http-Client", zioHttpVersionNormalized),
     Some(Header.UserAgent.Comment(s"Scala $scalaVersion")),
   )
+
+  sealed trait ClientError
+  object ClientError {
+    final case class ConnectionError(cause: Throwable)          extends ClientError
+    final case class DecodingError(cause: Throwable)            extends ClientError
+    final case class HttpError(status: Status, message: String) extends ClientError
+    final case class CustomError[E](error: E)                   extends ClientError
+  }
 }

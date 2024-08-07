@@ -19,7 +19,7 @@ object AuthenticationClient extends ZIOAppDefault {
   val program = for {
     client   <- ZIO.service[Client]
     // Making a login request to obtain the jwt token. In this example the password should be the reverse string of username.
-    token    <- client(
+    token    <- client.quickWithZIO(
       Request
         .get(loginUrl)
         .withBody(
@@ -31,13 +31,13 @@ object AuthenticationClient extends ZIOAppDefault {
             Boundary("boundary123"),
           ),
         ),
-    ).flatMap(_.body.asString)
+    )(_.body.asString)
     // Once the jwt token is procured, adding it as a Bearer token in Authorization header while accessing a protected route.
-    response <- client(Request.get(greetUrl).addHeader(Header.Authorization.Bearer(token)))
+    response <- client.quick(Request.get(greetUrl).addHeader(Header.Authorization.Bearer(token)))
     body     <- response.body.asString
     _        <- Console.printLine(body)
   } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(Client.default)
 
 }

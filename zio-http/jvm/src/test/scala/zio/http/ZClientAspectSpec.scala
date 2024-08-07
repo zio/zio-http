@@ -44,7 +44,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
           client = baseClient.url(
             URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
           ) @@ ZClientAspect.debug
-          response <- client.request(Request.get(URL.empty / "hello"))
+          response <- client.quick(Request.get(URL.empty / "hello"))
           output   <- TestConsole.output
         } yield assertTrue(
           extractStatus(response) == Status.Ok,
@@ -65,7 +65,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
             loggedRequestHeaders = Set(Header.UserAgent),
             logResponseBody = true,
           )
-          response <- client.request(Request.get(URL.empty / "hello"))
+          response <- client.quick(Request.get(URL.empty / "hello"))
           output   <- ZTestLogger.logOutput
           messages    = output.map(_.message())
           annotations = output.map(_.annotations)
@@ -95,7 +95,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
               URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
             )
             .disableStreaming @@ ZClientAspect.followRedirects(2)((resp, message) => ZIO.logInfo(message).as(resp))
-          response <- client.request(Request.get(URL.empty / "redirect"))
+          response <- client.quick(Request.get(URL.empty / "redirect"))
         } yield assertTrue(
           extractStatus(response) == Status.Ok,
         ),
@@ -105,6 +105,5 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Client.default,
-      Scope.default,
     ) @@ withLiveClock
 }

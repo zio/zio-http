@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets
 
 import zio.test.TestAspect.withLiveClock
 import zio.test.assertTrue
-import zio.{Chunk, Scope, ZIO, ZInputStream, ZLayer}
+import zio.{Chunk, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
@@ -89,7 +89,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           client       <- ZIO.service[Client]
           _            <- server.install(app)
           port         <- server.port
-          response     <- client.request(
+          response     <- client.quick(
             Request(
               method = Method.GET,
               url = URL(Path.root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -112,7 +112,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           client       <- ZIO.service[Client]
           _            <- server.install(app)
           port         <- server.port
-          response     <- client.request(
+          response     <- client.quick(
             Request(
               method = Method.GET,
               url = URL(Path.root / "file", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -128,7 +128,6 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Client.default,
-      Scope.default,
     ) @@ withLiveClock
 
   def streamTest(endpoint: String) =
@@ -137,7 +136,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       client       <- ZIO.service[Client]
       _            <- server.install(app)
       port         <- server.port
-      response     <- client.request(
+      response     <- client.quick(
         Request(
           method = Method.GET,
           url = URL(Path.root / endpoint, kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),

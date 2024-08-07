@@ -59,7 +59,7 @@ object ClientSpec extends HttpRunnableSpec {
     test("handle connection failure") {
       val url = URL.decode("http://localhost:1").toOption.get
 
-      val res = ZClient.request(Request.get(url)).either
+      val res = ZClient.quick(Request.get(url)).either
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("streaming content to server") {
@@ -74,7 +74,7 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toRoutes
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get(""))
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).quick(Request.get("")))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == baseURL)
@@ -83,7 +83,7 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toRoutes
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get("/"))
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).quick(Request.get("/")))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == s"$baseURL/"): @nowarn
@@ -103,7 +103,7 @@ object ClientSpec extends HttpRunnableSpec {
     test("request can be timed out manually while awaiting connection") {
       // Unfortunately we have to use a real URL here, as we can't really simulate a long connection time
       val url  = URL.decode("https://test.com").toOption.get
-      val resp = ZIO.scoped(ZClient.request(Request.get(url))).timeout(500.millis)
+      val resp = ZClient.quick(Request.get(url)).timeout(500.millis)
       assertZIO(resp)(isNone)
     } @@ timeout(5.seconds) @@ flaky(5),
     test("authorization header without scheme") {
@@ -125,7 +125,6 @@ object ClientSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Client") {
       serve.as(List(clientSpec))
-    }.provideSome[DynamicServer & Server & Client](Scope.default)
-      .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
+    }.provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
   }
 }
