@@ -47,7 +47,9 @@ final case class ServerSentEvent[T](
 
   def encode(implicit binaryCodec: BinaryCodec[T]): String = {
     val sb = new StringBuilder
-    sb.append("data: ").append(binaryCodec.encode(data).asString)
+    binaryCodec.encode(data).asString.linesIterator.foreach { line =>
+      sb.append("data: ").append(line).append('\n')
+    }
     eventType.foreach { et =>
       sb.append("event: ").append(et.linesIterator.mkString(" ")).append('\n')
     }

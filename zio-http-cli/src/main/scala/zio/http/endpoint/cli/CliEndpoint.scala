@@ -127,11 +127,8 @@ private[cli] object CliEndpoint {
       case HttpCodec.Path(pathCodec, _) =>
         CliEndpoint(url = HttpOptions.Path(pathCodec) :: List())
 
-      case HttpCodec.Query(name, textCodec, _, _) =>
-        textCodec.asInstanceOf[TextCodec[_]] match {
-          case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: List())
-          case _                         => CliEndpoint(url = HttpOptions.Query(name, textCodec) :: List())
-        }
+      case HttpCodec.Query(name, codec, _, _) =>
+        CliEndpoint(url = HttpOptions.Query(name, codec) :: List())
 
       case HttpCodec.Status(_, _) => CliEndpoint.empty
 

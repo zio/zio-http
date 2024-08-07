@@ -14,4 +14,7 @@ addSbtPlugin("org.scala-js"       % "sbt-scalajs"               % "1.16.0")
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject"  % "1.3.2")
 addSbtPlugin("com.thesamet"       % "sbt-protoc"                % "1.0.7")
 addSbtPlugin("com.thesamet"       % "sbt-protoc-gen-project"    % "0.1.8")
+
+addSbtPlugin("org.jetbrains.scala" % "sbt-ide-settings" % "1.1.2")
+
 libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.15"
