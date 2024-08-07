@@ -16,13 +16,15 @@
 
 package zio.http
 
+import java.util.UUID
+
 import scala.collection.Seq
+
 import zio.Chunk
 import zio.test._
+
 import zio.http.internal.HttpGen
 import zio.http.{int => _, uuid => _, _}
-
-import java.util.UUID
 
 object RoutePatternSpec extends ZIOHttpSpec {
   import zio.http.Method

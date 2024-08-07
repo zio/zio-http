@@ -1,6 +1,7 @@
 package zio.http.codec
 
 import java.util.UUID
+
 import scala.util._
 
 import zio._
