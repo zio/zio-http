@@ -29,15 +29,12 @@ import zio.schema.annotation.validate
 import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.authorization
 import zio.http.codec.HttpContentCodec.protobuf
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.netty.NettyConfig
-import zio.http.netty.server.NettyDriver
 
 object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
@@ -76,24 +73,16 @@ object RoundtripSpec extends ZIOHttpSpec {
     implicit val schema: Schema[PostWithAge] = DeriveSchema.gen[PostWithAge]
   }
 
-  def makeExecutor(client: Client, port: Int): EndpointExecutor[Unit] = {
+  def makeExecutor(client: Client, port: Int): EndpointExecutor = {
     val locator = EndpointLocator.fromURL(
       URL.decode(s"http://localhost:$port").toOption.get,
     )
 
-    EndpointExecutor(client, locator, ZIO.unit)
-  }
-
-  def makeExecutor[MI](client: Client, port: Int, middlewareInput: MI): EndpointExecutor[MI] = {
-    val locator = EndpointLocator.fromURL(
-      URL.decode(s"http://localhost:$port").toOption.get,
-    )
-
-    EndpointExecutor(client, locator, ZIO.succeed(middlewareInput))
+    EndpointExecutor(client, locator)
   }
 
   def testEndpoint[P, In, Err, Out](
-    endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
+    endpoint: Endpoint[P, In, Err, Out, AuthType.None],
     route: Routes[Any, Nothing],
     in: In,
     out: Out,
@@ -101,7 +90,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     testEndpointZIO(endpoint, route, in, outF = { (value: Out) => assert(out)(equalTo(value)) })
 
   def testEndpointZIO[P, In, Err, Out](
-    endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
+    endpoint: Endpoint[P, In, Err, Out, AuthType.None],
     route: Routes[Any, Nothing],
     in: In,
     outF: Out => ZIO[Any, Err, TestResult],
@@ -129,7 +118,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     }
 
   def testEndpointError[P, In, Err, Out](
-    endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
+    endpoint: Endpoint[P, In, Err, Out, AuthType.None],
     route: Routes[Any, Nothing],
     in: In,
     err: Err,
@@ -137,7 +126,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     testEndpointErrorZIO(endpoint, route, in, errorF = { (value: Err) => assert(err)(equalTo(value)) })
 
   def testEndpointErrorZIO[P, In, Err, Out](
-    endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
+    endpoint: Endpoint[P, In, Err, Out, AuthType.None],
     route: Routes[Any, Nothing],
     in: In,
     errorF: Err => ZIO[Any, Nothing, TestResult],
@@ -146,7 +135,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       port <- Server.install(route)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
-        .service[EndpointExecutor[Unit]]
+        .service[EndpointExecutor]
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
@@ -415,7 +404,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port)))
 
           cause <- ZIO
-            .serviceWithZIO[EndpointExecutor[Unit]] { executor =>
+            .serviceWithZIO[EndpointExecutor] { executor =>
               executor.apply(endpointWithAnotherSignature.apply(42))
             }
             .provideSome[Client with Scope](executorLayer)

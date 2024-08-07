@@ -40,11 +40,11 @@ object HttpCliApp {
    * @return
    *   a [[HttpCliApp]]
    */
-  def fromEndpoints[M <: EndpointMiddleware](
+  def fromEndpoints(
     name: String,
     version: String,
     summary: HelpDoc.Span,
-    endpoints: Chunk[Endpoint[_, _, _, _, M]],
+    endpoints: Chunk[Endpoint[_, _, _, _, _]],
     host: String,
     port: Int,
     footer: HelpDoc = HelpDoc.Empty,
