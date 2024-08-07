@@ -82,21 +82,36 @@ private[zio] final case class ServerChannelInitializer(
       )
     })
 
+    class HybridHttpObjectAggregator(maxAggregatedLength: Int) extends HttpObjectAggregator(maxAggregatedLength) {
+      override def handleOversizedMessage(ctx: ChannelHandlerContext, oversized: HttpMessage): Unit = {
+        ctx.pipeline().remove(this)
+        ctx.pipeline().addAfter(ctx.name(), "chunkedWriter", new ChunkedWriteHandler())
+        ctx.fireChannelRead(oversized)
+        ctx
+          .pipeline()
+          .addAfter(
+            "chunkedWriter",
+            "chunkedWriterRemover",
+            new ChannelInboundHandlerAdapter {
+              override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
+                ctx.pipeline().remove("chunkedWriter")
+                ctx.pipeline().remove(this)
+                ctx
+                  .pipeline()
+                  .addAfter(ctx.name(), Names.HttpObjectAggregator, new HybridHttpObjectAggregator(maxAggregatedLength))
+                super.channelRead(ctx, msg)
+              }
+            },
+          ): Unit
+      }
+    }
     // ObjectAggregator
     cfg.requestStreaming match {
       case RequestStreaming.Enabled                        =>
       case RequestStreaming.Disabled(maximumContentLength) =>
         pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(maximumContentLength))
       case RequestStreaming.Hybrid(maxAggregatedLength)    =>
-        pipeline.addLast(
-          Names.HttpObjectAggregator,
-          new HttpObjectAggregator(maxAggregatedLength) {
-            override def handleOversizedMessage(ctx: ChannelHandlerContext, oversized: HttpMessage): Unit = {
-              ctx.pipeline().replace(this, "chunkedWriter", new ChunkedWriteHandler())
-              ctx.pipeline().fireChannelRead(oversized): Unit // Explicitly ignore the returned value
-            }
-          },
-        )
+        pipeline.addLast(Names.HttpObjectAggregator, new HybridHttpObjectAggregator(maxAggregatedLength))
     }
 
     // ExpectContinueHandler
