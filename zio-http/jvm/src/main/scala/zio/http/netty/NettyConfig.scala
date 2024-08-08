@@ -25,30 +25,12 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 import io.netty.util.ResourceLeakDetector
 
 final case class NettyConfig(
-  avoidContextSwitching: Boolean,
   leakDetectionLevel: LeakDetectionLevel,
   channelType: ChannelType,
   nThreads: Int,
   shutdownQuietPeriodDuration: Duration,
   shutdownTimeoutDuration: Duration,
 ) extends EventLoopGroups.Config { self =>
-
-  /**
-   * Attempts to avoid context switching between thread pools by executing
-   * requests within Netty's event loop until the first async/blocking boundary.
-   *
-   * Enabling this setting can improve performance for short-lived CPU-bound
-   * tasks, but can also lead to degraded performance if the request handler
-   * performs CPU-heavy work prior to the first async boundary.
-   *
-   * '''WARNING:''' Do not use this mode if the ZIO executor is configured to
-   * use virtual threads
-   *
-   * @see
-   *   For more info on caveats of this mode, see <a
-   *   href="https://github.com/zio/zio-http/pull/2782">related issue </a>
-   */
-  def avoidContextSwitching(value: Boolean): NettyConfig = self.copy(avoidContextSwitching = value)
 
   def channelType(channelType: ChannelType): NettyConfig = self.copy(channelType = channelType)
 
@@ -74,8 +56,7 @@ final case class NettyConfig(
 
 object NettyConfig {
   lazy val config: Config[NettyConfig] =
-    (Config.boolean("minimize-context-switching").withDefault(NettyConfig.default.avoidContextSwitching) ++
-      LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
+    (LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
       Config
         .string("channel-type")
         .mapOrFail {
@@ -90,12 +71,11 @@ object NettyConfig {
       Config.int("max-threads").withDefault(NettyConfig.default.nThreads) ++
       Config.duration("shutdown-quiet-period").withDefault(NettyConfig.default.shutdownQuietPeriodDuration) ++
       Config.duration("shutdown-timeout").withDefault(NettyConfig.default.shutdownTimeoutDuration)).map {
-      case (avoidCtxSwitch, leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout) =>
-        NettyConfig(avoidCtxSwitch, leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout)
+      case (leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout) =>
+        NettyConfig(leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout)
     }
 
   lazy val default: NettyConfig = NettyConfig(
-    avoidContextSwitching = false,
     LeakDetectionLevel.SIMPLE,
     ChannelType.AUTO,
     0,

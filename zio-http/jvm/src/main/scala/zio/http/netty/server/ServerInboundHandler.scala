@@ -43,7 +43,6 @@ import io.netty.util.ReferenceCountUtil
 private[zio] final case class ServerInboundHandler(
   appRef: AppRef,
   config: Server.Config,
-  avoidCtxSwitching: Boolean,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
@@ -54,6 +53,7 @@ private[zio] final case class ServerInboundHandler(
 
   val inFlightRequests: LongAdder = new LongAdder()
   private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
+  private val avoidCtxSwitching   = config.avoidContextSwitching
 
   def refreshApp(): Unit = {
     val pair = appRef.get()
@@ -357,17 +357,16 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
 
   val live: ZLayer[
-    AppRef & Server.Config & NettyConfig,
+    AppRef & Server.Config,
     Nothing,
     ServerInboundHandler,
   ] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
-        appRef   <- ZIO.service[AppRef]
-        config   <- ZIO.service[Server.Config]
-        nettyCfg <- ZIO.service[NettyConfig]
-      } yield ServerInboundHandler(appRef, config, nettyCfg.avoidContextSwitching)
+        appRef <- ZIO.service[AppRef]
+        config <- ZIO.service[Server.Config]
+      } yield ServerInboundHandler(appRef, config)
     }
   }
 
