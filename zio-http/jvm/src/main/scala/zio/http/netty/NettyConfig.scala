@@ -35,8 +35,11 @@ final case class NettyConfig(
   def channelType(channelType: ChannelType): NettyConfig = self.copy(channelType = channelType)
 
   /**
-   * Configure the server to use the leak detection level provided (@see <a
-   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html">ResourceLeakDetector.Level</a>).
+   * Configure the server to use the leak detection level provided.
+   *
+   * @see
+   *   <a
+   *   href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html">ResourceLeakDetector.Level</a>
    */
   def leakDetection(level: LeakDetectionLevel): NettyConfig = self.copy(leakDetectionLevel = level)
 

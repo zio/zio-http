@@ -57,14 +57,32 @@ object Server extends ServerPlatformSpecific {
     gracefulShutdownTimeout: Duration,
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
-  ) {
-    self =>
+    avoidContextSwitching: Boolean,
+  ) { self =>
 
     /**
      * Configure the server to use HttpServerExpectContinueHandler to send a 100
      * HttpResponse if necessary.
      */
     def acceptContinue(enable: Boolean): Config = self.copy(acceptContinue = enable)
+
+    /**
+     * Attempts to avoid context switching between thread pools by executing
+     * requests within the server's IO thread-pool (e.g., Netty's EventLoop)
+     * until the first async/blocking boundary.
+     *
+     * Enabling this setting can improve performance for short-lived CPU-bound
+     * tasks, but can also lead to degraded performance if the request handler
+     * performs CPU-heavy work prior to the first async boundary.
+     *
+     * '''WARNING:''' Do not use this mode if the ZIO executor is configured to
+     * use virtual threads!
+     *
+     * @see
+     *   For more info on caveats of this mode, see <a
+     *   href="https://github.com/zio/zio-http/pull/2782">related issue </a>
+     */
+    def avoidContextSwitching(value: Boolean): Config = self.copy(avoidContextSwitching = value)
 
     /**
      * Configure the server to listen on the provided hostname and port.
@@ -173,7 +191,8 @@ object Server extends ServerPlatformSpecific {
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
         zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
         zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout) ++
-        zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout)
+        zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
+        zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching)
     }.map {
       case (
             sslConfig,
@@ -189,6 +208,7 @@ object Server extends ServerPlatformSpecific {
             logWarningOnFatalError,
             gracefulShutdownTimeout,
             idleTimeout,
+            avoidCtxSwitch,
           ) =>
         default.copy(
           sslConfig = sslConfig,
@@ -203,6 +223,7 @@ object Server extends ServerPlatformSpecific {
           logWarningOnFatalError = logWarningOnFatalError,
           gracefulShutdownTimeout = gracefulShutdownTimeout,
           idleTimeout = idleTimeout,
+          avoidContextSwitching = avoidCtxSwitch,
         )
     }
 
@@ -220,6 +241,7 @@ object Server extends ServerPlatformSpecific {
       gracefulShutdownTimeout = 10.seconds,
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = None,
+      avoidContextSwitching = false,
     )
 
     final case class ResponseCompressionConfig(
