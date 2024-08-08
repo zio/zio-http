@@ -4,8 +4,11 @@ import zio._
 import zio.cli._
 import zio.test.Gen
 
+import zio.schema.Schema
+
 import zio.http._
 import zio.http.codec._
+import zio.http.codec.internal.TextBinaryCodec
 import zio.http.endpoint.cli.AuxGen._
 import zio.http.endpoint.cli.CliRepr._
 
@@ -29,6 +32,11 @@ object OptionsGen {
     HttpOptions
       .optionsFromTextCodec(textCodec)(name)
       .map(value => textCodec.encode(value))
+
+  def encodeOptions[A](name: String, codec: BinaryCodecWithSchema[A]): Options[String] =
+    HttpOptions
+      .optionsFromSchema(codec)(name)
+      .map(value => codec.codec.encode(value).asString)
 
   lazy val anyBodyOption: Gen[Any, CliReprOf[Options[Retriever]]] =
     Gen
@@ -76,25 +84,22 @@ object OptionsGen {
         },
       Gen
         .alphaNumericStringBounded(1, 30)
-        .zip(anyTextCodec)
-        .map {
-          case (name, TextCodec.Constant(value)) =>
-            CliRepr(
-              Options.Empty.map(_ => value),
-              CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: Nil),
-            )
-          case (name, codec)                     =>
-            CliRepr(
-              encodeOptions(name, codec),
-              CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
-            )
+        .zip(anyStandardType.map { s =>
+          val schema = s.asInstanceOf[Schema[Any]]
+          BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+        })
+        .map { case (name, codec) =>
+          CliRepr(
+            encodeOptions(name, codec),
+            CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
+          )
         },
     )
 
   lazy val anyMethod: Gen[Any, CliReprOf[Method]] =
-    Gen.fromIterable(List(Method.GET, Method.DELETE, Method.POST, Method.PUT)).map { case method =>
-      CliRepr(method, CliEndpoint(methods = method))
-    }
+    Gen
+      .fromIterable(List(Method.GET, Method.DELETE, Method.POST, Method.PUT))
+      .map(method => CliRepr(method, CliEndpoint(methods = method)))
 
   lazy val anyCliEndpoint: Gen[Any, CliReprOf[Options[CliRequest]]] =
     Gen

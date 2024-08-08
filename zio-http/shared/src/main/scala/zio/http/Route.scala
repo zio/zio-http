@@ -273,7 +273,7 @@ sealed trait Route[-Env, +Err] { self =>
    */
   def location: Trace
 
-  def nest(prefix: PathCodec[Unit])(implicit ev: Err <:< Response): Route[Env, Err] =
+  def nest(prefix: PathCodec[Unit]): Route[Env, Err] =
     self match {
       case Provided(route, env)                     => Provided(route.nest(prefix), env)
       case Augmented(route, aspect)                 => Augmented(route.nest(prefix), aspect)
@@ -308,9 +308,6 @@ sealed trait Route[-Env, +Err] { self =>
     handleErrorCause(Response.fromCause(_))
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
-
-  @deprecated("Use toRoutes instead", "3.0.0-RC7")
-  final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = toHandler.toHttpApp
 
   final def toRoutes: Routes[Env, Err] = Routes(self)
 

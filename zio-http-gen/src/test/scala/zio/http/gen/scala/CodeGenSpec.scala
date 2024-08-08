@@ -8,7 +8,7 @@ import scala.meta._
 import scala.meta.parsers._
 import scala.util.{Failure, Success, Try}
 
-import zio.json.JsonDecoder
+import zio.json.{JsonDecoder, JsonEncoder}
 import zio.test.Assertion.{hasSameElements, isFailure, isSuccess, throws}
 import zio.test.TestAspect.{blocking, flaky}
 import zio.test.TestFailure.fail
@@ -182,7 +182,6 @@ object CodeGenSpec extends ZIOSpecDefault {
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
         val tempDir = Files.createTempDirectory("codegen")
-        println(tempDir)
         CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(
@@ -240,7 +239,6 @@ object CodeGenSpec extends ZIOSpecDefault {
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
         val tempDir = Files.createTempDirectory("codegen")
-        println(tempDir)
         CodeGen.writeFiles(code, java.nio.file.Paths.get(tempDir.toString, "test"), "test", Some(scalaFmtPath))
 
         fileShouldBe(

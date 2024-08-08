@@ -33,7 +33,7 @@ object NettyResponse {
   def apply(jRes: FullHttpResponse)(implicit unsafe: Unsafe): Response = {
     val status  = Conversions.statusFromNetty(jRes.status())
     val headers = Conversions.headersFromNetty(jRes.headers())
-    val data    = NettyBody.fromByteBuf(jRes.content(), headers.headers.get(Header.ContentType.name))
+    val data    = NettyBody.fromByteBuf(jRes.content(), headers.get(Header.ContentType))
 
     Response(status, headers, data)
   }
@@ -55,6 +55,7 @@ object NettyResponse {
       onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
       Response(status, headers, Body.empty)
     } else {
+      val contentType     = headers.get(Header.ContentType)
       val responseHandler = new ClientResponseStreamHandler(onComplete, keepAlive, status)
       ctx
         .pipeline()
@@ -64,7 +65,11 @@ object NettyResponse {
           responseHandler,
         ): Unit
 
-      val data = NettyBody.fromAsync(callback => responseHandler.connect(callback), knownContentLength)
+      val data = NettyBody.fromAsync(
+        callback => responseHandler.connect(callback),
+        knownContentLength,
+        contentType,
+      )
       Response(status, headers, data)
     }
   }

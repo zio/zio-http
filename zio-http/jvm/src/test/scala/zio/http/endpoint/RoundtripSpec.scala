@@ -25,6 +25,8 @@ import zio.test._
 
 import zio.stream.ZStream
 
+import zio.schema.annotation.validate
+import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Header.Authorization
@@ -32,7 +34,7 @@ import zio.http.Method._
 import zio.http._
 import zio.http.codec.HttpCodec.authorization
 import zio.http.codec.HttpContentCodec.protobuf
-import zio.http.codec.{Doc, HeaderCodec, HttpCodec, HttpContentCodec, QueryCodec}
+import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
@@ -42,7 +44,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     ZLayer.make[Server & Client & Scope](
       Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get @@ ZClientAspect.debug)),
+      Client.customized.map(env => ZEnvironment(env.get)),
       ClientDriver.shared,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
@@ -61,6 +63,17 @@ object RoundtripSpec extends ZIOHttpSpec {
 
   object Post {
     implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
+  }
+
+  case class Age(@validate(Validation.greaterThan(18)) ignoredFieldName: Int)
+  object Age {
+    implicit val schema: Schema[Age] = DeriveSchema.gen[Age]
+  }
+
+  final case class PostWithAge(id: Int, title: String, body: String, userId: Int, age: Age)
+
+  object PostWithAge {
+    implicit val schema: Schema[PostWithAge] = DeriveSchema.gen[PostWithAge]
   }
 
   def makeExecutor(client: Client, port: Int): EndpointExecutor[Unit] = {
@@ -209,31 +222,66 @@ object RoundtripSpec extends ZIOHttpSpec {
             .query(HttpCodec.queryInt("id"))
             .query(HttpCodec.query("name").optional)
             .query(HttpCodec.query("details").optional)
-            .out[Post]
+            .query(HttpCodec.queryTo[Age]("age").optional)
+            .out[PostWithAge]
 
         val handler =
           api.implementHandler {
-            Handler.fromFunction { case (id, userId, name, details) =>
-              Post(id, name.getOrElse("-"), details.getOrElse("-"), userId)
+            Handler.fromFunction { case (id, userId, name, details, age) =>
+              PostWithAge(id, name.getOrElse("-"), details.getOrElse("-"), userId, age.getOrElse(Age(20)))
             }
           }
 
         testEndpoint(
           api,
           Routes(handler),
-          (10, 20, None, Some("x")),
-          Post(10, "-", "x", 20),
+          (10, 20, None, Some("x"), None),
+          PostWithAge(10, "-", "x", 20, Age(20)),
         ) && testEndpoint(
           api,
           Routes(handler),
-          (10, 20, None, None),
-          Post(10, "-", "-", 20),
+          (10, 20, None, None, None),
+          PostWithAge(10, "-", "-", 20, Age(20)),
         ) &&
         testEndpoint(
           api,
           Routes(handler),
-          (10, 20, Some("x"), Some("y")),
-          Post(10, "x", "y", 20),
+          (10, 20, Some("x"), Some("y"), Some(Age(23))),
+          PostWithAge(10, "x", "y", 20, Age(23)),
+        )
+      },
+      test("simple get with query params that fails validation") {
+        val api =
+          Endpoint(GET / "users" / int("userId"))
+            .query(HttpCodec.queryInt("id"))
+            .query(HttpCodec.query("name").optional)
+            .query(HttpCodec.query("details").optional)
+            .query(HttpCodec.queryTo[Age]("age").optional)
+            .out[PostWithAge]
+
+        val handler =
+          api.implementHandler {
+            Handler.fromFunction { case (id, userId, name, details, age) =>
+              PostWithAge(id, name.getOrElse("-"), details.getOrElse("-"), userId, age.getOrElse(Age(0)))
+            }
+          }
+
+        testEndpoint(
+          api,
+          Routes(handler),
+          (10, 20, Some("x"), Some("y"), Some(Age(17))),
+          PostWithAge(10, "x", "y", 20, Age(17)),
+        ).catchAllCause(t =>
+          ZIO.succeed(
+            assertTrue(
+              t.dieOption.contains(
+                HttpCodecError.CustomError(
+                  name = "InvalidEntity",
+                  message = "A well-formed entity failed validation: 17 should be greater than 18",
+                ),
+              ),
+            ),
+          ),
         )
       },
       test("throwing error in handler") {

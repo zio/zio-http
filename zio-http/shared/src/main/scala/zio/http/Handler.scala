@@ -608,20 +608,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * the handler has been appropriately sandboxed, turning all possible failures
    * into well-formed HTTP responses.
    */
-  @deprecated("Use toRoutes instead. Will be removed in the next release.", "3.0.0-RC7")
-  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response, trace: Trace): HttpApp[R] = {
-    val handler: Handler[R, Response, Request, Response] =
-      self.asInstanceOf[Handler[R, Response, Request, Response]]
-
-    HttpApp(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
-  }
-
-  /**
-   * Converts the request handler into an HTTP application. Note that the
-   * handler of the HTTP application is not identical to this handler, because
-   * the handler has been appropriately sandboxed, turning all possible failures
-   * into well-formed HTTP responses.
-   */
   def toRoutes(implicit in: Request <:< In, out: Out <:< Response, trace: Trace): Routes[R, Err] = {
     val handler: Handler[R, Err, Request, Response] =
       self.asInstanceOf[Handler[R, Err, Request, Response]]

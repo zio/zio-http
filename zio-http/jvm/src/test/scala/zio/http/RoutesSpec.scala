@@ -80,10 +80,10 @@ object RoutesSpec extends ZIOHttpSpec {
       val routes = literal("to") / Routes(
         Method.GET / "other"             -> handler(ZIO.fail(IdFormatError)),
         Method.GET / "do" / string("id") -> handler { (id: String, _: Request) => Response.text(s"GET /to/do/${id}") },
-      ).handleError { case IdFormatError =>
+      )
+      routes.handleError { case IdFormatError =>
         Response.badRequest
       }
-      routes
         .run(
           path = Path.root / "to" / "do" / "123",
         )

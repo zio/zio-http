@@ -3,6 +3,7 @@ package zio.http.endpoint.cli
 import scala.language.implicitConversions
 import scala.util.Try
 
+import zio.Chunk
 import zio.cli._
 import zio.json.ast._
 
@@ -261,11 +262,12 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class Query(override val name: String, textCodec: TextCodec[_], doc: Doc = Doc.empty) extends URLOptions {
+  final case class Query(override val name: String, codec: BinaryCodecWithSchema[_], doc: Doc = Doc.empty)
+      extends URLOptions {
     self =>
 
     override val tag             = "?" + name
-    lazy val options: Options[_] = optionsFromTextCodec(textCodec)(name)
+    lazy val options: Options[_] = optionsFromSchema(codec)(name)
 
     override def ??(doc: Doc): Query = self.copy(doc = self.doc + doc)
 
@@ -288,6 +290,76 @@ private[cli] object HttpOptions {
       request.map(_.addQueryParam(name, value))
 
   }
+
+  private[cli] def optionsFromSchema[A](codec: BinaryCodecWithSchema[A]): String => Options[A] =
+    codec.schema match {
+      case Schema.Primitive(standardType, _) =>
+        standardType match {
+          case StandardType.UnitType           =>
+            _ => Options.Empty
+          case StandardType.StringType         =>
+            Options.text
+          case StandardType.BoolType           =>
+            Options.boolean(_)
+          case StandardType.ByteType           =>
+            Options.integer(_).map(_.toByte)
+          case StandardType.ShortType          =>
+            Options.integer(_).map(_.toShort)
+          case StandardType.IntType            =>
+            Options.integer(_).map(_.toInt)
+          case StandardType.LongType           =>
+            Options.integer(_).map(_.toLong)
+          case StandardType.FloatType          =>
+            Options.decimal(_).map(_.toFloat)
+          case StandardType.DoubleType         =>
+            Options.decimal(_).map(_.toDouble)
+          case StandardType.BinaryType         =>
+            Options.text(_).map(_.getBytes).map(Chunk.fromArray)
+          case StandardType.CharType           =>
+            Options.text(_).map(_.charAt(0))
+          case StandardType.UUIDType           =>
+            Options.text(_).map(java.util.UUID.fromString)
+          case StandardType.CurrencyType       =>
+            Options.text(_).map(java.util.Currency.getInstance)
+          case StandardType.BigDecimalType     =>
+            Options.decimal(_).map(_.bigDecimal)
+          case StandardType.BigIntegerType     =>
+            Options.integer(_).map(_.bigInteger)
+          case StandardType.DayOfWeekType      =>
+            Options.integer(_).map(i => java.time.DayOfWeek.of(i.toInt))
+          case StandardType.MonthType          =>
+            Options.text(_).map(java.time.Month.valueOf)
+          case StandardType.MonthDayType       =>
+            Options.text(_).map(java.time.MonthDay.parse)
+          case StandardType.PeriodType         =>
+            Options.text(_).map(java.time.Period.parse)
+          case StandardType.YearType           =>
+            Options.integer(_).map(i => java.time.Year.of(i.toInt))
+          case StandardType.YearMonthType      =>
+            Options.text(_).map(java.time.YearMonth.parse)
+          case StandardType.ZoneIdType         =>
+            Options.text(_).map(java.time.ZoneId.of)
+          case StandardType.ZoneOffsetType     =>
+            Options.text(_).map(java.time.ZoneOffset.of)
+          case StandardType.DurationType       =>
+            Options.text(_).map(java.time.Duration.parse)
+          case StandardType.InstantType        =>
+            Options.instant(_)
+          case StandardType.LocalDateType      =>
+            Options.localDate(_)
+          case StandardType.LocalTimeType      =>
+            Options.localTime(_)
+          case StandardType.LocalDateTimeType  =>
+            Options.localDateTime(_)
+          case StandardType.OffsetTimeType     =>
+            Options.text(_).map(java.time.OffsetTime.parse)
+          case StandardType.OffsetDateTimeType =>
+            Options.text(_).map(java.time.OffsetDateTime.parse)
+          case StandardType.ZonedDateTimeType  =>
+            Options.text(_).map(java.time.ZonedDateTime.parse)
+        }
+      case schema                            => throw new NotImplementedError(s"Schema $schema not yet supported")
+    }
 
   private[cli] def optionsFromTextCodec[A](textCodec: TextCodec[A]): (String => Options[A]) =
     textCodec match {
@@ -312,7 +384,7 @@ private[cli] object HttpOptions {
   private[cli] def optionsFromSegment(segment: SegmentCodec[_]): Options[String] = {
     def fromSegment[A](segment: SegmentCodec[A]): Options[String] =
       segment match {
-        case SegmentCodec.UUID(name)     =>
+        case SegmentCodec.UUID(name)        =>
           Options
             .text(name)
             .mapOrFail(str =>
@@ -324,13 +396,14 @@ private[cli] object HttpOptions {
               },
             )
             .map(_.toString)
-        case SegmentCodec.Text(name)     => Options.text(name)
-        case SegmentCodec.IntSeg(name)   => Options.integer(name).map(_.toInt).map(_.toString)
-        case SegmentCodec.LongSeg(name)  => Options.integer(name).map(_.toInt).map(_.toString)
-        case SegmentCodec.BoolSeg(name)  => Options.boolean(name).map(_.toString)
-        case SegmentCodec.Literal(value) => Options.Empty.map(_ => value)
-        case SegmentCodec.Trailing       => Options.none.map(_.toString)
-        case SegmentCodec.Empty          => Options.none.map(_.toString)
+        case SegmentCodec.Text(name)        => Options.text(name)
+        case SegmentCodec.IntSeg(name)      => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.LongSeg(name)     => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.BoolSeg(name)     => Options.boolean(name).map(_.toString)
+        case SegmentCodec.Literal(value)    => Options.Empty.map(_ => value)
+        case SegmentCodec.Trailing          => Options.none.map(_.toString)
+        case SegmentCodec.Empty             => Options.none.map(_.toString)
+        case SegmentCodec.Combined(_, _, _) => throw new IllegalArgumentException("Combined segment not supported")
       }
 
     fromSegment(segment)
