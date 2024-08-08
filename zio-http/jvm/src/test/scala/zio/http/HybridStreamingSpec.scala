@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package zio.http
 
 import zio._
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{equalTo, isFalse, isTrue}
 import zio.test.TestAspect.{diagnose, sequential, shrinks, withLiveClock}
-import zio.test.{assertTrue, assertZIO}
+import zio.test.{assert, suite, test}
 
 import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
@@ -48,47 +47,23 @@ object HybridRequestStreamingServerSpec extends HttpRunnableSpec {
   }
 
   val hybridStreamingServerSpec = suite("HybridStreamingServerSpec")(
-    test("small content should stream") {
-      val size    = MaxSize - 1
-      val content = genString(size, '?')
-      val routes  = Handler
-        .fromFunctionZIO[Request] {
-          _.body.asStream.runCount
-            .map(bytesCount => Response.text(bytesCount.toString))
+    test("multiple requests with same connection") {
+      val sizes  = List(MaxSize - 1, MaxSize + 1, MaxSize - 1)
+      val routes = Handler
+        .fromFunctionZIO[Request] { request =>
+          ZIO.succeed(Response.text(request.body.isComplete.toString))
         }
         .sandbox
         .toRoutes
 
-      val res = routes.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
-      assertZIO(res)(equalTo(size.toString))
-    },
-    test("large content should chunk") {
-      val size    = MaxSize + 1
-      val content = genString(size, '?')
-      val routes  = Handler
-        .fromFunctionZIO[Request] {
-          _.body.asStream.runCount
-            .map(bytesCount => Response.text(bytesCount.toString))
-        }
-        .sandbox
-        .toRoutes
+      def requestContent(size: Int) = Request(body = Body.fromString(genString(size, '?')))
 
-      val res = routes.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
-      assertZIO(res)(equalTo(size.toString))
-    },
-    test("boundary case") {
-      val size    = MaxSize
-      val content = genString(size, '?')
-      val routes  = Handler
-        .fromFunctionZIO[Request] {
-          _.body.asStream.runCount
-            .map(bytesCount => Response.text(bytesCount.toString))
-        }
-        .sandbox
-        .toRoutes
-
-      val res = routes.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
-      assertZIO(res)(equalTo(size.toString))
+      for {
+        responses <- ZIO.collectAll(sizes.map(size => routes.deploy(requestContent(size)).flatMap(_.body.asString)))
+      } yield {
+        val expectedResults = sizes.map(size => if (size > MaxSize) "false" else "true")
+        assert(responses)(equalTo(expectedResults))
+      }
     },
   )
 

@@ -23,15 +23,14 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Server
 import zio.http.Server.RequestStreaming
-import zio.http.netty.Names
 import zio.http.netty.model.Conversions
+import zio.http.netty.{HybridContentLengthHandler, Names}
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flush.FlushConsolidationHandler
-import io.netty.handler.stream.ChunkedWriteHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
 
 /**
@@ -82,36 +81,14 @@ private[zio] final case class ServerChannelInitializer(
       )
     })
 
-    class HybridHttpObjectAggregator(maxAggregatedLength: Int) extends HttpObjectAggregator(maxAggregatedLength) {
-      override def handleOversizedMessage(ctx: ChannelHandlerContext, oversized: HttpMessage): Unit = {
-        ctx.pipeline().remove(this)
-        ctx.pipeline().addAfter(ctx.name(), "chunkedWriter", new ChunkedWriteHandler())
-        ctx.fireChannelRead(oversized)
-        ctx
-          .pipeline()
-          .addAfter(
-            "chunkedWriter",
-            "chunkedWriterRemover",
-            new ChannelInboundHandlerAdapter {
-              override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
-                ctx.pipeline().remove("chunkedWriter")
-                ctx.pipeline().remove(this)
-                ctx
-                  .pipeline()
-                  .addAfter(ctx.name(), Names.HttpObjectAggregator, new HybridHttpObjectAggregator(maxAggregatedLength))
-                super.channelRead(ctx, msg)
-              }
-            },
-          ): Unit
-      }
-    }
     // ObjectAggregator
     cfg.requestStreaming match {
-      case RequestStreaming.Enabled                        =>
-      case RequestStreaming.Disabled(maximumContentLength) =>
+      case RequestStreaming.Enabled                         =>
+      case RequestStreaming.Disabled(maximumContentLength)  =>
         pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(maximumContentLength))
-      case RequestStreaming.Hybrid(maxAggregatedLength)    =>
-        pipeline.addLast(Names.HttpObjectAggregator, new HybridHttpObjectAggregator(maxAggregatedLength))
+      case RequestStreaming.Hybrid(aggregatedContentLength) =>
+        pipeline.addLast(Names.HybridContentLengthHandler, new HybridContentLengthHandler(aggregatedContentLength))
+        pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(aggregatedContentLength))
     }
 
     // ExpectContinueHandler
