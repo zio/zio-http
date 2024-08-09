@@ -35,6 +35,9 @@ sealed trait Status extends Product with Serializable { self =>
    */
   val code: Int
 
+  val reasonPhrase: String =
+    self.productPrefix.flatMap { c => if (c.isUpper) s" $c" else s"$c" }.drop(1)
+
   lazy val text: String = code.toString
 
   /**
@@ -53,7 +56,7 @@ object Status {
   sealed trait Informational extends Status // 100 – 199
   sealed trait Success       extends Status // 200 – 299
   sealed trait Redirection   extends Status // 300 – 399
-  sealed trait Error         extends Status // 400 – 499
+  sealed trait Error         extends Status // 400 – 599
   sealed trait ClientError   extends Error  // 400 – 499
   sealed trait ServerError   extends Error  // 500 – 599
 
@@ -169,7 +172,7 @@ object Status {
 
   case object NetworkAuthenticationRequired extends ServerError { override val code: Int = 511 }
 
-  final case class Custom(override val code: Int) extends Status
+  final case class Custom(override val code: Int, override val reasonPhrase: String = "") extends Status
 
   def fromString(code: String): Option[Status] =
     Try(code.toInt).toOption.map(fromInt)
@@ -232,7 +235,7 @@ object Status {
       case 507 => Status.InsufficientStorage
       case 510 => Status.NotExtended
       case 511 => Status.NetworkAuthenticationRequired
-      case _   => Status.Custom(code)
+      case _   => Status.Custom(code, "")
     }
   }
 }
