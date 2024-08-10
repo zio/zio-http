@@ -54,5 +54,6 @@ object Dependencies {
   val `zio-schema-msg-pack` = "dev.zio" %% "zio-schema-msg-pack" % ZioSchemaVersion
   val `zio-test`            = "dev.zio" %% "zio-test"            % ZioVersion % "test"
   val `zio-test-sbt`        = "dev.zio" %% "zio-test-sbt"        % ZioVersion % "test"
+  val `zio-parser`          = "dev.zio" %% "zio-parser"          % "0.1.10"
 
 }
