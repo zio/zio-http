@@ -2557,7 +2557,7 @@ object Header {
     def parse(s: String): Either[String, ContentType] = {
       // Guard against malicious registering of invalid content types
       if (cache.size >= CacheMaxSize) cache.clear()
-      cache.computeIfAbsent(s.toLowerCase, parseFn)
+      cache.computeIfAbsent(s, parseFn)
     }
 
     def render(contentType: ContentType): String = codec.encode(contentType).toOption.get
