@@ -222,13 +222,12 @@ object User {
   implicit val schema = DeriveSchema.gen[User]
 }
 
-val program: ZIO[Scope & Client, Throwable, Unit] =
+val program: ZIO[Client, Throwable, Unit] =
   for {
-    url    <- ZIO.fromEither(URL.decode("http://localhost:8080"))
-    client <- ZIO.serviceWith[Client](_.url(url))
-    _      <- ZIO.scoped(client.post("/users")(Body.from(User("John", 42))))
-    res    <- ZIO.scoped(client.get("/users"))
-    _      <- ZIO.scoped(client.delete("/users/1"))
+    client <- ZIO.serviceWith[Client](_.url(url"http://localhost:8080"))
+    _      <- client.simple.post("/users")(Body.from(User("John", 42)))
+    res    <- client.simple.get("/users")
+    _      <- client.simple.delete("/users/1")
     _      <- res.body.asString.debug
   } yield ()
 ```
