@@ -89,7 +89,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           client       <- ZIO.service[Client]
           _            <- server.install(app)
           port         <- server.port
-          response     <- client.quick(
+          response     <- client.simple(
             Request(
               method = Method.GET,
               url = URL(Path.root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -112,7 +112,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           client       <- ZIO.service[Client]
           _            <- server.install(app)
           port         <- server.port
-          response     <- client.quick(
+          response     <- client.simple(
             Request(
               method = Method.GET,
               url = URL(Path.root / "file", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -136,7 +136,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       client       <- ZIO.service[Client]
       _            <- server.install(app)
       port         <- server.port
-      response     <- client.quick(
+      response     <- client.simple(
         Request(
           method = Method.GET,
           url = URL(Path.root / endpoint, kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),

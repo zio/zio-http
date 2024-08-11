@@ -31,7 +31,7 @@ object ServerSentEventSpec extends ZIOSpecDefault {
         client
           .url(url"http://localhost:$port")
           .addHeader(Header.Accept(MediaType.text.`event-stream`))
-          .quickWithStream(
+          .stream(
             Request(method = Method.GET, url = url"/sse", body = Body.empty),
           )(_.body.asServerSentEvents[String])
     } yield event

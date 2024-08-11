@@ -38,7 +38,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           serverUrl       <- ZIO.fromEither(URL.decode(s"http://localhost:$validServerPort"))
           proxyUrl        <- ZIO.fromEither(URL.decode("http://localhost:0001"))
           out             <- ZClient
-            .quick(Request.get(url = serverUrl))
+            .simple(Request.get(url = serverUrl))
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(Proxy(proxyUrl))),
@@ -57,7 +57,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           id   <- DynamicServer.deploy(Handler.ok.toRoutes)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
           zclient <- ZIO.serviceWith[Client](_.proxy(proxy))
-          out     <- zclient.quick(Request.get(url = url))
+          out     <- zclient.simple(Request.get(url = url))
         } yield out
       assertZIO(res.either)(isRight)
     }.provideSome[DynamicServer](
@@ -71,7 +71,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           id   <- DynamicServer.deploy(Handler.ok.toRoutes)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
           out <- Client
-            .quick(Request.get(url = url))
+            .simple(Request.get(url = url))
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
@@ -102,7 +102,7 @@ object ClientProxySpec extends HttpRunnableSpec {
             .headers(Headers(DynamicServer.APP_ID, id))
             .credentials(Credentials("test", Secret("test")))
           out <- Client
-            .quick(Request.get(url = url))
+            .simple(Request.get(url = url))
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),

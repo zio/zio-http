@@ -43,7 +43,7 @@ object GracefulShutdown extends ZIOAppDefault {
         .fork
       _        <- started.await
       _        <- fiber.interrupt.delay(2.seconds).fork
-      response <- ZClient.quick(Request.get(url"http://localhost:8080/test"))
+      response <- ZClient.simple(Request.get(url"http://localhost:8080/test"))
       body     <- response.body.asString
       _        <- Console.printLine(response.status)
       _        <- Console.printLine(body)

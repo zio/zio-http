@@ -10,7 +10,7 @@ object ClientWithConnectionPooling extends ZIOAppDefault {
     url    <- ZIO.fromEither(URL.decode("http://jsonplaceholder.typicode.com/posts"))
     client <- ZIO.serviceWith[Client](_.addUrl(url))
     _      <- ZIO.foreachParDiscard(Chunk.fromIterable(1 to 100)) { i =>
-      client.quickWithZIO(Request.get(i.toString))(_.body.asString).debug
+      client.simple(Request.get(i.toString)).flatMap(_.body.asString).debug
     }
   } yield ()
 

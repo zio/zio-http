@@ -36,9 +36,8 @@ final case class ZClient[-Env, -In, +Err, +Out](
   bodyEncoder: ZClient.BodyEncoder[Env, Err, In],
   bodyDecoder: ZClient.BodyDecoder[Env, Err, Out],
   driver: ZClient.Driver[Env, Err],
-) extends HeaderOps[ZClient[Env, In, Err, Out]] { self =>
-  def apply(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
-    self.request(request)
+) extends ZClient.RequestApi[Env & Scope, In, Err, Out]
+    with HeaderOps[ZClient[Env, In, Err, Out]] { self =>
 
   override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): ZClient[Env, In, Err, Out] =
     copy(headers = update(headers))
@@ -92,9 +91,6 @@ final case class ZClient[-Env, -In, +Err, +Out](
       self.driver,
     )
 
-  def delete(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
-    request(Method.DELETE, suffix)(ev(Body.empty))
-
   def dieOn(
     f: Err => Boolean,
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err, Out] =
@@ -102,12 +98,6 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   def disableStreaming(implicit ev: Err <:< Throwable, trace: Trace): ZClient[Env, In, Throwable, Out] =
     transform(bodyEncoder.widenError[Throwable], bodyDecoder.widenError[Throwable], driver.disableStreaming)
-
-  def get(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
-    request(Method.GET, suffix)(ev(Body.empty))
-
-  def head(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
-    request(Method.HEAD, suffix)(ev(Body.empty))
 
   def host(host: String): ZClient[Env, In, Err, Out] =
     copy(url = url.host(host))
@@ -137,152 +127,24 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def path(path: Path): ZClient[Env, In, Err, Out] =
     copy(url = url.copy(path = path))
 
-  def patch(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
-    request(Method.PATCH, suffix)(ev(Body.empty))
-
   def port(port: Int): ZClient[Env, In, Err, Out] =
     copy(url = url.port(port))
-
-  def post(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
-    request(Method.POST, suffix)(body)
-
-  def put(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
-    request(Method.PUT, suffix)(body)
 
   def refineOrDie[Err2](
     pf: PartialFunction[Err, Err2],
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err2, Out] =
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
-  /**
-   * Executes an HTTP request and transforms the response using the provided
-   * function
-   *
-   * @see
-   *   [[ZClient.quick]] for info on the usage of this method
-   */
-  def quick(request: Request)(implicit
-    trace: Trace,
-    ev1: Body <:< In,
-    ev2: Out <:< Response,
-    ev3: Err <:< Throwable,
-  ): RIO[Env, Response] =
-    quickWith[Response](request)(identity)
-
-  /**
-   * Executes an HTTP request and transforms the response using the provided
-   * function
-   *
-   * @see
-   *   [[ZClient.quickWith]] for info on the usage of this method
-   */
-  def quickWith[A](request: Request)(f: Response => A)(implicit
-    trace: Trace,
-    ev1: Body <:< In,
-    ev2: Out <:< Response,
-    ev3: Err <:< Throwable,
-  ): RIO[Env, A] =
-    quickWithZIO[Any, A](request)(r => ZIO.succeed(f(r)))
-
-  /**
-   * Executes an HTTP request and transforms the response using the provided
-   * function
-   *
-   * @see
-   *   [[ZClient.quickWithZIO]] for info on the usage of this method
-   */
-  def quickWithZIO[R, A](request: Request)(f: Response => RIO[R, A])(implicit
-    trace: Trace,
-    ev1: Body <:< In,
-    ev2: Out <:< Response,
-    ev3: Err <:< Throwable,
-  ): RIO[Env & R, A] = ZIO.scoped[Env & R] {
-    self
-      .request(request)
-      .foldZIO(
-        e => Exit.fail(ev3(e)),
-        out => ev2(out).collect.flatMap(f),
-      )
-  }
-
-  /**
-   * Executes an HTTP request and transforms the response into a `ZStream` using
-   * the provided function
-   *
-   * @see
-   *   [[ZClient.quickWithStream]] for info on the usage of this method
-   */
-  def quickWithStream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
-    trace: Trace,
-    ev1: Body <:< In,
-    ev2: Out <:< Response,
-    ev3: Err <:< Throwable,
-  ): ZStream[Env & R, Throwable, A] = ZStream.unwrapScoped[Env & R] {
-    self
-      .request(request)
-      .fold(
-        e => ZStream.fail(ev3(e)),
-        out => f(ev2(out)),
-      )
-  }
-
-  /**
-   * Executes an HTTP request and extracts the response
-   *
-   * @see
-   *   [[ZClient.request]] for info on the usage of this method
-   */
-  def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
-    if (bodyEncoder == ZClient.BodyEncoder.identity)
-      bodyDecoder.decodeZIO(
-        driver
-          .request(
-            self.version ++ request.version,
-            request.method,
-            self.url ++ request.url,
-            self.headers ++ request.headers,
-            request.body,
-            sslConfig,
-            proxy,
-          ),
-      )
-    else
-      bodyEncoder
-        .encode(ev(request.body))
-        .flatMap(body =>
-          bodyDecoder.decodeZIO(
-            driver
-              .request(
-                self.version ++ request.version,
-                request.method,
-                self.url ++ request.url,
-                self.headers ++ request.headers,
-                body,
-                sslConfig,
-                proxy,
-              ),
-          ),
-        )
-
-  def request(method: Method, suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
-    bodyEncoder
-      .encode(body)
-      .flatMap(body => bodyDecoder.decodeZIO[Env & Scope, Err](requestRaw(method, suffix, body)))
-
-  private def requestRaw(method: Method, suffix: String, body: Body)(implicit
-    trace: Trace,
-  ): ZIO[Env & Scope, Err, Response] = {
-    driver
-      .request(
-        version,
-        method,
-        if (suffix.nonEmpty) url.addPath(suffix) else url,
-        headers,
-        body,
-        sslConfig,
-        proxy,
-      )
-  }
+  protected def requestRaw(
+    version: Version,
+    method: Method,
+    url: URL,
+    headers: Headers,
+    body: Body,
+    sslConfig: Option[ClientSSLConfig],
+    proxy: Option[Proxy],
+  )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
+    driver.request(version, method, url, headers, body, sslConfig, proxy)
 
   def retry[Env1 <: Env](policy: Schedule[Env1, Err, Any]): ZClient[Env1, In, Err, Out] =
     transform[Env1, In, Err, Out](bodyEncoder, bodyDecoder, self.driver.retry(policy))
@@ -302,6 +164,24 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   def ssl(ssl: ClientSSLConfig): ZClient[Env, In, Err, Out] =
     copy(sslConfig = Some(ssl))
+
+  /**
+   * Executes an HTTP request and transforms the response into a `ZStream` using
+   * the provided function
+   */
+  def stream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
+    trace: Trace,
+    ev1: Body <:< In,
+    ev2: Out <:< Response,
+    ev3: Err <:< Throwable,
+  ): ZStream[Env & R, Throwable, A] = ZStream.unwrapScoped[Env & R] {
+    self
+      .request(request)
+      .fold(
+        e => ZStream.fail(ev3(e)),
+        out => f(ev2(out)),
+      )
+  }
 
   def proxy(proxy: Proxy): ZClient[Env, In, Err, Out] =
     copy(proxy = Some(proxy))
@@ -325,6 +205,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def uri(uri: URI): ZClient[Env, In, Err, Out] = url(URL.fromURI(uri).getOrElse(URL.empty))
 
   def url(url: URL): ZClient[Env, In, Err, Out] = copy(url = url)
+
 }
 
 object ZClient extends ZClientPlatformSpecific { self =>
@@ -342,42 +223,6 @@ object ZClient extends ZClientPlatformSpecific { self =>
     )
 
   /**
-   * Executes an HTTP request and extracts the response
-   *
-   * '''NOTE''': This method materializes the full response into memory. If the
-   * response is streaming, it will await for it to be fully collected before
-   * resuming.
-   *
-   * @see
-   *   [[quickWithStream]] for a variant that allows you to extract a stream
-   *   from the Response
-   */
-  def quick(request: Request)(implicit trace: Trace): RIO[Client, Response] =
-    ZIO.serviceWithZIO[Client](_.quick(request))
-
-  /**
-   * More powerful variant of [[quick]] that allows to transform the `Response`
-   * before extracting it.
-   *
-   * '''NOTE''': This method materializes the full response into memory on exit.
-   * If the response is streaming, it will await for it to be fully collected
-   * before resuming.
-   */
-  def quickWith[A](request: Request)(f: Response => A)(implicit trace: Trace): RIO[Client, A] =
-    ZIO.serviceWithZIO[Client](_.quickWith(request)(f))
-
-  /**
-   * More powerful variant of [[quick]] that allows passing a function to
-   * transform the `Response` into a ZIO before extracting it
-   *
-   * '''NOTE''': This method materializes the full response into memory on exit.
-   * If the response is streaming, it will await for it to be fully collected
-   * before resuming.
-   */
-  def quickWithZIO[R, A](request: Request)(f: Response => RIO[R, A])(implicit trace: Trace): RIO[Client & R, A] =
-    ZIO.serviceWithZIO[Client](_.quickWithZIO(request)(f))
-
-  /**
    * Executes an HTTP request, and transforms the response to a `ZStream` using
    * the provided function. The resources associated with this request will be
    * automatically cleaned up when the `ZStream` terminates.
@@ -386,10 +231,10 @@ object ZClient extends ZClientPlatformSpecific { self =>
    * resume as soon as the response is received, and it is safe to use with
    * large response bodies
    */
-  def quickWithStream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
+  def stream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
     trace: Trace,
   ): ZStream[Client & R, Throwable, A] =
-    ZStream.serviceWithStream[Client](_.quickWithStream(request)(f))
+    ZStream.serviceWithStream[Client](_.stream(request)(f))
 
   /**
    * Executes an HTTP request and extracts the response
@@ -402,11 +247,25 @@ object ZClient extends ZClientPlatformSpecific { self =>
    * collected.
    *
    * @see
-   *   [[quick]] for a variant that doesn't require manual handling of the
+   *   [[simple]] for a variant that doesn't require manual handling of the
    *   request's resources (i.e., `Scope`)
    */
   def request(request: Request)(implicit trace: Trace): ZIO[Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.request(request))
+
+  /**
+   * Executes an HTTP request and extracts the response
+   *
+   * '''NOTE''': This method materializes the full response into memory. If the
+   * response is streaming, it will await for it to be fully collected before
+   * resuming.
+   *
+   * @see
+   *   [[stream]] for a variant that allows you to extract a stream from the
+   *   Response
+   */
+  def simple(request: Request)(implicit trace: Trace): RIO[Client, Response] =
+    ZIO.serviceWithZIO[Client](_.simple.request(request))
 
   def socket[R](socketApp: WebSocketApp[R])(implicit trace: Trace): ZIO[R with Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
@@ -636,6 +495,131 @@ object ZClient extends ZClientPlatformSpecific { self =>
     )(implicit trace: Trace): ZIO[Env1 & Scope, Err, Response]
 
     def widenError[E1](implicit ev: Err <:< E1): Driver[Env, E1] = self.asInstanceOf[Driver[Env, E1]]
+  }
+
+  sealed trait RequestApi[-Env, -In, +Err, +Out] { self =>
+    def version: Version
+    def url: URL
+    def headers: Headers
+    def sslConfig: Option[ClientSSLConfig]
+    def proxy: Option[Proxy]
+    def bodyEncoder: ZClient.BodyEncoder[Env, Err, In]
+    def bodyDecoder: ZClient.BodyDecoder[Env, Err, Out]
+
+    final def apply(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+      self.request(request)
+
+    final def delete(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+      self.request(Method.DELETE, suffix)(ev(Body.empty))
+
+    final def get(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+      self.request(Method.GET, suffix)(ev(Body.empty))
+
+    final def head(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+      self.request(Method.HEAD, suffix)(ev(Body.empty))
+
+    final def patch(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+      self.request(Method.PATCH, suffix)(ev(Body.empty))
+
+    final def post(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+      self.request(Method.POST, suffix)(body)
+
+    final def put(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+      self.request(Method.PUT, suffix)(body)
+
+    /**
+     * Executes an HTTP request and extracts the response
+     *
+     * @see
+     *   [[ZClient.request]] for info on the usage of this method
+     */
+    def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+      if (bodyEncoder == ZClient.BodyEncoder.identity)
+        bodyDecoder.decodeZIO(
+          requestRaw(
+            self.version ++ request.version,
+            request.method,
+            self.url ++ request.url,
+            self.headers ++ request.headers,
+            request.body,
+            sslConfig,
+            proxy,
+          ),
+        )
+      else
+        bodyEncoder
+          .encode(ev(request.body))
+          .flatMap(body =>
+            bodyDecoder.decodeZIO(
+              requestRaw(
+                self.version ++ request.version,
+                request.method,
+                self.url ++ request.url,
+                self.headers ++ request.headers,
+                body,
+                sslConfig,
+                proxy,
+              ),
+            ),
+          )
+
+    final def request(method: Method, suffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+      bodyEncoder
+        .encode(body)
+        .flatMap(body => bodyDecoder.decodeZIO[Env, Err](requestRaw(method, suffix, body)))
+
+    final protected def requestRaw(method: Method, suffix: String, body: Body)(implicit
+      trace: Trace,
+    ): ZIO[Env, Err, Response] =
+      requestRaw(version, method, if (suffix.nonEmpty) url.addPath(suffix) else url, headers, body, sslConfig, proxy)
+
+    protected def requestRaw(
+      version: Version,
+      method: Method,
+      url: URL,
+      headers: Headers,
+      body: Body,
+      sslConfig: Option[ClientSSLConfig],
+      proxy: Option[Proxy],
+    )(implicit trace: Trace): ZIO[Env, Err, Response]
+  }
+
+  implicit class SimpleClientOps[-R, -In, Err >: Throwable, +Out](private val client: ZClient[R, In, Err, Out])
+      extends AnyVal {
+
+    /**
+     * The "simple" client HTTP request API, which internally handles the
+     * lifecycle of the HTTP requests, so that the user doesn't need to handle
+     * the `Scope` manually.
+     *
+     * '''NOTE''': The methods of this API materialize the response into memory.
+     * If the response is streaming, it will await for it to be fully collected
+     * before resuming.
+     */
+    def simple: ZClient.RequestApi[R, In, Err, Out] = new ZClient.RequestApi[R, In, Err, Out] {
+      def version: Version                              = client.version
+      def url: URL                                      = client.url
+      def headers: Headers                              = client.headers
+      def sslConfig: Option[ClientSSLConfig]            = client.sslConfig
+      def proxy: Option[Proxy]                          = client.proxy
+      def bodyEncoder: ZClient.BodyEncoder[R, Err, In]  = client.bodyEncoder
+      def bodyDecoder: ZClient.BodyDecoder[R, Err, Out] = client.bodyDecoder
+
+      final protected def requestRaw(
+        version: Version,
+        method: Method,
+        url: URL,
+        headers: Headers,
+        body: Body,
+        sslConfig: Option[ClientSSLConfig],
+        proxy: Option[Proxy],
+      )(implicit trace: Trace): ZIO[R, Err, Response] =
+        ZIO.scoped[R] {
+          client
+            .requestRaw(version, method, url, headers, body, sslConfig, proxy)
+            .flatMap(_.collect)
+        }
+    }
   }
 
   final case class Config(

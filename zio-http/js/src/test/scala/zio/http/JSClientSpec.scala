@@ -11,18 +11,18 @@ object JSClientSpec extends ZIOSpecDefault {
         test("Get without User Agent") {
           for {
             res <- (for {
-              response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").get("") }
+              response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").simple.get("") }
               string   <- response.body.asString
             } yield (response, string))
-              .provideSome[Scope](ZLayer.succeed(ZClient.Config.default.addUserAgentHeader(false)) >>> ZClient.live)
+              .provide(ZLayer.succeed(ZClient.Config.default.addUserAgentHeader(false)) >>> ZClient.live)
             (response, string) = res
           } yield assertTrue(response.status.isSuccess, string.startsWith("<!doctype html>"))
         },
         test("Get with User Agent") {
           val client = (for {
-            response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").get("") }
+            response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").simple.get("") }
             string   <- response.body.asString
-          } yield (response, string)).provideSome[Scope](ZClient.default)
+          } yield (response, string)).provide(ZClient.default)
           for {
             isSuccess <- client.isSuccess
           } yield assertTrue(isSuccess)

@@ -240,7 +240,7 @@ object ServerSpec extends HttpRunnableSpec {
 
               for {
                 res <-
-                  Client.quick(
+                  Client.simple(
                     Request(method = req.method, headers = req.headers, body = req.body, url = url),
                   )
               } yield res

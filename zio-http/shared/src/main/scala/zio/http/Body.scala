@@ -27,7 +27,6 @@ import zio.stream.ZStream
 
 import zio.schema.Schema
 import zio.schema.codec.BinaryCodec
-import zio.schema.codec.BinaryCodec.BinaryDecoder
 
 import zio.http.internal.BodyEncoding
 import zio.http.multipart.mixed.MultipartMixed

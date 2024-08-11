@@ -46,7 +46,7 @@ object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
           Header.UserAgent.Product("a looooooooooooooooooooooooooooong header", None),
         )
 
-        res  <- Client.quick(Request(url = url, headers = headers, body = Body.fromString("some-body")))
+        res  <- Client.simple(Request(url = url, headers = headers, body = Body.fromString("some-body")))
         data <- res.body.asString
       } yield assertTrue(extractStatus(res) == Status.InternalServerError, data == "")
     }.provide(

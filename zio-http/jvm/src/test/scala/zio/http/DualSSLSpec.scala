@@ -74,7 +74,8 @@ object DualSSLSpec extends ZIOHttpSpec {
       .as(
         List(
           test("succeed when client has the server certificate and client certificate is configured") {
-            val actual = Client.quickWithZIO(Request.get(httpsUrl))(r => r.body.asString.map(body => (r.status, body)))
+            val actual =
+              Client.simple(Request.get(httpsUrl)).flatMap(r => r.body.asString.map(body => (r.status, body)))
             assertZIO(actual)(equalTo((Status.Ok, "O=client1,ST=Some-State,C=AU")))
           }.provide(
             Client.customized,
@@ -86,7 +87,7 @@ object DualSSLSpec extends ZIOHttpSpec {
           // Unfortunately if the channel closes before we create the request, we can't extract the DecoderException
           test("fail when client has the server certificate but no client certificate is configured") {
             Client
-              .quick(Request.get(httpsUrl))
+              .simple(Request.get(httpsUrl))
               .fold(
                 { e =>
                   val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
@@ -105,7 +106,7 @@ object DualSSLSpec extends ZIOHttpSpec {
           ),
           test("fail when client has the server certificate but wrong client certificate is configured") {
             Client
-              .quick(Request.get(httpsUrl))
+              .simple(Request.get(httpsUrl))
               .fold(
                 { e =>
                   val expectedErrors = List("DecoderException", "PrematureChannelClosureException")

@@ -33,10 +33,11 @@ object SSEClient extends ZIOAppDefault {
       _      <-
         client
           .url(url"http://localhost:8080")
-          .quickWithZIO(
+          .simple(
             Request(method = Method.GET, url = url"http://localhost:8080/sse", body = Body.empty)
               .addHeader(Header.Accept(MediaType.text.`event-stream`)),
-          ) { response =>
+          )
+          .flatMap { response =>
             response.body.asServerSentEvents[String].foreach { event =>
               ZIO.logInfo(event.data)
             }

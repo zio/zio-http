@@ -93,7 +93,7 @@ object GreetingClient extends ZIOAppDefault {
     for {
       client   <- ZIO.serviceWith[Client](_.host("localhost").port(8080))
       request  =  Request.get("greet").addQueryParam("name", "John")
-      response <- client.quick(request)
+      response <- client.simple(request)
       _        <- response.body.asString.debug("Response")
     } yield ()
 

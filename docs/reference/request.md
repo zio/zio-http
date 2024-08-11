@@ -238,7 +238,7 @@ import zio.http._
 
 object QueryParamClientExample extends ZIOAppDefault {
   def run =
-    Client.quick(
+    Client.simple(
       Request
         .get("http://localhost:8080/search")
         .addQueryParam("language", "scala")
@@ -331,7 +331,7 @@ import zio.http._
 
 object ClientExample extends ZIOAppDefault {
   def run = Client
-    .quick(Request.get("http://localhost:8080/users/2"))
+    .simple(Request.get("http://localhost:8080/users/2"))
     .flatMap(_.body.asString)
     .debug("Response Body: ")
     .provide(Client.default)
