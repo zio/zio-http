@@ -497,7 +497,7 @@ object ZClient extends ZClientPlatformSpecific { self =>
     def widenError[E1](implicit ev: Err <:< E1): Driver[Env, E1] = self.asInstanceOf[Driver[Env, E1]]
   }
 
-  sealed trait RequestApi[-Env, -In, +Err, +Out] { self =>
+  sealed abstract class RequestApi[-Env, -In, +Err, +Out] { self =>
     def version: Version
     def url: URL
     def headers: Headers
@@ -533,7 +533,7 @@ object ZClient extends ZClientPlatformSpecific { self =>
      * @see
      *   [[ZClient.request]] for info on the usage of this method
      */
-    def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+    final def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
       if (bodyEncoder == ZClient.BodyEncoder.identity)
         bodyDecoder.decodeZIO(
           requestRaw(
@@ -568,7 +568,7 @@ object ZClient extends ZClientPlatformSpecific { self =>
         .encode(body)
         .flatMap(body => bodyDecoder.decodeZIO[Env, Err](requestRaw(method, suffix, body)))
 
-    final protected def requestRaw(method: Method, suffix: String, body: Body)(implicit
+    final private def requestRaw(method: Method, suffix: String, body: Body)(implicit
       trace: Trace,
     ): ZIO[Env, Err, Response] =
       requestRaw(version, method, if (suffix.nonEmpty) url.addPath(suffix) else url, headers, body, sslConfig, proxy)
