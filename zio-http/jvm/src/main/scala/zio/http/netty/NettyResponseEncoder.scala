@@ -41,13 +41,14 @@ private[zio] object NettyResponseEncoder {
       maybeAddDateHeader(jHeaders, status)
 
       response.body.knownContentLength match {
-        case Some(contentLength) if !jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH) =>
+        case Some(contentLength)                                    =>
           jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentLength)
-        case _                                                                         =>
+        case _ if jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH) =>
+          ()
+        case _                                                      =>
+          jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
       }
 
-      val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
       new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders)
     }
   }
@@ -60,16 +61,16 @@ private[zio] object NettyResponseEncoder {
   }
 
   private def doEncode(response: Response, bytes: Array[Byte]): FullHttpResponse = {
-    val jHeaders         = Conversions.headersToNetty(response.headers)
-    val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-    val status           = response.status
+    val jHeaders = Conversions.headersToNetty(response.headers)
+    val status   = response.status
     maybeAddDateHeader(jHeaders, status)
 
-    val jStatus = Conversions.statusToNetty(response.status)
+    val jStatus = Conversions.statusToNetty(status)
 
     val jContent = Unpooled.wrappedBuffer(bytes)
 
-    if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
+    // The content-length MUST match the length of the content we are sending, so we ignore any user-provided value
+    jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, bytes.length)
 
     new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, jHeaders, EmptyHttpHeaders.INSTANCE)
   }
