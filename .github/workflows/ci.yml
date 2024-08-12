@@ -9,11 +9,11 @@ name: Continuous Integration
 
 on:
   pull_request:
-    branches: ['**']
-    types: [opened, synchronize, reopened, edited, labeled]
+    types: [ opened, reopened, synchronize ]
   push:
-    branches: ['**']
-    tags: [v*]
+    branches: [ main ]
+  release:
+    types: [ published ]
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
