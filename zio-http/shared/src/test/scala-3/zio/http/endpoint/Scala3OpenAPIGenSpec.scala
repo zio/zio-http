@@ -13,7 +13,7 @@ import zio.http.{MediaType, RoutePattern}
 import zio.schema.annotation.{caseName, discriminatorName}
 import zio.prelude.Subtype
 
-object OpenAPIGenSpec extends ZIOSpecDefault {
+object Scala3OpenAPIGenSpec extends ZIOSpecDefault {
 
   type NonEmptyString = NonEmptyString.Type
   object NonEmptyString extends Subtype[String] {
