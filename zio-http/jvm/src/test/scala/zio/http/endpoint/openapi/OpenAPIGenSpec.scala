@@ -31,7 +31,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   implicit val imageMetadataSchema: Schema[ImageMetadata]               =
     DeriveSchema.gen[ImageMetadata]
 
-  final case class WithTransientField(name: String, @transientField age: Int)
+  final case class WithTransientField(name: String, @transientField age: Int = 42)
   implicit val withTransientFieldSchema: Schema[WithTransientField] =
     DeriveSchema.gen[WithTransientField]
 
