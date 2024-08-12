@@ -2544,7 +2544,7 @@ object Header {
   }
 
   object ContentType extends HeaderType {
-    private final val CacheInitialSize = 256
+    private final val CacheInitialSize = 64
     private final val CacheMaxSize     = 8192
 
     private val cache: ConcurrentHashMap[String, Either[String, ContentType]] =
