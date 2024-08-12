@@ -678,7 +678,10 @@ object OpenAPIGen {
             // There should be no enums with cases that are not records with a nominal id
             // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
             val typeId   =
-              case_.schema
+              (case_.schema match {
+                case lzy: Schema.Lazy[_] => lzy.schema
+                case _                   => case_.schema
+              })
                 .asInstanceOf[Schema.Record[_]]
                 .id
                 .asInstanceOf[TypeId.Nominal]
