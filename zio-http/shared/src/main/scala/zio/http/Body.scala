@@ -128,7 +128,7 @@ trait Body { self =>
 
   def asServerSentEvents[T: Schema](implicit trace: Trace): ZStream[Any, Throwable, ServerSentEvent[T]] = {
     val codec = ServerSentEvent.defaultBinaryCodec[T]
-    (asStream >>> codec.streamDecoder).debug("steam events")
+    asStream >>> codec.streamDecoder
   }
 
   /**
