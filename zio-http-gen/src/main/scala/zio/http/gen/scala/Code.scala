@@ -1,7 +1,5 @@
 package zio.http.gen.scala
 
-import java.nio.file.Path
-
 import scala.meta.Term
 import scala.meta.prettyprinters.XtensionSyntax
 
@@ -50,7 +48,8 @@ object Code {
 
   final case class Object(
     name: String,
-    schema: Boolean,
+    extensions: List[String],
+    schema: Option[Object.SchemaCode],
     endpoints: Map[Field, EndpointCode],
     objects: List[Object],
     caseClasses: List[CaseClass],
@@ -58,10 +57,64 @@ object Code {
   ) extends ScalaType
 
   object Object {
-    def schemaCompanion(str: String): Object = Object(str, schema = true, Map.empty, Nil, Nil, Nil)
+
+    /**
+     * This is a means to provide implicit codec/schema in different ways. e.g.
+     * deriving with macros, or manual transforming on a primitive type.
+     */
+    sealed trait SchemaCode {
+      def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit
+    }
+    object SchemaCode       {
+      case object DeriveSchemaGen                      extends SchemaCode {
+        override def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit = {
+          sb ++= " implicit val codec: Schema["
+          sb ++= typeName
+          sb ++= "] = DeriveSchema.gen["
+          sb ++= typeName
+          sb += ']'
+        }
+      }
+      case class AliasedNewtype(primitiveType: String) extends SchemaCode {
+        override def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit = {
+          sb ++= " implicit val schema: Schema["
+          sb ++= typeName
+          sb ++= ".Type] = Schema.primitive["
+          sb ++= primitiveType
+          sb ++= "].transform(wrap, unwrap)"
+        }
+      }
+    }
+
+    def withDefaultSchemaDerivation(
+      name: String,
+      extensions: List[String],
+      endpoints: Map[Field, EndpointCode],
+      objects: List[Object],
+      caseClasses: List[CaseClass],
+      enums: List[Enum],
+    ): Object =
+      Object(name, extensions, Some(SchemaCode.DeriveSchemaGen), endpoints, objects, caseClasses, enums)
+
+    def schemaCompanion(str: String): Object = withDefaultSchemaDerivation(
+      name = str,
+      extensions = Nil,
+      endpoints = Map.empty,
+      objects = Nil,
+      caseClasses = Nil,
+      enums = Nil,
+    )
 
     def apply(name: String, endpoints: Map[Field, EndpointCode]): Object =
-      Object(name, schema = false, endpoints, Nil, Nil, Nil)
+      new Object(
+        name = name,
+        extensions = Nil,
+        schema = None,
+        endpoints = endpoints,
+        objects = Nil,
+        caseClasses = Nil,
+        enums = Nil,
+      )
   }
 
   final case class CaseClass(name: String, fields: List[Field], companionObject: Option[Object], mixins: List[String])
@@ -151,12 +204,13 @@ object Code {
   }
   sealed trait CodecType
   object CodecType       {
-    case object Boolean extends CodecType
-    case object Int     extends CodecType
-    case object Literal extends CodecType
-    case object Long    extends CodecType
-    case object String  extends CodecType
-    case object UUID    extends CodecType
+    case object Boolean                                            extends CodecType
+    case object Int                                                extends CodecType
+    case object Literal                                            extends CodecType
+    case object Long                                               extends CodecType
+    case object String                                             extends CodecType
+    case object UUID                                               extends CodecType
+    case class Aliased(underlying: CodecType, newtypeName: String) extends CodecType
   }
   final case class QueryParamCode(name: String, queryType: CodecType)
   final case class HeadersCode(headers: List[HeaderCode])

@@ -7,7 +7,7 @@ import zio.Chunk
 import zio.http.Method
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPI}
-import zio.http.gen.scala.Code.Collection
+import zio.http.gen.scala.Code.{CodecType, Collection, PathSegmentCode, ScalaType}
 import zio.http.gen.scala.{Code, CodeGen}
 
 object EndpointGen {
@@ -79,6 +79,7 @@ final case class EndpointGen(config: Config) {
     var subtypeToTraits            = Map.empty[String, Set[String]]
     var caseClassToSharedFields    = Map.empty[String, Set[String]]
     var nameToSchemaAndAnnotations = Map.empty[String, (JsonSchema, Chunk[JsonSchema.MetaData])]
+    var aliasedPrimitives          = Map.empty[String, ScalaType]
 
     openAPI.components.toList.foreach { components =>
       components.schemas.foreach { case (OpenAPI.Key(name), refOrSchema) =>
@@ -112,9 +113,20 @@ final case class EndpointGen(config: Config) {
                 case None         => Some(refNames.toSet)
               }
             }
-          case _                                                  => // do nothing
+          case _                                                  =>
+            // primitives that are aliased should be registered for a special Newtype treatment,
+            // or if opted out, then replaced with their un-aliased form.
+            if (schema.isPrimitive) {
+              if (config.generateSafeTypeAliases)
+                aliasedPrimitives = aliasedPrimitives.updated(name, Code.TypeRef(name + ".Type"))
+              else
+                schemaToField(schema, openAPI, name, Chunk.empty).foreach {
+                  case Code.Field(_, fieldType: Code.Primitive, _) =>
+                    aliasedPrimitives = aliasedPrimitives.updated(name, fieldType)
+                  case _                                           => // do nothing, we only modify aliased primitives
+                }
+            }
         }
-
         nameToSchemaAndAnnotations = nameToSchemaAndAnnotations.updated(name, schema -> annotations)
       }
     }
@@ -176,9 +188,9 @@ final case class EndpointGen(config: Config) {
     // The `mapType` function is used to alter any relevant part of each code file
     noDuplicateFiles.map { cf =>
       cf.copy(
-        objects = cf.objects.map(mapType(_.name, subtypeToTraits)),
-        caseClasses = cf.caseClasses.map(mapType(_.name, subtypeToTraits)),
-        enums = cf.enums.map(mapType(_.name, subtypeToTraits)),
+        objects = cf.objects.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
+        caseClasses = cf.caseClasses.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
+        enums = cf.enums.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
       )
     }
   }
@@ -192,6 +204,9 @@ final case class EndpointGen(config: Config) {
    * function that alters a case class, and lifts it such that we can apply it
    * to any structure, and it'll take care to recurse when needed.
    *
+   * Another issue we fix here, is when we have aliased primitives. In that case
+   * we need to append `.Type` to the aliased primitive type.
+   *
    * @param getEncapsulatingName
    *   used to get the name of the code structure we operate on
    *   (Object/CaseClass/Enum)
@@ -203,7 +218,11 @@ final case class EndpointGen(config: Config) {
    * @return
    *   the modified structure
    */
-  def mapType[T <: Code.ScalaType](getEncapsulatingName: T => String, subtypeToTraits: Map[String, Set[String]])(
+  def mapType[T <: Code.ScalaType](
+    getEncapsulatingName: T => String,
+    subtypeToTraits: Map[String, Set[String]],
+    aliasedPrimitives: Map[String, Code.ScalaType],
+  )(
     codeStructureToAlter: T,
   ): T =
     mapCaseClasses { cc =>
@@ -212,13 +231,20 @@ final case class EndpointGen(config: Config) {
           // We use the subtypeToTraits map to check if the type is a concrete subtype of a sealed trait.
           // As of the time of writing this code, there should be only a single trait.
           // In case future code generalizes to allow multiple mixins, this code should be updated.
-          subtypeToTraits.get(tName).fold(originalType) { set =>
-            // If the type parameter has exactly 1 super type trait,
-            // and that trait's name is different from our enclosing object's name,
-            // then we should alter the type to include the object's name.
-            if (set.size != 1 || set.head == getEncapsulatingName(codeStructureToAlter)) originalType
-            else Code.TypeRef(set.head + "." + tName)
-          }
+          //
+          // If no mixins are found, we try to check maybe we deal with an aliased primitive,
+          // which in this case we should use the provided alias (with ".Type" appended).
+          //
+          // If no alias, and no mixins, we return the original type.
+          subtypeToTraits
+            .get(tName)
+            .fold(aliasedPrimitives.getOrElse(tName, originalType)) { set =>
+              // If the type parameter has exactly 1 super type trait,
+              // and that trait's name is different from our enclosing object's name,
+              // then we should alter the type to include the object's name.
+              if (set.size != 1 || set.head == getEncapsulatingName(codeStructureToAlter)) originalType
+              else Code.TypeRef(set.head + "." + tName)
+            }
         }) :: tail
       })
     }(codeStructureToAlter)
@@ -237,7 +263,7 @@ final case class EndpointGen(config: Config) {
    * @return
    *   The altered type, or gives back the input if no modification was needed.
    */
-  def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Code.TypeRef): Code.ScalaType =
+  def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Code.ScalaType): Code.ScalaType =
     sType match {
       case tref: Code.TypeRef              => f(tref)
       case Collection.Seq(inner, nonEmpty) => Collection.Seq(mapTypeRef(inner)(f), nonEmpty)
@@ -273,7 +299,7 @@ final case class EndpointGen(config: Config) {
   def fromOpenAPI(openAPI: OpenAPI): Code.Files =
     Code.Files {
       val componentsCode = extractComponents(openAPI)
-      openAPI.paths.map { case (path, pathItem) =>
+      val files          = openAPI.paths.map { case (path, pathItem) =>
         val pathSegments = path.name.tail.replace('-', '_').split('/').toList
         val packageName  = pathSegments.init.mkString(".").replace("{", "").replace("}", "")
         val className    = pathSegments.last.replace("{", "").replace("}", "").capitalize
@@ -329,8 +355,9 @@ final case class EndpointGen(config: Config) {
           imports = (Code.Import.FromBase("component._") :: imports.flatten).distinct,
           objects = List(
             Code.Object(
-              className,
-              schema = false,
+              name = className,
+              extensions = Nil,
+              schema = None,
               endpoints = endpoints.toMap,
               objects = anonymousTypes.values.toList,
               caseClasses = Nil,
@@ -340,7 +367,8 @@ final case class EndpointGen(config: Config) {
           caseClasses = Nil,
           enums = Nil,
         )
-      }.toList ++ componentsCode
+      }
+      files.toList ++ componentsCode
     }
 
   private def fieldName(op: OpenAPI.Operation, fallback: String) =
@@ -361,11 +389,21 @@ final case class EndpointGen(config: Config) {
     // TODO: Resolve query and header parameters from components
     val queryParams         = params.collect {
       case p if p.in == "query" =>
-        schemaToQueryParamCodec(
-          p.schema.get.asInstanceOf[ReferenceOr.Or[JsonSchema]].value,
-          openAPI,
-          p.name,
-        )
+        p.schema.get match {
+          case ReferenceOr.Or(value)            =>
+            schemaToQueryParamCodec(
+              value,
+              openAPI,
+              p.name,
+            )
+          // references are only possible in case of aliased primitives
+          case ReferenceOr.Reference(ref, _, _) =>
+            val baref  = ref.replaceFirst("^#/components/schemas/", "")
+            val schema = resolveSchemaRef(openAPI, baref)
+            val qCodec = schemaToQueryParamCodec(schema, openAPI, p.name)
+            if (!config.generateSafeTypeAliases) qCodec
+            else qCodec.copy(queryType = CodecType.Aliased(qCodec.queryType, baref))
+        }
     }
     val headers             = params.collect { case p if p.in == "header" => Code.HeaderCode(p.name) }.toList
     val (inImports, inType) =
@@ -391,8 +429,9 @@ final case class EndpointGen(config: Config) {
                         )
                       anonymousTypes += method.toString ->
                         Code.Object(
-                          method.toString,
-                          schema = false,
+                          name = method.toString,
+                          extensions = Nil,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -429,8 +468,9 @@ final case class EndpointGen(config: Config) {
                             throw new Exception(s"Could not generate code for request body $schema"),
                           )
                         val obj  = Code.Object(
-                          method.toString,
-                          schema = false,
+                          name = method.toString,
+                          extensions = Nil,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -476,8 +516,9 @@ final case class EndpointGen(config: Config) {
                             throw new Exception(s"Could not generate code for request body $schema"),
                           )
                         val obj  = Code.Object(
-                          method.toString,
-                          schema = false,
+                          name = method.toString,
+                          extensions = Nil,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -524,7 +565,17 @@ final case class EndpointGen(config: Config) {
       case Some(OpenAPI.ReferenceOr.Or(schema: JsonSchema)) =>
         schemaToPathCodec(schema, openAPI, param.name)
       case Some(OpenAPI.ReferenceOr.Reference(ref, _, _))   =>
-        schemaToPathCodec(resolveSchemaRef(openAPI, ref), openAPI, param.name)
+        if (ref.startsWith("#/components/schemas/")) {
+          val baref  = ref.replaceFirst("^#/components/schemas/", "")
+          val schema = resolveSchemaRef(openAPI, baref)
+          val pCodec = schemaToPathCodec(schema, openAPI, param.name)
+          if (!config.generateSafeTypeAliases) pCodec
+          else pCodec.copy(segmentType = CodecType.Aliased(pCodec.segmentType, baref))
+        } else {
+          val schema = resolveSchemaRef(openAPI, ref)
+          val pCodec = schemaToPathCodec(schema, openAPI, param.name)
+          pCodec
+        }
       case None                                             =>
         // Not sure if open api allows path parameters without schema.
         // But string seems a good default
@@ -595,6 +646,19 @@ final case class EndpointGen(config: Config) {
       case None             =>
         throw new Exception(s"Found reference to schema $key, but no components section found.")
     }
+
+  /**
+   * Used for aliased types to resolve into the wrapped primitive underlying
+   * type.
+   * @return
+   *   if primitive, a list of potential imports (e.g: for UUID, we need to
+   *   import java.util.UUID), and the primitive type name.
+   */
+  private def schemaToType(openAPI: OpenAPI, name: String, schema: JsonSchema): Option[(List[Code.Import], String)] =
+    if (schema.isPrimitive) {
+      val field = schemaToField(schema, openAPI, name, Chunk.empty).get // .get is safe, always defined for primitives
+      Some(CodeGen.render("")(field.fieldType))
+    } else None
 
   @tailrec
   private def schemaToPathCodec(schema: JsonSchema, openAPI: OpenAPI, name: String): Code.PathSegmentCode = {
@@ -674,6 +738,50 @@ final case class EndpointGen(config: Config) {
       if (obj.required.contains(name)) field else field.copy(fieldType = field.fieldType.opt)
     }.toList
 
+  /**
+   * @param openAPI
+   * @param name
+   * @param wrapped
+   *   primitive type to be aliased as `name`
+   * @return
+   *   Code.File that have the following structure (e.g. for name="Name", and
+   *   wrapped = String):
+   *   {{{
+   *           package base.components
+   *
+   *           import zio.prelude.Newtype
+   *           import zio.schema.Schema
+   *
+   *           object Name extends Newtype[String] {
+   *             implicit val schema: Schema[Name.Type] = Schema.primitive[String].transform(wrap, unwrap)
+   *           }
+   *   }}}
+   */
+  def aliasedSchemaToCode(openAPI: OpenAPI, name: String, wrapped: JsonSchema): Option[Code.File] = {
+    if (!config.generateSafeTypeAliases) None
+    else
+      schemaToType(openAPI, name, wrapped).map { case (imports, wrappedType) =>
+        Code.File(
+          List("component", name.capitalize + ".scala"),
+          pkgPath = List("component"),
+          imports = Code.Import("zio.prelude.Newtype") :: Code.Import("zio.schema.Schema") :: imports,
+          objects = List(
+            Code.Object(
+              name = name,
+              extensions = List(s"Newtype[${wrappedType}]"),
+              schema = Some(Code.Object.SchemaCode.AliasedNewtype(wrappedType)),
+              endpoints = Map.empty,
+              objects = Nil,
+              caseClasses = Nil,
+              enums = Nil,
+            ),
+          ),
+          caseClasses = Nil,
+          enums = Nil,
+        )
+      }
+  }
+
   def schemaToCode(
     schema: JsonSchema,
     openAPI: OpenAPI,
@@ -720,12 +828,17 @@ final case class EndpointGen(config: Config) {
         schemaToCode(schema, openAPI, schemaName, annotations)
 
       case JsonSchema.RefSchema(ref)            => throw new Exception(s"Unexpected reference schema: $ref")
-      case JsonSchema.Integer(_, _, _, _, _, _) => None
-      case JsonSchema.String(_, _, _, _)        => None
-      case JsonSchema.Boolean                   => None
-      case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive)                            =>
+      case JsonSchema.Integer(_, _, _, _, _, _) => aliasedSchemaToCode(openAPI, name, schema)
+      case JsonSchema.String(_, _, _, _)        => aliasedSchemaToCode(openAPI, name, schema) /*
+         * this could maybe be improved to generate a string type with validation.
+         * in case of a Newtype alias, we can put validations inside the newtype object,
+         * and use `transformOrFail` with real validations instead of just a plain
+         * `transform` that simply `wrap` / `unwrap` the provided value.
+         */
+      case JsonSchema.Boolean                   => aliasedSchemaToCode(openAPI, name, schema)
+      case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
         throw new Exception("OneOf schemas with primitive types are not supported")
-      case JsonSchema.OneOfSchema(schemas)                                                             =>
+      case JsonSchema.OneOfSchema(schemas)                                  =>
         val discriminatorInfo                       =
           annotations.collectFirst { case JsonSchema.MetaData.Discriminator(discriminator) => discriminator }
         val discriminator: Option[String]           = discriminatorInfo.map(_.propertyName)
@@ -785,7 +898,7 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.AllOfSchema(schemas)                                                             =>
+      case JsonSchema.AllOfSchema(schemas)                                  =>
         val genericFieldIndex = Iterator.from(0)
         val unvalidatedFields = schemas.map(_.withoutAnnotations).flatMap {
           case schema @ JsonSchema.Object(_, _, _)            =>
@@ -830,9 +943,9 @@ final case class EndpointGen(config: Config) {
             enums = Nil,
           ),
         )
-      case JsonSchema.AnyOfSchema(schemas) if schemas.exists(_.isPrimitive)                            =>
+      case JsonSchema.AnyOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
         throw new Exception("AnyOf schemas with primitive types are not supported")
-      case JsonSchema.AnyOfSchema(schemas)                                                             =>
+      case JsonSchema.AnyOfSchema(schemas)                                  =>
         val discriminatorInfo                    =
           annotations.collectFirst { case JsonSchema.MetaData.Discriminator(discriminator) => discriminator }
         val discriminator: Option[String]        = discriminatorInfo.map(_.propertyName)
@@ -889,9 +1002,10 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Number(_, _, _, _, _, _)                                                         => None
-      case JsonSchema.ArrayType(None, _, _)                                                            => None
-      case JsonSchema.ArrayType(Some(schema), _, _)                                                    =>
+      case JsonSchema.Number(_, _, _, _, _, _)      => aliasedSchemaToCode(openAPI, name, schema)
+      // should we provide support for (Newtype) aliasing arrays of primitives?
+      case JsonSchema.ArrayType(None, _, _)         => None
+      case JsonSchema.ArrayType(Some(schema), _, _) =>
         schemaToCode(schema, openAPI, name, annotations)
       case JsonSchema.Object(properties, additionalProperties, _)
           if properties.nonEmpty && additionalProperties.isRight =>

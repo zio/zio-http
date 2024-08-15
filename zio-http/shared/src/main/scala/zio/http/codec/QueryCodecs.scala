@@ -16,7 +16,6 @@
 
 package zio.http.codec
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema.Schema
 
