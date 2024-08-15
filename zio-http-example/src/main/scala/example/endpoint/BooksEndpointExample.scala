@@ -36,7 +36,7 @@ object BooksEndpointExample extends ZIOAppDefault {
   val endpoint =
     Endpoint((RoutePattern.GET / "books") ?? Doc.p("Route for querying books"))
       .query(
-        QueryCodec.queryTo[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
+        HttpCodec.query[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
           "Query parameter for searching books",
         ),
       )

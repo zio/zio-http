@@ -23,7 +23,7 @@ import zio.stream.ZPipeline
 import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
+import zio.http.codec._
 
 /**
  * Server-Sent Event (SSE) as defined by

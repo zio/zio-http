@@ -4,7 +4,8 @@ import zio._
 import zio.test._
 
 import zio.http._
-import zio.http.codec.HttpCodec.query
+import zio.http.codec.HttpCodec
+import zio.http.codec.HttpCodec.queryAll
 import zio.http.codec.PathCodec.path
 import zio.http.endpoint.Endpoint
 
@@ -19,7 +20,7 @@ object SwaggerUISpec extends ZIOSpecDefault {
 
         val getUserPosts =
           Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
-            .query(query("name"))
+            .query(HttpCodec.query[String]("name"))
             .out[List[String]]
 
         val getUserPostsRoute =

@@ -6,8 +6,7 @@ import zio._
 import zio.test._
 
 import zio.http._
-import zio.http.codec.HeaderCodec
-import zio.http.codec.HttpCodec.{query, queryInt}
+import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
@@ -332,8 +331,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users")
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -372,8 +371,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users" / int("userId"))
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -481,8 +480,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
         test("request body and empty response with path parameter and query parameters") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users" / int("userId"))
             .in[User]
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -523,8 +522,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
         test("request body and empty response with path parameter and query parameters and headers") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users" / int("userId"))
             .in[User]
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)

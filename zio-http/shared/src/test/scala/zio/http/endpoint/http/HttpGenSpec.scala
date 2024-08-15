@@ -40,7 +40,7 @@ object HttpGenSpec extends ZIOSpecDefault {
       assertTrue(rendered == expected)
     },
     test("Path with query parameters") {
-      val endpoint     = Endpoint(Method.GET / "api" / "foo").query[Int](QueryCodec.queryInt("userId"))
+      val endpoint     = Endpoint(Method.GET / "api" / "foo").query[Int](HttpCodec.query[Int]("userId"))
       val httpEndpoint = HttpGen.fromEndpoint(endpoint)
       val rendered     = httpEndpoint.render
       val expected     =
@@ -51,7 +51,7 @@ object HttpGenSpec extends ZIOSpecDefault {
       assertTrue(rendered == expected)
     },
     test("Path with path and query parameters") {
-      val endpoint     = Endpoint(Method.GET / "api" / "foo" / int("pageId")).query[Int](QueryCodec.queryInt("userId"))
+      val endpoint     = Endpoint(Method.GET / "api" / "foo" / int("pageId")).query[Int](HttpCodec.query[Int]("userId"))
       val httpEndpoint = HttpGen.fromEndpoint(endpoint)
       val rendered     = httpEndpoint.render
       val expected     =
@@ -63,7 +63,7 @@ object HttpGenSpec extends ZIOSpecDefault {
       assertTrue(rendered == expected)
     },
     test("Path with path and query parameter with the same name") {
-      val endpoint     = Endpoint(Method.GET / "api" / "foo" / int("userId")).query[Int](QueryCodec.queryInt("userId"))
+      val endpoint     = Endpoint(Method.GET / "api" / "foo" / int("userId")).query[Int](HttpCodec.query[Int]("userId"))
       val httpEndpoint = HttpGen.fromEndpoint(endpoint)
       val rendered     = httpEndpoint.render
       val expected     =

@@ -103,8 +103,8 @@ object CodeGenSpec extends ZIOSpecDefault {
       },
       test("Endpoint with query parameters") {
         val endpoint = Endpoint(Method.GET / "api" / "v1" / "users")
-          .query(QueryCodec.queryInt("limit"))
-          .query(QueryCodec.query("name"))
+          .query(HttpCodec.query[Int]("limit"))
+          .query(HttpCodec.query[String]("name"))
         val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
         val code     = EndpointGen.fromOpenAPI(openAPI)
 
