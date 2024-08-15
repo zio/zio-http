@@ -16,7 +16,10 @@
 
 package zio.http
 
-import java.net.{MalformedURLException, URI}
+import java.io.IOException
+import java.net.URI
+
+import scala.util.control.NonFatal
 
 import zio.Config
 
@@ -279,26 +282,35 @@ final case class URL(
 }
 
 object URL {
-  def empty: URL = URL(Path.empty)
+  val empty: URL = URL(path = Path.empty)
 
-  def decode(string: String): Either[Exception, URL] = {
-    def invalidURL(string: String) = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
+  /**
+   * Proper implementation of [[java.net.MalformedURLException]] which, unlike
+   * the Java version, can propagate the cause.
+   */
+  final case class MalformedURLException private[http] (rawUrl: String, cause: Option[Throwable])
+      extends IOException(cause.orNull) {
+    override def getMessage: String = s"""Invalid URL: "$rawUrl""""
+  }
+
+  def decode(rawUrl: String): Either[MalformedURLException, URL] = {
+    def invalidURL(e: Option[Throwable]): Either[MalformedURLException, URL] =
+      Left(MalformedURLException(rawUrl = rawUrl, cause = e))
 
     try {
-      val uri = new URI(string)
+      val uri = new URI(rawUrl)
       val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
       url match {
-        case None        => invalidURL(string)
+        case None        => invalidURL(None)
         case Some(value) => Right(value)
       }
-
     } catch {
-      case e: Exception => Left(e)
+      case NonFatal(e) => invalidURL(Some(e))
     }
   }
 
-  def config: Config[URL] = Config.string.mapAttempt(decode(_).toTry.get)
+  def config: Config[URL] = Config.string.mapAttempt(decode(_).fold(throw _, identity))
 
   def fromURI(uri: URI): Option[URL] = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
