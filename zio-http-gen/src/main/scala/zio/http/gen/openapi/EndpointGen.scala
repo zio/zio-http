@@ -207,7 +207,7 @@ final case class EndpointGen(config: Config) {
     codeStructureToAlter: T,
   ): T =
     mapCaseClasses { cc =>
-      cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (f @ Code.Field(_, scalaType), tail) =>
+      cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (f @ Code.Field(_, scalaType, _), tail) =>
         f.copy(fieldType = mapTypeRef(scalaType) { case originalType @ Code.TypeRef(tName) =>
           // We use the subtypeToTraits map to check if the type is a concrete subtype of a sealed trait.
           // As of the time of writing this code, there should be only a single trait.
@@ -239,12 +239,12 @@ final case class EndpointGen(config: Config) {
    */
   def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Code.TypeRef): Code.ScalaType =
     sType match {
-      case tref: Code.TypeRef    => f(tref)
-      case Collection.Seq(inner) => Collection.Seq(mapTypeRef(inner)(f))
-      case Collection.Set(inner) => Collection.Set(mapTypeRef(inner)(f))
-      case Collection.Map(inner) => Collection.Map(mapTypeRef(inner)(f))
-      case Collection.Opt(inner) => Collection.Opt(mapTypeRef(inner)(f))
-      case _                     => sType
+      case tref: Code.TypeRef              => f(tref)
+      case Collection.Seq(inner, nonEmpty) => Collection.Seq(mapTypeRef(inner)(f), nonEmpty)
+      case Collection.Set(inner, nonEmpty) => Collection.Set(mapTypeRef(inner)(f), nonEmpty)
+      case Collection.Map(inner)           => Collection.Map(mapTypeRef(inner)(f))
+      case Collection.Opt(inner)           => Collection.Opt(mapTypeRef(inner)(f))
+      case _                               => sType
     }
 
   /**
@@ -601,27 +601,28 @@ final case class EndpointGen(config: Config) {
     schema match {
       case JsonSchema.AnnotatedSchema(s, _) => schemaToPathCodec(s, openAPI, name)
       case JsonSchema.RefSchema(ref)        => schemaToPathCodec(resolveSchemaRef(openAPI, ref), openAPI, name)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)       =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32, _, _, _, _, _)     =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Int)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)       =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64, _, _, _, _, _)     =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Long)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp)   =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp, _, _, _, _, _) =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Long)
-      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _) =>
+      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, _, _)        =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.UUID)
-      case JsonSchema.String(_, _)                                  =>
+      case JsonSchema.String(_, _, _, _)                                         =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.String)
-      case JsonSchema.Boolean                                       =>
+      case JsonSchema.Boolean                                                    =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Boolean)
-      case JsonSchema.OneOfSchema(_) => throw new Exception("Alternative path variables are not supported")
-      case JsonSchema.AllOfSchema(_) => throw new Exception("Path variables must have exactly one schema")
-      case JsonSchema.AnyOfSchema(_) => throw new Exception("Path variables must have exactly one schema")
-      case JsonSchema.Number(_)      => throw new Exception("Floating point path variables are currently not supported")
-      case JsonSchema.ArrayType(_)   => throw new Exception("Array path variables are not supported")
-      case JsonSchema.Object(_, _, _) => throw new Exception("Object path variables are not supported")
-      case JsonSchema.Enum(_)         => throw new Exception("Enum path variables are not supported")
-      case JsonSchema.Null            => throw new Exception("Null path variables are not supported")
-      case JsonSchema.AnyJson         => throw new Exception("AnyJson path variables are not supported")
+      case JsonSchema.OneOfSchema(_)           => throw new Exception("Alternative path variables are not supported")
+      case JsonSchema.AllOfSchema(_)           => throw new Exception("Path variables must have exactly one schema")
+      case JsonSchema.AnyOfSchema(_)           => throw new Exception("Path variables must have exactly one schema")
+      case JsonSchema.Number(_, _, _, _, _, _) =>
+        throw new Exception("Floating point path variables are currently not supported")
+      case JsonSchema.ArrayType(_, _, _)       => throw new Exception("Array path variables are not supported")
+      case JsonSchema.Object(_, _, _)          => throw new Exception("Object path variables are not supported")
+      case JsonSchema.Enum(_)                  => throw new Exception("Enum path variables are not supported")
+      case JsonSchema.Null                     => throw new Exception("Null path variables are not supported")
+      case JsonSchema.AnyJson                  => throw new Exception("AnyJson path variables are not supported")
     }
   }
 
@@ -632,31 +633,32 @@ final case class EndpointGen(config: Config) {
     name: String,
   ): Code.QueryParamCode = {
     schema match {
-      case JsonSchema.AnnotatedSchema(s, _)                         =>
+      case JsonSchema.AnnotatedSchema(s, _)                                      =>
         schemaToQueryParamCodec(s, openAPI, name)
-      case JsonSchema.RefSchema(ref)                                =>
+      case JsonSchema.RefSchema(ref)                                             =>
         schemaToQueryParamCodec(resolveSchemaRef(openAPI, ref), openAPI, name)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)       =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32, _, _, _, _, _)     =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Int)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)       =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64, _, _, _, _, _)     =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Long)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp)   =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp, _, _, _, _, _) =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Long)
-      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _) =>
+      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, _, _)        =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.UUID)
-      case JsonSchema.String(_, _)                                  =>
+      case JsonSchema.String(_, _, _, _)                                         =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.String)
-      case JsonSchema.Boolean                                       =>
+      case JsonSchema.Boolean                                                    =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Boolean)
-      case JsonSchema.OneOfSchema(_) => throw new Exception("Alternative query parameters are not supported")
-      case JsonSchema.AllOfSchema(_) => throw new Exception("Query parameters must have exactly one schema")
-      case JsonSchema.AnyOfSchema(_) => throw new Exception("Query parameters must have exactly one schema")
-      case JsonSchema.Number(_)    => throw new Exception("Floating point query parameters are currently not supported")
-      case JsonSchema.ArrayType(_) => throw new Exception("Array query parameters are not supported")
-      case JsonSchema.Object(_, _, _) => throw new Exception("Object query parameters are not supported")
-      case JsonSchema.Enum(_)         => throw new Exception("Enum query parameters are not supported")
-      case JsonSchema.Null            => throw new Exception("Null query parameters are not supported")
-      case JsonSchema.AnyJson         => throw new Exception("AnyJson query parameters are not supported")
+      case JsonSchema.OneOfSchema(_)           => throw new Exception("Alternative query parameters are not supported")
+      case JsonSchema.AllOfSchema(_)           => throw new Exception("Query parameters must have exactly one schema")
+      case JsonSchema.AnyOfSchema(_)           => throw new Exception("Query parameters must have exactly one schema")
+      case JsonSchema.Number(_, _, _, _, _, _) =>
+        throw new Exception("Floating point query parameters are currently not supported")
+      case JsonSchema.ArrayType(_, _, _)       => throw new Exception("Array query parameters are not supported")
+      case JsonSchema.Object(_, _, _)          => throw new Exception("Object query parameters are not supported")
+      case JsonSchema.Enum(_)                  => throw new Exception("Enum query parameters are not supported")
+      case JsonSchema.Null                     => throw new Exception("Null query parameters are not supported")
+      case JsonSchema.AnyJson                  => throw new Exception("AnyJson query parameters are not supported")
     }
   }
 
@@ -717,10 +719,10 @@ final case class EndpointGen(config: Config) {
           .getOrElse(throw new Exception(s"Could not find content type application/json for response $ref"))
         schemaToCode(schema, openAPI, schemaName, annotations)
 
-      case JsonSchema.RefSchema(ref) => throw new Exception(s"Unexpected reference schema: $ref")
-      case JsonSchema.Integer(_)     => None
-      case JsonSchema.String(_, _)   => None // this could maybe be im proved to generate a string type with validation
-      case JsonSchema.Boolean        => None
+      case JsonSchema.RefSchema(ref)            => throw new Exception(s"Unexpected reference schema: $ref")
+      case JsonSchema.Integer(_, _, _, _, _, _) => None
+      case JsonSchema.String(_, _, _, _)        => None
+      case JsonSchema.Boolean                   => None
       case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive)                            =>
         throw new Exception("OneOf schemas with primitive types are not supported")
       case JsonSchema.OneOfSchema(schemas)                                                             =>
@@ -761,7 +763,7 @@ final case class EndpointGen(config: Config) {
           .toList
         val noDiscriminator                         = caseNames.isEmpty
         val unvalidatedFields: List[Code.Field]     = abstractMembers.flatMap(fieldsOfObject(openAPI, annotations))
-        val abstractMembersFields: List[Code.Field] = validateFields(unvalidatedFields)
+        val abstractMembersFields: List[Code.Field] = validateFields(unvalidatedFields).map(_.copy(annotations = Nil))
         Some(
           Code.File(
             List("component", name.capitalize + ".scala"),
@@ -887,9 +889,9 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Number(_)                                                                        => None
-      case JsonSchema.ArrayType(None)                                                                  => None
-      case JsonSchema.ArrayType(Some(schema))                                                          =>
+      case JsonSchema.Number(_, _, _, _, _, _)                                                         => None
+      case JsonSchema.ArrayType(None, _, _)                                                            => None
+      case JsonSchema.ArrayType(Some(schema), _, _)                                                    =>
         schemaToCode(schema, openAPI, name, annotations)
       case JsonSchema.Object(properties, additionalProperties, _)
           if properties.nonEmpty && additionalProperties.isRight =>
@@ -957,7 +959,7 @@ final case class EndpointGen(config: Config) {
     }
   }
 
-  private val reconcileFieldTypes: (String, Seq[Code.Field]) => Code.Field = (sameName, fields) => {
+  private def reconcileFieldTypes(sameName: String, fields: Seq[Code.Field]): Code.Field = {
     val reconciledFieldType = fields.view.map(_.fieldType).reduce[Code.ScalaType] {
       case (maybeBoth, areTheSame) if maybeBoth == areTheSame                 => areTheSame
       case (Collection.Opt(maybeInner), isTheSame) if maybeInner == isTheSame => isTheSame
@@ -978,7 +980,7 @@ final case class EndpointGen(config: Config) {
   private def validateFields(fields: Seq[Code.Field]): List[Code.Field] =
     fields
       .groupBy(_.name)
-      .map(reconcileFieldTypes.tupled)
+      .map { case (name, fields) => reconcileFieldTypes(name, fields) }
       .toList
       .sortBy(cf => fields.iterator.map(_.name).indexOf(cf.name)) // preserve original order of fields
 
@@ -995,25 +997,123 @@ final case class EndpointGen(config: Config) {
     annotations: Chunk[JsonSchema.MetaData],
   ): Option[Code.Field] = {
     schema match {
-      case JsonSchema.AnnotatedSchema(s, _)                         =>
+      case JsonSchema.AnnotatedSchema(s, _)     =>
         schemaToField(s.withoutAnnotations, openAPI, name, schema.annotations)
-      case JsonSchema.RefSchema(SchemaRef(ref))                     =>
+      case JsonSchema.RefSchema(SchemaRef(ref)) =>
         Some(Code.Field(name, Code.TypeRef(ref.capitalize)))
-      case JsonSchema.RefSchema(ref)                                =>
+      case JsonSchema.RefSchema(ref)            =>
         throw new Exception(s" Not found: $ref. Only references to internal schemas are supported.")
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)       =>
-        Some(Code.Field(name, Code.Primitive.ScalaInt))
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)       =>
-        Some(Code.Field(name, Code.Primitive.ScalaLong))
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp)   =>
-        Some(Code.Field(name, Code.Primitive.ScalaLong))
-      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _) =>
-        Some(Code.Field(name, Code.Primitive.ScalaUUID))
-      case JsonSchema.String(_, _)                                  =>
-        Some(Code.Field(name, Code.Primitive.ScalaString))
-      case JsonSchema.Boolean                                       =>
+      case JsonSchema.Integer(
+            JsonSchema.IntegerFormat.Int32,
+            minimum,
+            exclusiveMinimum,
+            maximum,
+            exclusiveMaximum,
+            _,
+          ) =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+        val annotations  = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+
+        Some(Code.Field(name, Code.Primitive.ScalaInt, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.Integer(
+            JsonSchema.IntegerFormat.Int64,
+            minimum,
+            exclusiveMinimum,
+            maximum,
+            exclusiveMaximum,
+            _,
+          ) =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+        val annotations  = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.Integer(
+            JsonSchema.IntegerFormat.Timestamp,
+            minimum,
+            exclusiveMinimum,
+            maximum,
+            exclusiveMaximum,
+            _,
+          ) =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+        val annotations  = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations.map(Code.Annotation.apply)))
+
+      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, maxLength, minLength)                             =>
+        val annotations =
+          (maxLength, minLength) match {
+            case (Some(max), Some(min)) =>
+              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max) && zio.schema.validation.Validation.minLength($min))" :: Nil
+            case (Some(max), None)      =>
+              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max))" :: Nil
+            case (None, Some(min))      =>
+              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.minLength($min))" :: Nil
+            case (None, None)           =>
+              Nil
+          }
+        Some(Code.Field(name, Code.Primitive.ScalaUUID, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.String(_, _, maxLength, minLength)                                                              =>
+        val annotations = (maxLength, minLength) match {
+          case (Some(max), Some(min)) =>
+            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max) && zio.schema.validation.Validation.minLength($min))" :: Nil
+          case (Some(max), None)      =>
+            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max))" :: Nil
+          case (None, Some(min))      =>
+            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.minLength($min))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaString, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.Boolean                                                                                         =>
         Some(Code.Field(name, Code.Primitive.ScalaBoolean))
-      case JsonSchema.OneOfSchema(schemas)                          =>
+      case JsonSchema.OneOfSchema(schemas)                                                                            =>
         val tpe =
           schemas
             .map(_.withoutAnnotations)
@@ -1021,9 +1121,9 @@ final case class EndpointGen(config: Config) {
             .map(_.fieldType)
             .reduceLeft(Code.ScalaType.Or.apply)
         Some(Code.Field(name, tpe))
-      case JsonSchema.AllOfSchema(_)                                =>
+      case JsonSchema.AllOfSchema(_)                                                                                  =>
         throw new Exception("Inline allOf schemas are not supported for fields")
-      case JsonSchema.AnyOfSchema(schemas)                          =>
+      case JsonSchema.AnyOfSchema(schemas)                                                                            =>
         val tpe =
           schemas
             .map(_.withoutAnnotations)
@@ -1031,16 +1131,57 @@ final case class EndpointGen(config: Config) {
             .map(_.fieldType)
             .reduceLeft(Code.ScalaType.Or.apply)
         Some(Code.Field(name, tpe))
-      case JsonSchema.Number(JsonSchema.NumberFormat.Double)        =>
-        Some(Code.Field(name, Code.Primitive.ScalaDouble))
-      case JsonSchema.Number(JsonSchema.NumberFormat.Float)         =>
-        Some(Code.Field(name, Code.Primitive.ScalaFloat))
-      case JsonSchema.ArrayType(items)                              =>
-        val tpe = items
+      case JsonSchema.Number(JsonSchema.NumberFormat.Double, minimum, exclusiveMinimum, maximum, exclusiveMaximum, _) =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+
+        val annotations = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaDouble, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.Number(JsonSchema.NumberFormat.Float, minimum, exclusiveMinimum, maximum, exclusiveMaximum, _)  =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+
+        val annotations = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaFloat, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.ArrayType(items, minItems, uniqueItems)                                                         =>
+        val nonEmpty = minItems.exists(_ > 1)
+        val tpe      = items
           .flatMap(schemaToField(_, openAPI, name, annotations))
-          .map(_.fieldType.seq)
+          .map(f => if (uniqueItems) f.fieldType.set(nonEmpty) else f.fieldType.seq(nonEmpty))
           .orElse(
-            Some(Code.Primitive.ScalaString.seq),
+            Some {
+              if (uniqueItems) Code.Primitive.ScalaString.set(nonEmpty) else Code.Primitive.ScalaString.seq(nonEmpty)
+            },
           )
         tpe.map(Code.Field(name, _))
       case JsonSchema.Object(properties, additionalProperties, _)
@@ -1057,13 +1198,13 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Object(_, _, _)                               =>
+      case JsonSchema.Object(_, _, _)                                                                                 =>
         Some(Code.Field(name, Code.TypeRef(name.capitalize)))
-      case JsonSchema.Enum(_)                                       =>
+      case JsonSchema.Enum(_)                                                                                         =>
         Some(Code.Field(name, Code.TypeRef(name.capitalize)))
-      case JsonSchema.Null                                          =>
+      case JsonSchema.Null                                                                                            =>
         Some(Code.Field(name, Code.ScalaType.Unit))
-      case JsonSchema.AnyJson                                       =>
+      case JsonSchema.AnyJson                                                                                         =>
         Some(Code.Field(name, Code.ScalaType.JsonAST))
     }
   }

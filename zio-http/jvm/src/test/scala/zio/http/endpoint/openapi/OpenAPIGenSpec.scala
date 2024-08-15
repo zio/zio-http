@@ -2503,7 +2503,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              "array",
             |            "items" : {
             |              "$ref" : "#/components/schemas/Recursive"
-            |            }
+            |            },
+            |            "uniqueItems" : true
             |          },
             |          "nestedEither" : {
             |            "oneOf" : [
