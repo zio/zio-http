@@ -25,6 +25,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
  * Invocations are pure data. In order to be useful, you must execute an
  * invocation with an [[EndpointExecutor]].
  */
-final case class Invocation[P, I, E, O, M <: EndpointMiddleware](endpoint: Endpoint[P, I, E, O, M], input: I) {
-  val middleware: endpoint.middleware.type = endpoint.middleware
-}
+final case class Invocation[P, I, E, O, A <: AuthType, AI](
+  endpoint: Endpoint.WithAuthInput[P, I, E, O, A, AI],
+  input: AI,
+)

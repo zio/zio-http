@@ -35,7 +35,7 @@ object CommandGen {
     fromSegment(segment)
   }
 
-  lazy val anyEndpoint: Gen[Any, HelpRepr[Endpoint[_, _, _, _, EndpointMiddleware.None]]] =
+  lazy val anyEndpoint: Gen[Any, HelpRepr[Endpoint[_, _, _, _, _]]] =
     anyCodec
       .map(_.map2(getCommand(_)))
       .map(_.map(fromInputCodec(Doc.empty, _)))

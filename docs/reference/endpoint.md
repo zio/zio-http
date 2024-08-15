@@ -75,7 +75,7 @@ We start describing an endpoint by specifying the HTTP method and the path. The 
 import zio._
 import zio.http._
 import zio.http.endpoint._
-import zio.http.endpoint.EndpointMiddleware._
+import zio.http.endpoint.AuthType._
 import zio.http.codec.PathCodec
 
 val endpoint1: Endpoint[Unit, Unit, ZNothing, ZNothing, None] =
@@ -100,7 +100,6 @@ Query parameters can be described using the `Endpoint#query` method which takes 
 import zio._
 import zio.http._
 import zio.http.endpoint._
-import zio.http.endpoint.EndpointMiddleware._
 import zio.http.codec.QueryCodec
 import zio.http.RoutePattern
 import zio.http.codec.PathCodec
@@ -108,7 +107,7 @@ import zio.http.codec._
 ```
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[Unit, String, ZNothing, ZNothing, None] =
+val endpoint: Endpoint[Unit, String, ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
     .query(QueryCodec.queryTo[String]("q"))
 ```
@@ -116,7 +115,7 @@ val endpoint: Endpoint[Unit, String, ZNothing, ZNothing, None] =
 QueryCodecs are composable, so we can combine multiple query parameters:
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
     .query(QueryCodec.queryTo[String]("q") ++ QueryCodec.queryTo[Int]("limit"))
 ```
@@ -124,7 +123,7 @@ val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, None] =
 Or we can use the `query` method multiple times:
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
     .query(QueryCodec.queryTo[String]("q"))
     .query(QueryCodec.queryTo[Int]("limit"))
@@ -133,7 +132,7 @@ val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, None] =
 Please note that as we add more properties to the endpoint, the input and output types of the endpoint change accordingly. For example, in the following example, we have an endpoint with a path parameter of type `String` and two query parameters of type `String` and `Int`. So the input type of the endpoint is `(String, String, Int)`:
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[String, (String, String, Int), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[String, (String, String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.string("genre"))
     .query(QueryCodec.queryTo[String]("q"))
     .query(QueryCodec.queryTo[Int]("limit"))
@@ -146,7 +145,7 @@ When we implement the endpoint, the handler function should take the input type 
 Headers can be described using the `Endpoint#header` method which takes a `HeaderCodec[A]` and specifies that the given header is required, for example:
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[String, (String, Header.Authorization), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[String, (String, Header.Authorization), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.string("genre"))
     .header(HeaderCodec.authorization)
 ```
@@ -164,7 +163,7 @@ object Book {
   implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
 }
 
-val endpoint: Endpoint[Unit, Book, ZNothing, ZNothing, None] =
+val endpoint: Endpoint[Unit, Book, ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.POST / "books" )
     .in[Book]
 ```
@@ -214,7 +213,7 @@ object Book {
   implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
 }
 
-val endpoint: Endpoint[Unit, String, ZNothing, List[Book], None] =
+val endpoint: Endpoint[Unit, String, ZNothing, List[Book], AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
     .query(QueryCodec.query("q"))
     .out[List[Book]]
@@ -228,7 +227,6 @@ Sometimes based on the condition, we might want to return different types of res
 import zio._
 import zio.http.{RoutePattern, _}
 import zio.http.endpoint.Endpoint
-import zio.http.endpoint.EndpointMiddleware.None
 import zio.schema.DeriveSchema.gen
 import zio.schema._
 
@@ -255,7 +253,7 @@ object Quiz {
 }
 
 object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
-  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Quiz, Course], None] =
+  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Quiz, Course], AuthType.None] =
     Endpoint(RoutePattern.GET / "resources")
       .out[Course]
       .out[Quiz]
@@ -306,7 +304,7 @@ implicit val bookSchema     = DeriveSchema.gen[Book]
 implicit val notFoundSchema = DeriveSchema.gen[BookNotFound]
 implicit val authSchema     = DeriveSchema.gen[AuthenticationError]
 
-val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, None] =
+val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
     .header(HeaderCodec.authorization)
     .out[Book]
@@ -342,7 +340,7 @@ case class AuthenticationError(message: String, userId: Int) extends AppError(me
 implicit val notFoundSchema = DeriveSchema.gen[BookNotFound]
 implicit val authSchema     = DeriveSchema.gen[AuthenticationError]
 
-val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
+val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
     .header(HeaderCodec.authorization)
     .out[Book]
@@ -369,12 +367,12 @@ To transform the input, output, and error types of an endpoint, we can use the `
 ```scala mdoc:compile-only
 case class BookQuery(query: String, genre: String, title: String)
 
-val endpoint: Endpoint[String, (String, String, String), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[String, (String, String, String), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.POST / "books" / PathCodec.string("genre"))
     .query(QueryCodec.query("q"))
     .query(QueryCodec.query("title"))
 
-val mappedEndpoint: Endpoint[String, BookQuery, ZNothing, ZNothing, None] =
+val mappedEndpoint: Endpoint[String, BookQuery, ZNothing, ZNothing, AuthType.None] =
   endpoint.transformIn[BookQuery] { case (genre, q, title) => BookQuery(q, genre, title) } { i =>
     (i.genre, i.query, i.title)
   }
