@@ -661,13 +661,13 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
               case record: Schema.Record[A]                =>
                 record.fields.map { field =>
                   validateSchema(field.name, field.schema)
-                  val codec = binaryCodecForField(field.schema)
+                  val codec = binaryCodecForField(field.annotations.foldLeft(field.schema)(_ annotate _))
                   (unlazy(field.asInstanceOf[Schema.Field[Any, Any]]), codec)
                 }
               case s if s.isInstanceOf[Schema.Optional[_]] =>
                 val record = s.asInstanceOf[Schema.Optional[A]].schema.asInstanceOf[Schema.Record[A]]
                 record.fields.map { field =>
-                  validateSchema(field.name, field.schema)
+                  validateSchema(field.name, field.annotations.foldLeft(field.schema)(_ annotate _))
                   val codec = binaryCodecForField(field.schema)
                   (field, codec)
                 }

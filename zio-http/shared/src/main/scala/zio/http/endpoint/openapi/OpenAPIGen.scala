@@ -658,7 +658,34 @@ object OpenAPIGen {
                 required = mc.required,
               ),
             )
+
           }
+        case mc @ MetaCodec(
+              HttpCodec.Query(
+                HttpCodec.Query.QueryType.Collection(
+                  schema,
+                  HttpCodec.Query.QueryType.Primitive(name, codec),
+                  optional,
+                ),
+                _,
+              ),
+              _,
+            ) =>
+          OpenAPI.ReferenceOr.Or(
+            OpenAPI.Parameter.queryParameter(
+              name = name,
+              description = mc.docsOpt,
+              schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
+              deprecated = mc.deprecated,
+              style = OpenAPI.Parameter.Style.Form,
+              explode = false,
+              allowReserved = false,
+              examples = mc.examples.map { case (exName, value) =>
+                exName -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
+              },
+              required = !optional,
+            ),
+          ) :: Nil
       }
     }.flatten.toSet
 
