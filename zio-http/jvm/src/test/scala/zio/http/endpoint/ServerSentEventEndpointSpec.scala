@@ -37,7 +37,7 @@ object ServerSentEventEndpointSpec extends ZIOSpecDefault {
     def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
 
     private val invocation
-      : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None, Unit] =
+      : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
       sseEndpoint(())
 
     def client(port: Int): ZIO[Scope, Throwable, Chunk[ServerSentEvent[String]]] =
@@ -74,7 +74,7 @@ object ServerSentEventEndpointSpec extends ZIOSpecDefault {
     def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
 
     private val invocation
-      : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None, Unit] =
+      : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
       sseEndpoint(())
 
     def client(port: Int): ZIO[Scope, Throwable, Chunk[ServerSentEvent[Payload]]] =
