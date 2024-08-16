@@ -223,7 +223,7 @@ object Request {
    */
   private def pathOrUrl(path: String): URL =
     if (path.startsWith("http://") || path.startsWith("https://")) {
-      URL.decode(path).toOption.getOrElse(URL(Path(path)))
+      URL.decode(path).getOrElse(URL(Path(path)))
     } else {
       URL(Path(path))
     }
