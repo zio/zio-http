@@ -1,6 +1,6 @@
 package zio.http.codec
 
-import scala.collection.immutable.ListMap
+import scala.collection.immutable.{HashMap, ListMap}
 
 import zio._
 
@@ -19,7 +19,11 @@ final case class HttpContentCodec[A](
   choices: ListMap[MediaType, BinaryCodecWithSchema[A]],
 ) { self =>
 
-  private var lookupCache: Map[MediaType, Option[BinaryCodecWithSchema[A]]] = Map.empty
+  /**
+   * Uses an `HashMap` instead of a `Map` to avoid allocation of an Option when
+   * calling `.getOrElse`
+   */
+  private var lookupCache: HashMap[MediaType, Option[BinaryCodecWithSchema[A]]] = HashMap.empty
 
   /**
    * A right biased merge of two HttpContentCodecs.
