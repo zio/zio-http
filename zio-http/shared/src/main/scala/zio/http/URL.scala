@@ -16,8 +16,7 @@
 
 package zio.http
 
-import java.io.IOException
-import java.net.URI
+import java.net.{MalformedURLException, URI}
 
 import scala.util.control.NonFatal
 
@@ -285,28 +284,27 @@ object URL {
   val empty: URL = URL(path = Path.empty)
 
   /**
-   * Proper implementation of [[java.net.MalformedURLException]] which, unlike
-   * the Java version, can propagate the cause.
+   * To better understand this implementation, read discussion:
+   * https://github.com/zio/zio-http/pull/3017/files#r1716489733
    */
-  final case class MalformedURLException private[http] (rawUrl: String, cause: Option[Throwable])
-      extends IOException(cause.orNull) {
-    override def getMessage: String = s"""Invalid URL: "$rawUrl""""
+  private final class Err(rawUrl: String, cause: Throwable) extends MalformedURLException {
+    override def getMessage: String  = s"""Invalid URL: "$rawUrl""""
+    override def getCause: Throwable = cause
   }
 
   def decode(rawUrl: String): Either[MalformedURLException, URL] = {
-    def invalidURL(e: Option[Throwable]): Either[MalformedURLException, URL] =
-      Left(MalformedURLException(rawUrl = rawUrl, cause = e))
+    def invalidURL(e: Throwable = null): Either[MalformedURLException, URL] = Left(new Err(rawUrl = rawUrl, cause = e))
 
     try {
       val uri = new URI(rawUrl)
       val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
       url match {
-        case None        => invalidURL(None)
+        case None        => invalidURL()
         case Some(value) => Right(value)
       }
     } catch {
-      case NonFatal(e) => invalidURL(Some(e))
+      case NonFatal(e) => invalidURL(e)
     }
   }
 
