@@ -19,7 +19,9 @@ sealed trait AuthType { self =>
 
 object AuthType {
 
-  type None = None.type
+  type None   = None.type
+  type Basic  = Basic.type
+  type Bearer = Bearer.type
 
   case object None extends AuthType {
     type ClientRequirement = Unit
