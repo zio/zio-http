@@ -10,7 +10,7 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http.Method.{GET, POST}
 import zio.http._
 import zio.http.codec.PathCodec.string
-import zio.http.codec.{ContentCodec, Doc, HttpCodec, QueryCodec}
+import zio.http.codec.{ContentCodec, Doc, HttpCodec, HttpContentCodec, QueryCodec}
 import zio.http.endpoint._
 
 object OpenAPIGenSpec extends ZIOSpecDefault {
@@ -145,6 +145,12 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       implicit val schema: Schema[A] = DeriveSchema.gen
     }
     case class B(i: Int)
+  }
+
+  case class WithGenericPayload[A](a: A)
+
+  object WithGenericPayload {
+    implicit def schema[T: Schema]: Schema[WithGenericPayload[T]] = DeriveSchema.gen
   }
 
   private val simpleEndpoint =
@@ -2630,6 +2636,78 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |}""".stripMargin
         val expected     = toJsonAst(expectedJson)
         assertTrue(json == expected)
+      },
+      test("Generic payload") {
+        // TODO: Currently, the applied types of generics are not saved in the schema correctly
+        // Once this is fixed, we should generate the ref as `#/components/schemas/WithGenericPayloadSimpleInputBody`
+        val endpoint     = Endpoint(RoutePattern.POST / "generic")
+          .in[WithGenericPayload[SimpleInputBody]]
+        val openApi      = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(openApi)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "",
+                             |    "version" : ""
+                             |  },
+                             |  "paths" : {
+                             |    "/generic" : {
+                             |      "post" : {
+                             |        "requestBody" :
+                             |          {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" :
+                             |                {
+                             |                "$ref" : "#/components/schemas/WithGenericPayload"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "SimpleInputBody" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" :
+                             |              "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" :
+                             |              "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "WithGenericPayload" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "a" : {
+                             |            "$ref" : "#/components/schemas/SimpleInputBody"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "a"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}
+                             |""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
       },
     )
 
