@@ -95,24 +95,19 @@ object CodeGen {
           sb ++= epc
         }
         sb += '\n'
-        sb += '\n' // redundant: may be dropped  - but altering all test examples is needed, so it'll match
         schema.foreach(_.codecLineWithStringBuilder(name, sb))
-        sb += '\n' // redundant: may be dropped  - but altering all test examples is needed, so it'll match
         objectsContent.foreach { obj =>
           sb += '\n'
           sb ++= obj
         }
-        sb += '\n' // redundant: may be dropped  - but altering all test examples is needed, so it'll match
         ccContent.foreach { cc =>
           sb += '\n'
           sb ++= cc
         }
-        sb += '\n' // redundant: may be dropped  - but altering all test examples is needed, so it'll match
         enumContent.foreach { en =>
           sb += '\n'
           sb ++= en
         }
-        sb += '\n' // redundant: may be dropped  - but altering all test examples is needed, so it'll match
         sb ++= "\n}"
         sb.result()
       }

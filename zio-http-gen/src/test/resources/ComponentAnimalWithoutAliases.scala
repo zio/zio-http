@@ -11,7 +11,5 @@ case class Animal(
   id: Int,
 )
 object Animal {
-
   implicit val codec: Schema[Animal] = DeriveSchema.gen[Animal]
-
 }
