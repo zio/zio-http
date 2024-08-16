@@ -300,8 +300,8 @@ object URL {
       val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
       url match {
-        case None        => invalidURL()
         case Some(value) => Right(value)
+        case None        => invalidURL()
       }
     } catch {
       case NonFatal(e) => invalidURL(e)
