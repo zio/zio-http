@@ -139,9 +139,9 @@ final case class HttpContentCodec[A](
     }
 
   def lookup(mediaType: MediaType): Option[BinaryCodecWithSchema[A]] = {
-    if (lookupCache.contains(mediaType)) {
-      lookupCache(mediaType)
-    } else {
+    val codec = lookupCache.getOrElse(mediaType, null)
+    if (codec ne null) codec
+    else {
       val codec = choices.collectFirst { case (mt, codec) if mt.matches(mediaType) => codec }
       lookupCache = lookupCache + (mediaType -> codec)
       codec
