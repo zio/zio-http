@@ -6,7 +6,5 @@ case class HttpError(
   messages: Option[String],
 )
 object HttpError {
-
   implicit val codec: Schema[HttpError] = DeriveSchema.gen[HttpError]
-
 }

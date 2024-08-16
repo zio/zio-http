@@ -17,30 +17,22 @@ object Users {
       name: String,
       address: Option[Address],
     )
-    object RequestBody {
-
+    object RequestBody  {
       implicit val codec: Schema[RequestBody] = DeriveSchema.gen[RequestBody]
-
     }
     case class Address(
       number: Option[Int],
       street: Option[String],
     )
-    object Address {
-
+    object Address      {
       implicit val codec: Schema[Address] = DeriveSchema.gen[Address]
-
     }
     case class ResponseBody(
       id: Int,
       name: String,
     )
     object ResponseBody {
-
       implicit val codec: Schema[ResponseBody] = DeriveSchema.gen[ResponseBody]
-
     }
-
   }
-
 }

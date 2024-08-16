@@ -18,9 +18,7 @@ object Animal       {
     @zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan(-1)) num_teeth: Int,
   ) extends Animal
   object Alligator {
-
     implicit val codec: Schema[Alligator] = DeriveSchema.gen[Alligator]
-
   }
   case class Zebra(
     @zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan(-1)) age: Int,
@@ -29,8 +27,6 @@ object Animal       {
     dazzle: Chunk[Zebra],
   ) extends Animal
   object Zebra {
-
     implicit val codec: Schema[Zebra] = DeriveSchema.gen[Zebra]
-
   }
 }

@@ -7,7 +7,5 @@ case class User(
   name: String,
 )
 object User {
-
   implicit val codec: Schema[User] = DeriveSchema.gen[User]
-
 }

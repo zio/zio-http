@@ -9,7 +9,5 @@ case class ValidatedData(
   ) age: Int,
 )
 object ValidatedData {
-
   implicit val codec: Schema[ValidatedData] = DeriveSchema.gen[ValidatedData]
-
 }
