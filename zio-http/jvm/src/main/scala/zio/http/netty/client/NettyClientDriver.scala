@@ -125,9 +125,10 @@ final case class NettyClientDriver private[netty] (
     webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] = {
     for {
-      queue <- Queue.unbounded[WebSocketChannelEvent]
+      queue              <- Queue.unbounded[WebSocketChannelEvent]
+      handshakeCompleted <- Promise.make[Nothing, Unit]
       nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
-      webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+      webSocketChannel = WebSocketChannel.make(nettyChannel, queue, handshakeCompleted)
       app              = createSocketApp()
       _ <- app.handler.runZIO(webSocketChannel).ignoreLogged.interruptible.forkScoped
     } yield {
@@ -149,7 +150,7 @@ final case class NettyClientDriver private[netty] (
       // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
 
       val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-      val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, Some(onComplete))
+      val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, handshakeCompleted, Some(onComplete))
 
       pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
       pipeline.addLast(Names.WebSocketHandler, webSocket)

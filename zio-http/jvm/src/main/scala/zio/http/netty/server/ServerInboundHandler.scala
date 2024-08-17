@@ -262,40 +262,39 @@ private[zio] final case class ServerInboundHandler(
     request: Request,
     webSocketApp: WebSocketApp[Any],
     runtime: NettyRuntime,
-  ): Task[Unit] = {
-    Queue
+  ): Task[Unit] = for {
+    handshakeCompleted <- Promise.make[Nothing, Unit]
+    queue              <- Queue
       .unbounded[WebSocketChannelEvent]
       .tap { queue =>
         ZIO.suspend {
           val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
-          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue, handshakeCompleted)
           webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
         }
       }
-      .flatMap { queue =>
-        ZIO.attempt {
-          ctx
-            .channel()
-            .pipeline()
-            .addLast(
-              new WebSocketServerProtocolHandler(
-                NettySocketProtocol
-                  .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
-                  .build(),
-              ),
-            )
-            .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, None))
+    _                  <- ZIO.attempt {
+      ctx
+        .channel()
+        .pipeline()
+        .addLast(
+          new WebSocketServerProtocolHandler(
+            NettySocketProtocol
+              .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
+              .build(),
+          ),
+        )
+        .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, handshakeCompleted, None))
 
-          val jReq = new DefaultFullHttpRequest(
-            Conversions.versionToNetty(request.version),
-            Conversions.methodToNetty(request.method),
-            Conversions.urlToNetty(request.url),
-          )
-          jReq.headers().setAll(Conversions.headersToNetty(request.allHeaders))
-          ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(jReq) }: Unit
-        }
-      }
-  }
+      val jReq = new DefaultFullHttpRequest(
+        Conversions.versionToNetty(request.version),
+        Conversions.methodToNetty(request.method),
+        Conversions.urlToNetty(request.url),
+      )
+      jReq.headers().setAll(Conversions.headersToNetty(request.allHeaders))
+      ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(jReq) }
+    }
+  } yield ()
 
   private def writeNotFound(ctx: ChannelHandlerContext, req: Request): Unit = {
     val response = Response.notFound(req.url.encode)

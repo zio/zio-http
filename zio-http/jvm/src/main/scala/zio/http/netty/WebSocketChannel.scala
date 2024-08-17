@@ -29,6 +29,7 @@ private[http] object WebSocketChannel {
   def make(
     nettyChannel: NettyChannel[JWebSocketFrame],
     queue: Queue[WebSocketChannelEvent],
+    handshakeCompleted: Promise[Nothing, Unit],
   ): WebSocketChannel =
     new WebSocketChannel {
       def awaitShutdown(implicit trace: Trace): UIO[Unit] =
@@ -51,14 +52,14 @@ private[http] object WebSocketChannel {
       }
 
       def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit] = {
-        in match {
+        handshakeCompleted.await *> (in match {
           case Read(message) => nettyChannel.writeAndFlush(frameToNetty(message))
           case _             => ZIO.unit
-        }
+        })
       }
 
       def sendAll(in: Iterable[WebSocketChannelEvent])(implicit trace: Trace): Task[Unit] =
-        ZIO.suspendSucceed {
+        handshakeCompleted.await *> ZIO.suspendSucceed {
           val iterator = in.iterator.collect { case Read(message) => message }
 
           ZIO.whileLoop(iterator.hasNext) {
@@ -67,7 +68,8 @@ private[http] object WebSocketChannel {
             else nettyChannel.writeAndFlush(frameToNetty(message))
           }(_ => ())
         }
-      def shutdown(implicit trace: Trace): UIO[Unit]                                      =
+
+      def shutdown(implicit trace: Trace): UIO[Unit] =
         nettyChannel.close(false).orDie
     }
 
