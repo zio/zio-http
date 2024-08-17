@@ -2,14 +2,11 @@ package zio.http.gen.openapi
 
 import java.nio.file._
 
-import scala.util.Try
-
 import zio._
 import zio.test._
 
 import zio.http._
-import zio.http.codec.HeaderCodec
-import zio.http.codec.HttpCodec.{query, queryInt}
+import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
@@ -334,8 +331,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users")
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -374,8 +371,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users" / int("userId"))
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -483,8 +480,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
         test("request body and empty response with path parameter and query parameters") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users" / int("userId"))
             .in[User]
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -525,8 +522,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
         test("request body and empty response with path parameter and query parameters and headers") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users" / int("userId"))
             .in[User]
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
@@ -917,7 +914,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -934,7 +932,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "POST",
-                    schema = false,
+                    extensions = Nil,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -973,7 +972,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("get") -> Code.EndpointCode(
                     Method.GET,
@@ -990,7 +990,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "GET",
-                    schema = false,
+                    extensions = Nil,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -1029,7 +1030,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -1046,7 +1048,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "POST",
-                    schema = false,
+                    extensions = Nil,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -1091,7 +1094,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -1167,7 +1171,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Foo",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -1279,8 +1284,9 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 ),
                 companionObject = Some(
                   Code.Object(
+                    extensions = Nil,
                     name = "Bar",
-                    schema = true,
+                    schema = Some(Code.Object.SchemaCode.DeriveSchemaGen),
                     endpoints = Map(
                     ),
                     objects = Nil,

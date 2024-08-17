@@ -10,8 +10,7 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.HttpCodec
-import zio.http.endpoint.EndpointMiddleware.None
-import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator}
+import zio.http.endpoint._
 
 object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
 
@@ -24,7 +23,7 @@ object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
   val stream: ZStream[Any, Nothing, ServerSentEvent[Payload]] =
     ZStream.repeatWithSchedule(ServerSentEvent(Payload(Instant.now(), "message")), Schedule.spaced(1.second))
 
-  val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], None] =
+  val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
     Endpoint(Method.GET / "sse")
       .outStream[ServerSentEvent[Payload]]
       .inCodec(HttpCodec.header(Header.Accept).const(Header.Accept(MediaType.text.`event-stream`)))
@@ -48,7 +47,7 @@ object ServerSentEventAsJsonEndpointClient extends ZIOAppDefault {
     ZIO
       .scoped(for {
         client <- ZIO.service[Client]
-        executor = EndpointExecutor(client, locator, ZIO.unit)
+        executor = EndpointExecutor(client, locator)
         stream <- executor(invocation)
         _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))
       } yield ())

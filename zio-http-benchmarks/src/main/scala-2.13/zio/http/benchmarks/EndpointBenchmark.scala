@@ -11,7 +11,7 @@ import zio.{Scope => _, _}
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.QueryCodec
+import zio.http.codec.HttpCodec
 import zio.http.endpoint.Endpoint
 
 import cats.effect.unsafe.implicits.global
@@ -91,7 +91,7 @@ class EndpointBenchmark {
   // API DSL
   val usersPosts =
     Endpoint(Method.GET / "users" / int("userId") / "posts" / int("limit"))
-      .query(QueryCodec.query("query"))
+      .query(HttpCodec.query[String]("query"))
       .out[ExampleData]
 
   val handledUsersPosts =

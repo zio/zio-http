@@ -20,7 +20,7 @@ import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
-import zio.http.codec.Alternator
+import zio.http.codec.{Alternator, Combiner}
 import zio.http.endpoint.internal.EndpointClient
 
 /**
@@ -28,46 +28,46 @@ import zio.http.endpoint.internal.EndpointClient
  * endpoint invocation, and executing the invocation, returning the final
  * result, or failing with a pre-defined RPC error.
  */
-final case class EndpointExecutor[+MI](
+final case class EndpointExecutor(
   client: Client,
   locator: EndpointLocator,
-  middlewareInput: UIO[MI],
 ) {
   private val metadata = {
     implicit val trace0 = Trace.empty
     zio.http.endpoint.internal
-      .MemoizedZIO[Endpoint[_, _, _, _, _ <: EndpointMiddleware], EndpointNotFound, EndpointClient[
+      .MemoizedZIO[Endpoint[_, _, _, _, _ <: AuthType], EndpointNotFound, EndpointClient[
         Any,
         Any,
         Any,
         Any,
         _,
-      ]] { (api: Endpoint[_, _, _, _, _ <: EndpointMiddleware]) =>
+        Any,
+      ]] { (api: Endpoint[_, _, _, _, _ <: AuthType]) =>
         locator.locate(api).map { location =>
           EndpointClient(
             location,
-            api.asInstanceOf[Endpoint[Any, Any, Any, Any, _ <: EndpointMiddleware]],
+            api.asInstanceOf[Endpoint.WithAuthInput[Any, Any, Any, Any, _ <: AuthType, Any]],
           )
         }
       }
   }
 
-  private def getClient[P, I, E, O, M <: EndpointMiddleware](
-    endpoint: Endpoint[P, I, E, O, M],
-  )(implicit trace: Trace): IO[EndpointNotFound, EndpointClient[P, I, E, O, M]] =
-    metadata.get(endpoint).map(_.asInstanceOf[EndpointClient[P, I, E, O, M]])
+  private def getClient[P, I, E, O, A <: AuthType, AI](
+    endpoint: Endpoint.WithAuthInput[P, I, E, O, A, AI],
+  )(implicit trace: Trace): IO[EndpointNotFound, EndpointClient[P, I, E, O, A, AI]] =
+    metadata.get(endpoint).map(_.asInstanceOf[EndpointClient[P, I, E, O, A, AI]])
 
-  def apply[P, A, E, B, M <: EndpointMiddleware](
-    invocation: Invocation[P, A, E, B, M],
+  def apply[P, A, E, B, Auth <: AuthType, AI](
+    invocation: Invocation[P, A, E, B, Auth, AI],
   )(implicit
-    alt: Alternator[E, invocation.middleware.Err],
-    ev: MI <:< invocation.middleware.In,
+    combiner: Combiner[A, invocation.endpoint.authType.ClientRequirement],
     trace: Trace,
   ): ZIO[Scope, E, B] = {
-    middlewareInput.flatMap { mi =>
-      getClient(invocation.endpoint).orDie.flatMap { endpointClient =>
-        endpointClient.execute(client, invocation)(ev(mi))
-      }
+    getClient(invocation.endpoint).orDie.flatMap { endpointClient =>
+      endpointClient.execute(client, invocation)(
+        combiner.asInstanceOf[Combiner[A, endpointClient.endpoint.authType.ClientRequirement]],
+        trace,
+      )
     }
   }
 }
@@ -80,17 +80,17 @@ object EndpointExecutor {
         .uri("url")
         .map { uri =>
           URL
-            .decode(uri.toString())
+            .decode(uri.toString)
             .getOrElse(throw new RuntimeException(s"Illegal format of URI ${uri} for endpoint executor configuration"))
         }
         .map(Config(_))
   }
 
-  def make(serviceName: String)(implicit trace: Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor[Unit]] =
+  def make(serviceName: String)(implicit trace: Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor] =
     ZLayer {
       for {
         client <- ZIO.service[Client]
         config <- ZIO.config(Config.config.nested(serviceName))
-      } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url), ZIO.unit)
+      } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url))
     }
 }

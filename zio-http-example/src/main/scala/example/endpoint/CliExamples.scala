@@ -36,8 +36,6 @@ object Post {
 }
 
 trait TestCliEndpoints {
-  import HttpCodec._
-  import zio.http.codec.PathCodec._
 
   val getUser =
     Endpoint(Method.GET / "users" / int("userId") ?? Doc.p("The unique identifier of the user"))
@@ -51,7 +49,7 @@ trait TestCliEndpoints {
         "posts" / int("postId") ?? Doc.p("The unique identifier of the post"),
     )
       .query(
-        query("user-name") ?? Doc.p(
+        HttpCodec.query[String]("user-name") ?? Doc.p(
           "The user's name",
         ),
       )
@@ -114,9 +112,9 @@ object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
         Client.default,
       )
 
-  lazy val clientExample: URIO[EndpointExecutor[Unit], Unit] =
+  lazy val clientExample: URIO[EndpointExecutor & Scope, Unit] =
     for {
-      executor <- ZIO.service[EndpointExecutor[Unit]]
+      executor <- ZIO.service[EndpointExecutor]
       _        <- ZIO.scoped(executor(getUser(42, Location.parse("some-location").toOption.get))).debug("result1")
       _        <- ZIO.scoped(executor(getUserPosts(42, 200, "adam")).debug("result2"))
       _        <- ZIO.scoped(executor(createUser(User(2, "john", Some("john@test.com"))))).debug("result3")

@@ -28,7 +28,6 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.{extractStatus, testEndpoint, testEndpointWithHeaders}
 
@@ -75,7 +74,7 @@ object RequestSpec extends ZIOHttpSpec {
         check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
-              .query(query("id"))
+              .query(HttpCodec.query[String]("id"))
               .out[Int](MediaType.text.`plain`)
           val routes   =
             endpoint.implementHandler {
@@ -97,7 +96,7 @@ object RequestSpec extends ZIOHttpSpec {
         check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
-              .query(query("id"))
+              .query(HttpCodec.query[String]("id"))
               .out[Int](MediaType.text.`plain`)
           val routes   =
             endpoint.implementHandler {
@@ -119,7 +118,7 @@ object RequestSpec extends ZIOHttpSpec {
         check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
-              .query(query("id"))
+              .query(HttpCodec.query[String]("id"))
               .out[Int](Status.NotFound)
           val routes   =
             endpoint.implementHandler {
@@ -138,7 +137,7 @@ object RequestSpec extends ZIOHttpSpec {
           check(Gen.int, Gen.boolean) { (id, notAnId) =>
             val endpoint =
               Endpoint(GET / "posts")
-                .query(queryInt("id"))
+                .query(HttpCodec.query[Int]("id"))
                 .out[Int]
             val routes   = endpoint.implementHandler { Handler.succeed(id) }
             for {
@@ -201,8 +200,8 @@ object RequestSpec extends ZIOHttpSpec {
                   }
                 },
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-                .query(query("name"))
-                .query(query("age"))
+                .query(HttpCodec.query[String]("name"))
+                .query(HttpCodec.query[String]("age"))
                 .out[String]
                 .implementHandler {
                   Handler.fromFunction { case (userId, postId, name, age) =>
@@ -223,7 +222,7 @@ object RequestSpec extends ZIOHttpSpec {
           val testRoutes = testEndpoint(
             Routes(
               Endpoint(GET / "users")
-                .query(queryInt("userId") | query("userId"))
+                .query(HttpCodec.query[Int]("userId") | HttpCodec.query[String]("userId"))
                 .out[String]
                 .implementHandler {
                   Handler.fromFunction { userId =>
@@ -409,7 +408,7 @@ object RequestSpec extends ZIOHttpSpec {
       },
       test("composite in codecs") {
         check(Gen.alphaNumericString, Gen.alphaNumericString) { (queryValue, headerValue) =>
-          val headerOrQuery             = HeaderCodec.name[String]("X-Header") | QueryCodec.query("header")
+          val headerOrQuery             = HeaderCodec.name[String]("X-Header") | HttpCodec.query[String]("header")
           val endpoint                  = Endpoint(GET / "test").out[String].inCodec(headerOrQuery)
           val routes                    = endpoint.implementHandler(Handler.identity).toRoutes
           val request                   = Request.get(
@@ -443,15 +442,15 @@ object RequestSpec extends ZIOHttpSpec {
         }
       },
       test("composite out codecs") {
-        val headerOrQuery     = HeaderCodec.name[String]("X-Header") | StatusCodec.status(Status.Created)
-        val endpoint          = Endpoint(GET / "test").query(QueryCodec.queryBool("Created")).outCodec(headerOrQuery)
-        val routes            =
+        val headerOrQuery  = HeaderCodec.name[String]("X-Header") | StatusCodec.status(Status.Created)
+        val endpoint       = Endpoint(GET / "test").query(HttpCodec.query[Boolean]("Created")).outCodec(headerOrQuery)
+        val routes         =
           endpoint.implementHandler {
             Handler.fromFunction { created =>
               if (created) Right(()) else Left("not created")
             }
           }.toRoutes
-        val requestCreated    = Request.get(
+        val requestCreated = Request.get(
           URL
             .decode("/test?Created=true")
             .toOption

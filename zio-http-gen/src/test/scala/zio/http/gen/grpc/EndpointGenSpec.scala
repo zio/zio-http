@@ -2,18 +2,11 @@ package zio.http.gen.grpc
 
 import java.nio.file._
 
-import scala.jdk.CollectionConverters._
-
 import zio._
 import zio.test._
 
 import zio.http._
-import zio.http.codec.HeaderCodec
-import zio.http.codec.HttpCodec.{query, queryInt}
-import zio.http.endpoint._
-import zio.http.gen.model._
 import zio.http.gen.scala.Code
-import zio.http.gen.scala.Code.Collection.Opt
 
 object EndpointGenSpec extends ZIOSpecDefault {
 

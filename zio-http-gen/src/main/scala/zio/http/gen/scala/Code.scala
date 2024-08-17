@@ -1,20 +1,20 @@
 package zio.http.gen.scala
 
-import java.nio.file.Path
-
 import scala.meta.Term
 import scala.meta.prettyprinters.XtensionSyntax
 
 import zio.http.{Method, Status}
 
+import com.sun.tools.javac.code.TypeMetadata.Annotations
+
 sealed trait Code extends Product with Serializable
 
 object Code {
   sealed trait ScalaType extends Code { self =>
-    def seq: Collection.Seq = Collection.Seq(self)
-    def set: Collection.Set = Collection.Set(self)
-    def map: Collection.Map = Collection.Map(self)
-    def opt: Collection.Opt = Collection.Opt(self)
+    def seq(nonEmpty: Boolean): Collection.Seq = Collection.Seq(self, nonEmpty)
+    def set(nonEmpty: Boolean): Collection.Set = Collection.Set(self, nonEmpty)
+    def map: Collection.Map                    = Collection.Map(self)
+    def opt: Collection.Opt                    = Collection.Opt(self)
   }
 
   object ScalaType {
@@ -48,7 +48,8 @@ object Code {
 
   final case class Object(
     name: String,
-    schema: Boolean,
+    extensions: List[String],
+    schema: Option[Object.SchemaCode],
     endpoints: Map[Field, EndpointCode],
     objects: List[Object],
     caseClasses: List[CaseClass],
@@ -56,10 +57,64 @@ object Code {
   ) extends ScalaType
 
   object Object {
-    def schemaCompanion(str: String): Object = Object(str, schema = true, Map.empty, Nil, Nil, Nil)
+
+    /**
+     * This is a means to provide implicit codec/schema in different ways. e.g.
+     * deriving with macros, or manual transforming on a primitive type.
+     */
+    sealed trait SchemaCode {
+      def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit
+    }
+    object SchemaCode       {
+      case object DeriveSchemaGen                      extends SchemaCode {
+        override def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit = {
+          sb ++= " implicit val codec: Schema["
+          sb ++= typeName
+          sb ++= "] = DeriveSchema.gen["
+          sb ++= typeName
+          sb += ']'
+        }
+      }
+      case class AliasedNewtype(primitiveType: String) extends SchemaCode {
+        override def codecLineWithStringBuilder(typeName: String, sb: StringBuilder): Unit = {
+          sb ++= " implicit val schema: Schema["
+          sb ++= typeName
+          sb ++= ".Type] = Schema.primitive["
+          sb ++= primitiveType
+          sb ++= "].transform(wrap, unwrap)"
+        }
+      }
+    }
+
+    def withDefaultSchemaDerivation(
+      name: String,
+      extensions: List[String],
+      endpoints: Map[Field, EndpointCode],
+      objects: List[Object],
+      caseClasses: List[CaseClass],
+      enums: List[Enum],
+    ): Object =
+      Object(name, extensions, Some(SchemaCode.DeriveSchemaGen), endpoints, objects, caseClasses, enums)
+
+    def schemaCompanion(str: String): Object = withDefaultSchemaDerivation(
+      name = str,
+      extensions = Nil,
+      endpoints = Map.empty,
+      objects = Nil,
+      caseClasses = Nil,
+      enums = Nil,
+    )
 
     def apply(name: String, endpoints: Map[Field, EndpointCode]): Object =
-      Object(name, schema = false, endpoints, Nil, Nil, Nil)
+      new Object(
+        name = name,
+        extensions = Nil,
+        schema = None,
+        endpoints = endpoints,
+        objects = Nil,
+        caseClasses = Nil,
+        enums = Nil,
+      )
   }
 
   final case class CaseClass(name: String, fields: List[Field], companionObject: Option[Object], mixins: List[String])
@@ -79,17 +134,29 @@ object Code {
     abstractMembers: List[Field] = Nil,
   ) extends ScalaType
 
-  sealed abstract case class Field private (name: String, fieldType: ScalaType) extends Code {
+  final case class Annotation(value: String)
+
+  sealed abstract case class Field private (name: String, fieldType: ScalaType, annotations: List[Annotation])
+      extends Code {
     // only allow copy on fieldType, since name is mangled to be valid in smart constructor
-    def copy(fieldType: ScalaType): Field = new Field(name, fieldType) {}
+    def copy(fieldType: ScalaType = fieldType, annotations: List[Annotation] = annotations): Field =
+      new Field(name, fieldType, annotations) {}
   }
 
   object Field {
 
-    def apply(name: String): Field                       = apply(name, ScalaType.Inferred)
-    def apply(name: String, fieldType: ScalaType): Field = {
+    def apply(name: String): Field                                               = apply(name, ScalaType.Inferred)
+    def apply(name: String, fieldType: ScalaType): Field                         = {
       val validScalaTermName = Term.Name(name).syntax
-      new Field(validScalaTermName, fieldType) {}
+      new Field(validScalaTermName, fieldType, Nil) {}
+    }
+    def apply(name: String, fieldType: ScalaType, annotation: Annotation): Field = {
+      val validScalaTermName = Term.Name(name).syntax
+      new Field(validScalaTermName, fieldType, List(annotation)) {}
+    }
+    def apply(name: String, fieldType: ScalaType, annotations: List[Annotation]): Field = {
+      val validScalaTermName = Term.Name(name).syntax
+      new Field(validScalaTermName, fieldType, annotations) {}
     }
   }
 
@@ -98,10 +165,10 @@ object Code {
   }
 
   object Collection {
-    final case class Seq(elementType: ScalaType) extends Collection
-    final case class Set(elementType: ScalaType) extends Collection
-    final case class Map(elementType: ScalaType) extends Collection
-    final case class Opt(elementType: ScalaType) extends Collection
+    final case class Seq(elementType: ScalaType, nonEmpty: Boolean) extends Collection
+    final case class Set(elementType: ScalaType, nonEmpty: Boolean) extends Collection
+    final case class Map(elementType: ScalaType)                    extends Collection
+    final case class Opt(elementType: ScalaType)                    extends Collection
   }
 
   sealed trait Primitive extends ScalaType
@@ -137,12 +204,13 @@ object Code {
   }
   sealed trait CodecType
   object CodecType       {
-    case object Boolean extends CodecType
-    case object Int     extends CodecType
-    case object Literal extends CodecType
-    case object Long    extends CodecType
-    case object String  extends CodecType
-    case object UUID    extends CodecType
+    case object Boolean                                            extends CodecType
+    case object Int                                                extends CodecType
+    case object Literal                                            extends CodecType
+    case object Long                                               extends CodecType
+    case object String                                             extends CodecType
+    case object UUID                                               extends CodecType
+    case class Aliased(underlying: CodecType, newtypeName: String) extends CodecType
   }
   final case class QueryParamCode(name: String, queryType: CodecType)
   final case class HeadersCode(headers: List[HeaderCode])
