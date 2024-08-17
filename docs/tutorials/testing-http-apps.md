@@ -41,9 +41,7 @@ testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 
 Now, based on the requirement we can use any of the following test utilities:
 
-## TestClinet
-
-The `TestClient`
+## TestClient
 
 Using the `TestClient` we can write tests for our HTTP applications without starting a live server instance.
 
