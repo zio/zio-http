@@ -219,7 +219,8 @@ private[codec] object EncoderDecoder {
         queryParams,
         flattened.query,
         inputs,
-        (query, queryParams) => {
+        (codec, queryParams) => {
+          val query      = codec.erase
           val isOptional = query.isOptional
           query.queryType match {
             case QueryType.Primitive(name, BinaryCodecWithSchema(codec, schema))                                   =>
@@ -586,7 +587,7 @@ private[codec] object EncoderDecoder {
                 }
                 value match {
                   case values if values.isInstanceOf[Iterable[_]] =>
-                    qp = queryParams.addQueryParams(
+                    qp = qp.addQueryParams(
                       name,
                       Chunk.fromIterable(values.asInstanceOf[Iterable[Any]].map { v =>
                         codec.codec.asInstanceOf[BinaryCodec[Any]].encode(v).asString
@@ -594,7 +595,7 @@ private[codec] object EncoderDecoder {
                     )
                   case _                                          =>
                     val encoded = codec.codec.asInstanceOf[BinaryCodec[Any]].encode(value).asString
-                    qp = queryParams.addQueryParam(name, encoded)
+                    qp = qp.addQueryParam(name, encoded)
                 }
                 j = j + 1
               }

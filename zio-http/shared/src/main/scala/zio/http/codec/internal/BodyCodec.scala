@@ -151,7 +151,7 @@ private[http] object BodyCodec {
     }
 
     def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor])(implicit trace: Trace): Body = {
-      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirst(mediaTypes)
+      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
       Body.fromChunk(bc.codec.encode(value)).contentType(mediaType)
     }
 
@@ -197,7 +197,7 @@ private[http] object BodyCodec {
     def encodeToBody(value: ZStream[Any, Nothing, E], mediaTypes: Chunk[MediaTypeWithQFactor])(implicit
       trace: Trace,
     ): Body = {
-      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirst(mediaTypes)
+      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
       Body.fromStreamChunked(value >>> bc.codec.streamEncoder).contentType(mediaType)
     }
 
