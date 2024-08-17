@@ -24,6 +24,8 @@ import zio._
 
 import zio.stream.ZStream
 
+import zio.schema.Schema
+
 import zio.http.internal.HeaderOps
 import zio.http.template.Html
 
@@ -167,7 +169,7 @@ object Response {
       case Left(failure: Throwable) => fromThrowable(failure, errorInBody)
       case Left(failure: Cause[_])  => fromCause(failure, errorInBody)
       case _                        => {
-        val msg = if (errorInBody) cause.prettyPrint.take(10000) else null
+        val msg = if (errorInBody) cause.prettyPrint else null
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, msg)
         else error(Status.InternalServerError, msg)
       }
@@ -190,8 +192,16 @@ object Response {
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
-    Response(Status.Ok, contentTypeEventStream, Body.fromCharSequenceStreamChunked(data.map(_.encode)))
+  def fromServerSentEvents[T: Schema](data: ZStream[Any, Nothing, ServerSentEvent[T]])(implicit
+    trace: Trace,
+  ): Response = {
+    val codec = ServerSentEvent.defaultBinaryCodec[T]
+    Response(
+      Status.Ok,
+      contentTypeEventStream,
+      Body.fromCharSequenceStreamChunked(data.map(codec.encode).map(_.asString)),
+    )
+  }
 
   /**
    * Creates a new response for the provided socket app

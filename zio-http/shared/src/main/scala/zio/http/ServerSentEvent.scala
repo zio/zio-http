@@ -20,10 +20,10 @@ import zio._
 
 import zio.stream.ZPipeline
 
-import zio.schema.codec.{BinaryCodec, DecodeError}
+import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
+import zio.http.codec._
 
 /**
  * Server-Sent Event (SSE) as defined by
@@ -38,16 +38,16 @@ import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
  * @param retry
  *   optional reconnection delay in milliseconds
  */
-final case class ServerSentEvent(
-  data: String,
+final case class ServerSentEvent[T](
+  data: T,
   eventType: Option[String] = None,
   id: Option[String] = None,
   retry: Option[Int] = None,
 ) {
 
-  def encode: String = {
+  def encode(implicit binaryCodec: BinaryCodec[T]): String = {
     val sb = new StringBuilder
-    data.linesIterator.foreach { line =>
+    binaryCodec.encode(data).asString.linesIterator.foreach { line =>
       sb.append("data: ").append(line).append('\n')
     }
     eventType.foreach { et =>
@@ -64,23 +64,60 @@ final case class ServerSentEvent(
 }
 
 object ServerSentEvent {
-  implicit lazy val schema: Schema[ServerSentEvent] = DeriveSchema.gen[ServerSentEvent]
 
-  implicit val contentCodec: HttpContentCodec[ServerSentEvent] = HttpContentCodec.from(
-    MediaType.text.`event-stream` -> BinaryCodecWithSchema.fromBinaryCodec(new BinaryCodec[ServerSentEvent] {
-      override def decode(whole: Chunk[Byte]): Either[DecodeError, ServerSentEvent] =
-        throw new UnsupportedOperationException("ServerSentEvent decoding is not yet supported.")
+  implicit def schema[T](implicit schema: Schema[T]): Schema[ServerSentEvent[T]] = DeriveSchema.gen[ServerSentEvent[T]]
 
-      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, ServerSentEvent] =
-        throw new UnsupportedOperationException("ServerSentEvent decoding is not yet supported.")
+  implicit def defaultBinaryCodec[T](implicit schema: Schema[T]): BinaryCodec[ServerSentEvent[T]] =
+    defaultContentCodec(schema).defaultCodec
 
-      override def encode(value: ServerSentEvent): Chunk[Byte] =
-        Chunk.fromArray(value.encode.getBytes)
+  private def nextOption(lines: Iterator[String]): Option[String] =
+    if (lines.hasNext) Some(lines.next())
+    else None
 
-      override def streamEncoder: ZPipeline[Any, Nothing, ServerSentEvent, Byte] =
+  implicit def binaryCodec[T](implicit binaryCodec: BinaryCodec[T]): BinaryCodec[ServerSentEvent[T]] =
+    new BinaryCodec[ServerSentEvent[T]] {
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, ServerSentEvent[T]] = {
+        val lines     = whole.asString.linesIterator
+        val data      = lines.next().stripPrefix("data: ")
+        val eventType = nextOption(lines).map(_.stripPrefix("event: "))
+        val id        = nextOption(lines).map(_.stripPrefix("id: "))
+        val retry     = nextOption(lines).map(_.stripPrefix("retry: ").toInt)
+        val decoded   = binaryCodec.decode(Chunk.fromArray(data.getBytes))
+        decoded.map(value => ServerSentEvent(value, eventType, id, retry))
+      }
+
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, ServerSentEvent[T]] =
+        ZPipeline.chunks[Byte].map(_.asString) >>> ZPipeline
+          .splitOn("\n\n")
+          .mapZIO(s => {
+            val lines     = s.linesIterator
+            val data      = lines.next().stripPrefix("data: ")
+            val eventType = nextOption(lines).map(_.stripPrefix("event: "))
+            val id        = nextOption(lines).map(_.stripPrefix("id: "))
+            val retry     = nextOption(lines).map(_.stripPrefix("retry: ").toInt)
+            val decoded   = binaryCodec.decode(Chunk.fromArray(data.getBytes))
+            ZIO.fromEither(decoded.map(value => ServerSentEvent(value, eventType, id, retry)))
+          })
+
+      override def encode(value: ServerSentEvent[T]): Chunk[Byte] = Chunk.fromArray(value.encode.getBytes)
+
+      override def streamEncoder: ZPipeline[Any, Nothing, ServerSentEvent[T], Byte] =
         ZPipeline.mapChunks(value => value.flatMap(c => c.encode.getBytes))
-    }),
+    }
+
+  implicit def contentCodec[T](implicit
+    tCodec: BinaryCodec[T],
+    schema: Schema[T],
+  ): HttpContentCodec[ServerSentEvent[T]] = HttpContentCodec.from(
+    MediaType.text.`event-stream` -> BinaryCodecWithSchema.fromBinaryCodec(binaryCodec),
   )
 
-  def heartbeat: ServerSentEvent = new ServerSentEvent("")
+  implicit def defaultContentCodec[T](implicit
+    schema: Schema[T],
+  ): HttpContentCodec[ServerSentEvent[T]] = {
+    if (schema.isInstanceOf[Schema.Primitive[_]]) contentCodec(HttpContentCodec.text.only[T].defaultCodec, schema)
+    else contentCodec(JsonCodec.schemaBasedBinaryCodec, schema)
+  }
+
+  def heartbeat: ServerSentEvent[String] = new ServerSentEvent("")
 }

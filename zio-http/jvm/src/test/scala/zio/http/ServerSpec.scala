@@ -421,7 +421,7 @@ object ServerSpec extends HttpRunnableSpec {
           val res = Handler.text("äöü").sandbox.toRoutes.deploy.contentLength.run()
           assertZIO(res)(isSome(equalTo(Header.ContentLength(6L))))
         } +
-          test("already set") {
+          test("provided content-length is overwritten by actual length") {
             val res =
               Handler
                 .text("1234567890")
@@ -431,7 +431,7 @@ object ServerSpec extends HttpRunnableSpec {
                 .deploy
                 .contentLength
                 .run()
-            assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
+            assertZIO(res)(isSome(equalTo(Header.ContentLength(10L))))
           }
       },
     ),

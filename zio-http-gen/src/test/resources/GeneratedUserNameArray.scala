@@ -8,7 +8,5 @@ case class UserNameArray(
   name: Chunk[String],
 )
 object UserNameArray {
-
   implicit val codec: Schema[UserNameArray] = DeriveSchema.gen[UserNameArray]
-
 }

@@ -2,15 +2,16 @@ package zio.http.endpoint.openapi
 
 import zio.json.ast.Json
 import zio.test._
-import zio.{Scope, ZIO}
+import zio.{Chunk, Scope, ZIO}
 
 import zio.schema.annotation._
+import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Method.{GET, POST}
 import zio.http._
 import zio.http.codec.PathCodec.string
-import zio.http.codec.{ContentCodec, Doc, HttpCodec, QueryCodec}
+import zio.http.codec.{ContentCodec, Doc, HttpCodec, HttpContentCodec, QueryCodec}
 import zio.http.endpoint._
 
 object OpenAPIGenSpec extends ZIOSpecDefault {
@@ -31,7 +32,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   implicit val imageMetadataSchema: Schema[ImageMetadata]               =
     DeriveSchema.gen[ImageMetadata]
 
-  final case class WithTransientField(name: String, @transientField age: Int)
+  final case class WithTransientField(name: String, @transientField age: Int = 42)
   implicit val withTransientFieldSchema: Schema[WithTransientField] =
     DeriveSchema.gen[WithTransientField]
 
@@ -138,6 +139,27 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Payload] = DeriveSchema.gen[Payload]
   }
 
+  object Lazy {
+    case class A(b: B)
+
+    object A {
+      implicit val schema: Schema[A] = DeriveSchema.gen
+    }
+    case class B(i: Int)
+  }
+
+  case class AgeParam(@validate(Validation.greaterThan(17)) age: Int)
+
+  object AgeParam {
+    implicit val schema: Schema[AgeParam] = DeriveSchema.gen
+  }
+
+  case class WithGenericPayload[A](a: A)
+
+  object WithGenericPayload {
+    implicit def schema[T: Schema]: Schema[WithGenericPayload[T]] = DeriveSchema.gen
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
@@ -149,7 +171,21 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   private val queryParamEndpoint =
     Endpoint(GET / "withQuery")
       .in[SimpleInputBody]
-      .query(QueryCodec.query("query"))
+      .query(HttpCodec.query[String]("query"))
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+
+  private val queryParamCollectionEndpoint =
+    Endpoint(GET / "withQuery")
+      .in[SimpleInputBody]
+      .query(HttpCodec.query[Chunk[String]]("query"))
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+
+  private val queryParamValidationEndpoint =
+    Endpoint(GET / "withQuery")
+      .in[SimpleInputBody]
+      .query(HttpCodec.queryAll[AgeParam])
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
@@ -171,7 +207,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("OpenAPIGenSpec")(
       test("simple endpoint to OpenAPI") {
-        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", simpleEndpoint)
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", simpleEndpoint.tag("simple", "endpoint"))
         val json         = toJsonAst(generated)
         val expectedJson = """{
                              |  "openapi" : "3.1.0",
@@ -181,47 +217,156 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  },
                              |  "paths" : {
                              |    "/static/{id}/{uuid}/{name}" : {
+                             |      "description" : "- simple\n- endpoint\n",
                              |      "get" : {
+                             |        "tags" : [
+                             |          "simple",
+                             |          "endpoint"
+                             |        ],
                              |        "description" : "get path\n\n",
                              |        "parameters" : [
-                             |
-                             |            {
+                             |          {
                              |            "name" : "id",
                              |            "in" : "path",
                              |            "required" : true,
-                             |            "schema" :
-                             |              {
-                             |              "type" :
-                             |                "integer",
+                             |            "schema" : {
+                             |              "type" : "integer",
                              |              "format" : "int32"
                              |            },
                              |            "style" : "simple"
                              |          },
-                             |
-                             |            {
+                             |          {
                              |            "name" : "uuid",
                              |            "in" : "path",
                              |            "description" : "user id\n\n",
                              |            "required" : true,
-                             |            "schema" :
-                             |              {
-                             |              "type" :
-                             |                "string",
+                             |            "schema" : {
+                             |              "type" : "string",
                              |              "format" : "uuid"
                              |            },
                              |            "style" : "simple"
                              |          },
-                             |
-                             |            {
+                             |          {
                              |            "name" : "name",
                              |            "in" : "path",
+                             |            "required" : true,
+                             |            "schema" : {
+                             |              "type" : "string"
+                             |            },
+                             |            "style" : "simple"
+                             |          }
+                             |        ],
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody",
+                             |                "description" : "input body\n\n"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody",
+                             |                  "description" : "output body\n\n"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/NotFoundError",
+                             |                  "description" : "not found\n\n"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" : "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("with query parameter") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withQuery" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |
+                             |            {
+                             |            "name" : "query",
+                             |            "in" : "query",
                              |            "required" : true,
                              |            "schema" :
                              |              {
                              |              "type" :
                              |                "string"
                              |            },
-                             |            "style" : "simple"
+                             |            "allowReserved" : false,
+                             |            "style" : "form"
                              |          }
                              |        ],
                              |        "requestBody" :
@@ -230,8 +375,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "application/json" : {
                              |              "schema" :
                              |                {
-                             |                "$ref" : "#/components/schemas/SimpleInputBody",
-                             |                "description" : "input body\n\n"
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
                              |              }
                              |            }
                              |          },
@@ -244,8 +388,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |              "application/json" : {
                              |                "schema" :
                              |                  {
-                             |                  "$ref" : "#/components/schemas/SimpleOutputBody",
-                             |                  "description" : "output body\n\n"
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
                              |                }
                              |              }
                              |            }
@@ -256,8 +399,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |              "application/json" : {
                              |                "schema" :
                              |                  {
-                             |                  "$ref" : "#/components/schemas/NotFoundError",
-                             |                  "description" : "not found\n\n"
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
                              |                }
                              |              }
                              |            }
@@ -327,8 +469,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
-      test("with query parameter") {
-        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamEndpoint)
+      test("with query parameter with multiple values") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamCollectionEndpoint)
         val json         = toJsonAst(generated)
         val expectedJson = """{
                              |  "openapi" : "3.1.0",
@@ -349,6 +491,135 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |              {
                              |              "type" :
                              |                "string"
+                             |            },
+                             |            "allowReserved" : false,
+                             |            "style" : "form"
+                             |          }
+                             |        ],
+                             |        "requestBody" :
+                             |          {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" :
+                             |                {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" :
+                             |            {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" :
+                             |                  {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" :
+                             |            {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" :
+                             |                  {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" :
+                             |              "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" :
+                             |              "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" :
+                             |              "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" :
+                             |              "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" :
+                             |              "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("with query parameter with validation") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamValidationEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withQuery" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |
+                             |            {
+                             |            "name" : "age",
+                             |            "in" : "query",
+                             |            "required" : true,
+                             |            "schema" :
+                             |              {
+                             |              "type" :
+                             |                "integer",
+                             |              "format" : "int32",
+                             |              "exclusiveMinimum" : 17
                              |            },
                              |            "allowReserved" : false,
                              |            "style" : "form"
@@ -875,7 +1146,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                 HttpCodec
                   .content[SimpleInputBody] ?? Doc.p("simple input"),
             )
-            .query(QueryCodec.query("query"))
+            .query(HttpCodec.query[String]("query"))
             .outCodec(
               HttpCodec
                 .content[SimpleOutputBody] ?? Doc.p("simple output") |
@@ -2452,7 +2723,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           Endpoint(RoutePattern.POST / "post")
             .in[Int]("foo")
             .in[Boolean]("bar")
-            .query(QueryCodec.query("q"))
+            .query(HttpCodec.query[String]("q"))
             .out[Unit]
 
         SwaggerUI.routes("docs/openapi", OpenAPIGen.fromEndpoints(endpoint))
@@ -2515,7 +2786,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              "array",
             |            "items" : {
             |              "$ref" : "#/components/schemas/Recursive"
-            |            }
+            |            },
+            |            "uniqueItems" : true
             |          },
             |          "nestedEither" : {
             |            "oneOf" : [
@@ -2570,6 +2842,148 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |  }
             |}
             |""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("Lazy schema") {
+        val endpoint     = Endpoint(RoutePattern.POST / "lazy")
+          .in[Lazy.A]
+          .out[Unit]
+        val openApi      = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(openApi)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info": {
+                             |    "title": "",
+                             |    "version": ""
+                             |  },
+                             |  "paths" : {
+                             |    "/lazy" : {
+                             |      "post" : {
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/A"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema": {
+                             |                  "type" : "null"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "A" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "b" : {
+                             |            "$ref" : "#/components/schemas/B"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "b"
+                             |        ]
+                             |      },
+                             |      "B" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "i" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "i"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        val expected     = toJsonAst(expectedJson)
+        assertTrue(json == expected)
+      },
+      test("Generic payload") {
+        // TODO: Currently, the applied types of generics are not saved in the schema correctly
+        // Once this is fixed, we should generate the ref as `#/components/schemas/WithGenericPayloadSimpleInputBody`
+        val endpoint     = Endpoint(RoutePattern.POST / "generic")
+          .in[WithGenericPayload[SimpleInputBody]]
+        val openApi      = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(openApi)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "",
+                             |    "version" : ""
+                             |  },
+                             |  "paths" : {
+                             |    "/generic" : {
+                             |      "post" : {
+                             |        "requestBody" :
+                             |          {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" :
+                             |                {
+                             |                "$ref" : "#/components/schemas/WithGenericPayload"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "SimpleInputBody" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" :
+                             |              "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" :
+                             |              "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "WithGenericPayload" :
+                             |        {
+                             |        "type" :
+                             |          "object",
+                             |        "properties" : {
+                             |          "a" : {
+                             |            "$ref" : "#/components/schemas/SimpleInputBody"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "a"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}
+                             |""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
     )

@@ -5,9 +5,9 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 import scala.collection.{immutable, mutable}
 
+import zio._
 import zio.json.EncoderOps
 import zio.json.ast.Json
-import zio.{Chunk, schema}
 
 import zio.schema.Schema.Record
 import zio.schema.codec.JsonCodec
@@ -96,7 +96,7 @@ object OpenAPIGen {
   final case class AtomizedMetaCodecs(
     method: Chunk[MetaCodec[SimpleCodec[Method, _]]],
     path: Chunk[MetaCodec[SegmentCodec[_]]],
-    query: Chunk[MetaCodec[HttpCodec.Query[_]]],
+    query: Chunk[MetaCodec[HttpCodec.Query[_, _]]],
     header: Chunk[MetaCodec[HttpCodec.Header[_]]],
     content: Chunk[MetaCodec[HttpCodec.Atom[HttpCodecType.Content, _]]],
     status: Chunk[MetaCodec[HttpCodec.Status[_]]],
@@ -108,8 +108,8 @@ object OpenAPIGen {
         )
       case MetaCodec(_: SegmentCodec[_], _)                   =>
         copy(path = path :+ metaCodec.asInstanceOf[MetaCodec[SegmentCodec[_]]])
-      case MetaCodec(_: HttpCodec.Query[_], _)                =>
-        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_]]])
+      case MetaCodec(_: HttpCodec.Query[_, _], _)             =>
+        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_, _]]])
       case MetaCodec(_: HttpCodec.Header[_], _)               =>
         copy(header = header :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Header[_]]])
       case MetaCodec(_: HttpCodec.Status[_], _)               =>
@@ -559,7 +559,7 @@ object OpenAPIGen {
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
       val maybeDoc = Some(endpoint.doc + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
-        tags = Nil,
+        tags = endpoint.tags,
         summary = None,
         description = maybeDoc,
         externalDocs = None,
@@ -610,24 +610,84 @@ object OpenAPIGen {
       queryParams ++ pathParams ++ headerParams
 
     def queryParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] = {
-      inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(name, codec, _, _), _) =>
-        OpenAPI.ReferenceOr.Or(
-          OpenAPI.Parameter.queryParameter(
-            name = name,
-            description = mc.docsOpt,
-            schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromTextCodec(codec))),
-            deprecated = mc.deprecated,
-            style = OpenAPI.Parameter.Style.Form,
-            explode = false,
-            allowReserved = false,
-            examples = mc.examples.map { case (name, value) =>
-              name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
-            },
-            required = mc.required,
-          ),
-        )
+      inAtoms.query.collect {
+        case mc @ MetaCodec(HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _)  =>
+          OpenAPI.ReferenceOr.Or(
+            OpenAPI.Parameter.queryParameter(
+              name = name,
+              description = mc.docsOpt,
+              schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
+              deprecated = mc.deprecated,
+              style = OpenAPI.Parameter.Style.Form,
+              explode = false,
+              allowReserved = false,
+              examples = mc.examples.map { case (name, value) =>
+                name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
+              },
+              required = mc.required,
+            ),
+          ) :: Nil
+        case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _) =>
+          val recordSchema = (schema match {
+            case schema if schema.isInstanceOf[Schema.Optional[_]] => schema.asInstanceOf[Schema.Optional[_]].schema
+            case _                                                 => schema
+          }).asInstanceOf[Schema.Record[Any]]
+          val examples     = mc.examples.map { case (exName, ex) =>
+            exName -> recordSchema.deconstruct(ex)(Unsafe.unsafe)
+          }
+          record.fieldAndCodecs.zipWithIndex.map { case ((field, codec), index) =>
+            OpenAPI.ReferenceOr.Or(
+              OpenAPI.Parameter.queryParameter(
+                name = field.name,
+                description = mc.docsOpt,
+                schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
+                deprecated = mc.deprecated,
+                style = OpenAPI.Parameter.Style.Form,
+                explode = false,
+                allowReserved = false,
+                examples = examples.map { case (exName, values) =>
+                  val fieldValue = values(index)
+                    .orElse(field.defaultValue)
+                    .getOrElse(
+                      throw new Exception(s"No value or default value found for field ${exName}_${field.name}"),
+                    )
+                  s"${exName}_${field.name}" -> OpenAPI.ReferenceOr.Or(
+                    OpenAPI.Example(value = Json.Str(codec.codec.encode(fieldValue).asString)),
+                  )
+                },
+                required = mc.required,
+              ),
+            )
+
+          }
+        case mc @ MetaCodec(
+              HttpCodec.Query(
+                HttpCodec.Query.QueryType.Collection(
+                  schema,
+                  HttpCodec.Query.QueryType.Primitive(name, codec),
+                  optional,
+                ),
+                _,
+              ),
+              _,
+            ) =>
+          OpenAPI.ReferenceOr.Or(
+            OpenAPI.Parameter.queryParameter(
+              name = name,
+              description = mc.docsOpt,
+              schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
+              deprecated = mc.deprecated,
+              style = OpenAPI.Parameter.Style.Form,
+              explode = false,
+              allowReserved = false,
+              examples = mc.examples.map { case (exName, value) =>
+                exName -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
+              },
+              required = !optional,
+            ),
+          ) :: Nil
       }
-    }.toSet
+    }.flatten.toSet
 
     def pathParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
       inAtoms.path.collect {
@@ -677,7 +737,10 @@ object OpenAPIGen {
             // There should be no enums with cases that are not records with a nominal id
             // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
             val typeId   =
-              case_.schema
+              (case_.schema match {
+                case lzy: Schema.Lazy[_] => lzy.schema
+                case _                   => case_.schema
+              })
                 .asInstanceOf[Schema.Record[_]]
                 .id
                 .asInstanceOf[TypeId.Nominal]

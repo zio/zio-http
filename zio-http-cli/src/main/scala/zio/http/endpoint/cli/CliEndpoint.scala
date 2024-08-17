@@ -1,6 +1,7 @@
 package zio.http.endpoint.cli
 
 import zio.http._
+import zio.http.codec.HttpCodec.Query.QueryType
 import zio.http.codec._
 import zio.http.endpoint._
 
@@ -73,8 +74,8 @@ private[cli] object CliEndpoint {
   /*
    * Extract the information of input or output of an Endpoint.
    */
-  def fromEndpoint[P, In, Err, Out, M <: EndpointMiddleware](
-    endpoint: Endpoint[P, In, Err, Out, M],
+  def fromEndpoint[P, In, Err, Out](
+    endpoint: Endpoint[P, In, Err, Out, _],
     getInput: Boolean = true,
   ): CliEndpoint =
     if (getInput) fromCodec(endpoint.input) ?? endpoint.doc
@@ -127,10 +128,19 @@ private[cli] object CliEndpoint {
       case HttpCodec.Path(pathCodec, _) =>
         CliEndpoint(url = HttpOptions.Path(pathCodec) :: List())
 
-      case HttpCodec.Query(name, textCodec, _, _) =>
-        textCodec.asInstanceOf[TextCodec[_]] match {
-          case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: List())
-          case _                         => CliEndpoint(url = HttpOptions.Query(name, textCodec) :: List())
+      case HttpCodec.Query(queryType, _) =>
+        queryType match {
+          case QueryType.Primitive(name, codec)     =>
+            CliEndpoint(url = HttpOptions.Query(name, codec) :: List())
+          case record @ QueryType.Record(_)         =>
+            val queryOptions = record.fieldAndCodecs.map { case (field, codec) =>
+              HttpOptions.Query(field.name, codec)
+            }
+            CliEndpoint(url = queryOptions.toList)
+          case QueryType.Collection(_, elements, _) =>
+            val queryOptions =
+              HttpOptions.Query(elements.name, elements.codec)
+            CliEndpoint(url = queryOptions :: List())
         }
 
       case HttpCodec.Status(_, _) => CliEndpoint.empty

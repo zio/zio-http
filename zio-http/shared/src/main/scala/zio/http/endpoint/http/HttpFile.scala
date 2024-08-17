@@ -35,11 +35,11 @@ final case class HttpEndpoint(
       case JsonSchema.OneOfSchema(_)             => throw new Exception("OneOfSchema not supported")
       case JsonSchema.AllOfSchema(_)             => throw new Exception("AllOfSchema not supported")
       case JsonSchema.AnyOfSchema(_)             => throw new Exception("AnyOfSchema not supported")
-      case JsonSchema.Number(_)                  => s""""${getName(name)}": {{${getName(name)}}}"""
-      case JsonSchema.Integer(_)                 => s""""${getName(name)}": {{${getName(name)}}}"""
-      case JsonSchema.String(_, _)               => s""""${getName(name)}": {{${getName(name)}}}"""
+      case JsonSchema.Number(_, _, _, _, _, _)   => s""""${getName(name)}": {{${getName(name)}}}"""
+      case JsonSchema.Integer(_, _, _, _, _, _)  => s""""${getName(name)}": {{${getName(name)}}}"""
+      case JsonSchema.String(_, _, _, _)         => s""""${getName(name)}": {{${getName(name)}}}"""
       case JsonSchema.Boolean                    => s""""${getName(name)}": {{${getName(name)}}}"""
-      case JsonSchema.ArrayType(_)               => s""""${getName(name)}": {{${getName(name)}}}"""
+      case JsonSchema.ArrayType(_, _, _)         => s""""${getName(name)}": {{${getName(name)}}}"""
       case JsonSchema.Object(properties, _, _)   =>
         if (properties.isEmpty) ""
         else {

@@ -17,10 +17,8 @@ object Keywords {
       `case`: String,
       `match`: String,
     )
-    object RequestBody {
-
+    object RequestBody  {
       implicit val codec: Schema[RequestBody] = DeriveSchema.gen[RequestBody]
-
     }
     case class ResponseBody(
       `protected`: Boolean,
@@ -28,11 +26,7 @@ object Keywords {
       `type`: String,
     )
     object ResponseBody {
-
       implicit val codec: Schema[ResponseBody] = DeriveSchema.gen[ResponseBody]
-
     }
-
   }
-
 }

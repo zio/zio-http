@@ -17,30 +17,32 @@
 package zio.http.endpoint.internal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
+import zio.http.endpoint.internal.EndpointClient.protobufMediaType
 
-private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddleware](
+private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType, AI](
   endpointRoot: URL,
-  endpoint: Endpoint[P, I, E, O, M],
+  endpoint: Endpoint.WithAuthInput[P, I, E, O, A, AI],
 ) {
-  def execute(client: Client, invocation: Invocation[P, I, E, O, M])(
-    mi: invocation.middleware.In,
-  )(implicit alt: Alternator[E, invocation.middleware.Err], trace: Trace): ZIO[Scope, E, O] = {
-    val request0 = endpoint.input.encodeRequest(invocation.input)
+  def execute(client: Client, invocation: Invocation[P, I, E, O, A, AI])(implicit
+    combiner: Combiner[I, endpoint.authType.ClientRequirement],
+    trace: Trace,
+  ): ZIO[Scope, E, O] = {
+    val request0 = endpoint
+      .authedInput(combiner)
+      .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]]
+      .encodeRequest(invocation.input.asInstanceOf[Any])
     val request  = request0.copy(url = endpointRoot ++ request0.url)
 
-    val requestPatch            = invocation.middleware.input.encodeRequestPatch(mi)
-    val patchedRequest          = request.patch(requestPatch)
     val withDefaultAcceptHeader =
-      if (patchedRequest.headers.exists(_.headerName == Header.Accept.name))
-        patchedRequest
+      if (request.headers.exists(_.headerName == Header.Accept.name))
+        request
       else
-        patchedRequest.addHeader(
-          Header.Accept(MediaType.application.json, MediaType.parseCustomMediaType("application/protobuf").get),
+        request.addHeader(
+          Header.Accept(MediaType.application.json, protobufMediaType, MediaType.text.`plain`),
         )
 
     client.request(withDefaultAcceptHeader).orDie.flatMap { response =>
@@ -49,8 +51,15 @@ private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddl
       } else if (endpoint.error.matchesStatus(response.status)) {
         endpoint.error.decodeResponse(response).orDie.flip
       } else {
-        ZIO.die(new IllegalStateException(s"Status code: ${response.status} is not defined in the endpoint"))
+        val error = endpoint.codecError.decodeResponse(response)
+        error
+          .flatMap(codecError => ZIO.die(codecError))
+          .orElse(ZIO.die(new IllegalStateException(s"Status code: ${response.status} is not defined in the endpoint")))
       }
     }
   }
+}
+
+object EndpointClient {
+  private[internal] val protobufMediaType: MediaType = MediaType.parseCustomMediaType("application/protobuf").get
 }

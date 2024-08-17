@@ -53,6 +53,7 @@ private[zio] final case class ServerInboundHandler(
 
   val inFlightRequests: LongAdder = new LongAdder()
   private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
+  private val avoidCtxSwitching   = config.avoidContextSwitching
 
   def refreshApp(): Unit = {
     val pair = appRef.get()
@@ -110,11 +111,11 @@ private[zio] final case class ServerInboundHandler(
             (msg ne null) && msg.contains("Connection reset")
           } =>
       case t =>
-        if (runtime ne null) {
-          runtime.run(ctx, () => {}) {
+        if ((runtime ne null) && config.logWarningOnFatalError) {
+          runtime.unsafeRunSync {
             // We cannot return the generated response from here, but still calling the handler for its side effect
             // for example logging.
-            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError)
+            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t))
           }
         }
         cause match {
@@ -308,7 +309,7 @@ private[zio] final case class ServerInboundHandler(
     exit: ZIO[Any, Response, Response],
     req: Request,
   )(ensured: () => Unit): Unit = {
-    runtime.run(ctx, ensured) {
+    runtime.run(ctx, ensured, preferOnCurrentThread = avoidCtxSwitching) {
       exit.sandbox.catchAll { error =>
         error.failureOrCause
           .fold[UIO[Response]](
@@ -366,7 +367,6 @@ object ServerInboundHandler {
       for {
         appRef <- ZIO.service[AppRef]
         config <- ZIO.service[Server.Config]
-
       } yield ServerInboundHandler(appRef, config)
     }
   }
