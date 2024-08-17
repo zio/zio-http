@@ -20,6 +20,7 @@ import java.net.URI
 import java.nio.charset.{Charset, UnsupportedCharsetException}
 import java.time.ZonedDateTime
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -2543,12 +2544,21 @@ object Header {
   }
 
   object ContentType extends HeaderType {
+    private final val CacheInitialSize = 64
+    private final val CacheMaxSize     = 8192
+
+    private val cache: ConcurrentHashMap[String, Either[String, ContentType]] =
+      new ConcurrentHashMap[String, Either[String, ContentType]](CacheInitialSize)
 
     override type HeaderValue = ContentType
 
     override def name: String = "content-type"
 
-    def parse(s: String): Either[String, ContentType] = codec.decode(s)
+    def parse(s: String): Either[String, ContentType] = {
+      // Guard against malicious registering of invalid content types
+      if (cache.size >= CacheMaxSize) cache.clear()
+      cache.computeIfAbsent(s, parseFn)
+    }
 
     def render(contentType: ContentType): String = codec.encode(contentType).toOption.get
 
@@ -2607,6 +2617,9 @@ object Header {
         ),
       )
     }
+
+    private val parseFn: java.util.function.Function[String, Either[String, ContentType]] =
+      codec.decode(_)
 
     private[Header] sealed trait Parameter {
       self =>

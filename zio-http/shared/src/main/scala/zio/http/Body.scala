@@ -16,12 +16,11 @@
 
 package zio.http
 
-import java.io.{FileInputStream, IOException}
+import java.io.FileInputStream
 import java.nio.charset._
 import java.nio.file._
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -128,7 +127,7 @@ trait Body { self =>
 
   def asServerSentEvents[T: Schema](implicit trace: Trace): ZStream[Any, Throwable, ServerSentEvent[T]] = {
     val codec = ServerSentEvent.defaultBinaryCodec[T]
-    (asStream >>> codec.streamDecoder).debug("steam events")
+    asStream >>> codec.streamDecoder
   }
 
   /**
@@ -324,6 +323,13 @@ object Body {
     StreamBody(stream, knownContentLength = Some(contentLength))
 
   /**
+   * Constructs a [[zio.http.Body]] from a stream of bytes with a known length
+   * that depends on `R`.
+   */
+  def fromStreamEnv[R](stream: ZStream[R, Throwable, Byte], contentLength: Long)(implicit trace: Trace): RIO[R, Body] =
+    ZIO.environmentWith[R][Body](r => fromStream(stream.provideEnvironment(r), contentLength))
+
+  /**
    * Constructs a [[zio.http.Body]] from stream of values based on a zio-schema
    * [[zio.schema.codec.BinaryCodec]].<br>
    *
@@ -340,11 +346,27 @@ object Body {
     StreamBody(stream >>> codec.streamEncoder, knownContentLength = None)
 
   /**
+   * Constructs a [[zio.http.Body]] from stream of values based on a zio-schema
+   * [[zio.schema.codec.BinaryCodec]] and depends on `R`<br>
+   */
+  def fromStreamEnv[A, R](
+    stream: ZStream[R, Throwable, A],
+  )(implicit codec: BinaryCodec[A], trace: Trace): RIO[R, Body] =
+    ZIO.environmentWith[R][Body](r => fromStream(stream.provideEnvironment(r)))
+
+  /**
    * Constructs a [[zio.http.Body]] from a stream of bytes of unknown length,
    * using chunked transfer encoding.
    */
   def fromStreamChunked(stream: ZStream[Any, Throwable, Byte]): Body =
     StreamBody(stream, knownContentLength = None)
+
+  /**
+   * Constructs a [[zio.http.Body]] from a stream of bytes of unknown length
+   * that depends on `R`, using chunked transfer encoding.
+   */
+  def fromStreamChunkedEnv[R](stream: ZStream[R, Throwable, Byte])(implicit trace: Trace): RIO[R, Body] =
+    ZIO.environmentWith[R][Body](r => fromStreamChunked(stream.provideEnvironment(r)))
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of text with known length,
@@ -361,6 +383,20 @@ object Body {
     fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks, contentLength)
 
   /**
+   * Constructs a [[zio.http.Body]] from a stream of text with known length that
+   * depends on `R`, using the specified character set, which defaults to the
+   * HTTP character set.
+   */
+  def fromCharSequenceStreamEnv[R](
+    stream: ZStream[R, Throwable, CharSequence],
+    contentLength: Long,
+    charset: Charset = Charsets.Http,
+  )(implicit
+    trace: Trace,
+  ): RIO[R, Body] =
+    fromStreamEnv(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks, contentLength)
+
+  /**
    * Constructs a [[zio.http.Body]] from a stream of text with unknown length
    * using chunked transfer encoding, using the specified character set, which
    * defaults to the HTTP character set.
@@ -372,6 +408,19 @@ object Body {
     trace: Trace,
   ): Body =
     fromStreamChunked(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
+
+  /**
+   * Constructs a [[zio.http.Body]] from a stream of text with unknown length
+   * using chunked transfer encoding that depends on `R`, using the specified
+   * character set, which defaults to the HTTP character set.
+   */
+  def fromCharSequenceStreamChunkedEnv[R](
+    stream: ZStream[R, Throwable, CharSequence],
+    charset: Charset = Charsets.Http,
+  )(implicit
+    trace: Trace,
+  ): RIO[R, Body] =
+    fromStreamChunkedEnv(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
 
   /**
    * Helper to create Body from String

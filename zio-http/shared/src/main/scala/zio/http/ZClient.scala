@@ -18,7 +18,6 @@ package zio.http
 
 import java.net.{InetSocketAddress, URI}
 
-import zio.ConfigProvider.Flat.util
 import zio._
 
 import zio.http.URL.Location

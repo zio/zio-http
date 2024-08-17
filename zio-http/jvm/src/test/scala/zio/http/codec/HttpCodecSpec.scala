@@ -38,14 +38,14 @@ object HttpCodecSpec extends ZIOHttpSpec {
   val emptyJson = Body.fromString("{}")
 
   val isAge                           = "isAge"
-  val codecBool                       = QueryCodec.queryBool(isAge)
+  val codecBool                       = HttpCodec.query[Boolean](isAge)
   def makeRequest(paramValue: String) = Request.get(googleUrl.setQueryParams(QueryParams(isAge -> paramValue)))
 
   def spec = suite("HttpCodecSpec")(
     suite("fallback") {
       test("query fallback") {
-        val codec1 = QueryCodec.query("skip")
-        val codec2 = QueryCodec.query("limit")
+        val codec1 = HttpCodec.query[String]("skip")
+        val codec2 = HttpCodec.query[String]("limit")
 
         val fallback = codec1 | codec2
 
@@ -73,11 +73,11 @@ object HttpCodecSpec extends ZIOHttpSpec {
         } +
         test("composite fallback") {
 
-          val codec1 = QueryCodec.query("skip") ++ HeaderCodec.headerCodec(
+          val codec1 = HttpCodec.query[String]("skip") ++ HeaderCodec.headerCodec(
             "Authentication",
             TextCodec.string,
           )
-          val codec2 = QueryCodec.query("limit") ++ HeaderCodec.headerCodec(
+          val codec2 = HttpCodec.query[String]("limit") ++ HeaderCodec.headerCodec(
             "X-Token-ID",
             TextCodec.string,
           )
@@ -111,7 +111,7 @@ object HttpCodecSpec extends ZIOHttpSpec {
     } +
       suite("optional") {
         test("fallback for missing values") {
-          val codec = QueryCodec.query("name").transformOrFail[String](_ => Left("fail"))(Right(_))
+          val codec = HttpCodec.query[String]("name").transformOrFail[String](_ => Left("fail"))(Right(_))
 
           val request = Request.get(url = URL.root)
 
@@ -122,7 +122,7 @@ object HttpCodecSpec extends ZIOHttpSpec {
           } yield assertTrue(result.isEmpty)
         } +
           test("no fallback for decoding errors") {
-            val codec = QueryCodec.query("key").transformOrFail[String](_ => Left("fail"))(Right(_))
+            val codec = HttpCodec.query[String]("key").transformOrFail[String](_ => Left("fail"))(Right(_))
 
             val request = Request.get(url = URL.root.copy(queryParams = QueryParams("key" -> "value")))
 

@@ -1,5 +1,10 @@
 package zio.http.endpoint.http
 
+import zio.Unsafe
+
+import zio.schema.Schema
+import zio.schema.codec.BinaryCodec
+
 import zio.http.MediaType
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
@@ -51,25 +56,28 @@ object HttpGen {
     val bodySchema0 = bodySchema(inAtoms)
 
     def loop(schema: JsonSchema, name: Option[String]): Seq[HttpVariable] = schema match {
-      case JsonSchema.AnnotatedSchema(schema, _) => loop(schema, name)
-      case JsonSchema.RefSchema(_)               => throw new Exception("RefSchema not supported")
-      case JsonSchema.OneOfSchema(_)             => throw new Exception("OneOfSchema not supported")
-      case JsonSchema.AllOfSchema(_)             => throw new Exception("AllOfSchema not supported")
-      case JsonSchema.AnyOfSchema(_)             => throw new Exception("AnyOfSchema not supported")
-      case JsonSchema.Number(format)             =>
+      case JsonSchema.AnnotatedSchema(schema, _)     => loop(schema, name)
+      case JsonSchema.RefSchema(_)                   => throw new Exception("RefSchema not supported")
+      case JsonSchema.OneOfSchema(_)                 => throw new Exception("OneOfSchema not supported")
+      case JsonSchema.AllOfSchema(_)                 => throw new Exception("AllOfSchema not supported")
+      case JsonSchema.AnyOfSchema(_)                 => throw new Exception("AnyOfSchema not supported")
+      // TODO: add comments for validation restrictions
+      case JsonSchema.Number(format, _, _, _, _, _)  =>
         val typeHint = format match {
           case JsonSchema.NumberFormat.Float  => "type: Float"
           case JsonSchema.NumberFormat.Double => "type: Double"
         }
         Seq(HttpVariable(getName(name), None, Some(typeHint)))
-      case JsonSchema.Integer(format)            =>
+      // TODO: add comments for validation restrictions
+      case JsonSchema.Integer(format, _, _, _, _, _) =>
         val typeHint = format match {
           case JsonSchema.IntegerFormat.Int32     => "type: Int"
           case JsonSchema.IntegerFormat.Int64     => "type: Long"
           case JsonSchema.IntegerFormat.Timestamp => "type: Timestamp in milliseconds"
         }
         Seq(HttpVariable(getName(name), None, Some(typeHint)))
-      case JsonSchema.String(format, pattern)    =>
+      // TODO: add comments for validation restrictions
+      case JsonSchema.String(format, pattern, _, _)  =>
         val formatHint: String  = format match {
           case Some(value) => s" format: ${value.value}"
           case None        => ""
@@ -79,8 +87,8 @@ object HttpGen {
           case None        => ""
         }
         Seq(HttpVariable(getName(name), None, Some(s"type: String$formatHint$patternHint")))
-      case JsonSchema.Boolean                    => Seq(HttpVariable(getName(name), None, Some("type: Boolean")))
-      case JsonSchema.ArrayType(items)           =>
+      case JsonSchema.Boolean                        => Seq(HttpVariable(getName(name), None, Some("type: Boolean")))
+      case JsonSchema.ArrayType(items, _, _)         =>
         val typeHint =
           items match {
             case Some(schema) =>
@@ -90,7 +98,7 @@ object HttpGen {
           }
 
         Seq(HttpVariable(getName(name), None, Some(s"type: array of $typeHint")))
-      case JsonSchema.Object(properties, _, _)   =>
+      case JsonSchema.Object(properties, _, _)       =>
         properties.flatMap { case (key, value) => loop(value, Some(key)) }.toSeq
       case JsonSchema.Enum(values) => Seq(HttpVariable(getName(name), None, Some(s"enum: ${values.mkString(",")}")))
       case JsonSchema.Null         => Seq.empty
@@ -114,27 +122,32 @@ object HttpGen {
     }
 
   def queryVariables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
-    inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(name, _, _, _), _) =>
-      HttpVariable(
-        name,
-        mc.examples.values.headOption.map(_.toString),
-      )
-//      OpenAPI.ReferenceOr.Or(
-//        OpenAPI.Parameter.queryParameter(
-//          name = name,
-//          description = mc.docsOpt,
-//          schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromTextCodec(codec))),
-//          deprecated = mc.deprecated,
-//          style = OpenAPI.Parameter.Style.Form,
-//          explode = false,
-//          allowReserved = false,
-//          examples = mc.examples.map { case (name, value) =>
-//            name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
-//          },
-//          required = mc.required,
-//          ),
-//        )
-    }
+    inAtoms.query.collect {
+      case mc @ MetaCodec(HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _)  =>
+        HttpVariable(
+          name,
+          mc.examples.values.headOption.map((e: Any) => codec.codec.asInstanceOf[BinaryCodec[Any]].encode(e).asString),
+        ) :: Nil
+      case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _) =>
+        val recordSchema = (schema match {
+          case value if value.isInstanceOf[Schema.Optional[_]] => value.asInstanceOf[Schema.Optional[Any]].schema
+          case _                                               => schema
+        }).asInstanceOf[Schema.Record[Any]]
+        val examples     = mc.examples.values.headOption.map { ex =>
+          recordSchema.deconstruct(ex)(Unsafe.unsafe)
+        }
+        record.fieldAndCodecs.zipWithIndex.map { case ((field, codec), index) =>
+          HttpVariable(
+            field.name,
+            examples.map(values => {
+              val fieldValue = values(index)
+                .orElse(field.defaultValue)
+                .getOrElse(throw new Exception(s"No value or default value for field ${field.name}"))
+              codec.codec.encode(fieldValue).asString
+            }),
+          )
+        }
+    }.flatten
   }
 
   private def pathVariables(inAtoms: AtomizedMetaCodecs) = {
@@ -144,18 +157,6 @@ object HttpGen {
           mc.name.getOrElse(throw new Exception("Path parameter must have a name")),
           mc.examples.values.headOption.map(_.toString),
         )
-      //        OpenAPI.ReferenceOr.Or(
-      //          OpenAPI.Parameter.pathParameter(
-      //            name = mc.name.getOrElse(throw new Exception("Path parameter must have a name")),
-      //            description = mc.docsOpt.flatMap(_.flattened.filterNot(_ == pathDoc).reduceOption(_ + _)),
-      //            definition = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromSegmentCodec(codec))),
-      //            deprecated = mc.deprecated,
-      //            style = OpenAPI.Parameter.Style.Simple,
-      //            examples = mc.examples.map { case (name, value) =>
-      //              name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(segmentToJson(codec, value)))
-      //            },
-      //            ),
-      //          )
     }
   }
 

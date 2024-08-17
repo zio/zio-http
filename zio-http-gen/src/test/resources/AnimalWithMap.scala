@@ -7,7 +7,5 @@ case class Animals(
   counts: Map[String, Int],
 )
 object Animals {
-
   implicit val codec: Schema[Animals] = DeriveSchema.gen[Animals]
-
 }

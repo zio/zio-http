@@ -429,7 +429,7 @@ sealed trait PathCodec[A] { self =>
         val t = value.regionMatches(true, idx, "true", 0, 4)
         if (t) idx + 4 else if (value.regionMatches(true, idx, "false", 0, 5)) idx + 5 else -1
       case UUIDOpt          =>
-        val until = SegmentCodec.UUID.isUUIDUntil(value, idx)
+        val until = SegmentCodec.UUID.inUUIDUntil(value, idx)
         if (until == -1) -1 else idx + until
       case MatchAny(values) =>
         var end      = -1
