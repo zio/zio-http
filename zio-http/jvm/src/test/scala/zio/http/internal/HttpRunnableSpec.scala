@@ -46,7 +46,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
         id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
         client   <- Handler.fromZIO(ZIO.service[Client])
         response <- Handler.fromFunctionZIO[Request] { params =>
-          client.simple(
+          client.batched(
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", Some(port)))),
@@ -126,7 +126,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
       port   <- DynamicServer.port
       client <- ZIO.service[Client]
       url = URL.decode("http://localhost:%d/%s".format(port, path)).toOption.get
-      status <- client.simple(Request(method = method, url = url)).map(_.status)
+      status <- client.batched(Request(method = method, url = url)).map(_.status)
     } yield status
   }
 
@@ -138,7 +138,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
     for {
       port <- DynamicServer.port
       url = URL.decode("http://localhost:%d/%s".format(port, path)).toOption.get
-      headers <- ZClient.simple(Request(method = method, headers = headers, url = url)).map(_.headers)
+      headers <- ZClient.batched(Request(method = method, headers = headers, url = url)).map(_.headers)
     } yield headers
   }
 }

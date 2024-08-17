@@ -54,7 +54,7 @@ object SSLSpec extends ZIOHttpSpec {
       .as(
         List(
           test("succeed when client has the server certificate") {
-            val actual = Client.simple(Request.get(httpsUrl)).map(_.status)
+            val actual = Client.batched(Request.get(httpsUrl)).map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
             Client.customized,
@@ -68,7 +68,7 @@ object SSLSpec extends ZIOHttpSpec {
             "fail with DecoderException or PrematureChannelClosureException when client doesn't have the server certificate",
           ) {
             Client
-              .simple(Request.get(httpsUrl))
+              .batched(Request.get(httpsUrl))
               .fold(
                 { e =>
                   val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
@@ -86,7 +86,7 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
           ),
           test("succeed when client has default SSL") {
-            val actual = Client.simple(Request.get(httpsUrl)).map(_.status)
+            val actual = Client.batched(Request.get(httpsUrl)).map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
             Client.customized,
@@ -96,7 +96,7 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
           ),
           test("Https Redirect when client makes http request") {
-            val actual = Client.simple(Request.get(httpUrl)).map(_.status)
+            val actual = Client.batched(Request.get(httpUrl)).map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           }.provide(
             Client.customized,
@@ -106,7 +106,7 @@ object SSLSpec extends ZIOHttpSpec {
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
           ),
           test("static files") {
-            val actual = Client.simple(Request.get(staticFileUrl)).flatMap(_.body.asString)
+            val actual = Client.batched(Request.get(staticFileUrl)).flatMap(_.body.asString)
             assertZIO(actual)(equalTo("This file is added for testing Static File Server."))
           }.provide(
             Client.customized,

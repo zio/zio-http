@@ -49,7 +49,7 @@ object HelloClientExample extends ZIOAppDefault {
   val app: ZIO[Client, Throwable, Unit] =
     for {
       name <- Console.readLine("What is your name? ")
-      resp <- Client.simple(Request.post("http://localhost:8080/hello", Body.fromString(name)))
+      resp <- Client.batched(Request.post("http://localhost:8080/hello", Body.fromString(name)))
       body <- resp.body.asString
       _    <- Console.printLine(s"Response: $body")
     } yield ()

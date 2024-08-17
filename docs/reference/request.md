@@ -238,7 +238,7 @@ import zio.http._
 
 object QueryParamClientExample extends ZIOAppDefault {
   def run =
-    Client.simple(
+    Client.batched(
       Request
         .get("http://localhost:8080/search")
         .addQueryParam("language", "scala")

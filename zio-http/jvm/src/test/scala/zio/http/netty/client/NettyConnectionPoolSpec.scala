@@ -259,7 +259,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             .toRoutes
             .deployAndRequest { client =>
               ZIO.foreachParDiscard(0 to 10) { _ =>
-                client.simple(Request()).flatMap(_.body.asArray).repeatN(200)
+                client.batched.request(Request()).flatMap(_.body.asArray).repeatN(200)
               }
             }(Request())
             .as(assertCompletes)

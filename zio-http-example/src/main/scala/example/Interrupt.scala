@@ -26,7 +26,7 @@ object MyClient extends ZIOAppDefault {
   val localhost = URL.decode("http://localhost:8080").toOption.get
 
   @nowarn def run = {
-    val req = ZClient.simple(Request.get(localhost)).flatMap(_.body.asString)
+    val req = ZClient.batched(Request.get(localhost)).flatMap(_.body.asString)
 
     val reqWithTimeout = // req.timeoutFail(new TimeoutException())(5.seconds)
       for {

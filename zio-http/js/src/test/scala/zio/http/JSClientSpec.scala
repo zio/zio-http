@@ -11,7 +11,7 @@ object JSClientSpec extends ZIOSpecDefault {
         test("Get without User Agent") {
           for {
             res <- (for {
-              response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").simple.get("") }
+              response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").batched.get("") }
               string   <- response.body.asString
             } yield (response, string))
               .provide(ZLayer.succeed(ZClient.Config.default.addUserAgentHeader(false)) >>> ZClient.live)
@@ -20,7 +20,7 @@ object JSClientSpec extends ZIOSpecDefault {
         },
         test("Get with User Agent") {
           val client = (for {
-            response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").simple.get("") }
+            response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").batched.get("") }
             string   <- response.body.asString
           } yield (response, string)).provide(ZClient.default)
           for {

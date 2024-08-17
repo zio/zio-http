@@ -322,7 +322,7 @@ object ClientWithRequestCompression extends ZIOAppDefault {
     for {
       url <- ZIO.from(URL.decode("http://localhost:8080"))
       res <-
-        Client.simple(
+        Client.batched(
           Request
             .post(url, Body.fromChunk(compressStringToGzip("Hello, World!")))
             .addHeader(Header.ContentEncoding.GZip),
@@ -461,7 +461,7 @@ object SimpleStreamingClientExample extends ZIOAppDefault {
   val app = for {
     url    <- ZIO.fromEither(URL.decode("http://localhost:8080/upload-stream"))
     client <- ZIO.serviceWith[Client](_.url(url) @@ ZClientAspect.requestLogging())
-    res    <- client.simple(
+    res    <- client.batched(
       Request.post(
         path = "simple",
         body = Body.fromStreamChunked(
@@ -503,7 +503,7 @@ object FormFieldStreamingClientExample extends ZIOAppDefault {
         )
       },
     )
-    res <- client.simple(
+    res <- client.batched(
       Request
         .post(
           path = "form-field",

@@ -112,7 +112,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     for {
       port   <- Server.install(route @@ Middleware.requestLogging())
       client <- ZIO.service[Client]
-      out    <- client.simple(in.updateURL(_.host("localhost").port(port))).orDie
+      out    <- client.batched(in.updateURL(_.host("localhost").port(port))).orDie
       result <- outF(out)
     } yield result
   }

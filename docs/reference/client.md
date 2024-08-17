@@ -39,19 +39,20 @@ The `Scope` returned by this method is responsible for running finalizers associ
 To learn more about resource management and `Scope` in ZIO, refer to the [dedicated guide on this topic](https://zio.dev/reference/resource/scope) in the ZIO Core documentation.
 :::
 
-### "Simple" API
+### "Batched" API
 
 The handling of `Scope` can quickly become cumbersome in cases where we simply want to execute an HTTP request and not handle the lifetime of the HTTP request.
-For this reason, the Client exposes a `simple` method and API where the HTTP request methods don't have Scope in the environment
+For this reason, the Client can be converted to a batching client where the HTTP request methods don't have Scope in the environment via the `batched` method.
+It is also possible to execute batched requests
 
 ```scala
 object Client {
-  def simple(request: Request): RIO[Client, Response]
+  def batched(request: Request): ZIO[Client, Throwable, Response] = ???
 }
 ```
 
 ::: warning
-The `simple` API methods will materialize the entire body of the request to memory.
+The `batched` methods will materialize the entire body of the request to memory.
 For extracting the body as a stream, use `stream` or use `Client.request` and manage the `Scope` manually instead
 :::
 
@@ -77,7 +78,7 @@ object Todo {
 object ClientExample extends ZIOAppDefault {
   val program: ZIO[Client, Throwable, Unit] = 
     for {
-      res   <- Client.simple(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      res   <- Client.batched(Request.get("http://jsonplaceholder.typicode.com/todos"))
       todos <- res.body.to[List[Todo]]
       _     <- Console.printLine(s"The first task is '${todos.head.title}'")
     } yield ()
@@ -103,7 +104,7 @@ import zio.http._
 object ClientExample extends ZIOAppDefault {
   val program: ZIO[Client, Throwable, Unit] = 
     for {
-      res   <- Client.simple(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      res   <- Client.batched(Request.get("http://jsonplaceholder.typicode.com/todos"))
       todos <- res.body.to[List[Todo]]
       _     <- Console.printLine(s"The first task is '${todos.head.title}'")
     } yield ()
@@ -273,7 +274,7 @@ object ClientWithDebugAspect extends ZIOAppDefault {
   val program =
     for {
       client <- ZIO.service[Client].map(_ @@ ZClientAspect.debug)
-      _      <- client.simple(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      _      <- client.batched(Request.get("http://jsonplaceholder.typicode.com/todos"))
     } yield ()
 
   override val run = program.provide(Client.default)

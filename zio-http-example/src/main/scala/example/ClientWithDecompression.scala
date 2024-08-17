@@ -14,7 +14,7 @@ object ClientWithDecompression extends ZIOAppDefault {
     res    <-
       client
         .addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate()))
-        .simple(Request.get("/todos"))
+        .batched(Request.get("/todos"))
     data   <- res.body.asString
     _      <- Console.printLine(data)
   } yield ()

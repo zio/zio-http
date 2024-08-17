@@ -61,7 +61,7 @@ class ClientBenchmark {
 
     val waitForServerStarted: Task[Unit] = (for {
       client <- ZIO.service[Client]
-      _      <- client.simple(smallRequest)
+      _      <- client.batched(smallRequest)
     } yield ()).provide(ZClient.default)
 
     run(startServer.forkDaemon *> waitForServerStarted.retry(Schedule.fixed(1.second)))
@@ -71,7 +71,7 @@ class ClientBenchmark {
   def tearDown(): Unit = {
     val stopServer = (for {
       client <- ZIO.service[Client]
-      _      <- client.simple(Request(url = url"http://localhost:8080/shutdown"))
+      _      <- client.batched(Request(url = url"http://localhost:8080/shutdown"))
     } yield ()).provide(ZClient.default)
     run(stopServer)
     rtm.shutdown0()
@@ -82,7 +82,7 @@ class ClientBenchmark {
   def zhttpChunkBenchmark(): Any = run {
     val req = if (path == "small") smallRequest else largeRequest
     ZIO.serviceWithZIO[Client] { client =>
-      client.simple(req).flatMap(_.body.asChunk).repeatN(100)
+      client.batched(req).flatMap(_.body.asChunk).repeatN(100)
     }
   }
 
@@ -91,7 +91,7 @@ class ClientBenchmark {
   def zhttpStreamToChunkBenchmark(): Any = run {
     val req = if (path == "small") smallRequest else largeRequest
     ZIO.serviceWithZIO[Client] { client =>
-      client.simple(req).flatMap(_.body.asStream.runCollect).repeatN(100)
+      client.batched(req).flatMap(_.body.asStream.runCollect).repeatN(100)
     }
   }
 }

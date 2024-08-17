@@ -112,7 +112,7 @@ object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
         Client.default,
       )
 
-  lazy val clientExample: URIO[EndpointExecutor & Scope, Unit] =
+  lazy val clientExample: URIO[EndpointExecutor, Unit] =
     for {
       executor <- ZIO.service[EndpointExecutor]
       _        <- ZIO.scoped(executor(getUser(42, Location.parse("some-location").toOption.get))).debug("result1")

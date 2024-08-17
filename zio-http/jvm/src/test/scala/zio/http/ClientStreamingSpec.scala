@@ -178,7 +178,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               boundary <- Boundary.randomUUID
               stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
               bytes    <- stream.runCollect
-              response <- client.disableStreaming
+              response <- client.batched
                 .request(
                   Request
                     .post(

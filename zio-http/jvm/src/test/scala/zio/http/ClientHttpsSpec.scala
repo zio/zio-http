@@ -47,19 +47,19 @@ object ClientHttpsSpec extends ZIOHttpSpec {
 
   override def spec = suite("Https Client request")(
     test("respond Ok") {
-      val actual = Client.simple(Request.get(zioDev))
+      val actual = Client.batched(Request.get(zioDev))
       assertZIO(actual)(anything)
     }.provide(ZLayer.succeed(ZClient.Config.default), partialClientLayer),
     test("respond Ok with sslConfig") {
-      val actual = Client.simple(Request.get(zioDev))
+      val actual = Client.batched(Request.get(zioDev))
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {
-      val actual = Client.simple(Request.get(badRequest)).map(_.status)
+      val actual = Client.batched(Request.get(badRequest)).map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
     } @@ ignore,
     test("should throw DecoderException for handshake failure") {
-      val actual = Client.simple(Request.get(untrusted)).exit
+      val actual = Client.batched(Request.get(untrusted)).exit
       assertZIO(actual)(
         fails(
           hasField(

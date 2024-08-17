@@ -259,7 +259,7 @@ object SimpleClientJson extends ZIOAppDefault {
 
   val program = for {
     // Pass headers to request
-    res <- Client.simple(Request.get(url).addHeaders(headers))
+    res <- Client.batched(Request.get(url).addHeaders(headers))
     // List all response headers
     _ <- Console.printLine(res.headers.toList.mkString("\n"))
     data <-
