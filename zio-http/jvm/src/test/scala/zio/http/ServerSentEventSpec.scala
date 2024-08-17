@@ -10,7 +10,7 @@ import zio.test._
 
 import zio.stream.ZStream
 
-object ServerSentEventSpec extends ZIOSpecDefault {
+object ServerSentEventSpec extends ZIOHttpSpec {
 
   val stream: ZStream[Any, Nothing, ServerSentEvent[String]] =
     ZStream.repeatWithSchedule(ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now)), Schedule.spaced(1.second))
