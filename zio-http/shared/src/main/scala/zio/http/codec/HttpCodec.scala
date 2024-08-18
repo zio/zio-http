@@ -171,18 +171,23 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Uses this codec to decode the Scala value from a request.
    */
   final def decodeRequest(request: Request)(implicit trace: Trace): Task[Value] =
-    decode(request.url, Status.Ok, request.method, request.headers, request.body)
+    CodecConfig.codecRef.getWith(
+      encoderDecoder.decode(_, request.url, Status.Ok, request.method, request.headers, request.body),
+    )
+
+  /**
+   * Uses this codec to decode the Scala value from a request.
+   */
+  final def decodeRequest(request: Request, config: CodecConfig)(implicit trace: Trace): Task[Value] =
+    encoderDecoder.decode(config, request.url, Status.Ok, request.method, request.headers, request.body)
 
   /**
    * Uses this codec to decode the Scala value from a response.
    */
-  final def decodeResponse(response: Response)(implicit trace: Trace): Task[Value] =
-    decode(URL.empty, response.status, Method.GET, response.headers, response.body)
-
-  private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+  final def decodeResponse(response: Response, config: CodecConfig = CodecConfig.defaultConfig)(implicit
     trace: Trace,
   ): Task[Value] =
-    encoderDecoder.decode(url, status, method, headers, body)
+    encoderDecoder.decode(config, URL.empty, response.status, Method.GET, response.headers, response.body)
 
   def doc: Option[Doc] = {
     @tailrec
@@ -197,10 +202,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   }
 
   /**
-   * Uses this codec to encode the Scala value into a request.
+   * Uses this codec and [[CodecConfig.defaultConfig]] to encode the Scala value
+   * into a request.
    */
   final def encodeRequest(value: Value): Request =
-    encodeWith(value, Chunk.empty)((url, _, method, headers, body) =>
+    encodeRequest(value, CodecConfig.defaultConfig)
+
+  /**
+   * Uses this codec to encode the Scala value into a request.
+   */
+  final def encodeRequest(value: Value, config: CodecConfig): Request =
+    encodeWith(config, value, Chunk.empty)((url, _, method, headers, body) =>
       Request(
         url = url,
         method = method.getOrElse(Method.GET),
@@ -212,36 +224,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     )
 
   /**
-   * Uses this codec to encode the Scala value as a patch to a request.
-   */
-  final def encodeRequestPatch(value: Value): Request.Patch =
-    encodeWith(value, Chunk.empty)((url, _, _, headers, _) =>
-      Request.Patch(
-        addQueryParams = url.queryParams,
-        addHeaders = headers,
-      ),
-    )
-
-  /**
    * Uses this codec to encode the Scala value as a response.
    */
-  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor]): Response =
-    encodeWith(value, outputTypes)((_, status, _, headers, body) =>
+  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig): Response =
+    encodeWith(config, value, outputTypes)((_, status, _, headers, body) =>
       Response(headers = headers, body = body, status = status.getOrElse(Status.Ok)),
     )
 
-  /**
-   * Uses this codec to encode the Scala value as a response patch.
-   */
-  final def encodeResponsePatch[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor]): Response.Patch =
-    encodeWith(value, outputTypes)((_, status, _, headers, _) =>
-      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.status(_)).getOrElse(Response.Patch.empty),
-    )
-
-  private final def encodeWith[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+  private final def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder.encodeWith(value, outputTypes.sortBy(mt => -mt.qFactor.getOrElse(1.0)))(f)
+    encoderDecoder.encodeWith(config, value, outputTypes.sortBy(mt => -mt.qFactor.getOrElse(1.0)))(f)
 
   def examples(examples: Iterable[(String, Value)]): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Examples(Chunk.fromIterable(examples).toMap))

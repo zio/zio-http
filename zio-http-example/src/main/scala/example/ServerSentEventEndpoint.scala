@@ -8,7 +8,7 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
-import zio.http.codec.HttpCodec
+import zio.http.codec.{CodecConfig, HttpCodec}
 import zio.http.endpoint._
 
 object ServerSentEventEndpoint extends ZIOAppDefault {

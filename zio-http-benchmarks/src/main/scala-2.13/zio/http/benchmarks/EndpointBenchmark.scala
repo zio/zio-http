@@ -11,7 +11,7 @@ import zio.{Scope => _, _}
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.HttpCodec
+import zio.http.codec.{CodecConfig, HttpCodec}
 import zio.http.endpoint.Endpoint
 
 import cats.effect.unsafe.implicits.global

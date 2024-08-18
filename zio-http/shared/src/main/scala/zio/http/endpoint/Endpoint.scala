@@ -287,26 +287,27 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       case _             => Some(Handler.succeed(Response.unauthorized))
     }
 
-    val handlers = self.alternatives.map { case (endpoint, condition) =>
-      Handler.fromFunctionZIO { (request: zio.http.Request) =>
-        val outputMediaTypes =
-          NonEmptyChunk
-            .fromChunk(
-              request.headers
-                .getAll(Header.Accept)
-                .flatMap(_.mimeTypes),
-            )
-            .getOrElse(defaultMediaTypes)
-        (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request).orDie.flatMap { value =>
-          original(value).map(endpoint.output.encodeResponse(_, outputMediaTypes)).catchAll { error =>
-            ZIO.succeed(endpoint.error.encodeResponse(error, outputMediaTypes))
+    def handlers(config: CodecConfig): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] =
+      self.alternatives.map { case (endpoint, condition) =>
+        Handler.fromFunctionZIO { (request: zio.http.Request) =>
+          val outputMediaTypes =
+            NonEmptyChunk
+              .fromChunk(
+                request.headers
+                  .getAll(Header.Accept)
+                  .flatMap(_.mimeTypes),
+              )
+              .getOrElse(defaultMediaTypes)
+          (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
+            original(value).map(endpoint.output.encodeResponse(_, outputMediaTypes, config)).catchAll { error =>
+              ZIO.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config))
+            }
           }
-        }
-      } -> condition
-    }
+        } -> condition
+      }
 
     // TODO: What to do if there are no endpoints??
-    val handlers2 =
+    def handlers2(handlers: Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)]) =
       NonEmptyChunk
         .fromChunk(handlers)
         .getOrElse(
@@ -316,42 +317,44 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         )
 
     val handler =
-      handlers.tail
-        .foldLeft(handlers2.head._1) { case (acc, (handler, condition)) =>
-          acc.catchAllCause { cause =>
-            if (condition(cause)) {
-              handler
-            } else {
-              Handler.failCause(cause)
+      Handler.fromZIO(CodecConfig.codecRef.get).flatMap { config =>
+        val hdlrs = handlers(config)
+        hdlrs.tail
+          .foldLeft(handlers2(hdlrs).head._1) { case (acc, (handler, condition)) =>
+            acc.catchAllCause { cause =>
+              if (condition(cause)) {
+                handler
+              } else {
+                Handler.failCause(cause)
+              }
             }
           }
-        }
-        .catchAllCause { cause =>
-          asHttpCodecError(cause) match {
-            case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
-                if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
-              maybeUnauthedResponse.get
-            case Some(_) =>
-              Handler.fromFunctionZIO { (request: zio.http.Request) =>
-                val error    = cause.defects.head.asInstanceOf[HttpCodecError]
-                val log      = ZIO.unit
-                val response = {
-                  val outputMediaTypes =
-                    NonEmptyChunk
-                      .fromChunk(
-                        request.headers
-                          .getAll(Header.Accept)
-                          .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0)),
-                      )
-                      .getOrElse(defaultMediaTypes)
-                  codecError.encodeResponse(error, outputMediaTypes)
+          .catchAllCause { cause =>
+            asHttpCodecError(cause) match {
+              case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
+                  if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
+                maybeUnauthedResponse.get
+              case Some(_) =>
+                Handler.fromFunctionZIO { (request: zio.http.Request) =>
+                  val error    = cause.defects.head.asInstanceOf[HttpCodecError]
+                  val response = {
+                    val outputMediaTypes =
+                      NonEmptyChunk
+                        .fromChunk(
+                          request.headers
+                            .getAll(Header.Accept)
+                            .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0)),
+                        )
+                        .getOrElse(defaultMediaTypes)
+                    codecError.encodeResponse(error, outputMediaTypes, config)
+                  }
+                  ZIO.succeed(response)
                 }
-                log.as(response)
-              }
-            case None    =>
-              Handler.failCause(cause)
+              case None    =>
+                Handler.failCause(cause)
+            }
           }
-        }
+      }
 
     Route.handled(self.route)(handler)
   }
