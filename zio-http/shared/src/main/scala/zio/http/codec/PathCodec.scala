@@ -791,7 +791,7 @@ object PathCodec          {
       var result    = subtree.value
       var i         = from
 
-      val trySkipLiteralIdx: mutable.ArrayDeque[Int] = mutable.ArrayDeque.empty
+      var trySkipLiteralIdx: List[Int] = Nil
 
       while (i < nSegments) {
         val segment = segments(i)
@@ -802,7 +802,7 @@ object PathCodec          {
           // this subtree segment have race with others
           // will try others if result was empty
           if (subtree.literalsRaceOthers.contains(segment)) {
-            trySkipLiteralIdx.addOne(i)
+            trySkipLiteralIdx = i +: trySkipLiteralIdx
           }
 
           subtree = subtree.literals(segment)
@@ -879,8 +879,10 @@ object PathCodec          {
       }
 
       if (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
+        trySkipLiteralIdx = trySkipLiteralIdx.reverse
         while (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
-          val skipIdx = trySkipLiteralIdx.removeHead()
+          val skipIdx = trySkipLiteralIdx.head
+          trySkipLiteralIdx = trySkipLiteralIdx.tail
           result = get(path, from, skipLiteralsFor + skipIdx)
         }
         result
