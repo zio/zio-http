@@ -58,6 +58,8 @@ object Server extends ServerPlatformSpecific {
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     avoidContextSwitching: Boolean,
+    soBacklog: Int,
+    tcpNoDelay: Boolean,
   ) { self =>
 
     /**
@@ -146,7 +148,7 @@ object Server extends ServerPlatformSpecific {
     /**
      * Configure the server to listen on the provided port.
      */
-    def port(port: Int): Config = self.copy(address = new InetSocketAddress(port))
+    def port(port: Int): Config = self.copy(address = new InetSocketAddress(address.getAddress, port))
 
     /**
      * Configure the new server with netty's HttpContentCompressor to compress
@@ -173,6 +175,20 @@ object Server extends ServerPlatformSpecific {
     def requestStreaming(requestStreaming: RequestStreaming): Config =
       self.copy(requestStreaming = requestStreaming)
 
+    /**
+     * Sets the maximum number of connection requests that will be queued before
+     * being rejected
+     */
+    def soBacklog(value: Int): Config =
+      self.copy(soBacklog = value)
+
+    /**
+     * Configure the server to enable/disable TCP_NODELAY. TCP_NODELAY disables
+     * Nagle's algorithm, which reduces latency for small messages.
+     */
+    def tcpNoDelay(value: Boolean): Config =
+      self.copy(tcpNoDelay = value)
+
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
@@ -192,7 +208,10 @@ object Server extends ServerPlatformSpecific {
         zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
         zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout) ++
         zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
-        zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching)
+        zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching) ++
+        zio.Config.int("so-backlog").withDefault(Config.default.soBacklog) ++
+        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay)
+
     }.map {
       case (
             sslConfig,
@@ -209,10 +228,12 @@ object Server extends ServerPlatformSpecific {
             gracefulShutdownTimeout,
             idleTimeout,
             avoidCtxSwitch,
+            soBacklog,
+            tcpNoDelay,
           ) =>
         default.copy(
           sslConfig = sslConfig,
-          address = new InetSocketAddress(host.getOrElse(Config.default.address.getHostName), port),
+          address = new InetSocketAddress(host.fold(InetAddress.getLoopbackAddress)(InetAddress.getByName), port),
           acceptContinue = acceptContinue,
           keepAlive = keepAlive,
           requestDecompression = requestDecompression,
@@ -224,12 +245,14 @@ object Server extends ServerPlatformSpecific {
           gracefulShutdownTimeout = gracefulShutdownTimeout,
           idleTimeout = idleTimeout,
           avoidContextSwitching = avoidCtxSwitch,
+          soBacklog = soBacklog,
+          tcpNoDelay = tcpNoDelay,
         )
     }
 
     lazy val default: Config = Config(
       sslConfig = None,
-      address = new InetSocketAddress(8080),
+      address = new InetSocketAddress(InetAddress.getLocalHost, 8080),
       acceptContinue = false,
       keepAlive = true,
       requestDecompression = Decompression.No,
@@ -242,6 +265,8 @@ object Server extends ServerPlatformSpecific {
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = None,
       avoidContextSwitching = false,
+      soBacklog = 100,
+      tcpNoDelay = true,
     )
 
     final case class ResponseCompressionConfig(
