@@ -762,15 +762,21 @@ object PathCodec          {
   private[http] final case class SegmentSubtree[+A](
     literals: ListMap[String, SegmentSubtree[A]],
     others: ListMap[SegmentCodec[_], SegmentSubtree[A]],
+    literalsRaceOthers: Set[String],
     value: Chunk[A],
   ) {
     self =>
-    def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] =
+    def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] = {
+      val newLiterals          = mergeMaps(self.literals, that.literals)(_ ++ _)
+      val newOthers            = mergeMaps(self.others, that.others)(_ ++ _)
+      val newLiteralRaceOthers = calculateLiteralRaceOthers(newLiterals.keySet, newOthers.keys)
       SegmentSubtree(
-        mergeMaps(self.literals, that.literals)(_ ++ _),
-        mergeMaps(self.others, that.others)(_ ++ _),
+        newLiterals,
+        newOthers,
+        newLiteralRaceOthers,
         self.value ++ that.value,
       )
+    }
 
     def add[A1 >: A](segments: Iterable[SegmentCodec[_]], value: A1): SegmentSubtree[A1] =
       self ++ SegmentSubtree.single(segments, value)
@@ -778,18 +784,27 @@ object PathCodec          {
     def get(path: Path): Chunk[A] =
       get(path, 0)
 
-    private def get(path: Path, from: Int): Chunk[A] = {
+    private def get(path: Path, from: Int, skipLiteralsFor: Set[Int] = Set.empty): Chunk[A] = {
       val segments  = path.segments
       val nSegments = segments.length
       var subtree   = self
       var result    = subtree.value
       var i         = from
 
+      var trySkipLiteralIdx: Int = -1
+
       while (i < nSegments) {
         val segment = segments(i)
 
-        if (subtree.literals.contains(segment)) {
-          // Fast path, jump down the tree:
+        // Fast path, jump down the tree:
+        if (!skipLiteralsFor.contains(i) && subtree.literals.contains(segment)) {
+
+          // this subtree segment have race with others
+          // will try others if result was empty
+          if (subtree.literalsRaceOthers.contains(segment)) {
+            trySkipLiteralIdx = i
+          }
+
           subtree = subtree.literals(segment)
 
           result = subtree.value
@@ -863,13 +878,16 @@ object PathCodec          {
         }
       }
 
-      result
+      if ((trySkipLiteralIdx != -1) && result.isEmpty) {
+        get(path, from, skipLiteralsFor + trySkipLiteralIdx)
+      } else result
     }
 
     def map[B](f: A => B): SegmentSubtree[B] =
       SegmentSubtree(
         literals.map { case (k, v) => k -> v.map(f) },
         ListMap(others.toSeq.map { case (k, v) => k -> v.map(f) }: _*),
+        literalsRaceOthers,
         value.map(f),
       )
 
@@ -883,24 +901,25 @@ object PathCodec          {
   object SegmentSubtree    {
     def single[A](segments: Iterable[SegmentCodec[_]], value: A): SegmentSubtree[A] =
       segments.collect { case x if x.nonEmpty => x }
-        .foldRight[SegmentSubtree[A]](SegmentSubtree(ListMap(), ListMap(), Chunk(value))) { case (segment, subtree) =>
-          val literals =
-            segment match {
-              case SegmentCodec.Literal(value) => ListMap(value -> subtree)
-              case _                           => ListMap.empty[String, SegmentSubtree[A]]
-            }
+        .foldRight[SegmentSubtree[A]](SegmentSubtree(ListMap(), ListMap(), Set.empty, Chunk(value))) {
+          case (segment, subtree) =>
+            val literals =
+              segment match {
+                case SegmentCodec.Literal(value) => ListMap(value -> subtree)
+                case _                           => ListMap.empty[String, SegmentSubtree[A]]
+              }
 
-          val others =
-            ListMap[SegmentCodec[_], SegmentSubtree[A]]((segment match {
-              case SegmentCodec.Literal(_) => Chunk.empty
-              case _                       => Chunk((segment, subtree))
-            }): _*)
+            val others =
+              ListMap[SegmentCodec[_], SegmentSubtree[A]]((segment match {
+                case SegmentCodec.Literal(_) => Chunk.empty
+                case _                       => Chunk((segment, subtree))
+              }): _*)
 
-          SegmentSubtree(literals, others, Chunk.empty)
+            SegmentSubtree(literals, others, Set.empty, Chunk.empty)
         }
 
     val empty: SegmentSubtree[Nothing] =
-      SegmentSubtree(ListMap(), ListMap(), Chunk.empty)
+      SegmentSubtree(ListMap(), ListMap(), Set.empty, Chunk.empty)
   }
 
   private def mergeMaps[A, B](left: ListMap[A, B], right: ListMap[A, B])(f: (B, B) => B): ListMap[A, B] =
@@ -910,4 +929,12 @@ object PathCodec          {
         case Some(v0) => acc.updated(k, f(v0, v))
       }
     }
+
+  private def calculateLiteralRaceOthers(literals: Set[String], others: Iterable[SegmentCodec[_]]): Set[String] = {
+    literals.filter { literal =>
+      others.exists { o =>
+        o.inSegmentUntil(literal, 0) != -1
+      }
+    }
+  }
 }
