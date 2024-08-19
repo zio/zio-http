@@ -4138,7 +4138,10 @@ object Header {
       "1"
   }
 
-  sealed trait UserAgent extends Header {
+  final case class UserAgent(
+    product: UserAgent.ProductOrComment.Product,
+    parts: List[UserAgent.ProductOrComment] = Nil,
+  ) extends Header {
     override type Self = UserAgent
     override def self: Self                              = this
     override def headerType: HeaderType.Typed[UserAgent] = UserAgent
@@ -4156,31 +4159,53 @@ object Header {
 
     override def name: String = "user-agent"
 
-    final case class Complete(product: Product, comment: Option[Comment]) extends UserAgent
+    sealed trait ProductOrComment
+    object ProductOrComment {
+      final case class Product(name: String, version: Option[String]) extends ProductOrComment
 
-    final case class Product(name: String, version: Option[String]) extends UserAgent
+      final case class Comment(comment: String) extends ProductOrComment
+    }
 
-    final case class Comment(comment: String) extends UserAgent
+    private val tokenPattern          = "[!#$%&'*+\\-.^_`|~\\w]"
+    private val commentPattern        = "\\((.*?)\\)"
+    private val productPattern        = s"($tokenPattern+)(?:/($tokenPattern+))?"
+    private val productRegex          = s"(?i)$productPattern\\s*?(.*)".r
+    private val commentRegex          = s"(?i)$commentPattern".r
+    private val productOrCommentRegex = s"(?i)(?:(?:$productPattern)|(?:$commentPattern))".r
 
-    private val productRegex  = "(?i)([a-z0-9]+)(?:/([a-z0-9.]+))?".r
-    private val commentRegex  = """(?i)\((.*)""".r
-    private val completeRegex = "(?i)([a-z0-9]+)(?:/([a-z0-9.]+))(.*)".r
+    private def hasBalancedParentheses(s: String): Boolean = {
+      val (balance, isValid) = s.foldLeft((0, true)) {
+        case ((balance, true), '(') => (balance + 1, true)
+        case ((balance, true), ')') =>
+          if (balance > 0) (balance - 1, true)
+          else (balance, false)
+        case (state, _)             => state
+      }
+      isValid && balance == 0
+    }
 
     def parse(userAgent: String): Either[String, UserAgent] = {
       userAgent match {
-        case productRegex(name, version)           => Right(Product(name, Option(version)))
-        case commentRegex(comment)                 => Right(Comment(comment))
-        case completeRegex(name, version, comment) =>
-          Right(Complete(Product(name, Option(version)), Option(Comment(comment))))
-        case _                                     => Left("Invalid User-Agent header")
+        case productRegex(name, version, tail) if hasBalancedParentheses(tail) =>
+          val product = ProductOrComment.Product(name, Option(version))
+          val parts   = productOrCommentRegex.findAllIn(tail).toList.collect {
+            case productRegex(name, version, _) => ProductOrComment.Product(name, Option(version))
+            case commentRegex(comment)          => ProductOrComment.Comment(comment)
+          }
+          Right(UserAgent(product, parts))
+        case _                                                                 =>
+          Left("Invalid User-Agent header")
       }
     }
 
-    def render(userAgent: UserAgent): String = userAgent match {
-      case Complete(product, comment) =>
-        s"""${render(product)}${render(comment.getOrElse(Comment("")))}"""
-      case Product(name, version)     => s"""$name${version.map("/" + _).getOrElse("")}"""
-      case Comment(comment)           => s" ($comment)"
+    def render(userAgent: UserAgent): String =
+      (userAgent.product :: userAgent.parts).map(fromProductOrComment).mkString(" ")
+
+    private def fromProductOrComment(value: ProductOrComment): String = value match {
+      case ProductOrComment.Product(name, version) =>
+        s"""$name${version.map("/" + _).getOrElse("")}"""
+      case ProductOrComment.Comment(comment)       =>
+        s"($comment)"
     }
 
   }

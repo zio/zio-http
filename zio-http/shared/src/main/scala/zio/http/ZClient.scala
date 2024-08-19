@@ -20,6 +20,7 @@ import java.net.{InetSocketAddress, URI}
 
 import zio._
 
+import zio.http.Header.UserAgent
 import zio.http.URL.Location
 import zio.http.internal._
 //import zio.http.netty.client._
@@ -742,9 +743,9 @@ object ZClient extends ZClientPlatformSpecific {
   private val zioHttpVersion: String                   = BuildInfo.version
   private val zioHttpVersionNormalized: Option[String] = Option(zioHttpVersion)
 
-  private val scalaVersion: String           = BuildInfo.scalaVersion
-  lazy val defaultUAHeader: Header.UserAgent = Header.UserAgent.Complete(
-    Header.UserAgent.Product("Zio-Http-Client", zioHttpVersionNormalized),
-    Some(Header.UserAgent.Comment(s"Scala $scalaVersion")),
+  private val scalaVersion: String    = BuildInfo.scalaVersion
+  lazy val defaultUAHeader: UserAgent = UserAgent(
+    UserAgent.ProductOrComment.Product("Zio-Http-Client", zioHttpVersionNormalized),
+    List(UserAgent.ProductOrComment.Comment(s"Scala $scalaVersion")),
   )
 }
