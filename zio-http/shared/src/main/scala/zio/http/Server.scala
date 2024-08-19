@@ -148,7 +148,7 @@ object Server extends ServerPlatformSpecific {
     /**
      * Configure the server to listen on the provided port.
      */
-    def port(port: Int): Config = self.copy(address = new InetSocketAddress(address.getAddress, port))
+    def port(port: Int): Config = self.copy(address = new InetSocketAddress(port))
 
     /**
      * Configure the new server with netty's HttpContentCompressor to compress
@@ -233,7 +233,7 @@ object Server extends ServerPlatformSpecific {
           ) =>
         default.copy(
           sslConfig = sslConfig,
-          address = new InetSocketAddress(host.fold(InetAddress.getLoopbackAddress)(InetAddress.getByName), port),
+          address = new InetSocketAddress(host.getOrElse(Config.default.address.getHostName), port),
           acceptContinue = acceptContinue,
           keepAlive = keepAlive,
           requestDecompression = requestDecompression,
@@ -252,7 +252,7 @@ object Server extends ServerPlatformSpecific {
 
     lazy val default: Config = Config(
       sslConfig = None,
-      address = new InetSocketAddress(InetAddress.getLoopbackAddress, 8080),
+      address = new InetSocketAddress(8080),
       acceptContinue = false,
       keepAlive = true,
       requestDecompression = Decompression.No,
