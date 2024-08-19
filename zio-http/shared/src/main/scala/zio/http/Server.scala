@@ -252,7 +252,7 @@ object Server extends ServerPlatformSpecific {
 
     lazy val default: Config = Config(
       sslConfig = None,
-      address = new InetSocketAddress(InetAddress.getLocalHost, 8080),
+      address = new InetSocketAddress(InetAddress.getLoopbackAddress, 8080),
       acceptContinue = false,
       keepAlive = true,
       requestDecompression = Decompression.No,
