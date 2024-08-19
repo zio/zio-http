@@ -145,11 +145,14 @@ object RoutePatternSpec extends ZIOHttpSpec {
       },
       test("race literal with params is resolved when tail is not matched for literal i3036") {
         val routes: Chunk[RoutePattern[_]] = Chunk(
+          // one race
           Method.GET / "users" / "param1" / "fixed",
           Method.GET / "users" / string("param") / "dynamic",
-          Method.GET / "orders" / "param1" / "literal1" / "param1" / "tail1",
+          // two races
+          Method.GET / "orders" / "param1" / "literal1" / "p1" / "tail1",
           Method.GET / "orders" / "param1" / "literal1" / string("p2") / "tail2",
-          Method.GET / "orders" / string("param") / "literal1" / int("p2") / "tail3",
+          Method.GET / "orders" / string("param") / "literal1" / "p1" / "tail3",
+          Method.GET / "orders" / string("param") / "literal1" / string("p2") / "tail4",
         )
 
         var tree: Tree[Int] = RoutePattern.Tree.empty
@@ -163,9 +166,10 @@ object RoutePatternSpec extends ZIOHttpSpec {
         assertTrue(
           tree.get(Method.GET, p1).contains(1),
           tree.get(Method.GET, p2).contains(2),
-          tree.get(Method.GET, Path("/orders/param1/literal1/param1/tail1")).contains(3),
-          tree.get(Method.GET, Path("/orders/param1/literal1/param33/tail2")).contains(4),
-          tree.get(Method.GET, Path("/orders/param1/literal1/55/tail3")).contains(5),
+          tree.get(Method.GET, Path("/orders/param1/literal1/p1/tail1")).contains(3),
+          tree.get(Method.GET, Path("/orders/param1/literal1/p22/tail2")).contains(4),
+          tree.get(Method.GET, Path("/orders/param1/literal1/p1/tail3")).contains(5),
+          tree.get(Method.GET, Path("/orders/param1/literal1/p22/tail4")).contains(6),
         )
       },
       test("on conflict, first one wins") {
