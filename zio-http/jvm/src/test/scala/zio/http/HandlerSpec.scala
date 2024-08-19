@@ -22,14 +22,29 @@ import scala.annotation.nowarn
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.timeout
 import zio.test._
 
 @nowarn("msg=dead code")
 object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
 
-  def spec = suite("Handler")(
+  def spec: Spec[Any with Scope, Any] = suite("Handler")(
     suite("sandbox")(
+      test("response failure with exception is passed through") {
+        val message = "long exception\nwith multiple\nlines"
+        val agent   = "ZIO HTTP"
+        val handler =
+          Handler
+            .fromFunctionZIO[Any] { _ =>
+              ZIO.fail(new Exception(message))
+            }
+            .sandbox
+
+        for {
+          result <- handler.merge.headers.run()
+        } yield {
+          assert(result.headers)(contains(Header.Warning(199, agent, message.replace('\n', ' '), None)))
+        }
+      },
       test("response failure is passed through") {
         val handler =
           Handler
