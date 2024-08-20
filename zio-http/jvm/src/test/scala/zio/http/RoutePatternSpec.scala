@@ -18,13 +18,10 @@ package zio.http
 
 import java.util.UUID
 
-import scala.collection.Seq
-
 import zio.Chunk
 import zio.test._
 
-import zio.http.internal.HttpGen
-import zio.http.{int => _, uuid => _, _}
+import zio.http.{int => _, uuid => _}
 
 object RoutePatternSpec extends ZIOHttpSpec {
   import zio.http.Method
@@ -143,12 +140,12 @@ object RoutePatternSpec extends ZIOHttpSpec {
           tree.get(Method.GET, p2).contains(2),
         )
       },
-      test("race literal with params is resolved when tail is not matched for literal i3036") {
+      test("literal conflict with params is resolved when tail is not matched for literal i3036") {
         val routes: Chunk[RoutePattern[_]] = Chunk(
-          // one race
+          // one conflict
           Method.GET / "users" / "param1" / "fixed",
           Method.GET / "users" / string("param") / "dynamic",
-          // two races
+          // two conflicts
           Method.GET / "orders" / "param1" / "literal1" / "p1" / "tail1",
           Method.GET / "orders" / "param1" / "literal1" / string("p2") / "tail2",
           Method.GET / "orders" / string("param") / "literal1" / "p1" / "tail3",

@@ -762,18 +762,22 @@ object PathCodec          {
   private[http] final case class SegmentSubtree[+A](
     literals: ListMap[String, SegmentSubtree[A]],
     others: ListMap[SegmentCodec[_], SegmentSubtree[A]],
-    literalsRaceOthers: Set[String],
+    literalsConflictWithOthers: Set[String],
     value: Chunk[A],
   ) {
     self =>
     def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] = {
-      val newLiterals          = mergeMaps(self.literals, that.literals)(_ ++ _)
-      val newOthers            = mergeMaps(self.others, that.others)(_ ++ _)
-      val newLiteralRaceOthers = calculateLiteralRaceOthers(newLiterals.keySet, newOthers.keys)
+      val newLiterals         = mergeMaps(self.literals, that.literals)(_ ++ _)
+      val newOthers           = mergeMaps(self.others, that.others)(_ ++ _)
+      val newLiteralConflicts = mergeLiteralConflictsWithOthers(
+        self.literalsConflictWithOthers ++ that.literalsConflictWithOthers,
+        newLiterals.keySet,
+        newOthers.keys,
+      )
       SegmentSubtree(
         newLiterals,
         newOthers,
-        newLiteralRaceOthers,
+        newLiteralConflicts,
         self.value ++ that.value,
       )
     }
@@ -799,9 +803,9 @@ object PathCodec          {
         // Fast path, jump down the tree:
         if (!skipLiteralsFor.contains(i) && subtree.literals.contains(segment)) {
 
-          // this subtree segment have race with others
+          // this subtree segment have conflict with others
           // will try others if result was empty
-          if (subtree.literalsRaceOthers.contains(segment)) {
+          if (subtree.literalsConflictWithOthers.contains(segment)) {
             trySkipLiteralIdx = i +: trySkipLiteralIdx
           }
 
@@ -893,7 +897,7 @@ object PathCodec          {
       SegmentSubtree(
         literals.map { case (k, v) => k -> v.map(f) },
         ListMap(others.toSeq.map { case (k, v) => k -> v.map(f) }: _*),
-        literalsRaceOthers,
+        literalsConflictWithOthers,
         value.map(f),
       )
 
@@ -936,9 +940,13 @@ object PathCodec          {
       }
     }
 
-  private def calculateLiteralRaceOthers(literals: Set[String], others: Iterable[SegmentCodec[_]]): Set[String] = {
-    literals.filter { literal =>
-      others.exists { o =>
+  private def mergeLiteralConflictsWithOthers(
+    currentConflicts: Set[String],
+    literals: Set[String],
+    others: Iterable[SegmentCodec[_]],
+  ): Set[String] = {
+    currentConflicts ++ literals.filter { literal =>
+      !currentConflicts.contains(literal) && others.exists { o =>
         o.inSegmentUntil(literal, 0) != -1
       }
     }
