@@ -1,6 +1,6 @@
 package zio.http.gen.scala
 
-import java.nio.file.{Path => JPath, _}
+import java.nio.file._
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
@@ -37,7 +37,7 @@ object CodeGenSpec extends ZIOSpecDefault {
   )
   implicit val validatedDataSchema: Schema[ValidatedData] = DeriveSchema.gen[ValidatedData]
 
-  private def fileShouldBe(dir: JPath, subPath: String, expectedFile: String): TestResult = {
+  private def fileShouldBe(dir: java.nio.file.Path, subPath: String, expectedFile: String): TestResult = {
     val filePath  = dir.resolve(Paths.get(subPath))
     val generated = Files.readAllLines(filePath).asScala.mkString("\n")
     isValidScala(generated) && {
@@ -99,7 +99,7 @@ object CodeGenSpec extends ZIOSpecDefault {
   }
 
   private def codeGenFromOpenAPI(openAPI: OpenAPI, config: Config = Config.default)(
-    testForDir: JPath => TestResult,
+    testForDir: java.nio.file.Path => TestResult,
   ): TestResult = {
     val t =
       Try(EndpointGen.fromOpenAPI(openAPI, config))
