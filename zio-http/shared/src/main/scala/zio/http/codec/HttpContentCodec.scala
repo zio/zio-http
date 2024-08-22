@@ -19,11 +19,7 @@ final case class HttpContentCodec[A](
   choices: ListMap[MediaType, BinaryCodecWithSchema[A]],
 ) { self =>
 
-  /**
-   * Uses an `HashMap` instead of a `Map` to avoid allocation of an Option when
-   * calling `.getOrElse`
-   */
-  private var lookupCache: HashMap[MediaType, Option[BinaryCodecWithSchema[A]]] = HashMap.empty
+  private var lookupCache: Map[MediaType, Option[BinaryCodecWithSchema[A]]] = Map.empty
 
   /**
    * A right biased merge of two HttpContentCodecs.
@@ -143,7 +139,9 @@ final case class HttpContentCodec[A](
     }
 
   def lookup(mediaType: MediaType): Option[BinaryCodecWithSchema[A]] = {
-    val codec = lookupCache.getOrElse(mediaType, null)
+    import zio.http.syntax._
+
+    val codec = lookupCache.getOrElseNull(mediaType)
     if (codec ne null) codec
     else {
       val codec = choices.collectFirst { case (mt, codec) if mt.matches(mediaType) => codec }
