@@ -142,9 +142,8 @@ object RoutePatternSpec extends ZIOHttpSpec {
       },
       suite("collisions properly resolved")(
         test("simple collision between literal and text segment i3036") {
-          val routes: Chunk[RoutePattern[_]] = Chunk(
-            Method.GET / "users" / "param1" / "fixed",
-            Method.GET / "users" / string("param") / "dynamic")
+          val routes: Chunk[RoutePattern[_]] =
+            Chunk(Method.GET / "users" / "param1" / "fixed", Method.GET / "users" / string("param") / "dynamic")
 
           var tree: Tree[Int] = RoutePattern.Tree.empty
           routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
@@ -161,7 +160,7 @@ object RoutePatternSpec extends ZIOHttpSpec {
             Method.GET / "users" / "param1" / "literal1" / "p1" / "tail1",
             Method.GET / "users" / "param1" / "literal1" / string("p2") / "tail2",
             Method.GET / "users" / string("param") / "literal1" / "p1" / "tail3",
-            Method.GET / "users" / string("param") / "literal1" / string("p2") / "tail4"
+            Method.GET / "users" / string("param") / "literal1" / string("p2") / "tail4",
           )
 
           var tree: Tree[Int] = RoutePattern.Tree.empty
@@ -196,7 +195,7 @@ object RoutePatternSpec extends ZIOHttpSpec {
           )
         },
         test("collision where distinguish is by two not literal segments") {
-          val uuid1 = new UUID(10, 10)
+          val uuid1                          = new UUID(10, 10)
           val routes: Chunk[RoutePattern[_]] = Chunk(
             Method.GET / "users" / "param1" / int("id"),
             Method.GET / "users" / string("param") / uuid("dynamic"),
@@ -210,12 +209,11 @@ object RoutePatternSpec extends ZIOHttpSpec {
           val r2 = tree.get(Method.GET, Path(s"/users/param1/$uuid1"))
           val r1 = tree.get(Method.GET, Path("/users/param1/155"))
 
-
           assertTrue(
             r1.contains(1),
             r2.contains(2),
           )
-        }
+        },
       ),
       test("on conflict, first one wins") {
         var tree: Tree[Int] = RoutePattern.Tree.empty

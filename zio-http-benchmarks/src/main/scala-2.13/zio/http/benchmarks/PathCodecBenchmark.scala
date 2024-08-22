@@ -1,17 +1,20 @@
 package zio.http.benchmarks
 
-import org.openjdk.jmh.annotations._
-import zio.{Scope => _, _}
-import zio.http._
-import zio.http.RoutePattern.Tree
-
 import java.util.concurrent.TimeUnit
+
 import scala.collection.immutable.ListMap
+
+import zio.{Scope => _, _}
+
+import zio.http.RoutePattern.Tree
+import zio.http._
+
+import org.openjdk.jmh.annotations._
 
 @State(Scope.Thread)
 @Fork(1)
-@Warmup(iterations=3, time=3)
-@Measurement(iterations=3, time=3)
+@Warmup(iterations = 3, time = 3)
+@Measurement(iterations = 3, time = 3)
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 private[http] class PathCodecBenchmark {
@@ -29,7 +32,6 @@ private[http] class PathCodecBenchmark {
   routesConflictLiteralAndText.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
     treeConflictLiteralAndText = treeConflictLiteralAndText.add(routePattern, idx)
   }
-
 
   @Benchmark
   def collisionLiteralAndDynamicBenchmark4(): Unit = {

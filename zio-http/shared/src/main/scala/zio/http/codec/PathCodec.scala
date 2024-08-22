@@ -767,8 +767,8 @@ object PathCodec          {
   ) {
     self =>
     def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] = {
-      val newLiterals         = mergeMaps(self.literals, that.literals)(_ ++ _)
-      val newOthers           = mergeMaps(self.others, that.others)(_ ++ _)
+      val newLiterals          = mergeMaps(self.literals, that.literals)(_ ++ _)
+      val newOthers            = mergeMaps(self.others, that.others)(_ ++ _)
       val newLiteralCollisions = mergeLiteralCollisions(
         self.literalsWithCollisions ++ that.literalsWithCollisions,
         newLiterals.keySet,
