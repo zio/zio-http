@@ -170,9 +170,9 @@ object RoutePatternSpec extends ZIOHttpSpec {
 
           assertTrue(
             tree.get(Method.GET, Path("/users/param1/literal1/p1/tail1")).contains(1),
-            tree.get(Method.GET, Path("/users/param1/literal1/p22/tail2")).contains(2),
+            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail2")).contains(2),
             tree.get(Method.GET, Path("/users/param1/literal1/p1/tail3")).contains(3),
-            tree.get(Method.GET, Path("/users/param1/literal1/p22/tail4")).contains(4),
+            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail4")).contains(4),
           )
         },
         test("collision where distinguish is by literal and int segment") {
