@@ -762,22 +762,22 @@ object PathCodec          {
   private[http] final case class SegmentSubtree[+A](
     literals: ListMap[String, SegmentSubtree[A]],
     others: ListMap[SegmentCodec[_], SegmentSubtree[A]],
-    literalsConflictWithOthers: Set[String],
+    literalsWithCollisions: Set[String],
     value: Chunk[A],
   ) {
     self =>
     def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] = {
       val newLiterals         = mergeMaps(self.literals, that.literals)(_ ++ _)
       val newOthers           = mergeMaps(self.others, that.others)(_ ++ _)
-      val newLiteralConflicts = mergeLiteralConflictsWithOthers(
-        self.literalsConflictWithOthers ++ that.literalsConflictWithOthers,
+      val newLiteralCollisions = mergeLiteralCollisions(
+        self.literalsWithCollisions ++ that.literalsWithCollisions,
         newLiterals.keySet,
         newOthers.keys,
       )
       SegmentSubtree(
         newLiterals,
         newOthers,
-        newLiteralConflicts,
+        newLiteralCollisions,
         self.value ++ that.value,
       )
     }
@@ -805,7 +805,7 @@ object PathCodec          {
 
           // this subtree segment have conflict with others
           // will try others if result was empty
-          if (subtree.literalsConflictWithOthers.contains(segment)) {
+          if (subtree.literalsWithCollisions.contains(segment)) {
             trySkipLiteralIdx = i +: trySkipLiteralIdx
           }
 
@@ -887,7 +887,7 @@ object PathCodec          {
         while (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
           val skipIdx = trySkipLiteralIdx.head
           trySkipLiteralIdx = trySkipLiteralIdx.tail
-          result = get(path, from, skipLiteralsFor + skipIdx)
+          result = get(path, skipIdx, skipLiteralsFor + skipIdx)
         }
         result
       } else result
@@ -897,7 +897,7 @@ object PathCodec          {
       SegmentSubtree(
         literals.map { case (k, v) => k -> v.map(f) },
         ListMap(others.toSeq.map { case (k, v) => k -> v.map(f) }: _*),
-        literalsConflictWithOthers,
+        literalsWithCollisions,
         value.map(f),
       )
 
@@ -940,13 +940,13 @@ object PathCodec          {
       }
     }
 
-  private def mergeLiteralConflictsWithOthers(
-    currentConflicts: Set[String],
+  private def mergeLiteralCollisions(
+    currentCollisions: Set[String],
     literals: Set[String],
     others: Iterable[SegmentCodec[_]],
   ): Set[String] = {
-    currentConflicts ++ literals.filter { literal =>
-      !currentConflicts.contains(literal) && others.exists { o =>
+    currentCollisions ++ literals.filter { literal =>
+      !currentCollisions.contains(literal) && others.exists { o =>
         o.inSegmentUntil(literal, 0) != -1
       }
     }

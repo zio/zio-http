@@ -140,35 +140,83 @@ object RoutePatternSpec extends ZIOHttpSpec {
           tree.get(Method.GET, p2).contains(2),
         )
       },
-      test("literal conflict with params is resolved when tail is not matched for literal i3036") {
-        val routes: Chunk[RoutePattern[_]] = Chunk(
-          // one conflict
-          Method.GET / "users" / "param1" / "fixed",
-          Method.GET / "users" / string("param") / "dynamic",
-          // two conflicts
-          Method.GET / "orders" / "param1" / "literal1" / "p1" / "tail1",
-          Method.GET / "orders" / "param1" / "literal1" / string("p2") / "tail2",
-          Method.GET / "orders" / string("param") / "literal1" / "p1" / "tail3",
-          Method.GET / "orders" / string("param") / "literal1" / string("p2") / "tail4",
-        )
+      suite("collisions properly resolved")(
+        test("simple collision between literal and text segment i3036") {
+          val routes: Chunk[RoutePattern[_]] = Chunk(
+            Method.GET / "users" / "param1" / "fixed",
+            Method.GET / "users" / string("param") / "dynamic")
 
-        var tree: Tree[Int] = RoutePattern.Tree.empty
-        routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
-          tree = tree.add(routePattern, idx)
+          var tree: Tree[Int] = RoutePattern.Tree.empty
+          routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
+            tree = tree.add(routePattern, idx)
+          }
+
+          assertTrue(
+            tree.get(Method.GET, Path("/users/param1/fixed")).contains(1),
+            tree.get(Method.GET, Path("/users/param1/dynamic")).contains(2),
+          )
+        },
+        test("two collisions between literal and text segment") {
+          val routes: Chunk[RoutePattern[_]] = Chunk(
+            Method.GET / "users" / "param1" / "literal1" / "p1" / "tail1",
+            Method.GET / "users" / "param1" / "literal1" / string("p2") / "tail2",
+            Method.GET / "users" / string("param") / "literal1" / "p1" / "tail3",
+            Method.GET / "users" / string("param") / "literal1" / string("p2") / "tail4"
+          )
+
+          var tree: Tree[Int] = RoutePattern.Tree.empty
+          routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
+            tree = tree.add(routePattern, idx)
+          }
+
+          assertTrue(
+            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail1")).contains(1),
+            tree.get(Method.GET, Path("/users/param1/literal1/p22/tail2")).contains(2),
+            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail3")).contains(3),
+            tree.get(Method.GET, Path("/users/param1/literal1/p22/tail4")).contains(4),
+          )
+        },
+        test("collision where distinguish is by literal and int segment") {
+          val routes: Chunk[RoutePattern[_]] = Chunk(
+            Method.GET / "users" / "param1" / int("id"),
+            Method.GET / "users" / string("param") / "dynamic",
+          )
+
+          var tree: Tree[Int] = RoutePattern.Tree.empty
+          routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
+            tree = tree.add(routePattern, idx)
+          }
+
+          val r1 = tree.get(Method.GET, Path("/users/param1/155"))
+          val r2 = tree.get(Method.GET, Path("/users/param1/dynamic"))
+
+          assertTrue(
+            r1.contains(1),
+            r2.contains(2),
+          )
+        },
+        test("collision where distinguish is by two not literal segments") {
+          val uuid1 = new UUID(10, 10)
+          val routes: Chunk[RoutePattern[_]] = Chunk(
+            Method.GET / "users" / "param1" / int("id"),
+            Method.GET / "users" / string("param") / uuid("dynamic"),
+          )
+
+          var tree: Tree[Int] = RoutePattern.Tree.empty
+          routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
+            tree = tree.add(routePattern, idx)
+          }
+
+          val r2 = tree.get(Method.GET, Path(s"/users/param1/$uuid1"))
+          val r1 = tree.get(Method.GET, Path("/users/param1/155"))
+
+
+          assertTrue(
+            r1.contains(1),
+            r2.contains(2),
+          )
         }
-
-        val p1 = Path("/users/param1/fixed")
-        val p2 = Path("/users/param1/dynamic")
-
-        assertTrue(
-          tree.get(Method.GET, p1).contains(1),
-          tree.get(Method.GET, p2).contains(2),
-          tree.get(Method.GET, Path("/orders/param1/literal1/p1/tail1")).contains(3),
-          tree.get(Method.GET, Path("/orders/param1/literal1/p22/tail2")).contains(4),
-          tree.get(Method.GET, Path("/orders/param1/literal1/p1/tail3")).contains(5),
-          tree.get(Method.GET, Path("/orders/param1/literal1/p22/tail4")).contains(6),
-        )
-      },
+      ),
       test("on conflict, first one wins") {
         var tree: Tree[Int] = RoutePattern.Tree.empty
 
