@@ -451,7 +451,7 @@ object OpenAPI {
 
     // todo maybe not the best regex, but the old one was not working at all
     // safe chars from RFC1738 "$" | "-" | "_" | "." | "+"
-    val validPath: Regex = """\/[\/a-zA-Z0-9\-_{}$.+]*""".r
+    private val validPath: Regex = """\/[\/a-zA-Z0-9\-_{}$.+]*""".r
 
     def fromString(name: String): Option[Path] = name match {
       case validPath() => Some(Path(name))

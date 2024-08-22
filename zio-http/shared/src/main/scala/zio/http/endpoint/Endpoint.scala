@@ -54,7 +54,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   output: HttpCodec[HttpCodecType.ResponseType, Output],
   error: HttpCodec[HttpCodecType.ResponseType, Err],
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
-  doc: Doc,
+  documentation: Doc,
   authType: Auth,
 ) { self =>
 
@@ -74,7 +74,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * Returns a new API that is derived from this one, but which includes
    * additional documentation that will be included in OpenAPI generation.
    */
-  def ??(that: Doc): Endpoint[PathInput, Input, Err, Output, Auth] = copy(doc = self.doc + that)
+  def ??(that: Doc): Endpoint[PathInput, Input, Err, Output, Auth] = copy(documentation = self.documentation + that)
 
   /**
    * Flattens out this endpoint to a chunk of alternatives. Each alternative is
@@ -454,7 +454,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -471,7 +471,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
 
@@ -488,7 +488,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -505,7 +505,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
 
@@ -522,7 +522,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (HttpCodec.content[Output2] ++ StatusCodec.status(Status.Ok)) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -557,7 +557,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (HttpCodec.content[Output2] ++ StatusCodec.status(status)) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -575,7 +575,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = ((HttpCodec.content[Output2] ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
       codecError,
-      Doc.empty,
+      documentation,
       authType,
     )
 
@@ -593,7 +593,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (HttpCodec.content[Output2](mediaType) ++ StatusCodec.Ok ?? doc) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -612,7 +612,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = ((HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -630,7 +630,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -695,7 +695,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (contentCodec ++ StatusCodec.status(Status.Ok)) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
   }
@@ -719,7 +719,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (contentCodec ++ StatusCodec.status(Status.Ok) ?? doc) | self.output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
   }
@@ -743,7 +743,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (contentCodec ++ StatusCodec.status(status) ?? doc) | self.output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
   }
@@ -779,7 +779,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (contentCodec ++ StatusCodec.status(status)) | self.output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
   }
@@ -797,7 +797,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = ((contentCodec ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
   }
@@ -815,12 +815,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * example to group endpoints for OpenAPI.
    */
   def tag(tag: String, tags: String*): Endpoint[PathInput, Input, Err, Output, Auth] =
-    copy(doc = doc.tag(tag +: tags))
+    copy(documentation = documentation.tag(tag +: tags))
 
   /**
    * A list of tags for this endpoint.
    */
-  def tags: List[String] = doc.tags
+  def tags: List[String] = documentation.tags
 
   /**
    * Transforms the input of this endpoint using the specified functions. This
