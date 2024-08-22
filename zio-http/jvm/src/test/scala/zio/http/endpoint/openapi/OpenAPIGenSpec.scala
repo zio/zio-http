@@ -165,7 +165,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
     )
       .in[SimpleInputBody](Doc.p("input body"))
-      .out[SimpleOutputBody](Doc.p("output body"))
+      .out[SimpleOutputBody](mediaType = MediaType.application.json, Doc.p("output body"))
       .outError[NotFoundError](Status.NotFound, Doc.p("not found"))
 
   private val queryParamEndpoint =
@@ -269,21 +269,21 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |        },
                              |        "responses" : {
                              |          "200" : {
+                             |            "description" : "output body\n\n",
                              |            "content" : {
                              |              "application/json" : {
                              |                "schema" : {
-                             |                  "$ref" : "#/components/schemas/SimpleOutputBody",
-                             |                  "description" : "output body\n\n"
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
                              |                }
                              |              }
                              |            }
                              |          },
                              |          "404" : {
+                             |            "description" : "not found\n\n",
                              |            "content" : {
                              |              "application/json" : {
                              |                "schema" : {
-                             |                  "$ref" : "#/components/schemas/NotFoundError",
-                             |                  "description" : "not found\n\n"
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
                              |                }
                              |              }
                              |            }
@@ -1539,24 +1539,24 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "200" :
             |            {
+            |            "description" : "output body\n\n",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
             |                  {
-            |                  "$ref" : "#/components/schemas/SimpleOutputBody",
-            |                  "description" : "output body\n\n"
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody"
             |                }
             |              }
             |            }
             |          },
             |          "404" :
             |            {
+            |            "description" : "not found\n\n",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
             |                  {
-            |                  "$ref" : "#/components/schemas/NotFoundError",
-            |                  "description" : "not found\n\n"
+            |                  "$ref" : "#/components/schemas/NotFoundError"
             |                }
             |              }
             |            }
