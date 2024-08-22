@@ -887,7 +887,7 @@ object PathCodec          {
         while (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
           val skipIdx = trySkipLiteralIdx.head
           trySkipLiteralIdx = trySkipLiteralIdx.tail
-          result = get(path, skipIdx, skipLiteralsFor + skipIdx)
+          result = get(path, from, skipLiteralsFor + skipIdx)
         }
         result
       } else result
