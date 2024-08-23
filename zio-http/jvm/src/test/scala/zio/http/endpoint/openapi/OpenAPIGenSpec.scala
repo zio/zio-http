@@ -2814,6 +2814,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          },
             |          "nestedMap" : {
             |            "type" : "object",
+            |            "properties" : {},
             |            "additionalProperties" : {
             |              "$ref" : "#/components/schemas/Recursive"
             |            }
