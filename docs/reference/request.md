@@ -331,7 +331,7 @@ import zio.http._
 
 object ClientExample extends ZIOAppDefault {
   def run = Client
-    .simple(Request.get("http://localhost:8080/users/2"))
+    .batched(Request.get("http://localhost:8080/users/2"))
     .flatMap(_.body.asString)
     .debug("Response Body: ")
     .provide(Client.default)

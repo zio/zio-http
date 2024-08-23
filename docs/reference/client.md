@@ -225,10 +225,10 @@ object User {
 
 val program: ZIO[Client, Throwable, Unit] =
   for {
-    client <- ZIO.serviceWith[Client](_.url(url"http://localhost:8080"))
-    _      <- client.simple.post("/users")(Body.from(User("John", 42)))
-    res    <- client.simple.get("/users")
-    _      <- client.simple.delete("/users/1")
+    client <- ZIO.serviceWith[Client](_.url(url"http://localhost:8080").batched)
+    _      <- client.post("/users")(Body.from(User("John", 42)))
+    res    <- client.get("/users")
+    _      <- client.delete("/users/1")
     _      <- res.body.asString.debug
   } yield ()
 ```
