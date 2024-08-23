@@ -2812,16 +2812,16 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          "nestedOption" : {
             |            "$ref" : "#/components/schemas/Recursive"
             |          },
+            |          "nestedMap" : {
+            |            "type" : "object",
+            |            "additionalProperties" : {
+            |              "$ref" : "#/components/schemas/Recursive"
+            |            }
+            |          },
             |          "nestedList" : {
             |            "type" :
             |              "array",
             |            "items" : {
-            |              "$ref" : "#/components/schemas/Recursive"
-            |            }
-            |          },
-            |          "nestedMap" : {
-            |            "type" : "object",
-            |            "additionalProperties" : {
             |              "$ref" : "#/components/schemas/Recursive"
             |            }
             |          },
