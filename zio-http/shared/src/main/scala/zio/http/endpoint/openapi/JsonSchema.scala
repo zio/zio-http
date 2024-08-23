@@ -1212,10 +1212,30 @@ object JsonSchema {
     additionalProperties: Either[Boolean, JsonSchema],
     required: Chunk[java.lang.String],
   ) extends JsonSchema {
+
+    /**
+     * This Object represents an "open dictionary", aka a Map
+     *
+     * See: https://github.com/zio/zio-http/issues/3048#issuecomment-2306291192
+     */
+    def isOpenDictionary: Boolean = properties.isEmpty && additionalProperties.isRight
+
+    /**
+     * This Object represents a "closed dictionary", aka a case class
+     *
+     * See: https://github.com/zio/zio-http/issues/3048#issuecomment-2306291192
+     */
+    def isClosedDictionary: Boolean = additionalProperties.isLeft
+
+    /**
+     * Can't represent a case class and a Map at the same time
+     */
+    def isInvalid: Boolean = properties.nonEmpty && additionalProperties.isRight
+
     def addAll(value: Chunk[(java.lang.String, JsonSchema)]): Object =
       value.foldLeft(this) { case (obj, (name, schema)) =>
         schema match {
-          case Object(properties, additionalProperties, required) =>
+          case thatObj @ Object(properties, additionalProperties, required) if thatObj.isClosedDictionary =>
             obj.copy(
               properties = obj.properties ++ properties,
               additionalProperties = combineAdditionalProperties(obj.additionalProperties, additionalProperties),
