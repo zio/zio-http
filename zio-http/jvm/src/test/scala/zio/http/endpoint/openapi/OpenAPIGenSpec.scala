@@ -2819,13 +2819,15 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              "$ref" : "#/components/schemas/Recursive"
             |            }
             |          },
+            |          "nestedMap" : {
+            |            "type" : "object",
+            |            "additionalProperties" : {
+            |              "$ref" : "#/components/schemas/Recursive"
+            |            }
+            |          },
             |          "nestedOverAnother" : {
             |            "$ref" : "#/components/schemas/NestedRecursive"
             |          }
-            |        },
-            |        "additionalProperties" :
-            |          {
-            |          "$ref" : "#/components/schemas/Recursive"
             |        },
             |        "required" : [
             |          "nestedOption",
