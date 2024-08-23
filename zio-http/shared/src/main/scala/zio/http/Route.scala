@@ -51,13 +51,13 @@ sealed trait Route[-Env, +Err] { self =>
    * into one that does handle its errors.
    */
   final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
-    self.handleErrorCause(Response.fromCauseWith(_)(f))
+    self.handleErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCauseWith(c, _)(f)))
 
   final def handleErrorZIO(f: Err => ZIO[Any, Nothing, Response])(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorCauseZIO { cause =>
       cause.failureOrCause match {
         case Left(err)    => f(err)
-        case Right(cause) => ZIO.succeed(Response.fromCause(cause))
+        case Right(cause) => ErrorResponseConfig.configRef.get.map(Response.fromCause(cause, _))
       }
     }
 
@@ -165,7 +165,9 @@ sealed trait Route[-Env, +Err] { self =>
    * handle its errors.
    */
   final def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Route[Env, Nothing] =
-    self.handleErrorRequestCause((request, cause) => Response.fromCauseWith(cause)(f(_, request)))
+    self.handleErrorRequestCauseZIO((request, cause) =>
+      ErrorResponseConfig.configRef.get.map(Response.fromCauseWith(cause, _)(f(_, request))),
+    )
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -301,11 +303,12 @@ sealed trait Route[-Env, +Err] { self =>
 
   /**
    * Returns a route that automatically translates all failures into responses,
-   * using best-effort heuristics to determine the appropriate HTTP status code,
-   * and attaching error details using the HTTP header `Warning`.
+   * using best-effort heuristics to determine the appropriate HTTP status code.
+   * Based on the currently configured `ErrorResponseConfig`, the response will
+   * have a body that may include a message and a stack trace.
    */
   final def sandbox(implicit trace: Trace): Route[Env, Nothing] =
-    handleErrorCause(Response.fromCause(_))
+    handleErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCause(c, _)))
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
