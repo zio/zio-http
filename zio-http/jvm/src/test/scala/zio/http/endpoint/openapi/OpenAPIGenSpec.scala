@@ -2812,6 +2812,13 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          "nestedOption" : {
             |            "$ref" : "#/components/schemas/Recursive"
             |          },
+            |          "nestedMap" : {
+            |            "type" : "object",
+            |            "properties" : {},
+            |            "additionalProperties" : {
+            |              "$ref" : "#/components/schemas/Recursive"
+            |            }
+            |          },
             |          "nestedList" : {
             |            "type" :
             |              "array",
@@ -2822,10 +2829,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          "nestedOverAnother" : {
             |            "$ref" : "#/components/schemas/NestedRecursive"
             |          }
-            |        },
-            |        "additionalProperties" :
-            |          {
-            |          "$ref" : "#/components/schemas/Recursive"
             |        },
             |        "required" : [
             |          "nestedOption",

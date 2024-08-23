@@ -1007,11 +1007,9 @@ final case class EndpointGen(config: Config) {
       case JsonSchema.ArrayType(None, _, _)         => None
       case JsonSchema.ArrayType(Some(schema), _, _) =>
         schemaToCode(schema, openAPI, name, annotations)
-      case JsonSchema.Object(properties, additionalProperties, _)
-          if properties.nonEmpty && additionalProperties.isRight =>
-        // Can't be an object and a map at the same time
+      case obj: JsonSchema.Object if obj.isInvalid  =>
         throw new Exception("Object with properties and additionalProperties is not supported")
-      case obj @ JsonSchema.Object(properties, additionalProperties, _) if additionalProperties.isLeft =>
+      case obj @ JsonSchema.Object(properties, _, _) if obj.isClosedDictionary =>
         val unvalidatedFields = fieldsOfObject(openAPI, annotations)(obj)
         val fields            = validateFields(unvalidatedFields)
         val nested            =
@@ -1044,10 +1042,10 @@ final case class EndpointGen(config: Config) {
             enums = Nil,
           ),
         )
-      case JsonSchema.Object(_, _, _)                                                                  =>
-        // properties.isEmpty && additionalProperties.isRight
+      case JsonSchema.Object(_, _, _)                                          =>
+        // if obt.isOpenDictionary
         throw new IllegalArgumentException("Top-level maps are not supported")
-      case JsonSchema.Enum(enums)                                                                      =>
+      case JsonSchema.Enum(enums)                                              =>
         Some(
           Code.File(
             List("component", name.capitalize + ".scala"),
