@@ -78,8 +78,8 @@ private[cli] object CliEndpoint {
     endpoint: Endpoint[P, In, Err, Out, _],
     getInput: Boolean = true,
   ): CliEndpoint =
-    if (getInput) fromCodec(endpoint.input) ?? endpoint.doc
-    else fromCodec(endpoint.output) ?? endpoint.doc
+    if (getInput) fromCodec(endpoint.input) ?? endpoint.documentation
+    else fromCodec(endpoint.output) ?? endpoint.documentation
 
   def fromCodec[Input](input: HttpCodec[_, Input]): CliEndpoint = {
     input match {
