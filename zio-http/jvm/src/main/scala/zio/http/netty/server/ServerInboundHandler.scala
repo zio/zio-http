@@ -82,7 +82,7 @@ private[zio] final case class ServerInboundHandler(
             val throwable = jReq.decoderResult().cause()
             attemptFastWrite(
               ctx,
-              Response.fromThrowable(throwable, runtime.unsafeRunSync(ErrorResponseConfig.configRef.get)),
+              Response.fromThrowable(throwable, runtime.getRef(ErrorResponseConfig.configRef)),
             )
             releaseRequest()
           } else {

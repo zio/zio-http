@@ -60,8 +60,8 @@ final case class Response(
       else self.copy(body = b)
     }
 
-  def contentType(json: MediaType): Response =
-    self.addHeader(Header.ContentType(json))
+  def contentType(mediaType: MediaType): Response =
+    self.addHeader("content-type", mediaType.fullType)
 
   /**
    * Consumes the streaming body fully and then discards it while also ignoring
