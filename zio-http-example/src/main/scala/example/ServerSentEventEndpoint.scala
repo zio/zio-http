@@ -36,7 +36,7 @@ object ServerSentEventEndpointClient extends ZIOAppDefault {
   val locator: EndpointLocator = EndpointLocator.fromURL(url"http://localhost:8080")
 
   private val invocation
-    : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None, Unit] =
+    : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
     ServerSentEventEndpoint.sseEndpoint(())
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
