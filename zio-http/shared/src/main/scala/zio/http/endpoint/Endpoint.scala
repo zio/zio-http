@@ -54,7 +54,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   output: HttpCodec[HttpCodecType.ResponseType, Output],
   error: HttpCodec[HttpCodecType.ResponseType, Err],
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
-  doc: Doc,
+  documentation: Doc,
   authType: Auth,
 ) { self =>
 
@@ -74,7 +74,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * Returns a new API that is derived from this one, but which includes
    * additional documentation that will be included in OpenAPI generation.
    */
-  def ??(that: Doc): Endpoint[PathInput, Input, Err, Output, Auth] = copy(doc = self.doc + that)
+  def ??(that: Doc): Endpoint[PathInput, Input, Err, Output, Auth] = copy(documentation = self.documentation + that)
 
   /**
    * Flattens out this endpoint to a chunk of alternatives. Each alternative is
@@ -85,94 +85,76 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       self.copy(input = input) -> condition
     }
 
-  def apply[AuthInput <: authType.ClientRequirement](auth: AuthInput)(implicit
-    ev: Input <:< Unit,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
-    Invocation(self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]], auth)
+  def apply(input: Input): Invocation[PathInput, Input, Err, Output, Auth] =
+    Invocation(self, input)
 
-  def apply[AuthInput](input: AuthInput)(implicit
-    ev: Auth <:< AuthType.None,
-    combine: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
-    Invocation(self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]], input)
+  def apply[A, B](a: A, b: B)(implicit
+    ev: (A, B) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
+    Invocation(self, ev((a, b)))
 
-  def apply[AuthInput, A, B](a: A, b: B)(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
-    Invocation(self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]], ev((a, b)))
+  def apply[A, B, C](a: A, b: B, c: C)(implicit
+    ev: (A, B, C) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
+    Invocation(self, ev((a, b, c)))
 
-  def apply[AuthInput, A, B, C](a: A, b: B, c: C)(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
-    Invocation(self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]], ev((a, b, c)))
-
-  def apply[AuthInput, A, B, C, D](a: A, b: B, c: C, d: D)(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+  def apply[A, B, C, D](a: A, b: B, c: C, d: D)(implicit
+    ev: (A, B, C, D) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d)),
     )
 
-  def apply[AuthInput, A, B, C, D, E](a: A, b: B, c: C, d: D, e: E)(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D, E) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+  def apply[A, B, C, D, E](a: A, b: B, c: C, d: D, e: E)(implicit
+    ev: (A, B, C, D, E) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d, e)),
     )
 
-  def apply[AuthInput, A, B, C, D, E, F](a: A, b: B, c: C, d: D, e: E, f: F)(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D, E, F) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+  def apply[A, B, C, D, E, F](a: A, b: B, c: C, d: D, e: E, f: F)(implicit
+    ev: (A, B, C, D, E, F) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d, e, f)),
     )
 
-  def apply[AuthInput, A, B, C, D, E, F, G](a: A, b: B, c: C, d: D, e: E, f: F, g: G)(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D, E, F, G) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+  def apply[A, B, C, D, E, F, G](a: A, b: B, c: C, d: D, e: E, f: F, g: G)(implicit
+    ev: (A, B, C, D, E, F, G) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d, e, f, g)),
     )
 
-  def apply[AuthInput, A, B, C, D, E, F, G, H](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H)(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D, E, F, G, H) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+  def apply[A, B, C, D, E, F, G, H](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H)(implicit
+    ev: (A, B, C, D, E, F, G, H) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d, e, f, g, h)),
     )
 
-  def apply[AuthInput, A, B, C, D, E, F, G, H, I](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I)(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D, E, F, G, H, I) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+  def apply[A, B, C, D, E, F, G, H, I](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I)(implicit
+    ev: (A, B, C, D, E, F, G, H, I) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d, e, f, g, h, i)),
     )
 
-  def apply[AuthInput, A, B, C, D, E, F, G, H, I, J](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J)(
-    implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D, E, F, G, H, I, J) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+  def apply[A, B, C, D, E, F, G, H, I, J](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J)(implicit
+    ev: (A, B, C, D, E, F, G, H, I, J) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d, e, f, g, h, i, j)),
     )
 
-  def apply[AuthInput, A, B, C, D, E, F, G, H, I, J, K](
+  def apply[A, B, C, D, E, F, G, H, I, J, K](
     a: A,
     b: B,
     c: C,
@@ -185,15 +167,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     j: J,
     k: K,
   )(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D, E, F, G, H, I, J, K) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+    ev: (A, B, C, D, E, F, G, H, I, J, K) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d, e, f, g, h, i, j, k)),
     )
 
-  def apply[AuthInput, A, B, C, D, E, F, G, H, I, J, K, L](
+  def apply[A, B, C, D, E, F, G, H, I, J, K, L](
     a: A,
     b: B,
     c: C,
@@ -207,11 +188,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     k: K,
     l: L,
   )(implicit
-    combiner: Combiner.WithOut[Input, authType.ClientRequirement, AuthInput],
-    ev: (A, B, C, D, E, F, G, H, I, J, K, L) <:< AuthInput,
-  ): Invocation[PathInput, Input, Err, Output, Auth, AuthInput] =
+    ev: (A, B, C, D, E, F, G, H, I, J, K, L) <:< Input,
+  ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(
-      self.asInstanceOf[Endpoint.WithAuthInput[PathInput, Input, Err, Output, Auth, AuthInput]],
+      self,
       ev((a, b, c, d, e, f, g, h, i, j, k, l)),
     )
 
@@ -454,7 +434,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -471,7 +451,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
 
@@ -488,7 +468,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -505,7 +485,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
 
@@ -522,7 +502,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (HttpCodec.content[Output2] ++ StatusCodec.status(Status.Ok)) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -557,7 +537,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (HttpCodec.content[Output2] ++ StatusCodec.status(status)) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -575,7 +555,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = ((HttpCodec.content[Output2] ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
       codecError,
-      Doc.empty,
+      documentation,
       authType,
     )
 
@@ -593,7 +573,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (HttpCodec.content[Output2](mediaType) ++ StatusCodec.Ok ?? doc) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -612,7 +592,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = ((HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -630,7 +610,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (HttpCodec.content[Output2](mediaType) ++ StatusCodec.status(status)) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
 
@@ -695,7 +675,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (contentCodec ++ StatusCodec.status(Status.Ok)) | self.output,
       error,
       codecError,
-      doc,
+      documentation,
       authType,
     )
   }
@@ -719,7 +699,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (contentCodec ++ StatusCodec.status(Status.Ok) ?? doc) | self.output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
   }
@@ -743,7 +723,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (contentCodec ++ StatusCodec.status(status) ?? doc) | self.output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
   }
@@ -779,7 +759,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = (contentCodec ++ StatusCodec.status(status)) | self.output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
   }
@@ -797,7 +777,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       output = ((contentCodec ++ StatusCodec.status(status)) ?? doc) | self.output,
       error,
       codecError,
-      self.doc,
+      documentation,
       authType,
     )
   }
@@ -815,12 +795,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * example to group endpoints for OpenAPI.
    */
   def tag(tag: String, tags: String*): Endpoint[PathInput, Input, Err, Output, Auth] =
-    copy(doc = doc.tag(tag +: tags))
+    copy(documentation = documentation.tag(tag +: tags))
 
   /**
    * A list of tags for this endpoint.
    */
-  def tags: List[String] = doc.tags
+  def tags: List[String] = documentation.tags
 
   /**
    * Transforms the input of this endpoint using the specified functions. This
@@ -859,15 +839,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 }
 
 object Endpoint {
-  type WithAuthInput[PathInput, Input, Err, Output, Auth <: AuthType, AuthInput] =
-    Endpoint[PathInput, Input, Err, Output, Auth] { type AuthedInput = AuthInput }
 
   /**
    * Constructs an endpoint for a route pattern.
    */
   def apply[Input](
     route: RoutePattern[Input],
-  ): Endpoint.WithAuthInput[Input, Input, ZNothing, ZNothing, AuthType.None, Unit] =
+  ): Endpoint[Input, Input, ZNothing, ZNothing, AuthType.None] =
     Endpoint(
       route,
       route.toHttpCodec,
@@ -876,7 +854,7 @@ object Endpoint {
       HttpContentCodec.responseErrorCodec,
       Doc.empty,
       AuthType.None,
-    ).asInstanceOf[Endpoint.WithAuthInput[Input, Input, ZNothing, ZNothing, AuthType.None, Unit]]
+    )
 
   @nowarn("msg=type parameter .* defined")
   final case class OutErrors[PathInput, Input, Err, Output, Auth <: AuthType, Err2](

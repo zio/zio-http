@@ -23,29 +23,44 @@ import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.internal.EndpointClient.protobufMediaType
 
-private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType, AI](
+private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
   endpointRoot: URL,
-  endpoint: Endpoint.WithAuthInput[P, I, E, O, A, AI],
+  endpoint: Endpoint[P, I, E, O, A],
 ) {
-  def execute(client: Client, invocation: Invocation[P, I, E, O, A, AI])(implicit
+  def execute[R](
+    client: Client,
+    invocation: Invocation[P, I, E, O, A],
+    authProvider: URIO[R, endpoint.authType.ClientRequirement],
+  )(implicit
     combiner: Combiner[I, endpoint.authType.ClientRequirement],
     trace: Trace,
-  ): ZIO[Scope, E, O] = {
-    val request0 = endpoint
-      .authedInput(combiner)
-      .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]]
-      .encodeRequest(invocation.input.asInstanceOf[Any])
-    val request  = request0.copy(url = endpointRoot ++ request0.url)
+  ): ZIO[R with Scope, E, O] = {
+    def request0(authInput: endpoint.authType.ClientRequirement) = {
+      val input = if (authInput.isInstanceOf[Unit]) invocation.input else combiner.combine(invocation.input, authInput)
+      endpoint
+        .authedInput(combiner)
+        .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]]
+        .encodeRequest(input)
+    }
+    def request(authInput: endpoint.authType.ClientRequirement)  = {
+      val req0 = request0(authInput)
+      req0.copy(url = endpointRoot ++ req0.url)
+    }
 
-    val withDefaultAcceptHeader =
-      if (request.headers.exists(_.headerName == Header.Accept.name))
-        request
-      else
-        request.addHeader(
+    def withDefaultAcceptHeader(authInput: endpoint.authType.ClientRequirement) = {
+      val req = request(authInput)
+      if (req.headers.exists(_.headerName == Header.Accept.name))
+        req
+      else {
+        req.addHeader(
           Header.Accept(MediaType.application.json, protobufMediaType, MediaType.text.`plain`),
         )
+      }
+    }
 
-    client.request(withDefaultAcceptHeader).orDie.flatMap { response =>
+    val requested = authProvider.flatMap(authInput => client.request(withDefaultAcceptHeader(authInput)).orDie)
+
+    requested.flatMap { response =>
       if (endpoint.output.matchesStatus(response.status)) {
         endpoint.output.decodeResponse(response).orDie
       } else if (endpoint.error.matchesStatus(response.status)) {

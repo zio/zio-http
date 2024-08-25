@@ -113,9 +113,9 @@ object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
         Scope.default,
       )
 
-  lazy val clientExample: URIO[EndpointExecutor & Scope, Unit] =
+  lazy val clientExample: URIO[EndpointExecutor[Any, Unit] & Scope, Unit] =
     for {
-      executor <- ZIO.service[EndpointExecutor]
+      executor <- ZIO.service[EndpointExecutor[Any, Unit]]
       _        <- executor(getUser(42, Location.parse("some-location").toOption.get)).debug("result1")
       _        <- executor(getUserPosts(42, 200, "adam")).debug("result2")
       _        <- executor(createUser(User(2, "john", Some("john@test.com")))).debug("result3")
