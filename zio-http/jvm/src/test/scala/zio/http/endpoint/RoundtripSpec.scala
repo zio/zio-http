@@ -74,7 +74,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     implicit val schema: Schema[PostWithAge] = DeriveSchema.gen[PostWithAge]
   }
 
-  def makeExecutor(client: Client, port: Int): EndpointExecutor = {
+  def makeExecutor(client: Client, port: Int) = {
     val locator = EndpointLocator.fromURL(
       URL.decode(s"http://localhost:$port").toOption.get,
     )
@@ -135,7 +135,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       port <- Server.install(route)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
-        .service[EndpointExecutor]
+        .service[EndpointExecutor[Any, Unit]]
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
@@ -150,7 +150,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     string: String,
     strings: Chunk[String] = Chunk("defaultString"),
   )
-  implicit val paramsSchema: Schema[Params]                     = DeriveSchema.gen[Params]
+  implicit val paramsSchema: Schema[Params]   = DeriveSchema.gen[Params]
 
   def spec: Spec[Any, Any] =
     suite("RoundtripSpec")(
@@ -419,7 +419,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port)))
 
           cause <- ZIO
-            .serviceWithZIO[EndpointExecutor] { executor =>
+            .serviceWithZIO[EndpointExecutor[Any, Unit]] { executor =>
               executor.apply(endpointWithAnotherSignature.apply(42))
             }
             .provideSome[Client with Scope](executorLayer)

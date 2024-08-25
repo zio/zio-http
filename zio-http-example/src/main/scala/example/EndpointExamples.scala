@@ -6,6 +6,7 @@ import zio.http.Header.Authorization
 import zio.http._
 import zio.http.codec.PathCodec.path
 import zio.http.codec._
+import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.{OpenAPIGen, SwaggerUI}
 
@@ -43,11 +44,11 @@ object EndpointExamples extends ZIOAppDefault {
       val locator =
         EndpointLocator.fromURL(URL.decode("http://localhost:8080").toOption.get)
 
-      val executor: EndpointExecutor =
+      val executor: EndpointExecutor[Any, Unit] =
         EndpointExecutor(client, locator)
 
-      val x1 = getUser(42)
-      val x2 = getUserPosts(42, 200, "adam")
+      val x1: Invocation[Int, Int, ZNothing, Int, None] = getUser(42)
+      val x2                                            = getUserPosts(42, 200, "adam")
 
       val result1: ZIO[Scope, Nothing, Int]          = executor(x1)
       val result2: ZIO[Scope, Nothing, List[String]] = executor(x2)

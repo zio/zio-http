@@ -47,7 +47,7 @@ object HttpGen {
   }
 
   private def doc(endpoint: Endpoint[_, _, _, _, _]) =
-    if (endpoint.doc == Doc.empty) None else Some(endpoint.doc.toPlaintext(color = false))
+    if (endpoint.documentation == Doc.empty) None else Some(endpoint.documentation.toPlaintext(color = false))
 
   def variables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] =
     pathVariables(inAtoms) ++ queryVariables(inAtoms) ++ headersVariables(inAtoms) ++ bodyVariables(inAtoms)
