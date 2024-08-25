@@ -59,7 +59,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
       for {
         client <- ZIO.service[Client]
         request = f(content)
-        status <- ZIO.scoped { client(request).map(_.status) }
+        status <- ZIO.scoped { client(request).flatMap(v => v.ignoreBody.as(v.status)) }
         info   <-
           if (expected == status) loop(size + 1, lstTestSize, inc(size)(content), f, expected)
           else if (size >= lstTestSize - 2) // adding margin for differences in scala 2 and scala 3
@@ -90,7 +90,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
 
   def testLimit(size: Int, maxSize: Int, lstTestSize: Int, mkRequest0: Int => String => Request, badStatus: Status) =
     testLimit0[String](maxSize, lstTestSize, "A" * size, n => (_ ++ "A"), mkRequest0, badStatus)
-  val spec: Spec[TestEnvironment with Scope, Any] = suite("OutOfMemorySpec")(
+  val spec: Spec[TestEnvironment with Scope, Any] = suite("SizeLimitsSpec")(
     suite("limits are configurable")(
       test("infinite segment url") {
         val urlSize = CUSTOM_URL_SIZE - 113
@@ -146,7 +146,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
       test("infinite multi-part form") {
         testLimit0[Form](
           13,
-          13,
+          20,
           Form(Chunk.empty),
           size => (_ + FormField.Simple(size.toString, "A")),
           port => form => Request.post(s"http://localhost:$port", Body.fromMultipartForm(form, Boundary("-"))),
