@@ -57,7 +57,7 @@ object UserDataSpec extends ZIOSpecDefault {
         } yield assertTrue(body.contains(expectedResponse))
       }
     } @@ TestAspect.failing,
-    test("No sanitation and write to server2") {
+    test("No sanitation using Dom") {
       // this is not a bug but could be a vulnerability used wrong
       check(tuples.zip(functions)) { case (mediaType, msg, expectedResponse, f) =>
         val endpoint = Endpoint(Method.GET / "test")

@@ -38,7 +38,7 @@ object ExceptionSpec extends ZIOSpecDefault {
     )
 
   val spec = suite("ExceptionSpec")(
-    test("Bad endpoint leaks stacktrace") {
+    test("Bad endpoint doesn't leak stacktrace") {
       // calls `Response.fromCause` that prints the stacktrace
       val badEndpoint = Endpoint(Method.GET / "test")
         .out[String]
@@ -48,7 +48,7 @@ object ExceptionSpec extends ZIOSpecDefault {
       for {
         response <- route.toRoutes.runZIO(request).map(_.headers.toString)
       } yield assertTrue(!response.contains("Exception in thread"))
-    } @@ TestAspect.failing,
+    },
     test("Throw inside handle doesn't leak stacktrace") {
       for {
         port     <- Server.install(routesError)
