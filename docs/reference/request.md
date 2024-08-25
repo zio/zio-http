@@ -323,7 +323,7 @@ val flashValue = request.flash(Flash.get[Int]("key1"))
 
 ## Client-side Example
 
-In the below example, we are creating a `Request` using the `Request.get` method and then calling the `Client.request` method to send the request to the servers:
+In the below example, we are creating a `Request` using the `Request.get` method and then calling the `Client.batched` method to send the request to the servers:
 
 ```scala mdoc:compile-only
 import zio._

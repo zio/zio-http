@@ -234,13 +234,13 @@ ZIO HTTP provides a simple way to add headers to a client `Request`.
 
 ```scala mdoc:silent
 val headers = Headers(Header.Host("jsonplaceholder.typicode.com"), Header.Accept(MediaType.application.json))
-Client.request(Request.get("https://jsonplaceholder.typicode.com/todos").addHeaders(headers))
+Client.batched(Request.get("https://jsonplaceholder.typicode.com/todos").addHeaders(headers))
 ```
 
 ### Reading Headers from Response
 
 ```scala mdoc:silent
-Client.request(Request.get("https://jsonplaceholder.typicode.com/todos")).map(_.headers)
+Client.batched(Request.get("https://jsonplaceholder.typicode.com/todos")).map(_.headers)
 ```
 
 <details>

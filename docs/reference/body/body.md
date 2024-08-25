@@ -38,7 +38,7 @@ object HelloExample extends ZIOAppDefault {
 
 On the client side, `ZIO-HTTP` models content in `Client` as `Body` with `Body.Empty` as the default value.
 
-To add content while making a request using ZIO HTTP you can use the `Client.request` method:
+To add content while making a request using ZIO HTTP you can use the `Client.batched` method:
 
 ```scala mdoc:silent
 import zio._

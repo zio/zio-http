@@ -31,12 +31,12 @@ trait ZClientAspect[+LowerEnv, -UpperEnv, +LowerIn, -UpperIn, +LowerErr, -UpperE
    * Applies this aspect to modify the execution of the specified client.
    */
   def apply[
-    S >: Scope,
+    ReqEnv,
     Env >: LowerEnv <: UpperEnv,
     In >: LowerIn <: UpperIn,
     Err >: LowerErr <: UpperErr,
     Out >: LowerOut <: UpperOut,
-  ](client: ZClient[Env, S, In, Err, Out]): ZClient[Env, S, In, Err, Out]
+  ](client: ZClient[Env, ReqEnv, In, Err, Out]): ZClient[Env, ReqEnv, In, Err, Out]
 
   /**
    * Composes this client aspect with the specified client aspect to return a
@@ -95,12 +95,12 @@ trait ZClientAspect[+LowerEnv, -UpperEnv, +LowerIn, -UpperIn, +LowerErr, -UpperE
   ): ZClientAspect[LowerEnv1, UpperEnv1, LowerIn1, UpperIn1, LowerErr1, UpperErr1, LowerOut1, UpperOut1] =
     new ZClientAspect[LowerEnv1, UpperEnv1, LowerIn1, UpperIn1, LowerErr1, UpperErr1, LowerOut1, UpperOut1] {
       override def apply[
-        S >: Scope,
+        ReqEnv,
         Env >: LowerEnv1 <: UpperEnv1,
         In >: LowerIn1 <: UpperIn1,
         Err >: LowerErr1 <: UpperErr1,
         Out >: LowerOut1 <: UpperOut1,
-      ](client: ZClient[Env, S, In, Err, Out]): ZClient[Env, S, In, Err, Out] =
+      ](client: ZClient[Env, ReqEnv, In, Err, Out]): ZClient[Env, ReqEnv, In, Err, Out] =
         that(self(client))
     }
 }
@@ -125,17 +125,17 @@ object ZClientAspect {
        * Applies this aspect to modify the execution of the specified client.
        */
       override def apply[
-        S >: Scope,
+        ReqEnv,
         Env >: Nothing <: Any,
         In >: Nothing <: Body,
         Err >: Nothing <: Any,
         Out >: Nothing <: Response,
       ](
-        client: ZClient[Env, S, In, Err, Out],
-      ): ZClient[Env, S, In, Err, Out] = {
+        client: ZClient[Env, ReqEnv, In, Err, Out],
+      ): ZClient[Env, ReqEnv, In, Err, Out] = {
         val oldDriver = client.driver
 
-        val newDriver = new ZClient.Driver[Env, S, Err] {
+        val newDriver = new ZClient.Driver[Env, ReqEnv, Err] {
           override def request(
             version: Version,
             method: Method,
@@ -144,7 +144,7 @@ object ZClientAspect {
             body: Body,
             sslConfig: Option[ClientSSLConfig],
             proxy: Option[Proxy],
-          )(implicit trace: Trace): ZIO[Env & S, Err, Response] =
+          )(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] =
             oldDriver
               .request(version, method, url, headers, body, sslConfig, proxy)
               .sandbox
@@ -169,8 +169,8 @@ object ZClientAspect {
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
             implicit
             trace: Trace,
-            ev: S =:= Scope,
-          ): ZIO[Env1 & S, Err, Response] =
+            ev: ReqEnv =:= Scope,
+          ): ZIO[Env1 & ReqEnv, Err, Response] =
             client.driver.socket(version, url, headers, app)
         }
 
@@ -199,17 +199,17 @@ object ZClientAspect {
        * Applies this aspect to modify the execution of the specified client.
        */
       override def apply[
-        S >: Scope,
+        ReqEnv,
         Env >: Nothing <: Any,
         In >: Nothing <: Body,
         Err >: Nothing <: Any,
         Out >: Nothing <: Response,
       ](
-        client: ZClient[Env, S, In, Err, Out],
-      ): ZClient[Env, S, In, Err, Out] = {
+        client: ZClient[Env, ReqEnv, In, Err, Out],
+      ): ZClient[Env, ReqEnv, In, Err, Out] = {
         val oldDriver = client.driver
 
-        val newDriver = new ZClient.Driver[Env, S, Err] {
+        val newDriver = new ZClient.Driver[Env, ReqEnv, Err] {
           override def request(
             version: Version,
             method: Method,
@@ -218,7 +218,7 @@ object ZClientAspect {
             body: Body,
             sslConfig: Option[ClientSSLConfig],
             proxy: Option[Proxy],
-          )(implicit trace: Trace): ZIO[Env & S, Err, Response] = {
+          )(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] = {
             oldDriver
               .request(version, method, url, headers, body, sslConfig, proxy)
               .sandbox
@@ -318,8 +318,8 @@ object ZClientAspect {
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
             implicit
             trace: Trace,
-            ev: S =:= Scope,
-          ): ZIO[Env1 & S, Err, Response] =
+            ev: ReqEnv =:= Scope,
+          ): ZIO[Env1 & ReqEnv, Err, Response] =
             client.driver.socket(version, url, headers, app)
         }
 
@@ -333,15 +333,15 @@ object ZClientAspect {
   )(implicit trace: Trace): ZClientAspect[Nothing, R, Nothing, Body, E, Any, Nothing, Response] = {
     new ZClientAspect[Nothing, R, Nothing, Body, E, Any, Nothing, Response] {
       override def apply[
-        S >: Scope,
+        ReqEnv,
         Env >: Nothing <: R,
         In >: Nothing <: Body,
         Err >: E <: Any,
         Out >: Nothing <: Response,
-      ](client: ZClient[Env, S, In, Err, Out]): ZClient[Env, S, In, Err, Out] = {
+      ](client: ZClient[Env, ReqEnv, In, Err, Out]): ZClient[Env, ReqEnv, In, Err, Out] = {
         val oldDriver = client.driver
 
-        val newDriver = new ZClient.Driver[Env, S, Err] {
+        val newDriver = new ZClient.Driver[Env, ReqEnv, Err] {
           def scopedRedirectErr(resp: Response, message: String) =
             ZIO.suspendSucceed(onRedirectError(resp, message))
 
@@ -353,7 +353,7 @@ object ZClientAspect {
             body: Body,
             sslConfig: Option[ClientSSLConfig],
             proxy: Option[Proxy],
-          )(implicit trace: Trace): ZIO[Env & S, Err, Response] = {
+          )(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] = {
             def req(
               attempt: Int,
               version: Version,
@@ -363,7 +363,7 @@ object ZClientAspect {
               body: Body,
               sslConfig: Option[ClientSSLConfig],
               proxy: Option[Proxy],
-            ): ZIO[Env & S, Err, Response] = {
+            ): ZIO[Env & ReqEnv, Err, Response] = {
               oldDriver.request(version, method, url, headers, body, sslConfig, proxy).flatMap { resp =>
                 if (resp.status.isRedirection) {
                   if (attempt < max) {
@@ -400,15 +400,15 @@ object ZClientAspect {
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
             implicit
             trace: Trace,
-            ev: S =:= Scope,
-          ): ZIO[Env1 & S, Err, Response] = {
+            ev: ReqEnv =:= Scope,
+          ): ZIO[Env1 & ReqEnv, Err, Response] = {
             def sock(
               attempt: Int,
               version: Version,
               url: URL,
               headers: Headers,
               app: WebSocketApp[Env1],
-            ): ZIO[Env1 & S, Err, Response] = {
+            ): ZIO[Env1 & ReqEnv, Err, Response] = {
               oldDriver.socket(version, url, headers, app).flatMap { resp =>
                 if (resp.status.isRedirection) {
                   if (attempt < max) {
