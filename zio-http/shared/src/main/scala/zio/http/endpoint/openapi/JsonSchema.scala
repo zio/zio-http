@@ -879,18 +879,19 @@ object JsonSchema {
       val markedForRemoval  = (for {
         obj      <- objects
         otherObj <- objects
-        notNullableSchemas = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties.collect {
-          case (name, schema) if !schema.isNullable => name -> schema
-        }
+        notNullableSchemas =
+          obj
+            .withoutAnnotations
+            .asInstanceOf[JsonSchema.Object]
+            .properties
+            .filterNot { case (_, schema) => schema.isNullable }
         if notNullableSchemas == otherObj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties
       } yield otherObj).distinct
 
       val minified = objects.filterNot(markedForRemoval.contains).map { obj =>
         val annotations        = obj.annotations
         val asObject           = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object]
-        val notNullableSchemas = asObject.properties.collect {
-          case (name, schema) if !schema.isNullable => name -> schema
-        }
+        val notNullableSchemas = asObject.properties.filterNot { case (_, schema) => schema.isNullable }
         asObject.required(asObject.required.filter(notNullableSchemas.contains)).annotate(annotations)
       }
       val newAnyOf = minified ++ others
