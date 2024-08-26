@@ -1,9 +1,10 @@
 package zio.http.endpoint.openapi
 
+import scala.annotation.{nowarn, tailrec}
+
 import zio._
-import zio.http.codec.{SegmentCodec, TextCodec}
-import zio.http.endpoint.openapi.JsonSchema.MetaData
 import zio.json.ast.Json
+
 import zio.schema.Schema.CaseClass0
 import zio.schema._
 import zio.schema.annotation._
@@ -11,7 +12,7 @@ import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
 
-import scala.annotation.{nowarn, tailrec}
+import zio.http.codec.{SegmentCodec, TextCodec}
 
 @nowarn("msg=possible missing interpolator")
 private[openapi] case class SerializableJsonSchema(
