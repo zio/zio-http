@@ -2839,7 +2839,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          }
             |        },
             |        "required" : [
-            |          "nestedOption",
             |          "nestedList",
             |          "nestedMap",
             |          "nestedSet",
@@ -3067,10 +3066,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |              { "$ref": "#/components/schemas/SealedTraitCustomDiscriminator" }
             |            ]
             |          }
-            |        },
-            |        "required" : [
-            |          "optionalAdtField"
-            |        ]
+            |        }
             |      },
             |      "Two" :
             |        {

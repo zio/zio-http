@@ -1,10 +1,9 @@
 package zio.http.endpoint.openapi
 
-import scala.annotation.{nowarn, tailrec}
-
 import zio._
+import zio.http.codec.{SegmentCodec, TextCodec}
+import zio.http.endpoint.openapi.JsonSchema.MetaData
 import zio.json.ast.Json
-
 import zio.schema.Schema.CaseClass0
 import zio.schema._
 import zio.schema.annotation._
@@ -12,7 +11,7 @@ import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
 
-import zio.http.codec.{SegmentCodec, TextCodec}
+import scala.annotation.{nowarn, tailrec}
 
 @nowarn("msg=possible missing interpolator")
 private[openapi] case class SerializableJsonSchema(
@@ -160,6 +159,12 @@ sealed trait JsonSchema extends Product with Serializable { self =>
     case JsonSchema.AnnotatedSchema(schema, annotation) => schema.annotations :+ annotation
     case _                                              => Chunk.empty
   }
+
+  final def isNullable: Boolean =
+    annotations.exists {
+      case MetaData.Nullable(nullable) => nullable
+      case _                           => false
+    }
 
   def withoutAnnotations: JsonSchema = self match {
     case JsonSchema.AnnotatedSchema(schema, _) => schema.withoutAnnotations
@@ -874,9 +879,7 @@ object JsonSchema {
         obj      <- objects
         otherObj <- objects
         notNullableSchemas = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties.collect {
-          case (name, schema)
-              if !schema.annotations.exists { case MetaData.Nullable(nullable) => nullable; case _ => false } =>
-            name -> schema
+          case (name, schema) if !schema.isNullable => name -> schema
         }
         if notNullableSchemas == otherObj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties
       } yield otherObj).distinct
@@ -885,9 +888,7 @@ object JsonSchema {
         val annotations        = obj.annotations
         val asObject           = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object]
         val notNullableSchemas = asObject.properties.collect {
-          case (name, schema)
-              if !schema.annotations.exists { case MetaData.Nullable(nullable) => nullable; case _ => false } =>
-            name -> schema
+          case (name, schema) if !schema.isNullable => name -> schema
         }
         asObject.required(asObject.required.filter(notNullableSchemas.contains)).annotate(annotations)
       }
@@ -1278,11 +1279,20 @@ object JsonSchema {
         case Left(false)   => Some(BoolOrSchema.BooleanWrapper(false))
         case Right(schema) => Some(BoolOrSchema.SchemaWrapper(schema.toSerializableSchema))
       }
+
+      val nullableFields = properties.collect { case (name, schema) if schema.isNullable => name }.toSet
+
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("object")),
         properties = Some(properties.map { case (name, schema) => name -> schema.toSerializableSchema }),
         additionalProperties = additionalProperties,
-        required = if (required.isEmpty) None else Some(required),
+        required =
+          if (required.isEmpty) None
+          else if (nullableFields.isEmpty) Some(required)
+          else {
+            val newRequired = required.filterNot(nullableFields.contains)
+            if (newRequired.isEmpty) None else Some(newRequired)
+          },
       )
     }
   }
