@@ -13,6 +13,7 @@ import zio.schema.codec.json._
 import zio.schema.validation._
 
 import zio.http.codec.{SegmentCodec, TextCodec}
+import zio.http.endpoint.openapi.JsonSchema.MetaData
 
 @nowarn("msg=possible missing interpolator")
 private[openapi] case class SerializableJsonSchema(
@@ -880,8 +881,7 @@ object JsonSchema {
         obj      <- objects
         otherObj <- objects
         notNullableSchemas =
-          obj
-            .withoutAnnotations
+          obj.withoutAnnotations
             .asInstanceOf[JsonSchema.Object]
             .properties
             .filterNot { case (_, schema) => schema.isNullable }
