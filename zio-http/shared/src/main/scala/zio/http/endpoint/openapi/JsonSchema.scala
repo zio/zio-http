@@ -12,7 +12,7 @@ import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
 
-import zio.http.codec.{PathCodec, SegmentCodec, TextCodec}
+import zio.http.codec.{SegmentCodec, TextCodec}
 
 @nowarn("msg=possible missing interpolator")
 private[openapi] case class SerializableJsonSchema(
@@ -47,23 +47,35 @@ private[openapi] case class SerializableJsonSchema(
   uniqueItems: Option[Boolean] = None,
   minItems: Option[Int] = None,
 ) {
-  def asNullableType(nullable: Boolean): SerializableJsonSchema =
+  def asNullableType(nullable: Boolean): SerializableJsonSchema = {
+    import SerializableJsonSchema.typeNull
+
     if (nullable && schemaType.isDefined)
       copy(schemaType = Some(schemaType.get.add("null")))
     else if (nullable && oneOf.isDefined)
-      copy(oneOf = Some(oneOf.get :+ SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))))
+      copy(oneOf = Some(oneOf.get :+ typeNull))
     else if (nullable && allOf.isDefined)
-      SerializableJsonSchema(allOf =
-        Some(Chunk(this, SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null"))))),
-      )
+      SerializableJsonSchema(allOf = Some(Chunk(this, typeNull)))
     else if (nullable && anyOf.isDefined)
-      copy(anyOf = Some(anyOf.get :+ SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))))
+      copy(anyOf = Some(anyOf.get :+ typeNull))
+    else if (nullable && ref.isDefined)
+      SerializableJsonSchema(anyOf = Some(Chunk(typeNull, this)))
     else
       this
-
+  }
 }
 
 private[openapi] object SerializableJsonSchema {
+
+  /**
+   * Used to generate a OpenAPI schema part looking like this:
+   * {{{
+   *   { "type": "null"}
+   * }}}
+   */
+  private[SerializableJsonSchema] val typeNull: SerializableJsonSchema =
+    SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))
+
   implicit val doubleOrLongSchema: Schema[Either[Double, Long]] =
     Schema.fallback(Schema[Double], Schema[Long]).transform(_.toEither, Fallback.fromEither)
 

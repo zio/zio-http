@@ -160,6 +160,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit def schema[T: Schema]: Schema[WithGenericPayload[T]] = DeriveSchema.gen
   }
 
+  final case class WithOptionalAdtPayload(optionalAdtField: Option[SealedTraitCustomDiscriminator])
+  object WithOptionalAdtPayload {
+    implicit val schema: Schema[WithOptionalAdtPayload] = DeriveSchema.gen
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
@@ -2231,9 +2236,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "discriminator" : {
             |          "propertyName" : "type",
             |          "mapping" : {
-            |            "One" : "#/components/schemas/One}",
-            |            "Two" : "#/components/schemas/Two}",
-            |            "three" : "#/components/schemas/Three}"
+            |            "One" : "#/components/schemas/One",
+            |            "Two" : "#/components/schemas/Two",
+            |            "three" : "#/components/schemas/Three"
             |          }
             |        }
             |      },
@@ -2810,7 +2815,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            ]
             |          },
             |          "nestedOption" : {
-            |            "$ref" : "#/components/schemas/Recursive"
+            |            "anyOf" : [
+            |              { "type" : "null" },
+            |              { "$ref" : "#/components/schemas/Recursive" }
+            |            ]
             |          },
             |          "nestedMap" : {
             |            "type" : "object",
@@ -2987,6 +2995,114 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  }
                              |}
                              |""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("Optional ADT payload") {
+        val endpoint     = Endpoint(GET / "static").in[WithOptionalAdtPayload]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/WithOptionalAdtPayload"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "One" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {}
+            |      },
+            |      "SealedTraitCustomDiscriminator" :
+            |        {
+            |        "oneOf" : [
+            |          {
+            |            "$ref" : "#/components/schemas/One"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Two"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Three"
+            |          }
+            |        ],
+            |        "discriminator" : {
+            |          "propertyName" : "type",
+            |          "mapping" : {
+            |            "One" : "#/components/schemas/One",
+            |            "Two" : "#/components/schemas/Two",
+            |            "three" : "#/components/schemas/Three"
+            |          }
+            |        }
+            |      },
+            |      "WithOptionalAdtPayload" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "optionalAdtField" : {
+            |            "anyOf": [
+            |              { "type": "null" },
+            |              { "$ref": "#/components/schemas/SealedTraitCustomDiscriminator" }
+            |            ]
+            |          }
+            |        },
+            |        "required" : [
+            |          "optionalAdtField"
+            |        ]
+            |      },
+            |      "Two" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "Three" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
     )
