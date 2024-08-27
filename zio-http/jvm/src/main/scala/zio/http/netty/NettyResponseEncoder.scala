@@ -29,29 +29,27 @@ import io.netty.handler.codec.http._
 private[zio] object NettyResponseEncoder {
   private val dateHeaderCache = CachedDateHeader.default
 
-  def encode(response: Response)(implicit unsafe: Unsafe): HttpResponse = {
-    val body = response.body
-    if (body.isComplete) {
-      assert(body.isInstanceOf[Body.UnsafeBytes], "expected completed body to implement UnsafeBytes")
-      fastEncode(response, body.asInstanceOf[Body.UnsafeBytes].unsafeAsArray)
-    } else {
-      val status   = response.status
-      val jHeaders = Conversions.headersToNetty(response.headers)
-      val jStatus  = Conversions.statusToNetty(status)
-      maybeAddDateHeader(jHeaders, status)
+  def encode(response: Response)(implicit unsafe: Unsafe): HttpResponse =
+    response.body match {
+      case body: Body.UnsafeBytes =>
+        fastEncode(response, body.unsafeAsArray)
+      case body                   =>
+        val status   = response.status
+        val jHeaders = Conversions.headersToNetty(response.headers)
+        val jStatus  = Conversions.statusToNetty(status)
+        maybeAddDateHeader(jHeaders, status)
 
-      response.body.knownContentLength match {
-        case Some(contentLength)                                    =>
-          jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentLength)
-        case _ if jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH) =>
-          ()
-        case _                                                      =>
-          jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-      }
+        body.knownContentLength match {
+          case Some(contentLength)                                    =>
+            jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentLength)
+          case _ if jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH) =>
+            ()
+          case _                                                      =>
+            jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+        }
 
-      new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders)
+        new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders)
     }
-  }
 
   def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse = {
     if (response.encoded eq null) {
