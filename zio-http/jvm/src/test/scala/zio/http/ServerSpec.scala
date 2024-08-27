@@ -240,7 +240,7 @@ object ServerSpec extends HttpRunnableSpec {
 
               for {
                 res <-
-                  Client.request(
+                  Client.batched(
                     Request(method = req.method, headers = req.headers, body = req.body, url = url),
                   )
               } yield res
@@ -497,14 +497,13 @@ object ServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("ServerSpec") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
-      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
-    }.provideSome[DynamicServer & Server & Client](Scope.default)
-      .provideShared(
-        DynamicServer.live,
-        ZLayer.succeed(configApp),
-        Server.customized,
-        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Client.default,
-      ) @@ sequential @@ withLiveClock
+      suite("app without request streaming") { app.as(List(spec)) }
+    }.provideShared(
+      DynamicServer.live,
+      ZLayer.succeed(configApp),
+      Server.customized,
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+      Client.default,
+    ) @@ sequential @@ withLiveClock
 
 }

@@ -266,7 +266,7 @@ object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
           else Left(Quiz("What is the boiling point of water in Celsius?", 2)),
         )
     )
-    .toRoutes).provide(Server.default, Scope.default)
+    .toRoutes).provide(Server.default)
 }
 ```
 

@@ -135,5 +135,18 @@ object NettyRequestEncoderSpec extends ZIOHttpSpec {
       val encoded = ZIO.succeed(encode(req)).map(_.uri)
       assertZIO(encoded)(equalTo("/something/else"))
     },
+    test("trailing slash") {
+      val url     = URL.decode("https://api.github.com").toOption.get / "something" / "else"
+      val req     = Request(url = url.addTrailingSlash)
+      val encoded = ZIO.succeed(encode(req)).map(_.uri)
+      assertZIO(encoded)(equalTo("/something/else/"))
+    },
+    test("request fragments not included") {
+      val url     = URL.decode("https://api.github.com/path#frag").toOption.get
+      val req     = Request(url = url)
+      val encoded = ZIO.succeed(encode(req)).map(_.uri)
+      assertZIO(encoded)(equalTo("/path"))
+        .map(_ && assertTrue(url.fragment.exists(_.raw == "frag")))
+    },
   )
 }

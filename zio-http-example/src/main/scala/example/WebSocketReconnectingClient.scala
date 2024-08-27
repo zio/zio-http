@@ -39,7 +39,7 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
         p.succeed(f)
       }
 
-  val app: ZIO[Any with Client with Scope, Throwable, Unit] = {
+  val app: ZIO[Client & Scope, Throwable, Unit] = {
     (for {
       p <- zio.Promise.make[Nothing, Throwable]
       _ <- makeSocketApp(p).connect(url).catchAll { t =>
@@ -56,6 +56,6 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
   }
 
   val run =
-    app.provide(Client.default, Scope.default)
+    ZIO.scoped(app).provide(Client.default)
 
 }

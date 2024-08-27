@@ -42,7 +42,7 @@ import zio.http._
 
 object ClientExample extends ZIOAppDefault {
   val program = for {
-    res         <- Client.request(Request.get("https://zio.dev/"))
+    res         <- Client.batched(Request.get("https://zio.dev/"))
     contentType <- ZIO.from(res.header(Header.ContentType))
     _           <- Console.printLine("------Content Type------")
     _           <- Console.printLine(render(contentType))
@@ -51,7 +51,7 @@ object ClientExample extends ZIOAppDefault {
     _           <- Console.printLine(data)
   } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(Client.default)
 }
 ```
 

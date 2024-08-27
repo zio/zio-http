@@ -180,6 +180,12 @@ trait Body { self =>
   def contentType(newContentType: Body.ContentType): Body
 
   /**
+   * Materializes the body of the request into memory
+   */
+  def materialize(implicit trace: Trace): UIO[Body] =
+    asArray.foldCause(Body.ErrorBody(_), Body.ArrayBody(_, self.contentType))
+
+  /**
    * Returns the media type for this Body
    */
   final def mediaType: Option[MediaType] =
@@ -439,15 +445,17 @@ object Body {
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)
 
-  private[zio] trait UnsafeBytes extends Body {
+  private[zio] trait UnsafeBytes extends Body { self =>
     private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte]
+
+    final override def materialize(implicit trace: Trace): UIO[Body] = Exit.succeed(self)
   }
 
   /**
    * Helper to create empty Body
    */
 
-  private[zio] object EmptyBody extends Body with UnsafeBytes {
+  private[zio] case object EmptyBody extends Body with UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = zioEmptyArray
 
@@ -464,6 +472,27 @@ object Body {
 
     override def contentType(newContentType: Body.ContentType): Body = this
     override def contentType: Option[Body.ContentType]               = None
+
+    override def knownContentLength: Option[Long] = Some(0L)
+  }
+
+  private[zio] final case class ErrorBody(cause: Cause[Throwable]) extends Body {
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = Exit.failCause(cause)
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = Exit.failCause(cause)
+
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = ZStream.failCause(cause)
+
+    override def isComplete: Boolean = true
+
+    override def isEmpty: Boolean = true
+
+    override def toString: String = "Body.failed"
+
+    override def contentType(newContentType: Body.ContentType): Body = this
+
+    override def contentType: Option[Body.ContentType] = None
 
     override def knownContentLength: Option[Long] = Some(0L)
   }

@@ -26,8 +26,8 @@ object ServerSentEventEndpoint extends ZIOAppDefault {
   val routes: Routes[Any, Response] =
     sseRoute.toRoutes @@ Middleware.requestLogging(logRequestBody = true) @@ Middleware.debug
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] = {
-    Server.serve(routes).provide(Server.default).exitCode
+  override def run = {
+    Server.serve(routes).provide(Server.default)
   }
 
 }
@@ -39,11 +39,13 @@ object ServerSentEventEndpointClient extends ZIOAppDefault {
     : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
     ServerSentEventEndpoint.sseEndpoint(())
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    (for {
-      client <- ZIO.service[Client]
-      executor = EndpointExecutor(client, locator)
-      stream <- executor(invocation)
-      _      <- stream.foreach(event => ZIO.logInfo(event.data))
-    } yield ()).provideSome[Scope](ZClient.default)
+  override def run =
+    ZIO
+      .scoped(for {
+        client <- ZIO.service[Client]
+        executor = EndpointExecutor(client, locator)
+        stream <- executor(invocation)
+        _      <- stream.foreach(event => ZIO.logInfo(event.data))
+      } yield ())
+      .provide(ZClient.default)
 }
