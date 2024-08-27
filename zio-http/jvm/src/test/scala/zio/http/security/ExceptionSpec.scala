@@ -52,29 +52,33 @@ object ExceptionSpec extends ZIOSpecDefault {
     test("Throw inside handle doesn't leak stacktrace") {
       for {
         port     <- Server.install(routesError)
-        client   <- ZIO.service[Client]
-        response <- client(Request.get(s"http://localhost:$port/error")).map(_.headers.toString)
+        response <- ZIO.scoped {
+          Client.streaming(Request.get(s"http://localhost:$port/error")).flatMap(_.ignoreBody).map(_.headers.toString)
+        }
       } yield assertTrue(!response.contains("Exception in thread"))
     },
     test("Die handle doesn't leak stacktrace") {
       for {
         port     <- Server.install(routesDie)
-        client   <- ZIO.service[Client]
-        response <- client(Request.get(s"http://localhost:$port/die")).map(_.headers.toString)
+        response <- ZIO.scoped {
+          Client.streaming(Request.get(s"http://localhost:$port/die")).flatMap(_.ignoreBody).map(_.headers.toString)
+        }
       } yield assertTrue(!response.contains("Exception in thread"))
     },
     test("Failing handle doesn't leak stacktrace") {
       for {
         port     <- Server.install(routesFail)
-        client   <- ZIO.service[Client]
-        response <- client(Request.get(s"http://localhost:$port/fail")).map(_.headers.toString)
+        response <- ZIO.scoped {
+          Client.streaming(Request.get(s"http://localhost:$port/fail")).flatMap(_.ignoreBody).map(_.headers.toString)
+        }
       } yield assertTrue(!response.contains("Exception in thread"))
     },
     test("FromZIO doesn't leak stacktrace") {
       for {
         port     <- Server.install(queryRoutes)
-        client   <- ZIO.service[Client]
-        response <- client(Request.get(s"http://localhost:$port/search")).map(_.headers.toString)
+        response <- ZIO.scoped {
+          Client.streaming(Request.get(s"http://localhost:$port/search")).flatMap(_.ignoreBody).map(_.headers.toString)
+        }
       } yield assertTrue(!response.contains("Exception in thread"))
     },
   ).provide(

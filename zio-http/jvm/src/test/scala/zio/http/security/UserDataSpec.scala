@@ -144,8 +144,11 @@ object UserDataSpec extends ZIOSpecDefault {
         val request = Request.post("/test", body).addHeader(Header.Accept(mediaType))
         for {
           port     <- Server.install(routes)
-          client   <- ZIO.service[Client]
-          response <- client(request.updateURL(_ => URL.decode(s"http://localhost:$port/test").toOption.get))
+          response <- ZIO.scoped {
+            Client
+              .streaming(request.updateURL(_ => URL.decode(s"http://localhost:$port/test").toOption.get))
+              .flatMap(_.ignoreBody)
+          }
         } yield assertTrue(response.headers.toString.contains(expectedResponse))
       }
     },
