@@ -419,15 +419,9 @@ object ZClient extends ZClientPlatformSpecific {
           sslConfig: Option[ClientSSLConfig],
           proxy: Option[Proxy],
         )(implicit trace: Trace): ZIO[Env, Err, Response] =
-          ZIO
-            .scoped[Env] {
-              self0.request(version, method, url, headers, body, sslConfig, proxy).flatMap { resp =>
-                resp.collect.foldCause(
-                  cause => resp.copy(body = Body.ErrorBody(cause)),
-                  ZIO.identityFn,
-                )
-              }
-            }
+          ZIO.scoped[Env] {
+            self0.request(version, method, url, headers, body, sslConfig, proxy).flatMap(_.collect)
+          }
 
         // This should never be possible to invoke unless the user unsafely casted the Driver environment
         override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit
