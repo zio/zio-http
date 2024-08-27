@@ -5,7 +5,7 @@ import zio.test._
 import zio.{Scope, ZIO, durationInt}
 
 import zio.http._
-import zio.http.codec.HttpCodec
+import zio.http.codec.{CodecConfig, HttpCodec}
 import zio.http.internal.middlewares.AuthSpec.AuthContext
 
 object AuthSpec extends ZIOSpecDefault {

@@ -74,6 +74,10 @@ object RoundtripSpec extends ZIOHttpSpec {
     implicit val schema: Schema[PostWithAge] = DeriveSchema.gen[PostWithAge]
   }
 
+  case class Outs(ints: List[Int])
+
+  implicit val outsSchema: Schema[Outs] = DeriveSchema.gen[Outs]
+
   def makeExecutor(client: Client, port: Int) = {
     val locator = EndpointLocator.fromURL(
       URL.decode(s"http://localhost:$port").toOption.get,
@@ -504,6 +508,16 @@ object RoundtripSpec extends ZIOHttpSpec {
           .map { r =>
             assert(r.isFailure)(isTrue) // We expect it to fail but complete
           }
+      },
+      test("Override default CodecConfig") {
+        val api = Endpoint(GET / "test").out[Outs]
+        testEndpointCustomRequestZIO(
+          api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes @@ CodecConfig.withConfig(
+            CodecConfig(ignoreEmptyCollections = false),
+          ),
+          Request.get("/test"),
+          response => response.body.asString.map(s => assertTrue(s == """{"ints":[]}""")),
+        )
       },
     ).provide(
       Server.customized,

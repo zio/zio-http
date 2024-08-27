@@ -20,7 +20,7 @@ import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
-import zio.http.codec.{Alternator, Combiner}
+import zio.http.codec.{Alternator, CodecConfig, Combiner}
 import zio.http.endpoint.internal.EndpointClient
 
 /**
@@ -63,7 +63,7 @@ final case class EndpointExecutor[R, Auth](
     combiner: Combiner[I, invocation.endpoint.authType.ClientRequirement],
     ev: Auth <:< invocation.endpoint.authType.ClientRequirement,
     trace: Trace,
-  ): ZIO[Scope with R, E, B] = {
+  ): ZIO[R with Scope, E, B] = {
     getClient(invocation.endpoint).orDie.flatMap { endpointClient =>
       endpointClient.execute(
         client,
