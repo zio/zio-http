@@ -668,7 +668,7 @@ object OpenAPIGen {
         case mc @ MetaCodec(
               HttpCodec.Query(
                 HttpCodec.Query.QueryType.Collection(
-                  schema,
+                  _,
                   HttpCodec.Query.QueryType.Primitive(name, codec),
                   optional,
                 ),

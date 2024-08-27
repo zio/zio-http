@@ -80,7 +80,10 @@ private[zio] final case class ServerInboundHandler(
         try {
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            attemptFastWrite(ctx, Response.fromThrowable(throwable))
+            attemptFastWrite(
+              ctx,
+              Response.fromThrowable(throwable, runtime.getRef(ErrorResponseConfig.configRef)),
+            )
             releaseRequest()
           } else {
             val req  = makeZioRequest(ctx, jReq)

@@ -332,12 +332,6 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     )
 
   /**
-   * Beautify the error response.
-   */
-  def beautifyErrors: HandlerAspect[Any, Unit] =
-    intercept(replaceErrorResponse)
-
-  /**
    * Creates an authentication middleware that only allows authenticated
    * requests to be passed on to the app.
    */
@@ -840,52 +834,6 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     middleware: HandlerAspect[Env, Unit],
   ): HandlerAspect[Env, Unit] =
     ifRequestThenElseZIO(condition)(ifFalse = identity, ifTrue = middleware)
-
-  private def replaceErrorResponse(request: Request, response: Response): Response = {
-    def htmlResponse: Body = {
-      val message: String = response.header(Header.Warning).map(_.text).getOrElse("")
-      val data            = Template.container(s"${response.status}") {
-        div(
-          div(
-            styles := "text-align: center",
-            div(s"${response.status.code}", styles := "font-size: 20em"),
-            div(message),
-          ),
-        )
-      }
-      Body.fromString("<!DOCTYPE html>" + data.encode)
-    }
-
-    def textResponse: Body = {
-      Body.fromString(formatErrorMessage(response))
-    }
-
-    if (response.status.isError) {
-      request.header(Header.Accept) match {
-        case Some(value) if value.mimeTypes.exists(_.mediaType == MediaType.text.`html`) =>
-          response.copy(
-            body = htmlResponse,
-            headers = Headers(Header.ContentType(MediaType.text.`html`)),
-          )
-        case Some(value) if value.mimeTypes.exists(_.mediaType == MediaType.any)         =>
-          response.copy(
-            body = textResponse,
-            headers = Headers(Header.ContentType(MediaType.text.`plain`)),
-          )
-        case _                                                                           => response
-      }
-
-    } else
-      response
-  }
-
-  private def formatErrorMessage(response: Response) = {
-    val errorMessage: String = response.header(Header.Warning).map(_.text).getOrElse("")
-    val status               = response.status.code
-    s"${scala.Console.BOLD}${scala.Console.RED}${response.status} ${scala.Console.RESET} - " +
-      s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
-      s"$errorMessage"
-  }
 
   private[http] val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(
     Chunk(

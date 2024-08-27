@@ -21,18 +21,16 @@ import java.nio.charset.Charset
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
 
 import scala.reflect.ClassTag
-import scala.util.Try
 import scala.util.control.NonFatal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
 import zio.http.Handler.ApplyContextAspect
 import zio.http.Header.HeaderType
 import zio.http.internal.HeaderModifier
-import zio.http.template.{Html, Template}
+import zio.http.template._
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
@@ -549,7 +547,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self(in)
 
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
-    self.mapErrorCause(Response.fromCause(_))
+    self.mapErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCause(c, _)).flip)
 
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
     self.map(_.status)
@@ -682,6 +680,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
 object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
+  private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
+
   sealed trait IsRequest[-A]
 
   object IsRequest {
@@ -746,10 +746,49 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fromResponse(Response.error(status))
 
   /**
-   * Creates a handler with an error and the specified error message.
+   * Creates a handler with an error and the specified error message. The error
+   * message will be returned as HTML, JSON or plain text depending on the
+   * `Accept` header of the request, defaulting to
+   * [[ErrorResponseConfig.errorFormat]]. If
+   * [[ErrorResponseConfig.withErrorBody]] is `false`, the error message will
+   * not be included in the response. If the error message should always be
+   * included in the response, use `Handler.fromResponse(Response.error(status,
+   * message))`
    */
   def error(status: => Status.Error, message: => String): Handler[Any, Nothing, Any, Response] =
-    fromResponse(Response.error(status, message))
+    (fromResponse(Response.status(status)) @@ Middleware.interceptHandlerStateful(
+      handler((req: Request) => (req.header(Header.Accept), (req, ()))),
+    ) {
+      handler { (accept: Option[Header.Accept], res: Response) =>
+        ErrorResponseConfig.configRef.get.map { cfg =>
+          if (cfg.withErrorBody) {
+            val mediaType: MediaType = accept
+              .flatMap(_.mimeTypes.sorted.map(_.mediaType).collectFirst {
+                case mt if errorMediaTypes.exists(mt.matches(_, ignoreParameters = true)) =>
+                  errorMediaTypes.find(mt.matches(_, ignoreParameters = true)).get
+              })
+              .getOrElse(cfg.errorFormat.mediaType)
+            mediaType match {
+              case MediaType.application.`json` =>
+                Response(status = status, body = Body.fromString(s"""{"status": "$status", "error": "$message"}"""))
+                  .contentType(MediaType.application.json)
+              case MediaType.text.`html`        =>
+                Response(
+                  status = status,
+                  body = Body.fromString(
+                    s"""<!DOCTYPE html><html><head><title>$status</title></head><body><h1>$status</h1><p>$message</p></body></html>""",
+                  ),
+                ).contentType(MediaType.text.html)
+              case MediaType.text.`plain`       =>
+                Response(status = status, body = Body.fromString(message)).contentType(MediaType.text.plain)
+              case _                            => throw new Exception("Unsupported media type")
+            }
+          } else {
+            res
+          }
+        }
+      }
+    }).asInstanceOf[Handler[Any, Nothing, Any, Response]]
 
   /**
    * Creates a Handler that always fails

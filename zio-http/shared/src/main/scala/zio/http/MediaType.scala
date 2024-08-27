@@ -27,7 +27,7 @@ final case class MediaType(
   extensions: Map[String, String] = Map.empty,
   parameters: Map[String, String] = Map.empty,
 ) {
-  lazy val fullType: String = s"$mainType/$subType"
+  val fullType: String = s"$mainType/$subType"
 
   def matches(other: MediaType, ignoreParameters: Boolean = false): Boolean =
     (mainType == "*" || other.mainType == "*" || mainType.equalsIgnoreCase(other.mainType)) &&
