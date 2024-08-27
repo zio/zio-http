@@ -13,7 +13,7 @@ import zio.{FiberRef, Unsafe}
  *   maximum number of stack trace lines to include in the response body. Set to
  *   0 to include all lines.
  */
-case class ErrorResponseConfig(
+final case class ErrorResponseConfig(
   withErrorBody: Boolean = false,
   withStackTrace: Boolean = false,
   maxStackTraceDepth: Int = 10,
@@ -39,5 +39,5 @@ object ErrorResponseConfig {
     Middleware.runBefore(configRef.updateSome { case oldConfig if oldConfig != config => config })
 
   private[http] lazy val configRef: FiberRef[ErrorResponseConfig] =
-    FiberRef.unsafe.make(ErrorResponseConfig())(Unsafe)
+    FiberRef.unsafe.make(default)(Unsafe)
 }

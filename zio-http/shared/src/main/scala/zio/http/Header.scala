@@ -144,6 +144,11 @@ object Header {
      */
     final case class MediaTypeWithQFactor(mediaType: MediaType, qFactor: Option[Double])
 
+    object MediaTypeWithQFactor {
+      implicit val ordering: Ordering[MediaTypeWithQFactor] =
+        Ordering.by[MediaTypeWithQFactor, Double](_.qFactor.getOrElse(1.0)).reverse
+    }
+
     def apply(mediaType: MediaType, qFactor: Option[Double]): Accept =
       Accept(NonEmptyChunk(MediaTypeWithQFactor(mediaType, qFactor)))
 

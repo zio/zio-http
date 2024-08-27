@@ -20,10 +20,9 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
-import zio.http.ErrorResponseConfig.ErrorFormat
-import zio.http.template._
-
 import zio.stream.ZStream
+
+import zio.http.ErrorResponseConfig.ErrorFormat
 
 object ResponseSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status

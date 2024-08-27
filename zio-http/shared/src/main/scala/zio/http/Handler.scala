@@ -763,7 +763,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
         ErrorResponseConfig.configRef.get.map { cfg =>
           if (cfg.withErrorBody) {
             val mediaType: MediaType = accept
-              .flatMap(_.mimeTypes.sortBy(mt => -mt.qFactor.getOrElse(1.0)).map(_.mediaType).collectFirst {
+              .flatMap(_.mimeTypes.sorted.map(_.mediaType).collectFirst {
                 case mt if errorMediaTypes.exists(mt.matches(_, ignoreParameters = true)) =>
                   errorMediaTypes.find(mt.matches(_, ignoreParameters = true)).get
               })

@@ -259,10 +259,11 @@ object Response {
   private def throwableToMessage(throwable: Throwable, status: Status, config: ErrorResponseConfig): Body =
     if (!config.withErrorBody) Body.empty
     else {
+      val rawTrace   = if (config.withStackTrace) throwable.getStackTrace else Array.empty[StackTraceElement]
       val stackTrace =
-        if (config.withStackTrace && throwable.getStackTrace.nonEmpty)
-          (if (config.maxStackTraceDepth == 0) throwable.getStackTrace
-           else throwable.getStackTrace.take(config.maxStackTraceDepth))
+        if (config.withStackTrace && rawTrace.nonEmpty)
+          (if (config.maxStackTraceDepth == 0) rawTrace
+           else rawTrace.take(config.maxStackTraceDepth))
             .mkString("\n", "\n", "")
         else ""
       val message    = if (throwable.getMessage eq null) "" else throwable.getMessage
