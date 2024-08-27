@@ -235,11 +235,11 @@ object ClientExample extends ZIOAppDefault {
   val app =
     for {
       client   <- ZIO.serviceWith[Client](_.host("localhost").port(8090))
-      response <- client.request(Request.get("/"))
+      response <- client.batched(Request.get("/"))
       _        <- ZIO.debug("Response Status: " + response.status)
     } yield ()
 
-  def run = app.provide(Client.default, Scope.default)
+  def run = app.provide(Client.default)
 }
 ```
 

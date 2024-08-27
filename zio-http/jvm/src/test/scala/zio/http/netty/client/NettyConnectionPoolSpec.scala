@@ -45,7 +45,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
   def connectionPoolTests(
     version: Version,
     casesByHeaders: Map[String, Headers],
-  ): Spec[Scope with Client with DynamicServer, Throwable] =
+  ): Spec[Client with DynamicServer, Throwable] =
     suite(version.toString)(
       casesByHeaders.map { case (name, extraHeaders) =>
         suite(name)(
@@ -192,7 +192,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           (1 to N).map(_.toString).toList,
         ),
       )
-    }.provideSome[Client & Scope](
+    }.provideSome[Client](
       ZLayer(appKeepAliveEnabled.unit),
       DynamicServer.live,
       ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
@@ -208,7 +208,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       .map(assert(_)(equalTo(Status.Ok)))
 
     ZIO.collectAll(List.fill(4)(f)).map(_.foldLeft(assertCompletes)(_ && _))
-  }.provideSome[Scope](
+  }.provide(
     ZLayer(appKeepAliveEnabled.unit),
     DynamicServer.live,
     ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
@@ -259,9 +259,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             .toRoutes
             .deployAndRequest { client =>
               ZIO.foreachParDiscard(0 to 10) { _ =>
-                ZIO
-                  .scoped[Any](client.request(Request()).flatMap(_.body.asArray))
-                  .repeatN(200)
+                client.batched.request(Request()).flatMap(_.body.asArray).repeatN(200)
               }
             }(Request())
             .as(assertCompletes)
@@ -277,7 +275,6 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     NettyClientDriver.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-    Scope.default,
   )
 
   def connectionPoolSpec: Spec[Any, Throwable] =
@@ -308,7 +305,6 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Scope.default,
       ),
       suite("dynamic")(
         connectionPoolTests(
@@ -336,7 +332,6 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Scope.default,
       ),
     )
 

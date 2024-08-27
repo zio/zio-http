@@ -27,19 +27,20 @@ object SSEServer extends ZIOAppDefault {
 
 object SSEClient extends ZIOAppDefault {
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    ZIO
-      .scoped(for {
-        client   <- ZIO.service[Client]
-        response <- client
+  override def run =
+    (for {
+      client <- ZIO.service[Client]
+      _      <-
+        client
           .url(url"http://localhost:8080")
-          .request(
+          .batched(
             Request(method = Method.GET, url = url"http://localhost:8080/sse", body = Body.empty)
               .addHeader(Header.Accept(MediaType.text.`event-stream`)),
           )
-        _        <- response.body.asServerSentEvents[String].foreach { event =>
-          ZIO.logInfo(event.data)
-        }
-      } yield ())
-      .provide(ZClient.default)
+          .flatMap { response =>
+            response.body.asServerSentEvents[String].foreach { event =>
+              ZIO.logInfo(event.data)
+            }
+          }
+    } yield ()).provide(ZClient.default)
 }
