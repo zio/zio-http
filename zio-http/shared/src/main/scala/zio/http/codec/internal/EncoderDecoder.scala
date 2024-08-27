@@ -32,11 +32,11 @@ import zio.http.codec.HttpCodec.Query.QueryType
 import zio.http.codec._
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
-  def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+  def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value]
 
-  def encodeWith[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+  def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z
 
@@ -60,8 +60,8 @@ private[codec] object EncoderDecoder {
   ) extends EncoderDecoder[AtomTypes, Value] {
     val singles = httpCodecs.map { case (httpCodec, condition) => Single(httpCodec) -> condition }
 
-    def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-      trace: Trace,
+    override def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(
+      implicit trace: Trace,
     ): Task[Value] = {
       def tryDecode(i: Int, lastError: Cause[Throwable]): Task[Value] = {
         if (i >= singles.length) ZIO.refailCause(lastError)
@@ -72,7 +72,7 @@ private[codec] object EncoderDecoder {
             tryDecode(i + 1, lastError)
           else
             codec
-              .decode(url, status, method, headers, body)
+              .decode(config, url, status, method, headers, body)
               .catchAllCause(cause =>
                 if (HttpCodecError.isHttpCodecError(cause)) {
                   tryDecode(i + 1, lastError && cause)
@@ -84,7 +84,7 @@ private[codec] object EncoderDecoder {
       tryDecode(0, Cause.empty)
     }
 
-    def encodeWith[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+    override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
     ): Z = {
       var i         = 0
@@ -95,7 +95,7 @@ private[codec] object EncoderDecoder {
         val (current, _) = singles(i)
 
         try {
-          encoded = current.encodeWith(value, outputTypes)(f)
+          encoded = current.encodeWith(config, value, outputTypes)(f)
 
           i = singles.length // break
         } catch {
@@ -127,6 +127,7 @@ private[codec] object EncoderDecoder {
     """.stripMargin.trim()
 
     override def encodeWith[Z](
+      config: CodecConfig,
       value: Value,
       outputTypes: Chunk[MediaTypeWithQFactor],
     )(f: (zio.http.URL, Option[zio.http.Status], Option[zio.http.Method], zio.http.Headers, zio.http.Body) => Z): Z = {
@@ -134,6 +135,7 @@ private[codec] object EncoderDecoder {
     }
 
     override def decode(
+      config: CodecConfig,
       url: zio.http.URL,
       status: zio.http.Status,
       method: zio.http.Method,
@@ -159,31 +161,31 @@ private[codec] object EncoderDecoder {
     }.toMap
     private lazy val nameByIndex  = indexByName.map(_.swap)
 
-    final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-      trace: Trace,
+    override def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(
+      implicit trace: Trace,
     ): Task[Value] = ZIO.suspendSucceed {
       val inputsBuilder = flattened.makeInputsBuilder()
 
       decodePaths(url.path, inputsBuilder.path)
-      decodeQuery(url.queryParams, inputsBuilder.query)
+      decodeQuery(config, url.queryParams, inputsBuilder.query)
       decodeStatus(status, inputsBuilder.status)
       decodeMethod(method, inputsBuilder.method)
       decodeHeaders(headers, inputsBuilder.header)
-      decodeBody(body, inputsBuilder.content).as(constructor(inputsBuilder))
+      decodeBody(config, body, inputsBuilder.content).as(constructor(inputsBuilder))
     }
 
-    final def encodeWith[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+    override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
     ): Z = {
       val inputs = deconstructor(value)
 
       val path               = encodePath(inputs.path)
-      val query              = encodeQuery(inputs.query)
+      val query              = encodeQuery(config, inputs.query)
       val status             = encodeStatus(inputs.status)
       val method             = encodeMethod(inputs.method)
       val headers            = encodeHeaders(inputs.header)
       def contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
-      val body               = encodeBody(inputs.content, outputTypes)
+      val body               = encodeBody(config, inputs.content, outputTypes)
 
       val headers0 = if (headers.contains("content-type")) headers else headers ++ contentTypeHeaders
       f(URL(path, queryParams = query), status, method, headers0, body)
@@ -214,7 +216,7 @@ private[codec] object EncoderDecoder {
         },
       )
 
-    private def decodeQuery(queryParams: QueryParams, inputs: Array[Any]): Unit =
+    private def decodeQuery(config: CodecConfig, queryParams: QueryParams, inputs: Array[Any]): Unit =
       genericDecode[QueryParams, HttpCodec.Query[_, _]](
         queryParams,
         flattened.query,
@@ -223,16 +225,18 @@ private[codec] object EncoderDecoder {
           val query      = codec.erase
           val isOptional = query.isOptional
           query.queryType match {
-            case QueryType.Primitive(name, BinaryCodecWithSchema(codec, schema))                                   =>
+            case QueryType.Primitive(name, bc @ BinaryCodecWithSchema(_, schema))     =>
               val count    = queryParams.valueCount(name)
               val hasParam = queryParams.hasQueryParam(name)
               if (!hasParam && isOptional) None
               else if (!hasParam) throw HttpCodecError.MissingQueryParam(name)
               else if (count != 1) throw HttpCodecError.InvalidQueryParamCount(name, 1, count)
               else {
-                val decoded          = codec.decode(
-                  Chunk.fromArray(queryParams.unsafeQueryParam(name).getBytes(Charsets.Utf8)),
-                ) match {
+                val decoded          = bc
+                  .codec(config)
+                  .decode(
+                    Chunk.fromArray(queryParams.unsafeQueryParam(name).getBytes(Charsets.Utf8)),
+                  ) match {
                   case Left(error)  => throw HttpCodecError.MalformedQueryParam(name, error)
                   case Right(value) => value
                 }
@@ -242,7 +246,7 @@ private[codec] object EncoderDecoder {
                   Some("")
                 else decoded
               }
-            case c @ QueryType.Collection(_, QueryType.Primitive(name, BinaryCodecWithSchema(codec, _)), optional) =>
+            case c @ QueryType.Collection(_, QueryType.Primitive(name, bc), optional) =>
               if (!queryParams.hasQueryParam(name)) {
                 if (!optional) c.toCollection(Chunk.empty)
                 else None
@@ -250,7 +254,7 @@ private[codec] object EncoderDecoder {
                 val values           = queryParams.queryParams(name)
                 val decoded          = c.toCollection {
                   values.map { value =>
-                    codec.decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
+                    bc.codec(config).decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
                       case Left(error)  => throw HttpCodecError.MalformedQueryParam(name, error)
                       case Right(value) => value
                     }
@@ -262,7 +266,7 @@ private[codec] object EncoderDecoder {
                 if (optional) Some(decoded)
                 else decoded
               }
-            case query @ QueryType.Record(recordSchema)                                                            =>
+            case query @ QueryType.Record(recordSchema)                               =>
               val hasAllParams = query.fieldAndCodecs.forall { case (field, _) =>
                 queryParams.hasQueryParam(field.name) || field.optional || field.defaultValue.isDefined
               }
@@ -287,7 +291,7 @@ private[codec] object EncoderDecoder {
                     else {
                       val values            = queryParams.queryParams(field.name)
                       val decoded           = values.map { value =>
-                        codec.codec.decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
+                        codec.codec(config).decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
                           case Left(error)  => throw HttpCodecError.MalformedQueryParam(field.name, error)
                           case Right(value) => value
                         }
@@ -315,7 +319,7 @@ private[codec] object EncoderDecoder {
                     val decoded          = {
                       if (value == null) field.defaultValue.get
                       else {
-                        codec.codec.decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
+                        codec.codec(config).decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
                           case Left(error)  => throw HttpCodecError.MalformedQueryParam(field.name, error)
                           case Right(value) => value
                         }
@@ -415,7 +419,7 @@ private[codec] object EncoderDecoder {
           },
       )
 
-    private def decodeBody(body: Body, inputs: Array[Any])(implicit
+    private def decodeBody(config: CodecConfig, body: Body, inputs: Array[Any])(implicit
       trace: Trace,
     ): Task[Unit] = {
       val codecs = flattened.content
@@ -424,7 +428,7 @@ private[codec] object EncoderDecoder {
         // non multi-part
         codecs.headOption.map { codec =>
           codec
-            .decodeFromBody(body)
+            .decodeFromBody(body, config)
             .mapBoth(
               { err => HttpCodecError.MalformedBody(err.getMessage(), Some(err)) },
               result => inputs(0) = result,
@@ -432,11 +436,15 @@ private[codec] object EncoderDecoder {
         }.getOrElse(ZIO.unit)
       } else {
         // multi-part
-        decodeForm(body.asMultipartFormStream, inputs) *> check(inputs)
+        decodeForm(body.asMultipartFormStream, inputs, config) *> check(inputs)
       }
     }
 
-    private def decodeForm(form: Task[StreamingForm], inputs: Array[Any]): ZIO[Any, Throwable, Unit] =
+    private def decodeForm(
+      form: Task[StreamingForm],
+      inputs: Array[Any],
+      config: CodecConfig,
+    ): ZIO[Any, Throwable, Unit] =
       form.flatMap(_.collectAll).flatMap { collectedForm =>
         ZIO.foreachDiscard(collectedForm.formData) { field =>
           val codecs = flattened.content
@@ -445,7 +453,7 @@ private[codec] object EncoderDecoder {
             .getOrElse(throw HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
           val codec  = codecs(i).erase
           for {
-            decoded <- codec.decodeFromField(field)
+            decoded <- codec.decodeFromField(field, config)
             _       <- ZIO.attempt { inputs(i) = decoded }
           } yield ()
         }
@@ -499,7 +507,7 @@ private[codec] object EncoderDecoder {
         },
       )
 
-    private def encodeQuery(inputs: Array[Any]): QueryParams =
+    private def encodeQuery(config: CodecConfig, inputs: Array[Any]): QueryParams =
       genericEncode[QueryParams, HttpCodec.Query[_, _]](
         flattened.query,
         inputs,
@@ -514,11 +522,11 @@ private[codec] object EncoderDecoder {
                 if (schema.asInstanceOf[Schema.Primitive[_]].standardType.isInstanceOf[StandardType.UnitType.type]) {
                   queryParams.addQueryParams(name, Chunk.empty[String])
                 } else {
-                  val encoded = codec.codec.asInstanceOf[BinaryCodec[Any]].encode(input).asString
+                  val encoded = codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(input).asString
                   queryParams.addQueryParams(name, Chunk(encoded))
                 }
               } else if (schema.isInstanceOf[Schema.Optional[_]]) {
-                val encoded = codec.codec.asInstanceOf[BinaryCodec[Any]].encode(input).asString
+                val encoded = codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(input).asString
                 if (encoded.nonEmpty) queryParams.addQueryParams(name, Chunk(encoded)) else queryParams
               } else {
                 throw new IllegalStateException(
@@ -536,7 +544,7 @@ private[codec] object EncoderDecoder {
                   name,
                   Chunk.fromIterable(
                     values.map { value =>
-                      codec.codec.asInstanceOf[BinaryCodec[Any]].encode(value).asString
+                      codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(value).asString
                     },
                   ),
                 )
@@ -562,11 +570,11 @@ private[codec] object EncoderDecoder {
                         qp = qp.addQueryParams(
                           name,
                           Chunk.fromIterable(values.map { v =>
-                            codec.codec.asInstanceOf[BinaryCodec[Any]].encode(v).asString
+                            codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(v).asString
                           }),
                         )
                       case _                   =>
-                        val encoded = codec.codec.asInstanceOf[BinaryCodec[Any]].encode(value).asString
+                        val encoded = codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(value).asString
                         qp = qp.addQueryParam(name, encoded)
                     }
                     j = j + 1
@@ -590,11 +598,11 @@ private[codec] object EncoderDecoder {
                     qp = qp.addQueryParams(
                       name,
                       Chunk.fromIterable(values.asInstanceOf[Iterable[Any]].map { v =>
-                        codec.codec.asInstanceOf[BinaryCodec[Any]].encode(v).asString
+                        codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(v).asString
                       }),
                     )
                   case _                                          =>
-                    val encoded = codec.codec.asInstanceOf[BinaryCodec[Any]].encode(value).asString
+                    val encoded = codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(value).asString
                     qp = qp.addQueryParam(name, encoded)
                 }
                 j = j + 1
@@ -618,22 +626,27 @@ private[codec] object EncoderDecoder {
     private def encodeMethod(inputs: Array[Any]): Option[Method] =
       simpleEncode(flattened.method, inputs)
 
-    private def encodeBody(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Body =
+    private def encodeBody(config: CodecConfig, inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Body =
       inputs.length match {
         case 0 =>
           Body.empty
         case 1 =>
           val bodyCodec = flattened.content(0)
-          bodyCodec.erase.encodeToBody(inputs(0), outputTypes)
+          bodyCodec.erase.encodeToBody(inputs(0), outputTypes, config)
         case _ =>
-          Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes), formBoundary)
+          Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes, config), formBoundary)
+
       }
 
-    private def encodeMultipartFormData(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Form = {
+    private def encodeMultipartFormData(
+      inputs: Array[Any],
+      outputTypes: Chunk[MediaTypeWithQFactor],
+      config: CodecConfig,
+    ): Form = {
       val formFields = flattened.content.zipWithIndex.map { case (bodyCodec, idx) =>
         val input = inputs(idx)
         val name  = nameByIndex(idx)
-        bodyCodec.erase.encodeToField(input, outputTypes, name)
+        bodyCodec.erase.encodeToField(input, outputTypes, name, config)
       }
 
       Form(formFields: _*)

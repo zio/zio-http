@@ -35,20 +35,20 @@ private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
     combiner: Combiner[I, endpoint.authType.ClientRequirement],
     trace: Trace,
   ): ZIO[R with Scope, E, O] = {
-    def request0(authInput: endpoint.authType.ClientRequirement) = {
+    def request0(config: CodecConfig, authInput: endpoint.authType.ClientRequirement) = {
       val input = if (authInput.isInstanceOf[Unit]) invocation.input else combiner.combine(invocation.input, authInput)
       endpoint
         .authedInput(combiner)
         .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]]
-        .encodeRequest(input)
+        .encodeRequest(input, config)
     }
-    def request(authInput: endpoint.authType.ClientRequirement)  = {
-      val req0 = request0(authInput)
+    def request(config: CodecConfig, authInput: endpoint.authType.ClientRequirement)  = {
+      val req0 = request0(config, authInput)
       req0.copy(url = endpointRoot ++ req0.url)
     }
 
-    def withDefaultAcceptHeader(authInput: endpoint.authType.ClientRequirement) = {
-      val req = request(authInput)
+    def withDefaultAcceptHeader(config: CodecConfig, authInput: endpoint.authType.ClientRequirement) = {
+      val req = request(config, authInput)
       if (req.headers.exists(_.headerName == Header.Accept.name))
         req
       else {
@@ -58,7 +58,12 @@ private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
       }
     }
 
-    val requested = authProvider.flatMap(authInput => client.request(withDefaultAcceptHeader(authInput)).orDie)
+    val requested =
+      for {
+        authInput <- authProvider
+        config    <- CodecConfig.codecRef.get
+        response  <- client.request(withDefaultAcceptHeader(config, authInput)).orDie
+      } yield response
 
     requested.flatMap { response =>
       if (endpoint.output.matchesStatus(response.status)) {

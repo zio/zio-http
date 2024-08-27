@@ -655,7 +655,9 @@ object OpenAPIGen {
                       throw new Exception(s"No value or default value found for field ${exName}_${field.name}"),
                     )
                   s"${exName}_${field.name}" -> OpenAPI.ReferenceOr.Or(
-                    OpenAPI.Example(value = Json.Str(codec.codec.encode(fieldValue).asString)),
+                    OpenAPI.Example(value =
+                      Json.Str(codec.codec(CodecConfig.defaultConfig).encode(fieldValue).asString),
+                    ),
                   )
                 },
                 required = mc.required,

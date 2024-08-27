@@ -5,7 +5,7 @@ import zio._
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.{HeaderCodec, PathCodec}
+import zio.http.codec.{CodecConfig, HeaderCodec, PathCodec}
 import zio.http.endpoint.{AuthType, Endpoint}
 
 object EndpointWithMultipleErrorsUsingEither extends ZIOAppDefault {
