@@ -56,7 +56,7 @@ object MetricsSpec extends ZIOHttpSpec {
         mkRequest = mkRequest0(port)
         _             <- ZIO.iterate((0, init))(_._1 < maxReq) { case (n, content) =>
           ZIO.scoped {
-            Client.request(mkRequest(content)).flatMap { req =>
+            Client.streaming(mkRequest(content)).flatMap { req =>
               if (req.status == Status.Ok) ZIO.unit @@ Metric.counter("received ok").tagged("test", name).fromConst(1)
               else ZIO.unit @@ Metric.counter("not received ok").tagged("test", name).fromConst(1)
             }
