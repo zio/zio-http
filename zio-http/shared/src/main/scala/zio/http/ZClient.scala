@@ -83,7 +83,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
 
   def batched(
     request: Request,
-  )(implicit trace: Trace, ev1: ReqEnv =:= Scope, ev2: Err <:< Throwable, ev3: Body <:< In): ZIO[Env, Throwable, Out] =
+  )(implicit trace: Trace, ev1: ReqEnv =:= Scope, ev3: Body <:< In): ZIO[Env, Err, Out] =
     batched.apply(request)
 
   /**
@@ -93,10 +93,10 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
    * response is streaming, it will await for it to be fully collected before
    * resuming.
    */
-  def batched(implicit ev1: ReqEnv =:= Scope, ev2: Err <:< Throwable): ZClient[Env, Any, In, Throwable, Out] =
-    self.transform[Env, Any, In, Throwable, Out](
-      self.bodyEncoder.widenError[Throwable],
-      self.bodyDecoder.widenError[Throwable],
+  def batched(implicit ev1: ReqEnv =:= Scope): ZClient[Env, Any, In, Err, Out] =
+    self.transform[Env, Any, In, Err, Out](
+      self.bodyEncoder,
+      self.bodyDecoder,
       self.driver.disableStreaming,
     )
 
@@ -119,7 +119,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
     refineOrDie { case e if !f(e) => e }
 
   @deprecated("use `batched` instead", since = "3.0.0")
-  def disableStreaming(implicit ev1: ReqEnv =:= Scope, ev2: Err <:< Throwable): ZClient[Env, Any, In, Throwable, Out] =
+  def disableStreaming(implicit ev1: ReqEnv =:= Scope): ZClient[Env, Any, In, Err, Out] =
     batched
 
   def get(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
@@ -226,16 +226,14 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
    * Executes an HTTP request and transforms the response into a `ZStream` using
    * the provided function
    */
-  def stream[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
+  def stream[R, E0 >: Err, A](request: Request)(f: Out => ZStream[R, E0, A])(implicit
     trace: Trace,
     ev1: Body <:< In,
-    ev2: Out <:< Response,
-    ev3: Err <:< Throwable,
-    ev4: ReqEnv =:= Scope,
-  ): ZStream[R & Env, Throwable, A] = ZStream.unwrapScoped[R & Env] {
+    ev2: ReqEnv =:= Scope,
+  ): ZStream[R & Env, E0, A] = ZStream.unwrapScoped[R & Env] {
     self
       .request(request)
-      .asInstanceOf[ZIO[R & Env & Scope, Throwable, Response]]
+      .asInstanceOf[ZIO[R & Env & Scope, Err, Out]]
       .fold(ZStream.fail(_), f)
   }
 
@@ -326,8 +324,8 @@ object ZClient extends ZClientPlatformSpecific {
    */
   def streamingWith[R, A](request: Request)(f: Response => ZStream[R, Throwable, A])(implicit
     trace: Trace,
-  ): ZStream[Client & R, Throwable, A] =
-    ZStream.serviceWithStream[Client](_.stream[R, A](request)(f))
+  ): ZStream[R & Client, Throwable, A] =
+    ZStream.serviceWithStream[Client](_.stream(request)(f))
 
   def socket[R](socketApp: WebSocketApp[R])(implicit trace: Trace): ZIO[R with Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
@@ -407,10 +405,10 @@ object ZClient extends ZClientPlatformSpecific {
     final def apply(request: Request)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] =
       self.request(request.version, request.method, request.url, request.headers, request.body, None, None)
 
-    def disableStreaming(implicit ev1: ReqEnv =:= Scope, ev2: Err <:< Throwable): Driver[Env, Any, Throwable] =
-      new Driver[Env, Any, Throwable] {
+    def disableStreaming(implicit ev1: ReqEnv =:= Scope): Driver[Env, Any, Err] =
+      new Driver[Env, Any, Err] {
 
-        private val self0 = self.asInstanceOf[Driver[Env, Scope, Throwable]]
+        private val self0 = self.asInstanceOf[Driver[Env, Scope, Err]]
 
         override def request(
           version: Version,
@@ -420,17 +418,22 @@ object ZClient extends ZClientPlatformSpecific {
           body: Body,
           sslConfig: Option[ClientSSLConfig],
           proxy: Option[Proxy],
-        )(implicit trace: Trace): ZIO[Env, Throwable, Response] =
+        )(implicit trace: Trace): ZIO[Env, Err, Response] =
           ZIO
             .scoped[Env] {
-              self0.request(version, method, url, headers, body, sslConfig, proxy).flatMap(_.collect)
+              self0.request(version, method, url, headers, body, sslConfig, proxy).flatMap { resp =>
+                resp.collect.foldCause(
+                  cause => resp.copy(body = Body.ErrorBody(cause)),
+                  ZIO.identityFn,
+                )
+              }
             }
 
         // This should never be possible to invoke unless the user unsafely casted the Driver environment
         override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit
           trace: Trace,
           ev: Any =:= Scope,
-        ): ZIO[Env1 & Any, Throwable, Response] =
+        ): ZIO[Env1 & Any, Err, Response] =
           ZIO.die(new UnsupportedOperationException("Streaming is disabled"))
       }
 
