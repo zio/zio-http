@@ -988,7 +988,7 @@ object OpenAPIGen {
   }
   private def schemaReferencePath(nominal: TypeId.Nominal, referenceType: SchemaStyle): String = {
     referenceType match {
-      case SchemaStyle.Compact => s"#/components/schemas/${nominal.typeName}}"
+      case SchemaStyle.Compact => s"#/components/schemas/${nominal.typeName}"
       case _                   => s"#/components/schemas/${nominal.fullyQualified.replace(".", "_")}}"
     }
   }
