@@ -68,14 +68,17 @@ final case class Request(
   def addTrailingSlash: Request = self.copy(url = self.url.addTrailingSlash)
 
   /**
-   * Collects the potentially streaming body of the request into a single chunk.
+   * Collects the potentially streaming body of the response into a single
+   * chunk.
+   *
+   * Any errors that occur from the collection of the body will be caught and
+   * propagated to the Body
    */
-  def collect(implicit trace: Trace): ZIO[Any, Throwable, Request] =
-    if (self.body.isComplete) ZIO.succeed(self)
-    else
-      self.body.asChunk.map { bytes =>
-        self.copy(body = Body.fromChunk(bytes))
-      }
+  def collect(implicit trace: Trace): ZIO[Any, Nothing, Request] =
+    self.body.materialize.map { b =>
+      if (b eq self.body) self
+      else self.copy(body = b)
+    }
 
   def dropLeadingSlash: Request = updateURL(_.dropLeadingSlash)
 
@@ -84,9 +87,16 @@ final case class Request(
    */
   def dropTrailingSlash: Request = updateURL(_.dropTrailingSlash)
 
-  /** Consumes the streaming body fully and then drops it */
-  def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Request] =
-    self.collect.map(_.copy(body = Body.empty))
+  /**
+   * Consumes the streaming body fully and then discards it while also ignoring
+   * any failures
+   */
+  def ignoreBody(implicit trace: Trace): ZIO[Any, Nothing, Request] = {
+    val out   = self.copy(body = Body.empty)
+    val body0 = self.body
+    if (body0.isComplete) Exit.succeed(out)
+    else body0.asStream.runDrain.ignore.as(out)
+  }
 
   def patch(p: Request.Patch): Request =
     self.copy(headers = self.headers ++ p.addHeaders, url = self.url.addQueryParams(p.addQueryParams))
