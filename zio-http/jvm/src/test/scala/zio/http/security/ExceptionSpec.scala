@@ -82,7 +82,6 @@ object ExceptionSpec extends ZIOSpecDefault {
       } yield assertTrue(!response.contains("Exception in thread"))
     },
   ).provide(
-    Scope.default,
     Server.customized,
     ZLayer.succeed(
       Server.Config.default,
