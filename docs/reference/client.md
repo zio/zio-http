@@ -24,20 +24,94 @@ title: Client
 ## Making HTTP Requests
 
 We can think of a `ZClient` as a function that takes a `Request` and returns a `ZIO` effect that calls the server with the given request and returns the response that the server sends back.
+Requests can be executed in 2 modes:
+- `batched`: The entire body of the request is materialized in memory, and the connection lifecycle is managed automatically by the client.
+- `streaming`: The body of the request _might be_ streaming, and the connection lifecycle is managed through the `Scope` in the effect's environment.
+
+The `Client`'s companion object contains methods that reflect the 2 modes of request execution:
 
 ```scala
 object Client {
-  def request(request: Request): ZIO[Client & Scope, Throwable, Response] = ???
+  def batched(request: Request): ZIO[Client, Throwable, Response] = ???
+  def streaming(request: Request): ZIO[Client & Scope, Throwable, Response] = ???
 }
 ```
 
-The `Client` and `Scope` environments are required to perform the request and handle the response. For the `Client` environment, we can use the default client provided by ZIO HTTP (i.e., `Client.default`). The `Scope` environment is used to manage the lifecycle of resources such as connections, sockets, and other I/O-related resources that are acquired and released during the request-response operation.
+### "Streaming" Client
+
+The `streaming` mode is the default mode for executing HTTP requests. It requires the `Client` and `Scope` environments to perform the request and handle the response. The `Client` environment is used to make the request, while the `Scope` environment is used to manage the lifecycle of resources such as connections, sockets, and other I/O-related resources that are acquired and released during the request-response operation.
+
+When making a request in the `streaming` mode, we need to explicitly close the `Scope` once we've collected the response body:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+// OK
+val good =
+  ZIO.scoped {
+    Client
+      .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      .flatMap(_.body.asString)
+  }.flatMap(???)
+  
+// BAD: The server might be streaming the response body, and we've forcefully closed the connection before it finishes
+val bad1 =
+  ZIO.scoped {
+    Client
+      .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      .map(_.headers)
+  }
+    .flatMap(???)
+
+// BAD: We're closing the scope before collecting the response body
+val bad2 =
+  ZIO.scoped {
+      Client
+        .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
+    }
+    .flatMap(_.body.asString)
+    .flatMap(???)
+
+// VERY BAD: The connection will not be closed until the application exits, which will lead to resource leaks!
+val bad3 =
+  Client
+    .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
+    .flatMap(_.body.asString)
+    .flatMap(???)
+    .provideSomeLayer[Client](Scope.default)
+```
 
 :::note
+As a rule of thumb, you should **never** use `Scope.default` with Client!
+
 To learn more about resource management and `Scope` in ZIO, refer to the [dedicated guide on this topic](https://zio.dev/reference/resource/scope) in the ZIO Core documentation.
 :::
 
-Let's try to make a simple GET HTTP request using `Client`:
+### "Batched" Client
+
+Handling of `Scope` can quickly become cumbersome in cases where we simply want to execute an HTTP request and not handle the lifetime of the HTTP request.
+The `batched` mode is simply a sub-implementation of the `streaming` mode where the `Scope` (i.e., connection lifecycle) is managed automatically.
+
+Executing a request via the `batched` method can be done as simply as:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+val good =
+  Client
+    .batched(Request.get("http://jsonplaceholder.typicode.com/todos"))
+    .flatMap(_.body.asString)
+    .flatMap(???)
+```
+
+::: warning
+The `batched` methods will materialize the entire body of the request to memory.
+Use this only when you don't need to stream the request body!
+:::
+
+We can similarly use the `batched` method on an instance of `Client` to return a new instance where all the methods will be executed in the `batched` mode. Below is a realistic example showcasing the usage of the `batched` client:
 
 ```scala mdoc:compile-only
 import zio._
@@ -56,41 +130,13 @@ object Todo {
   implicit val todoSchema = DeriveSchema.gen[Todo]
 }
 
-object ClientExample extends ZIOAppDefault {
-  val program: ZIO[Client & Scope, Throwable, Unit] = 
-    for {
-      res   <- Client.request(Request.get("http://jsonplaceholder.typicode.com/todos"))
-      todos <- res.body.to[List[Todo]]
-      _     <- Console.printLine(s"The first task is '${todos.head.title}'")
-    } yield ()
+final class JsonPlaceHolderService(baseClient: Client) {
+  private val client = baseClient.batched
 
-  override val run = program.provide(Client.default, Scope.default)
-}
-```
-
-Another way to have a client is to obtain it from the environment manually using the `ZIO.service` method, then use it to make a request. Like the previous example, we have to provide the `Client` and `Scope` environments to the program:
-
-```scala mdoc:invisible
-case class Todo(userId: Int, id: Int, title: String, completed: Boolean)
-
-object Todo {
-  implicit val todoSchema = ???
-}
-```
-
-```scala mdoc:compile-only
-import zio._
-import zio.http._
-
-object ClientExample extends ZIOAppDefault {
-  val program: ZIO[Client & Scope, Throwable, Unit] = 
-    for {
-      res   <- Client.request(Request.get("http://jsonplaceholder.typicode.com/todos"))
-      todos <- res.body.to[List[Todo]]
-      _     <- Console.printLine(s"The first task is '${todos.head.title}'")
-    } yield ()
-
-  override val run = program.provide(Client.default, Scope.default)
+  def todos(): ZIO[Any, Throwable, List[Todo]] =
+    client
+      .request(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      .flatMap(_.body.to[List[Todo]])
 }
 ```
 
@@ -114,6 +160,10 @@ object ZClient {
   def socket[R](socketApp: WebSocketApp[R]): ZIO[R with Client & Scope, Throwable, Response] = ???
 }
 ```
+
+:::note
+The `socket` method is not available on the "Batched" client!
+:::
 
 Here is a simple example of how to use the `ZClient#socket` method to perform a WebSocket connection:
 
@@ -153,16 +203,15 @@ object WebSocketSimpleClient extends ZIOAppDefault {
         }
       }
 
-  val app: ZIO[Client with Scope, Throwable, Unit] =
+  val app: ZIO[Client, Throwable, Unit] =
     for {
       url    <- ZIO.fromEither(URL.decode("ws://ws.vi-server.org/mirror"))
       client <- ZIO.serviceWith[Client](_.url(url))
-      _      <- client.socket(socketApp)
-      _      <- ZIO.never
+      _      <- ZIO.scoped(client.socket(socketApp) *> ZIO.never)
     } yield ()
 
   val run: ZIO[Any, Throwable, Any] =
-    app.provide(Client.default, Scope.default)
+    app.provide(Client.default)
 
 }
 ```
@@ -205,10 +254,9 @@ object User {
   implicit val schema = DeriveSchema.gen[User]
 }
 
-val program: ZIO[Scope with Client, Throwable, Unit] =
+val program: ZIO[Client, Throwable, Unit] =
   for {
-    url    <- ZIO.fromEither(URL.decode("http://localhost:8080"))
-    client <- ZIO.serviceWith[Client](_.url(url))
+    client <- ZIO.serviceWith[Client](_.url(url"http://localhost:8080").batched)
     _      <- client.post("/users")(Body.from(User("John", 42)))
     res    <- client.get("/users")
     _      <- client.delete("/users/1")
@@ -257,10 +305,10 @@ object ClientWithDebugAspect extends ZIOAppDefault {
   val program =
     for {
       client <- ZIO.service[Client].map(_ @@ ZClientAspect.debug)
-      _      <- client.request(Request.get("http://jsonplaceholder.typicode.com/todos"))
+      _      <- client.batched(Request.get("http://jsonplaceholder.typicode.com/todos"))
     } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(Client.default)
 }
 ```
 

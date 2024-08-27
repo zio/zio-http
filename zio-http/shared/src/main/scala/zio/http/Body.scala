@@ -180,6 +180,12 @@ trait Body { self =>
   def contentType(newContentType: Body.ContentType): Body
 
   /**
+   * Materializes the body of the request into memory
+   */
+  def materialize(implicit trace: Trace): Task[Body] =
+    asArray.map(Body.ArrayBody(_, self.contentType))
+
+  /**
    * Returns the media type for this Body
    */
   final def mediaType: Option[MediaType] =
@@ -439,8 +445,10 @@ object Body {
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)
 
-  private[zio] trait UnsafeBytes extends Body {
+  private[zio] trait UnsafeBytes extends Body { self =>
     private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte]
+
+    final override def materialize(implicit trace: Trace): Task[Body] = Exit.succeed(self)
   }
 
   /**

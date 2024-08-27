@@ -52,11 +52,10 @@ final case class Response(
    * chunk.
    */
   def collect(implicit trace: Trace): ZIO[Any, Throwable, Response] =
-    if (self.body.isComplete) ZIO.succeed(self)
-    else
-      self.body.asChunk.map { bytes =>
-        self.copy(body = Body.fromChunk(bytes))
-      }
+    self.body.materialize.map { b =>
+      if (b eq self.body) self
+      else self.copy(body = b)
+    }
 
   /** Consumes the streaming body fully and then drops it */
   def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =

@@ -108,15 +108,14 @@ object RoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: Request,
     outF: Response => ZIO[Any, Err, TestResult],
-  ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
-    ZIO.scoped[Client with Server] {
-      for {
-        port   <- Server.install(route @@ Middleware.requestLogging())
-        client <- ZIO.service[Client]
-        out    <- client.request(in.updateURL(_.host("localhost").port(port))).orDie
-        result <- outF(out)
-      } yield result
-    }
+  ): zio.ZIO[Server with Client with Scope, Err, TestResult] = {
+    for {
+      port   <- Server.install(route @@ Middleware.requestLogging())
+      client <- ZIO.service[Client]
+      out    <- client.batched(in.updateURL(_.host("localhost").port(port))).orDie
+      result <- outF(out)
+    } yield result
+  }
 
   def testEndpointError[P, In, Err, Out](
     endpoint: Endpoint[P, In, Err, Out, AuthType.None],

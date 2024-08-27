@@ -32,7 +32,7 @@ object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
 
   val routes: Routes[Any, Response] = sseRoute.toRoutes
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] = {
+  override def run = {
     Server.serve(routes).provide(Server.default).exitCode
   }
 
@@ -43,11 +43,13 @@ object ServerSentEventAsJsonEndpointClient extends ZIOAppDefault {
 
   private val invocation = ServerSentEventAsJsonEndpoint.sseEndpoint(())
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    (for {
-      client <- ZIO.service[Client]
-      executor = EndpointExecutor(client, locator)
-      stream <- executor(invocation)
-      _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))
-    } yield ()).provideSome[Scope](ZClient.default)
+  override def run =
+    ZIO
+      .scoped(for {
+        client <- ZIO.service[Client]
+        executor = EndpointExecutor(client, locator)
+        stream <- executor(invocation)
+        _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))
+      } yield ())
+      .provide(ZClient.default)
 }
