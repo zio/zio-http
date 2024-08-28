@@ -78,6 +78,6 @@ object HybridRequestStreamingServerSpec extends HttpRunnableSpec {
         ZLayer.succeed(configAppWithHybridRequestStreaming),
         Server.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Client.default,
+        Client.live(ClientConfig.default.withMaxConnectionsPerHost(1)),
       ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
 }
