@@ -10,8 +10,10 @@ import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec._
 import zio.schema.codec.json._
+import zio.schema.validation._
 
 import zio.http.codec.{SegmentCodec, TextCodec}
+import zio.http.endpoint.openapi.JsonSchema.MetaData
 
 @nowarn("msg=possible missing interpolator")
 private[openapi] case class SerializableJsonSchema(
@@ -36,24 +38,51 @@ private[openapi] case class SerializableJsonSchema(
   contentMediaType: Option[String] = None,
   default: Option[Json] = None,
   pattern: Option[String] = None,
+  minLength: Option[Int] = None,
+  maxLength: Option[Int] = None,
+  minimum: Option[Either[Double, Long]] = None,
+  maximum: Option[Either[Double, Long]] = None,
+  multipleOf: Option[Double] = None,
+  exclusiveMinimum: Option[Either[Boolean, Either[Double, Long]]] = None,
+  exclusiveMaximum: Option[Either[Boolean, Either[Double, Long]]] = None,
+  uniqueItems: Option[Boolean] = None,
+  minItems: Option[Int] = None,
 ) {
-  def asNullableType(nullable: Boolean): SerializableJsonSchema =
+  def asNullableType(nullable: Boolean): SerializableJsonSchema = {
+    import SerializableJsonSchema.typeNull
+
     if (nullable && schemaType.isDefined)
       copy(schemaType = Some(schemaType.get.add("null")))
     else if (nullable && oneOf.isDefined)
-      copy(oneOf = Some(oneOf.get :+ SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))))
+      copy(oneOf = Some(oneOf.get :+ typeNull))
     else if (nullable && allOf.isDefined)
-      SerializableJsonSchema(allOf =
-        Some(Chunk(this, SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null"))))),
-      )
+      SerializableJsonSchema(allOf = Some(Chunk(this, typeNull)))
     else if (nullable && anyOf.isDefined)
-      copy(anyOf = Some(anyOf.get :+ SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))))
+      copy(anyOf = Some(anyOf.get :+ typeNull))
+    else if (nullable && ref.isDefined)
+      SerializableJsonSchema(anyOf = Some(Chunk(typeNull, this)))
     else
       this
-
+  }
 }
 
 private[openapi] object SerializableJsonSchema {
+
+  /**
+   * Used to generate a OpenAPI schema part looking like this:
+   * {{{
+   *   { "type": "null"}
+   * }}}
+   */
+  private[SerializableJsonSchema] val typeNull: SerializableJsonSchema =
+    SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))
+
+  implicit val doubleOrLongSchema: Schema[Either[Double, Long]] =
+    Schema.fallback(Schema[Double], Schema[Long]).transform(_.toEither, Fallback.fromEither)
+
+  implicit val eitherBooleanDoubleOrLongSchema: Schema[Either[Boolean, Either[Double, Long]]] =
+    Schema.fallback(Schema[Boolean], doubleOrLongSchema).transform(_.toEither, Fallback.fromEither)
+
   implicit val schema: Schema[SerializableJsonSchema] = DeriveSchema.gen[SerializableJsonSchema]
 
   val binaryCodec: BinaryCodec[SerializableJsonSchema] =
@@ -132,6 +161,12 @@ sealed trait JsonSchema extends Product with Serializable { self =>
     case JsonSchema.AnnotatedSchema(schema, annotation) => schema.annotations :+ annotation
     case _                                              => Chunk.empty
   }
+
+  final def isNullable: Boolean =
+    annotations.exists {
+      case MetaData.Nullable(nullable) => nullable
+      case _                           => false
+    }
 
   def withoutAnnotations: JsonSchema = self match {
     case JsonSchema.AnnotatedSchema(schema, _) => schema.withoutAnnotations
@@ -229,15 +264,36 @@ object JsonSchema {
       case schema if schema.ref.isDefined                                                                =>
         RefSchema(schema.ref.get)
       case schema if schema.schemaType.contains(TypeOrTypes.Type("number"))                              =>
-        JsonSchema.Number(NumberFormat.fromString(schema.format.getOrElse("double")))
+        JsonSchema.Number(
+          NumberFormat.fromString(schema.format.getOrElse("double")),
+          schema.minimum.map(_.fold(identity, _.toDouble)),
+          schema.exclusiveMinimum.map(_.map(_.fold(identity, _.toDouble))),
+          schema.maximum.map(_.fold(identity, _.toDouble)),
+          schema.exclusiveMaximum.map(_.map(_.fold(identity, _.toDouble))),
+        )
       case schema if schema.schemaType.contains(TypeOrTypes.Type("integer"))                             =>
-        JsonSchema.Integer(IntegerFormat.fromString(schema.format.getOrElse("int64")))
+        JsonSchema.Integer(
+          IntegerFormat.fromString(schema.format.getOrElse("int64")),
+          schema.minimum.map(_.fold(_.toLong, identity)),
+          schema.exclusiveMinimum.map(_.map(_.fold(_.toLong, identity))),
+          schema.maximum.map(_.fold(_.toLong, identity)),
+          schema.exclusiveMaximum.map(_.map(_.fold(_.toLong, identity))),
+        )
       case schema if schema.schemaType.contains(TypeOrTypes.Type("string")) && schema.enumValues.isEmpty =>
-        JsonSchema.String(schema.format.map(StringFormat.fromString), schema.pattern.map(Pattern.apply))
+        JsonSchema.String(
+          schema.format.map(StringFormat.fromString),
+          schema.pattern.map(Pattern.apply),
+          schema.minLength,
+          schema.maxLength,
+        )
       case schema if schema.schemaType.contains(TypeOrTypes.Type("boolean"))                             =>
         JsonSchema.Boolean
       case schema if schema.schemaType.contains(TypeOrTypes.Type("array"))                               =>
-        JsonSchema.ArrayType(schema.items.map(fromSerializableSchema))
+        JsonSchema.ArrayType(
+          schema.items.map(fromSerializableSchema),
+          schema.minItems,
+          schema.uniqueItems.contains(true),
+        )
       case schema if schema.enumValues.isDefined                                                         =>
         JsonSchema.Enum(schema.enumValues.get.map(EnumValue.fromJson))
       case schema if schema.oneOf.isDefined                                                              =>
@@ -355,7 +411,7 @@ object JsonSchema {
             .filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
             .flatMap { field =>
               val nested = fromZSchemaMulti(
-                field.schema,
+                field.annotations.foldLeft(field.schema)((schema, annotation) => schema.annotate(annotation)),
                 refType,
                 seenWithCurrent,
               )
@@ -365,32 +421,22 @@ object JsonSchema {
           JsonSchemas(fromZSchema(record, SchemaStyle.Inline), ref, children)
         case collection: Schema.Collection[_, _]                                               =>
           collection match {
-            case Schema.Sequence(elementSchema, _, _, _, _) =>
+            case Schema.Sequence(elementSchema, _, _, _, _)                =>
               arraySchemaMulti(refType, ref, elementSchema, seenWithCurrent)
-            case Schema.Map(_, valueSchema, _)              =>
-              val nested = fromZSchemaMulti(valueSchema, refType, seenWithCurrent)
-              if (valueSchema.isInstanceOf[Schema.Primitive[_]]) {
-                JsonSchemas(
-                  JsonSchema.Object(
-                    Map.empty,
-                    Right(nested.root),
-                    Chunk.empty,
-                  ),
-                  ref,
-                  nested.children,
-                )
-              } else {
-                JsonSchemas(
-                  JsonSchema.Object(
-                    Map.empty,
-                    Right(nested.root),
-                    Chunk.empty,
-                  ),
-                  ref,
-                  nested.children ++ (nested.rootRef.map(_ -> nested.root)),
-                )
-              }
-            case Schema.Set(elementSchema, _)               =>
+            case Schema.NonEmptySequence(elementSchema, _, _, _, identity) =>
+              arraySchemaMulti(
+                refType,
+                ref,
+                elementSchema,
+                seenWithCurrent,
+                minItems = Some(1),
+                uniqueItems = identity == "NonEmptySet",
+              )
+            case Schema.Map(_, valueSchema, _)                             =>
+              mapSchema(refType, ref, seenWithCurrent, valueSchema)
+            case Schema.NonEmptyMap(_, valueSchema, _)                     =>
+              mapSchema(refType, ref, seenWithCurrent, valueSchema)
+            case Schema.Set(elementSchema, _)                              =>
               arraySchemaMulti(refType, ref, elementSchema, seenWithCurrent)
           }
         case Schema.Transform(schema, _, _, _, _)                                              =>
@@ -446,22 +492,54 @@ object JsonSchema {
     }
   }
 
-  private def arraySchemaMulti(
+  private def mapSchema[V](
     refType: SchemaStyle,
     ref: Option[java.lang.String],
-    elementSchema: Schema[_],
-    seen: Set[java.lang.String],
-  ): JsonSchemas = {
-    val nested = fromZSchemaMulti(elementSchema, refType, seen)
-    if (elementSchema.isInstanceOf[Schema.Primitive[_]]) {
+    seenWithCurrent: Set[java.lang.String],
+    valueSchema: Schema[V],
+  ) = {
+    val nested = fromZSchemaMulti(valueSchema, refType, seenWithCurrent)
+    if (valueSchema.isInstanceOf[Schema.Primitive[_]]) {
       JsonSchemas(
-        JsonSchema.ArrayType(Some(nested.root)),
+        JsonSchema.Object(
+          Map.empty,
+          Right(nested.root),
+          Chunk.empty,
+        ),
         ref,
         nested.children,
       )
     } else {
       JsonSchemas(
-        JsonSchema.ArrayType(Some(nested.root)),
+        JsonSchema.Object(
+          Map.empty,
+          Right(nested.root),
+          Chunk.empty,
+        ),
+        ref,
+        nested.children ++ nested.rootRef.map(_ -> nested.root),
+      )
+    }
+  }
+
+  private def arraySchemaMulti(
+    refType: SchemaStyle,
+    ref: Option[java.lang.String],
+    elementSchema: Schema[_],
+    seen: Set[java.lang.String],
+    minItems: Option[Int] = None,
+    uniqueItems: Boolean = false,
+  ): JsonSchemas = {
+    val nested = fromZSchemaMulti(elementSchema, refType, seen)
+    if (elementSchema.isInstanceOf[Schema.Primitive[_]]) {
+      JsonSchemas(
+        JsonSchema.ArrayType(Some(nested.root), minItems, uniqueItems),
+        ref,
+        nested.children,
+      )
+    } else {
+      JsonSchemas(
+        JsonSchema.ArrayType(Some(nested.root), minItems, uniqueItems),
         ref,
         nested.children ++ nested.rootRef.map(_ -> nested.root),
       )
@@ -524,7 +602,10 @@ object JsonSchema {
           )
           .addAll(nonTransientFields.map { field =>
             field.name ->
-              fromZSchema(field.schema, SchemaStyle.Compact)
+              fromZSchema(
+                field.annotations.foldLeft(field.schema)((schema, annotation) => schema.annotate(annotation)),
+                SchemaStyle.Compact,
+              )
                 .deprecated(deprecated(field.schema))
                 .description(fieldDoc(field))
                 .default(fieldDefault(field))
@@ -540,35 +621,78 @@ object JsonSchema {
           .description(record.annotations.collectFirst { case description(value) => value })
       case collection: Schema.Collection[_, _]                                                    =>
         collection match {
-          case Schema.Sequence(elementSchema, _, _, _, _) =>
-            JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)))
-          case Schema.Map(_, valueSchema, _)              =>
+          case Schema.Sequence(elementSchema, _, _, _, _)                =>
+            JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)), None, uniqueItems = false)
+          case Schema.NonEmptySequence(elementSchema, _, _, _, identity) =>
+            JsonSchema.ArrayType(
+              Some(fromZSchema(elementSchema, refType)),
+              None,
+              uniqueItems = identity == "NonEmptySet",
+            )
+          case Schema.Map(_, valueSchema, _)                             =>
             JsonSchema.Object(
               Map.empty,
               Right(fromZSchema(valueSchema, refType)),
               Chunk.empty,
             )
-          case Schema.Set(elementSchema, _)               =>
-            JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)))
+          case Schema.NonEmptyMap(_, valueSchema, _)                     =>
+            JsonSchema.Object(
+              Map.empty,
+              Right(fromZSchema(valueSchema, refType)),
+              Chunk.empty,
+            )
+          case Schema.Set(elementSchema, _)                              =>
+            JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)), None, uniqueItems = true)
         }
       case Schema.Transform(schema, _, _, _, _)                                                   =>
         fromZSchema(schema, refType)
-      case Schema.Primitive(standardType, _)                                                      =>
+      case Schema.Primitive(standardType, annotations)                                            =>
         standardType match {
           case StandardType.UnitType           => JsonSchema.Null
-          case StandardType.StringType         => JsonSchema.String()
+          case StandardType.StringType         =>
+            JsonSchema.String.fromValidation(
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+            )
           case StandardType.BoolType           => JsonSchema.Boolean
           case StandardType.ByteType           => JsonSchema.String()
-          case StandardType.ShortType          => JsonSchema.Integer(IntegerFormat.Int32)
-          case StandardType.IntType            => JsonSchema.Integer(IntegerFormat.Int32)
-          case StandardType.LongType           => JsonSchema.Integer(IntegerFormat.Int64)
-          case StandardType.FloatType          => JsonSchema.Number(NumberFormat.Float)
-          case StandardType.DoubleType         => JsonSchema.Number(NumberFormat.Double)
+          case StandardType.ShortType          =>
+            JsonSchema.Integer.fromValidation(
+              IntegerFormat.Int32,
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+            )
+          case StandardType.IntType            =>
+            JsonSchema.Integer.fromValidation(
+              IntegerFormat.Int32,
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+            )
+          case StandardType.LongType           =>
+            JsonSchema.Integer.fromValidation(
+              IntegerFormat.Int64,
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+            )
+          case StandardType.FloatType          =>
+            JsonSchema.Number.fromValidation(
+              NumberFormat.Float,
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+            )
+          case StandardType.DoubleType         =>
+            JsonSchema.Number.fromValidation(
+              NumberFormat.Double,
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+            )
           case StandardType.BinaryType         => JsonSchema.String()
           case StandardType.CharType           => JsonSchema.String()
           case StandardType.UUIDType           => JsonSchema.String(StringFormat.UUID)
-          case StandardType.BigDecimalType     => JsonSchema.Number(NumberFormat.Double) // TODO: Is this correct?
-          case StandardType.BigIntegerType     => JsonSchema.Integer(IntegerFormat.Int64)
+          case StandardType.BigDecimalType     => // TODO: Is this correct?
+            JsonSchema.Number.fromValidation(
+              NumberFormat.Double,
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+            )
+          case StandardType.BigIntegerType     =>
+            JsonSchema.Integer.fromValidation(
+              IntegerFormat.Int64,
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+            )
           case StandardType.DayOfWeekType      => JsonSchema.String()
           case StandardType.MonthType          => JsonSchema.String()
           case StandardType.MonthDayType       => JsonSchema.String()
@@ -756,22 +880,18 @@ object JsonSchema {
       val markedForRemoval  = (for {
         obj      <- objects
         otherObj <- objects
-        notNullableSchemas = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties.collect {
-          case (name, schema)
-              if !schema.annotations.exists { case MetaData.Nullable(nullable) => nullable; case _ => false } =>
-            name -> schema
-        }
+        notNullableSchemas =
+          obj.withoutAnnotations
+            .asInstanceOf[JsonSchema.Object]
+            .properties
+            .filterNot { case (_, schema) => schema.isNullable }
         if notNullableSchemas == otherObj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties
       } yield otherObj).distinct
 
       val minified = objects.filterNot(markedForRemoval.contains).map { obj =>
         val annotations        = obj.annotations
         val asObject           = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object]
-        val notNullableSchemas = asObject.properties.collect {
-          case (name, schema)
-              if !schema.annotations.exists { case MetaData.Nullable(nullable) => nullable; case _ => false } =>
-            name -> schema
-        }
+        val notNullableSchemas = asObject.properties.filterNot { case (_, schema) => schema.isNullable }
         asObject.required(asObject.required.filter(notNullableSchemas.contains)).annotate(annotations)
       }
       val newAnyOf = minified ++ others
@@ -785,12 +905,50 @@ object JsonSchema {
       )
   }
 
-  final case class Number(format: NumberFormat) extends JsonSchema {
+  final case class Number(
+    format: NumberFormat,
+    minimum: Option[Double] = None,
+    exclusiveMinimum: Option[Either[Boolean, Double]] = None,
+    maximum: Option[Double] = None,
+    exclusiveMaximum: Option[Either[Boolean, Double]] = None,
+    multipleOf: Option[Double] = None,
+  ) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("number")),
         format = Some(format.productPrefix.toLowerCase),
+        minimum = minimum.map(Left(_)),
+        exclusiveMinimum = exclusiveMinimum.map(_.map(Left(_))),
+        maximum = maximum.map(Left(_)),
+        exclusiveMaximum = exclusiveMaximum.map(_.map(Left(_))),
       )
+  }
+
+  object Number {
+    def fromValidation(format: NumberFormat, validation: Option[Validation[_]]): JsonSchema = {
+      validation match {
+        case None        => Number(format, None, None, None, None, None)
+        case Some(value) =>
+          val flattened = flatten(value.bool.asInstanceOf[Bool[Predicate[_]]])
+
+          val exclusiveMin = flattened.collectFirst { case Predicate.Num.GreaterThan(num, v) =>
+            Right(num.numeric.toDouble(v))
+          }
+
+          val exclusiveMax = flattened.collectFirst { case Predicate.Num.LessThan(num, v) =>
+            Right(num.numeric.toDouble(v))
+          }
+
+          val min        = None
+          val max        = None
+          val multipleOf = None
+
+          Number(format, min, exclusiveMin, max, exclusiveMax, multipleOf)
+
+      }
+
+    }
+
   }
 
   sealed trait NumberFormat extends Product with Serializable
@@ -807,12 +965,140 @@ object JsonSchema {
 
   }
 
-  final case class Integer(format: IntegerFormat) extends JsonSchema {
+  final case class Integer(
+    format: IntegerFormat,
+    minimum: Option[Long] = None,
+    exclusiveMinimum: Option[Either[Boolean, Long]] = None,
+    maximum: Option[Long] = None,
+    exclusiveMaximum: Option[Either[Boolean, Long]] = None,
+    multipleOf: Option[Long] = None,
+  ) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("integer")),
         format = Some(format.productPrefix.toLowerCase),
+        minimum = minimum.map(Right(_)),
+        exclusiveMinimum = exclusiveMinimum.map(_.map(Right(_))),
+        maximum = maximum.map(Right(_)),
+        exclusiveMaximum = exclusiveMaximum.map(_.map(Right(_))),
       )
+  }
+
+  def flatten(value: Bool[Predicate[_]], not: Boolean = false): Chunk[Predicate[_]] = {
+    value match {
+      case Bool.And(left, right)                                                                                =>
+        flatten(left.asInstanceOf[Bool[Predicate[_]]], not) ++ flatten(right.asInstanceOf[Bool[Predicate[_]]], not)
+      // Or is not possible to model in json schema
+      case Bool.Or(_, _)                                                                                        =>
+        Chunk.empty
+      case Bool.Leaf(Predicate.Contramap(p, _))                                                                 =>
+        flatten(p.asInstanceOf[Bool[Predicate[_]]], not)
+      case Bool.Leaf(Predicate.Str.MaxLength(l)) if not                                                         =>
+        Chunk(Predicate.Str.MinLength(l).asInstanceOf[Predicate[_]])
+      case Bool.Leaf(Predicate.Str.MaxLength(l))                                                                =>
+        Chunk(Predicate.Str.MaxLength(l).asInstanceOf[Predicate[_]])
+      case Bool.Leaf(Predicate.Str.MinLength(l)) if not                                                         =>
+        Chunk(Predicate.Str.MaxLength(l).asInstanceOf[Predicate[_]])
+      case Bool.Leaf(Predicate.Str.MinLength(l))                                                                =>
+        Chunk(Predicate.Str.MinLength(l).asInstanceOf[Predicate[_]])
+      case Bool.Leaf(Predicate.Str.Matches(r)) if not                                                           =>
+        Chunk(Predicate.Str.Matches(r).asInstanceOf[Predicate[_]])
+      case Bool.Leaf(Predicate.Num.GreaterThan(num, v)) if not && num.isInstanceOf[NumType.IntType.type]        =>
+        Chunk(
+          Predicate.Num
+            .LessThan(num.asInstanceOf[NumType[Any]], num.asInstanceOf[NumType[Any]].numeric.plus(v, 1))
+            .asInstanceOf[Predicate[_]],
+        )
+      case Bool.Leaf(Predicate.Num.GreaterThan(num, v)) if not && num.isInstanceOf[NumType.LongType.type]       =>
+        Chunk(
+          Predicate.Num
+            .LessThan(num.asInstanceOf[NumType[Any]], num.asInstanceOf[NumType[Any]].numeric.plus(v, 1))
+            .asInstanceOf[Predicate[_]],
+        )
+      case Bool.Leaf(Predicate.Num.GreaterThan(num, v)) if not && num.isInstanceOf[NumType.ShortType.type]      =>
+        Chunk(
+          Predicate.Num
+            .LessThan(num.asInstanceOf[NumType[Any]], num.asInstanceOf[NumType[Any]].numeric.plus(v, 1))
+            .asInstanceOf[Predicate[_]],
+        )
+      case Bool.Leaf(Predicate.Num.GreaterThan(num, v)) if not && num.isInstanceOf[NumType.BigIntType.type]     =>
+        Chunk(
+          Predicate.Num
+            .LessThan(num.asInstanceOf[NumType[Any]], num.asInstanceOf[NumType[Any]].numeric.plus(v, 1))
+            .asInstanceOf[Predicate[_]],
+        )
+      case Bool.Leaf(Predicate.Num.GreaterThan(num, _)) if not && num.isInstanceOf[NumType.FloatType.type]      =>
+        throw new IllegalArgumentException("Inverted Float predicated can't be compiled to json schema")
+      case Bool.Leaf(Predicate.Num.GreaterThan(num, _)) if not && num.isInstanceOf[NumType.DoubleType.type]     =>
+        throw new IllegalArgumentException("Inverted Double predicated can't be compiled to json schema")
+      case Bool.Leaf(Predicate.Num.GreaterThan(num, _)) if not && num.isInstanceOf[NumType.BigDecimalType.type] =>
+        throw new IllegalArgumentException("Inverted BigDecimal predicated can't be compiled to json schema")
+      case Bool.Leaf(p @ Predicate.Num.GreaterThan(_, _))                                                       =>
+        Chunk(p.asInstanceOf[Predicate[_]])
+      case Bool.Leaf(Predicate.Num.LessThan(num, v)) if not && num.isInstanceOf[NumType.IntType.type]           =>
+        Chunk(
+          Predicate.Num
+            .GreaterThan(num.asInstanceOf[NumType[Any]], num.asInstanceOf[NumType[Any]].numeric.minus(v, 1))
+            .asInstanceOf[Predicate[_]],
+        )
+      case Bool.Leaf(Predicate.Num.LessThan(num, v)) if not && num.isInstanceOf[NumType.LongType.type]          =>
+        Chunk(
+          Predicate.Num
+            .GreaterThan(num.asInstanceOf[NumType[Any]], num.asInstanceOf[NumType[Any]].numeric.minus(v, 1))
+            .asInstanceOf[Predicate[_]],
+        )
+      case Bool.Leaf(Predicate.Num.LessThan(num, v)) if not && num.isInstanceOf[NumType.ShortType.type]         =>
+        Chunk(
+          Predicate.Num
+            .GreaterThan(num.asInstanceOf[NumType[Any]], num.asInstanceOf[NumType[Any]].numeric.minus(v, 1))
+            .asInstanceOf[Predicate[_]],
+        )
+      case Bool.Leaf(Predicate.Num.LessThan(num, v)) if not && num.isInstanceOf[NumType.BigIntType.type]        =>
+        Chunk(
+          Predicate.Num
+            .LessThan(num.asInstanceOf[NumType[Any]], num.asInstanceOf[NumType[Any]].numeric.minus(v, 1))
+            .asInstanceOf[Predicate[_]],
+        )
+      case Bool.Leaf(Predicate.Num.LessThan(num, _)) if not && num.isInstanceOf[NumType.FloatType.type]         =>
+        throw new IllegalArgumentException("Inverted Float predicated can't be compiled to json schema")
+      case Bool.Leaf(Predicate.Num.LessThan(num, _)) if not && num.isInstanceOf[NumType.DoubleType.type]        =>
+        throw new IllegalArgumentException("Inverted Double predicated can't be compiled to json schema")
+      case Bool.Leaf(Predicate.Num.LessThan(num, _)) if not && num.isInstanceOf[NumType.BigDecimalType.type]    =>
+        throw new IllegalArgumentException("Inverted BigDecimal predicated can't be compiled to json schema")
+      case Bool.Leaf(p @ Predicate.Num.LessThan(_, _))                                                          =>
+        Chunk(p.asInstanceOf[Predicate[_]])
+      case Bool.Not(value)                                                                                      =>
+        flatten(value, !not)
+      case _                                                                                                    =>
+        Chunk.empty
+    }
+  }
+
+  object Integer {
+
+    def fromValidation(format: IntegerFormat, validation: Option[Validation[_]]): JsonSchema = {
+      validation match {
+        case None        => Integer(format, None, None, None, None, None)
+        case Some(value) =>
+          val flattened = flatten(value.bool.asInstanceOf[Bool[Predicate[_]]])
+
+          val exclusiveMin = flattened.collectFirst { case Predicate.Num.GreaterThan(num, v) =>
+            Right(num.numeric.toLong(v))
+          }
+
+          val exclusiveMax = flattened.collectFirst { case Predicate.Num.LessThan(num, v) =>
+            Right(num.numeric.toLong(v))
+          }
+
+          val min        = None
+          val max        = None
+          val multipleOf = None
+
+          Integer(format, min, exclusiveMin, max, exclusiveMax, multipleOf)
+
+      }
+
+    }
   }
 
   sealed trait IntegerFormat extends Product with Serializable
@@ -831,12 +1117,19 @@ object JsonSchema {
   }
 
   // TODO: Add string formats and patterns
-  final case class String(format: Option[StringFormat], pattern: Option[Pattern]) extends JsonSchema {
+  final case class String(
+    format: Option[StringFormat],
+    pattern: Option[Pattern],
+    maxLength: Option[Int] = None,
+    minLength: Option[Int] = None,
+  ) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("string")),
         format = format.map(_.value),
         pattern = pattern.map(_.value),
+        maxLength = maxLength,
+        minLength = minLength,
       )
   }
 
@@ -844,6 +1137,18 @@ object JsonSchema {
     def apply(format: StringFormat): String = String(Some(format), None)
     def apply(pattern: Pattern): String     = String(None, Some(pattern))
     def apply(): String                     = String(None, None)
+
+    def fromValidation(validation: Option[Validation[_]]): JsonSchema =
+      if (validation.isEmpty) {
+        String(None, None)
+      } else {
+        val flattened = flatten(validation.get.bool.asInstanceOf[Bool[Predicate[_]]])
+        val pattern   =
+          flattened.collectFirst { case Predicate.Str.Matches(r) => Regex.toRegexString(r) }
+        val maxLength = flattened.collectFirst { case Predicate.Str.MaxLength(l) => l }
+        val minLength = flattened.collectFirst { case Predicate.Str.MinLength(l) => l }
+        String(None, pattern.map(Pattern.apply), maxLength, minLength)
+      }
   }
 
   sealed trait StringFormat extends Product with Serializable {
@@ -906,11 +1211,14 @@ object JsonSchema {
       SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("boolean")))
   }
 
-  final case class ArrayType(items: Option[JsonSchema]) extends JsonSchema {
+  final case class ArrayType(items: Option[JsonSchema], minItems: Option[Int], uniqueItems: Boolean)
+      extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("array")),
         items = items.map(_.toSerializableSchema),
+        minItems = minItems,
+        uniqueItems = if (uniqueItems) Some(true) else None,
       )
   }
 
@@ -919,10 +1227,30 @@ object JsonSchema {
     additionalProperties: Either[Boolean, JsonSchema],
     required: Chunk[java.lang.String],
   ) extends JsonSchema {
+
+    /**
+     * This Object represents an "open dictionary", aka a Map
+     *
+     * See: https://github.com/zio/zio-http/issues/3048#issuecomment-2306291192
+     */
+    def isOpenDictionary: Boolean = properties.isEmpty && additionalProperties.isRight
+
+    /**
+     * This Object represents a "closed dictionary", aka a case class
+     *
+     * See: https://github.com/zio/zio-http/issues/3048#issuecomment-2306291192
+     */
+    def isClosedDictionary: Boolean = additionalProperties.isLeft
+
+    /**
+     * Can't represent a case class and a Map at the same time
+     */
+    def isInvalid: Boolean = properties.nonEmpty && additionalProperties.isRight
+
     def addAll(value: Chunk[(java.lang.String, JsonSchema)]): Object =
       value.foldLeft(this) { case (obj, (name, schema)) =>
         schema match {
-          case Object(properties, additionalProperties, required) =>
+          case thatObj @ Object(properties, additionalProperties, required) if thatObj.isClosedDictionary =>
             obj.copy(
               properties = obj.properties ++ properties,
               additionalProperties = combineAdditionalProperties(obj.additionalProperties, additionalProperties),
@@ -953,11 +1281,20 @@ object JsonSchema {
         case Left(false)   => Some(BoolOrSchema.BooleanWrapper(false))
         case Right(schema) => Some(BoolOrSchema.SchemaWrapper(schema.toSerializableSchema))
       }
+
+      val nullableFields = properties.collect { case (name, schema) if schema.isNullable => name }.toSet
+
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("object")),
         properties = Some(properties.map { case (name, schema) => name -> schema.toSerializableSchema }),
         additionalProperties = additionalProperties,
-        required = if (required.isEmpty) None else Some(required),
+        required =
+          if (required.isEmpty) None
+          else if (nullableFields.isEmpty) Some(required)
+          else {
+            val newRequired = required.filterNot(nullableFields.contains)
+            if (newRequired.isEmpty) None else Some(newRequired)
+          },
       )
     }
   }

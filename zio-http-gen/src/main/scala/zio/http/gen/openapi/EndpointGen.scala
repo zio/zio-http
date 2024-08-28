@@ -7,7 +7,7 @@ import zio.Chunk
 import zio.http.Method
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPI}
-import zio.http.gen.scala.Code.Collection
+import zio.http.gen.scala.Code.{CodecType, Collection, PathSegmentCode, ScalaType}
 import zio.http.gen.scala.{Code, CodeGen}
 
 object EndpointGen {
@@ -79,6 +79,7 @@ final case class EndpointGen(config: Config) {
     var subtypeToTraits            = Map.empty[String, Set[String]]
     var caseClassToSharedFields    = Map.empty[String, Set[String]]
     var nameToSchemaAndAnnotations = Map.empty[String, (JsonSchema, Chunk[JsonSchema.MetaData])]
+    var aliasedPrimitives          = Map.empty[String, ScalaType]
 
     openAPI.components.toList.foreach { components =>
       components.schemas.foreach { case (OpenAPI.Key(name), refOrSchema) =>
@@ -112,9 +113,20 @@ final case class EndpointGen(config: Config) {
                 case None         => Some(refNames.toSet)
               }
             }
-          case _                                                  => // do nothing
+          case _                                                  =>
+            // primitives that are aliased should be registered for a special Newtype treatment,
+            // or if opted out, then replaced with their un-aliased form.
+            if (schema.isPrimitive) {
+              if (config.generateSafeTypeAliases)
+                aliasedPrimitives = aliasedPrimitives.updated(name, Code.TypeRef(name + ".Type"))
+              else
+                schemaToField(schema, openAPI, name, Chunk.empty).foreach {
+                  case Code.Field(_, fieldType: Code.Primitive, _) =>
+                    aliasedPrimitives = aliasedPrimitives.updated(name, fieldType)
+                  case _                                           => // do nothing, we only modify aliased primitives
+                }
+            }
         }
-
         nameToSchemaAndAnnotations = nameToSchemaAndAnnotations.updated(name, schema -> annotations)
       }
     }
@@ -176,9 +188,9 @@ final case class EndpointGen(config: Config) {
     // The `mapType` function is used to alter any relevant part of each code file
     noDuplicateFiles.map { cf =>
       cf.copy(
-        objects = cf.objects.map(mapType(_.name, subtypeToTraits)),
-        caseClasses = cf.caseClasses.map(mapType(_.name, subtypeToTraits)),
-        enums = cf.enums.map(mapType(_.name, subtypeToTraits)),
+        objects = cf.objects.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
+        caseClasses = cf.caseClasses.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
+        enums = cf.enums.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
       )
     }
   }
@@ -192,6 +204,9 @@ final case class EndpointGen(config: Config) {
    * function that alters a case class, and lifts it such that we can apply it
    * to any structure, and it'll take care to recurse when needed.
    *
+   * Another issue we fix here, is when we have aliased primitives. In that case
+   * we need to append `.Type` to the aliased primitive type.
+   *
    * @param getEncapsulatingName
    *   used to get the name of the code structure we operate on
    *   (Object/CaseClass/Enum)
@@ -203,22 +218,33 @@ final case class EndpointGen(config: Config) {
    * @return
    *   the modified structure
    */
-  def mapType[T <: Code.ScalaType](getEncapsulatingName: T => String, subtypeToTraits: Map[String, Set[String]])(
+  def mapType[T <: Code.ScalaType](
+    getEncapsulatingName: T => String,
+    subtypeToTraits: Map[String, Set[String]],
+    aliasedPrimitives: Map[String, Code.ScalaType],
+  )(
     codeStructureToAlter: T,
   ): T =
     mapCaseClasses { cc =>
-      cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (f @ Code.Field(_, scalaType), tail) =>
+      cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (f @ Code.Field(_, scalaType, _), tail) =>
         f.copy(fieldType = mapTypeRef(scalaType) { case originalType @ Code.TypeRef(tName) =>
           // We use the subtypeToTraits map to check if the type is a concrete subtype of a sealed trait.
           // As of the time of writing this code, there should be only a single trait.
           // In case future code generalizes to allow multiple mixins, this code should be updated.
-          subtypeToTraits.get(tName).fold(originalType) { set =>
-            // If the type parameter has exactly 1 super type trait,
-            // and that trait's name is different from our enclosing object's name,
-            // then we should alter the type to include the object's name.
-            if (set.size != 1 || set.head == getEncapsulatingName(codeStructureToAlter)) originalType
-            else Code.TypeRef(set.head + "." + tName)
-          }
+          //
+          // If no mixins are found, we try to check maybe we deal with an aliased primitive,
+          // which in this case we should use the provided alias (with ".Type" appended).
+          //
+          // If no alias, and no mixins, we return the original type.
+          subtypeToTraits
+            .get(tName)
+            .fold(aliasedPrimitives.getOrElse(tName, originalType)) { set =>
+              // If the type parameter has exactly 1 super type trait,
+              // and that trait's name is different from our enclosing object's name,
+              // then we should alter the type to include the object's name.
+              if (set.size != 1 || set.head == getEncapsulatingName(codeStructureToAlter)) originalType
+              else Code.TypeRef(set.head + "." + tName)
+            }
         }) :: tail
       })
     }(codeStructureToAlter)
@@ -237,14 +263,14 @@ final case class EndpointGen(config: Config) {
    * @return
    *   The altered type, or gives back the input if no modification was needed.
    */
-  def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Code.TypeRef): Code.ScalaType =
+  def mapTypeRef(sType: Code.ScalaType)(f: Code.TypeRef => Code.ScalaType): Code.ScalaType =
     sType match {
-      case tref: Code.TypeRef    => f(tref)
-      case Collection.Seq(inner) => Collection.Seq(mapTypeRef(inner)(f))
-      case Collection.Set(inner) => Collection.Set(mapTypeRef(inner)(f))
-      case Collection.Map(inner) => Collection.Map(mapTypeRef(inner)(f))
-      case Collection.Opt(inner) => Collection.Opt(mapTypeRef(inner)(f))
-      case _                     => sType
+      case tref: Code.TypeRef              => f(tref)
+      case Collection.Seq(inner, nonEmpty) => Collection.Seq(mapTypeRef(inner)(f), nonEmpty)
+      case Collection.Set(inner, nonEmpty) => Collection.Set(mapTypeRef(inner)(f), nonEmpty)
+      case Collection.Map(inner)           => Collection.Map(mapTypeRef(inner)(f))
+      case Collection.Opt(inner)           => Collection.Opt(mapTypeRef(inner)(f))
+      case _                               => sType
     }
 
   /**
@@ -273,7 +299,7 @@ final case class EndpointGen(config: Config) {
   def fromOpenAPI(openAPI: OpenAPI): Code.Files =
     Code.Files {
       val componentsCode = extractComponents(openAPI)
-      openAPI.paths.map { case (path, pathItem) =>
+      val files          = openAPI.paths.map { case (path, pathItem) =>
         val pathSegments = path.name.tail.replace('-', '_').split('/').toList
         val packageName  = pathSegments.init.mkString(".").replace("{", "").replace("}", "")
         val className    = pathSegments.last.replace("{", "").replace("}", "").capitalize
@@ -329,8 +355,9 @@ final case class EndpointGen(config: Config) {
           imports = (Code.Import.FromBase("component._") :: imports.flatten).distinct,
           objects = List(
             Code.Object(
-              className,
-              schema = false,
+              name = className,
+              extensions = Nil,
+              schema = None,
               endpoints = endpoints.toMap,
               objects = anonymousTypes.values.toList,
               caseClasses = Nil,
@@ -340,7 +367,8 @@ final case class EndpointGen(config: Config) {
           caseClasses = Nil,
           enums = Nil,
         )
-      }.toList ++ componentsCode
+      }
+      files.toList ++ componentsCode
     }
 
   private def fieldName(op: OpenAPI.Operation, fallback: String) =
@@ -361,11 +389,21 @@ final case class EndpointGen(config: Config) {
     // TODO: Resolve query and header parameters from components
     val queryParams         = params.collect {
       case p if p.in == "query" =>
-        schemaToQueryParamCodec(
-          p.schema.get.asInstanceOf[ReferenceOr.Or[JsonSchema]].value,
-          openAPI,
-          p.name,
-        )
+        p.schema.get match {
+          case ReferenceOr.Or(value)            =>
+            schemaToQueryParamCodec(
+              value,
+              openAPI,
+              p.name,
+            )
+          // references are only possible in case of aliased primitives
+          case ReferenceOr.Reference(ref, _, _) =>
+            val baref  = ref.replaceFirst("^#/components/schemas/", "")
+            val schema = resolveSchemaRef(openAPI, baref)
+            val qCodec = schemaToQueryParamCodec(schema, openAPI, p.name)
+            if (!config.generateSafeTypeAliases) qCodec
+            else qCodec.copy(queryType = CodecType.Aliased(qCodec.queryType, baref))
+        }
     }
     val headers             = params.collect { case p if p.in == "header" => Code.HeaderCode(p.name) }.toList
     val (inImports, inType) =
@@ -391,8 +429,9 @@ final case class EndpointGen(config: Config) {
                         )
                       anonymousTypes += method.toString ->
                         Code.Object(
-                          method.toString,
-                          schema = false,
+                          name = method.toString,
+                          extensions = Nil,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -429,8 +468,9 @@ final case class EndpointGen(config: Config) {
                             throw new Exception(s"Could not generate code for request body $schema"),
                           )
                         val obj  = Code.Object(
-                          method.toString,
-                          schema = false,
+                          name = method.toString,
+                          extensions = Nil,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -476,8 +516,9 @@ final case class EndpointGen(config: Config) {
                             throw new Exception(s"Could not generate code for request body $schema"),
                           )
                         val obj  = Code.Object(
-                          method.toString,
-                          schema = false,
+                          name = method.toString,
+                          extensions = Nil,
+                          schema = None,
                           endpoints = Map.empty,
                           objects = code.objects,
                           caseClasses = code.caseClasses,
@@ -524,7 +565,17 @@ final case class EndpointGen(config: Config) {
       case Some(OpenAPI.ReferenceOr.Or(schema: JsonSchema)) =>
         schemaToPathCodec(schema, openAPI, param.name)
       case Some(OpenAPI.ReferenceOr.Reference(ref, _, _))   =>
-        schemaToPathCodec(resolveSchemaRef(openAPI, ref), openAPI, param.name)
+        if (ref.startsWith("#/components/schemas/")) {
+          val baref  = ref.replaceFirst("^#/components/schemas/", "")
+          val schema = resolveSchemaRef(openAPI, baref)
+          val pCodec = schemaToPathCodec(schema, openAPI, param.name)
+          if (!config.generateSafeTypeAliases) pCodec
+          else pCodec.copy(segmentType = CodecType.Aliased(pCodec.segmentType, baref))
+        } else {
+          val schema = resolveSchemaRef(openAPI, ref)
+          val pCodec = schemaToPathCodec(schema, openAPI, param.name)
+          pCodec
+        }
       case None                                             =>
         // Not sure if open api allows path parameters without schema.
         // But string seems a good default
@@ -596,32 +647,46 @@ final case class EndpointGen(config: Config) {
         throw new Exception(s"Found reference to schema $key, but no components section found.")
     }
 
+  /**
+   * Used for aliased types to resolve into the wrapped primitive underlying
+   * type.
+   * @return
+   *   if primitive, a list of potential imports (e.g: for UUID, we need to
+   *   import java.util.UUID), and the primitive type name.
+   */
+  private def schemaToType(openAPI: OpenAPI, name: String, schema: JsonSchema): Option[(List[Code.Import], String)] =
+    if (schema.isPrimitive) {
+      val field = schemaToField(schema, openAPI, name, Chunk.empty).get // .get is safe, always defined for primitives
+      Some(CodeGen.render("")(field.fieldType))
+    } else None
+
   @tailrec
   private def schemaToPathCodec(schema: JsonSchema, openAPI: OpenAPI, name: String): Code.PathSegmentCode = {
     schema match {
       case JsonSchema.AnnotatedSchema(s, _) => schemaToPathCodec(s, openAPI, name)
       case JsonSchema.RefSchema(ref)        => schemaToPathCodec(resolveSchemaRef(openAPI, ref), openAPI, name)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)       =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32, _, _, _, _, _)     =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Int)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)       =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64, _, _, _, _, _)     =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Long)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp)   =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp, _, _, _, _, _) =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Long)
-      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _) =>
+      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, _, _)        =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.UUID)
-      case JsonSchema.String(_, _)                                  =>
+      case JsonSchema.String(_, _, _, _)                                         =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.String)
-      case JsonSchema.Boolean                                       =>
+      case JsonSchema.Boolean                                                    =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Boolean)
-      case JsonSchema.OneOfSchema(_) => throw new Exception("Alternative path variables are not supported")
-      case JsonSchema.AllOfSchema(_) => throw new Exception("Path variables must have exactly one schema")
-      case JsonSchema.AnyOfSchema(_) => throw new Exception("Path variables must have exactly one schema")
-      case JsonSchema.Number(_)      => throw new Exception("Floating point path variables are currently not supported")
-      case JsonSchema.ArrayType(_)   => throw new Exception("Array path variables are not supported")
-      case JsonSchema.Object(_, _, _) => throw new Exception("Object path variables are not supported")
-      case JsonSchema.Enum(_)         => throw new Exception("Enum path variables are not supported")
-      case JsonSchema.Null            => throw new Exception("Null path variables are not supported")
-      case JsonSchema.AnyJson         => throw new Exception("AnyJson path variables are not supported")
+      case JsonSchema.OneOfSchema(_)           => throw new Exception("Alternative path variables are not supported")
+      case JsonSchema.AllOfSchema(_)           => throw new Exception("Path variables must have exactly one schema")
+      case JsonSchema.AnyOfSchema(_)           => throw new Exception("Path variables must have exactly one schema")
+      case JsonSchema.Number(_, _, _, _, _, _) =>
+        throw new Exception("Floating point path variables are currently not supported")
+      case JsonSchema.ArrayType(_, _, _)       => throw new Exception("Array path variables are not supported")
+      case JsonSchema.Object(_, _, _)          => throw new Exception("Object path variables are not supported")
+      case JsonSchema.Enum(_)                  => throw new Exception("Enum path variables are not supported")
+      case JsonSchema.Null                     => throw new Exception("Null path variables are not supported")
+      case JsonSchema.AnyJson                  => throw new Exception("AnyJson path variables are not supported")
     }
   }
 
@@ -632,31 +697,32 @@ final case class EndpointGen(config: Config) {
     name: String,
   ): Code.QueryParamCode = {
     schema match {
-      case JsonSchema.AnnotatedSchema(s, _)                         =>
+      case JsonSchema.AnnotatedSchema(s, _)                                      =>
         schemaToQueryParamCodec(s, openAPI, name)
-      case JsonSchema.RefSchema(ref)                                =>
+      case JsonSchema.RefSchema(ref)                                             =>
         schemaToQueryParamCodec(resolveSchemaRef(openAPI, ref), openAPI, name)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)       =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32, _, _, _, _, _)     =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Int)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)       =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64, _, _, _, _, _)     =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Long)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp)   =>
+      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp, _, _, _, _, _) =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Long)
-      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _) =>
+      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, _, _)        =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.UUID)
-      case JsonSchema.String(_, _)                                  =>
+      case JsonSchema.String(_, _, _, _)                                         =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.String)
-      case JsonSchema.Boolean                                       =>
+      case JsonSchema.Boolean                                                    =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Boolean)
-      case JsonSchema.OneOfSchema(_) => throw new Exception("Alternative query parameters are not supported")
-      case JsonSchema.AllOfSchema(_) => throw new Exception("Query parameters must have exactly one schema")
-      case JsonSchema.AnyOfSchema(_) => throw new Exception("Query parameters must have exactly one schema")
-      case JsonSchema.Number(_)    => throw new Exception("Floating point query parameters are currently not supported")
-      case JsonSchema.ArrayType(_) => throw new Exception("Array query parameters are not supported")
-      case JsonSchema.Object(_, _, _) => throw new Exception("Object query parameters are not supported")
-      case JsonSchema.Enum(_)         => throw new Exception("Enum query parameters are not supported")
-      case JsonSchema.Null            => throw new Exception("Null query parameters are not supported")
-      case JsonSchema.AnyJson         => throw new Exception("AnyJson query parameters are not supported")
+      case JsonSchema.OneOfSchema(_)           => throw new Exception("Alternative query parameters are not supported")
+      case JsonSchema.AllOfSchema(_)           => throw new Exception("Query parameters must have exactly one schema")
+      case JsonSchema.AnyOfSchema(_)           => throw new Exception("Query parameters must have exactly one schema")
+      case JsonSchema.Number(_, _, _, _, _, _) =>
+        throw new Exception("Floating point query parameters are currently not supported")
+      case JsonSchema.ArrayType(_, _, _)       => throw new Exception("Array query parameters are not supported")
+      case JsonSchema.Object(_, _, _)          => throw new Exception("Object query parameters are not supported")
+      case JsonSchema.Enum(_)                  => throw new Exception("Enum query parameters are not supported")
+      case JsonSchema.Null                     => throw new Exception("Null query parameters are not supported")
+      case JsonSchema.AnyJson                  => throw new Exception("AnyJson query parameters are not supported")
     }
   }
 
@@ -671,6 +737,50 @@ final case class EndpointGen(config: Config) {
         .asInstanceOf[Code.Field]
       if (obj.required.contains(name)) field else field.copy(fieldType = field.fieldType.opt)
     }.toList
+
+  /**
+   * @param openAPI
+   * @param name
+   * @param wrapped
+   *   primitive type to be aliased as `name`
+   * @return
+   *   Code.File that have the following structure (e.g. for name="Name", and
+   *   wrapped = String):
+   *   {{{
+   *           package base.components
+   *
+   *           import zio.prelude.Newtype
+   *           import zio.schema.Schema
+   *
+   *           object Name extends Newtype[String] {
+   *             implicit val schema: Schema[Name.Type] = Schema.primitive[String].transform(wrap, unwrap)
+   *           }
+   *   }}}
+   */
+  def aliasedSchemaToCode(openAPI: OpenAPI, name: String, wrapped: JsonSchema): Option[Code.File] = {
+    if (!config.generateSafeTypeAliases) None
+    else
+      schemaToType(openAPI, name, wrapped).map { case (imports, wrappedType) =>
+        Code.File(
+          List("component", name.capitalize + ".scala"),
+          pkgPath = List("component"),
+          imports = Code.Import("zio.prelude.Newtype") :: Code.Import("zio.schema.Schema") :: imports,
+          objects = List(
+            Code.Object(
+              name = name,
+              extensions = List(s"Newtype[${wrappedType}]"),
+              schema = Some(Code.Object.SchemaCode.AliasedNewtype(wrappedType)),
+              endpoints = Map.empty,
+              objects = Nil,
+              caseClasses = Nil,
+              enums = Nil,
+            ),
+          ),
+          caseClasses = Nil,
+          enums = Nil,
+        )
+      }
+  }
 
   def schemaToCode(
     schema: JsonSchema,
@@ -717,13 +827,18 @@ final case class EndpointGen(config: Config) {
           .getOrElse(throw new Exception(s"Could not find content type application/json for response $ref"))
         schemaToCode(schema, openAPI, schemaName, annotations)
 
-      case JsonSchema.RefSchema(ref) => throw new Exception(s"Unexpected reference schema: $ref")
-      case JsonSchema.Integer(_)     => None
-      case JsonSchema.String(_, _)   => None // this could maybe be im proved to generate a string type with validation
-      case JsonSchema.Boolean        => None
-      case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive)                            =>
+      case JsonSchema.RefSchema(ref)            => throw new Exception(s"Unexpected reference schema: $ref")
+      case JsonSchema.Integer(_, _, _, _, _, _) => aliasedSchemaToCode(openAPI, name, schema)
+      case JsonSchema.String(_, _, _, _)        => aliasedSchemaToCode(openAPI, name, schema) /*
+         * this could maybe be improved to generate a string type with validation.
+         * in case of a Newtype alias, we can put validations inside the newtype object,
+         * and use `transformOrFail` with real validations instead of just a plain
+         * `transform` that simply `wrap` / `unwrap` the provided value.
+         */
+      case JsonSchema.Boolean                   => aliasedSchemaToCode(openAPI, name, schema)
+      case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
         throw new Exception("OneOf schemas with primitive types are not supported")
-      case JsonSchema.OneOfSchema(schemas)                                                             =>
+      case JsonSchema.OneOfSchema(schemas)                                  =>
         val discriminatorInfo                       =
           annotations.collectFirst { case JsonSchema.MetaData.Discriminator(discriminator) => discriminator }
         val discriminator: Option[String]           = discriminatorInfo.map(_.propertyName)
@@ -761,7 +876,7 @@ final case class EndpointGen(config: Config) {
           .toList
         val noDiscriminator                         = caseNames.isEmpty
         val unvalidatedFields: List[Code.Field]     = abstractMembers.flatMap(fieldsOfObject(openAPI, annotations))
-        val abstractMembersFields: List[Code.Field] = validateFields(unvalidatedFields)
+        val abstractMembersFields: List[Code.Field] = validateFields(unvalidatedFields).map(_.copy(annotations = Nil))
         Some(
           Code.File(
             List("component", name.capitalize + ".scala"),
@@ -783,7 +898,7 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.AllOfSchema(schemas)                                                             =>
+      case JsonSchema.AllOfSchema(schemas)                                  =>
         val genericFieldIndex = Iterator.from(0)
         val unvalidatedFields = schemas.map(_.withoutAnnotations).flatMap {
           case schema @ JsonSchema.Object(_, _, _)            =>
@@ -828,9 +943,9 @@ final case class EndpointGen(config: Config) {
             enums = Nil,
           ),
         )
-      case JsonSchema.AnyOfSchema(schemas) if schemas.exists(_.isPrimitive)                            =>
+      case JsonSchema.AnyOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
         throw new Exception("AnyOf schemas with primitive types are not supported")
-      case JsonSchema.AnyOfSchema(schemas)                                                             =>
+      case JsonSchema.AnyOfSchema(schemas)                                  =>
         val discriminatorInfo                    =
           annotations.collectFirst { case JsonSchema.MetaData.Discriminator(discriminator) => discriminator }
         val discriminator: Option[String]        = discriminatorInfo.map(_.propertyName)
@@ -887,15 +1002,14 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Number(_)                                                                        => None
-      case JsonSchema.ArrayType(None)                                                                  => None
-      case JsonSchema.ArrayType(Some(schema))                                                          =>
+      case JsonSchema.Number(_, _, _, _, _, _)      => aliasedSchemaToCode(openAPI, name, schema)
+      // should we provide support for (Newtype) aliasing arrays of primitives?
+      case JsonSchema.ArrayType(None, _, _)         => None
+      case JsonSchema.ArrayType(Some(schema), _, _) =>
         schemaToCode(schema, openAPI, name, annotations)
-      case JsonSchema.Object(properties, additionalProperties, _)
-          if properties.nonEmpty && additionalProperties.isRight =>
-        // Can't be an object and a map at the same time
+      case obj: JsonSchema.Object if obj.isInvalid  =>
         throw new Exception("Object with properties and additionalProperties is not supported")
-      case obj @ JsonSchema.Object(properties, additionalProperties, _) if additionalProperties.isLeft =>
+      case obj @ JsonSchema.Object(properties, _, _) if obj.isClosedDictionary =>
         val unvalidatedFields = fieldsOfObject(openAPI, annotations)(obj)
         val fields            = validateFields(unvalidatedFields)
         val nested            =
@@ -928,10 +1042,10 @@ final case class EndpointGen(config: Config) {
             enums = Nil,
           ),
         )
-      case JsonSchema.Object(_, _, _)                                                                  =>
-        // properties.isEmpty && additionalProperties.isRight
+      case JsonSchema.Object(_, _, _)                                          =>
+        // if obt.isOpenDictionary
         throw new IllegalArgumentException("Top-level maps are not supported")
-      case JsonSchema.Enum(enums)                                                                      =>
+      case JsonSchema.Enum(enums)                                              =>
         Some(
           Code.File(
             List("component", name.capitalize + ".scala"),
@@ -957,7 +1071,7 @@ final case class EndpointGen(config: Config) {
     }
   }
 
-  private val reconcileFieldTypes: (String, Seq[Code.Field]) => Code.Field = (sameName, fields) => {
+  private def reconcileFieldTypes(sameName: String, fields: Seq[Code.Field]): Code.Field = {
     val reconciledFieldType = fields.view.map(_.fieldType).reduce[Code.ScalaType] {
       case (maybeBoth, areTheSame) if maybeBoth == areTheSame                 => areTheSame
       case (Collection.Opt(maybeInner), isTheSame) if maybeInner == isTheSame => isTheSame
@@ -978,7 +1092,7 @@ final case class EndpointGen(config: Config) {
   private def validateFields(fields: Seq[Code.Field]): List[Code.Field] =
     fields
       .groupBy(_.name)
-      .map(reconcileFieldTypes.tupled)
+      .map { case (name, fields) => reconcileFieldTypes(name, fields) }
       .toList
       .sortBy(cf => fields.iterator.map(_.name).indexOf(cf.name)) // preserve original order of fields
 
@@ -995,25 +1109,123 @@ final case class EndpointGen(config: Config) {
     annotations: Chunk[JsonSchema.MetaData],
   ): Option[Code.Field] = {
     schema match {
-      case JsonSchema.AnnotatedSchema(s, _)                         =>
+      case JsonSchema.AnnotatedSchema(s, _)     =>
         schemaToField(s.withoutAnnotations, openAPI, name, schema.annotations)
-      case JsonSchema.RefSchema(SchemaRef(ref))                     =>
+      case JsonSchema.RefSchema(SchemaRef(ref)) =>
         Some(Code.Field(name, Code.TypeRef(ref.capitalize)))
-      case JsonSchema.RefSchema(ref)                                =>
+      case JsonSchema.RefSchema(ref)            =>
         throw new Exception(s" Not found: $ref. Only references to internal schemas are supported.")
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)       =>
-        Some(Code.Field(name, Code.Primitive.ScalaInt))
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)       =>
-        Some(Code.Field(name, Code.Primitive.ScalaLong))
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp)   =>
-        Some(Code.Field(name, Code.Primitive.ScalaLong))
-      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _) =>
-        Some(Code.Field(name, Code.Primitive.ScalaUUID))
-      case JsonSchema.String(_, _)                                  =>
-        Some(Code.Field(name, Code.Primitive.ScalaString))
-      case JsonSchema.Boolean                                       =>
+      case JsonSchema.Integer(
+            JsonSchema.IntegerFormat.Int32,
+            minimum,
+            exclusiveMinimum,
+            maximum,
+            exclusiveMaximum,
+            _,
+          ) =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+        val annotations  = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+
+        Some(Code.Field(name, Code.Primitive.ScalaInt, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.Integer(
+            JsonSchema.IntegerFormat.Int64,
+            minimum,
+            exclusiveMinimum,
+            maximum,
+            exclusiveMaximum,
+            _,
+          ) =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+        val annotations  = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.Integer(
+            JsonSchema.IntegerFormat.Timestamp,
+            minimum,
+            exclusiveMinimum,
+            maximum,
+            exclusiveMaximum,
+            _,
+          ) =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+        val annotations  = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations.map(Code.Annotation.apply)))
+
+      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, maxLength, minLength)                             =>
+        val annotations =
+          (maxLength, minLength) match {
+            case (Some(max), Some(min)) =>
+              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max) && zio.schema.validation.Validation.minLength($min))" :: Nil
+            case (Some(max), None)      =>
+              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max))" :: Nil
+            case (None, Some(min))      =>
+              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.minLength($min))" :: Nil
+            case (None, None)           =>
+              Nil
+          }
+        Some(Code.Field(name, Code.Primitive.ScalaUUID, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.String(_, _, maxLength, minLength)                                                              =>
+        val annotations = (maxLength, minLength) match {
+          case (Some(max), Some(min)) =>
+            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max) && zio.schema.validation.Validation.minLength($min))" :: Nil
+          case (Some(max), None)      =>
+            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max))" :: Nil
+          case (None, Some(min))      =>
+            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.minLength($min))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaString, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.Boolean                                                                                         =>
         Some(Code.Field(name, Code.Primitive.ScalaBoolean))
-      case JsonSchema.OneOfSchema(schemas)                          =>
+      case JsonSchema.OneOfSchema(schemas)                                                                            =>
         val tpe =
           schemas
             .map(_.withoutAnnotations)
@@ -1021,9 +1233,9 @@ final case class EndpointGen(config: Config) {
             .map(_.fieldType)
             .reduceLeft(Code.ScalaType.Or.apply)
         Some(Code.Field(name, tpe))
-      case JsonSchema.AllOfSchema(_)                                =>
+      case JsonSchema.AllOfSchema(_)                                                                                  =>
         throw new Exception("Inline allOf schemas are not supported for fields")
-      case JsonSchema.AnyOfSchema(schemas)                          =>
+      case JsonSchema.AnyOfSchema(schemas)                                                                            =>
         val tpe =
           schemas
             .map(_.withoutAnnotations)
@@ -1031,16 +1243,57 @@ final case class EndpointGen(config: Config) {
             .map(_.fieldType)
             .reduceLeft(Code.ScalaType.Or.apply)
         Some(Code.Field(name, tpe))
-      case JsonSchema.Number(JsonSchema.NumberFormat.Double)        =>
-        Some(Code.Field(name, Code.Primitive.ScalaDouble))
-      case JsonSchema.Number(JsonSchema.NumberFormat.Float)         =>
-        Some(Code.Field(name, Code.Primitive.ScalaFloat))
-      case JsonSchema.ArrayType(items)                              =>
-        val tpe = items
+      case JsonSchema.Number(JsonSchema.NumberFormat.Double, minimum, exclusiveMinimum, maximum, exclusiveMaximum, _) =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+
+        val annotations = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaDouble, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.Number(JsonSchema.NumberFormat.Float, minimum, exclusiveMinimum, maximum, exclusiveMaximum, _)  =>
+        val exclusiveMin =
+          if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
+          else if (exclusiveMinimum.isDefined && exclusiveMinimum.get.isRight) exclusiveMinimum.get.toOption
+          else minimum.map(_ - 1)
+        val exclusiveMax =
+          if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
+          else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
+          else maximum.map(_ + 1)
+
+        val annotations = (exclusiveMin, exclusiveMax) match {
+          case (Some(min), Some(max)) =>
+            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (Some(min), None)      =>
+            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.greaterThan($min))" :: Nil
+          case (None, Some(max))      =>
+            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.lessThan($max))" :: Nil
+          case (None, None)           =>
+            Nil
+        }
+        Some(Code.Field(name, Code.Primitive.ScalaFloat, annotations.map(Code.Annotation.apply)))
+      case JsonSchema.ArrayType(items, minItems, uniqueItems)                                                         =>
+        val nonEmpty = minItems.exists(_ > 1)
+        val tpe      = items
           .flatMap(schemaToField(_, openAPI, name, annotations))
-          .map(_.fieldType.seq)
+          .map(f => if (uniqueItems) f.fieldType.set(nonEmpty) else f.fieldType.seq(nonEmpty))
           .orElse(
-            Some(Code.Primitive.ScalaString.seq),
+            Some {
+              if (uniqueItems) Code.Primitive.ScalaString.set(nonEmpty) else Code.Primitive.ScalaString.seq(nonEmpty)
+            },
           )
         tpe.map(Code.Field(name, _))
       case JsonSchema.Object(properties, additionalProperties, _)
@@ -1057,13 +1310,13 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Object(_, _, _)                               =>
+      case JsonSchema.Object(_, _, _)                                                                                 =>
         Some(Code.Field(name, Code.TypeRef(name.capitalize)))
-      case JsonSchema.Enum(_)                                       =>
+      case JsonSchema.Enum(_)                                                                                         =>
         Some(Code.Field(name, Code.TypeRef(name.capitalize)))
-      case JsonSchema.Null                                          =>
+      case JsonSchema.Null                                                                                            =>
         Some(Code.Field(name, Code.ScalaType.Unit))
-      case JsonSchema.AnyJson                                       =>
+      case JsonSchema.AnyJson                                                                                         =>
         Some(Code.Field(name, Code.ScalaType.JsonAST))
     }
   }

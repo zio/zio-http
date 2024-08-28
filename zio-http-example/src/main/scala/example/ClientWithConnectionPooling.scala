@@ -10,7 +10,7 @@ object ClientWithConnectionPooling extends ZIOAppDefault {
     url    <- ZIO.fromEither(URL.decode("http://jsonplaceholder.typicode.com/posts"))
     client <- ZIO.serviceWith[Client](_.addUrl(url))
     _      <- ZIO.foreachParDiscard(Chunk.fromIterable(1 to 100)) { i =>
-      client.get(s"$i").flatMap(_.body.asString).debug
+      client.batched(Request.get(i.toString)).flatMap(_.body.asString).debug
     }
   } yield ()
 
@@ -22,6 +22,5 @@ object ClientWithConnectionPooling extends ZIOAppDefault {
       Client.live,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
-      Scope.default,
     )
 }

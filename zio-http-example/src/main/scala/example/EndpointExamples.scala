@@ -4,27 +4,25 @@ import zio._
 
 import zio.http.Header.Authorization
 import zio.http._
-import zio.http.codec.{HttpCodec, PathCodec}
+import zio.http.codec.PathCodec.path
+import zio.http.codec._
+import zio.http.endpoint.AuthType.None
+import zio.http.endpoint._
 import zio.http.endpoint.openapi.{OpenAPIGen, SwaggerUI}
-import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator, EndpointMiddleware}
 
 object EndpointExamples extends ZIOAppDefault {
-  import HttpCodec.query
-  import PathCodec._
-
-  val auth = EndpointMiddleware.auth
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
-    Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
+    Endpoint(Method.GET / "users" / int("userId")).out[Int]
 
   val getUserRoute =
     getUser.implement { id => ZIO.succeed(id) }
 
   val getUserPosts =
     Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
-      .query(query("name"))
-      .out[List[String]] @@ auth
+      .query(HttpCodec.query[String]("name"))
+      .out[List[String]]
 
   val getUserPostsRoute =
     getUserPosts.implement { case (id1: Int, id2: Int, query: String) =>
@@ -46,11 +44,11 @@ object EndpointExamples extends ZIOAppDefault {
       val locator =
         EndpointLocator.fromURL(URL.decode("http://localhost:8080").toOption.get)
 
-      val executor: EndpointExecutor[Authorization] =
-        EndpointExecutor(client, locator, ZIO.succeed(Authorization.Basic("user", "pass")))
+      val executor: EndpointExecutor[Any, Unit] =
+        EndpointExecutor(client, locator)
 
-      val x1 = getUser(42)
-      val x2 = getUserPosts(42, 200, "adam")
+      val x1: Invocation[Int, Int, ZNothing, Int, None] = getUser(42)
+      val x2                                            = getUserPosts(42, 200, "adam")
 
       val result1: ZIO[Scope, Nothing, Int]          = executor(x1)
       val result2: ZIO[Scope, Nothing, List[String]] = executor(x2)

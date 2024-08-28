@@ -238,13 +238,13 @@ import zio.http._
 
 object QueryParamClientExample extends ZIOAppDefault {
   def run =
-    Client.request(
+    Client.batched(
       Request
         .get("http://localhost:8080/search")
         .addQueryParam("language", "scala")
         .addQueryParam("q", "How to Write HTTP App")
         .addQueryParams("tag", Chunk("zio", "http", "scala")),
-    ).provide(Client.default, Scope.default)
+    ).provide(Client.default)
 }
 ```
 
@@ -323,7 +323,7 @@ val flashValue = request.flash(Flash.get[Int]("key1"))
 
 ## Client-side Example
 
-In the below example, we are creating a `Request` using the `Request.get` method and then calling the `Client.request` method to send the request to the servers:
+In the below example, we are creating a `Request` using the `Request.get` method and then calling the `Client.batched` method to send the request to the servers:
 
 ```scala mdoc:compile-only
 import zio._
@@ -331,10 +331,10 @@ import zio.http._
 
 object ClientExample extends ZIOAppDefault {
   def run = Client
-    .request(Request.get("http://localhost:8080/users/2"))
+    .batched(Request.get("http://localhost:8080/users/2"))
     .flatMap(_.body.asString)
     .debug("Response Body: ")
-    .provide(Client.default, Scope.default)
+    .provide(Client.default)
 
 }
 ```

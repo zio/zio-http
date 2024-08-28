@@ -23,7 +23,7 @@ import zio.stream.ZPipeline
 import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
+import zio.http.codec._
 
 /**
  * Server-Sent Event (SSE) as defined by
@@ -106,10 +106,10 @@ object ServerSentEvent {
     }
 
   implicit def contentCodec[T](implicit
-    tCodec: BinaryCodec[T],
-    schema: Schema[T],
+    codecT: BinaryCodec[T],
+    schemaT: Schema[T],
   ): HttpContentCodec[ServerSentEvent[T]] = HttpContentCodec.from(
-    MediaType.text.`event-stream` -> BinaryCodecWithSchema.fromBinaryCodec(binaryCodec),
+    MediaType.text.`event-stream` -> BinaryCodecWithSchema(binaryCodec(codecT), schema(schemaT)),
   )
 
   implicit def defaultContentCodec[T](implicit

@@ -139,7 +139,6 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
 }
 
 object AsyncBodyReader {
-  private val FnUnit = () => ()
 
   sealed trait State
 

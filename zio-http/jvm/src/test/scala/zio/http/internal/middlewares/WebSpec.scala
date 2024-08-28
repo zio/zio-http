@@ -276,38 +276,76 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
       },
     ),
     suite("prettify error")(
-      test("should not add anything to the body  as request do not have an accept header") {
-        val app = (Handler.internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
-        assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
+      test("missing accept header treated as */*") {
+        val handlerDefaultConfig = Handler.internalServerError("Error !!!").rawHeader("content-type")
+        val handlerDebugConfig   = Handler.internalServerError("Error !!!") @@ ErrorResponseConfig.debug
+
+        for {
+          contentType   <- handlerDefaultConfig.runZIO(Request.get(URL.empty))
+          debugResponse <- handlerDebugConfig.runZIO(Request.get(URL.empty))
+          config        <- ErrorResponseConfig.configRef.get
+          mediaType = config.errorFormat.mediaType
+        } yield assertTrue(
+          contentType.isEmpty,
+          debugResponse.hasContentType(mediaType),
+          !debugResponse.body.isEmpty,
+        )
+      },
+      test("should return error body when condition is met") {
+        val handlerDebugWhenHeader = Handler.internalServerError("Error !!!") @@ ErrorResponseConfig.debug.whenHeader(
+          _.get("zio-debug").contains("true"),
+        )
+
+        for {
+          debugWhenHeaderSetResponse <- handlerDebugWhenHeader.runZIO(
+            Request.get(URL.empty).copy(headers = Headers("zio-debug", "true")),
+          )
+          config                     <- ErrorResponseConfig.configRef.get
+          mediaType = config.errorFormat.mediaType
+        } yield assertTrue(
+          debugWhenHeaderSetResponse.hasContentType(mediaType),
+          !debugWhenHeaderSetResponse.body.isEmpty,
+        )
+
+      },
+      test("should not return error body when condition is not met") {
+        val handlerDebugWhenHeader = Handler.internalServerError("Error !!!") @@ ErrorResponseConfig.debug.whenHeader(
+          _.get("zio-debug").contains("true"),
+        )
+
+        for {
+          debugWhenHeaderNotSetResponse <- handlerDebugWhenHeader.runZIO(Request.get(URL.empty))
+        } yield assertTrue(
+          !debugWhenHeaderNotSetResponse.hasHeader(Header.ContentType),
+          debugWhenHeaderNotSetResponse.body.isEmpty,
+        )
+
       },
       test("should return a html body as the request has accept header set to text/html.") {
         val app = (Handler
-          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
+          .internalServerError("Error !!!") @@ ErrorResponseConfig.debug) rawHeader "content-type"
         assertZIO(
           app.runZIO(
             Request.get(URL.empty).copy(headers = Headers(Header.Accept(MediaType.text.`html`))),
           ),
         )(isSome(equalTo("text/html")))
       },
-      test("should return a plain body as the request has accept header set to */*.") {
-        val app = (Handler
-          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
-        assertZIO(
-          app.runZIO(
-            Request
-              .get(URL.empty)
-              .copy(headers = Headers(Header.Accept(MediaType.any))),
-          ),
-        )(isSome(equalTo("text/plain")))
+      test("should return body in default config format as the request has accept header set to */*.") {
+        val app = (Handler.internalServerError("Error !!!") @@ ErrorResponseConfig.debug) rawHeader "content-type"
+        for {
+          contentType <- app.runZIO(Request.get(URL.empty))
+          config      <- ErrorResponseConfig.configRef.get
+          mediaType = config.errorFormat.mediaType
+        } yield assertTrue(contentType.contains(mediaType.fullType))
       },
       test("should not add anything to the body as the request has accept header set to application/json.") {
         val app = (Handler
-          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
+          .internalServerError("Error !!!") @@ ErrorResponseConfig.debug) rawHeader "content-type"
         assertZIO(
           app.runZIO(
             Request.get(URL.empty).copy(headers = Headers(Header.Accept(MediaType.application.json))),
           ),
-        )(isNone)
+        )(isSome(equalTo("application/json")))
       },
     ),
   )
