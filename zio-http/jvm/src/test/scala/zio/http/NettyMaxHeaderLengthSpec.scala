@@ -20,6 +20,8 @@ import zio.test.TestAspect.withLiveClock
 import zio.test._
 import zio.{Scope, ZLayer}
 
+import zio.http.Header.UserAgent
+import zio.http.Header.UserAgent.ProductOrComment
 import zio.http.netty.NettyConfig
 
 object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
@@ -43,7 +45,7 @@ object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
         port <- Server.install(routes)
         url     = URL.decode(s"http://localhost:$port").toOption.get
         headers = Headers(
-          Header.UserAgent.Product("a looooooooooooooooooooooooooooong header", None),
+          UserAgent(ProductOrComment.Product("a looooooooooooooooooooooooooooong header", None)),
         )
 
         res  <- Client.batched(Request(url = url, headers = headers, body = Body.fromString("some-body")))
