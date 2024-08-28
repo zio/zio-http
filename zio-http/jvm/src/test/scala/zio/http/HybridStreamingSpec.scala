@@ -72,12 +72,13 @@ object HybridRequestStreamingServerSpec extends HttpRunnableSpec {
       suite("app with hybrid request streaming") {
         appWithHybridReqStreaming.as(List(requestBodySpec, hybridStreamingServerSpec))
       }
-    }.provideSome[DynamicServer & Server & Client](Scope.default)
-      .provideShared(
-        DynamicServer.live,
-        ZLayer.succeed(configAppWithHybridRequestStreaming),
-        Server.customized,
-        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Client.live(ClientConfig.default.withMaxConnectionsPerHost(1)),
-      ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
+    }.provideShared(
+      DynamicServer.live,
+      ZLayer.succeed(configAppWithHybridRequestStreaming),
+      Server.customized,
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+      Client.live,
+      ZLayer.succeed(ZClient.Config.default.maxHeaderSize(15000).maxInitialLineLength(15000).disabledConnectionPool),
+      DnsResolver.default,
+    ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
 }
