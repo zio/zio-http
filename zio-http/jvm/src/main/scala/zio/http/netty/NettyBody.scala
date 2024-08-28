@@ -65,8 +65,7 @@ object NettyBody extends BodyEncoding {
   private[zio] final case class AsciiStringBody(
     asciiString: AsciiString,
     override val contentType: Option[Body.ContentType] = None,
-  ) extends Body
-      with UnsafeBytes {
+  ) extends UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
 
