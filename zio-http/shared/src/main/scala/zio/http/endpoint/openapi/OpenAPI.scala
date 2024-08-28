@@ -252,6 +252,15 @@ object OpenAPI {
         t => Right(Map(t._1 -> t._2)),
       )
 
+  implicit def securityRequirementSchema: Schema[SecurityRequirement] = {
+    zio.schema
+      .Schema[Map[String, List[String]]]
+      .transform[SecurityRequirement](
+        m => SecurityRequirement(m),
+        s => s.securitySchemes,
+      )
+  }
+
   /**
    * Allows referencing an external resource for extended documentation.
    *

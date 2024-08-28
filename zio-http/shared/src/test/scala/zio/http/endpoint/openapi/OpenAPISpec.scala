@@ -54,9 +54,7 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |  },
                        |  "security" : [
                        |    {
-                       |      "securitySchemes" : {
-                       |        "apiKeyAuth" : []
-                       |      }
+                       |      "apiKeyAuth" : []
                        |    }
                        |  ]
                        |}""".stripMargin
