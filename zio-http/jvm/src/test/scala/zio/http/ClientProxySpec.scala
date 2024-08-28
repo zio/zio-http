@@ -22,7 +22,7 @@ import zio.Config.Secret
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test._
-import zio.{Scope, ZIO, ZLayer}
+import zio.{ZIO, ZLayer}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
@@ -38,14 +38,13 @@ object ClientProxySpec extends HttpRunnableSpec {
           serverUrl       <- ZIO.fromEither(URL.decode(s"http://localhost:$validServerPort"))
           proxyUrl        <- ZIO.fromEither(URL.decode("http://localhost:0001"))
           out             <- ZClient
-            .request(Request.get(url = serverUrl))
+            .batched(Request.get(url = serverUrl))
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(Proxy(proxyUrl))),
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -58,13 +57,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           id   <- DynamicServer.deploy(Handler.ok.toRoutes)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
           zclient <- ZIO.serviceWith[Client](_.proxy(proxy))
-          out     <- zclient
-            .request(
-              Request.get(url = url),
-            )
-            .provide(
-              Scope.default,
-            )
+          out     <- zclient.batched(Request.get(url = url))
         } yield out
       assertZIO(res.either)(isRight)
     }.provideSome[DynamicServer](
@@ -78,16 +71,13 @@ object ClientProxySpec extends HttpRunnableSpec {
           id   <- DynamicServer.deploy(Handler.ok.toRoutes)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
           out <- Client
-            .request(
-              Request.get(url = url),
-            )
+            .batched(Request.get(url = url))
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isRight)
@@ -112,23 +102,20 @@ object ClientProxySpec extends HttpRunnableSpec {
             .headers(Headers(DynamicServer.APP_ID, id))
             .credentials(Credentials("test", Secret("test")))
           out <- Client
-            .request(
-              Request.get(url = url),
-            )
+            .batched(Request.get(url = url))
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isRight)
     },
   )
 
-  override def spec: Spec[TestEnvironment with Scope, Any] = suite("ClientProxy") {
+  override def spec: Spec[TestEnvironment, Any] = suite("ClientProxy") {
     serve.as(List(clientProxySpec))
   }.provideShared(DynamicServer.live, serverTestLayer) @@ sequential @@ withLiveClock
 }

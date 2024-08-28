@@ -80,7 +80,10 @@ private[zio] final case class ServerInboundHandler(
         try {
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            attemptFastWrite(ctx, Response.fromThrowable(throwable))
+            attemptFastWrite(
+              ctx,
+              Response.fromThrowable(throwable, runtime.getRef(ErrorResponseConfig.configRef)),
+            )
             releaseRequest()
           } else {
             val req  = makeZioRequest(ctx, jReq)
@@ -296,58 +299,43 @@ private[zio] final case class ServerInboundHandler(
     }
   } yield ()
 
-  private def writeNotFound(ctx: ChannelHandlerContext, req: Request): Unit = {
-    val response = Response.notFound(req.url.encode)
-    attemptFastWrite(ctx, response): Unit
-  }
-
   private def writeResponse(
     ctx: ChannelHandlerContext,
     runtime: NettyRuntime,
     exit: ZIO[Any, Response, Response],
     req: Request,
   )(ensured: () => Unit): Unit = {
-    runtime.run(ctx, ensured, preferOnCurrentThread = avoidCtxSwitching) {
-      exit.sandbox.catchAll { error =>
-        error.failureOrCause
-          .fold[UIO[Response]](
-            response => ZIO.succeed(response),
-            cause =>
-              if (cause.isInterruptedOnly) {
-                interrupted(ctx).as(null)
-              } else {
-                ZIO.succeed(withDefaultErrorResponse(FiberFailure(cause)))
-              },
-          )
-      }.flatMap { response =>
-        ZIO.suspend {
-          if (response ne null) {
-            val done = attemptFastWrite(ctx, response)
-            if (!done)
-              attemptFullWrite(ctx, runtime, response, req)
-            else
-              ZIO.none
-          } else {
-            if (ctx.channel().isOpen) {
-              writeNotFound(ctx, req)
-            }
-            ZIO.none
-          }
-        }.foldCauseZIO(
-          cause => ZIO.attempt(attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash))),
+
+    def closeChannel(): Task[Unit] =
+      NettyFutureExecutor.executed(ctx.channel().close())
+
+    def writeResponse(response: Response): Task[Unit] =
+      if (attemptFastWrite(ctx, response)) {
+        Exit.unit
+      } else {
+        attemptFullWrite(ctx, runtime, response, req).foldCauseZIO(
+          cause => {
+            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash))
+            Exit.unit
+          },
           {
-            case None       => ZIO.unit
-            case Some(task) => task.orElse(ZIO.attempt(ctx.close()))
+            case None       => Exit.unit
+            case Some(task) => task.orElse(closeChannel())
           },
         )
       }
-    }
-  }
 
-  private def interrupted(ctx: ChannelHandlerContext): ZIO[Any, Nothing, Unit] =
-    ZIO.attempt {
-      ctx.channel().close()
-    }.unit.orDie
+    val program = exit.foldCauseZIO(
+      _.failureOrCause match {
+        case Left(resp)                      => writeResponse(resp)
+        case Right(c) if c.isInterruptedOnly => closeChannel()
+        case Right(c)                        => writeResponse(withDefaultErrorResponse(FiberFailure(c)))
+      },
+      writeResponse,
+    )
+
+    runtime.run(ctx, ensured, preferOnCurrentThread = avoidCtxSwitching)(program)
+  }
 
   private def withDefaultErrorResponse(cause: Throwable): Response =
     Response.internalServerError(cause.getMessage)

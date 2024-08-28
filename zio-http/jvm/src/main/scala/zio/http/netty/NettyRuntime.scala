@@ -25,6 +25,8 @@ import io.netty.util.concurrent.{Future, GenericFutureListener}
 private[zio] final class NettyRuntime(zioRuntime: Runtime[Any]) {
   private[this] val rtm = zioRuntime.unsafe
 
+  def getRef[A](ref: FiberRef[A]): A = zioRuntime.fiberRefs.getOrDefault(ref)
+
   def run(
     ctx: ChannelHandlerContext,
     ensured: () => Unit,

@@ -16,20 +16,31 @@ object HttpGen {
   private val PathWildcard = "pathWildcard"
 
   def fromEndpoints(
+    config: CodecConfig,
     endpoint1: Endpoint[_, _, _, _, _],
     endpoints: Endpoint[_, _, _, _, _]*,
   ): HttpFile = {
-    HttpFile((endpoint1 +: endpoints).map(fromEndpoint).toList)
+    HttpFile((endpoint1 +: endpoints).map(fromEndpoint(config, _)).toList)
   }
 
-  def fromEndpoint(endpoint: Endpoint[_, _, _, _, _]): HttpEndpoint = {
+  def fromEndpoints(
+    endpoint1: Endpoint[_, _, _, _, _],
+    endpoints: Endpoint[_, _, _, _, _]*,
+  ): HttpFile = {
+    HttpFile((endpoint1 +: endpoints).map(fromEndpoint(CodecConfig.defaultConfig, _)).toList)
+  }
+
+  def fromEndpoint(endpoint: Endpoint[_, _, _, _, _]): HttpEndpoint =
+    fromEndpoint(CodecConfig.defaultConfig, endpoint)
+
+  def fromEndpoint(config: CodecConfig, endpoint: Endpoint[_, _, _, _, _]): HttpEndpoint = {
     val atomizedInput = AtomizedMetaCodecs.flatten(endpoint.input)
     HttpEndpoint(
       OpenAPIGen.method(atomizedInput.method),
-      buildPath(endpoint.input),
+      buildPath(config, endpoint.input),
       headersVariables(atomizedInput).map(_.name),
       bodySchema(atomizedInput),
-      variables(atomizedInput),
+      variables(config, atomizedInput),
       doc(endpoint),
     )
   }
@@ -47,10 +58,10 @@ object HttpGen {
   }
 
   private def doc(endpoint: Endpoint[_, _, _, _, _]) =
-    if (endpoint.doc == Doc.empty) None else Some(endpoint.doc.toPlaintext(color = false))
+    if (endpoint.documentation == Doc.empty) None else Some(endpoint.documentation.toPlaintext(color = false))
 
-  def variables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] =
-    pathVariables(inAtoms) ++ queryVariables(inAtoms) ++ headersVariables(inAtoms) ++ bodyVariables(inAtoms)
+  def variables(config: CodecConfig, inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] =
+    pathVariables(inAtoms) ++ queryVariables(config, inAtoms) ++ headersVariables(inAtoms) ++ bodyVariables(inAtoms)
 
   def bodyVariables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
     val bodySchema0 = bodySchema(inAtoms)
@@ -121,12 +132,14 @@ object HttpGen {
       )
     }
 
-  def queryVariables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
+  def queryVariables(config: CodecConfig, inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
     inAtoms.query.collect {
       case mc @ MetaCodec(HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _)  =>
         HttpVariable(
           name,
-          mc.examples.values.headOption.map((e: Any) => codec.codec.asInstanceOf[BinaryCodec[Any]].encode(e).asString),
+          mc.examples.values.headOption.map((e: Any) =>
+            codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(e).asString,
+          ),
         ) :: Nil
       case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _) =>
         val recordSchema = (schema match {
@@ -143,7 +156,7 @@ object HttpGen {
               val fieldValue = values(index)
                 .orElse(field.defaultValue)
                 .getOrElse(throw new Exception(s"No value or default value for field ${field.name}"))
-              codec.codec.encode(fieldValue).asString
+              codec.codec(config).encode(fieldValue).asString
             }),
           )
         }
@@ -160,7 +173,7 @@ object HttpGen {
     }
   }
 
-  def buildPath(in: HttpCodec[_, _]): String = {
+  def buildPath(config: CodecConfig, in: HttpCodec[_, _]): String = {
 
     def pathCodec(in1: HttpCodec[_, _]): Option[HttpCodec.Path[_]] = in1 match {
       case atom: HttpCodec.Atom[_, _]            =>
@@ -177,7 +190,7 @@ object HttpGen {
     }
 
     val atomizedInput = AtomizedMetaCodecs.flatten(in)
-    val queryNames    = queryVariables(atomizedInput).map(_.name)
+    val queryNames    = queryVariables(config, atomizedInput).map(_.name)
 
     val pathString = {
       val codec = pathCodec(in).getOrElse(throw new Exception("No path found.")).pathCodec

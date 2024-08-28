@@ -12,7 +12,8 @@ import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
 
-import zio.http.codec.{PathCodec, SegmentCodec, TextCodec}
+import zio.http.codec.{SegmentCodec, TextCodec}
+import zio.http.endpoint.openapi.JsonSchema.MetaData
 
 @nowarn("msg=possible missing interpolator")
 private[openapi] case class SerializableJsonSchema(
@@ -47,23 +48,35 @@ private[openapi] case class SerializableJsonSchema(
   uniqueItems: Option[Boolean] = None,
   minItems: Option[Int] = None,
 ) {
-  def asNullableType(nullable: Boolean): SerializableJsonSchema =
+  def asNullableType(nullable: Boolean): SerializableJsonSchema = {
+    import SerializableJsonSchema.typeNull
+
     if (nullable && schemaType.isDefined)
       copy(schemaType = Some(schemaType.get.add("null")))
     else if (nullable && oneOf.isDefined)
-      copy(oneOf = Some(oneOf.get :+ SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))))
+      copy(oneOf = Some(oneOf.get :+ typeNull))
     else if (nullable && allOf.isDefined)
-      SerializableJsonSchema(allOf =
-        Some(Chunk(this, SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null"))))),
-      )
+      SerializableJsonSchema(allOf = Some(Chunk(this, typeNull)))
     else if (nullable && anyOf.isDefined)
-      copy(anyOf = Some(anyOf.get :+ SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))))
+      copy(anyOf = Some(anyOf.get :+ typeNull))
+    else if (nullable && ref.isDefined)
+      SerializableJsonSchema(anyOf = Some(Chunk(typeNull, this)))
     else
       this
-
+  }
 }
 
 private[openapi] object SerializableJsonSchema {
+
+  /**
+   * Used to generate a OpenAPI schema part looking like this:
+   * {{{
+   *   { "type": "null"}
+   * }}}
+   */
+  private[SerializableJsonSchema] val typeNull: SerializableJsonSchema =
+    SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("null")))
+
   implicit val doubleOrLongSchema: Schema[Either[Double, Long]] =
     Schema.fallback(Schema[Double], Schema[Long]).transform(_.toEither, Fallback.fromEither)
 
@@ -148,6 +161,12 @@ sealed trait JsonSchema extends Product with Serializable { self =>
     case JsonSchema.AnnotatedSchema(schema, annotation) => schema.annotations :+ annotation
     case _                                              => Chunk.empty
   }
+
+  final def isNullable: Boolean =
+    annotations.exists {
+      case MetaData.Nullable(nullable) => nullable
+      case _                           => false
+    }
 
   def withoutAnnotations: JsonSchema = self match {
     case JsonSchema.AnnotatedSchema(schema, _) => schema.withoutAnnotations
@@ -861,22 +880,18 @@ object JsonSchema {
       val markedForRemoval  = (for {
         obj      <- objects
         otherObj <- objects
-        notNullableSchemas = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties.collect {
-          case (name, schema)
-              if !schema.annotations.exists { case MetaData.Nullable(nullable) => nullable; case _ => false } =>
-            name -> schema
-        }
+        notNullableSchemas =
+          obj.withoutAnnotations
+            .asInstanceOf[JsonSchema.Object]
+            .properties
+            .filterNot { case (_, schema) => schema.isNullable }
         if notNullableSchemas == otherObj.withoutAnnotations.asInstanceOf[JsonSchema.Object].properties
       } yield otherObj).distinct
 
       val minified = objects.filterNot(markedForRemoval.contains).map { obj =>
         val annotations        = obj.annotations
         val asObject           = obj.withoutAnnotations.asInstanceOf[JsonSchema.Object]
-        val notNullableSchemas = asObject.properties.collect {
-          case (name, schema)
-              if !schema.annotations.exists { case MetaData.Nullable(nullable) => nullable; case _ => false } =>
-            name -> schema
-        }
+        val notNullableSchemas = asObject.properties.filterNot { case (_, schema) => schema.isNullable }
         asObject.required(asObject.required.filter(notNullableSchemas.contains)).annotate(annotations)
       }
       val newAnyOf = minified ++ others
@@ -1212,10 +1227,30 @@ object JsonSchema {
     additionalProperties: Either[Boolean, JsonSchema],
     required: Chunk[java.lang.String],
   ) extends JsonSchema {
+
+    /**
+     * This Object represents an "open dictionary", aka a Map
+     *
+     * See: https://github.com/zio/zio-http/issues/3048#issuecomment-2306291192
+     */
+    def isOpenDictionary: Boolean = properties.isEmpty && additionalProperties.isRight
+
+    /**
+     * This Object represents a "closed dictionary", aka a case class
+     *
+     * See: https://github.com/zio/zio-http/issues/3048#issuecomment-2306291192
+     */
+    def isClosedDictionary: Boolean = additionalProperties.isLeft
+
+    /**
+     * Can't represent a case class and a Map at the same time
+     */
+    def isInvalid: Boolean = properties.nonEmpty && additionalProperties.isRight
+
     def addAll(value: Chunk[(java.lang.String, JsonSchema)]): Object =
       value.foldLeft(this) { case (obj, (name, schema)) =>
         schema match {
-          case Object(properties, additionalProperties, required) =>
+          case thatObj @ Object(properties, additionalProperties, required) if thatObj.isClosedDictionary =>
             obj.copy(
               properties = obj.properties ++ properties,
               additionalProperties = combineAdditionalProperties(obj.additionalProperties, additionalProperties),
@@ -1246,11 +1281,20 @@ object JsonSchema {
         case Left(false)   => Some(BoolOrSchema.BooleanWrapper(false))
         case Right(schema) => Some(BoolOrSchema.SchemaWrapper(schema.toSerializableSchema))
       }
+
+      val nullableFields = properties.collect { case (name, schema) if schema.isNullable => name }.toSet
+
       SerializableJsonSchema(
         schemaType = Some(TypeOrTypes.Type("object")),
         properties = Some(properties.map { case (name, schema) => name -> schema.toSerializableSchema }),
         additionalProperties = additionalProperties,
-        required = if (required.isEmpty) None else Some(required),
+        required =
+          if (required.isEmpty) None
+          else if (nullableFields.isEmpty) Some(required)
+          else {
+            val newRequired = required.filterNot(nullableFields.contains)
+            if (newRequired.isEmpty) None else Some(newRequired)
+          },
       )
     }
   }

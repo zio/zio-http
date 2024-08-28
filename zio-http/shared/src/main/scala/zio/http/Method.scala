@@ -66,15 +66,15 @@ object Method {
 
   final case class CUSTOM(name: String) extends Method
 
-  object OPTIONS extends Method { val name = "OPTIONS" }
-  object GET     extends Method { val name = "GET"     }
-  object HEAD    extends Method { val name = "HEAD"    }
-  object POST    extends Method { val name = "POST"    }
-  object PUT     extends Method { val name = "PUT"     }
-  object PATCH   extends Method { val name = "PATCH"   }
-  object DELETE  extends Method { val name = "DELETE"  }
-  object TRACE   extends Method { val name = "TRACE"   }
-  object CONNECT extends Method { val name = "CONNECT" }
+  case object OPTIONS extends Method { val name = "OPTIONS" }
+  case object GET     extends Method { val name = "GET"     }
+  case object HEAD    extends Method { val name = "HEAD"    }
+  case object POST    extends Method { val name = "POST"    }
+  case object PUT     extends Method { val name = "PUT"     }
+  case object PATCH   extends Method { val name = "PATCH"   }
+  case object DELETE  extends Method { val name = "DELETE"  }
+  case object TRACE   extends Method { val name = "TRACE"   }
+  case object CONNECT extends Method { val name = "CONNECT" }
 
-  object ANY extends Method { val name = "GET" }
+  case object ANY extends Method { val name = "GET" }
 }

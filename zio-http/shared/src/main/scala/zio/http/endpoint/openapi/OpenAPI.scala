@@ -252,6 +252,15 @@ object OpenAPI {
         t => Right(Map(t._1 -> t._2)),
       )
 
+  implicit def securityRequirementSchema: Schema[SecurityRequirement] = {
+    zio.schema
+      .Schema[Map[String, List[String]]]
+      .transform[SecurityRequirement](
+        m => SecurityRequirement(m),
+        s => s.securitySchemes,
+      )
+  }
+
   /**
    * Allows referencing an external resource for extended documentation.
    *
@@ -451,7 +460,7 @@ object OpenAPI {
 
     // todo maybe not the best regex, but the old one was not working at all
     // safe chars from RFC1738 "$" | "-" | "_" | "." | "+"
-    val validPath: Regex = """\/[\/a-zA-Z0-9\-_{}$.+]*""".r
+    private val validPath: Regex = """\/[\/a-zA-Z0-9\-_{}$.+]*""".r
 
     def fromString(name: String): Option[Path] = name match {
       case validPath() => Some(Path(name))

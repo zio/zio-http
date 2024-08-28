@@ -160,12 +160,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit def schema[T: Schema]: Schema[WithGenericPayload[T]] = DeriveSchema.gen
   }
 
+  final case class WithOptionalAdtPayload(optionalAdtField: Option[SealedTraitCustomDiscriminator])
+  object WithOptionalAdtPayload {
+    implicit val schema: Schema[WithOptionalAdtPayload] = DeriveSchema.gen
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
     )
       .in[SimpleInputBody](Doc.p("input body"))
-      .out[SimpleOutputBody](Doc.p("output body"))
+      .out[SimpleOutputBody](mediaType = MediaType.application.json, Doc.p("output body"))
       .outError[NotFoundError](Status.NotFound, Doc.p("not found"))
 
   private val queryParamEndpoint =
@@ -269,21 +274,21 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |        },
                              |        "responses" : {
                              |          "200" : {
+                             |            "description" : "output body\n\n",
                              |            "content" : {
                              |              "application/json" : {
                              |                "schema" : {
-                             |                  "$ref" : "#/components/schemas/SimpleOutputBody",
-                             |                  "description" : "output body\n\n"
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
                              |                }
                              |              }
                              |            }
                              |          },
                              |          "404" : {
+                             |            "description" : "not found\n\n",
                              |            "content" : {
                              |              "application/json" : {
                              |                "schema" : {
-                             |                  "$ref" : "#/components/schemas/NotFoundError",
-                             |                  "description" : "not found\n\n"
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
                              |                }
                              |              }
                              |            }
@@ -1539,24 +1544,24 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "responses" : {
             |          "200" :
             |            {
+            |            "description" : "output body\n\n",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
             |                  {
-            |                  "$ref" : "#/components/schemas/SimpleOutputBody",
-            |                  "description" : "output body\n\n"
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody"
             |                }
             |              }
             |            }
             |          },
             |          "404" :
             |            {
+            |            "description" : "not found\n\n",
             |            "content" : {
             |              "application/json" : {
             |                "schema" :
             |                  {
-            |                  "$ref" : "#/components/schemas/NotFoundError",
-            |                  "description" : "not found\n\n"
+            |                  "$ref" : "#/components/schemas/NotFoundError"
             |                }
             |              }
             |            }
@@ -2231,9 +2236,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        "discriminator" : {
             |          "propertyName" : "type",
             |          "mapping" : {
-            |            "One" : "#/components/schemas/One}",
-            |            "Two" : "#/components/schemas/Two}",
-            |            "three" : "#/components/schemas/Three}"
+            |            "One" : "#/components/schemas/One",
+            |            "Two" : "#/components/schemas/Two",
+            |            "three" : "#/components/schemas/Three"
             |          }
             |        }
             |      },
@@ -2810,7 +2815,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            ]
             |          },
             |          "nestedOption" : {
-            |            "$ref" : "#/components/schemas/Recursive"
+            |            "anyOf" : [
+            |              { "type" : "null" },
+            |              { "$ref" : "#/components/schemas/Recursive" }
+            |            ]
+            |          },
+            |          "nestedMap" : {
+            |            "type" : "object",
+            |            "properties" : {},
+            |            "additionalProperties" : {
+            |              "$ref" : "#/components/schemas/Recursive"
+            |            }
             |          },
             |          "nestedList" : {
             |            "type" :
@@ -2823,12 +2838,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            "$ref" : "#/components/schemas/NestedRecursive"
             |          }
             |        },
-            |        "additionalProperties" :
-            |          {
-            |          "$ref" : "#/components/schemas/Recursive"
-            |        },
             |        "required" : [
-            |          "nestedOption",
             |          "nestedList",
             |          "nestedMap",
             |          "nestedSet",
@@ -2984,6 +2994,111 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  }
                              |}
                              |""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("Optional ADT payload") {
+        val endpoint     = Endpoint(GET / "static").in[WithOptionalAdtPayload]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/WithOptionalAdtPayload"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "One" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {}
+            |      },
+            |      "SealedTraitCustomDiscriminator" :
+            |        {
+            |        "oneOf" : [
+            |          {
+            |            "$ref" : "#/components/schemas/One"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Two"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Three"
+            |          }
+            |        ],
+            |        "discriminator" : {
+            |          "propertyName" : "type",
+            |          "mapping" : {
+            |            "One" : "#/components/schemas/One",
+            |            "Two" : "#/components/schemas/Two",
+            |            "three" : "#/components/schemas/Three"
+            |          }
+            |        }
+            |      },
+            |      "WithOptionalAdtPayload" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "optionalAdtField" : {
+            |            "anyOf": [
+            |              { "type": "null" },
+            |              { "$ref": "#/components/schemas/SealedTraitCustomDiscriminator" }
+            |            ]
+            |          }
+            |        }
+            |      },
+            |      "Two" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "Three" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
     )

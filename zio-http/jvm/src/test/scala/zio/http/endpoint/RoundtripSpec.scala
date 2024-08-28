@@ -74,7 +74,11 @@ object RoundtripSpec extends ZIOHttpSpec {
     implicit val schema: Schema[PostWithAge] = DeriveSchema.gen[PostWithAge]
   }
 
-  def makeExecutor(client: Client, port: Int): EndpointExecutor = {
+  case class Outs(ints: List[Int])
+
+  implicit val outsSchema: Schema[Outs] = DeriveSchema.gen[Outs]
+
+  def makeExecutor(client: Client, port: Int) = {
     val locator = EndpointLocator.fromURL(
       URL.decode(s"http://localhost:$port").toOption.get,
     )
@@ -108,15 +112,14 @@ object RoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: Request,
     outF: Response => ZIO[Any, Err, TestResult],
-  ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
-    ZIO.scoped[Client with Server] {
-      for {
-        port   <- Server.install(route @@ Middleware.requestLogging())
-        client <- ZIO.service[Client]
-        out    <- client.request(in.updateURL(_.host("localhost").port(port))).orDie
-        result <- outF(out)
-      } yield result
-    }
+  ): zio.ZIO[Server with Client with Scope, Err, TestResult] = {
+    for {
+      port   <- Server.install(route @@ Middleware.requestLogging())
+      client <- ZIO.service[Client]
+      out    <- client.batched(in.updateURL(_.host("localhost").port(port))).orDie
+      result <- outF(out)
+    } yield result
+  }
 
   def testEndpointError[P, In, Err, Out](
     endpoint: Endpoint[P, In, Err, Out, AuthType.None],
@@ -136,7 +139,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       port <- Server.install(route)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
-        .service[EndpointExecutor]
+        .service[EndpointExecutor[Any, Unit]]
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
@@ -151,7 +154,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     string: String,
     strings: Chunk[String] = Chunk("defaultString"),
   )
-  implicit val paramsSchema: Schema[Params]                     = DeriveSchema.gen[Params]
+  implicit val paramsSchema: Schema[Params]   = DeriveSchema.gen[Params]
 
   def spec: Spec[Any, Any] =
     suite("RoundtripSpec")(
@@ -420,7 +423,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port)))
 
           cause <- ZIO
-            .serviceWithZIO[EndpointExecutor] { executor =>
+            .serviceWithZIO[EndpointExecutor[Any, Unit]] { executor =>
               executor.apply(endpointWithAnotherSignature.apply(42))
             }
             .provideSome[Client with Scope](executorLayer)
@@ -505,6 +508,16 @@ object RoundtripSpec extends ZIOHttpSpec {
           .map { r =>
             assert(r.isFailure)(isTrue) // We expect it to fail but complete
           }
+      },
+      test("Override default CodecConfig") {
+        val api = Endpoint(GET / "test").out[Outs]
+        testEndpointCustomRequestZIO(
+          api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes @@ CodecConfig.withConfig(
+            CodecConfig(ignoreEmptyCollections = false),
+          ),
+          Request.get("/test"),
+          response => response.body.asString.map(s => assertTrue(s == """{"ints":[]}""")),
+        )
       },
     ).provide(
       Server.customized,

@@ -126,7 +126,7 @@ object NettyBodyWriter {
       case ChunkBody(data, _)              =>
         writeArray(data.toArray, isLast = true)
         None
-      case EmptyBody                       =>
+      case EmptyBody | ErrorBody(_)        =>
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         None
     }

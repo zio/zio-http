@@ -38,7 +38,7 @@ object HelloExample extends ZIOAppDefault {
 
 On the client side, `ZIO-HTTP` models content in `Client` as `Body` with `Body.Empty` as the default value.
 
-To add content while making a request using ZIO HTTP you can use the `Client.request` method:
+To add content while making a request using ZIO HTTP you can use the `Client.batched` method:
 
 ```scala mdoc:silent
 import zio._
@@ -46,15 +46,15 @@ import zio.stream._
 import zio.http._
 
 object HelloClientExample extends ZIOAppDefault {
-  val app: ZIO[Client & Scope, Throwable, Unit] =
+  val app: ZIO[Client, Throwable, Unit] =
     for {
       name <- Console.readLine("What is your name? ")
-      resp <- Client.request(Request.post("http://localhost:8080/hello", Body.fromString(name)))
+      resp <- Client.batched(Request.post("http://localhost:8080/hello", Body.fromString(name)))
       body <- resp.body.asString
       _    <- Console.printLine(s"Response: $body")
     } yield ()
 
-  def run = app.provide(Client.default, Scope.default)
+  def run = app.provide(Client.default)
 }
 ```
 

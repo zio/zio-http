@@ -36,7 +36,7 @@ object OptionsGen {
   def encodeOptions[A](name: String, codec: BinaryCodecWithSchema[A]): Options[String] =
     HttpOptions
       .optionsFromSchema(codec)(name)
-      .map(value => codec.codec.encode(value).asString)
+      .map(value => codec.codec(CodecConfig.defaultConfig).encode(value).asString)
 
   lazy val anyBodyOption: Gen[Any, CliReprOf[Options[Retriever]]] =
     Gen

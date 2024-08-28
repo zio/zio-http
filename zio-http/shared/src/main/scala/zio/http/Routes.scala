@@ -159,6 +159,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def isDefinedAt(request: Request)(implicit ev: Err <:< Response): Boolean =
     tree(Trace.empty, ev).get(request.method, request.path).nonEmpty
 
+  def provide[Env1 <: Env](env: Env1)(implicit tag: Tag[Env1]): Routes[Any, Err] =
+    provideEnvironment(ZEnvironment(env))
+
   /**
    * Provides the specified environment to the HTTP application, returning a new
    * HTTP application that has no environmental requirements.

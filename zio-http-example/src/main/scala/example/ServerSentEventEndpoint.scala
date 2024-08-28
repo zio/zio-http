@@ -8,7 +8,7 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
-import zio.http.codec.HttpCodec
+import zio.http.codec.{CodecConfig, HttpCodec}
 import zio.http.endpoint._
 
 object ServerSentEventEndpoint extends ZIOAppDefault {
@@ -26,8 +26,8 @@ object ServerSentEventEndpoint extends ZIOAppDefault {
   val routes: Routes[Any, Response] =
     sseRoute.toRoutes @@ Middleware.requestLogging(logRequestBody = true) @@ Middleware.debug
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] = {
-    Server.serve(routes).provide(Server.default).exitCode
+  override def run = {
+    Server.serve(routes).provide(Server.default)
   }
 
 }
@@ -36,14 +36,16 @@ object ServerSentEventEndpointClient extends ZIOAppDefault {
   val locator: EndpointLocator = EndpointLocator.fromURL(url"http://localhost:8080")
 
   private val invocation
-    : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None, Unit] =
+    : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
     ServerSentEventEndpoint.sseEndpoint(())
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    (for {
-      client <- ZIO.service[Client]
-      executor = EndpointExecutor(client, locator)
-      stream <- executor(invocation)
-      _      <- stream.foreach(event => ZIO.logInfo(event.data))
-    } yield ()).provideSome[Scope](ZClient.default)
+  override def run =
+    ZIO
+      .scoped(for {
+        client <- ZIO.service[Client]
+        executor = EndpointExecutor(client, locator)
+        stream <- executor(invocation)
+        _      <- stream.foreach(event => ZIO.logInfo(event.data))
+      } yield ())
+      .provide(ZClient.default)
 }

@@ -73,7 +73,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
       _    <- ZIO.never
     } yield ()
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
+  override def run =
     program
       .provide(
         ZLayer.succeed(Server.Config.default.enableRequestStreaming),
