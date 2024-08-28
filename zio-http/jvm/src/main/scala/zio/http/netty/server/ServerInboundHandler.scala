@@ -266,7 +266,7 @@ private[zio] final case class ServerInboundHandler(
     webSocketApp: WebSocketApp[Any],
     runtime: NettyRuntime,
   ): Task[Unit] = for {
-    handshakeCompleted <- Promise.make[Nothing, Unit]
+    handshakeCompleted <- Promise.make[Nothing, Boolean]
     queue              <- Queue
       .unbounded[WebSocketChannelEvent]
       .tap { queue =>

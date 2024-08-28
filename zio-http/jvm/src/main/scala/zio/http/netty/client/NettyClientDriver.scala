@@ -126,7 +126,7 @@ final case class NettyClientDriver private[netty] (
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] = {
     for {
       queue              <- Queue.unbounded[WebSocketChannelEvent]
-      handshakeCompleted <- Promise.make[Nothing, Unit]
+      handshakeCompleted <- Promise.make[Nothing, Boolean]
       nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
       webSocketChannel = WebSocketChannel.make(nettyChannel, queue, handshakeCompleted)
       app              = createSocketApp()

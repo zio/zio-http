@@ -36,7 +36,7 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
 private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
   queue: Queue[WebSocketChannelEvent],
-  handshakeCompleted: Promise[Nothing, Unit],
+  handshakeCompleted: Promise[Nothing, Boolean],
   onComplete: Option[Promise[Throwable, ChannelState]],
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[JWebSocketFrame] {
@@ -75,9 +75,10 @@ private[zio] final class WebSocketAppHandler(
   override def userEventTriggered(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {
     msg match {
       case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
-        handshakeCompleted.unsafe.succeed(())
+        handshakeCompleted.unsafe.succeed(true)
         dispatch(ChannelEvent.userEventTriggered(UserEvent.HandshakeComplete))
       case ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT | ClientHandshakeStateEvent.HANDSHAKE_TIMEOUT          =>
+        handshakeCompleted.unsafe.succeed(false)
         dispatch(ChannelEvent.userEventTriggered(UserEvent.HandshakeTimeout))
       case _ => super.userEventTriggered(ctx, msg)
     }
