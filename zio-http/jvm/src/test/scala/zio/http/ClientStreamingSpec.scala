@@ -178,7 +178,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               boundary <- Boundary.randomUUID
               stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
               bytes    <- stream.runCollect
-              response <- client.disableStreaming
+              response <- client.batched
                 .request(
                   Request
                     .post(
@@ -306,13 +306,14 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       suite("non-streaming server")(
         tests(streamingServer = false): _*,
       ),
-    ).provide(
-      DnsResolver.default,
-      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
-      Client.live,
-      Scope.default,
-    ) @@ withLiveClock @@ sequential @@ ignore
+    )
+      .provideSome[Client](Scope.default)
+      .provideShared(
+        DnsResolver.default,
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+        ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
+        Client.live,
+      ) @@ withLiveClock @@ sequential @@ ignore
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =
     for {

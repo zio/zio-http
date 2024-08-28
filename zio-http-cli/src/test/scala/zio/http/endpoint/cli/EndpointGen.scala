@@ -3,10 +3,9 @@ package zio.http.endpoint.cli
 import zio.ZNothing
 import zio.test._
 
-import zio.schema.{Schema, StandardType}
+import zio.schema.Schema
 
 import zio.http._
-import zio.http.codec.HttpCodec.Query.QueryParamHint
 import zio.http.codec._
 import zio.http.codec.internal.TextBinaryCodec
 import zio.http.endpoint._
@@ -26,7 +25,7 @@ object EndpointGen {
   def fromInputCodec[Input](
     doc: Doc,
     input: HttpCodec[CodecType, Input],
-  ): Endpoint[Path, Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  ): Endpoint[Path, Input, ZNothing, ZNothing, AuthType.None] =
     Endpoint(
       RoutePattern.any,
       input,
@@ -34,7 +33,7 @@ object EndpointGen {
       HttpCodec.unused,
       HttpContentCodec.responseErrorCodec,
       doc,
-      EndpointMiddleware.None,
+      AuthType.None,
     )
 
   lazy val anyCliEndpoint: Gen[Any, CliReprOf[CliEndpoint]] =
@@ -106,7 +105,7 @@ object EndpointGen {
       val schema = schema0.asInstanceOf[Schema[Any]]
       val codec  = BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
       CliRepr(
-        HttpCodec.Query(name, codec, QueryParamHint.Any),
+        HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec)),
         CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
       )
     }

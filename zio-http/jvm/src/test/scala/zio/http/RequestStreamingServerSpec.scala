@@ -78,9 +78,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
           val host       = req.headers.get(Header.Host).get
           val newRequest =
             req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
-          ZIO.serviceWithZIO[Client] { client =>
-            client.request(newRequest)
-          }
+          ZIO.serviceWithZIO[Client](_.request(newRequest))
         },
         Method.POST / "2" -> handler { (req: Request) =>
           req.body.asChunk.map { body =>

@@ -2,7 +2,6 @@ package zio.http.gen.grpc
 
 import zio.http.Method
 import zio.http.gen.scala.Code
-import zio.http.gen.scala.Code.ScalaType
 
 object EndpointGen {
 
@@ -43,7 +42,8 @@ object EndpointGen {
     }
     val obj       = Code.Object(
       name = name.capitalize,
-      schema = false,
+      extensions = Nil,
+      schema = None,
       endpoints = endpoints.toMap,
       objects = Nil,
       caseClasses = Nil,

@@ -5,9 +5,8 @@ import zio._
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.QueryCodec
-import zio.http.endpoint.Endpoint
-import zio.http.endpoint.EndpointMiddleware.None
+import zio.http.codec._
+import zio.http.endpoint.{AuthType, Endpoint}
 
 object DeclarativeProgrammingExample extends ZIOAppDefault {
 
@@ -31,9 +30,9 @@ object DeclarativeProgrammingExample extends ZIOAppDefault {
     }
   }
 
-  val endpoint: Endpoint[Unit, String, NotFoundError, Book, None] =
+  val endpoint: Endpoint[Unit, String, NotFoundError, Book, AuthType.None] =
     Endpoint(RoutePattern.GET / "books")
-      .query(QueryCodec.query("id"))
+      .query(HttpCodec.query[String]("id"))
       .out[Book]
       .outError[NotFoundError](Status.NotFound)
 

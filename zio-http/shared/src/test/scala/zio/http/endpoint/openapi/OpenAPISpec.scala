@@ -54,9 +54,7 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |  },
                        |  "security" : [
                        |    {
-                       |      "securitySchemes" : {
-                       |        "apiKeyAuth" : []
-                       |      }
+                       |      "apiKeyAuth" : []
                        |    }
                        |  ]
                        |}""".stripMargin
@@ -70,8 +68,8 @@ object OpenAPISpec extends ZIOSpecDefault {
       val isSchemaProperlyGenerated = if (sch.root.isCollection) sch.root match {
         case JsonSchema.Object(_, additionalProperties, _) =>
           additionalProperties match {
-            case Right(JsonSchema.ArrayType(items)) => items.exists(_.isInstanceOf[JsonSchema.String])
-            case _                                  => false
+            case Right(JsonSchema.ArrayType(items, _, _)) => items.exists(_.isInstanceOf[JsonSchema.String])
+            case _                                        => false
           }
         case _                                             => false
       }

@@ -2,7 +2,7 @@ package example
 
 import scala.annotation.nowarn
 
-import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio._
 
 import zio.http._
 
@@ -44,7 +44,7 @@ object MultipartFormData extends ZIOAppDefault {
     ).sandbox
 
   @nowarn("msg=dead code")
-  private def program: ZIO[Client with Server with Scope, Throwable, Unit] =
+  private def program: ZIO[Client & Server, Throwable, Unit] =
     for {
       port         <- Server.install(app)
       _            <- ZIO.logInfo(s"Server started on port $port")
@@ -52,17 +52,20 @@ object MultipartFormData extends ZIOAppDefault {
       response     <- client
         .host("localhost")
         .port(port)
-        .post("/upload")(
-          Body.fromMultipartForm(
-            Form(
-              FormField.binaryField(
-                "file",
-                Chunk.fromArray("Hello, world!".getBytes),
-                MediaType.application.`octet-stream`,
-                filename = Some("hello.txt"),
+        .batched(
+          Request.post(
+            "/upload",
+            Body.fromMultipartForm(
+              Form(
+                FormField.binaryField(
+                  "file",
+                  Chunk.fromArray("Hello, world!".getBytes),
+                  MediaType.application.`octet-stream`,
+                  filename = Some("hello.txt"),
+                ),
               ),
+              Boundary("AaB03x"),
             ),
-            Boundary("AaB03x"),
           ),
         )
       responseBody <- response.body.asString
@@ -70,11 +73,6 @@ object MultipartFormData extends ZIOAppDefault {
       _            <- ZIO.never
     } yield ()
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    program
-      .provide(
-        Server.default,
-        Client.default,
-        Scope.default,
-      )
+  override def run =
+    program.provide(Server.default, Client.default)
 }

@@ -41,9 +41,7 @@ testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 
 Now, based on the requirement we can use any of the following test utilities:
 
-## TestClinet
-
-The `TestClient`
+## TestClient
 
 Using the `TestClient` we can write tests for our HTTP applications without starting a live server instance.
 
@@ -71,12 +69,12 @@ object TestUsingTestClient extends ZIOSpecDefault {
             Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
           )
         }
-        helloResponse    <- client(Request.get(URL.root / "hello" / "world"))
+        helloResponse    <- client.batched(Request.get(URL.root / "hello" / "world"))
         helloBody        <- helloResponse.body.asString
-        fallbackResponse <- client(Request.get(URL.root / "any"))
+        fallbackResponse <- client.batched(Request.get(URL.root / "any"))
         fallbackBody     <- fallbackResponse.body.asString
       } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
-    }.provide(TestClient.layer, Scope.default)
+    }.provide(TestClient.layer)
 }
 ```
 
@@ -119,12 +117,12 @@ object TestServerExampleSpec extends ZIOSpecDefault {
             },
           )
         }
-        helloResponse    <- client(Request.get(testRequest.url / "hello" / "world"))
+        helloResponse    <- client.batched(Request.get(testRequest.url / "hello" / "world"))
         helloBody        <- helloResponse.body.asString
-        fallbackResponse <- client(Request.get(testRequest.url / "any"))
+        fallbackResponse <- client.batched(Request.get(testRequest.url / "any"))
         fallbackBody     <- fallbackResponse.body.asString
       } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
-    }.provideSome[Client with Driver](TestServer.layer, Scope.default)
+    }.provideSome[Client with Driver](TestServer.layer)
   }.provide(
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,

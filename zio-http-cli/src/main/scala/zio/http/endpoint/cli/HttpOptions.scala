@@ -120,9 +120,11 @@ private[cli] object HttpOptions {
 
           // Should Map, Sequence and Set have implementations?
           // Options cannot be used to specify an arbitrary number of parameters.
-          case Schema.Map(_, _, _)            => emptyJson
-          case Schema.Sequence(_, _, _, _, _) => emptyJson
-          case Schema.Set(_, _)               => emptyJson
+          case Schema.Map(_, _, _)                    => emptyJson
+          case Schema.NonEmptyMap(_, _, _)            => emptyJson
+          case Schema.Sequence(_, _, _, _, _)         => emptyJson
+          case Schema.NonEmptySequence(_, _, _, _, _) => emptyJson
+          case Schema.Set(_, _)                       => emptyJson
 
           case Schema.Lazy(schema0)                 => loop(prefix, schema0())
           case Schema.Dynamic(_)                    => emptyJson

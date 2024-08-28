@@ -20,6 +20,7 @@ import java.net.URI
 import java.nio.charset.{Charset, UnsupportedCharsetException}
 import java.time.ZonedDateTime
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -142,6 +143,11 @@ object Header {
      * quality factor.
      */
     final case class MediaTypeWithQFactor(mediaType: MediaType, qFactor: Option[Double])
+
+    object MediaTypeWithQFactor {
+      implicit val ordering: Ordering[MediaTypeWithQFactor] =
+        Ordering.by[MediaTypeWithQFactor, Double](_.qFactor.getOrElse(1.0)).reverse
+    }
 
     def apply(mediaType: MediaType, qFactor: Option[Double]): Accept =
       Accept(NonEmptyChunk(MediaTypeWithQFactor(mediaType, qFactor)))
@@ -2543,12 +2549,21 @@ object Header {
   }
 
   object ContentType extends HeaderType {
+    private final val CacheInitialSize = 64
+    private final val CacheMaxSize     = 8192
+
+    private val cache: ConcurrentHashMap[String, Either[String, ContentType]] =
+      new ConcurrentHashMap[String, Either[String, ContentType]](CacheInitialSize)
 
     override type HeaderValue = ContentType
 
     override def name: String = "content-type"
 
-    def parse(s: String): Either[String, ContentType] = codec.decode(s)
+    def parse(s: String): Either[String, ContentType] = {
+      // Guard against malicious registering of invalid content types
+      if (cache.size >= CacheMaxSize) cache.clear()
+      cache.computeIfAbsent(s, parseFn)
+    }
 
     def render(contentType: ContentType): String = codec.encode(contentType).toOption.get
 
@@ -2607,6 +2622,9 @@ object Header {
         ),
       )
     }
+
+    private val parseFn: java.util.function.Function[String, Either[String, ContentType]] =
+      codec.decode(_)
 
     private[Header] sealed trait Parameter {
       self =>
@@ -4292,131 +4310,6 @@ object Header {
       }
     }
 
-  }
-
-  /*
-     A warning has the following syntax: <warn-code> <warn-agent> <warn-text> [<warn-date>]
-   */
-  final case class Warning(code: Int, agent: String, text: String, date: Option[ZonedDateTime] = None) extends Header {
-    override type Self = Warning
-    override def self: Self                            = this
-    override def headerType: HeaderType.Typed[Warning] = Warning
-  }
-
-  /*
-  The Warning HTTP header contains information about possible problems with the status of the message.
-    More than one Warning header may appear in a response.
-
-  Warning header fields can, in general, be applied to any message.
-    However, some warn-codes are specific to caches and can only be applied to response messages.
-   */
-
-  object Warning extends HeaderType {
-    override type HeaderValue = Warning
-
-    override def name: String = "warning"
-
-    private val validCodes = List(110, 111, 112, 113, 199, 214, 299)
-
-    def parse(warningString: String): Either[String, Warning] = {
-      /*
-        <warn-code>
-         A three-digit warning number.
-           The first digit indicates whether the Warning is required to be deleted from a stored response after validation.
-
-         1xx warn-codes describe the freshness or validation status of the response and will be deleted by a cache after deletion.
-
-          2xx warn-codes describe some aspect of the representation that is not rectified by a validation and
-             will not be deleted by a cache after validation unless a full response is sent.
-       */
-      val warnCodeString = warningString.split(" ")(0)
-      val warnCode: Int  = Try {
-        Integer.parseInt(warnCodeString)
-      }.getOrElse(-1)
-
-      /*
-         <warn-agent>
-           The name or pseudonym of the server or software adding the Warning header (might be "-" when the agent is unknown).
-       */
-      val warnAgent: String = warningString.split(" ")(1)
-
-      /*
-         <warn-text>
-         An advisory text describing the error.
-       */
-      val descriptionStartIndex = warningString.indexOf('\"', warnCodeString.length + warnAgent.length) + 1
-      val descriptionEndIndex   = warningString.indexOf("\"", descriptionStartIndex)
-      val description           =
-        Try {
-          warningString.substring(descriptionStartIndex, descriptionEndIndex)
-        }.getOrElse("")
-
-      /*
-      <warn-date>
-      A date. This is optional. If more than one Warning header is sent, include a date that matches the Date header.
-       */
-
-      val dateStartIndex = warningString.indexOf("\"", descriptionEndIndex + 1)
-      val dateEndIndex   = warningString.indexOf("\"", dateStartIndex + 1)
-      val warningDate    = Try {
-        val selectedDate = warningString.substring(dateStartIndex + 1, dateEndIndex)
-        DateEncoding.default.decodeDate(selectedDate)
-      }.toOption.flatten
-
-      val fullWarning = Warning(warnCode, warnAgent, description, warningDate)
-
-      /*
-      The HTTP Warn Codes registry at iana.org defines the namespace for warning codes.
-        Registry is available here: https://www.iana.org/assignments/http-warn-codes/http-warn-codes.xhtml
-       */
-      def isCodeValid(warningCode: Int): Boolean = {
-        if (validCodes.contains(warningCode)) true
-        else false
-      }
-
-      def isAgentMissing(text: String): Boolean = {
-        val textBeforeDescription = text.toList.take(descriptionStartIndex)
-        if (textBeforeDescription.length <= 4) {
-          true
-        } else false
-      }
-
-      /*
-      Date should confirm to the pattern "EEE, dd MMM yyyy HH:mm:ss zzz"
-      For example: Wed, 21 Oct 2015 07:28:00 GMT
-       */
-      def isDateInvalid(warningText: String, warningDate: Option[ZonedDateTime]): Boolean = {
-        val trimmedWarningText         = warningText.trim
-        val descriptionEndIndexNoSpace = trimmedWarningText.indexOf("\"", trimmedWarningText.indexOf("\"") + 1)
-        if (warningDate.isEmpty && trimmedWarningText.length - descriptionEndIndexNoSpace > 1) true
-        else false
-      }
-
-      if (isDateInvalid(warningString, warningDate)) {
-        Left("Invalid date format")
-      } else if (isAgentMissing(warningString)) {
-        Left("Agent is missing")
-      } else if (isCodeValid(fullWarning.code) && fullWarning.text.nonEmpty) {
-        Right(fullWarning)
-      } else {
-        Left("Invalid warning")
-      }
-
-    }
-
-    def render(warning: Warning): String =
-      warning match {
-        case Warning(code, agent, text, date) =>
-          val formattedDate = date match {
-            case Some(value) => DateEncoding.default.encodeDate(value)
-            case None        => ""
-          }
-          if (formattedDate.isEmpty) {
-            code.toString + " " + agent + " " + '"' + text + '"'
-          } else {
-            code.toString + " " + agent + " " + '"' + text + '"' + " " + '"' + formattedDate + '"'
-          }
-      }
   }
 
   sealed trait WWWAuthenticate extends Header {

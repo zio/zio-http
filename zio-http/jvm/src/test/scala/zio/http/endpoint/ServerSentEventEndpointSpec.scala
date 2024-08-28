@@ -14,12 +14,11 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.HttpCodec
-import zio.http.endpoint.EndpointMiddleware.None
 
 object ServerSentEventEndpointSpec extends ZIOSpecDefault {
 
   object StringPayload {
-    val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], None] =
+    val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
       Endpoint(Method.GET / "sse")
         .outStream[ServerSentEvent[String]](MediaType.text.`event-stream`)
         .inCodec(HttpCodec.header(Header.Accept).const(Header.Accept(MediaType.text.`event-stream`)))
@@ -37,13 +36,14 @@ object ServerSentEventEndpointSpec extends ZIOSpecDefault {
 
     def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
 
-    private val invocation: Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], None] =
+    private val invocation
+      : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
       sseEndpoint(())
 
     def client(port: Int): ZIO[Scope, Throwable, Chunk[ServerSentEvent[String]]] =
       (for {
         client <- ZIO.service[Client]
-        executor = EndpointExecutor(client, locator(port), ZIO.unit)
+        executor = EndpointExecutor(client, locator(port))
         stream <- executor(invocation)
         events <- stream.take(5).runCollect
       } yield events).provideSome[Scope](ZClient.default)
@@ -59,7 +59,7 @@ object ServerSentEventEndpointSpec extends ZIOSpecDefault {
     val stream: ZStream[Any, Nothing, ServerSentEvent[Payload]] =
       ZStream.repeatWithSchedule(ServerSentEvent(Payload(Instant.now(), "message")), Schedule.spaced(1.second))
 
-    val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], None] =
+    val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
       Endpoint(Method.GET / "sse")
         .outStream[ServerSentEvent[Payload]]
         .inCodec(HttpCodec.header(Header.Accept).const(Header.Accept(MediaType.text.`event-stream`)))
@@ -73,13 +73,14 @@ object ServerSentEventEndpointSpec extends ZIOSpecDefault {
 
     def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
 
-    private val invocation: Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], None] =
+    private val invocation
+      : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
       sseEndpoint(())
 
     def client(port: Int): ZIO[Scope, Throwable, Chunk[ServerSentEvent[Payload]]] =
       (for {
         client <- ZIO.service[Client]
-        executor = EndpointExecutor(client, locator(port), ZIO.unit)
+        executor = EndpointExecutor(client, locator(port))
         stream <- executor(invocation)
         events <- stream.take(5).runCollect
       } yield events).provideSome[Scope](ZClient.default)

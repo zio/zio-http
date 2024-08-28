@@ -9,9 +9,8 @@ import zio.stream.ZStream
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.HttpCodec
-import zio.http.endpoint.EndpointMiddleware.None
-import zio.http.endpoint.{Endpoint, EndpointExecutor, EndpointLocator}
+import zio.http.codec.{CodecConfig, HttpCodec}
+import zio.http.endpoint._
 
 object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
 
@@ -24,7 +23,7 @@ object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
   val stream: ZStream[Any, Nothing, ServerSentEvent[Payload]] =
     ZStream.repeatWithSchedule(ServerSentEvent(Payload(Instant.now(), "message")), Schedule.spaced(1.second))
 
-  val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], None] =
+  val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
     Endpoint(Method.GET / "sse")
       .outStream[ServerSentEvent[Payload]]
       .inCodec(HttpCodec.header(Header.Accept).const(Header.Accept(MediaType.text.`event-stream`)))
@@ -33,7 +32,7 @@ object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
 
   val routes: Routes[Any, Response] = sseRoute.toRoutes
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] = {
+  override def run = {
     Server.serve(routes).provide(Server.default).exitCode
   }
 
@@ -44,11 +43,13 @@ object ServerSentEventAsJsonEndpointClient extends ZIOAppDefault {
 
   private val invocation = ServerSentEventAsJsonEndpoint.sseEndpoint(())
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    (for {
-      client <- ZIO.service[Client]
-      executor = EndpointExecutor(client, locator, ZIO.unit)
-      stream <- executor(invocation)
-      _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))
-    } yield ()).provideSome[Scope](ZClient.default)
+  override def run =
+    ZIO
+      .scoped(for {
+        client <- ZIO.service[Client]
+        executor = EndpointExecutor(client, locator)
+        stream <- executor(invocation)
+        _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))
+      } yield ())
+      .provide(ZClient.default)
 }

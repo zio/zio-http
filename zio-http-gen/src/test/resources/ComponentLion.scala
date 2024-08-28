@@ -7,7 +7,5 @@ case class Lion(
   enemy: Option[Animal.Alligator],
 )
 object Lion {
-
   implicit val codec: Schema[Lion] = DeriveSchema.gen[Lion]
-
 }
