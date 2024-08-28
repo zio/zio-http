@@ -445,7 +445,7 @@ object Body {
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)
 
-  private[zio] trait UnsafeBytes extends Body { self =>
+  private[zio] abstract class UnsafeBytes extends Body { self =>
     private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte]
 
     final override def materialize(implicit trace: Trace): UIO[Body] = Exit.succeed(self)
@@ -455,7 +455,7 @@ object Body {
    * Helper to create empty Body
    */
 
-  private[zio] case object EmptyBody extends Body with UnsafeBytes {
+  private[zio] case object EmptyBody extends UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = zioEmptyArray
 
@@ -500,8 +500,7 @@ object Body {
   private[zio] final case class ChunkBody(
     data: Chunk[Byte],
     override val contentType: Option[Body.ContentType] = None,
-  ) extends Body
-      with UnsafeBytes { self =>
+  ) extends UnsafeBytes { self =>
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
 
@@ -526,8 +525,7 @@ object Body {
   private[zio] final case class ArrayBody(
     data: Array[Byte],
     override val contentType: Option[Body.ContentType] = None,
-  ) extends Body
-      with UnsafeBytes { self =>
+  ) extends UnsafeBytes { self =>
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = Exit.succeed(data)
 

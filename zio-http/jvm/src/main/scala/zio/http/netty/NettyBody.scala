@@ -19,14 +19,13 @@ package zio.http.netty
 import java.nio.charset.Charset
 
 import zio._
-import zio.internal.OneShot
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.stream.ZStream
+import zio.stream.{Take, ZChannel, ZStream}
 
 import zio.http.Body.UnsafeBytes
 import zio.http.internal.BodyEncoding
-import zio.http.{Body, Boundary, Header, MediaType}
+import zio.http.{Body, Header}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.util.AsciiString
@@ -66,8 +65,7 @@ object NettyBody extends BodyEncoding {
   private[zio] final case class AsciiStringBody(
     asciiString: AsciiString,
     override val contentType: Option[Body.ContentType] = None,
-  ) extends Body
-      with UnsafeBytes {
+  ) extends UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
 
@@ -111,17 +109,15 @@ object NettyBody extends BodyEncoding {
         }
       }
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-      ZStream
-        .async[Any, Throwable, Byte](
-          emit =>
-            try {
-              unsafeAsync(new UnsafeAsync.Streaming(emit))
-            } catch {
-              case e: Throwable => emit(ZIO.fail(Option(e)))
-            },
-          bufferSize(4096),
-        )
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = {
+      asyncUnboundedStream[Any, Throwable, Byte](emit =>
+        try {
+          unsafeAsync(new UnsafeAsync.Streaming(emit))
+        } catch {
+          case e: Throwable => emit(ZIO.fail(Option(e)))
+        },
+      )
+    }
 
     // No need to create a large buffer when we know the response is small
     private[this] def bufferSize(maxSize: Int): Int = {
@@ -140,6 +136,43 @@ object NettyBody extends BodyEncoding {
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
   }
 
+  /**
+   * Code ported from zio.stream to use an unbounded queue
+   */
+  private def asyncUnboundedStream[R, E, A](
+    register: ZStream.Emit[R, E, A, Unit] => Unit,
+  )(implicit trace: Trace): ZStream[R, E, A] =
+    ZStream.unwrapScoped[R](for {
+      queue   <- ZIO.acquireRelease(Queue.unbounded[Take[E, A]])(_.shutdown)
+      runtime <- ZIO.runtime[R]
+    } yield {
+      val rtm = runtime.unsafe
+      register { k =>
+        try {
+          rtm
+            .run(Take.fromPull(k).flatMap(queue.offer))(trace, Unsafe)
+            .getOrThrowFiberFailure()(Unsafe)
+          ()
+        } catch {
+          case FiberFailure(c) if c.isInterrupted =>
+        }
+      }
+
+      lazy val loop: ZChannel[Any, Any, Any, Any, E, Chunk[A], Unit] =
+        ZChannel.unwrap(
+          queue.take
+            .flatMap(_.done)
+            .fold(
+              maybeError =>
+                ZChannel.fromZIO(queue.shutdown) *>
+                  maybeError.fold[ZChannel[Any, Any, Any, Any, E, Chunk[A], Unit]](ZChannel.unit)(ZChannel.fail(_)),
+              a => ZChannel.write(a) *> loop,
+            ),
+        )
+
+      ZStream.fromChannel(loop)
+    })
+
   private[zio] trait UnsafeAsync {
     def apply(message: Chunk[Byte], isLast: Boolean): Unit
     def fail(cause: Throwable): Unit
@@ -153,7 +186,7 @@ object NettyBody extends BodyEncoding {
 
       def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
         assert(isLast)
-        callback(ZIO.succeed(message))
+        callback(Exit.succeed(message))
       }
 
       def fail(cause: Throwable): Unit =
@@ -162,7 +195,7 @@ object NettyBody extends BodyEncoding {
 
     final class Streaming(emit: ZStream.Emit[Any, Throwable, Byte, Unit])(implicit trace: Trace) extends UnsafeAsync {
       def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
-        if (message.nonEmpty) emit(ZIO.succeed(message))
+        if (message.nonEmpty) emit(Exit.succeed(message))
         if (isLast) emit(FailNone)
       }
 

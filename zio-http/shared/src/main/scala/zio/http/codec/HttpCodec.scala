@@ -234,7 +234,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   private final def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder.encodeWith(config, value, outputTypes.sortBy(mt => -mt.qFactor.getOrElse(1.0)))(f)
+    encoderDecoder.encodeWith(config, value, outputTypes.sorted)(f)
 
   def examples(examples: Iterable[(String, Value)]): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Examples(Chunk.fromIterable(examples).toMap))

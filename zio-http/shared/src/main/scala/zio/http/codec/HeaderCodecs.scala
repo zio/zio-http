@@ -143,7 +143,6 @@ private[codec] trait HeaderCodecs {
   final val userAgent: HeaderCodec[Header.UserAgent]                             = header(Header.UserAgent)
   final val vary: HeaderCodec[Header.Vary]                                       = header(Header.Vary)
   final val via: HeaderCodec[Header.Via]                                         = header(Header.Via)
-  final val warning: HeaderCodec[Header.Warning]                                 = header(Header.Warning)
   final val webSocketLocation: HeaderCodec[Header.SecWebSocketLocation]          = header(Header.SecWebSocketLocation)
   final val webSocketOrigin: HeaderCodec[Header.SecWebSocketOrigin]              = header(Header.SecWebSocketOrigin)
   final val webSocketProtocol: HeaderCodec[Header.SecWebSocketProtocol]          = header(Header.SecWebSocketProtocol)

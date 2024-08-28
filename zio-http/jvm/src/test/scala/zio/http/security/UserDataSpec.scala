@@ -24,10 +24,10 @@ object UserDataSpec extends ZIOSpecDefault {
     List(
       (MediaType.text.`html`, "<script>alert('XSS');</script>", "&lt;script&gt;alert(&#x27;XSS&#x27;);&lt;/script&gt;"),
       (MediaType.text.`html`, "&", "&amp"),
-      (MediaType.text.`html`, "<", "&lt"),
-      (MediaType.text.`html`, ">", "&gt"),
-      (MediaType.text.`html`, "\"", "&quot"),
-      (MediaType.text.`html`, "'", "&#x27"),
+      (MediaType.text.`html`, "<", "&lt;"),
+      (MediaType.text.`html`, ">", "&gt;"),
+      (MediaType.text.`html`, "\"", "&quot;"),
+      (MediaType.text.`html`, "'", "&#x27;"),
     ),
   )
 
@@ -146,10 +146,10 @@ object UserDataSpec extends ZIOSpecDefault {
           port     <- Server.install(routes)
           response <- ZIO.scoped {
             Client
-              .streaming(request.updateURL(_ => URL.decode(s"http://localhost:$port/test").toOption.get))
-              .flatMap(_.ignoreBody)
+              .batched(request.updateURL(_ => URL.decode(s"http://localhost:$port/test").toOption.get))
           }
-        } yield assertTrue(response.headers.toString.contains(expectedResponse))
+          body     <- response.body.asString
+        } yield assertTrue(body == expectedResponse)
       }
     },
   ).provide(
