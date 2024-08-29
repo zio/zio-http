@@ -113,6 +113,10 @@ object Server extends ServerPlatformSpecific {
     /** Enables streaming request bodies */
     def enableRequestStreaming: Config = self.copy(requestStreaming = RequestStreaming.Enabled)
 
+    /** Enables hybrid request streaming */
+    def hybridRequestStreaming(maxAggregatedLength: Int): Config =
+      self.copy(requestStreaming = RequestStreaming.Hybrid(maxAggregatedLength))
+
     def gracefulShutdownTimeout(duration: Duration): Config = self.copy(gracefulShutdownTimeout = duration)
 
     def idleTimeout(duration: Duration): Config = self.copy(idleTimeout = Some(duration))
@@ -415,6 +419,12 @@ object Server extends ServerPlatformSpecific {
      * maximum content length will be rejected.
      */
     final case class Disabled(maximumContentLength: Int) extends RequestStreaming
+
+    /**
+     * Hybrid streaming option: Aggregate requests up to a certain size, and
+     * stream if larger.
+     */
+    final case class Hybrid(maximumAggregatedLength: Int) extends RequestStreaming
 
     lazy val config: zio.Config[RequestStreaming] =
       (zio.Config.boolean("enabled").withDefault(true) ++
