@@ -196,6 +196,31 @@ object WebSocketSpec extends HttpRunnableSpec {
           result <- queue2.takeAll
         } yield assertTrue(result == Chunk("1", "2", "3", "4", "5"))
       },
+      test("send waits for handshake to complete") {
+        for {
+          url <- DynamicServer.httpURL
+          id  <- DynamicServer.deploy {
+            Handler.webSocket { channel =>
+              channel.send(Read(WebSocketFrame.text("immediate")))
+            }.toRoutes
+          }
+
+          queue  <- Queue.unbounded[String]
+          result <- ZIO.scoped {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case Read(WebSocketFrame.Text(s)) =>
+                  queue.offer(s)
+                case _                            =>
+                  ZIO.unit
+              }
+            }.connect(url, Headers(DynamicServer.APP_ID, id)) *>
+              queue.take
+          }
+        } yield {
+          assertTrue(result == "immediate")
+        }
+      },
     )
 
   private val withStreamingEnabled =

@@ -29,6 +29,7 @@ private[http] object WebSocketChannel {
   def make(
     nettyChannel: NettyChannel[JWebSocketFrame],
     queue: Queue[WebSocketChannelEvent],
+    handshakeCompleted: Promise[Nothing, Boolean],
   ): WebSocketChannel =
     new WebSocketChannel {
       def awaitShutdown(implicit trace: Trace): UIO[Unit] =
@@ -51,14 +52,14 @@ private[http] object WebSocketChannel {
       }
 
       def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit] = {
-        in match {
+        sendAwaitHandshakeCompleted *> (in match {
           case Read(message) => nettyChannel.writeAndFlush(frameToNetty(message))
           case _             => ZIO.unit
-        }
+        })
       }
 
       def sendAll(in: Iterable[WebSocketChannelEvent])(implicit trace: Trace): Task[Unit] =
-        ZIO.suspendSucceed {
+        sendAwaitHandshakeCompleted *> ZIO.suspendSucceed {
           val iterator = in.iterator.collect { case Read(message) => message }
 
           ZIO.whileLoop(iterator.hasNext) {
@@ -67,7 +68,18 @@ private[http] object WebSocketChannel {
             else nettyChannel.writeAndFlush(frameToNetty(message))
           }(_ => ())
         }
-      def shutdown(implicit trace: Trace): UIO[Unit]                                      =
+
+      private def sendAwaitHandshakeCompleted: UIO[Unit] = for {
+        _          <- ZIO
+          .logWarning(
+            "WebSocket send before handshake completed, waiting for it to complete",
+          )
+          .unlessZIO(handshakeCompleted.isDone)
+        successful <- handshakeCompleted.await
+        _          <- ZIO.interrupt.when(!successful)
+      } yield ()
+
+      def shutdown(implicit trace: Trace): UIO[Unit] =
         nettyChannel.close(false).orDie
     }
 

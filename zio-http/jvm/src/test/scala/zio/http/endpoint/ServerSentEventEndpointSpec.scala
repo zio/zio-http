@@ -15,7 +15,7 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http._
 import zio.http.codec.HttpCodec
 
-object ServerSentEventEndpointSpec extends ZIOSpecDefault {
+object ServerSentEventEndpointSpec extends ZIOHttpSpec {
 
   object StringPayload {
     val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
