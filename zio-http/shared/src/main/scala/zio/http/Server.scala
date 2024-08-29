@@ -200,22 +200,25 @@ object Server extends ServerPlatformSpecific {
   object Config {
     lazy val config: zio.Config[Config] = {
       SSLConfig.config.optional ++
-        zio.Config.string("binding-host").optional ++
-        zio.Config.int("binding-port").withDefault(Config.default.address.getPort) ++
-        zio.Config.boolean("accept-continue").withDefault(Config.default.acceptContinue) ++
-        zio.Config.boolean("keep-alive").withDefault(Config.default.keepAlive) ++
-        Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
-        ResponseCompressionConfig.config.nested("response-compression").optional ++
-        RequestStreaming.config.nested("request-streaming").withDefault(Config.default.requestStreaming) ++
-        zio.Config.int("max-initial-line-length").withDefault(Config.default.maxInitialLineLength) ++
-        zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
-        zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
-        zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout) ++
-        zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
-        zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching) ++
-        zio.Config.int("so-backlog").withDefault(Config.default.soBacklog) ++
-        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay)
-
+        zio.Config.string.nested("binding", "host").optional ++
+        zio.Config.int.nested("binding", "port").withDefault(Config.default.address.getPort) ++
+        zio.Config.boolean.nested("accept", "continue").withDefault(Config.default.acceptContinue) ++
+        zio.Config.boolean.nested("keep", "alive").withDefault(Config.default.keepAlive) ++
+        Decompression.config.nested("request", "decompression").withDefault(Config.default.requestDecompression) ++
+        ResponseCompressionConfig.config.nested("response", "compression").optional ++
+        RequestStreaming.config.nested("request", "streaming").withDefault(Config.default.requestStreaming) ++
+        zio.Config.int.nested("max", "initial", "line", "length").withDefault(Config.default.maxInitialLineLength) ++
+        zio.Config.int.nested("max", "header", "size").withDefault(Config.default.maxHeaderSize) ++
+        zio.Config.boolean
+          .nested("log", "warning", "on", "fatal", "error")
+          .withDefault(Config.default.logWarningOnFatalError) ++
+        zio.Config.duration
+          .nested("graceful", "shutdown", "timeout")
+          .withDefault(Config.default.gracefulShutdownTimeout) ++
+        zio.Config.duration.nested("idle", "timeout").optional.withDefault(Config.default.idleTimeout) ++
+        zio.Config.boolean.nested("avoid", "context", "switching").withDefault(Config.default.avoidContextSwitching) ++
+        zio.Config.int.nested("so", "backlog").withDefault(Config.default.soBacklog) ++
+        zio.Config.boolean.nested("tcp", "nodelay").withDefault(Config.default.tcpNoDelay)
     }.map {
       case (
             sslConfig,
@@ -281,7 +284,9 @@ object Server extends ServerPlatformSpecific {
     object ResponseCompressionConfig {
       lazy val config: zio.Config[ResponseCompressionConfig] =
         (
-          zio.Config.int("content-threshold").withDefault(ResponseCompressionConfig.default.contentThreshold) ++
+          zio.Config.int
+            .nested("content", "threshold")
+            .withDefault(ResponseCompressionConfig.default.contentThreshold) ++
             CompressionOptions.config.repeat.nested("options")
         ).map { case (contentThreshold, options) =>
           ResponseCompressionConfig(contentThreshold, options)
@@ -428,7 +433,7 @@ object Server extends ServerPlatformSpecific {
 
     lazy val config: zio.Config[RequestStreaming] =
       (zio.Config.boolean("enabled").withDefault(true) ++
-        zio.Config.int("maximum-content-length").withDefault(1024 * 100)).map {
+        zio.Config.int.nested("maximum", "content", "length").withDefault(1024 * 100)).map {
         case (true, _)          => Enabled
         case (false, maxLength) => Disabled(maxLength)
       }
