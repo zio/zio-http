@@ -9,7 +9,7 @@ import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
-import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
+import zio.http.endpoint.openapi.{JsonSchema, OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.Collection.Opt
@@ -593,6 +593,24 @@ object EndpointGenSpec extends ZIOSpecDefault {
             enums = Nil,
           )
           assertTrue(scala.files.head == expected)
+        },
+        test("response are case class with 22+ fields") {
+          val endpoint = Endpoint(Method.GET / "api" / "v1" / "users").out[BigModel]
+          val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
+          assertTrue(
+            openAPI.components.is(_.some).schemas.nonEmpty,
+            openAPI.components.is(_.some).schemas.headOption.is(_.some)._1.name == "BigModel",
+            openAPI.components
+              .is(_.some)
+              .schemas
+              .headOption
+              .is(_.some)
+              ._2
+              .asJsonSchema
+              .is(_.subtype[JsonSchema.Object])
+              .properties
+              .size == 23,
+          )
         },
         test("seq request") {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users").in[Chunk[User]]
