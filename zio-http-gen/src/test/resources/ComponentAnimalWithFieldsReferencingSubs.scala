@@ -2,6 +2,8 @@ package test.component
 
 import zio.schema._
 import zio.schema.annotation._
+import zio.schema.annotation.validate
+import zio.schema.validation.Validation
 import zio.Chunk
 
 @noDiscriminator
@@ -13,17 +15,17 @@ object Animal       {
 
   implicit val codec: Schema[Animal] = DeriveSchema.gen[Animal]
   case class Alligator(
-    @zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan(-1)) age: Int,
-    @zio.schema.annotation.validate[Float](zio.schema.validation.Validation.greaterThan(-1.0)) weight: Float,
-    @zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan(-1)) num_teeth: Int,
+    @validate[Int](Validation.greaterThan(-1)) age: Int,
+    @validate[Float](Validation.greaterThan(-1.0)) weight: Float,
+    @validate[Int](Validation.greaterThan(-1)) num_teeth: Int,
   ) extends Animal
   object Alligator {
     implicit val codec: Schema[Alligator] = DeriveSchema.gen[Alligator]
   }
   case class Zebra(
-    @zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan(-1)) age: Int,
-    @zio.schema.annotation.validate[Float](zio.schema.validation.Validation.greaterThan(-1.0)) weight: Float,
-    @zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan(-1)) num_stripes: Int,
+    @validate[Int](Validation.greaterThan(-1)) age: Int,
+    @validate[Float](Validation.greaterThan(-1.0)) weight: Float,
+    @validate[Int](Validation.greaterThan(-1)) num_stripes: Int,
     dazzle: Chunk[Zebra],
   ) extends Animal
   object Zebra {

@@ -1,13 +1,14 @@
 package zio.http.gen.openapi
 
 import scala.annotation.tailrec
+import scala.reflect.ClassTag
 
 import zio.Chunk
 
 import zio.http.Method
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPI}
-import zio.http.gen.scala.Code.{CodecType, Collection, PathSegmentCode, ScalaType, TypeRef}
+import zio.http.gen.scala.Code._
 import zio.http.gen.scala.{Code, CodeGen}
 
 object EndpointGen {
@@ -1102,6 +1103,57 @@ final case class EndpointGen(config: Config) {
       schema.additionalProperties == Left(false) &&
       schema.required == Chunk(schema.properties.head._1)
 
+  private def annotationImports: List[Import] = List(
+    Code.Import.Absolute("zio.schema.annotation.validate"),
+    Code.Import.Absolute("zio.schema.validation.Validation"),
+  )
+
+  def addStringValidations(minLength: Option[Int], maxLength: Option[Int]): List[Annotation] = {
+    (maxLength, minLength) match {
+      case (Some(max), Some(min)) =>
+        Annotation(
+          s"@validate[String](Validation.maxLength($max) && Validation.minLength($min))",
+          annotationImports,
+        ) :: Nil
+      case (Some(max), None)      =>
+        Annotation(s"@validate[String](Validation.maxLength($max))", annotationImports) :: Nil
+      case (None, Some(min))      =>
+        Annotation(s"@validate[String](Validation.minLength($min))", annotationImports) :: Nil
+      case (None, None)           =>
+        Nil
+    }
+  }
+
+  def addNumericValidations[T: ClassTag](minOpt: Option[T], maxOpt: Option[T]): List[Annotation] = {
+    def typeName: String = implicitly[ClassTag[T]].toString
+
+    (minOpt, maxOpt) match {
+      case (Some(min), Some(max)) =>
+        Annotation(
+          s"@validate[${typeName}](Validation.greaterThan($min) && Validation.lessThan($max))",
+          annotationImports,
+        ) :: Nil
+      case (Some(min), None)      =>
+        Annotation(s"@validate[${typeName}](Validation.greaterThan($min))", annotationImports) :: Nil
+      case (None, Some(max))      =>
+        Annotation(s"@validate[${typeName}](Validation.lessThan($max))", annotationImports) :: Nil
+      case (None, None)           =>
+        Nil
+    }
+  }
+
+  private def safeCastLongToInt(l: Long): Int = {
+    val i = l.intValue()
+    require(l == i, s"Long[$l] does not fit in an Int: failed to cast")
+    i
+  }
+
+  private def safeCastDoubleToFloat(d: Double): Float = {
+    val f = d.floatValue()
+    require(d == f, s"Double[$d] does not fit in a Float: failed to cast")
+    f
+  }
+
   def schemaToField(
     schema: JsonSchema,
     openAPI: OpenAPI,
@@ -1131,18 +1183,13 @@ final case class EndpointGen(config: Config) {
           if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
           else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
           else maximum.map(_ + 1)
-        val annotations  = (exclusiveMin, exclusiveMax) match {
-          case (Some(min), Some(max)) =>
-            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (Some(min), None)      =>
-            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.greaterThan($min))" :: Nil
-          case (None, Some(max))      =>
-            s"@zio.schema.annotation.validate[Int](zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (None, None)           =>
-            Nil
-        }
 
-        Some(Code.Field(name, Code.Primitive.ScalaInt, annotations.map(Code.Annotation.apply)))
+        val annotations = addNumericValidations[Int](
+          exclusiveMin.collect { case l if l >= Int.MinValue => safeCastLongToInt(l) },
+          exclusiveMax.collect { case l if l <= Int.MaxValue => safeCastLongToInt(l) },
+        )
+
+        Some(Code.Field(name, Code.Primitive.ScalaInt, annotations))
       case JsonSchema.Integer(
             JsonSchema.IntegerFormat.Int64,
             minimum,
@@ -1159,17 +1206,9 @@ final case class EndpointGen(config: Config) {
           if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
           else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
           else maximum.map(_ + 1)
-        val annotations  = (exclusiveMin, exclusiveMax) match {
-          case (Some(min), Some(max)) =>
-            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (Some(min), None)      =>
-            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min))" :: Nil
-          case (None, Some(max))      =>
-            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (None, None)           =>
-            Nil
-        }
-        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations.map(Code.Annotation.apply)))
+
+        val annotations = addNumericValidations[Long](exclusiveMin, exclusiveMax)
+        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations))
       case JsonSchema.Integer(
             JsonSchema.IntegerFormat.Timestamp,
             minimum,
@@ -1186,43 +1225,15 @@ final case class EndpointGen(config: Config) {
           if (exclusiveMaximum.isDefined && exclusiveMaximum.get == Left(true)) maximum
           else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
           else maximum.map(_ + 1)
-        val annotations  = (exclusiveMin, exclusiveMax) match {
-          case (Some(min), Some(max)) =>
-            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (Some(min), None)      =>
-            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.greaterThan($min))" :: Nil
-          case (None, Some(max))      =>
-            s"@zio.schema.annotation.validate[Long](zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (None, None)           =>
-            Nil
-        }
-        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations.map(Code.Annotation.apply)))
+        val annotations  = addNumericValidations[Long](exclusiveMin, exclusiveMax)
+        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations))
 
       case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, maxLength, minLength)                             =>
-        val annotations =
-          (maxLength, minLength) match {
-            case (Some(max), Some(min)) =>
-              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max) && zio.schema.validation.Validation.minLength($min))" :: Nil
-            case (Some(max), None)      =>
-              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max))" :: Nil
-            case (None, Some(min))      =>
-              s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.minLength($min))" :: Nil
-            case (None, None)           =>
-              Nil
-          }
-        Some(Code.Field(name, Code.Primitive.ScalaUUID, annotations.map(Code.Annotation.apply)))
+        val annotations = addStringValidations(minLength, maxLength)
+        Some(Code.Field(name, Code.Primitive.ScalaUUID, annotations))
       case JsonSchema.String(_, _, maxLength, minLength)                                                              =>
-        val annotations = (maxLength, minLength) match {
-          case (Some(max), Some(min)) =>
-            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max) && zio.schema.validation.Validation.minLength($min))" :: Nil
-          case (Some(max), None)      =>
-            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.maxLength($max))" :: Nil
-          case (None, Some(min))      =>
-            s"@zio.schema.annotation.validate[String](zio.schema.validation.Validation.minLength($min))" :: Nil
-          case (None, None)           =>
-            Nil
-        }
-        Some(Code.Field(name, Code.Primitive.ScalaString, annotations.map(Code.Annotation.apply)))
+        val annotations = addStringValidations(minLength, maxLength)
+        Some(Code.Field(name, Code.Primitive.ScalaString, annotations))
       case JsonSchema.Boolean                                                                                         =>
         Some(Code.Field(name, Code.Primitive.ScalaBoolean))
       case JsonSchema.OneOfSchema(schemas)                                                                            =>
@@ -1253,17 +1264,8 @@ final case class EndpointGen(config: Config) {
           else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
           else maximum.map(_ + 1)
 
-        val annotations = (exclusiveMin, exclusiveMax) match {
-          case (Some(min), Some(max)) =>
-            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (Some(min), None)      =>
-            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.greaterThan($min))" :: Nil
-          case (None, Some(max))      =>
-            s"@zio.schema.annotation.validate[Double](zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (None, None)           =>
-            Nil
-        }
-        Some(Code.Field(name, Code.Primitive.ScalaDouble, annotations.map(Code.Annotation.apply)))
+        val annotations = addNumericValidations[Double](exclusiveMin, exclusiveMax)
+        Some(Code.Field(name, Code.Primitive.ScalaDouble, annotations))
       case JsonSchema.Number(JsonSchema.NumberFormat.Float, minimum, exclusiveMinimum, maximum, exclusiveMaximum, _)  =>
         val exclusiveMin =
           if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
@@ -1274,17 +1276,11 @@ final case class EndpointGen(config: Config) {
           else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
           else maximum.map(_ + 1)
 
-        val annotations = (exclusiveMin, exclusiveMax) match {
-          case (Some(min), Some(max)) =>
-            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.greaterThan($min) && zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (Some(min), None)      =>
-            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.greaterThan($min))" :: Nil
-          case (None, Some(max))      =>
-            s"@zio.schema.annotation.validate[Float](zio.schema.validation.Validation.lessThan($max))" :: Nil
-          case (None, None)           =>
-            Nil
-        }
-        Some(Code.Field(name, Code.Primitive.ScalaFloat, annotations.map(Code.Annotation.apply)))
+        val annotations = addNumericValidations[Float](
+          exclusiveMin.collect { case l if l >= Float.MinValue => safeCastDoubleToFloat(l) },
+          exclusiveMax.collect { case l if l <= Float.MaxValue => safeCastDoubleToFloat(l) },
+        )
+        Some(Code.Field(name, Code.Primitive.ScalaFloat, annotations))
       case JsonSchema.ArrayType(items, minItems, uniqueItems)                                                         =>
         val nonEmpty = minItems.exists(_ > 1)
         val tpe      = items

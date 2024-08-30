@@ -134,7 +134,7 @@ object Code {
     abstractMembers: List[Field] = Nil,
   ) extends ScalaType
 
-  final case class Annotation(value: String)
+  final case class Annotation(value: String, imports: List[Code.Import]) extends Code
 
   sealed abstract case class Field private (name: String, fieldType: ScalaType, annotations: List[Annotation])
       extends Code {

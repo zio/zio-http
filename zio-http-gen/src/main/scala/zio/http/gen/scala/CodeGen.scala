@@ -168,7 +168,7 @@ object CodeGen {
               traitBodyBuilder ++= ": "
               traitBodyBuilder ++= tpe
 
-              imports ::: importsAcc
+              annotations.foldRight(imports ::: importsAcc)(_.imports ::: _).distinct
             }
         }
         val body             =
@@ -210,10 +210,11 @@ object CodeGen {
       }
 
     case Code.Field(name, fieldType, annotations) =>
-      val (imports, tpe) = render(basePackage)(fieldType)
-      val annotationsStr = annotations.map(_.value).mkString("\n")
-      val content        = if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
-      imports -> (annotationsStr + content)
+      val (imports, tpe)                        = render(basePackage)(fieldType)
+      val (annotationValues, annotationImports) = annotations.unzip(ann => ann.value -> ann.imports)
+      val allImports                            = annotationImports.foldRight(imports)(_ ::: _).distinct
+      val content                               = if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
+      allImports -> annotationValues.mkString("", "\n", content)
 
     case Code.Primitive.ScalaBoolean => Nil                                 -> "Boolean"
     case Code.Primitive.ScalaByte    => Nil                                 -> "Byte"
