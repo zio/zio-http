@@ -7,7 +7,7 @@ import zio.Chunk
 import zio.http.Method
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPI}
-import zio.http.gen.scala.Code.{CodecType, Collection, PathSegmentCode, ScalaType}
+import zio.http.gen.scala.Code.{CodecType, Collection, PathSegmentCode, ScalaType, TypeRef}
 import zio.http.gen.scala.{Code, CodeGen}
 
 object EndpointGen {
@@ -268,7 +268,7 @@ final case class EndpointGen(config: Config) {
       case tref: Code.TypeRef              => f(tref)
       case Collection.Seq(inner, nonEmpty) => Collection.Seq(mapTypeRef(inner)(f), nonEmpty)
       case Collection.Set(inner, nonEmpty) => Collection.Set(mapTypeRef(inner)(f), nonEmpty)
-      case Collection.Map(inner)           => Collection.Map(mapTypeRef(inner)(f))
+      case Collection.Map(inner, keysType) => Collection.Map(mapTypeRef(inner)(f), keysType)
       case Collection.Opt(inner)           => Collection.Opt(mapTypeRef(inner)(f))
       case _                               => sType
     }
@@ -1302,11 +1302,36 @@ final case class EndpointGen(config: Config) {
         throw new Exception("Object with properties and additionalProperties is not supported")
       case JsonSchema.Object(properties, additionalProperties, _)
           if properties.isEmpty && additionalProperties.isRight =>
+        val (vSchema, kSchemaOpt) = {
+          val vs                = additionalProperties.toOption.get
+          val (ks, annotations) = JsonSchema.Object.extractKeySchemaFromAnnotations(vs)
+          vs.withoutAnnotations.annotate(annotations) -> ks
+        }
+
         Some(
           Code.Field(
             name,
             Code.Collection.Map(
-              schemaToField(additionalProperties.toOption.get, openAPI, name, annotations).get.fieldType,
+              schemaToField(vSchema, openAPI, name, annotations).get.fieldType,
+              kSchemaOpt.collect {
+                case ss: JsonSchema.String     =>
+                  schemaToField(ss, openAPI, name, annotations).get.fieldType
+                case JsonSchema.RefSchema(ref) =>
+                  val baref = ref.replaceFirst("^#/components/schemas/", "")
+                  resolveSchemaRef(openAPI, baref) match {
+                    case ks: JsonSchema.String =>
+                      if (config.generateSafeTypeAliases) TypeRef(baref + ".Type")
+                      else schemaToField(ks, openAPI, name, annotations).get.fieldType
+                    case nonStringSchema       =>
+                      throw new IllegalArgumentException(
+                        s"x-string-key-schema must reference a string schema, but got: ${nonStringSchema.toJson}",
+                      )
+                  }
+                case nonStringSchema           =>
+                  throw new IllegalArgumentException(
+                    s"x-string-key-schema must be a string schema, but got: ${nonStringSchema.toJson}",
+                  )
+              },
             ),
           ),
         )

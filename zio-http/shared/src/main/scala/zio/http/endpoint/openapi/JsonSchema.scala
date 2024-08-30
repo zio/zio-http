@@ -1,18 +1,21 @@
 package zio.http.endpoint.openapi
 
 import scala.annotation.{nowarn, tailrec}
+import scala.util.chaining.scalaUtilChainingOps
 
 import zio._
 import zio.json.ast.Json
 
 import zio.schema.Schema.CaseClass0
+import zio.schema.StandardType.Tags
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
 
-import zio.http.codec.{SegmentCodec, TextCodec}
+import zio.http.codec.{PathCodec, SegmentCodec, TextCodec}
+import zio.http.endpoint.openapi.BoolOrSchema.SchemaWrapper
 import zio.http.endpoint.openapi.JsonSchema.MetaData
 
 @nowarn("msg=possible missing interpolator")
@@ -26,6 +29,7 @@ private[openapi] case class SerializableJsonSchema(
   @fieldName("enum") enumValues: Option[Chunk[Json]] = None,
   properties: Option[Map[String, SerializableJsonSchema]] = None,
   additionalProperties: Option[BoolOrSchema] = None,
+  @fieldName("x-string-key-schema") optionalKeySchema: Option[SerializableJsonSchema] = None,
   required: Option[Chunk[String]] = None,
   items: Option[SerializableJsonSchema] = None,
   nullable: Option[Boolean] = None,
@@ -101,7 +105,7 @@ private[openapi] object BoolOrSchema {
 
   object SchemaWrapper {
     implicit val schema: Schema[SchemaWrapper] =
-      Schema[SerializableJsonSchema].transform(SchemaWrapper(_), _.schema)
+      Schema[SerializableJsonSchema].transform(SchemaWrapper.apply, _.schema)
   }
 
   final case class BooleanWrapper(value: Boolean) extends BoolOrSchema
@@ -254,9 +258,18 @@ object JsonSchema {
 
   private def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
     val additionalProperties = schema.additionalProperties match {
-      case Some(BoolOrSchema.BooleanWrapper(false)) => Left(false)
-      case Some(BoolOrSchema.BooleanWrapper(true))  => Left(true)
-      case Some(BoolOrSchema.SchemaWrapper(schema)) => Right(fromSerializableSchema(schema))
+      case Some(BoolOrSchema.BooleanWrapper(bool))  => Left(bool)
+      case Some(BoolOrSchema.SchemaWrapper(schema)) =>
+        val valuesSchema = fromSerializableSchema(schema)
+        Right(
+          schema.optionalKeySchema.fold(valuesSchema)(keySchema =>
+            valuesSchema.annotate(
+              MetaData.KeySchema(
+                fromSerializableSchema(keySchema),
+              ),
+            ),
+          ),
+        )
       case None                                     => Left(true)
     }
 
@@ -432,10 +445,10 @@ object JsonSchema {
                 minItems = Some(1),
                 uniqueItems = identity == "NonEmptySet",
               )
-            case Schema.Map(_, valueSchema, _)                             =>
-              mapSchema(refType, ref, seenWithCurrent, valueSchema)
-            case Schema.NonEmptyMap(_, valueSchema, _)                     =>
-              mapSchema(refType, ref, seenWithCurrent, valueSchema)
+            case Schema.Map(keySchema, valueSchema, _)                     =>
+              mapSchema(refType, ref, seenWithCurrent, keySchema, valueSchema)
+            case Schema.NonEmptyMap(keySchema, valueSchema, _)             =>
+              mapSchema(refType, ref, seenWithCurrent, keySchema, valueSchema)
             case Schema.Set(elementSchema, _)                              =>
               arraySchemaMulti(refType, ref, elementSchema, seenWithCurrent)
           }
@@ -492,30 +505,25 @@ object JsonSchema {
     }
   }
 
-  private def mapSchema[V](
+  private def mapSchema[K, V](
     refType: SchemaStyle,
     ref: Option[java.lang.String],
     seenWithCurrent: Set[java.lang.String],
+    keySchema: Schema[K],
     valueSchema: Schema[V],
   ) = {
-    val nested = fromZSchemaMulti(valueSchema, refType, seenWithCurrent)
+    val nested          = fromZSchemaMulti(valueSchema, refType, seenWithCurrent)
+    val mapObjectSchema = annotateMapSchemaWithKeysSchema(nested.root, keySchema)
+
     if (valueSchema.isInstanceOf[Schema.Primitive[_]]) {
       JsonSchemas(
-        JsonSchema.Object(
-          Map.empty,
-          Right(nested.root),
-          Chunk.empty,
-        ),
+        mapObjectSchema,
         ref,
         nested.children,
       )
     } else {
       JsonSchemas(
-        JsonSchema.Object(
-          Map.empty,
-          Right(nested.root),
-          Chunk.empty,
-        ),
+        mapObjectSchema,
         ref,
         nested.children ++ nested.rootRef.map(_ -> nested.root),
       )
@@ -544,6 +552,39 @@ object JsonSchema {
         nested.children ++ nested.rootRef.map(_ -> nested.root),
       )
     }
+  }
+
+  private def annotationForKeySchema[K](keySchema: Schema[K]): Option[MetaData.KeySchema] =
+    keySchema match {
+      case Schema.Primitive(StandardType.StringType, annotations) if annotations.isEmpty => None
+      case nonSimple                                                                     =>
+        fromZSchema(nonSimple) match {
+          case JsonSchema.String(None, None, None, None) => None // no need for extension
+          case s: JsonSchema.String                      => Some(MetaData.KeySchema(s))
+          case _                                         => None // only string keys are allowed
+        }
+    }
+
+  private def annotateMapSchemaWithKeysSchema[K](valueSchema: JsonSchema, keySchema: Schema[K]) = {
+    val keySchemaOpt: Option[MetaData.KeySchema] = annotationForKeySchema(keySchema)
+    val resultSchema                             = keySchemaOpt match {
+      case Some(keySchemaAnnotation) => valueSchema.annotate(keySchemaAnnotation)
+      case None                      => valueSchema
+    }
+    JsonSchema.Object(
+      Map.empty,
+      Right(resultSchema),
+      Chunk.empty,
+    )
+  }
+
+  private def jsonSchemaFromAnyMapSchema[K, V](
+    keySchema: Schema[K],
+    valueSchema: Schema[V],
+    refType: SchemaStyle,
+  ): JsonSchema.Object = {
+    val valuesSchema = fromZSchema(valueSchema, refType)
+    annotateMapSchemaWithKeysSchema(valuesSchema, keySchema)
   }
 
   def fromZSchema(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchema =
@@ -629,18 +670,10 @@ object JsonSchema {
               None,
               uniqueItems = identity == "NonEmptySet",
             )
-          case Schema.Map(_, valueSchema, _)                             =>
-            JsonSchema.Object(
-              Map.empty,
-              Right(fromZSchema(valueSchema, refType)),
-              Chunk.empty,
-            )
-          case Schema.NonEmptyMap(_, valueSchema, _)                     =>
-            JsonSchema.Object(
-              Map.empty,
-              Right(fromZSchema(valueSchema, refType)),
-              Chunk.empty,
-            )
+          case Schema.Map(keySchema, valueSchema, _)                     =>
+            jsonSchemaFromAnyMapSchema(keySchema, valueSchema, refType)
+          case Schema.NonEmptyMap(keySchema, valueSchema, _)             =>
+            jsonSchemaFromAnyMapSchema(keySchema, valueSchema, refType)
           case Schema.Set(elementSchema, _)                              =>
             JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)), None, uniqueItems = true)
         }
@@ -816,12 +849,17 @@ object JsonSchema {
           schema.toSerializableSchema.copy(deprecated = Some(true))
         case MetaData.Default(default)             =>
           schema.toSerializableSchema.copy(default = Some(default))
+        case _: MetaData.KeySchema                 =>
+          // This is used only for additionalProperties schema,
+          // where this annotation captures the schema for key values only.
+          throw new IllegalStateException("KeySchema annotation should be stripped from schema prior to serialization")
       }
     }
   }
 
   sealed trait MetaData extends Product with Serializable
   object MetaData {
+    final case class KeySchema(schema: JsonSchema)                         extends MetaData
     final case class Examples(chunk: Chunk[Json])                          extends MetaData
     final case class Default(default: Json)                                extends MetaData
     final case class Discriminator(discriminator: OpenAPI.Discriminator)   extends MetaData
@@ -1263,23 +1301,132 @@ object JsonSchema {
     def required(required: Chunk[java.lang.String]): Object =
       this.copy(required = required)
 
+    private def reconcileIfBothDefined[T](left: Option[T], right: Option[T])(combine: (T, T) => Option[T]): Option[T] =
+      for {
+        l <- left
+        r <- right
+        c <- combine(l, r)
+      } yield c
+
+    private def reconcileOrEither[T](left: Option[T], right: Option[T])(combine: (T, T) => Option[T]): Option[T] =
+      (left, right) match {
+        case (Some(l), Some(r)) => combine(l, r)
+        case (lOption, rOption) => lOption.orElse(rOption)
+      }
+
+    private def someWhenEq[T](l: T, r: T): Option[T] =
+      if (l == r) Some(l) else None
+
+    private def combinePatterns(lPattern: Pattern, rPattern: Pattern): Some[Pattern] =
+      if (lPattern == rPattern) Some(lPattern)
+      else {
+        // validate either pattern match.
+        //
+        // If we to enforce AND semantics rather than OR semantics,
+        // we can be easily achieve this with lookahead assertions: {{{
+        //   Pattern("(?=" + lPattern + ")(?=" + rPattern + ")")
+        // }}}
+        Some(Pattern("(" + lPattern + ")|(" + rPattern + ")"))
+      }
+
+    private def wrap[T](f: (T, T) => T): (T, T) => Option[T] = (l, r) => Some(f(l, r))
+
+    /**
+     * When combining additionalProperties (AKA dictionaries) schemas, usually
+     * we should deal only with the values schemas.
+     *
+     * Since a support for "x-string-key-schema" extension was added, we also
+     * have schemas for the dictionary keys. This is not supported natively in
+     * OpenAPI, which allows only string keys without schema.
+     *
+     * By allowing this extension, we are still restricted to only use string
+     * keys so we adhere to OpenAPI's rules, but we can have a more fine-grained
+     * semantics.
+     *
+     * For instance, having keys as UUID instead of plain strings, referencing
+     * aliased Newtype strings, or have other OpenAPI string validations like
+     * pattern, or length.
+     *
+     * In here, we attempt to reconcile 2 key schemas. They must be Strings, (or
+     * else we'll throw). And we attempt to make them match the best we can:
+     *   - only keep format if match on both
+     *   - adjust the pattern to enforce both patterns if both exist
+     *   - max length is restricted to be the minimum
+     *   - min length is restricted to be the maximum
+     *   - if after reconciliation min > max, we discard both requirements
+     *
+     * @param left
+     * @param right
+     * @return
+     */
+    private def combineKeySchemasForAdditionalProperties(
+      left: Option[JsonSchema],
+      right: Option[JsonSchema],
+    ): Option[JsonSchema] = {
+
+      // TODO: what happens in case of annotated key schemas?
+      //       Is it possible?
+      //       How should we combine if so?
+      //       Meanwhile, we just discard an key schema annotations.
+      //       key schemas are a special extension without support in other libraries, so it's fine.
+      val lKeyNoAnnotations = left.map(_.withoutAnnotations)
+      val rKeyNoAnnotations = right.map(_.withoutAnnotations)
+
+      reconcileIfBothDefined(lKeyNoAnnotations, rKeyNoAnnotations) {
+        case (JsonSchema.String(lfmt, lptn, lmxl, lmnl), JsonSchema.String(rfmt, rptn, rmxl, rmnl)) =>
+          Some(
+            JsonSchema.String(
+              format = reconcileIfBothDefined(lfmt, rfmt)(someWhenEq),
+              pattern = reconcileIfBothDefined(lptn, rptn)(combinePatterns),
+              maxLength = reconcileOrEither(lmxl, rmxl)(wrap(math.max)),
+              minLength = reconcileOrEither(lmnl, rmnl)(wrap(math.min)),
+            ),
+          )
+        case (l, r) => throw new IllegalArgumentException(s"dictionary keys must be of string schemas! got: $l, $r")
+      }
+    }
+
     private def combineAdditionalProperties(
       left: Either[Boolean, JsonSchema],
       right: Either[Boolean, JsonSchema],
     ): Either[Boolean, JsonSchema] =
       (left, right) match {
-        case (Left(false), _)            => Left(false)
-        case (_, Left(_))                => left
-        case (Left(true), _)             => right
-        case (Right(left), Right(right)) =>
-          Right(AllOfSchema(Chunk(left, right)))
+        case (Left(false), _)                 => Left(false)
+        case (_, Left(_))                     => left
+        case (Left(true), _)                  => right
+        case (Right(lSchema), Right(rSchema)) =>
+          val (leftKey, lAnnotations)  = Object.extractKeySchemaFromAnnotations(lSchema)
+          val (rightKey, rAnnotations) = Object.extractKeySchemaFromAnnotations(rSchema)
+
+          val keySchema = combineKeySchemasForAdditionalProperties(leftKey, rightKey)
+
+          val leftVal  = lSchema.withoutAnnotations.annotate(lAnnotations)
+          val rightVal = rSchema.withoutAnnotations.annotate(rAnnotations)
+
+          // TODO: should we flatten AllOfSchemas here?
+          val combined          = AllOfSchema(Chunk(leftVal, rightVal))
+          val annotatedCombined = keySchema.fold[JsonSchema](combined)(ks => combined.annotate(MetaData.KeySchema(ks)))
+
+          Right(annotatedCombined)
       }
 
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema = {
       val additionalProperties = this.additionalProperties match {
-        case Left(true)    => None
-        case Left(false)   => Some(BoolOrSchema.BooleanWrapper(false))
-        case Right(schema) => Some(BoolOrSchema.SchemaWrapper(schema.toSerializableSchema))
+        case Left(true)  => None
+        case Left(false) => Some(BoolOrSchema.BooleanWrapper(false))
+        case Right(js)   =>
+          val (keySchemaOpt, nonKeySchemaAnnotations) = Object.extractKeySchemaFromAnnotations(js)
+          val filteredKeySchemaOpt                    = keySchemaOpt.filterNot {
+            case JsonSchema.String(None, None, None, None) => true // no need to annotate a plain string key
+            case _                                         => false
+          }
+          val valueSerializedSchema                   =
+            js.withoutAnnotations
+              .annotate(nonKeySchemaAnnotations)
+              .toSerializableSchema
+              .copy(optionalKeySchema = filteredKeySchemaOpt.map(_.toSerializableSchema))
+
+          Some(BoolOrSchema.SchemaWrapper(valueSerializedSchema))
       }
 
       val nullableFields = properties.collect { case (name, schema) if schema.isNullable => name }.toSet
@@ -1301,6 +1448,13 @@ object JsonSchema {
 
   object Object {
     val empty: JsonSchema.Object = JsonSchema.Object(Map.empty, Left(true), Chunk.empty)
+
+    private[http] def extractKeySchemaFromAnnotations(js: JsonSchema): (Option[JsonSchema], Chunk[MetaData]) =
+      js.annotations.foldLeft(Option.empty[JsonSchema] -> Chunk.empty[MetaData]) {
+        case ((kSchemaOpt, otherAnnotations), MetaData.KeySchema(s)) => kSchemaOpt.orElse(Some(s)) -> otherAnnotations
+        case ((kSchemaOpt, otherAnnotations), noKeySchemaAnnotation) =>
+          kSchemaOpt -> (otherAnnotations :+ noKeySchemaAnnotation)
+      }
   }
 
   final case class Enum(values: Chunk[EnumValue]) extends JsonSchema {
