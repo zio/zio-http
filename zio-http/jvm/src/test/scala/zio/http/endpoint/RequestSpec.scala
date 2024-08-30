@@ -92,6 +92,51 @@ object RequestSpec extends ZIOHttpSpec {
             assertTrue(contentType == Some(ContentType(MediaType.text.`plain`)))
         }
       },
+      test("custom out header") {
+        val endpoint =
+          Endpoint(GET / "posts")
+            .out[String](MediaType.text.plain)
+            .outHeader(HttpCodec.age)
+        val routes   = endpoint.implementAs(("test", Header.Age(1.minute))).toRoutes
+        for {
+          response <- routes.runZIO(Request.get(URL.decode("/posts").toOption.get))
+          age = response.header(Header.Age)
+          body <- response.body.asString.orDie
+        } yield assertTrue(age.contains(Header.Age(1.minute)), body == "test")
+      },
+      test("custom out header for only one output") {
+        val endpoint    =
+          Endpoint(GET / "posts")
+            .out[String](MediaType.text.plain)
+            .outHeader(HttpCodec.age)
+            .out[Int](MediaType.text.plain)
+        val routesRight = endpoint.implementAs(Right(("test", Header.Age(1.minute)))).toRoutes
+        val routesLeft  = endpoint.implementAs(Left(1)).toRoutes
+        for {
+          responseRight <- routesRight.runZIO(Request.get(URL.decode("/posts").toOption.get))
+          ageRight = responseRight.header(Header.Age)
+          bodyRight    <- responseRight.body.asString.orDie
+          responseLeft <- routesLeft.runZIO(Request.get(URL.decode("/posts").toOption.get))
+          ageLeft = responseLeft.header(Header.Age)
+          bodyLeft <- responseLeft.body.asString.orDie
+        } yield assertTrue(
+          ageRight.contains(Header.Age(1.minute)),
+          bodyRight == "test",
+          ageLeft.isEmpty,
+          bodyLeft == "1",
+        )
+      },
+      test("custom out header with outCodec") {
+        val endpoint =
+          Endpoint(GET / "posts")
+            .outCodec((HttpCodec.content[String](MediaType.text.plain) | HttpCodec.content[Int]) ++ HttpCodec.age)
+        val routes   = endpoint.implementAs((Left("test"), Header.Age(1.minute))).toRoutes
+        for {
+          response <- routes.runZIO(Request.get(URL.decode("/posts").toOption.get))
+          age = response.header(Header.Age)
+          body <- response.body.asString.orDie
+        } yield assertTrue(age.contains(Header.Age(1.minute)), body == "test")
+      },
       test("multiple Accept headers") {
         check(Gen.int) { id =>
           val endpoint =

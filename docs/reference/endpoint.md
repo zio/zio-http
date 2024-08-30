@@ -221,6 +221,25 @@ val endpoint: Endpoint[Unit, String, ZNothing, List[Book], AuthType.None] =
 
 In the above example, we defined an endpoint that describes a query parameter `q` as input and returns a list of `Book` as output. The `Endpoint#out` method has multiple overloads that can be used to describe other properties of the output, such as the status code, media type, and documentation.
 
+We can also add custom headers to the output using the `Endpoint#outHeader` method:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.schema._
+
+case class Book(title: String, author: String)
+
+object Book {
+  implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
+}
+
+val endpoint: Endpoint[Unit, String, ZNothing, (List[Book], Header.Date), AuthType.None] =
+    Endpoint(RoutePattern.GET / "books")
+      .query(HttpCodec.query[String]("q"))
+      .out[List[Book]]
+      .outHeader(HttpCodec.date)
+```
+
 Sometimes based on the condition, we might want to return different types of responses. We can use the `Endpoint#out` method multiple times to describe different output types:
 
 ```scala mdoc:compile-only
@@ -272,8 +291,101 @@ object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
 
 In the above example, we defined an endpoint that describes a path parameter `id` as input and returns either a `Book` or an `Article` as output.
 
-Sometimes we might want more control over the output properties, in such cases, we can provide a custom `HttpCodec` that describes the output properties using the `Endpoint#outCodec` method.
+With multiple outputs, we can define if all of them or just some should add an output header, by the order of calling `out` and `outHeader` methods:
 
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.endpoint._
+import zio.schema._
+
+case class Book(title: String, author: String)
+
+object Book {
+  implicit val schema: Schema[Book] = DeriveSchema.gen
+}
+
+case class Article(title: String, author: String)
+
+object Article {
+  implicit val schema: Schema[Article] = DeriveSchema.gen
+}
+// header will be added to the first output
+val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Article, (Book, Header.Date)], AuthType.None] =
+  Endpoint(RoutePattern.GET / "resources")
+    .out[Book]
+    .outHeader(HttpCodec.date)
+    .out[Article]
+
+// header will be added to all outputs
+val endpoint2: Endpoint[Unit, Unit, ZNothing, (Either[Article, Book], Header.Date), AuthType.None] =
+  Endpoint(RoutePattern.GET / "resources")
+    .out[Book]
+    .out[Article]
+    .outHeader(HttpCodec.date)
+```
+
+A call to `outHeder` will require to provide the header together with all outputs defined before it.
+
+Sometimes we might want more control over the output properties, in such cases, we can provide a custom `HttpCodec` that describes the output properties using the `Endpoint#outCodec` method.
+This can be very useful when we only want to add headers to a subset of outputs for example:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.endpoint._
+import zio.schema._
+
+case class Book(title: String, author: String)
+
+object Book {
+  implicit val schema: Schema[Book] = DeriveSchema.gen
+}
+
+case class Article(title: String, author: String)
+
+object Article {
+  implicit val schema: Schema[Article] = DeriveSchema.gen
+}
+val endpoint: Endpoint[Unit, Unit, ZNothing, Either[(Article, Header.Date), Book], AuthType.None] =
+  Endpoint(RoutePattern.GET / "resources")
+    .out[Book]
+    .outCodec(HttpCodec.content[Article] ++ HttpCodec.date)
+```
+Or when we want to reuse the same codec for multiple endpoints:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.endpoint._
+import zio.schema._
+
+case class Book(title: String, author: String)
+
+object Book {
+  implicit val schema: Schema[Book] = DeriveSchema.gen
+}
+
+case class Article(title: String, author: String)
+
+object Article {
+  implicit val schema: Schema[Article] = DeriveSchema.gen
+}
+val bookCodec = HttpCodec.content[Book] ++ HttpCodec.date
+val articleCodec = HttpCodec.content[Article] ++ HttpCodec.date
+
+val endpoint1: Endpoint[Unit, Unit, ZNothing, (Book, Header.Date), AuthType.None] =
+  Endpoint(RoutePattern.GET / "books")
+    .outCodec(bookCodec)
+
+val endpoint2: Endpoint[Unit, Unit, ZNothing, (Article, Header.Date), AuthType.None] =
+    Endpoint(RoutePattern.GET / "articles")
+        .outCodec(articleCodec)
+
+val endpoint3: Endpoint[Unit, Unit, ZNothing, Either[(Article, Header.Date), (Book, Header.Date)], AuthType.None] =
+    Endpoint(RoutePattern.GET / "resources")
+        .outCodec(articleCodec | bookCodec)
+```
 ## Describing Failures
 
 For failure outputs, we can describe the output properties using the `Endpoint#outError*` methods. Let's see an example:
