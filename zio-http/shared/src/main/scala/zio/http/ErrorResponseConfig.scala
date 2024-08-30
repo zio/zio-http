@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.{FiberRef, Unsafe}
+import zio._
 
 /**
  * Configuration for the response generation
@@ -33,10 +33,20 @@ object ErrorResponseConfig {
     ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0)
 
   lazy val debug: HandlerAspect[Any, Unit] =
-    Middleware.runBefore(configRef.set(debugConfig))
+    Middleware.runBefore(setConfig(debugConfig))
 
   def withConfig(config: ErrorResponseConfig): HandlerAspect[Any, Unit] =
-    Middleware.runBefore(configRef.updateSome { case oldConfig if oldConfig != config => config })
+    Middleware.runBefore(setConfig(config))
+
+  def setConfig(config: ErrorResponseConfig): ZIO[Any, Nothing, Unit] =
+    ZIO.withFiberRuntime[Any, Nothing, Unit] { (state, _) =>
+      val existing = state.getFiberRef(configRef)
+      if (existing != config) state.setFiberRef(configRef, config)
+      Exit.unit
+    }
+
+  def configLayer(config: ErrorResponseConfig): ULayer[Unit] =
+    ZLayer(setConfig(config))
 
   private[http] lazy val configRef: FiberRef[ErrorResponseConfig] =
     FiberRef.unsafe.make(default)(Unsafe)
