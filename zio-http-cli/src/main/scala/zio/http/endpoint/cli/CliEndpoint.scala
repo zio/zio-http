@@ -56,7 +56,7 @@ private[cli] final case class CliEndpoint(
       } + " " + url.map(_.tag).fold("")(_ + _)
     }
 
-  lazy val getOptions: List[HttpOptions] = url ++ headers ++ body
+  def getOptions: List[HttpOptions] = url ++ headers ++ body
 
   def describeOptions(description: Doc): CliEndpoint =
     self.copy(

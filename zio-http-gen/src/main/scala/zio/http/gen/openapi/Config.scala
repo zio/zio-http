@@ -75,7 +75,7 @@ object Config {
     ),
   )
 
-  lazy val config: zio.Config[Config] = (
+  def config: zio.Config[Config] = (
     zio.Config.boolean("common-fields-on-super-type").withDefault(Config.default.commonFieldsOnSuperType) ++
       zio.Config.boolean("generate-safe-type-aliases").withDefault(Config.default.generateSafeTypeAliases) ++
       NormalizeFields.config.nested("fields-normalization")

@@ -26,7 +26,7 @@ private[cli] object Retriever {
 
   final case class URL(name: String, url: String, mediaType: MediaType) extends Retriever {
 
-    lazy val request                                           = Request.get(http.URL(http.Path.decode(url)))
+    val request                                                = Request.get(http.URL(http.Path.decode(url)))
     override def retrieve(): ZIO[Client, Throwable, FormField] = for {
       client <- ZIO.serviceWith[Client](_.batched)
       chunk  <- client.request(request).flatMap(_.body.asChunk)

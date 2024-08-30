@@ -45,7 +45,7 @@ sealed trait Header {
   private[http] def headerNameAsCharSequence: CharSequence    = headerName
   private[http] def renderedValueAsCharSequence: CharSequence = renderedValue
 
-  lazy val untyped: Header.Custom = Header.Custom(headerName, renderedValue)
+  def untyped: Header.Custom = Header.Custom(headerName, renderedValue)
 }
 
 object Header {
@@ -71,7 +71,7 @@ object Header {
     override def headerType: HeaderType.Typed[Custom] = new Header.HeaderType {
       override type HeaderValue = Custom
 
-      override lazy val name: String = self.customName.toString
+      override def name: String = self.customName.toString
 
       override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
 
