@@ -618,7 +618,7 @@ object JsonSchema {
               .map(_.name),
           )
           .deprecated(deprecated(record))
-          .description(record.annotations.collectFirst { case description(value) => value })
+          .description(descriptionFromAnnotations(record.annotations))
       case collection: Schema.Collection[_, _]                                                    =>
         collection match {
           case Schema.Sequence(elementSchema, _, _, _, _)                =>
@@ -731,6 +731,18 @@ object JsonSchema {
 
     }
 
+  private def descriptionFromAnnotations(annotations: Chunk[Any]) = {
+    def sanitize(str: java.lang.String): java.lang.String =
+      str.linesIterator
+        .map(_.trim.stripPrefix("/**").stripPrefix("/*").stripSuffix("*/").stripPrefix("*").trim)
+        .filterNot(l => l == "\n" || l == "")
+        .mkString("\n")
+    annotations.collectFirst {
+      case description(value) if value.trim.startsWith("/*") => sanitize(value)
+      case description(value)                                => value
+    }
+  }
+
   sealed trait SchemaStyle extends Product with Serializable
   object SchemaStyle {
 
@@ -759,7 +771,7 @@ object JsonSchema {
     schema.annotations.exists(_.isInstanceOf[scala.deprecated])
 
   private def fieldDoc(schema: Schema.Field[_, _]): Option[java.lang.String] = {
-    val description0 = schema.annotations.collectFirst { case description(value) => value }
+    val description0 = descriptionFromAnnotations(schema.annotations)
     val defaultValue = schema.annotations.collectFirst { case fieldDefaultValue(value) => value }.map { _ =>
       s"${if (description0.isDefined) "\n" else ""}If not set, this field defaults to the value of the default annotation."
     }
