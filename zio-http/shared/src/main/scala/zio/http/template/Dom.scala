@@ -90,7 +90,7 @@ object Dom {
     Schema[String].transform(Dom.raw, _.encode.toString)
 
   implicit val htmlCodec: HttpContentCodec[Dom] = {
-    HttpContentCodec(
+    HttpContentCodec.default(
       ListMap(
         MediaType.text.`html` ->
           BinaryCodecWithSchema.fromBinaryCodec(zio.http.codec.internal.TextBinaryCodec.fromSchema(Schema[Dom])),

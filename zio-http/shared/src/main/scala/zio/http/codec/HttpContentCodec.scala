@@ -15,9 +15,9 @@ import zio.http.codec.internal.TextBinaryCodec
 import zio.http.internal.HeaderOps
 import zio.http.template._
 
-final case class HttpContentCodec[A](
-  choices: ListMap[MediaType, BinaryCodecWithSchema[A]],
-) { self =>
+sealed trait HttpContentCodec[A] { self =>
+
+  def choices: ListMap[MediaType, BinaryCodecWithSchema[A]]
 
   private var lookupCache: Map[MediaType, Option[BinaryCodecWithSchema[A]]] = Map.empty
 
@@ -25,7 +25,7 @@ final case class HttpContentCodec[A](
    * A right biased merge of two HttpContentCodecs.
    */
   def ++(that: HttpContentCodec[A]): HttpContentCodec[A] =
-    HttpContentCodec(choices ++ that.choices)
+    HttpContentCodec.Default(choices ++ that.choices)
 
   def decodeRequest(request: Request, config: CodecConfig): Task[A] = {
     val contentType = mediaTypeFromContentTypeHeader(request)
@@ -57,7 +57,7 @@ final case class HttpContentCodec[A](
   def decodeResponse(response: Response): Task[A] =
     CodecConfig.codecRef.getWith(decodeResponse(response, _))
 
-  private def mediaTypeFromContentTypeHeader(header: HeaderOps[_]) = {
+  private def mediaTypeFromContentTypeHeader(header: HeaderOps[_]) =
     if (header.headers.contains(Header.ContentType.name)) {
       val contentType = header.headers.getUnsafe(Header.ContentType.name)
       if (MediaType.contentTypeMap.contains(contentType)) {
@@ -68,41 +68,19 @@ final case class HttpContentCodec[A](
     } else {
       MediaType.application.`json`
     }
-  }
 
-  def encode(value: A, config: CodecConfig = CodecConfig.defaultConfig): Either[String, Body] = {
+  def encode(value: A, config: CodecConfig = CodecConfig.defaultConfig): Either[String, Body] =
     if (choices.isEmpty) {
       Left("No codec defined")
     } else {
       Right(Body.fromChunk(choices.head._2.codec(config).encode(value), mediaType = choices.head._1))
     }
-  }
 
   def only(mediaType: MediaType): HttpContentCodec[A] =
-    HttpContentCodec(
-      ListMap(
-        mediaType -> lookup(mediaType)
-          .getOrElse(
-            throw new IllegalArgumentException(s"MediaType $mediaType is not supported by $self"),
-          ),
-      ),
-    )
+    HttpContentCodec.Filtered(this, mediaType)
 
-  def only(mediaType: Option[MediaType]): HttpContentCodec[A] = {
-    mediaType match {
-      case Some(mediaType) =>
-        HttpContentCodec(
-          ListMap(
-            mediaType -> lookup(mediaType)
-              .getOrElse(
-                throw new IllegalArgumentException(s"MediaType $mediaType is not supported by $self"),
-              ),
-          ),
-        )
-      case None            =>
-        self
-    }
-  }
+  def only(mediaType: Option[MediaType]): HttpContentCodec[A] =
+    mediaType.map(only).getOrElse(self)
 
   private[http] def chooseFirst(mediaTypes: Chunk[MediaTypeWithQFactor]): (MediaType, BinaryCodecWithSchema[A]) =
     if (mediaTypes.isEmpty) {
@@ -144,7 +122,7 @@ final case class HttpContentCodec[A](
       }
     }
 
-  def lookup(mediaType: MediaType): Option[BinaryCodecWithSchema[A]] = {
+  def lookup(mediaType: MediaType): Option[BinaryCodecWithSchema[A]] =
     if (lookupCache.contains(mediaType)) {
       lookupCache(mediaType)
     } else {
@@ -152,7 +130,6 @@ final case class HttpContentCodec[A](
       lookupCache = lookupCache + (mediaType -> codec)
       codec
     }
-  }
 
   private[http] val defaultMediaType: MediaType =
     choices.headOption.map(_._1).getOrElse {
@@ -176,7 +153,44 @@ final case class HttpContentCodec[A](
 
 object HttpContentCodec {
 
-  private final case class DefaultCodecError(name: String, message: String)
+  private val schemaCache = scala.collection.mutable.Map[Schema[_], HttpContentCodec[_]]()
+
+  def from[A](
+    codec: (MediaType, BinaryCodecWithSchema[A]),
+    codecs: (MediaType, BinaryCodecWithSchema[A])*,
+  ): HttpContentCodec[A] =
+    Default(ListMap((codec +: codecs): _*))
+
+  def default[A](choices: ListMap[MediaType, BinaryCodecWithSchema[A]]): HttpContentCodec[A] =
+    Default(choices)
+
+  implicit def fromSchema[A](implicit schema: Schema[A]): HttpContentCodec[A] =
+    schemaCache
+      .getOrElseUpdate(schema, json.only[A] ++ protobuf.only[A] ++ text.only[A])
+      .asInstanceOf[HttpContentCodec[A]]
+
+  final private case class Default[A](
+    choices: ListMap[MediaType, BinaryCodecWithSchema[A]],
+  ) extends HttpContentCodec[A]
+
+  final case class Filtered[A](codec: HttpContentCodec[A], mediaType: MediaType) extends HttpContentCodec[A] {
+    override def choices: ListMap[MediaType, BinaryCodecWithSchema[A]] =
+      ListMap(
+        mediaType -> codec
+          .lookup(mediaType)
+          .getOrElse(
+            throw new IllegalArgumentException(s"MediaType $mediaType is not supported by $codec"),
+          ),
+      )
+  }
+
+  private def fromSingleCodec[A](mediaType: MediaType, codec: BinaryCodec[A], schema: Schema[A]) =
+    Default(ListMap(mediaType -> BinaryCodecWithSchema(codec, schema)))
+
+  private def fromMultipleCodecs[A](codecs: List[(MediaType, BinaryCodec[A])], schema: Schema[A]) =
+    Default(ListMap(codecs.map { case (mt, codec) => mt -> BinaryCodecWithSchema(codec, schema) }: _*))
+
+  final private case class DefaultCodecError(name: String, message: String)
 
   private object DefaultCodecError {
     implicit val schema: Schema[DefaultCodecError] = DeriveSchema.gen[DefaultCodecError]
@@ -252,19 +266,10 @@ object HttpContentCodec {
   val responseErrorCodec: HttpCodec[HttpCodecType.ResponseType, HttpCodecError] =
     ContentCodec.content(defaultHttpContentCodec) ++ StatusCodec.BadRequest
 
-  def from[A](
-    codec: (MediaType, BinaryCodecWithSchema[A]),
-    codecs: (MediaType, BinaryCodecWithSchema[A])*,
-  ): HttpContentCodec[A] =
-    HttpContentCodec(ListMap((codec +: codecs): _*))
-
-  implicit def fromSchema[A](implicit schema: Schema[A]): HttpContentCodec[A] = {
-    json.only[A] ++ protobuf.only[A] ++ text.only[A]
-  }
-
   object json {
-    def only[A](implicit schema: Schema[A]): HttpContentCodec[A] = {
-      HttpContentCodec(
+
+    def only[A](implicit schema: Schema[A]): HttpContentCodec[A] =
+      Default(
         ListMap(
           MediaType.application.`json` ->
             BinaryCodecWithSchema(
@@ -276,23 +281,23 @@ object HttpContentCodec {
             ),
         ),
       )
-    }
   }
 
   object protobuf {
-    def only[A](implicit schema: Schema[A]): HttpContentCodec[A] = {
-      HttpContentCodec(
+
+    def only[A](implicit schema: Schema[A]): HttpContentCodec[A] =
+      Default(
         ListMap(
           MediaType.parseCustomMediaType("application/protobuf").get ->
             BinaryCodecWithSchema(ProtobufCodec.protobufCodec[A], schema),
         ),
       )
-    }
   }
 
   object text {
-    def only[A](implicit schema: Schema[A]): HttpContentCodec[A] = {
-      HttpContentCodec(
+
+    def only[A](implicit schema: Schema[A]): HttpContentCodec[A] =
+      Default(
         ListMap(
           MediaType.text.`plain`               ->
             BinaryCodecWithSchema(zio.http.codec.internal.TextBinaryCodec.fromSchema[A](schema), schema),
@@ -300,7 +305,6 @@ object HttpContentCodec {
             BinaryCodecWithSchema(zio.http.codec.internal.TextBinaryCodec.fromSchema[A](schema), schema),
         ),
       )
-    }
   }
 
   private val ByteChunkBinaryCodec: BinaryCodec[Chunk[Byte]] = new BinaryCodec[Chunk[Byte]] {
@@ -318,7 +322,7 @@ object HttpContentCodec {
   }
 
   implicit val byteChunkCodec: HttpContentCodec[Chunk[Byte]] = {
-    HttpContentCodec(
+    Default(
       ListMap(
         MediaType.allMediaTypes
           .filter(_.binary)
@@ -342,7 +346,7 @@ object HttpContentCodec {
   }
 
   implicit val byteCodec: HttpContentCodec[Byte] = {
-    HttpContentCodec(
+    Default(
       ListMap(
         MediaType.allMediaTypes
           .filter(_.binary)

@@ -11,7 +11,7 @@ import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
 object GRPC {
 
   implicit def fromSchema[A](implicit schema: Schema[A]): HttpContentCodec[A] =
-    HttpContentCodec(
+    HttpContentCodec.default(
       ListMap(
         MediaType.parseCustomMediaType("application/grpc").get ->
           BinaryCodecWithSchema(ProtobufCodec.protobufCodec[A], schema),
