@@ -198,9 +198,12 @@ object CodeGen {
           val (imports, tpe) = render(basePackage)(elementType)
           if (nonEmpty) (Code.Import("zio.prelude.NonEmptySet") :: imports) -> s"NonEmptySet[$tpe]"
           else imports                                                      -> s"Set[$tpe]"
-        case Code.Collection.Map(elementType)           =>
-          val (imports, tpe) = render(basePackage)(elementType)
-          imports -> s"Map[String, $tpe]"
+        case Code.Collection.Map(elementType, keysType) =>
+          val (vImports, vType) = render(basePackage)(elementType)
+          keysType.fold(vImports -> s"Map[String, $vType]") { keyType =>
+            val (kImports, kType) = render(basePackage)(keyType)
+            (kImports ::: vImports).distinct -> s"Map[$kType, $vType]"
+          }
         case Code.Collection.Opt(elementType)           =>
           val (imports, tpe) = render(basePackage)(elementType)
           imports -> s"Option[$tpe]"

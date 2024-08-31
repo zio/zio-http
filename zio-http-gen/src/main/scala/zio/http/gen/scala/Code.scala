@@ -13,7 +13,7 @@ object Code {
   sealed trait ScalaType extends Code { self =>
     def seq(nonEmpty: Boolean): Collection.Seq = Collection.Seq(self, nonEmpty)
     def set(nonEmpty: Boolean): Collection.Set = Collection.Set(self, nonEmpty)
-    def map: Collection.Map                    = Collection.Map(self)
+    def map: Collection.Map                    = Collection.Map(self, None)
     def opt: Collection.Opt                    = Collection.Opt(self)
   }
 
@@ -165,10 +165,10 @@ object Code {
   }
 
   object Collection {
-    final case class Seq(elementType: ScalaType, nonEmpty: Boolean) extends Collection
-    final case class Set(elementType: ScalaType, nonEmpty: Boolean) extends Collection
-    final case class Map(elementType: ScalaType)                    extends Collection
-    final case class Opt(elementType: ScalaType)                    extends Collection
+    final case class Seq(elementType: ScalaType, nonEmpty: Boolean)           extends Collection
+    final case class Set(elementType: ScalaType, nonEmpty: Boolean)           extends Collection
+    final case class Map(elementType: ScalaType, keysType: Option[ScalaType]) extends Collection
+    final case class Opt(elementType: ScalaType)                              extends Collection
   }
 
   sealed trait Primitive extends ScalaType

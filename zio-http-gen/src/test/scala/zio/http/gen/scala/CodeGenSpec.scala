@@ -10,7 +10,7 @@ import scala.util.{Failure, Success, Try}
 
 import zio.Scope
 import zio.json.{JsonDecoder, JsonEncoder}
-import zio.test.Assertion.{hasSameElements, isFailure, isSuccess}
+import zio.test.Assertion.{equalTo, hasSameElements, isFailure, isSuccess, succeeds}
 import zio.test.TestAspect.{blocking, flaky}
 import zio.test._
 
@@ -756,6 +756,99 @@ object CodeGenSpec extends ZIOSpecDefault {
               "/AnimalWithMap.scala",
             )
           }
+        }
+      },
+      test("Additional referenced properties") {
+        val openAPIString = stringFromResource("/inline_schema_constrained_keys_map.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(oapi) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/shop/history/Id.scala",
+                "component/Order.scala",
+                "component/UserOrderHistory.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Order.scala",
+              "/ComponentOrder.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/UserOrderHistory.scala",
+              "/ComponentUserOrderHistory.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
+      test("Additional inlined properties") {
+        val openAPIString = stringFromResource("/inline_schema_constrained_inlined_keys_map.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(oapi) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/shop/history/Id.scala",
+                "component/Order.scala",
+                "component/UserOrderHistory.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Order.scala",
+              "/ComponentOrder.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/UserOrderHistory.scala",
+              "/ComponentUserOrderHistory.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
+      test("Additional aliased referenced properties") {
+        val openAPIString = stringFromResource("/inline_schema_constrained_keys_map.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = false, generateSafeTypeAliases = true)) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/shop/history/Id.scala",
+                "component/Order.scala",
+                "component/UserOrderHistory.scala",
+                "component/OrderId.scala",
+                "component/UserId.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Order.scala",
+              "/ComponentOrderWithAliases.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/UserOrderHistory.scala",
+              "/ComponentUserOrderHistoryWithAliases.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/OrderId.scala",
+              "/ComponentAliasOrderId.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/UserId.scala",
+              "/ComponentAliasUserId.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
+      test("Additional referenced properties with non-string key type") {
+        val openAPIString = stringFromResource("/inline_schema_constrained_keys_map_wrong_type.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          assertTrue(
+            Try(
+              codeGenFromOpenAPI(oapi)(_ => TestResult(TestArrow.succeed(true))),
+            ).failed.get.getMessage == "x-string-key-schema must reference a string schema, but got: {\"type\":\"integer\",\"format\":\"int32\"}",
+          )
         }
       },
       test("Endpoint with data validation") {
