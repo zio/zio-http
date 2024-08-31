@@ -305,7 +305,6 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio`,
       `zio-test`,
       `zio-test-sbt`,
-      `zio-parser`,
       `zio-config`,
       scalafmt.cross(CrossVersion.for3Use2_13),
       scalametaParsers

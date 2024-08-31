@@ -24,6 +24,7 @@ import zio.http.codec._
 import zio.http.endpoint.Endpoint
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
+import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.gen.openapi.{Config, EndpointGen}
 
 @nowarn("msg=missing interpolator")
@@ -867,5 +868,37 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       },
-    ) @@ java11OrNewer /*@@ flaky*/ @@ blocking // Downloading scalafmt on CI is flaky
+      test("Endpoint with normalized field names") {
+        val openAPIString = stringFromResource("/inline_schema_weird_field_names.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(
+              fieldsNormalizationConf = NormalizeFields(
+                enabled = true,
+                specialReplacements = Map(
+                  "1st item" -> "firstItem",
+                  "2nd item" -> "secondItem",
+                  "3rd item" -> "thirdItem",
+                ),
+              ),
+            ),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/shop/history/Id.scala",
+                "component/Order.scala",
+                "component/UserOrderHistory.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Order.scala",
+              "/ComponentOrderWithNormalizedFieldNames.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
+    ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }
