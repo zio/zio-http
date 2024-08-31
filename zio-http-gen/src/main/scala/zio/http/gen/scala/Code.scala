@@ -3,6 +3,7 @@ package zio.http.gen.scala
 import scala.meta.Term
 import scala.meta.prettyprinters.XtensionSyntax
 
+import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.{Method, Status}
 
 import com.sun.tools.javac.code.TypeMetadata.Annotations

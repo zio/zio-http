@@ -306,7 +306,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_sumtype_with_reusable_fields.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -335,7 +335,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_sumtype_with_multiple_reusable_fields.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -374,7 +374,7 @@ object CodeGenSpec extends ZIOSpecDefault {
 
         openApiFromYamlString(openAPIString) { oapi =>
           assert {
-            Try(EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)))
+            Try(EndpointGen.fromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)))
           }(isFailure)
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
@@ -385,7 +385,7 @@ object CodeGenSpec extends ZIOSpecDefault {
           stringFromResource("/inline_schema_sumtype_with_multiple_non_contradicting_reusable_fields.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -410,7 +410,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_sumtype_with_subtype_referenced_directly.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -439,7 +439,10 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_alias_primitives.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = true)) { testDir =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(commonFieldsOnSuperType = true, generateSafeTypeAliases = true),
+          ) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -487,7 +490,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_alias_primitives.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -810,7 +813,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_constrained_keys_map.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = false, generateSafeTypeAliases = true)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(generateSafeTypeAliases = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
