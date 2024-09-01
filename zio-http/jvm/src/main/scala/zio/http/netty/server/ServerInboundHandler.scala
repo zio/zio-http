@@ -181,8 +181,7 @@ private[zio] final case class ServerInboundHandler(
     runtime: NettyRuntime,
     response: Response,
     request: Request,
-  ): Task[Option[Task[Unit]]] = {
-    // Simplify the logic by enabling automatic reading of the channel
+  ): Task[Option[Task[Unit]]] =
     response.body match {
       case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
         ctx.channel().config().setAutoRead(true)
@@ -209,7 +208,6 @@ private[zio] final case class ServerInboundHandler(
           }
         }.ensuring(ZIO.succeed(ctx.read()))
     }
-  }
 
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
