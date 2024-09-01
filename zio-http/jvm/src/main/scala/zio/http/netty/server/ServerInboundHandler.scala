@@ -68,13 +68,18 @@ private[zio] final case class ServerInboundHandler(
     }
   }
 
-  private val releaseRequest = () => inFlightRequests.decrement()
+  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
+    inFlightRequests.increment()
+    ctx.read()
+    ()
+  }
+
+  override def handlerRemoved(ctx: ChannelHandlerContext): Unit =
+    inFlightRequests.decrement()
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
-
     msg match {
       case jReq: HttpRequest =>
-        inFlightRequests.increment()
         ensureHasApp()
 
         try {
@@ -84,14 +89,12 @@ private[zio] final case class ServerInboundHandler(
               ctx,
               Response.fromThrowable(throwable, runtime.getRef(ErrorResponseConfig.configRef)),
             )
-            releaseRequest()
+            ()
           } else {
             val req  = makeZioRequest(ctx, jReq)
             val exit = app(req)
-            if (attemptImmediateWrite(ctx, exit)) {
-              releaseRequest()
-            } else {
-              writeResponse(ctx, runtime, exit, req)(releaseRequest)
+            if (!attemptImmediateWrite(ctx, exit)) {
+              writeResponse(ctx, runtime, exit, req)
             }
           }
         } finally {
@@ -146,7 +149,18 @@ private[zio] final case class ServerInboundHandler(
     def fastEncode(response: Response, bytes: Array[Byte]) = {
       val jResponse  = NettyResponseEncoder.fastEncode(response, bytes)
       val djResponse = jResponse.retainedDuplicate()
-      ctx.writeAndFlush(djResponse, ctx.voidPromise())
+
+      val inNettyEventLoop = ctx.channel().eventLoop().inEventLoop()
+      if (inNettyEventLoop) {
+        ctx.writeAndFlush(djResponse)
+        ctx.read()
+      } else {
+        // Batch up the commands to the event loop to reduce context switching
+        ctx.channel().eventLoop().submit { () =>
+          ctx.writeAndFlush(djResponse)
+          ctx.read()
+        }
+      }
       true
     }
 
@@ -168,8 +182,10 @@ private[zio] final case class ServerInboundHandler(
     response: Response,
     request: Request,
   ): Task[Option[Task[Unit]]] = {
+    // Simplify the logic by enabling automatic reading of the channel
     response.body match {
       case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
+        ctx.channel().config().setAutoRead(true)
         upgradeToWebSocket(ctx, request, socketApp, runtime).as(None)
       case _                                                                        =>
         ZIO.attempt {
@@ -191,7 +207,7 @@ private[zio] final case class ServerInboundHandler(
             ctx.writeAndFlush(jResponse)
             None
           }
-        }
+        }.ensuring(ZIO.succeed(ctx.read()))
     }
   }
 
@@ -304,7 +320,7 @@ private[zio] final case class ServerInboundHandler(
     runtime: NettyRuntime,
     exit: ZIO[Any, Response, Response],
     req: Request,
-  )(ensured: () => Unit): Unit = {
+  ): Unit = {
 
     def closeChannel(): Task[Unit] =
       NettyFutureExecutor.executed(ctx.channel().close())
@@ -334,7 +350,7 @@ private[zio] final case class ServerInboundHandler(
       writeResponse,
     )
 
-    runtime.run(ctx, ensured, preferOnCurrentThread = avoidCtxSwitching)(program)
+    runtime.run(ctx, NettyRuntime.noopEnsuring, preferOnCurrentThread = avoidCtxSwitching)(program)
   }
 
   private def withDefaultErrorResponse(cause: Throwable): Response =

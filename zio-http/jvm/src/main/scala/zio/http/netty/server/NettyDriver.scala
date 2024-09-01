@@ -48,6 +48,7 @@ private[zio] final case class NettyDriver(
           .channelFactory(channelFactory)
           .childHandler(channelInitializer)
           .option[Integer](ChannelOption.SO_BACKLOG, serverConfig.soBacklog)
+          .childOption[JBoolean](ChannelOption.AUTO_READ, false)
           .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.tcpNoDelay)
           .bind(serverConfig.address)
       }

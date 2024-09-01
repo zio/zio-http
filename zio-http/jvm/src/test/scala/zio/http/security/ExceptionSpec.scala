@@ -88,5 +88,5 @@ object ExceptionSpec extends ZIOSpecDefault {
     ),
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
     Client.default,
-  ) @@ TestAspect.sequential
+  ) @@ TestAspect.sequential @@ TestAspect.withLiveClock
 }

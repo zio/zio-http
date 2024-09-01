@@ -3,8 +3,6 @@ package zio.http.security
 import zio._
 import zio.test._
 
-import zio.schema._
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
@@ -144,21 +142,16 @@ object UserDataSpec extends ZIOSpecDefault {
         val request = Request.post("/test", body).addHeader(Header.Accept(mediaType))
         for {
           port     <- Server.install(routes)
-          response <- ZIO.scoped {
-            Client
-              .batched(request.updateURL(_ => URL.decode(s"http://localhost:$port/test").toOption.get))
-          }
+          response <- Client.batched(request.updateURL(_ => URL.decode(s"http://localhost:$port/test").toOption.get))
           body     <- response.body.asString
         } yield assertTrue(body == expectedResponse)
       }
     },
   ).provide(
     Server.customized,
-    ZLayer.succeed(
-      Server.Config.default,
-    ),
+    ZLayer.succeed(Server.Config.default),
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
     Client.default,
-  )
+  ) @@ TestAspect.withLiveClock
 
 }

@@ -75,8 +75,11 @@ private[zio] final class NettyRuntime(zioRuntime: Runtime[Any]) {
   private def closeListener(fiber: Fiber.Runtime[_, _])(implicit
     unsafe: Unsafe,
     trace: Trace,
-  ): GenericFutureListener[Future[_ >: Void]] =
-    (_: Future[_ >: Void]) => unsafeRunSync(ZIO.fiberIdWith(fiber.interruptAsFork))
+  ): GenericFutureListener[Future[_ >: Void]] = { _ =>
+    if (fiber.isAlive())
+      fiber.tellInterrupt(Cause.interrupt(FiberId.None, StackTrace(FiberId.None, Chunk.single(trace))))
+    else ()
+  }
 
 }
 

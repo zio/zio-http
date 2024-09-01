@@ -32,6 +32,7 @@ import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DE
 import io.netty.handler.codec.http._
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
+import io.netty.util.concurrent.Future
 
 /**
  * Initializes the netty channel with default handlers
@@ -81,6 +82,14 @@ private[zio] final case class ServerChannelInitializer(
       )
     })
 
+    // ExpectContinueHandler
+    // Add expect continue handler is settings is true
+    if (cfg.acceptContinue) pipeline.addLast(Names.HttpServerExpectContinue, new HttpServerExpectContinueHandler())
+
+    // KeepAliveHandler
+    // Add Keep-Alive handler is settings is true
+    if (cfg.keepAlive) pipeline.addLast(Names.HttpKeepAliveHandler, new HttpServerKeepAliveHandler)
+
     // ObjectAggregator
     cfg.requestStreaming match {
       case RequestStreaming.Enabled                         =>
@@ -90,14 +99,6 @@ private[zio] final case class ServerChannelInitializer(
         pipeline.addLast(Names.HybridContentLengthHandler, new HybridContentLengthHandler(aggregatedContentLength))
         pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(aggregatedContentLength))
     }
-
-    // ExpectContinueHandler
-    // Add expect continue handler is settings is true
-    if (cfg.acceptContinue) pipeline.addLast(Names.HttpServerExpectContinue, new HttpServerExpectContinueHandler())
-
-    // KeepAliveHandler
-    // Add Keep-Alive handler is settings is true
-    if (cfg.keepAlive) pipeline.addLast(Names.HttpKeepAliveHandler, new HttpServerKeepAliveHandler)
 
     pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler())
 

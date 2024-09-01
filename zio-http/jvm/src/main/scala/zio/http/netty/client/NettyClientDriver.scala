@@ -76,9 +76,15 @@ final case class NettyClientDriver private[netty] (
         val closeListener: GenericFutureListener[ChannelFuture] = { (_: ChannelFuture) =>
           // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
           // so we don't need to fulfill `onResponse`
-          nettyRuntime.unsafeRunSync {
-            onComplete.interrupt && onResponse.fail(NettyClientDriver.PrematureChannelClosure)
-          }(Unsafe.unsafe, trace): Unit
+          implicit val unsafe: Unsafe = Unsafe
+          if (onComplete.unsafe.interruptAs(FiberId.None)) {
+            onResponse.unsafe.fail(
+              new PrematureChannelClosureException(
+                "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
+              ),
+            )
+            ()
+          }
         }
 
         val pipeline = channel.pipeline()
@@ -189,9 +195,5 @@ object NettyClientDriver {
           nettyRuntime   <- ZIO.service[NettyRuntime]
         } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime)
       }
-
-  private val PrematureChannelClosure = new PrematureChannelClosureException(
-    "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
-  )
 
 }
