@@ -900,5 +900,5 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3,
-    ) @@ java11OrNewer /*@@ flaky*/ @@ blocking // Downloading scalafmt on CI is flaky
+    ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }
