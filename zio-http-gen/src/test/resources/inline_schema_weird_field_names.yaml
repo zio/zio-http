@@ -6,42 +6,28 @@ servers:
 tags:
   - name: Order_API
 paths:
-  /api/v1/shop/history/{id}:
+  /api/v1/shop/order/{id}:
     get:
-      operationId: get_user_history
+      operationId: get_order_by_id
       parameters:
         - in: path
           name: id
           schema:
-            $ref: '#/components/schemas/UserId'
+            $ref: '#/components/schemas/OrderId'
           required: true
       tags:
         - Order_API
-      description: Get user order history by user id
+      description: Get order by id
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserOrderHistory'
+                $ref: '#/components/schemas/Order'
           description: OK
 openapi: 3.0.3
 components:
   schemas:
-    UserOrderHistory:
-      type: object
-      required:
-        - user_id
-        - history
-      properties:
-        user_id:
-          $ref: '#/components/schemas/UserId'
-        history:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/Order'
-            x-string-key-schema:
-              $ref: '#/components/schemas/OrderId'
     Order:
       type: object
       required:
@@ -69,8 +55,5 @@ components:
         3rd item:
           type: string
     OrderId:
-      type: string
-      format: uuid
-    UserId:
       type: string
       format: uuid

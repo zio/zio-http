@@ -888,9 +888,8 @@ object CodeGenSpec extends ZIOSpecDefault {
             allFilesShouldBe(
               testDir.toFile,
               List(
-                "api/v1/shop/history/Id.scala",
+                "api/v1/shop/order/Id.scala",
                 "component/Order.scala",
-                "component/UserOrderHistory.scala",
               ),
             ) && fileShouldBe(
               testDir,
