@@ -3,8 +3,8 @@ package test.component
 import zio.schema._
 
 case class Animals(
-  total: Int,
   counts: Map[String, Int],
+  total: Int,
 )
 object Animals {
   implicit val codec: Schema[Animals] = DeriveSchema.gen[Animals]

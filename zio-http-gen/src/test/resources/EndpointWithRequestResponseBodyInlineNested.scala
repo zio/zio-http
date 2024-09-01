@@ -13,9 +13,9 @@ object Users {
   object POST {
 
     case class RequestBody(
+      address: Option[Address],
       id: Int,
       name: String,
-      address: Option[Address],
     )
     object RequestBody  {
       implicit val codec: Schema[RequestBody] = DeriveSchema.gen[RequestBody]

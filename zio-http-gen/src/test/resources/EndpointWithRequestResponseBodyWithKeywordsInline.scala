@@ -13,8 +13,8 @@ object Keywords {
   object POST {
 
     case class RequestBody(
-      `lazy`: Boolean,
       `case`: String,
+      `lazy`: Boolean,
       `match`: String,
     )
     object RequestBody  {

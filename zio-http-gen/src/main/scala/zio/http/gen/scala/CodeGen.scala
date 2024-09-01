@@ -47,20 +47,21 @@ object CodeGen {
       val (objImports, objContent)   = objects.map(render(basePackage)).unzip
       val (ccImports, ccContent)     = caseClasses.map(render(basePackage)).unzip
       val (enumImports, enumContent) = enums.map(render(basePackage)).unzip
-      val allImports = (imports ++ objImports.flatten ++ ccImports.flatten ++ enumImports.flatten).distinct
+
+      val allImports            = (imports ++ objImports.flatten ++ ccImports.flatten ++ enumImports.flatten).distinct
       val renderedSortedImports = {
-        val javaImports = List.newBuilder[String]
+        val javaImports  = List.newBuilder[String]
         val scalaImports = List.newBuilder[String]
         val otherImports = List.newBuilder[String]
         allImports.foreach { imprt =>
           val rendered = render(basePackage)(imprt)._2
-          if (rendered.startsWith("java.")) javaImports += rendered
-          else if (rendered.startsWith("scala.")) scalaImports += rendered
+          if (rendered.startsWith("import java.")) javaImports += rendered
+          else if (rendered.startsWith("import scala.")) scalaImports += rendered
           else otherImports += rendered
         }
         otherImports.result().sorted ::: javaImports.result().sorted ::: scalaImports.result().sorted
       }
-      val content    =
+      val content               =
         s"package $basePackage${if (path.exists(_.nonEmpty)) path.mkString(if (basePackage.isEmpty) "" else ".", ".", "")
           else ""}" +
           renderedSortedImports.mkString("\n\n", "\n", "\n\n") +

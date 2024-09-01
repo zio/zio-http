@@ -1,10 +1,10 @@
 package test.component
 
+import zio.Chunk
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.annotation.validate
 import zio.schema.validation.Validation
-import zio.Chunk
 
 @noDiscriminator
 sealed trait Animal {
@@ -25,8 +25,8 @@ object Animal       {
   case class Zebra(
     @validate[Int](Validation.greaterThan(-1)) age: Int,
     @validate[Float](Validation.greaterThan(-1.0)) weight: Float,
-    @validate[Int](Validation.greaterThan(-1)) num_stripes: Int,
     dazzle: Chunk[Zebra],
+    @validate[Int](Validation.greaterThan(-1)) num_stripes: Int,
   ) extends Animal
   object Zebra {
     implicit val codec: Schema[Zebra] = DeriveSchema.gen[Zebra]
