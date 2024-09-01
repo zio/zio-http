@@ -730,14 +730,14 @@ final case class EndpointGen(config: Config) {
   private def fieldsOfObject(openAPI: OpenAPI, annotations: Chunk[JsonSchema.MetaData])(
     obj: JsonSchema.Object,
   ): List[Code.Field] =
-    obj.properties.map { case (name, schema) =>
+    obj.properties.toList.sortBy(_._1).map { case (name, schema) =>
       val field = schemaToField(schema, openAPI, name, annotations)
         .getOrElse(
           throw new Exception(s"Could not generate code for field $name of object $name"),
         )
         .asInstanceOf[Code.Field]
       if (obj.required.contains(name)) field else field.copy(fieldType = field.fieldType.opt)
-    }.toList
+    }
 
   /**
    * @param openAPI
@@ -901,7 +901,7 @@ final case class EndpointGen(config: Config) {
         )
       case JsonSchema.AllOfSchema(schemas)                                  =>
         val genericFieldIndex = Iterator.from(0)
-        val unvalidatedFields = schemas.map(_.withoutAnnotations).flatMap {
+        val unvalidatedFields = schemas.toList.map(_.withoutAnnotations).flatMap {
           case schema @ JsonSchema.Object(_, _, _)            =>
             schemaToCode(schema, openAPI, name, annotations)
               .getOrElse(
@@ -909,8 +909,7 @@ final case class EndpointGen(config: Config) {
               )
               .caseClasses
               .headOption
-              .toList
-              .flatMap(_.fields)
+              .fold(List.empty[Code.Field])(_.fields)
           case schema @ JsonSchema.RefSchema(SchemaRef(name)) =>
             schemaToCode(schema, openAPI, name, annotations)
               .getOrElse(
@@ -918,11 +917,10 @@ final case class EndpointGen(config: Config) {
               )
               .caseClasses
               .headOption
-              .toList
-              .flatMap(_.fields)
+              .fold(List.empty[Code.Field])(_.fields)
           case schema if schema.isPrimitive                   =>
             val name = s"field${genericFieldIndex.next()}"
-            Chunk(schemaToField(schema, openAPI, name, annotations)).flatten
+            schemaToField(schema, openAPI, name, annotations).toList
           case other                                          =>
             throw new Exception(s"Unexpected subtype $other for allOf schema $schema")
         }
@@ -936,7 +934,7 @@ final case class EndpointGen(config: Config) {
             caseClasses = List(
               Code.CaseClass(
                 name,
-                fields.toList,
+                fields,
                 companionObject = Some(Code.Object.schemaCompanion(name)),
                 mixins = mixins,
               ),
@@ -1090,7 +1088,7 @@ final case class EndpointGen(config: Config) {
     fields.head.copy(fieldType = reconciledFieldType)
   }
 
-  private def validateFields(fields: Seq[Code.Field]): List[Code.Field] =
+  private def validateFields(fields: List[Code.Field]): List[Code.Field] =
     fields
       .groupBy(_.name)
       .map { case (name, fields) => reconcileFieldTypes(name, fields) }

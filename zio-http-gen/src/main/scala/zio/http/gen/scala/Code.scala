@@ -182,7 +182,7 @@ object Code {
         }
 
       val allAnnotations = originalFieldNameAnnotation.fold(annotations)(annotations.::)
-      new Field(validScalaTermName, fieldType, allAnnotations) {}
+      new Field(validScalaTermName, fieldType, allAnnotations.sortBy(_.value)) {}
     }
 
     private val regex = "(?<=[a-z0-9])(?=[A-Z0-9])|(?<=[A-Z0-9])(?=[A-Z0-9][a-z0-9])|[^a-zA-Z0-9]+"
