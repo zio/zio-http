@@ -184,7 +184,6 @@ private[zio] final case class ServerInboundHandler(
   ): Task[Option[Task[Unit]]] =
     response.body match {
       case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
-        ctx.channel().config().setAutoRead(true)
         upgradeToWebSocket(ctx, request, socketApp, runtime).as(None)
       case _                                                                        =>
         ZIO.attempt {
@@ -309,7 +308,10 @@ private[zio] final case class ServerInboundHandler(
         Conversions.urlToNetty(request.url),
       )
       jReq.headers().setAll(Conversions.headersToNetty(request.allHeaders))
-      ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(jReq) }
+      ctx.channel().eventLoop().submit { () =>
+        ctx.fireChannelRead(jReq)
+        ctx.channel().config().setAutoRead(true)
+      }
     }
   } yield ()
 
