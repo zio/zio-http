@@ -29,6 +29,7 @@ import zio.http.{ClientDriver, Driver, Response, Routes, Server}
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.channel.epoll.{EpollChannelOption, EpollEventLoopGroup, EpollMode}
+import io.netty.channel.unix.UnixChannelOption
 import io.netty.util.ResourceLeakDetector
 
 private[zio] final case class NettyDriver(
@@ -52,7 +53,9 @@ private[zio] final case class NettyDriver(
           .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.tcpNoDelay)
 
         if (eventLoopGroups.parent.isInstanceOf[EpollEventLoopGroup])
-          builder.option(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED)
+          builder
+            .option(EpollChannelOption.EPOLL_MODE, EpollMode.LEVEL_TRIGGERED)
+//            .option(UnixChannelOption.SO_REUSEPORT, true)
 
         builder.bind(serverConfig.address)
       }

@@ -37,9 +37,7 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
       ),
   )
 
-  private val config = Server.Config.default
-    .port(8080)
-    .enableRequestStreaming
+  private val config = Server.Config.default.port(8080)
 
   private val nettyConfig = ZLayer {
     ZIO.serviceWith[ChannelType] { ct =>
