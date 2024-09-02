@@ -7,7 +7,7 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 /**
- * This server is used to run plaintext benchmarks on CI.
+ * This server is used to run the effectful plaintext benchmarks on CI.
  */
 object SimpleEffectBenchmarkServer extends ZIOAppDefault {
 
@@ -19,15 +19,19 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
   private val app: Routes[Any, Response] = Routes(
     Method.GET / "plaintext" ->
       handler(
-        Response
-          .text(plainTextMessage)
-          .addHeader(Header.Server(STATIC_SERVER_NAME)),
+        ZIO.succeed {
+          Response
+            .text(plainTextMessage)
+            .addHeader(Header.Server(STATIC_SERVER_NAME))
+        },
       ),
     Method.GET / "json"      ->
       handler(
-        Response
-          .json(jsonMessage)
-          .addHeader(Header.Server(STATIC_SERVER_NAME)),
+        ZIO.succeed {
+          Response
+            .json(jsonMessage)
+            .addHeader(Header.Server(STATIC_SERVER_NAME))
+        },
       ),
   )
 
