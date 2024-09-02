@@ -287,12 +287,6 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       "dev.zio" %% "zio-config-magnolia"               % ZioConfigVersion,
       "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
       "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1",
-      "io.netty" % "netty-transport-native-epoll"      % NettyVersion,
-      "io.netty" % "netty-transport-native-epoll"      % NettyVersion classifier "linux-x86_64",
-      "io.netty" % "netty-transport-native-epoll"      % NettyVersion classifier "linux-aarch_64",
-      "io.netty" % "netty-transport-native-kqueue"     % NettyVersion,
-      "io.netty" % "netty-transport-native-kqueue"     % NettyVersion classifier "osx-x86_64",
-      "io.netty" % "netty-transport-native-kqueue"     % NettyVersion classifier "osx-aarch_64",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen)

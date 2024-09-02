@@ -51,8 +51,8 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
   }
 
   private val channelTypeLayer: TaskLayer[ChannelType] = ZLayer(ZIO.suspendSucceed {
-    if (Epoll.isAvailable) ZIO.succeed(ChannelType.EPOLL)        // Linux
-    else if (KQueue.isAvailable) ZIO.succeed(ChannelType.KQUEUE) // MacOS
+    if (Epoll.isAvailable) ZIO.succeed(ChannelType.EPOLL: ChannelType)        // Linux
+    else if (KQueue.isAvailable) ZIO.succeed(ChannelType.KQUEUE: ChannelType) // MacOS
     else ZIO.fail(new Throwable("KQueue or Epoll required for benchmark server"))
   })
 
