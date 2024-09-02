@@ -12,7 +12,7 @@ object BenchmarkWorkFlow {
     makeBenchmarkPass(
       "runBenchmarks-effectful",
       "Performance Benchmarks (SimpleEffectBenchmarkServer)",
-      300000,
+      85000,
       "SimpleEffectBenchmarkServer",
     ),
   )

@@ -3,8 +3,11 @@ package example
 import zio._
 
 import zio.http._
-import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
+import zio.http.netty.{ChannelType, NettyConfig}
+
+import io.netty.channel.epoll.Epoll
+import io.netty.channel.kqueue.KQueue
 
 /**
  * This server is used to run the effectful plaintext benchmarks on CI.
@@ -39,12 +42,23 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
     .port(8080)
     .enableRequestStreaming
 
-  private val nettyConfig = NettyConfig.default
-    .leakDetection(LeakDetectionLevel.DISABLED)
-    .maxThreads(8)
+  private val nettyConfig = ZLayer {
+    ZIO.serviceWith[ChannelType] { ct =>
+      NettyConfig.default
+        .leakDetection(LeakDetectionLevel.DISABLED)
+        .maxThreads(8)
+        .channelType(ct)
+    }
+  }
+
+  private val channelTypeLayer: TaskLayer[ChannelType] = ZLayer(ZIO.suspendSucceed {
+    if (Epoll.isAvailable) ZIO.succeed(ChannelType.EPOLL)        // Linux
+    else if (KQueue.isAvailable) ZIO.succeed(ChannelType.KQUEUE) // MacOS
+    else ZIO.fail(new Throwable("KQueue or Epoll required for benchmark server"))
+  })
 
   private val configLayer      = ZLayer.succeed(config)
-  private val nettyConfigLayer = ZLayer.succeed(nettyConfig)
+  private val nettyConfigLayer = channelTypeLayer >>> nettyConfig
 
   val run: UIO[ExitCode] =
     Server.serve(app).provide(configLayer, nettyConfigLayer, Server.customized).exitCode
