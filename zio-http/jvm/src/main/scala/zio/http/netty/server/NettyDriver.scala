@@ -54,7 +54,7 @@ private[zio] final case class NettyDriver(
 
         if (eventLoopGroups.parent.isInstanceOf[EpollEventLoopGroup])
           builder
-            .option(EpollChannelOption.EPOLL_MODE, EpollMode.LEVEL_TRIGGERED)
+            .option(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED)
             .option[JBoolean](UnixChannelOption.SO_REUSEPORT, true)
 
         builder.bind(serverConfig.address)
