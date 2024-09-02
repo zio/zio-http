@@ -43,7 +43,7 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
     ZIO.serviceWith[ChannelType] { ct =>
       NettyConfig.default
         .leakDetection(LeakDetectionLevel.DISABLED)
-        .maxThreads(8)
+        .maxThreads(4)
         .channelType(ct)
     }
   }
