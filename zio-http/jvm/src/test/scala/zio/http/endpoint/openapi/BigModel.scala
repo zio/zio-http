@@ -1,7 +1,8 @@
-package zio.http.gen.model
+package zio.http.endpoint.openapi
 
 import zio.schema.{DeriveSchema, Schema}
 
+// case class with 22+ (23 in this case) fields
 final case class BigModel(
   f1: Boolean,
   f2: Boolean,
