@@ -184,10 +184,10 @@ object NettyClientDriver {
     (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {
         for {
-          eventLoopGroup <- ZIO.service[EventLoopGroup]
-          channelFactory <- ZIO.service[ChannelFactory[Channel]]
-          nettyRuntime   <- ZIO.service[NettyRuntime]
-        } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime)
+          eventLoopGroups <- ZIO.service[EventLoopGroups]
+          channelFactory  <- ZIO.service[ChannelFactory[Channel]]
+          nettyRuntime    <- ZIO.service[NettyRuntime]
+        } yield NettyClientDriver(channelFactory, eventLoopGroups.child, nettyRuntime)
       }
 
   private val PrematureChannelClosure = new PrematureChannelClosureException(

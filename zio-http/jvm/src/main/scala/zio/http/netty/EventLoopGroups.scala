@@ -16,7 +16,6 @@
 
 package zio.http.netty
 
-import java.time.temporal.TemporalUnit
 import java.util.concurrent.Executor
 
 import scala.concurrent.duration.TimeUnit
@@ -30,9 +29,8 @@ import io.netty.channel.kqueue.{KQueue, KQueueEventLoopGroup}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 
-/**
- * Simple wrapper over NioEventLoopGroup
- */
+case class EventLoopGroups(parent: EventLoopGroup, child: EventLoopGroup)
+
 object EventLoopGroups {
   trait Config extends ChannelType.Config {
     def nThreads: Int
@@ -42,11 +40,17 @@ object EventLoopGroups {
     def shutdownTimeUnit: TimeUnit
   }
 
-  def nio(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config: Config, ZIO.succeed(new NioEventLoopGroup(config.nThreads)))
+  def nio(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroups] = {
+    val parent = make(config: Config, ZIO.succeed(new NioEventLoopGroup(1)))
+    val child  = make(config: Config, ZIO.succeed(new NioEventLoopGroup(config.nThreads)))
+    parent.zipWith(child)(EventLoopGroups.apply)
+  }
 
-  def nio(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new NioEventLoopGroup(config.nThreads, executor)))
+  def nio(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroups] = {
+    val parent = make(config, ZIO.succeed(new NioEventLoopGroup(1, executor)))
+    val child  = make(config, ZIO.succeed(new NioEventLoopGroup(config.nThreads, executor)))
+    parent.zipWith(child)(EventLoopGroups.apply)
+  }
 
   def make(config: Config, eventLoopGroup: UIO[EventLoopGroup])(implicit
     trace: Trace,
@@ -58,20 +62,35 @@ object EventLoopGroups {
         .orDie
     }
 
-  def epoll(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads)))
+  def epoll(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroups] = {
+    val parent = make(config, ZIO.succeed(new EpollEventLoopGroup(1)))
+    val child  = make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads)))
+    parent.zipWith(child)(EventLoopGroups.apply)
+  }
 
-  def kqueue(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new KQueueEventLoopGroup(config.nThreads)))
+  def kqueue(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroups] = {
+    val parent = make(config, ZIO.succeed(new KQueueEventLoopGroup(1)))
+    val child  = make(config, ZIO.succeed(new KQueueEventLoopGroup(config.nThreads)))
+    parent.zipWith(child)(EventLoopGroups.apply)
+  }
 
-  def epoll(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads, executor)))
+  def epoll(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroups] = {
+    val parent = make(config, ZIO.succeed(new EpollEventLoopGroup(1, executor)))
+    val child  = make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads, executor)))
+    parent.zipWith(child)(EventLoopGroups.apply)
+  }
 
-  def uring(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads)))
+  def uring(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroups] = {
+    val parent = make(config, ZIO.succeed(new IOUringEventLoopGroup(1)))
+    val child  = make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads)))
+    parent.zipWith(child)(EventLoopGroups.apply)
+  }
 
-  def uring(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads, executor)))
+  def uring(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroups] = {
+    val parent = make(config, ZIO.succeed(new IOUringEventLoopGroup(1, executor)))
+    val child  = make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads, executor)))
+    parent.zipWith(child)(EventLoopGroups.apply)
+  }
 
   def default(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
     config,
@@ -80,7 +99,7 @@ object EventLoopGroups {
 
   implicit val trace: Trace = Trace.empty
 
-  val live: ZLayer[Config, Nothing, EventLoopGroup] =
+  val live: ZLayer[Config, Nothing, EventLoopGroups] =
     ZLayer.scoped {
       ZIO.serviceWithZIO[Config] { config =>
         config.channelType match {

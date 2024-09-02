@@ -28,6 +28,7 @@ import zio.http.{ClientDriver, Driver, Response, Routes, Server}
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
+import io.netty.channel.epoll.{EpollChannelOption, EpollEventLoopGroup, EpollMode}
 import io.netty.util.ResourceLeakDetector
 
 private[zio] final case class NettyDriver(
@@ -35,7 +36,7 @@ private[zio] final case class NettyDriver(
   channelFactory: ChannelFactory[ServerChannel],
   channelInitializer: ChannelInitializer[Channel],
   serverInboundHandler: ServerInboundHandler,
-  eventLoopGroup: EventLoopGroup,
+  eventLoopGroups: EventLoopGroups,
   serverConfig: Server.Config,
   nettyConfig: NettyConfig,
 ) extends Driver { self =>
@@ -43,13 +44,17 @@ private[zio] final case class NettyDriver(
   def start(implicit trace: Trace): RIO[Scope, StartResult] =
     for {
       chf     <- ZIO.attempt {
-        new ServerBootstrap()
-          .group(eventLoopGroup)
+        val builder = new ServerBootstrap()
+          .group(eventLoopGroups.parent, eventLoopGroups.child)
           .channelFactory(channelFactory)
           .childHandler(channelInitializer)
           .option[Integer](ChannelOption.SO_BACKLOG, serverConfig.soBacklog)
           .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.tcpNoDelay)
-          .bind(serverConfig.address)
+
+        if (eventLoopGroups.parent.isInstanceOf[EpollEventLoopGroup])
+          builder.option(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED)
+
+        builder.bind(serverConfig.address)
       }
       _       <- NettyFutureExecutor.scoped(chf)
       _       <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyConfig.leakDetectionLevel.toNetty))
@@ -84,7 +89,7 @@ private[zio] final case class NettyDriver(
       channelFactory <- ChannelFactories.Client.live.build
         .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](nettyConfig))
       nettyRuntime   <- NettyRuntime.live.build
-    } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get)
+    } yield NettyClientDriver(channelFactory.get, eventLoopGroups.child, nettyRuntime.get)
 
   override def toString: String = s"NettyDriver($serverConfig)"
 }
@@ -97,7 +102,7 @@ object NettyDriver {
     AppRef
       & ChannelFactory[ServerChannel]
       & ChannelInitializer[Channel]
-      & EventLoopGroup
+      & EventLoopGroups
       & Server.Config
       & NettyConfig
       & ServerInboundHandler,
@@ -108,7 +113,7 @@ object NettyDriver {
       app   <- ZIO.service[AppRef]
       cf    <- ZIO.service[ChannelFactory[ServerChannel]]
       cInit <- ZIO.service[ChannelInitializer[Channel]]
-      elg   <- ZIO.service[EventLoopGroup]
+      elg   <- ZIO.service[EventLoopGroups]
       sc    <- ZIO.service[Server.Config]
       nsc   <- ZIO.service[NettyConfig]
       sih   <- ZIO.service[ServerInboundHandler]
@@ -117,14 +122,14 @@ object NettyDriver {
       channelFactory = cf,
       channelInitializer = cInit,
       serverInboundHandler = sih,
-      eventLoopGroup = elg,
+      eventLoopGroups = elg,
       serverConfig = sc,
       nettyConfig = nsc,
     )
 
-  val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
+  val manual: ZLayer[EventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
     implicit val trace: Trace = Trace.empty
-    ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
+    ZLayer.makeSome[EventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
       ZLayer(AppRef.empty),
       ServerChannelInitializer.layer,
       ServerInboundHandler.live,
@@ -135,7 +140,7 @@ object NettyDriver {
   val customized: ZLayer[Server.Config & NettyConfig, Throwable, Driver] = {
     val serverChannelFactory: ZLayer[NettyConfig, Nothing, ChannelFactory[ServerChannel]] =
       ChannelFactories.Server.fromConfig
-    val eventLoopGroup: ZLayer[NettyConfig, Nothing, EventLoopGroup]                      = EventLoopGroups.live
+    val eventLoopGroup: ZLayer[NettyConfig, Nothing, EventLoopGroups]                     = EventLoopGroups.live
 
     ZLayer.makeSome[Server.Config & NettyConfig, Driver](
       eventLoopGroup,
