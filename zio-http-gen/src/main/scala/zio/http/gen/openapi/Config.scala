@@ -27,7 +27,8 @@ import zio.http.gen.openapi.Config.NormalizeFields
  *                                like snake_case, or kebab-case.
  *                                This configuration allows to normalize these fields.
  *                                The original casing will be preserved via a @fieldName("<original-name>") annotation.
- */// format: on
+ */
+// format: on
 final case class Config(
   commonFieldsOnSuperType: Boolean,
   generateSafeTypeAliases: Boolean,
@@ -50,7 +51,8 @@ object Config {
    *                          "3rd" -> "third"
    *                        )
    *                        }}}
-   */// format: on
+   */
+  // format: on
   final case class NormalizeFields(
     enableAutomatic: Boolean,
     manualOverrides: Map[String, String],
