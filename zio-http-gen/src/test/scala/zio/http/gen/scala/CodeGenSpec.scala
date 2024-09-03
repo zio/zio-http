@@ -880,7 +880,6 @@ object CodeGenSpec extends ZIOSpecDefault {
                 manualOverrides = Map(
                   "1st item" -> "firstItem",
                   "2nd item" -> "secondItem",
-                  "3rd item" -> "thirdItem",
                 ),
               ),
             ),
