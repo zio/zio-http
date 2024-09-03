@@ -9,8 +9,8 @@ object Payment {
   implicit val codec: Schema[Payment] = DeriveSchema.gen[Payment]
   @caseName("Card")
   case class Card(
-    cvv: String,
     number: String,
+    cvv: String,
   )
   object Card {
     implicit val codec: Schema[Card] = DeriveSchema.gen[Card]

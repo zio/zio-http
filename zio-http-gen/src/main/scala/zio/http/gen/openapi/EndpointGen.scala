@@ -730,14 +730,14 @@ final case class EndpointGen(config: Config) {
   private def fieldsOfObject(openAPI: OpenAPI, annotations: Chunk[JsonSchema.MetaData])(
     obj: JsonSchema.Object,
   ): List[Code.Field] =
-    obj.properties.toList.sortBy(_._1).map { case (name, schema) =>
+    obj.properties.map { case (name, schema) =>
       val field = schemaToField(schema, openAPI, name, annotations)
         .getOrElse(
           throw new Exception(s"Could not generate code for field $name of object $name"),
         )
         .asInstanceOf[Code.Field]
       if (obj.required.contains(name)) field else field.copy(fieldType = field.fieldType.opt)
-    }
+    }.toList
 
   /**
    * @param openAPI

@@ -4,11 +4,11 @@ import zio.Chunk
 import zio.schema._
 
 case class Animal(
-  age: Int,
-  id: Int,
+  species: String,
   name: String,
   relatives: Chunk[String],
-  species: String,
+  age: Int,
+  id: Int,
 )
 object Animal {
   implicit val codec: Schema[Animal] = DeriveSchema.gen[Animal]

@@ -4,8 +4,8 @@ import zio.schema._
 import java.util.UUID
 
 case class UserOrderHistory(
-  history: Map[UUID, Order],
   user_id: UUID,
+  history: Map[UUID, Order],
 )
 object UserOrderHistory {
   implicit val codec: Schema[UserOrderHistory] = DeriveSchema.gen[UserOrderHistory]

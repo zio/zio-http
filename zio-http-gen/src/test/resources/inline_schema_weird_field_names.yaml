@@ -31,28 +31,18 @@ components:
     Order:
       type: object
       required:
-        - id
-        - PRODUCT_NAME
-        - num-of-items
-        - price in dollars
+        - ORDER-ID
+        - price_in dollars
         - 1st item
       properties:
-        id:
+        ORDER-ID:
           $ref: '#/components/schemas/OrderId'
-        PRODUCT_NAME:
-          type: string
-        num-of-items:
-          type: integer
-          format: int32
-          minimum: 1
-        price in dollars:
+        price_in dollars:
           type: number
           minimum: 0
         1st item:
           type: string
         2nd item:
-          type: string
-        3rd item:
           type: string
     OrderId:
       type: string

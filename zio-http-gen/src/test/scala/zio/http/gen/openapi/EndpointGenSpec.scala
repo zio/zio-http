@@ -789,8 +789,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.CaseClass(
                     "Card",
                     fields = List(
-                      Code.Field("cvv", Code.Primitive.ScalaString),
                       Code.Field("number", Code.Primitive.ScalaString),
+                      Code.Field("cvv", Code.Primitive.ScalaString),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Card")),
                     mixins = Nil,
@@ -831,8 +831,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.CaseClass(
                     "Card",
                     fields = List(
-                      Code.Field("cvv", Code.Primitive.ScalaString),
                       Code.Field("number", Code.Primitive.ScalaString),
+                      Code.Field("cvv", Code.Primitive.ScalaString),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Card")),
                     mixins = List("PaymentNamedDiscriminator"),
@@ -875,8 +875,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.CaseClass(
                     "Card",
                     fields = List(
-                      Code.Field("cvv", Code.Primitive.ScalaString),
                       Code.Field("number", Code.Primitive.ScalaString),
+                      Code.Field("cvv", Code.Primitive.ScalaString),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Card")),
                     mixins = List("PaymentNoDiscriminator"),

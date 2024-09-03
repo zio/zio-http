@@ -25,8 +25,8 @@ object Animal       {
   case class Zebra(
     @validate[Int](Validation.greaterThan(-1)) age: Int,
     @validate[Float](Validation.greaterThan(-1.0)) weight: Float,
-    dazzle: Chunk[Zebra],
     @validate[Int](Validation.greaterThan(-1)) num_stripes: Int,
+    dazzle: Chunk[Zebra],
   ) extends Animal
   object Zebra {
     implicit val codec: Schema[Zebra] = DeriveSchema.gen[Zebra]
