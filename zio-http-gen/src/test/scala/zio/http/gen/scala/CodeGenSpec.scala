@@ -875,9 +875,9 @@ object CodeGenSpec extends ZIOSpecDefault {
           codeGenFromOpenAPI(
             oapi,
             Config.default.copy(
-              fieldsNormalizationConf = NormalizeFields(
-                enabled = true,
-                specialReplacements = Map(
+              fieldNamesNormalization = NormalizeFields(
+                enableAutomatic = true,
+                manualOverrides = Map(
                   "1st item" -> "firstItem",
                   "2nd item" -> "secondItem",
                   "3rd item" -> "thirdItem",

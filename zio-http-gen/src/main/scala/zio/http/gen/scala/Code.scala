@@ -152,7 +152,7 @@ object Code {
       apply(name, ScalaType.Inferred, conf)
 
     def apply(name: String, fieldType: ScalaType): Field =
-      apply(name, fieldType, openapi.Config.default.fieldsNormalizationConf)
+      apply(name, fieldType, openapi.Config.default.fieldNamesNormalization)
 
     def apply(name: String, fieldType: ScalaType, conf: NormalizeFields): Field =
       apply(name, fieldType, Nil, conf)
@@ -164,9 +164,9 @@ object Code {
 
       def mkValidScalaTermName(term: String) = Term.Name(term).syntax
 
-      val (validScalaTermName, originalFieldNameAnnotation) = conf.specialReplacements
+      val (validScalaTermName, originalFieldNameAnnotation) = conf.manualOverrides
         .get(name)
-        .orElse(if (conf.enabled) normalize(name) else None)
+        .orElse(if (conf.enableAutomatic) normalize(name) else None)
         .fold(mkValidScalaTermName(name) -> Option.empty[Annotation]) { maybeValidScala =>
           val valid = mkValidScalaTermName(maybeValidScala)
           // if modified name is an invalid scala term,

@@ -373,7 +373,7 @@ final case class EndpointGen(config: Config) {
     }
 
   private def fieldName(op: OpenAPI.Operation, fallback: String) =
-    Code.Field(op.operationId.getOrElse(fallback), config.fieldsNormalizationConf)
+    Code.Field(op.operationId.getOrElse(fallback), config.fieldNamesNormalization)
 
   private def endpoint(
     segments: List[Code.PathSegmentCode],
@@ -1162,7 +1162,7 @@ final case class EndpointGen(config: Config) {
       case JsonSchema.AnnotatedSchema(s, _)     =>
         schemaToField(s.withoutAnnotations, openAPI, name, schema.annotations)
       case JsonSchema.RefSchema(SchemaRef(ref)) =>
-        Some(Code.Field(name, Code.TypeRef(ref.capitalize), config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.TypeRef(ref.capitalize), config.fieldNamesNormalization))
       case JsonSchema.RefSchema(ref)            =>
         throw new Exception(s" Not found: $ref. Only references to internal schemas are supported.")
       case JsonSchema.Integer(
@@ -1187,7 +1187,7 @@ final case class EndpointGen(config: Config) {
           exclusiveMax.collect { case l if l <= Int.MaxValue => safeCastLongToInt(l) },
         )
 
-        Some(Code.Field(name, Code.Primitive.ScalaInt, annotations, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.Primitive.ScalaInt, annotations, config.fieldNamesNormalization))
       case JsonSchema.Integer(
             JsonSchema.IntegerFormat.Int64,
             minimum,
@@ -1206,7 +1206,7 @@ final case class EndpointGen(config: Config) {
           else maximum.map(_ + 1)
 
         val annotations = addNumericValidations[Long](exclusiveMin, exclusiveMax)
-        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations, config.fieldNamesNormalization))
       case JsonSchema.Integer(
             JsonSchema.IntegerFormat.Timestamp,
             minimum,
@@ -1224,16 +1224,16 @@ final case class EndpointGen(config: Config) {
           else if (exclusiveMaximum.isDefined && exclusiveMaximum.get.isRight) exclusiveMaximum.get.toOption
           else maximum.map(_ + 1)
         val annotations  = addNumericValidations[Long](exclusiveMin, exclusiveMax)
-        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.Primitive.ScalaLong, annotations, config.fieldNamesNormalization))
 
       case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, maxLength, minLength)                             =>
         val annotations = addStringValidations(minLength, maxLength)
-        Some(Code.Field(name, Code.Primitive.ScalaUUID, annotations, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.Primitive.ScalaUUID, annotations, config.fieldNamesNormalization))
       case JsonSchema.String(_, _, maxLength, minLength)                                                              =>
         val annotations = addStringValidations(minLength, maxLength)
-        Some(Code.Field(name, Code.Primitive.ScalaString, annotations, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.Primitive.ScalaString, annotations, config.fieldNamesNormalization))
       case JsonSchema.Boolean                                                                                         =>
-        Some(Code.Field(name, Code.Primitive.ScalaBoolean, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.Primitive.ScalaBoolean, config.fieldNamesNormalization))
       case JsonSchema.OneOfSchema(schemas)                                                                            =>
         val tpe =
           schemas
@@ -1241,7 +1241,7 @@ final case class EndpointGen(config: Config) {
             .flatMap(schemaToField(_, openAPI, "unused", annotations))
             .map(_.fieldType)
             .reduceLeft(Code.ScalaType.Or.apply)
-        Some(Code.Field(name, tpe, config.fieldsNormalizationConf))
+        Some(Code.Field(name, tpe, config.fieldNamesNormalization))
       case JsonSchema.AllOfSchema(_)                                                                                  =>
         throw new Exception("Inline allOf schemas are not supported for fields")
       case JsonSchema.AnyOfSchema(schemas)                                                                            =>
@@ -1251,7 +1251,7 @@ final case class EndpointGen(config: Config) {
             .flatMap(schemaToField(_, openAPI, "unused", annotations))
             .map(_.fieldType)
             .reduceLeft(Code.ScalaType.Or.apply)
-        Some(Code.Field(name, tpe, config.fieldsNormalizationConf))
+        Some(Code.Field(name, tpe, config.fieldNamesNormalization))
       case JsonSchema.Number(JsonSchema.NumberFormat.Double, minimum, exclusiveMinimum, maximum, exclusiveMaximum, _) =>
         val exclusiveMin =
           if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
@@ -1263,7 +1263,7 @@ final case class EndpointGen(config: Config) {
           else maximum.map(_ + 1)
 
         val annotations = addNumericValidations[Double](exclusiveMin, exclusiveMax)
-        Some(Code.Field(name, Code.Primitive.ScalaDouble, annotations, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.Primitive.ScalaDouble, annotations, config.fieldNamesNormalization))
       case JsonSchema.Number(JsonSchema.NumberFormat.Float, minimum, exclusiveMinimum, maximum, exclusiveMaximum, _)  =>
         val exclusiveMin =
           if (exclusiveMinimum.isDefined && exclusiveMinimum.get == Left(true)) minimum
@@ -1278,7 +1278,7 @@ final case class EndpointGen(config: Config) {
           exclusiveMin.collect { case l if l >= Float.MinValue => safeCastDoubleToFloat(l) },
           exclusiveMax.collect { case l if l <= Float.MaxValue => safeCastDoubleToFloat(l) },
         )
-        Some(Code.Field(name, Code.Primitive.ScalaFloat, annotations, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.Primitive.ScalaFloat, annotations, config.fieldNamesNormalization))
       case JsonSchema.ArrayType(items, minItems, uniqueItems)                                                         =>
         val nonEmpty = minItems.exists(_ > 1)
         val tpe      = items
@@ -1289,7 +1289,7 @@ final case class EndpointGen(config: Config) {
               if (uniqueItems) Code.Primitive.ScalaString.set(nonEmpty) else Code.Primitive.ScalaString.seq(nonEmpty)
             },
           )
-        tpe.map(Code.Field(name, _, config.fieldsNormalizationConf))
+        tpe.map(Code.Field(name, _, config.fieldNamesNormalization))
       case JsonSchema.Object(properties, additionalProperties, _)
           if properties.nonEmpty && additionalProperties.isRight =>
         // Can't be an object and a map at the same time
@@ -1327,17 +1327,17 @@ final case class EndpointGen(config: Config) {
                   )
               },
             ),
-            config.fieldsNormalizationConf,
+            config.fieldNamesNormalization,
           ),
         )
       case JsonSchema.Object(_, _, _)                                                                                 =>
-        Some(Code.Field(name, Code.TypeRef(name.capitalize), config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.TypeRef(name.capitalize), config.fieldNamesNormalization))
       case JsonSchema.Enum(_)                                                                                         =>
-        Some(Code.Field(name, Code.TypeRef(name.capitalize), config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.TypeRef(name.capitalize), config.fieldNamesNormalization))
       case JsonSchema.Null                                                                                            =>
-        Some(Code.Field(name, Code.ScalaType.Unit, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.ScalaType.Unit, config.fieldNamesNormalization))
       case JsonSchema.AnyJson                                                                                         =>
-        Some(Code.Field(name, Code.ScalaType.JsonAST, config.fieldsNormalizationConf))
+        Some(Code.Field(name, Code.ScalaType.JsonAST, config.fieldNamesNormalization))
     }
   }
 
