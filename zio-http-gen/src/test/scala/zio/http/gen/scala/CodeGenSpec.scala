@@ -9,8 +9,8 @@ import scala.meta.parsers._
 import scala.util.{Failure, Success, Try}
 
 import zio.Scope
-import zio.json.{JsonDecoder, JsonEncoder}
-import zio.test.Assertion.{equalTo, hasSameElements, isFailure, isSuccess, succeeds}
+import zio.json.JsonDecoder
+import zio.test.Assertion.{hasSameElements, isFailure, isSuccess}
 import zio.test.TestAspect.{blocking, flaky}
 import zio.test._
 
