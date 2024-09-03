@@ -71,7 +71,7 @@ private object NettyResponseEncoder {
 
     val jContent = Unpooled.wrappedBuffer(bytes)
 
-    /**
+    /*
      * The content-length MUST match the length of the content we are sending,
      * except for HEAD requests where the content-length must equal the length
      * of the content we would have sent if this was a GET request.
