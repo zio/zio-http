@@ -14,51 +14,55 @@
  * limitations under the License.
  */
 
-package zio.http.netty
+package zio.http.netty.server
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
+import zio.http.netty.CachedDateHeader
 import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled
-import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http._
 
-private[zio] object NettyResponseEncoder {
+private object NettyResponseEncoder {
   private val dateHeaderCache = CachedDateHeader.default
 
-  def encode(response: Response)(implicit unsafe: Unsafe): HttpResponse =
+  def encode(method: Method, response: Response)(implicit unsafe: Unsafe): HttpResponse =
     response.body match {
       case body: Body.UnsafeBytes =>
-        fastEncode(response, body.unsafeAsArray)
+        fastEncode(method, response, body.unsafeAsArray)
       case body                   =>
         val status   = response.status
         val jHeaders = Conversions.headersToNetty(response.headers)
         val jStatus  = Conversions.statusToNetty(status)
         maybeAddDateHeader(jHeaders, status)
 
-        body.knownContentLength match {
-          case Some(contentLength)                                    =>
-            jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentLength)
-          case _ if jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH) =>
-            ()
-          case _                                                      =>
-            jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-        }
+        val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
 
+        // See https://github.com/zio/zio-http/issues/3080
+        if (method == Method.HEAD && hasContentLength) ()
+        else
+          body.knownContentLength match {
+            case Some(contentLength)    =>
+              jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentLength)
+            case _ if !hasContentLength =>
+              jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+            case _                      =>
+              ()
+          }
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders)
     }
 
-  def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse = {
+  def fastEncode(method: Method, response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse = {
     if (response.encoded eq null) {
-      response.encoded = doEncode(response, bytes)
+      response.encoded = doEncode(method, response, bytes)
     }
     response.encoded.asInstanceOf[FullHttpResponse]
   }
 
-  private def doEncode(response: Response, bytes: Array[Byte]): FullHttpResponse = {
+  private def doEncode(method: Method, response: Response, bytes: Array[Byte]): FullHttpResponse = {
     val jHeaders = Conversions.headersToNetty(response.headers)
     val status   = response.status
     maybeAddDateHeader(jHeaders, status)
@@ -67,8 +71,13 @@ private[zio] object NettyResponseEncoder {
 
     val jContent = Unpooled.wrappedBuffer(bytes)
 
-    // The content-length MUST match the length of the content we are sending, so we ignore any user-provided value
-    jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, bytes.length)
+    /**
+     * The content-length MUST match the length of the content we are sending,
+     * except for HEAD requests where the content-length must equal the length
+     * of the content we would have sent if this was a GET request.
+     */
+    if (method == Method.HEAD && jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)) ()
+    else jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, bytes.length)
 
     new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, jHeaders, EmptyHttpHeaders.INSTANCE)
   }
