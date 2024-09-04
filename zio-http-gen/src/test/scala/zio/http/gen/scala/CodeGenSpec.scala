@@ -332,6 +332,80 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema response body of sum-type with reusable aliased fields") {
+        val openAPIString = stringFromResource("/inline_schema_sumtype_with_reusable_aliased_fields.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(commonFieldsOnSuperType = true, generateSafeTypeAliases = true),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/zoo/Animal.scala",
+                "component/Animal.scala",
+                "component/AnimalSharedFields.scala",
+                "component/Age.scala",
+                "component/Weight.scala",
+                "component/HttpError.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "api/v1/zoo/Animal.scala",
+              "/EndpointForZoo.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/Age.scala",
+              "/ComponentAliasAge.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/Weight.scala",
+              "/ComponentAliasWeight.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/Animal.scala",
+              "/ComponentAnimalWithAbstractAliasedMembers.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/HttpError.scala",
+              "/ComponentHttpError.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema response body of sum-type with reusable un-aliased fields") {
+        val openAPIString = stringFromResource("/inline_schema_sumtype_with_reusable_aliased_fields.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(commonFieldsOnSuperType = true, generateSafeTypeAliases = false),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/zoo/Animal.scala",
+                "component/Animal.scala",
+                "component/AnimalSharedFields.scala",
+                "component/HttpError.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "api/v1/zoo/Animal.scala",
+              "/EndpointForZoo.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/Animal.scala",
+              "/ComponentAnimalWithAbstractUnAliasedMembers.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/HttpError.scala",
+              "/ComponentHttpError.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test("OpenAPI spec with inline schema response body of sum-type with multiple reusable fields") {
         val openAPIString = stringFromResource("/inline_schema_sumtype_with_multiple_reusable_fields.yaml")
 
