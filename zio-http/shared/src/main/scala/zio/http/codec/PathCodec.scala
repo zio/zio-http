@@ -35,7 +35,7 @@ import zio.http._
  * val pathCodec = empty / "users" / int("user-id") / "posts" / string("post-id")
  * }}}
  */
-sealed trait PathCodec[A] { self =>
+sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   import PathCodec._
 
   /**
@@ -339,7 +339,7 @@ sealed trait PathCodec[A] { self =>
           } else {
 
             try {
-              val int = Integer.parseInt(value, j, end, 10)
+              val int = parseInt(value, j, end, 10)
               j = end
               if (isNegative) stack.push(-int) else stack.push(int)
             } catch {
@@ -358,7 +358,7 @@ sealed trait PathCodec[A] { self =>
             return "Expected long path segment but found: " + value.substring(j, end)
           } else {
             try {
-              val long = java.lang.Long.parseLong(value, j, end, 10)
+              val long = parseLong(value, j, end, 10)
               j = end
               if (isNegative) stack.push(-long) else stack.push(long)
             } catch {
@@ -663,7 +663,7 @@ sealed trait PathCodec[A] { self =>
   final def transformOrFailRight[A2](f: A => A2)(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), g)
 }
-object PathCodec          {
+object PathCodec {
 
   /**
    * Constructs a path codec from a method and a path literal.
