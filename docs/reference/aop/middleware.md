@@ -74,7 +74,7 @@ Before introducing middleware, let us understand why they are needed.
 
 Consider the following example where we have two endpoints:
 
-* **GET /users/{id}** - Get a single user by id
+* **GET /users/\{id\}** - Get a single user by id
 * **GET /users** - Get all users
 
 ```scala
