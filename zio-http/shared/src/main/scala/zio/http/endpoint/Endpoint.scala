@@ -245,6 +245,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): Route[Any, Nothing] =
     implementHandler[Any](Handler.succeed(output))
 
+  def implementAsZIO(output: ZIO[Any, Err, Output])(implicit
+    trace: Trace,
+  ): Route[Any, Nothing] =
+    implementHandler[Any](Handler.fromZIO(output))
+
   def implementAsError(err: Err)(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
