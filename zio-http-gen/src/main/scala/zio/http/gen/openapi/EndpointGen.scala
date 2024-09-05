@@ -191,7 +191,11 @@ final case class EndpointGen(config: Config) {
       cf.copy(
         objects = cf.objects.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
         caseClasses = cf.caseClasses.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
-        enums = cf.enums.map(mapType(_.name, subtypeToTraits, aliasedPrimitives)),
+        enums = cf.enums.map(enm =>
+          mapType[Code.Enum](_.name, subtypeToTraits, aliasedPrimitives)(enm).copy(
+            abstractMembers = enm.abstractMembers.map(mapField(subtypeToTraits, aliasedPrimitives, enm.name)),
+          ),
+        ),
       )
     }
   }
@@ -227,28 +231,35 @@ final case class EndpointGen(config: Config) {
     codeStructureToAlter: T,
   ): T =
     mapCaseClasses { cc =>
-      cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (f @ Code.Field(_, scalaType, _), tail) =>
-        f.copy(fieldType = mapTypeRef(scalaType) { case originalType @ Code.TypeRef(tName) =>
-          // We use the subtypeToTraits map to check if the type is a concrete subtype of a sealed trait.
-          // As of the time of writing this code, there should be only a single trait.
-          // In case future code generalizes to allow multiple mixins, this code should be updated.
-          //
-          // If no mixins are found, we try to check maybe we deal with an aliased primitive,
-          // which in this case we should use the provided alias (with ".Type" appended).
-          //
-          // If no alias, and no mixins, we return the original type.
-          subtypeToTraits
-            .get(tName)
-            .fold(aliasedPrimitives.getOrElse(tName, originalType)) { set =>
-              // If the type parameter has exactly 1 super type trait,
-              // and that trait's name is different from our enclosing object's name,
-              // then we should alter the type to include the object's name.
-              if (set.size != 1 || set.head == getEncapsulatingName(codeStructureToAlter)) originalType
-              else Code.TypeRef(set.head + "." + tName)
-            }
-        }) :: tail
+      cc.copy(fields = cc.fields.foldRight(List.empty[Code.Field]) { case (field, tail) =>
+        mapField(subtypeToTraits, aliasedPrimitives, getEncapsulatingName(codeStructureToAlter))(field) :: tail
       })
     }(codeStructureToAlter)
+
+  def mapField(
+    subtypeToTraits: Map[String, Set[String]],
+    aliasedPrimitives: Map[String, ScalaType],
+    encapsulatingName: => String,
+  ): Code.Field => Code.Field = (f: Code.Field) =>
+    f.copy(fieldType = mapTypeRef(f.fieldType) { case originalType @ Code.TypeRef(tName) =>
+      // We use the subtypeToTraits map to check if the type is a concrete subtype of a sealed trait.
+      // As of the time of writing this code, there should be only a single trait.
+      // In case future code generalizes to allow multiple mixins, this code should be updated.
+      //
+      // If no mixins are found, we try to check maybe we deal with an aliased primitive,
+      // which in this case we should use the provided alias (with ".Type" appended).
+      //
+      // If no alias, and no mixins, we return the original type.
+      subtypeToTraits
+        .get(tName)
+        .fold(aliasedPrimitives.getOrElse(tName, originalType)) { set =>
+          // If the type parameter has exactly 1 super type trait,
+          // and that trait's name is different from our enclosing object's name,
+          // then we should alter the type to include the object's name.
+          if (set.size != 1 || set.head == encapsulatingName) originalType
+          else Code.TypeRef(set.head + "." + tName)
+        }
+    })
 
   /**
    * Given the type parameter of a field, we may want to alter it, e.g. by
