@@ -12,7 +12,7 @@ object ForwardHeaderSpec extends ZIOSpecDefault {
             for {
               client   <- ZIO.service[Client]
               response <- (client @@ ZClientAspect.forwardHeaders)
-                .request(Request.post(url"http://localhost:8080/post", Body.empty))
+                .batched(Request.post(url"http://localhost:8080/post", Body.empty))
             } yield response,
           ),
           Method.POST / "post" -> handler((req: Request) => Response.ok.addHeader(req.header(Header.Accept).get)),
@@ -20,11 +20,11 @@ object ForwardHeaderSpec extends ZIOSpecDefault {
 
         for {
           _        <- Server.install(routes)
-          response <- Client.request(
+          response <- Client.batched(
             Request.get(url"http://localhost:8080/get").addHeader(Header.Accept(MediaType.application.json)),
           )
         } yield assertTrue(response.headers(Header.Accept).contains(Header.Accept(MediaType.application.json)))
       },
-    ).provideSome[Scope](Client.default, Server.default) @@ TestAspect.withLiveClock
+    ).provide(Client.default, Server.default) @@ TestAspect.withLiveClock
 
 }

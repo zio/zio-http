@@ -451,15 +451,16 @@ object ZClientAspect {
   final def forwardHeaders: ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
       override def apply[
+        ReqEnv,
         Env >: Nothing <: Any,
         In >: Nothing <: Body,
         Err >: Nothing <: Any,
         Out >: Nothing <: Response,
       ](
-        client: ZClient[Env, In, Err, Out],
-      ): ZClient[Env, In, Err, Out] =
+        client: ZClient[Env, ReqEnv, In, Err, Out],
+      ): ZClient[Env, ReqEnv, In, Err, Out] =
         client.copy(
-          driver = new ZClient.Driver[Env, Err] {
+          driver = new ZClient.Driver[Env, ReqEnv, Err] {
             override def request(
               version: Version,
               method: Method,
@@ -468,7 +469,7 @@ object ZClientAspect {
               body: Body,
               sslConfig: Option[ClientSSLConfig],
               proxy: Option[Proxy],
-            )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
+            )(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] =
               RequestStore.get[Middleware.ForwardedHeaders].flatMap {
                 case Some(forwardedHeaders) =>
                   client.driver
@@ -478,8 +479,10 @@ object ZClientAspect {
               }
 
             override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
-              implicit trace: Trace,
-            ): ZIO[Env1 & Scope, Err, Response] =
+              implicit
+              trace: Trace,
+              ev: ReqEnv =:= Scope,
+            ): ZIO[Env1 & ReqEnv, Err, Response] =
               RequestStore.get[Middleware.ForwardedHeaders].flatMap {
                 case Some(forwardedHeaders) =>
                   client.driver.socket(version, url, headers ++ forwardedHeaders.headers, app)
