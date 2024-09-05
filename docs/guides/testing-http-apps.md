@@ -9,7 +9,7 @@ Testing HTTP applications is a critical part of the development process. Utilizi
 
 We have comprehensive documentation on [ZIO Test](https://zio.dev/reference/test/) which is worth reading to understand how to write tests using ZIO effects.
 
-It is easy to test ZIO HTTP applications because we can think of `HttpApp` as a function of `Request => ZIO[R, Response, Response]`. This means we can effortlessly provide a Request as input to the `HttpApp` and receive the corresponding Response as output using the runZIO method. By doing this we can test the behavior of the `HttpApp` in a controlled environment:
+It is easy to test ZIO HTTP applications because we can think of `Routes` as a function of `Request => ZIO[R, Response, Response]`. By provide a `Request` to `Routes#runZIO` will output a `Response`. Without starting a server:
 
 ```scala mdoc:silent:reset
 import zio.test._
@@ -30,7 +30,7 @@ object ExampleSpec extends ZIOSpecDefault {
 
 ## ZIO HTTP Testkit
 
-Also, ZIO HTTP provides a testkit called `zio-http-testkit` that includes `TestClient` and `TestServer` utilities which helps us to test our HTTP applications without the need for having a real live client and server instances.
+ZIO HTTP provides the `zio-http-testkit` package that includes a `TestClient` and a `TestServer`.
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-test"         % "@ZIO_VERSION@"  % Test
@@ -43,12 +43,10 @@ Now, based on the requirement we can use any of the following test utilities:
 
 ## TestClient
 
-Using the `TestClient` we can write tests for our HTTP applications without starting a live server instance.
+The `TestClient` allows us to write tests for our HTTP applications by defining the behavior of the client:
 
-Using following methods we can define the behavior of the `TestClient`:
-
-- `TestClient.addRequestResponse` - Adds an exact 1-1 behavior. It takes a request and a response and returns a `ZIO[TestClient, Nothing, Unit]`.
-- `TestClient.addRoute` and `addRouts` - Adds a route definition to handle requests that are submitted by test cases. It takes a `Route` or `Routes` and returns a `ZIO[R with TestClient, Nothing, Unit]`.
+- `TestClient.addRequestResponse` - Adds an 1-1 mapping from a `Request` to a `Response` to the `TestClient`. 
+- `TestClient.addRoute` and `addRoutes` - Add one or more `Route` or a single `Routes` instance to the `TestClient`.
 - `TestClient.installSocketApp` - Installs a `WebSocketApp` to the `TestClient`.
 
 After defining the behavior of the test client, we can use the `TestClient.layer` to provide the `TestClient` and `Client` to the test cases:
@@ -80,12 +78,10 @@ object TestUsingTestClient extends ZIOSpecDefault {
 
 ## TestServer
 
-Using the `TestServer` we can write tests for our HTTP applications by starting a live server instance on the localhost.
+The `TestServer` allows us to write tests for our HTTP applications by defining the behavior of the server:
 
-Using the following methods we can define the behavior of the `TestServer`:
-
-- `TestServer.addRequestResponse` - Adds an exact 1-1 behavior. It takes a request and a response and returns a `ZIO[TestServer, Nothing, Unit]`.
-- `TestServer.addRoute` and `TestServer.addRoutes` - Adds a route definition to handle requests that are submitted by test cases. It takes a `Route` or `Routes` and returns a `ZIO[R with TestServer, Nothing, Unit]`.
+- `TestServer.addRequestResponse` - Adds an 1-1 mapping from a `Request` to a `Response` to the `TestServer`. 
+- `TestServer.addRoute` and `TestServer.addRoutes` - Add one or more `Route` or a single `Routes` instance to the `TestServer`. 
 - `TestServer.install` - Installs a `HttpApp` to the `TestServer`.
 
 After defining the behavior of the test server, we can use the `TestServer.layer` to provide the `TestServer` to any test cases that require `Server`:
