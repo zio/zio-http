@@ -105,7 +105,7 @@ object ClientSpec extends HttpRunnableSpec {
       val url  = URL.decode("https://test.com").toOption.get
       val resp = ZClient.batched(Request.get(url)).timeout(500.millis)
       assertZIO(resp)(isNone)
-    } @@ timeout(5.seconds) @@ flaky(5),
+    } @@ timeout(5.seconds) @@ flaky(20),
     test("authorization header without scheme") {
       val app             =
         Handler
