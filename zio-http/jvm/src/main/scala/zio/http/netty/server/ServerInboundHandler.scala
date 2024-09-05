@@ -82,13 +82,14 @@ private[zio] final case class ServerInboundHandler(
             val throwable = jReq.decoderResult().cause()
             attemptFastWrite(
               ctx,
+              Conversions.methodFromNetty(jReq.method()),
               Response.fromThrowable(throwable, runtime.getRef(ErrorResponseConfig.configRef)),
             )
             releaseRequest()
           } else {
             val req  = makeZioRequest(ctx, jReq)
             val exit = app(req)
-            if (attemptImmediateWrite(ctx, exit)) {
+            if (attemptImmediateWrite(ctx, req.method, exit)) {
               releaseRequest()
             } else {
               writeResponse(ctx, runtime, exit, req)(releaseRequest)
@@ -140,11 +141,12 @@ private[zio] final case class ServerInboundHandler(
 
   private def attemptFastWrite(
     ctx: ChannelHandlerContext,
+    method: Method,
     response: Response,
   ): Boolean = {
 
     def fastEncode(response: Response, bytes: Array[Byte]) = {
-      val jResponse  = NettyResponseEncoder.fastEncode(response, bytes)
+      val jResponse  = NettyResponseEncoder.fastEncode(method, response, bytes)
       val djResponse = jResponse.retainedDuplicate()
       ctx.writeAndFlush(djResponse, ctx.voidPromise())
       true
@@ -173,7 +175,7 @@ private[zio] final case class ServerInboundHandler(
         upgradeToWebSocket(ctx, request, socketApp, runtime).as(None)
       case _                                                                        =>
         ZIO.attempt {
-          val jResponse = NettyResponseEncoder.encode(response)
+          val jResponse = NettyResponseEncoder.encode(request.method, response)
 
           if (!jResponse.isInstanceOf[FullHttpResponse]) {
 
@@ -197,11 +199,12 @@ private[zio] final case class ServerInboundHandler(
 
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
+    method: Method,
     exit: ZIO[Any, Response, Response],
   ): Boolean = {
     exit match {
       case Exit.Success(response) if response ne null =>
-        attemptFastWrite(ctx, response)
+        attemptFastWrite(ctx, method, response)
       case _                                          => false
     }
   }
@@ -310,12 +313,12 @@ private[zio] final case class ServerInboundHandler(
       NettyFutureExecutor.executed(ctx.channel().close())
 
     def writeResponse(response: Response): Task[Unit] =
-      if (attemptFastWrite(ctx, response)) {
+      if (attemptFastWrite(ctx, req.method, response)) {
         Exit.unit
       } else {
         attemptFullWrite(ctx, runtime, response, req).foldCauseZIO(
           cause => {
-            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash))
+            attemptFastWrite(ctx, req.method, withDefaultErrorResponse(cause.squash))
             Exit.unit
           },
           {

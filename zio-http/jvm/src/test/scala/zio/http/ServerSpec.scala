@@ -432,6 +432,31 @@ object ServerSpec extends HttpRunnableSpec {
                 .contentLength
                 .run()
             assertZIO(res)(isSome(equalTo(Header.ContentLength(10L))))
+          } +
+          test("provided content-length is used for HEAD requests") {
+            val res =
+              Handler.ok
+                .addHeader(Header.ContentLength(4L))
+                .sandbox
+                .toRoutes
+                .deploy
+                .contentLength
+                .run(method = Method.HEAD)
+            assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
+          } +
+          test("provided content-length is used for HEAD requests with stream body") {
+            // NOTE: Unlikely use-case, but just in case some 3rd party integration
+            // uses streams as a generalised way to provide content
+            val res =
+              Handler
+                .fromStream(ZStream.empty, 0L)
+                .addHeader(Header.ContentLength(4L))
+                .sandbox
+                .toRoutes
+                .deploy
+                .contentLength
+                .run(method = Method.HEAD)
+            assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
           }
       },
     ),
