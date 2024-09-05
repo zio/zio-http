@@ -28,7 +28,8 @@ import io.netty.handler.codec.http.websocketx.{
 }
 private[netty] object NettySocketProtocol {
 
-  def clientBuilder(webSocketConfig: WebSocketConfig): WebSocketClientProtocolConfig.Builder =
+  def clientBuilder(webSocketConfig: WebSocketConfig): WebSocketClientProtocolConfig.Builder = {
+    import webSocketConfig.decoderConfig
     WebSocketClientProtocolConfig
       .newBuilder()
       .subprotocol(webSocketConfig.subprotocols.orNull)
@@ -37,6 +38,11 @@ private[netty] object NettySocketProtocol {
       .handleCloseFrames(webSocketConfig.handleCloseFrames)
       .sendCloseFrame(closeStatusToNetty(webSocketConfig.sendCloseFrame))
       .dropPongFrames(webSocketConfig.dropPongFrames)
+      .maxFramePayloadLength(decoderConfig.maxFramePayloadLength)
+      .allowMaskMismatch(decoderConfig.allowMaskMismatch)
+      .allowExtensions(decoderConfig.allowExtensions)
+      .withUTF8Validator(decoderConfig.withUTF8Validator)
+  }
 
   def serverBuilder(webSocketConfig: WebSocketConfig): WebSocketServerProtocolConfig.Builder =
     WebSocketServerProtocolConfig

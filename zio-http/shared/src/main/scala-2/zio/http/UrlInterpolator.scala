@@ -32,15 +32,10 @@ private[http] object UrlInterpolatorMacro {
     c.prefix.tree match {
       case Apply(_, List(Apply(_, Literal(Constant(p: String)) :: Nil))) =>
         val result = URL.decode(p) match {
-          case Left(error) => c.abort(c.enclosingPosition, s"Invalid URL: ${error.getMessage}")
+          case Left(error) => c.abort(c.enclosingPosition, error.getMessage)
           case Right(url)  =>
-            if (url.isAbsolute) {
-              val uri = url.encode
-              q"_root_.zio.http.URL.fromAbsoluteURI(new _root_.java.net.URI($uri)).get"
-            } else {
-              val uri = url.encode
-              q"_root_.zio.http.URL.fromRelativeURI(new _root_.java.net.URI($uri)).get"
-            }
+            val uri = url.encode
+            q"_root_.zio.http.URL.fromURI(new _root_.java.net.URI($uri)).get"
         }
         c.Expr[URL](result)
       case Apply(_, List(Apply(_, staticPartLiterals)))                  =>
@@ -73,9 +68,8 @@ private[http] object UrlInterpolatorMacro {
         val exampleParts = staticParts.zipAll(injectedPartExamples, "", "").flatMap { case (a, b) => List(a, b) }
         val example      = exampleParts.mkString
         URL.decode(example) match {
-          case Left(error) =>
-            c.abort(c.enclosingPosition, s"Invalid URL: ${error.getMessage}")
-          case Right(url)  =>
+          case Left(error) => c.abort(c.enclosingPosition, error.getMessage)
+          case Right(_)    =>
             val parts =
               staticParts.map { s => Literal(Constant(s)) }
                 .zipAll(args.map(_.tree), Literal(Constant("")), Literal(Constant("")))
@@ -86,13 +80,7 @@ private[http] object UrlInterpolatorMacro {
                 q"$acc + $part"
               }
 
-            val result = if (url.isAbsolute) {
-              q"_root_.zio.http.URL.fromAbsoluteURI(new _root_.java.net.URI($concatenated)).get"
-            } else {
-              q"_root_.zio.http.URL.fromRelativeURI(new _root_.java.net.URI($concatenated)).get"
-            }
-
-            c.Expr[URL](result)
+            c.Expr[URL](q"_root_.zio.http.URL.fromURI(new _root_.java.net.URI($concatenated)).get")
         }
     }
   }

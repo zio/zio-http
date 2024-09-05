@@ -32,7 +32,7 @@ object AuthorizationSpec extends ZIOHttpSpec {
       test("parsing of invalid Authorization values") {
         assertTrue(
           Authorization.parse("").isLeft,
-          Authorization.parse("something").isLeft,
+          Authorization.parse("something").isRight,
         )
       },
       test("parsing and encoding is symmetrical") {

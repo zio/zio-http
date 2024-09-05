@@ -84,6 +84,8 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   ): Route.Builder[Env, zippable.Out] =
     Route.Builder(self, middleware)(zippable)
 
+  def alternatives: List[RoutePattern[A]] = pathCodec.alternatives.map(RoutePattern(method, _))
+
   /**
    * Reinteprets the type parameter, given evidence it is equal to some other
    * type.

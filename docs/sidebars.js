@@ -4,63 +4,90 @@ const sidebars = {
       type: "category",
       label: "ZIO HTTP",
       collapsed: true,
+
+      // main documentation index
       link: { type: "doc", id: "index" },
       items: [
         "installation",
-        "overview",
+
+        // Reference section
         {
           type: "category",
           collapsed: true,
+          link: { type: "doc", id: "reference/index" },
           label: "Reference",
           items: [
+            "reference/overview",
             "reference/server",
             "reference/client",
+
+            // Routing subsection
             {
               type: "category",
               label: "Routing",
               items: [
-                "reference/routes",
-                "reference/route_pattern",
-                "reference/path_codec",
+                "reference/routing/routes",
+                "reference/routing/route_pattern",
+                "reference/routing/path_codec",
               ],
             },
+
             "reference/handler",
+
+            // HTTP Messages subsection
             {
               type: "category",
               label: "HTTP Messages",
               items: [
+                "reference/request",
+                "reference/response/response",
+                "reference/response/status",
+
+                // Headers subsection
                 {
                   type: "category",
                   label: "Headers",
                   items: [
-                    "reference/headers",
-                    "reference/cookies",
-                    "reference/flash",
+                    "reference/headers/headers",
+                    "reference/headers/session/cookies",
+                    "reference/headers/session/flash",
                   ],
                 },
-                "reference/request",
-                {
-                  type: "category",
-                  label: "Response",
-                  items: ["reference/response", "reference/status"],
-                },
+
+                // Message Body subsection
                 {
                   type: "category",
                   label: "Message Body",
-                  items: ["reference/body", "reference/form"],
+                  items: [
+                    "reference/body/body",
+                    "reference/body/form",
+                    "reference/body/binary_codecs",
+                    "reference/body/template",
+                  ],
                 },
               ],
             },
-            "reference/endpoint",
             {
               type: "category",
-              label: "HTTP Middleware",
+              label: "Declarative Endpoints",
               items: [
-                "reference/protocol-stack",
-                "reference/middleware",
-                "reference/handler_aspect",
+                "reference/endpoint",
+                "reference/http-codec",
               ],
             },
+
+            // Aspects subsection
+            {
+              type: "category",
+              label: "Aspects",
+              items: [
+                "reference/aop/protocol-stack",
+                "reference/aop/middleware",
+                "reference/aop/handler_aspect",
+              ],
+            },
+
+            // WebSocket subsection
             {
               type: "category",
               label: "WebSocket",
@@ -69,16 +96,29 @@ const sidebars = {
                 "reference/socket/websocketframe",
               ],
             },
-            "reference/template",
           ],
         },
-        "binary_codecs",
-        "testing-http-apps",
+        {
+          type: "category",
+          label: "Guides",
+          link: { type: "doc", id: "index" },
+          items: [
+            "guides/integration-with-zio-config",
+          ],
+        },
         "faq",
+        {
+          // Subcategory: Tutorials
+          type: "category",
+          label: "Tutorials",
+          items: ["tutorials/testing-http-apps"],
+        },
+
+        // Examples section
         {
           type: "category",
           label: "Examples",
-          link: { type: "doc", id: "index" },
+          link: { type: "doc", id: "examples/index" },
           items: [
             "examples/hello-world",
             "examples/http-client-server",
@@ -97,6 +137,7 @@ const sidebars = {
             "examples/server-sent-events-in-endpoints",
           ],
         },
+        "faq",
       ],
     },
   ],

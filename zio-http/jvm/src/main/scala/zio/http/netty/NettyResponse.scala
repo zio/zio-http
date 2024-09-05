@@ -17,24 +17,23 @@
 package zio.http.netty
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Trace, Unsafe, ZIO}
+import zio.{Exit, Promise, Trace, Unsafe, ZIO}
 
 import zio.http.internal.ChannelState
 import zio.http.netty.client.ClientResponseStreamHandler
 import zio.http.netty.model.Conversions
 import zio.http.{Body, Header, Response}
 
-import io.netty.buffer.Unpooled
+import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 
 object NettyResponse {
 
   def apply(jRes: FullHttpResponse)(implicit unsafe: Unsafe): Response = {
-    val status       = Conversions.statusFromNetty(jRes.status())
-    val headers      = Conversions.headersFromNetty(jRes.headers())
-    val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
-    val data         = NettyBody.fromByteBuf(copiedBuffer, headers.headers.get(Header.ContentType.name))
+    val status  = Conversions.statusFromNetty(jRes.status())
+    val headers = Conversions.headersFromNetty(jRes.headers())
+    val data    = NettyBody.fromByteBuf(jRes.content(), headers.get(Header.ContentType))
 
     Response(status, headers, data)
   }
@@ -42,25 +41,22 @@ object NettyResponse {
   def make(
     ctx: ChannelHandlerContext,
     jRes: HttpResponse,
-    zExec: NettyRuntime,
     onComplete: Promise[Throwable, ChannelState],
     keepAlive: Boolean,
   )(implicit
     unsafe: Unsafe,
     trace: Trace,
-  ): ZIO[Any, Nothing, Response] = {
+  ): Response = {
     val status             = Conversions.statusFromNetty(jRes.status())
     val headers            = Conversions.headersFromNetty(jRes.headers())
     val knownContentLength = headers.get(Header.ContentLength).map(_.length)
 
     if (knownContentLength.contains(0L)) {
-      onComplete
-        .succeed(ChannelState.forStatus(status))
-        .as(
-          Response(status, headers, Body.empty),
-        )
+      onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
+      Response(status, headers, Body.empty)
     } else {
-      val responseHandler = new ClientResponseStreamHandler(zExec, onComplete, keepAlive, status)
+      val contentType     = headers.get(Header.ContentType)
+      val responseHandler = new ClientResponseStreamHandler(onComplete, keepAlive, status)
       ctx
         .pipeline()
         .addAfter(
@@ -69,8 +65,12 @@ object NettyResponse {
           responseHandler,
         ): Unit
 
-      val data = NettyBody.fromAsync(callback => responseHandler.connect(callback), knownContentLength)
-      ZIO.succeed(Response(status, headers, data))
+      val data = NettyBody.fromAsync(
+        callback => responseHandler.connect(callback),
+        knownContentLength,
+        contentType,
+      )
+      Response(status, headers, data)
     }
   }
 }

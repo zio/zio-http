@@ -5,9 +5,8 @@ import zio._
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.{HeaderCodec, PathCodec}
-import zio.http.endpoint.Endpoint
-import zio.http.endpoint.EndpointMiddleware.None
+import zio.http.codec.{CodecConfig, HeaderCodec, PathCodec}
+import zio.http.endpoint.{AuthType, Endpoint}
 
 object EndpointWithMultipleErrorsUsingEither extends ZIOAppDefault {
 
@@ -38,7 +37,8 @@ object EndpointWithMultipleErrorsUsingEither extends ZIOAppDefault {
     }
   }
 
-  val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, None] =
+  val endpoint
+    : Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, AuthType.None] =
     Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
       .header(HeaderCodec.authorization)
       .out[Book]
@@ -56,7 +56,7 @@ object EndpointWithMultipleErrorsUsingEither extends ZIOAppDefault {
         ZIO.fail(Left(AuthenticationError("User is not authenticated", 123)))
     }
 
-  val routes = endpoint.implement(getBookHandler).toRoutes @@ Middleware.debug
+  val routes = endpoint.implementHandler(getBookHandler).toRoutes @@ Middleware.debug
 
   def run = Server.serve(routes).provide(Server.default)
 }

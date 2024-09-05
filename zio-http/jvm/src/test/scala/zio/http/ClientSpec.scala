@@ -18,9 +18,11 @@ package zio.http
 
 import java.net.ConnectException
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{sequential, timeout, withLiveClock}
+import zio.test.TestAspect.{flaky, sequential, timeout, withLiveClock}
 import zio.test._
 
 import zio.stream.ZStream
@@ -57,7 +59,7 @@ object ClientSpec extends HttpRunnableSpec {
     test("handle connection failure") {
       val url = URL.decode("http://localhost:1").toOption.get
 
-      val res = ZClient.request(Request.get(url)).either
+      val res = ZClient.batched(Request.get(url)).either
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("streaming content to server") {
@@ -72,7 +74,7 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toRoutes
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get(""))
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).batched.get(""))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == baseURL)
@@ -81,10 +83,10 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toRoutes
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get("/"))
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).batched.get("/"))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
-      } yield assertTrue(loggedUrl == s"$baseURL/")
+      } yield assertTrue(loggedUrl == s"$baseURL/"): @nowarn
     },
     test("reading of unfinished body must fail") {
       val app         = Handler.fromStreamChunked(ZStream.never).sandbox.toRoutes
@@ -98,12 +100,31 @@ object ClientSpec extends HttpRunnableSpec {
       val effect = app.deployAndRequest(requestCode).runZIO(())
       assertZIO(effect)(isTrue)
     },
+    test("request can be timed out manually while awaiting connection") {
+      // Unfortunately we have to use a real URL here, as we can't really simulate a long connection time
+      val url  = URL.decode("https://test.com").toOption.get
+      val resp = ZClient.batched(Request.get(url)).timeout(500.millis)
+      assertZIO(resp)(isNone)
+    } @@ timeout(5.seconds) @@ flaky(5),
+    test("authorization header without scheme") {
+      val app             =
+        Handler
+          .fromFunction[Request] { req =>
+            req.headers.get(Header.Authorization) match {
+              case Some(h) => Response.text(h.renderedValue)
+              case None    => Response.unauthorized("missing auth")
+            }
+          }
+          .toRoutes
+      val responseContent =
+        app.deploy(Request(headers = Headers(Header.Authorization.Unparsed("", "my-token")))).flatMap(_.body.asString)
+      assertZIO(responseContent)(equalTo("my-token"))
+    } @@ timeout(5.seconds),
   )
 
   override def spec = {
     suite("Client") {
       serve.as(List(clientSpec))
-    }.provideSome[DynamicServer & Server & Client](Scope.default)
-      .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
+    }.provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
   }
 }

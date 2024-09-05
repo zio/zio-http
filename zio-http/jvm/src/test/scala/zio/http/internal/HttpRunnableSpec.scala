@@ -16,7 +16,7 @@
 
 package zio.http.internal
 
-import zio.{Scope, ZIO}
+import zio.{EnvironmentTag, Scope, ZIO}
 
 import zio.http.URL.Location
 import zio.http._
@@ -40,24 +40,23 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: Handler[DynamicServer with R with Client with Scope, Throwable, Request, Response] =
+    def deploy: Handler[DynamicServer with R with Client, Throwable, Request, Response] =
       for {
         port     <- Handler.fromZIO(DynamicServer.port)
         id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
         client   <- Handler.fromZIO(ZIO.service[Client])
         response <- Handler.fromFunctionZIO[Request] { params =>
-          client(
+          client.batched(
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", Some(port)))),
           )
-            .flatMap(_.collect)
         }
       } yield response
 
-    def deployAndRequest[Output](
-      call: Client => ZIO[Scope, Throwable, Output],
-    ): Handler[Client with DynamicServer with R with Scope, Throwable, Any, Output] =
+    def deployAndRequest[R0, Output](
+      call: Client => ZIO[R0, Throwable, Output],
+    ): Handler[Client with DynamicServer with R with R0, Throwable, Any, Output] =
       for {
         port     <- Handler.fromZIO(DynamicServer.port)
         id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
@@ -112,7 +111,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
       _    <- DynamicServer.setStart(server)
     } yield port
 
-  def serve[R](app: Routes[R, Response]): ZIO[R with DynamicServer with Server, Nothing, Int] =
+  def serve[R: EnvironmentTag](app: Routes[R, Response]): ZIO[R with DynamicServer with Server, Nothing, Int] =
     for {
       server <- ZIO.service[Server]
       port   <- Server.install(app)
@@ -122,12 +121,12 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
   def status(
     method: Method = Method.GET,
     path: Path,
-  ): ZIO[Client with DynamicServer with Scope, Throwable, Status] = {
+  ): ZIO[Client with DynamicServer, Throwable, Status] = {
     for {
       port   <- DynamicServer.port
       client <- ZIO.service[Client]
       url = URL.decode("http://localhost:%d/%s".format(port, path)).toOption.get
-      status <- client(Request(method = method, url = url)).map(_.status)
+      status <- client.batched(Request(method = method, url = url)).map(_.status)
     } yield status
   }
 
@@ -135,13 +134,11 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
     method: Method = Method.GET,
     path: Path,
     headers: Headers = Headers.empty,
-  ): ZIO[Client with DynamicServer with Scope, Throwable, Headers] = {
+  ): ZIO[Client with DynamicServer, Throwable, Headers] = {
     for {
       port <- DynamicServer.port
       url = URL.decode("http://localhost:%d/%s".format(port, path)).toOption.get
-      headers <- ZClient
-        .request(Request(method = method, headers = headers, url = url))
-        .map(_.headers)
+      headers <- ZClient.batched(Request(method = method, headers = headers, url = url)).map(_.headers)
     } yield headers
   }
 }

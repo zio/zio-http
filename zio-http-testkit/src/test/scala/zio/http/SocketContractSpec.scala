@@ -8,7 +8,6 @@ import zio.test._
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
-import zio.http.{Headers, Status, Version, ZIOHttpSpec}
 
 object SocketContractSpec extends ZIOHttpSpec {
 
@@ -129,9 +128,10 @@ object SocketContractSpec extends ZIOHttpSpec {
   ): ZIO[Server, Nothing, (RuntimeFlags, Promise[Throwable, Unit])] =
     ZIO.serviceWithZIO[Server](server =>
       for {
-        p <- Promise.make[Throwable, Unit]
-        _ <- server.install(serverApp(p).toRoutes)
-      } yield (server.port, p),
+        p    <- Promise.make[Throwable, Unit]
+        _    <- server.install(serverApp(p).toRoutes)
+        port <- server.port
+      } yield (port, p),
     )
 
   private def testServerSetup(

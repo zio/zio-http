@@ -1,5 +1,6 @@
 package zio.http.internal
 
+import scala.collection.compat.immutable.ArraySeq
 import scala.scalajs.js
 import scala.scalajs.js.typedarray.Uint8Array
 
@@ -10,7 +11,7 @@ import zio.http._
 import org.scalajs.dom
 import org.scalajs.dom.BodyInit
 
-final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
+final case class FetchDriver() extends ZClient.Driver[Any, Scope, Throwable] {
   override def request(
     version: Version,
     requestMethod: Method,
@@ -19,7 +20,7 @@ final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
     requestBody: Body,
     sslConfig: Option[ClientSSLConfig],
     proxy: Option[Proxy],
-  )(implicit trace: Trace): ZIO[Any & Scope, Throwable, Response] = {
+  )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
     for {
       jsBody   <- fromZBody(requestBody)
       response <-
@@ -37,11 +38,15 @@ final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
                 },
               )
               .toFuture
-          } yield Response(
-            status = Status.fromInt(response.status),
-            headers = Headers.fromIterable(response.headers.map(h => Header.Custom(h(0), h(1)))),
-            body = FetchBody.fromResponse(response),
-          )
+          } yield {
+            val respHeaders = Headers.fromIterable(response.headers.map(h => Header.Custom(h(0), h(1))))
+            val ct          = respHeaders.get(Header.ContentType)
+            Response(
+              status = Status.fromInt(response.status),
+              headers = respHeaders,
+              body = FetchBody.fromResponse(response, ct.map(Body.ContentType.fromHeader)),
+            )
+          }
 
         }
     } yield response
@@ -65,11 +70,12 @@ final case class FetchDriver() extends ZClient.Driver[Any, Throwable] {
     if (body.isEmpty) {
       ZIO.succeed(js.undefined)
     } else {
-      body.asArray.map { ar => Uint8Array.of(ar.map(_.toShort): _*) }
+      body.asArray.map { ar => Uint8Array.of(ArraySeq.unsafeWrapArray(ar.map(_.toShort)): _*) }
     }
 
-  override def socket[Env1 <: Any](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit
+  override def socket[Env1](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit
     trace: Trace,
+    ev: Scope =:= Scope,
   ): ZIO[Env1 & Scope, Throwable, Response] =
     throw new UnsupportedOperationException("WebSockets are not supported in the js client yet.")
 

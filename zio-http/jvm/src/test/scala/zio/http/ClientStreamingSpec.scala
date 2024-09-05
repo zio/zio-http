@@ -178,7 +178,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               boundary <- Boundary.randomUUID
               stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
               bytes    <- stream.runCollect
-              response <- client.disableStreaming
+              response <- client.batched
                 .request(
                   Request
                     .post(
@@ -208,7 +208,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           port   <- server(streamingServer)
           client <- ZIO.service[Client]
           result <- check(Gen.int(1, N)) { chunkSize =>
-            (for {
+            for {
               bytes <- Random.nextBytes(N)
               form = Form(
                 Chunk(
@@ -233,7 +233,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               collected.map.contains("file"),
               collected.map.contains("foo"),
               collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
-            )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
+            )
           }
         } yield result
       } @@ samples(20) @@ TestAspect.ifEnvNotSet("CI"),
@@ -306,13 +306,14 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       suite("non-streaming server")(
         tests(streamingServer = false): _*,
       ),
-    ).provide(
-      DnsResolver.default,
-      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
-      Client.live,
-      Scope.default,
-    ) @@ withLiveClock @@ sequential @@ ignore
+    )
+      .provideSome[Client](Scope.default)
+      .provideShared(
+        DnsResolver.default,
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+        ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
+        Client.live,
+      ) @@ withLiveClock @@ sequential @@ ignore
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =
     for {

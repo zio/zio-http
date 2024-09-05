@@ -4,7 +4,8 @@ import zio._
 import zio.test._
 
 import zio.http._
-import zio.http.codec.HttpCodec.query
+import zio.http.codec.HttpCodec
+import zio.http.codec.HttpCodec.queryAll
 import zio.http.codec.PathCodec.path
 import zio.http.endpoint.Endpoint
 
@@ -15,15 +16,15 @@ object SwaggerUISpec extends ZIOSpecDefault {
       test("should return the swagger ui page") {
         val getUser = Endpoint(Method.GET / "users" / int("userId")).out[Int]
 
-        val getUserRoute = getUser.implement { Handler.fromFunction[Int] { id => id } }
+        val getUserRoute = getUser.implementHandler { Handler.fromFunction[Int] { id => id } }
 
         val getUserPosts =
           Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
-            .query(query("name"))
+            .query(HttpCodec.query[String]("name"))
             .out[List[String]]
 
         val getUserPostsRoute =
-          getUserPosts.implement[Any] {
+          getUserPosts.implementHandler[Any] {
             Handler.fromFunctionZIO[(Int, Int, String)] { case (id1: Int, id2: Int, query: String) =>
               ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
             }

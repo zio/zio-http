@@ -23,8 +23,8 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Server
 import zio.http.Server.RequestStreaming
-import zio.http.netty.Names
 import zio.http.netty.model.Conversions
+import zio.http.netty.{HybridContentLengthHandler, Names}
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -60,7 +60,13 @@ private[zio] final case class ServerChannelInitializer(
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
       Names.HttpRequestDecoder,
-      new HttpRequestDecoder(cfg.maxInitialLineLength, cfg.maxHeaderSize, DEFAULT_MAX_CHUNK_SIZE, false),
+      new HttpRequestDecoder(
+        new HttpDecoderConfig()
+          .setMaxInitialLineLength(cfg.maxInitialLineLength)
+          .setMaxHeaderSize(cfg.maxHeaderSize)
+          .setMaxChunkSize(DEFAULT_MAX_CHUNK_SIZE)
+          .setValidateHeaders(false),
+      ),
     )
     pipeline.addLast(Names.HttpResponseEncoder, new HttpResponseEncoder())
 
@@ -77,9 +83,12 @@ private[zio] final case class ServerChannelInitializer(
 
     // ObjectAggregator
     cfg.requestStreaming match {
-      case RequestStreaming.Enabled                        =>
-      case RequestStreaming.Disabled(maximumContentLength) =>
+      case RequestStreaming.Enabled                         =>
+      case RequestStreaming.Disabled(maximumContentLength)  =>
         pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(maximumContentLength))
+      case RequestStreaming.Hybrid(aggregatedContentLength) =>
+        pipeline.addLast(Names.HybridContentLengthHandler, new HybridContentLengthHandler(aggregatedContentLength))
+        pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(aggregatedContentLength))
     }
 
     // ExpectContinueHandler

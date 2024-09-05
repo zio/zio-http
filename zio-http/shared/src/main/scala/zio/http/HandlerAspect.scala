@@ -16,7 +16,6 @@
 
 package zio.http
 
-import java.io.{PrintWriter, StringWriter}
 import java.nio.charset._
 
 import zio._
@@ -273,7 +272,15 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * credentials are same as the ones given
    */
   def basicAuth(u: String, p: String): HandlerAspect[Any, Unit] =
-    basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == zio.Config.Secret(p)) }
+    basicAuth { credentials =>
+      val passwd                = zio.Config.Secret(p)
+      val dummy                 = zio.Config.Secret(if (p.isEmpty) "a" else "")
+      lazy val userComparison   = zio.Config.Secret(credentials.uname) == zio.Config.Secret(u)
+      lazy val passwdComparison = credentials.upassword == passwd
+      lazy val dummyComparison  =
+        passwd == dummy // comparison to make the password comparison run regardless of the userComparison
+      if (userComparison) passwdComparison else dummyComparison
+    }
 
   /**
    * Creates a middleware for basic authentication using an effectful
@@ -297,10 +304,10 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * @param f:
    *   function that validates the token string inside the Bearer Header
    */
-  def bearerAuth(f: String => Boolean): HandlerAspect[Any, Unit] =
+  def bearerAuth(f: zio.Config.Secret => Boolean): HandlerAspect[Any, Unit] =
     customAuth(
       _.header(Header.Authorization) match {
-        case Some(Header.Authorization.Bearer(token)) => f(token.value.asString)
+        case Some(Header.Authorization.Bearer(token)) => f(token)
         case _                                        => false
       },
       Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
@@ -314,21 +321,15 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    *   Header
    */
   def bearerAuthZIO[Env](
-    f: String => ZIO[Env, Response, Boolean],
+    f: zio.Config.Secret => ZIO[Env, Response, Boolean],
   )(implicit trace: Trace): HandlerAspect[Env, Unit] =
     customAuthZIO(
       _.header(Header.Authorization) match {
-        case Some(Header.Authorization.Bearer(token)) => f(token.value.asString)
+        case Some(Header.Authorization.Bearer(token)) => f(token)
         case _                                        => ZIO.succeed(false)
       },
       Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
     )
-
-  /**
-   * Beautify the error response.
-   */
-  def beautifyErrors: HandlerAspect[Any, Unit] =
-    intercept(replaceErrorResponse)
 
   /**
    * Creates an authentication middleware that only allows authenticated
@@ -341,7 +342,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   ): HandlerAspect[Any, Unit] =
     HandlerAspect.interceptIncomingHandler[Any, Unit] {
       Handler.fromFunctionExit[Request] { request =>
-        if (verify(request)) Exit.succeed(request -> ())
+        if (verify(request)) Exit.succeed((request, ()))
         else Exit.fail(Response.status(responseStatus).addHeaders(responseHeaders))
       }
     }
@@ -447,7 +448,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * The identity middleware, which has no effect on request or response.
    */
   val identity: HandlerAspect[Any, Unit] =
-    interceptHandler[Any, Unit](Handler.identity[Request].map(_ -> ()))(Handler.identity)
+    interceptHandler[Any, Unit](Handler.identity[Request].map((_, ())))(Handler.identity)
 
   /**
    * Creates conditional middleware that switches between one middleware and
@@ -565,7 +566,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   def interceptOutgoingHandler[Env](
     handler: Handler[Env, Nothing, Response, Response],
   ): HandlerAspect[Env, Unit] =
-    interceptHandler[Env, Unit](Handler.identity[Request].map(_ -> ()))(handler)
+    interceptHandler[Env, Unit](Handler.identity[Request].map((_, ())))(handler)
 
   /**
    * Creates a new middleware using transformation functions
@@ -794,7 +795,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     f: Response => Response,
   ): HandlerAspect[Any, Unit] =
     HandlerAspect(
-      ProtocolStack.interceptHandler(Handler.identity[Request].map(_ -> ()))(Handler.fromFunctionZIO[Response] {
+      ProtocolStack.interceptHandler(Handler.identity[Request].map((_, ())))(Handler.fromFunctionZIO[Response] {
         response =>
           if (condition(response)) ZIO.succeed(f(response)) else ZIO.succeed(response)
       }),
@@ -809,7 +810,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   ): HandlerAspect[Env, Unit] =
     HandlerAspect(
       ProtocolStack.interceptHandler[Env, Request, (Request, Unit), Response, Response](
-        Handler.identity[Request].map(_ -> ()),
+        Handler.identity[Request].map((_, ())),
       )(Handler.fromFunctionZIO[Response] { response =>
         condition(response)
           .flatMap[Env, Response, Response](bool => if (bool) f(response) else ZIO.succeed(response))
@@ -833,52 +834,6 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     middleware: HandlerAspect[Env, Unit],
   ): HandlerAspect[Env, Unit] =
     ifRequestThenElseZIO(condition)(ifFalse = identity, ifTrue = middleware)
-
-  private def replaceErrorResponse(request: Request, response: Response): Response = {
-    def htmlResponse: Body = {
-      val message: String = response.header(Header.Warning).map(_.text).getOrElse("")
-      val data            = Template.container(s"${response.status}") {
-        div(
-          div(
-            styles := "text-align: center",
-            div(s"${response.status.code}", styles := "font-size: 20em"),
-            div(message),
-          ),
-        )
-      }
-      Body.fromString("<!DOCTYPE html>" + data.encode)
-    }
-
-    def textResponse: Body = {
-      Body.fromString(formatErrorMessage(response))
-    }
-
-    if (response.status.isError) {
-      request.header(Header.Accept) match {
-        case Some(value) if value.mimeTypes.exists(_.mediaType == MediaType.text.`html`) =>
-          response.copy(
-            body = htmlResponse,
-            headers = Headers(Header.ContentType(MediaType.text.`html`)),
-          )
-        case Some(value) if value.mimeTypes.exists(_.mediaType == MediaType.any)         =>
-          response.copy(
-            body = textResponse,
-            headers = Headers(Header.ContentType(MediaType.text.`plain`)),
-          )
-        case _                                                                           => response
-      }
-
-    } else
-      response
-  }
-
-  private def formatErrorMessage(response: Response) = {
-    val errorMessage: String = response.header(Header.Warning).map(_.text).getOrElse("")
-    val status               = response.status.code
-    s"${scala.Console.BOLD}${scala.Console.RED}${response.status} ${scala.Console.RESET} - " +
-      s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
-      s"$errorMessage"
-  }
 
   private[http] val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(
     Chunk(

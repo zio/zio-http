@@ -47,7 +47,7 @@ object ConnectionPoolConfig {
             URL
               .decode(s)
               .left
-              .map(error => Config.Error.InvalidData(message = s"Invalid URL: ${error.getMessage}"))
+              .map(error => Config.Error.InvalidData(message = error.getMessage))
               .flatMap { url =>
                 url.kind match {
                   case url: URL.Location.Absolute => Right(url -> fixed)
@@ -67,7 +67,7 @@ object ConnectionPoolConfig {
             URL
               .decode(s)
               .left
-              .map(error => Config.Error.InvalidData(message = s"Invalid URL: ${error.getMessage}"))
+              .map(error => Config.Error.InvalidData(message = error.getMessage))
               .flatMap { url =>
                 url.kind match {
                   case url: URL.Location.Absolute => Right(url -> fixed)

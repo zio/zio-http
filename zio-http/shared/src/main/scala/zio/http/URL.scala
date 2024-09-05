@@ -18,6 +18,8 @@ package zio.http
 
 import java.net.{MalformedURLException, URI}
 
+import scala.util.control.NonFatal
+
 import zio.Config
 
 import zio.http.URL.{Fragment, Location}
@@ -92,6 +94,8 @@ final case class URL(
     hash = hash * 31 + normalized.fragment.hashCode
     hash
   }
+
+  override def toString(): String = encode
 
   def host: Option[String] = kind match {
     case URL.Location.Relative      => None
@@ -277,26 +281,34 @@ final case class URL(
 }
 
 object URL {
-  def empty: URL = URL(Path.empty)
+  val empty: URL = URL(path = Path.empty)
 
-  def decode(string: String): Either[Exception, URL] = {
-    def invalidURL(string: String) = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
+  /**
+   * To better understand this implementation, read discussion:
+   * https://github.com/zio/zio-http/pull/3017/files#r1716489733
+   */
+  private final class Err(rawUrl: String, cause: Throwable) extends MalformedURLException {
+    override def getMessage: String  = s"""Invalid URL: "$rawUrl""""
+    override def getCause: Throwable = cause
+  }
+
+  def decode(rawUrl: String): Either[MalformedURLException, URL] = {
+    def invalidURL(e: Throwable = null): Either[MalformedURLException, URL] = Left(new Err(rawUrl = rawUrl, cause = e))
 
     try {
-      val uri = new URI(string)
+      val uri = new URI(rawUrl)
       val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
       url match {
-        case None        => invalidURL(string)
         case Some(value) => Right(value)
+        case None        => invalidURL()
       }
-
     } catch {
-      case e: Exception => Left(e)
+      case NonFatal(e) => invalidURL(e)
     }
   }
 
-  def config: Config[URL] = Config.string.mapAttempt(decode(_).toTry.get)
+  def config: Config[URL] = Config.string.mapAttempt(decode(_).fold(throw _, identity))
 
   def fromURI(uri: URI): Option[URL] = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
@@ -347,6 +359,36 @@ object URL {
           case None             => s"${abs.scheme.encode}://${abs.host}$path2"
           case Some(customPort) => s"${abs.scheme.encode}://${abs.host}:$customPort$path2"
         }
+    }
+  }
+
+  private[http] def encodeHttpPath(url: URL): String = {
+    // As per the spec, the path should contain only the relative part and start with a slash.
+    // Host and port information should be in the headers.
+    // Query params are included while fragments are excluded.
+
+    val pathBuf = new StringBuilder(256)
+
+    val path = url.path
+
+    path.segments.foreach { segment =>
+      pathBuf.append('/')
+      pathBuf.append(segment)
+    }
+
+    if (pathBuf.isEmpty | path.hasTrailingSlash) {
+      pathBuf.append('/')
+    }
+
+    val qparams = url.queryParams
+
+    if (qparams.isEmpty) {
+      pathBuf.result()
+    } else {
+      // this branch could be more efficient with something like QueryParamEncoding.appendNonEmpty(pathBuf, qparams, Charsets.Http)
+      // that directly filtered the keys/values and appended to the buffer
+      // but for now the underlying Netty encoder requires the base url as a String anyway
+      QueryParamEncoding.default.encode(pathBuf.result(), qparams.normalize, Charsets.Http)
     }
   }
 

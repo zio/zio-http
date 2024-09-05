@@ -21,18 +21,16 @@ import java.nio.charset.Charset
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
 
 import scala.reflect.ClassTag
-import scala.util.Try
 import scala.util.control.NonFatal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
 import zio.http.Handler.ApplyContextAspect
 import zio.http.Header.HeaderType
 import zio.http.internal.HeaderModifier
-import zio.http.template.{Html, Template}
+import zio.http.template._
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
@@ -549,7 +547,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self(in)
 
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
-    self.mapErrorCause(Response.fromCause(_))
+    self.mapErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCause(c, _)).flip)
 
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
     self.map(_.status)
@@ -601,20 +599,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     Handler.fromFunctionZIO[In] { request =>
       self(request).timeout(duration).map(_.getOrElse(out))
     }
-
-  /**
-   * Converts the request handler into an HTTP application. Note that the
-   * handler of the HTTP application is not identical to this handler, because
-   * the handler has been appropriately sandboxed, turning all possible failures
-   * into well-formed HTTP responses.
-   */
-  @deprecated("Use toRoutes instead. Will be removed in the next release.")
-  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response, trace: Trace): HttpApp[R] = {
-    val handler: Handler[R, Response, Request, Response] =
-      self.asInstanceOf[Handler[R, Response, Request, Response]]
-
-    HttpApp(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
-  }
 
   /**
    * Converts the request handler into an HTTP application. Note that the
@@ -696,6 +680,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
 object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
+  private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
+
   sealed trait IsRequest[-A]
 
   object IsRequest {
@@ -760,10 +746,49 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fromResponse(Response.error(status))
 
   /**
-   * Creates a handler with an error and the specified error message.
+   * Creates a handler with an error and the specified error message. The error
+   * message will be returned as HTML, JSON or plain text depending on the
+   * `Accept` header of the request, defaulting to
+   * [[ErrorResponseConfig.errorFormat]]. If
+   * [[ErrorResponseConfig.withErrorBody]] is `false`, the error message will
+   * not be included in the response. If the error message should always be
+   * included in the response, use `Handler.fromResponse(Response.error(status,
+   * message))`
    */
   def error(status: => Status.Error, message: => String): Handler[Any, Nothing, Any, Response] =
-    fromResponse(Response.error(status, message))
+    (fromResponse(Response.status(status)) @@ Middleware.interceptHandlerStateful(
+      handler((req: Request) => (req.header(Header.Accept), (req, ()))),
+    ) {
+      handler { (accept: Option[Header.Accept], res: Response) =>
+        ErrorResponseConfig.configRef.get.map { cfg =>
+          if (cfg.withErrorBody) {
+            val mediaType: MediaType = accept
+              .flatMap(_.mimeTypes.sorted.map(_.mediaType).collectFirst {
+                case mt if errorMediaTypes.exists(mt.matches(_, ignoreParameters = true)) =>
+                  errorMediaTypes.find(mt.matches(_, ignoreParameters = true)).get
+              })
+              .getOrElse(cfg.errorFormat.mediaType)
+            mediaType match {
+              case MediaType.application.`json` =>
+                Response(status = status, body = Body.fromString(s"""{"status": "$status", "error": "$message"}"""))
+                  .contentType(MediaType.application.json)
+              case MediaType.text.`html`        =>
+                Response(
+                  status = status,
+                  body = Body.fromString(
+                    s"""<!DOCTYPE html><html><head><title>$status</title></head><body><h1>$status</h1><p>$message</p></body></html>""",
+                  ),
+                ).contentType(MediaType.text.html)
+              case MediaType.text.`plain`       =>
+                Response(status = status, body = Body.fromString(message)).contentType(MediaType.text.plain)
+              case _                            => throw new Exception("Unsupported media type")
+            }
+          } else {
+            res
+          }
+        }
+      }
+    }).asInstanceOf[Handler[Any, Nothing, Any, Response]]
 
   /**
    * Creates a Handler that always fails
@@ -848,13 +873,17 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
   }
 
-  def fromFile[R](makeFile: => File)(implicit trace: Trace): Handler[R, Throwable, Any, Response] =
-    fromFileZIO(ZIO.attempt(makeFile))
+  def fromFile[R](makeFile: => File, charset: Charset = Charsets.Utf8)(implicit
+    trace: Trace,
+  ): Handler[R, Throwable, Any, Response] =
+    fromFileZIO(ZIO.attempt(makeFile), charset)
 
-  def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit trace: Trace): Handler[R, Throwable, Any, Response] = {
+  def fromFileZIO[R](getFile: ZIO[R, Throwable, File], charset: Charset = Charsets.Utf8)(implicit
+    trace: Trace,
+  ): Handler[R, Throwable, Any, Response] = {
     Handler.fromZIO[R, Throwable, Response](
-      getFile.flatMap { file =>
-        ZIO.suspend {
+      ZIO.blocking {
+        getFile.flatMap { file =>
           if (!file.exists()) {
             ZIO.fail(new FileNotFoundException())
           } else if (file.isFile && !file.canRead) {
@@ -870,7 +899,9 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
                 // not the file extension, to determine how to process a URL.
                 // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
                 determineMediaType(pathName) match {
-                  case Some(mediaType) => ZIO.succeed(response.addHeader(Header.ContentType(mediaType)))
+                  case Some(mediaType) =>
+                    val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
+                    ZIO.succeed(response.addHeader(Header.ContentType(mediaType, charset = charset0)))
                   case None            => ZIO.succeed(response)
                 }
               }

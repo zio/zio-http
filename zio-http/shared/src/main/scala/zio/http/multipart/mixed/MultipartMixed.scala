@@ -123,7 +123,7 @@ object MultipartMixed {
           if (boundary.isClosing(h))
             ZChannel.succeed((res, rest, true))
           else if (boundary.isEncapsulating(h)) // ditto
-            ZChannel.succeed(res, rest, false)
+            ZChannel.succeed((res, rest, false))
           else {
             // todo: this is a private class, either avoid using it or refactor
             FormAST.Header

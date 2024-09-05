@@ -6,10 +6,9 @@ import zio._
 import zio.test._
 
 import zio.http._
-import zio.http.codec.HeaderCodec
-import zio.http.codec.HttpCodec.{query, queryInt}
+import zio.http.codec._
 import zio.http.endpoint._
-import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.Inline
+import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.scala.Code
@@ -332,8 +331,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users")
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -372,8 +371,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users" / int("userId"))
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -481,8 +480,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
         test("request body and empty response with path parameter and query parameters") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users" / int("userId"))
             .in[User]
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
           val scala    = EndpointGen.fromOpenAPI(openAPI)
           val expected = Code.File(
@@ -523,8 +522,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
         test("request body and empty response with path parameter and query parameters and headers") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users" / int("userId"))
             .in[User]
-            .query(queryInt("limit"))
-            .query(query("name"))
+            .query(HttpCodec.query[Int]("limit"))
+            .query(HttpCodec.query[String]("name"))
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
@@ -657,6 +656,68 @@ object EndpointGenSpec extends ZIOSpecDefault {
           )
           assertTrue(scala.files.head == expected)
         },
+        test("endpoints with overlapping prefix") {
+          val endpoint1 = Endpoint(Method.GET / "api" / "v1" / "users")
+          val endpoint2 = Endpoint(Method.GET / "api" / "v1" / "users" / "info")
+          val openAPI   = OpenAPIGen.fromEndpoints(endpoint1, endpoint2)
+          val scala     = EndpointGen.fromOpenAPI(openAPI)
+          val expected1 = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          val expected2 = Code.File(
+            List("api", "v1", "users", "Info.scala"),
+            pkgPath = List("api", "v1", "users"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Info",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(
+                        Code.PathSegmentCode("api"),
+                        Code.PathSegmentCode("v1"),
+                        Code.PathSegmentCode("users"),
+                        Code.PathSegmentCode("info"),
+                      ),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          assertTrue(scala.files.toSet == Set(expected1, expected2))
+        },
       ),
       suite("data gen spec")(
         test("generates case class, companion object and schema") {
@@ -676,6 +737,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                   Code.Field("name", Code.Primitive.ScalaString),
                 ),
                 companionObject = Some(Code.Object.schemaCompanion("User")),
+                mixins = Nil,
               ),
             ),
             Nil,
@@ -696,10 +758,10 @@ object EndpointGenSpec extends ZIOSpecDefault {
               Code.Enum(
                 "Direction",
                 List(
-                  Code.CaseClass("North"),
-                  Code.CaseClass("South"),
-                  Code.CaseClass("East"),
-                  Code.CaseClass("West"),
+                  Code.CaseClass("North", Nil),
+                  Code.CaseClass("South", Nil),
+                  Code.CaseClass("East", Nil),
+                  Code.CaseClass("West", Nil),
                 ),
                 schema = true,
               ),
@@ -731,6 +793,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       Code.Field("cvv", Code.Primitive.ScalaString),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Card")),
+                    mixins = Nil,
                   ),
                   Code.CaseClass(
                     "Cash",
@@ -738,6 +801,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       Code.Field("amount", Code.Primitive.ScalaInt),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Cash")),
+                    mixins = Nil,
                   ),
                 ),
                 caseNames = List("Card", "cash"),
@@ -771,6 +835,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       Code.Field("cvv", Code.Primitive.ScalaString),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Card")),
+                    mixins = List("PaymentNamedDiscriminator"),
                   ),
                   Code.CaseClass(
                     "Cash",
@@ -778,6 +843,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       Code.Field("amount", Code.Primitive.ScalaInt),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Cash")),
+                    mixins = List("PaymentNamedDiscriminator"),
                   ),
                 ),
                 caseNames = List("Card", "cash"),
@@ -813,6 +879,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       Code.Field("cvv", Code.Primitive.ScalaString),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Card")),
+                    mixins = List("PaymentNoDiscriminator"),
                   ),
                   Code.CaseClass(
                     "Cash",
@@ -820,6 +887,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       Code.Field("amount", Code.Primitive.ScalaInt),
                     ),
                     companionObject = Some(Code.Object.schemaCompanion("Cash")),
+                    mixins = List("PaymentNoDiscriminator"),
                   ),
                 ),
                 caseNames = Nil,
@@ -846,7 +914,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -863,7 +932,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "POST",
-                    schema = false,
+                    extensions = Nil,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -871,6 +941,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                         "RequestBody",
                         fields = fields,
                         companionObject = Some(Code.Object.schemaCompanion("RequestBody")),
+                        mixins = Nil,
                       ),
                     ),
                     enums = Nil,
@@ -901,7 +972,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("get") -> Code.EndpointCode(
                     Method.GET,
@@ -918,7 +990,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "GET",
-                    schema = false,
+                    extensions = Nil,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -926,6 +999,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                         "ResponseBody",
                         fields = fields,
                         companionObject = Some(Code.Object.schemaCompanion("ResponseBody")),
+                        mixins = Nil,
                       ),
                     ),
                     enums = Nil,
@@ -956,7 +1030,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -973,7 +1048,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 objects = List(
                   Code.Object(
                     "POST",
-                    schema = false,
+                    extensions = Nil,
+                    schema = None,
                     endpoints = Map.empty,
                     objects = Nil,
                     caseClasses = List(
@@ -981,11 +1057,13 @@ object EndpointGenSpec extends ZIOSpecDefault {
                         "RequestBody",
                         fields = fields,
                         companionObject = Some(Code.Object.schemaCompanion("RequestBody")),
+                        mixins = Nil,
                       ),
                       Code.CaseClass(
                         "ResponseBody",
                         fields = fields,
                         companionObject = Some(Code.Object.schemaCompanion("ResponseBody")),
+                        mixins = Nil,
                       ),
                     ),
                     enums = Nil,
@@ -1001,6 +1079,10 @@ object EndpointGenSpec extends ZIOSpecDefault {
 
           assertTrue(scala.files.head == expected)
         },
+        test("generates case class for response with compact schema") {
+          val endpoint = Endpoint(Method.POST / "api" / "v1" / "data").out[Chunk[Data]](status = Status.Ok)
+          assertTrue(OpenAPIGen.fromEndpoints("", "", Compact, endpoint).components.get.schemas.size == 4)
+        },
         test("generates case class with seq field for request") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
           val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)
@@ -1012,7 +1094,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Users",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -1088,7 +1171,8 @@ object EndpointGenSpec extends ZIOSpecDefault {
             objects = List(
               Code.Object(
                 "Foo",
-                schema = false,
+                extensions = Nil,
+                schema = None,
                 endpoints = Map(
                   Code.Field("post") -> Code.EndpointCode(
                     Method.POST,
@@ -1200,8 +1284,9 @@ object EndpointGenSpec extends ZIOSpecDefault {
                 ),
                 companionObject = Some(
                   Code.Object(
+                    extensions = Nil,
                     name = "Bar",
-                    schema = true,
+                    schema = Some(Code.Object.SchemaCode.DeriveSchemaGen),
                     endpoints = Map(
                     ),
                     objects = Nil,
@@ -1209,6 +1294,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     enums = Nil,
                   ),
                 ),
+                mixins = Nil,
               ),
             ),
             enums = Nil,

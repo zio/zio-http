@@ -27,7 +27,7 @@ final case class MediaType(
   extensions: Map[String, String] = Map.empty,
   parameters: Map[String, String] = Map.empty,
 ) {
-  lazy val fullType: String = s"$mainType/$subType"
+  val fullType: String = s"$mainType/$subType"
 
   def matches(other: MediaType, ignoreParameters: Boolean = false): Boolean =
     (mainType == "*" || other.mainType == "*" || mainType.equalsIgnoreCase(other.mainType)) &&
@@ -36,7 +36,12 @@ final case class MediaType(
 }
 
 object MediaType extends MediaTypes {
-  private val extensionMap: Map[String, MediaType] = allMediaTypes.flatMap(m => m.fileExtensions.map(_ -> m)).toMap
+  private val extensionMap: Map[String, MediaType] =
+    // Some extensions are mapped to multiple media types.
+    // We prefer the text media types, since this is the correct default for the most common extensions
+    // like html, xml, javascript, etc.
+    allMediaTypes.flatMap(m => m.fileExtensions.map(_ -> m)).toMap ++
+      text.all.flatMap(m => m.fileExtensions.map(_ -> m)).toMap
   private[http] val contentTypeMap: Map[String, MediaType] = allMediaTypes.map(m => m.fullType -> m).toMap
   val mainTypeMap                                          = allMediaTypes.map(m => m.mainType -> m).toMap
 

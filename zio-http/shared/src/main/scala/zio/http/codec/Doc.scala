@@ -17,7 +17,6 @@
 package zio.http.codec
 
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema.Schema
 
@@ -53,6 +52,24 @@ sealed trait Doc { self =>
       case Doc.Sequence(left, right) => left.flattened ++ right.flattened
       case x                         => Chunk(x)
     }
+
+  def tag(tags: Seq[String]): Doc = self match {
+    case Tagged(doc, existingTags) => Tagged(doc, existingTags ++ tags)
+    case _                         => Tagged(self, tags.toList)
+  }
+
+  def tag(tag: String): Doc =
+    self match {
+      case Tagged(doc, tags) => Tagged(doc, tags :+ tag)
+      case _                 => Tagged(self, List(tag))
+    }
+
+  def tag(tag: String, tags: String*): Doc = self.tag(tag +: tags)
+
+  def tags: List[String] = self match {
+    case Tagged(_, tags) => tags
+    case _               => Nil
+  }
 
   def toCommonMark: String = {
     val writer = new StringBuilder
@@ -131,20 +148,27 @@ sealed trait Doc { self =>
         case Doc.Raw(_, docType) =>
           throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
 
+        case Doc.Tagged(_, _) =>
+
       }
     }
 
     render(this)
+    val tags = self.tags
+    if (tags.nonEmpty) {
+      // Add all tags to the end of the document as an unordered list
+      render(Doc.unorderedListing(tags.map(Doc.p): _*))
+    }
     writer.toString()
   }
 
   def toHtml: template.Html = {
     import template._
 
-    self match {
-      case Doc.Empty                      =>
+    val html: Html = self match {
+      case Doc.Empty                                =>
         Html.Empty
-      case Header(value, level)           =>
+      case Header(value, level)                     =>
         level match {
           case 1 => h1(value)
           case 2 => h2(value)
@@ -154,9 +178,9 @@ sealed trait Doc { self =>
           case 6 => h6(value)
           case _ => throw new IllegalArgumentException(s"Invalid header level: $level")
         }
-      case Paragraph(value)               =>
+      case Paragraph(value)                         =>
         p(value.toHtml)
-      case DescriptionList(definitions)   =>
+      case DescriptionList(definitions)             =>
         dl(
           definitions.flatMap { case (span, helpDoc) =>
             Seq(
@@ -165,9 +189,11 @@ sealed trait Doc { self =>
             )
           },
         )
-      case Sequence(left, right)          =>
+      case Sequence(left, right)                    =>
         left.toHtml ++ right.toHtml
-      case Listing(elements, listingType) =>
+      case Listing(elements, _) if elements.isEmpty =>
+        Html.Empty
+      case Listing(elements, listingType)           =>
         val elementsHtml =
           elements.map { doc =>
             li(doc.toHtml)
@@ -181,7 +207,10 @@ sealed trait Doc { self =>
         Html.fromString(value)
       case Raw(_, docType)             =>
         throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
+      case Tagged(doc, _)              =>
+        doc.toHtml
     }
+    html ++ (if (tags.nonEmpty) Doc.unorderedListing(self.tags.map(Doc.p): _*).toHtml else Html.Empty)
   }
 
   def toHtmlSnippet: String =
@@ -271,10 +300,13 @@ sealed trait Doc { self =>
           renderHelpDoc(right)
 
         case Doc.Raw(value, RawDocType.Plain) =>
-          writer.append(value)
+          writer.append(value): Unit
 
         case Doc.Raw(_, docType) =>
           throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
+
+        case Tagged(doc, _) =>
+          renderHelpDoc(doc)
       }
 
     def renderSpan(span: Span): Unit = {
@@ -321,6 +353,11 @@ sealed trait Doc { self =>
 
     renderHelpDoc(this)
 
+    val tags = self.tags
+    if (tags.nonEmpty) {
+      writer.append("\n")
+      renderHelpDoc(Doc.unorderedListing(tags.map(Doc.p): _*))
+    }
     writer.toString() + (if (color) Console.RESET else "")
   }
 
@@ -350,6 +387,7 @@ object Doc {
   final case class DescriptionList(definitions: List[(Span, Doc)])        extends Doc
   final case class Sequence(left: Doc, right: Doc)                        extends Doc
   final case class Listing(elements: List[Doc], listingType: ListingType) extends Doc
+  final case class Tagged(doc: Doc, tgs: List[String])                    extends Doc
   sealed trait ListingType
   object ListingType {
     case object Unordered extends ListingType

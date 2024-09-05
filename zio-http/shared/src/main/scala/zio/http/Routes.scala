@@ -16,6 +16,8 @@
 
 package zio.http
 
+import java.io.File
+
 import zio._
 
 import zio.http.Routes.ApplyContextAspect
@@ -54,13 +56,13 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     copy(routes = routes ++ that.routes)
 
   /**
-   * Prepend the specified route to this HttpApp
+   * Prepend the specified route.
    */
   def +:[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
     copy(routes = route +: routes)
 
   /**
-   * Appends the specified route to this HttpApp
+   * Appends the specified route.
    */
   def :+[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
     copy(routes = routes :+ route)
@@ -102,19 +104,19 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
 
   /**
    * Allows the transformation of the Err type through an Effectful program
-   * allowing one to build up a HttpApp in Stages delegates to the Route
+   * allowing one to build up Routes in Stages delegates to the Route.
    */
   def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Routes[Env, Err1] =
     new Routes(routes.map(_.mapErrorZIO(fxn)))
 
   /**
    * Allows the transformation of the Err type through a function allowing one
-   * to build up a HttpApp in Stages delegates to the Route
+   * to build up Routes in Stages delegates to the Route.
    */
   def mapError[Err1](fxn: Err => Err1): Routes[Env, Err1] =
     new Routes(routes.map(_.mapError(fxn)))
 
-  def nest(prefix: PathCodec[Unit])(implicit trace: Trace, ev: Err <:< Response): Routes[Env, Err] =
+  def nest(prefix: PathCodec[Unit])(implicit trace: Trace): Routes[Env, Err] =
     new Routes(self.routes.map(_.nest(prefix)))
 
   /**
@@ -157,6 +159,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def isDefinedAt(request: Request)(implicit ev: Err <:< Response): Boolean =
     tree(Trace.empty, ev).get(request.method, request.path).nonEmpty
 
+  def provide[Env1 <: Env](env: Env1)(implicit tag: Tag[Env1]): Routes[Any, Err] =
+    provideEnvironment(ZEnvironment(env))
+
   /**
    * Provides the specified environment to the HTTP application, returning a new
    * HTTP application that has no environmental requirements.
@@ -166,7 +171,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
 
   def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] = {
 
-    class RouteFailure[+Err](val err: Cause[Err]) extends Throwable(null, null, true, false) {
+    class RouteFailure[+Err0](val err: Cause[Err0]) extends Throwable(null, null, true, false) {
       override def getMessage: String = err.unified.headOption.fold("<unknown>")(_.message)
 
       override def getStackTrace(): Array[StackTraceElement] =
@@ -191,6 +196,17 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
         case Cause.Die(value: RouteFailure[_], _) if value == routeFailure => routeFailure.err.map(Left(_))
         case cause                                                         => cause.map(Right(_))
       }
+  }
+
+  /**
+   * A shortcut for `Server.install(routes) *> ZIO.never`
+   */
+  def serve[Env1 <: Env](implicit
+    ev: Err <:< Response,
+    trace: Trace,
+    tag: EnvironmentTag[Env1],
+  ): URIO[Env1 with Server, Nothing] = {
+    Server.serve[Env1](self.handleError(_.asInstanceOf[Response]))
   }
 
   def run(
@@ -247,7 +263,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   }
 
   /**
-   * Returns new new HttpApp whose handlers are transformed by the specified
+   * Returns new Routes whose handlers are transformed by the specified
    * function.
    */
   def transform[Env1](
@@ -282,15 +298,54 @@ object Routes extends RoutesCompanionVersionSpecific {
   def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))
 
+  /**
+   * Creates routes for serving static files from the directory `docRoot` at the
+   * url path `path`.
+   *
+   * Example: `Routes.serveDirectory(Path.empty / "assets", new
+   * File("/some/local/path"))`
+   *
+   * With this routes in place, a request to
+   * `https://www.domain.com/assets/folder/file1.jpg` would serve the local file
+   * `/some/local/path/folder/file1.jpg`.
+   */
+  def serveDirectory(path: Path, docRoot: File)(implicit trace: Trace): Routes[Any, Nothing] =
+    empty @@ Middleware.serveDirectory(path, docRoot)
+
+  /**
+   * Creates routes for serving static files at URL path `path` from resources
+   * with the given `resourcePrefix`.
+   *
+   * Example: `Routes.serveResources(Path.empty / "assets", "webapp")`
+   *
+   * With this routes in place, a request to
+   * `https://www.domain.com/assets/folder/file1.jpg` would serve the file
+   * `src/main/resources/webapp/folder/file1.jpg`. Note how the URL path is
+   * removed and the resourcePrefix prepended.
+   *
+   * Most build systems support resources in the `src/main/resources` directory.
+   * In the above example, the file `src/main/resources/webapp/folder/file1.jpg`
+   * would be served.
+   *
+   * The `resourcePrefix` defaults to `"public"`. To prevent insecure sharing of
+   * resource files, `resourcePrefix` must start with a `/` followed by at least
+   * 1
+   * [[java.lang.Character.isJavaIdentifierStart(x\$1:Char)* valid java identifier character]].
+   * The `/` will be prepended if it is not present.
+   */
+  def serveResources(path: Path, resourcePrefix: String = "public")(implicit trace: Trace): Routes[Any, Nothing] =
+    empty @@ Middleware.serveResources(path, resourcePrefix)
+
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(self.tree ++ that.tree)
 
     final def add[Env1 <: Env](route: Route[Env1, Response])(implicit trace: Trace): Tree[Env1] =
-      Tree(self.tree.add(route.routePattern, route.toHandler))
+      Tree(self.tree.addAll(route.routePattern.alternatives.map(alt => (alt, route.toHandler))))
 
     final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit trace: Trace): Tree[Env1] =
-      Tree(self.tree.addAll(routes.map(r => (r.routePattern, r.toHandler))))
+      // only change to flatMap when Scala 2.12 is dropped
+      Tree(self.tree.addAll(routes.map(r => r.routePattern.alternatives.map(alt => (alt, r.toHandler))).flatten))
 
     final def get(method: Method, path: Path): Chunk[RequestHandler[Env, Response]] =
       tree.get(method, path)

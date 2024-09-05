@@ -20,7 +20,6 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.atomic._
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Server.Config.ResponseCompressionConfig
 
@@ -33,21 +32,14 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  @deprecated("Install Routes instead. Will be removed in the next release.")
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R, Unit] =
-    install(httpApp.routes)
-
-  /**
-   * Installs the given HTTP application into the server.
-   */
-  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace): URIO[R, Unit]
+  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
    *
    * @return
    */
-  def port: Int
+  def port: UIO[Int]
 }
 
 object Server extends ServerPlatformSpecific {
@@ -65,14 +57,34 @@ object Server extends ServerPlatformSpecific {
     gracefulShutdownTimeout: Duration,
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
-  ) {
-    self =>
+    avoidContextSwitching: Boolean,
+    soBacklog: Int,
+    tcpNoDelay: Boolean,
+  ) { self =>
 
     /**
      * Configure the server to use HttpServerExpectContinueHandler to send a 100
      * HttpResponse if necessary.
      */
     def acceptContinue(enable: Boolean): Config = self.copy(acceptContinue = enable)
+
+    /**
+     * Attempts to avoid context switching between thread pools by executing
+     * requests within the server's IO thread-pool (e.g., Netty's EventLoop)
+     * until the first async/blocking boundary.
+     *
+     * Enabling this setting can improve performance for short-lived CPU-bound
+     * tasks, but can also lead to degraded performance if the request handler
+     * performs CPU-heavy work prior to the first async boundary.
+     *
+     * '''WARNING:''' Do not use this mode if the ZIO executor is configured to
+     * use virtual threads!
+     *
+     * @see
+     *   For more info on caveats of this mode, see <a
+     *   href="https://github.com/zio/zio-http/pull/2782">related issue </a>
+     */
+    def avoidContextSwitching(value: Boolean): Config = self.copy(avoidContextSwitching = value)
 
     /**
      * Configure the server to listen on the provided hostname and port.
@@ -100,6 +112,10 @@ object Server extends ServerPlatformSpecific {
 
     /** Enables streaming request bodies */
     def enableRequestStreaming: Config = self.copy(requestStreaming = RequestStreaming.Enabled)
+
+    /** Enables hybrid request streaming */
+    def hybridRequestStreaming(maxAggregatedLength: Int): Config =
+      self.copy(requestStreaming = RequestStreaming.Hybrid(maxAggregatedLength))
 
     def gracefulShutdownTimeout(duration: Duration): Config = self.copy(gracefulShutdownTimeout = duration)
 
@@ -163,6 +179,20 @@ object Server extends ServerPlatformSpecific {
     def requestStreaming(requestStreaming: RequestStreaming): Config =
       self.copy(requestStreaming = requestStreaming)
 
+    /**
+     * Sets the maximum number of connection requests that will be queued before
+     * being rejected
+     */
+    def soBacklog(value: Int): Config =
+      self.copy(soBacklog = value)
+
+    /**
+     * Configure the server to enable/disable TCP_NODELAY. TCP_NODELAY disables
+     * Nagle's algorithm, which reduces latency for small messages.
+     */
+    def tcpNoDelay(value: Boolean): Config =
+      self.copy(tcpNoDelay = value)
+
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
@@ -181,7 +211,11 @@ object Server extends ServerPlatformSpecific {
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
         zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
         zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout) ++
-        zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout)
+        zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
+        zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching) ++
+        zio.Config.int("so-backlog").withDefault(Config.default.soBacklog) ++
+        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay)
+
     }.map {
       case (
             sslConfig,
@@ -197,6 +231,9 @@ object Server extends ServerPlatformSpecific {
             logWarningOnFatalError,
             gracefulShutdownTimeout,
             idleTimeout,
+            avoidCtxSwitch,
+            soBacklog,
+            tcpNoDelay,
           ) =>
         default.copy(
           sslConfig = sslConfig,
@@ -211,6 +248,9 @@ object Server extends ServerPlatformSpecific {
           logWarningOnFatalError = logWarningOnFatalError,
           gracefulShutdownTimeout = gracefulShutdownTimeout,
           idleTimeout = idleTimeout,
+          avoidContextSwitching = avoidCtxSwitch,
+          soBacklog = soBacklog,
+          tcpNoDelay = tcpNoDelay,
         )
     }
 
@@ -228,6 +268,9 @@ object Server extends ServerPlatformSpecific {
       gracefulShutdownTimeout = 10.seconds,
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = None,
+      avoidContextSwitching = false,
+      soBacklog = 100,
+      tcpNoDelay = true,
     )
 
     final case class ResponseCompressionConfig(
@@ -248,69 +291,118 @@ object Server extends ServerPlatformSpecific {
         ResponseCompressionConfig(0, IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()))
     }
 
-    /**
-     * @param level
-     *   defines compression level, {@code 1} yields the fastest compression and
-     *   {@code 9} yields the best compression. {@code 0} means no compression.
-     * @param bits
-     *   defines windowBits, The base two logarithm of the size of the history
-     *   buffer. The value should be in the range {@code 9} to {@code 15}
-     *   inclusive. Larger values result in better compression at the expense of
-     *   memory usage
-     * @param mem
-     *   defines memlevel, How much memory should be allocated for the internal
-     *   compression state. {@code 1} uses minimum memory and {@code 9} uses
-     *   maximum memory. Larger values result in better and faster compression
-     *   at the expense of memory usage
-     */
-    final case class CompressionOptions(
-      level: Int,
-      bits: Int,
-      mem: Int,
-      kind: CompressionOptions.CompressionType,
-    )
+    sealed trait CompressionOptions {
+      val name: String
+    }
 
     object CompressionOptions {
-      val DefaultLevel = 6
-      val DefaultBits  = 15
-      val DefaultMem   = 8
+
+      final case class GZip(cfg: DeflateConfig)    extends CompressionOptions { val name = "gzip"    }
+      final case class Deflate(cfg: DeflateConfig) extends CompressionOptions { val name = "deflate" }
+      final case class Brotli(cfg: BrotliConfig)   extends CompressionOptions { val name = "brotli"  }
+
+      /**
+       * @param level
+       *   defines compression level, {@code 1} yields the fastest compression
+       *   and {@code 9} yields the best compression. {@code 0} means no
+       *   compression.
+       * @param bits
+       *   defines windowBits, The base two logarithm of the size of the history
+       *   buffer. The value should be in the range {@code 9} to {@code 15}
+       *   inclusive. Larger values result in better compression at the expense
+       *   of memory usage
+       * @param mem
+       *   defines memlevel, How much memory should be allocated for the
+       *   internal compression state. {@code 1} uses minimum memory and
+       *   {@code 9} uses maximum memory. Larger values result in better and
+       *   faster compression at the expense of memory usage
+       */
+      final case class DeflateConfig(
+        level: Int,
+        bits: Int,
+        mem: Int,
+      )
+
+      object DeflateConfig {
+        val DefaultLevel = 6
+        val DefaultBits  = 15
+        val DefaultMem   = 8
+      }
+
+      final case class BrotliConfig(
+        quality: Int,
+        lgwin: Int,
+        mode: Mode,
+      )
+
+      object BrotliConfig {
+        val DefaultQuality = 4
+        val DefaultLgwin   = -1
+        val DefaultMode    = Mode.Text
+      }
+
+      sealed trait Mode
+      object Mode {
+        case object Generic extends Mode
+        case object Text    extends Mode
+        case object Font    extends Mode
+
+        def fromString(s: String): Mode = s.toLowerCase match {
+          case "generic" => Generic
+          case "text"    => Text
+          case "font"    => Font
+          case _         => Text
+        }
+      }
 
       /**
        * Creates GZip CompressionOptions. Defines defaults as per
        * io.netty.handler.codec.compression.GzipOptions#DEFAULT
        */
-      def gzip(level: Int = DefaultLevel, bits: Int = DefaultBits, mem: Int = DefaultMem): CompressionOptions =
-        CompressionOptions(level, bits, mem, CompressionType.GZip)
+      def gzip(
+        level: Int = DeflateConfig.DefaultLevel,
+        bits: Int = DeflateConfig.DefaultBits,
+        mem: Int = DeflateConfig.DefaultMem,
+      ): CompressionOptions =
+        CompressionOptions.GZip(DeflateConfig(level, bits, mem))
 
       /**
        * Creates Deflate CompressionOptions. Defines defaults as per
        * io.netty.handler.codec.compression.DeflateOptions#DEFAULT
        */
-      def deflate(level: Int = DefaultLevel, bits: Int = DefaultBits, mem: Int = DefaultMem): CompressionOptions =
-        CompressionOptions(level, bits, mem, CompressionType.Deflate)
+      def deflate(
+        level: Int = DeflateConfig.DefaultLevel,
+        bits: Int = DeflateConfig.DefaultBits,
+        mem: Int = DeflateConfig.DefaultMem,
+      ): CompressionOptions =
+        CompressionOptions.Deflate(DeflateConfig(level, bits, mem))
 
-      sealed trait CompressionType
-
-      private[http] object CompressionType {
-        case object GZip    extends CompressionType
-        case object Deflate extends CompressionType
-
-        lazy val config: zio.Config[CompressionType] =
-          zio.Config.string.mapOrFail {
-            case "gzip"    => Right(GZip)
-            case "deflate" => Right(Deflate)
-            case other     => Left(zio.Config.Error.InvalidData(message = s"Invalid compression type: $other"))
-          }
-      }
+      /**
+       * Creates Brotli CompressionOptions. Defines defaults as per
+       * io.netty.handler.codec.compression.BrotliOptions#DEFAULT
+       */
+      def brotli(
+        quality: Int = BrotliConfig.DefaultQuality,
+        lgwin: Int = BrotliConfig.DefaultLgwin,
+        mode: Mode = BrotliConfig.DefaultMode,
+      ): CompressionOptions =
+        CompressionOptions.Brotli(BrotliConfig(quality, lgwin, mode))
 
       lazy val config: zio.Config[CompressionOptions] =
         (
-          zio.Config.int("level").withDefault(DefaultLevel) ++
-            zio.Config.int("bits").withDefault(DefaultBits) ++
-            zio.Config.int("mem").withDefault(DefaultMem) ++
-            CompressionOptions.CompressionType.config.nested("type")
-        ).map { case (level, bits, mem, kind) =>
-          CompressionOptions(level, bits, mem, kind)
+          (zio.Config.int("level").withDefault(DeflateConfig.DefaultLevel) ++
+            zio.Config.int("bits").withDefault(DeflateConfig.DefaultBits) ++
+            zio.Config.int("mem").withDefault(DeflateConfig.DefaultMem)) ++
+            zio.Config.int("quantity").withDefault(BrotliConfig.DefaultQuality) ++
+            zio.Config.int("lgwin").withDefault(BrotliConfig.DefaultLgwin) ++
+            zio.Config.string("mode").map(Mode.fromString).withDefault(BrotliConfig.DefaultMode) ++
+            zio.Config.string("type")
+        ).map { case (level, bits, mem, quantity, lgwin, mode, typ) =>
+          typ.toLowerCase match {
+            case "gzip"    => gzip(level, bits, mem)
+            case "deflate" => deflate(level, bits, mem)
+            case "brotli"  => brotli(quantity, lgwin, mode)
+          }
         }
     }
   }
@@ -328,6 +420,12 @@ object Server extends ServerPlatformSpecific {
      */
     final case class Disabled(maximumContentLength: Int) extends RequestStreaming
 
+    /**
+     * Hybrid streaming option: Aggregate requests up to a certain size, and
+     * stream if larger.
+     */
+    final case class Hybrid(maximumAggregatedLength: Int) extends RequestStreaming
+
     lazy val config: zio.Config[RequestStreaming] =
       (zio.Config.boolean("enabled").withDefault(true) ++
         zio.Config.int("maximum-content-length").withDefault(1024 * 100)).map {
@@ -336,32 +434,26 @@ object Server extends ServerPlatformSpecific {
       }
   }
 
-  @deprecated("Serve Routes instead. Will be removed in the next release.")
-  def serve[R](
-    httpApp: HttpApp[R],
-  )(implicit trace: Trace): URIO[R with Server, Nothing] = {
-    ZIO.logInfo("Starting the server...") *>
-      install(httpApp) *>
-      ZIO.logInfo("Server started") *>
-      ZIO.never
-  }
-
-  @deprecated("Install Routes instead. Will be removed in the next release.")
-  def install[R](httpApp: HttpApp[R])(implicit trace: Trace): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
-  }
-
   def serve[R](
     httpApp: Routes[R, Response],
-  )(implicit trace: Trace): URIO[R with Server, Nothing] = {
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
-      install(httpApp) *>
+      ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *>
       ZIO.logInfo("Server started") *>
       ZIO.never
   }
 
-  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
+  def serve[R](
+    route: Route[R, Response],
+    routes: Route[R, Response]*,
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
+    serve(Routes(route, routes: _*))
+  }
+
+  def install[R](
+    httpApp: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
@@ -386,9 +478,21 @@ object Server extends ServerPlatformSpecific {
               )
           }.ignoreLogged,
         )
-        result <- driver.start.catchAllCause(cause => inFlightRequests.failCause(cause) *> ZIO.refailCause(cause))
-        _      <- inFlightRequests.succeed(result.inFlightRequests)
-      } yield ServerLive(driver, result.port)
+        initialInstall   <- Promise.make[Nothing, Unit]
+        serverStarted    <- Promise.make[Throwable, Int]
+        _                <-
+          (for {
+            _      <- initialInstall.await.interruptible
+            result <- driver.start
+            _      <- inFlightRequests.succeed(result.inFlightRequests)
+            _      <- serverStarted.succeed(result.port)
+          } yield ())
+            // In the case of failure of `Driver#.start` or interruption while we are waiting to be
+            // installed for the first time, we should always fail the `serverStarted` and 'inFlightRequests'
+            // promises to allow the finalizers to make progress.
+            .onError(c => inFlightRequests.refailCause(c) *> serverStarted.refailCause(c))
+            .forkScoped
+      } yield ServerLive(driver, initialInstall, serverStarted)
     }
   }
 
@@ -412,14 +516,24 @@ object Server extends ServerPlatformSpecific {
 
   private final case class ServerLive(
     driver: Driver,
-    bindPort: Int,
+    // A promise used to signal the first time `install`
+    // is called on this `Server` instance.
+    private val initialInstall: Promise[Nothing, Unit],
+    // A promise that represents the port of the "started" driver
+    // or a throwable if starting the driver failed for any reason.
+    private val serverStarted: Promise[Throwable, Int],
   ) extends Server {
     override def install[R](httpApp: Routes[R, Response])(implicit
       trace: Trace,
+      tag: EnvironmentTag[R],
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
+      for {
+        _ <- initialInstall.succeed(())
+        _ <- serverStarted.await.orDie
+        _ <- ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune[R]))
+      } yield ()
 
-    override def port: Int = bindPort
+    override def port: UIO[Int] = serverStarted.await.orDie
 
   }
 }

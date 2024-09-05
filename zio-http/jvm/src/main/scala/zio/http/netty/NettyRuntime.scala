@@ -16,73 +16,68 @@
 
 package zio.http.netty
 
-import scala.annotation.unused
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 
-private[zio] final class NettyRuntime(zRuntime: Runtime[Any]) {
+private[zio] final class NettyRuntime(zioRuntime: Runtime[Any]) {
+  private[this] val rtm = zioRuntime.unsafe
 
-  def runtime(@unused ctx: ChannelHandlerContext): Runtime[Any] = zRuntime
+  def getRef[A](ref: FiberRef[A]): A = zioRuntime.fiberRefs.getOrDefault(ref)
 
-  def run(ctx: ChannelHandlerContext, ensured: () => Unit, interruptOnClose: Boolean = true)(
+  def run(
+    ctx: ChannelHandlerContext,
+    ensured: () => Unit,
+    preferOnCurrentThread: Boolean,
+  )(
     program: ZIO[Any, Throwable, Any],
   )(implicit unsafe: Unsafe, trace: Trace): Unit = {
-    val rtm: Runtime[Any] = runtime(ctx)
 
-    def onFailure(cause: Cause[Throwable], ctx: ChannelHandlerContext): Unit = {
-      cause.failureOption.orElse(cause.dieOption) match {
-        case None        => ()
-        case Some(error) =>
-          ctx.fireExceptionCaught(error)
+    def onExit(exit: Exit[Throwable, Any]): Unit = {
+      ensured()
+      exit match {
+        case Exit.Success(_)     =>
+        case Exit.Failure(cause) =>
+          cause.failureOption.orElse(cause.dieOption) match {
+            case None        => ()
+            case Some(error) => ctx.fireExceptionCaught(error)
+          }
+          if (ctx.channel().isOpen) ctx.close(): Unit
       }
-      if (ctx.channel().isOpen) ctx.close(): Unit
     }
 
-    def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit = {
-      if (close ne null)
-        ctx.channel().closeFuture().removeListener(close): Unit
-    }
+    def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit =
+      ctx.channel().closeFuture().removeListener(close): Unit
 
-    // See https://github.com/zio/zio-http/pull/2782 on why forking is preferable over runOrFork
-    val fiber = rtm.unsafe.fork(program)
+    val forkOrExit = if (preferOnCurrentThread) rtm.runOrFork(program) else Left(rtm.fork(program))
 
-    // Close the connection if the program fails
-    // When connection closes, interrupt the program
-    val close: GenericFutureListener[Future[_ >: Void]] =
-      if (interruptOnClose) {
-        val close0 = closeListener(rtm, fiber)
-        ctx.channel().closeFuture.addListener(close0)
-        close0
-      } else null
-
-    fiber.unsafe.addObserver {
-      case Exit.Success(_)     =>
-        removeListener(close)
-        ensured()
-      case Exit.Failure(cause) =>
-        removeListener(close)
-        onFailure(cause, ctx)
-        ensured()
+    forkOrExit match {
+      case Left(fiber) =>
+        // Close the connection if the program fails
+        // When connection closes, interrupt the program
+        val close = closeListener(fiber)
+        ctx.channel().closeFuture.addListener(close)
+        fiber.unsafe.addObserver { exit =>
+          removeListener(close)
+          onExit(exit)
+        }
+      case Right(exit) =>
+        onExit(exit)
     }
   }
 
-  def runUninterruptible(ctx: ChannelHandlerContext, ensured: () => Unit)(
-    program: ZIO[Any, Throwable, Any],
-  )(implicit unsafe: Unsafe, trace: Trace): Unit =
-    run(ctx, ensured, interruptOnClose = false)(program)
+  @throws[Throwable]("Any errors that occur during the execution of the ZIO effect")
+  def unsafeRunSync[A](program: ZIO[Any, Throwable, A])(implicit unsafe: Unsafe, trace: Trace): A =
+    rtm.run(program).getOrThrowFiberFailure()
 
-  private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _])(implicit
+  private def closeListener(fiber: Fiber.Runtime[_, _])(implicit
+    unsafe: Unsafe,
     trace: Trace,
   ): GenericFutureListener[Future[_ >: Void]] =
-    (_: Future[_ >: Void]) => {
-      val _ = rtm.unsafe.fork {
-        fiber.interrupt
-      }(implicitly[Trace], Unsafe.unsafe)
-    }
+    (_: Future[_ >: Void]) => unsafeRunSync(ZIO.fiberIdWith(fiber.interruptAsFork))
+
 }
 
 private[zio] object NettyRuntime {

@@ -2,28 +2,40 @@ package zio.http
 
 import zio._
 
+import zio.http.ZClient.Config
 import zio.http.internal.FetchDriver
 
 trait ZClientPlatformSpecific {
 
-//  def customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client]
+  lazy val customized: ZLayer[Config with ZClient.Driver[Any, Scope, Throwable], Throwable, Client] = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.scoped {
+      for {
+        config <- ZIO.service[Config]
+        driver <- ZIO.service[ZClient.Driver[Any, Scope, Throwable]]
+        baseClient = ZClient.fromDriver(driver)
+      } yield
+        if (config.addUserAgentHeader)
+          baseClient.addHeader(ZClient.defaultUAHeader)
+        else
+          baseClient
+    }
+  }
 
-  lazy val live: ZLayer[ZClient.Config, Throwable, Client] =
-    default
+  lazy val live: ZLayer[ZClient.Config, Throwable, Client] = {
+    implicit val trace: Trace = Trace.empty
+    FetchDriver.live >>> customized
+  }.fresh
 
-  // TODO should probably exist in js too
-//  def configured(
-//    path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "client"),
-//  )(implicit trace: Trace): ZLayer[DnsResolver, Throwable, Client] =
-//    (
-//      ZLayer.service[DnsResolver] ++
-//        ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))) ++
-//        ZLayer(ZIO.config(NettyConfig.config.nested(path.head, path.tail: _*)))
-//      ).mapError(error => new RuntimeException(s"Configuration error: $error")) >>> live
+  def configured(
+    path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "client"),
+  )(implicit trace: Trace): ZLayer[Any, Throwable, Client] =
+    ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*)))
+      .mapError(error => new RuntimeException(s"Configuration error: $error")) >>> live
 
   lazy val default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    FetchDriver.live >>> ZLayer(ZIO.serviceWith[FetchDriver](driver => ZClient.fromDriver(driver)))
+    ZLayer.succeed(Config.default) >>> live
   }
 
 }

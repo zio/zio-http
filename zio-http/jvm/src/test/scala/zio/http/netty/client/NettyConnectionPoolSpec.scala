@@ -45,7 +45,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
   def connectionPoolTests(
     version: Version,
     casesByHeaders: Map[String, Headers],
-  ): Spec[Scope with Client with DynamicServer, Throwable] =
+  ): Spec[Client with DynamicServer, Throwable] =
     suite(version.toString)(
       casesByHeaders.map { case (name, extraHeaders) =>
         suite(name)(
@@ -168,7 +168,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       },
     )
 
-  private def connectionPoolTimeoutTest =
+  private def connectionPoolTimeoutTest = {
     test("client connection timeouts while in connection pool") {
       def executeRequest(idx: Int) =
         app
@@ -192,13 +192,32 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           (1 to N).map(_.toString).toList,
         ),
       )
-    }.provideSome[Client & Scope](
+    }.provideSome[Client](
       ZLayer(appKeepAliveEnabled.unit),
       DynamicServer.live,
-      ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort),
+      ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
       testNettyServerConfig,
       Server.customized,
     ) @@ withLiveClock
+  } + test("idle timeout is refreshed on each request") {
+    val f = Handler
+      .fromZIO(ZIO.succeed(Response.text("ok")).delay(150.millis))
+      .toRoutes
+      .deploy(Request())
+      .map(_.status)
+      .map(assert(_)(equalTo(Status.Ok)))
+
+    ZIO.collectAll(List.fill(4)(f)).map(_.foldLeft(assertCompletes)(_ && _))
+  }.provide(
+    ZLayer(appKeepAliveEnabled.unit),
+    DynamicServer.live,
+    ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
+    testNettyServerConfig,
+    Server.customized,
+    Client.live,
+    ZLayer.succeed(Client.Config.default.idleTimeout(500.millis)),
+    DnsResolver.default,
+  ) @@ withLiveClock
 
   private def connectionPoolShutdownSpec =
     test("connections are closed when pool is closed") {
@@ -230,6 +249,34 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       serverTestLayer,
     ) @@ withLiveClock @@ nonFlaky(10)
 
+  private def connectionPoolIssuesSpec = {
+    suite("ConnectionPoolIssuesSpec")(
+      test("Reusing connections doesn't cause memory leaks") {
+        Random.nextString(1024 * 1024).flatMap { text =>
+          val resp = Response.text(text)
+          Handler
+            .succeed(resp)
+            .toRoutes
+            .deployAndRequest { client =>
+              ZIO.foreachParDiscard(0 to 10) { _ =>
+                client.batched.request(Request()).flatMap(_.body.asArray).repeatN(200)
+              }
+            }(Request())
+            .as(assertCompletes)
+        }
+      },
+    )
+  }.provide(
+    ZLayer(appKeepAliveEnabled.unit),
+    DynamicServer.live,
+    serverTestLayer,
+    Client.customized,
+    ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(1, 512, 60.seconds)),
+    NettyClientDriver.live,
+    DnsResolver.default,
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+  )
+
   def connectionPoolSpec: Spec[Any, Throwable] =
     suite("ConnectionPool")(
       suite("fixed")(
@@ -258,7 +305,6 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Scope.default,
       ),
       suite("dynamic")(
         connectionPoolTests(
@@ -286,12 +332,11 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Scope.default,
       ),
     )
 
   override def spec: Spec[Scope, Throwable] = {
-    connectionPoolSpec @@ sequential @@ withLiveClock
+    (connectionPoolSpec + connectionPoolIssuesSpec) @@ sequential @@ withLiveClock
   }
 
 }

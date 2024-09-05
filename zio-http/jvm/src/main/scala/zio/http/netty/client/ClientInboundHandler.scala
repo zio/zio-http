@@ -40,24 +40,20 @@ final class ClientInboundHandler(
     extends SimpleChannelInboundHandler[HttpObject](false) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
-  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    super.handlerAdded(ctx)
-  }
-
-  override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    sendRequest(ctx)
-  }
-
-  override def handlerRemoved(ctx: ChannelHandlerContext): Unit = super.handlerRemoved(ctx)
+  override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit =
+    evt match {
+      case ClientInboundHandler.SendRequest => sendRequest(ctx)
+      case _                                => ctx.fireUserEventTriggered(evt): Unit
+    }
 
   private def sendRequest(ctx: ChannelHandlerContext): Unit = {
     jReq match {
       case fullRequest: FullHttpRequest =>
-        ctx.writeAndFlush(fullRequest)
+        ctx.writeAndFlush(fullRequest): Unit
       case _: HttpRequest               =>
         ctx.write(jReq)
         NettyBodyWriter.writeAndFlush(req.body, None, ctx).foreach { effect =>
-          rtm.run(ctx, NettyRuntime.noopEnsuring)(effect)(Unsafe.unsafe, trace)
+          rtm.run(ctx, NettyRuntime.noopEnsuring, preferOnCurrentThread = true)(effect)(Unsafe.unsafe, trace)
         }
     }
   }
@@ -65,17 +61,9 @@ final class ClientInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
     msg match {
       case response: HttpResponse =>
-        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-          NettyResponse
-            .make(
-              ctx,
-              response,
-              rtm,
-              onComplete,
-              enableKeepAlive && HttpUtil.isKeepAlive(response),
-            )
-            .flatMap(onResponse.succeed)
-        }(unsafeClass, trace)
+        val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
+        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive)
+        onResponse.unsafe.done(Exit.succeed(resp))
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit
 
@@ -85,5 +73,10 @@ final class ClientInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
     ctx.fireExceptionCaught(error)
+    ()
   }
+}
+
+object ClientInboundHandler {
+  case object SendRequest
 }

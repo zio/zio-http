@@ -24,8 +24,10 @@ import zio._
 
 import zio.stream.ZStream
 
-import zio.http.internal.HeaderOps
-import zio.http.template.Html
+import zio.schema.Schema
+
+import zio.http.internal.{HeaderOps, OutputEncoder}
+import zio.http.template._
 
 final case class Response(
   status: Status = Status.Ok,
@@ -48,17 +50,29 @@ final case class Response(
   /**
    * Collects the potentially streaming body of the response into a single
    * chunk.
+   *
+   * Any errors that occur from the collection of the body will be caught and
+   * propagated to the Body
    */
-  def collect(implicit trace: Trace): ZIO[Any, Throwable, Response] =
-    if (self.body.isComplete) ZIO.succeed(self)
-    else
-      self.body.asChunk.map { bytes =>
-        self.copy(body = Body.fromChunk(bytes))
-      }
+  def collect(implicit trace: Trace): ZIO[Any, Nothing, Response] =
+    self.body.materialize.map { b =>
+      if (b eq self.body) self
+      else self.copy(body = b)
+    }
 
-  /** Consumes the streaming body fully and then drops it */
-  def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =
-    self.collect.map(_.copy(body = Body.empty))
+  def contentType(mediaType: MediaType): Response =
+    self.addHeader("content-type", mediaType.fullType)
+
+  /**
+   * Consumes the streaming body fully and then discards it while also ignoring
+   * any failures
+   */
+  def ignoreBody(implicit trace: Trace): ZIO[Any, Nothing, Response] = {
+    val out   = self.copy(body = Body.empty)
+    val body0 = self.body
+    if (body0.isComplete) Exit.succeed(out)
+    else body0.asStream.runDrain.ignore.as(out)
+  }
 
   def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
 
@@ -79,6 +93,7 @@ final case class Response(
    */
   override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
     copy(headers = update(headers))
+
 }
 
 object Response {
@@ -129,59 +144,78 @@ object Response {
     def updateHeaders(f: Headers => Headers): Patch        = UpdateHeaders(f)
   }
 
-  def badRequest: Response = error(Status.BadRequest)
+  def badRequest: Response =
+    error(Status.BadRequest)
 
-  def badRequest(message: String): Response = error(Status.BadRequest, message)
+  def badRequest(message: String): Response =
+    error(Status.BadRequest, message)
 
-  def error(status: Status.Error, message: String): Response = {
-    import zio.http.internal.OutputEncoder
+  def error(status: Status.Error, message: String): Response =
+    Response(status = status, body = Body.fromString(OutputEncoder.encodeHtml(message)))
 
-    val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
-
-    Response(status = status, headers = Headers(Header.Warning(199, "ZIO HTTP", message2)))
-  }
+  def error(status: Status.Error, body: Body): Response =
+    Response(
+      status = status,
+      body = body,
+      headers = if (body.mediaType.isEmpty) Headers.empty else Headers(Header.ContentType(body.mediaType.get)),
+    )
 
   def error(status: Status.Error): Response =
-    error(status, status.text)
+    Response(status = status)
 
-  def forbidden: Response = error(Status.Forbidden)
+  def forbidden: Response =
+    error(Status.Forbidden)
 
-  def forbidden(message: String): Response = error(Status.Forbidden, message)
+  def forbidden(message: String): Response =
+    error(Status.Forbidden, message)
+
+  def fromCause(cause: Cause[Any]): Response =
+    fromCause(cause, ErrorResponseConfig.default)
 
   /**
    * Creates a new response from the specified cause. Note that this method is
    * not polymorphic, but will attempt to inspect the runtime class of the
    * failure inside the cause, if any.
    */
-  def fromCause(cause: Cause[Any]): Response = {
+  @tailrec
+  def fromCause(cause: Cause[Any], config: ErrorResponseConfig): Response =
     cause.failureOrCause match {
       case Left(failure: Response)  => failure
-      case Left(failure: Throwable) => fromThrowable(failure)
-      case Left(failure: Cause[_])  => fromCause(failure)
+      case Left(failure: Throwable) => fromThrowable(failure, config)
+      case Left(failure: Cause[_])  => fromCause(failure, config)
       case _                        =>
-        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
-        else error(Status.InternalServerError, cause.prettyPrint.take(100))
+        val body =
+          if (config.withErrorBody) Body.fromString(cause.prettyPrint).contentType(MediaType.text.`plain`)
+          else Body.empty
+        if (cause.isInterruptedOnly) error(Status.RequestTimeout, body)
+        else error(Status.InternalServerError, body)
     }
-  }
 
   /**
    * Creates a new response from the specified cause, translating any typed
    * error to a response using the provided function.
    */
-  def fromCauseWith[E](cause: Cause[E])(f: E => Response): Response = {
+  def fromCauseWith[E](cause: Cause[E], config: ErrorResponseConfig)(f: E => Response): Response =
     cause.failureOrCause match {
       case Left(failure) => f(failure)
-      case Right(cause)  => fromCause(cause)
+      case Right(cause)  => fromCause(cause, config)
     }
-  }
 
   /**
    * Creates a response with content-type set to text/event-stream
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
-    Response(Status.Ok, contentTypeEventStream, Body.fromCharSequenceStreamChunked(data.map(_.encode)))
+  def fromServerSentEvents[T: Schema](data: ZStream[Any, Nothing, ServerSentEvent[T]])(implicit
+    trace: Trace,
+  ): Response = {
+    val codec = ServerSentEvent.defaultBinaryCodec[T]
+    Response(
+      Status.Ok,
+      contentTypeEventStream,
+      Body.fromCharSequenceStreamChunked(data.map(codec.encode).map(_.asString)),
+    )
+  }
 
   /**
    * Creates a new response for the provided socket app
@@ -196,21 +230,84 @@ object Response {
     }
   }
 
+  def fromThrowable(throwable: Throwable): Response =
+    fromThrowable(throwable, ErrorResponseConfig.default)
+
   /**
    * Creates a new response for the specified throwable. Note that this method
    * relies on the runtime class of the throwable.
    */
-  def fromThrowable(throwable: Throwable): Response = {
+  def fromThrowable(throwable: Throwable, config: ErrorResponseConfig): Response = {
     throwable match { // TODO: Enhance
-      case _: AccessDeniedException           => error(Status.Forbidden, throwable.getMessage)
-      case _: IllegalAccessException          => error(Status.Forbidden, throwable.getMessage)
-      case _: IllegalAccessError              => error(Status.Forbidden, throwable.getMessage)
-      case _: NotDirectoryException           => error(Status.BadRequest, throwable.getMessage)
-      case _: IllegalArgumentException        => error(Status.BadRequest, throwable.getMessage)
-      case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage)
-      case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
-      case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
-      case _                                  => error(Status.InternalServerError, throwable.getMessage)
+      case _: AccessDeniedException  => error(Status.Forbidden, throwableToMessage(throwable, Status.Forbidden, config))
+      case _: IllegalAccessException => error(Status.Forbidden, throwableToMessage(throwable, Status.Forbidden, config))
+      case _: IllegalAccessError     => error(Status.Forbidden, throwableToMessage(throwable, Status.Forbidden, config))
+      case _: NotDirectoryException  =>
+        error(Status.BadRequest, throwableToMessage(throwable, Status.BadRequest, config))
+      case _: IllegalArgumentException        =>
+        error(Status.BadRequest, throwableToMessage(throwable, Status.BadRequest, config))
+      case _: java.io.FileNotFoundException   =>
+        error(Status.NotFound, throwableToMessage(throwable, Status.NotFound, config))
+      case _: java.net.ConnectException       =>
+        error(Status.ServiceUnavailable, throwableToMessage(throwable, Status.ServiceUnavailable, config))
+      case _: java.net.SocketTimeoutException =>
+        error(Status.GatewayTimeout, throwableToMessage(throwable, Status.GatewayTimeout, config))
+      case _ => error(Status.InternalServerError, throwableToMessage(throwable, Status.InternalServerError, config))
+    }
+  }
+
+  private def throwableToMessage(throwable: Throwable, status: Status, config: ErrorResponseConfig): Body =
+    if (!config.withErrorBody) Body.empty
+    else {
+      val rawTrace   = if (config.withStackTrace) throwable.getStackTrace else Array.empty[StackTraceElement]
+      val stackTrace =
+        if (config.withStackTrace && rawTrace.nonEmpty)
+          (if (config.maxStackTraceDepth == 0) rawTrace
+           else rawTrace.take(config.maxStackTraceDepth))
+            .mkString("\n", "\n", "")
+        else ""
+      val message    = if (throwable.getMessage eq null) "" else throwable.getMessage
+      bodyFromThrowable(message, stackTrace, status, config)
+    }
+
+  private def bodyFromThrowable(
+    message: String,
+    stackTrace: String,
+    status: Status,
+    config: ErrorResponseConfig,
+  ): Body = {
+    def htmlResponse: Body = {
+      val data = Template.container(s"$status") {
+        div(
+          div(
+            styles := "text-align: center",
+            div(s"${status.code}", styles := "font-size: 20em"),
+            div(message),
+            div(stackTrace),
+          ),
+        )
+      }
+      Body.fromString("<!DOCTYPE html>" + data.encode)
+    }
+
+    def textResponse: Body =
+      Body.fromString {
+        val statusCode = status.code
+        s"${scala.Console.BOLD}${scala.Console.RED}${status}${scala.Console.RESET} - " +
+          s"${scala.Console.BOLD}${scala.Console.CYAN}$statusCode${scala.Console.RESET} - " +
+          s"$message" +
+          s"${scala.Console.BOLD}${scala.Console.RED} $stackTrace ${scala.Console.RESET}"
+      }
+
+    def jsonMessage =
+      Body.fromString(
+        s"""{"status": "${status.code}", "message": "$message", "stackTrace": "$stackTrace"}""",
+      )
+
+    config.errorFormat match {
+      case ErrorResponseConfig.ErrorFormat.Html => htmlResponse.contentType(config.errorFormat.mediaType)
+      case ErrorResponseConfig.ErrorFormat.Text => textResponse.contentType(config.errorFormat.mediaType)
+      case ErrorResponseConfig.ErrorFormat.Json => jsonMessage.contentType(config.errorFormat.mediaType)
     }
   }
 

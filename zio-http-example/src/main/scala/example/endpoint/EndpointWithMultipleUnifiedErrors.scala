@@ -1,13 +1,14 @@
 package example.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.{HeaderCodec, HttpCodec, PathCodec}
-import zio.http.endpoint.Endpoint
-import zio.http.endpoint.EndpointMiddleware.None
+import zio.http.codec.{CodecConfig, HeaderCodec, HttpCodec, PathCodec}
+import zio.http.endpoint.{AuthType, Endpoint}
 
 object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
 
@@ -17,6 +18,7 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
     implicit val schema: Schema[Book] = DeriveSchema.gen
   }
 
+  @nowarn("msg=parameter .* never used")
   abstract class AppError(message: String)
 
   case class BookNotFound(message: String, bookId: Int) extends AppError(message)
@@ -40,7 +42,7 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
     }
   }
 
-  val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
+  val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, AuthType.None] =
     Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
       .header(HeaderCodec.authorization)
       .out[Book]
@@ -59,7 +61,7 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
         ZIO.fail(AuthenticationError("User is not authenticated", 123))
     }
 
-  val routes = endpoint.implement(getBookHandler).toRoutes @@ Middleware.debug
+  val routes = endpoint.implementHandler(getBookHandler).toRoutes @@ Middleware.debug
 
   def run = Server.serve(routes).provide(Server.default)
 }

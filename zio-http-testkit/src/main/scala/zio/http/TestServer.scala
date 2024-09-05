@@ -98,6 +98,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
 
   override def install[R](httpApp: Routes[R, Response])(implicit
     trace: zio.Trace,
+    tag: EnvironmentTag[R],
   ): URIO[R, Unit] =
     ZIO
       .environment[R]
@@ -108,7 +109,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
         ),
       )
 
-  override def port: Int = bindPort
+  override def port: UIO[Int] = ZIO.succeed(bindPort)
 }
 
 object TestServer {

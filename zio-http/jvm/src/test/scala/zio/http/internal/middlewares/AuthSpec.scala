@@ -19,7 +19,7 @@ package zio.http.internal.middlewares
 import zio.Config.Secret
 import zio.test.Assertion._
 import zio.test._
-import zio.{Ref, ZEnvironment, ZIO}
+import zio.{Ref, ZIO}
 
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
@@ -29,9 +29,10 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
 
   private val successBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "resu"))
   private val failureBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "user"))
-  private val bearerToken: String          = "dummyBearerToken"
+  private val bearerContent: String        = "dummyBearerToken"
+  private val bearerToken: Secret          = Secret(bearerContent)
   private val successBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken))
-  private val failureBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken + "SomethingElse"))
+  private val failureBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerContent + "SomethingElse"))
 
   private val basicAuthM     = HandlerAspect.basicAuth { c =>
     Secret(c.uname.reverse) == c.upassword
@@ -74,7 +75,7 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       },
       test("Extract username via context") {
         val app = (Handler.fromFunctionZIO[Request](_ =>
-          ZIO.serviceWith[AuthContext](c => Response.text(c.value)),
+          withContext((c: AuthContext) => Response.text(c.value)),
         ) @@ basicAuthContextM).merge.mapZIO(_.body.asString)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo("user"))
       },
@@ -109,22 +110,21 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         val secureRoutes = Routes(
           Method.GET / "a" -> handler((_: Request) => ZIO.serviceWith[AuthContext](ctx => Response.text(ctx.value))),
           Method.GET / "b" / int("id")      -> handler((id: Int, _: Request) =>
-            ZIO.serviceWith[AuthContext](ctx => Response.text(s"for id: $id: ${ctx.value}")),
+            withContext((ctx: AuthContext) => Response.text(s"for id: $id: ${ctx.value}")),
           ),
           Method.GET / "c" / string("name") -> handler((name: String, _: Request) =>
-            ZIO.serviceWith[AuthContext](ctx => Response.text(s"for name: $name: ${ctx.value}")),
+            withContext((ctx: AuthContext) => Response.text(s"for name: $name: ${ctx.value}")),
           ),
           // Needs version of @@ that removes the context from the environment
         ) @@ basicAuthContextM
-        // Just a prove that the aspect can require an environment. Does nothing.
         val app          = secureRoutes
         for {
           s1     <- app.runZIO(Request.get(URL(Path.root / "a")).copy(headers = successBasicHeader))
-          s1Body <- s1.body.asString.debug("s1Body")
+          s1Body <- s1.body.asString
           s2     <- app.runZIO(Request.get(URL(Path.root / "b" / "1")).copy(headers = successBasicHeader))
-          s2Body <- s2.body.asString.debug("s2Body")
+          s2Body <- s2.body.asString
           s3     <- app.runZIO(Request.get(URL(Path.root / "c" / "name")).copy(headers = successBasicHeader))
-          s3Body <- s3.body.asString.debug("s3Body")
+          s3Body <- s3.body.asString
           resultStatus = s1.status == Status.Ok && s2.status == Status.Ok && s3.status == Status.Ok
           resultBody   = s1Body == "user" && s2Body == "for id: 1: user" && s3Body == "for name: name: user"
         } yield assertTrue(resultStatus, resultBody)

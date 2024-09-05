@@ -25,7 +25,7 @@ object Book {
 
 val endpoint =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.queryTo[String]("q") examples (("example1", "scala"), ("example2", "zio")))
+    .query(HttpCodec.query[String]("q") examples (("example1", "scala"), ("example2", "zio")))
     .out[List[Book]]
 ```
 
@@ -34,7 +34,7 @@ In the above example, we defined an endpoint on the path `/books` that accepts a
 After defining the endpoint, we are ready to implement it. We can implement it using the `Endpoint#implement` method, which takes a proper handler function that will be called when the endpoint is invoked and returns a `Route`:
 
 ```scala
-val booksRoute = endpoint.implement(handler((query: String) => BookRepo.find(query)))
+val booksRoute = endpoint.implement(query => BookRepo.find(query))
 ```
 
 We can also generate OpenAPI documentation for our endpoint using the `OpenAPIGen.fromEndpoints` constructor:
@@ -75,7 +75,7 @@ We start describing an endpoint by specifying the HTTP method and the path. The 
 import zio._
 import zio.http._
 import zio.http.endpoint._
-import zio.http.endpoint.EndpointMiddleware._
+import zio.http.endpoint.AuthType._
 import zio.http.codec.PathCodec
 
 val endpoint1: Endpoint[Unit, Unit, ZNothing, ZNothing, None] =
@@ -100,7 +100,6 @@ Query parameters can be described using the `Endpoint#query` method which takes 
 import zio._
 import zio.http._
 import zio.http.endpoint._
-import zio.http.endpoint.EndpointMiddleware._
 import zio.http.codec.QueryCodec
 import zio.http.RoutePattern
 import zio.http.codec.PathCodec
@@ -108,35 +107,35 @@ import zio.http.codec._
 ```
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[Unit, String, ZNothing, ZNothing, None] =
+val endpoint: Endpoint[Unit, String, ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.queryTo[String]("q"))
+    .query(HttpCodec.query[String]("q"))
 ```
 
 QueryCodecs are composable, so we can combine multiple query parameters:
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.queryTo[String]("q") ++ QueryCodec.queryTo[Int]("limit"))
+    .query(HttpCodec.query[String]("q") ++ HttpCodec.query[Int]("limit"))
 ```
 
 Or we can use the `query` method multiple times:
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[Unit, (String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.queryTo[String]("q"))
-    .query(QueryCodec.queryTo[Int]("limit"))
+    .query(HttpCodec.query[String]("q"))
+    .query(HttpCodec.query[Int]("limit"))
 ```
 
 Please note that as we add more properties to the endpoint, the input and output types of the endpoint change accordingly. For example, in the following example, we have an endpoint with a path parameter of type `String` and two query parameters of type `String` and `Int`. So the input type of the endpoint is `(String, String, Int)`:
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[String, (String, String, Int), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[String, (String, String, Int), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.string("genre"))
-    .query(QueryCodec.queryTo[String]("q"))
-    .query(QueryCodec.queryTo[Int]("limit"))
+    .query(HttpCodec.query[String]("q"))
+    .query(HttpCodec.query[Int]("limit"))
 ```
 
 When we implement the endpoint, the handler function should take the input type of a tuple that the first element is the "genre" path parameter, and the second and third elements are the query parameters "q" and "limit" respectively.
@@ -146,7 +145,7 @@ When we implement the endpoint, the handler function should take the input type 
 Headers can be described using the `Endpoint#header` method which takes a `HeaderCodec[A]` and specifies that the given header is required, for example:
 
 ```scala mdoc:compile-only
-val endpoint: Endpoint[String, (String, Header.Authorization), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[String, (String, Header.Authorization), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.string("genre"))
     .header(HeaderCodec.authorization)
 ```
@@ -164,7 +163,7 @@ object Book {
   implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
 }
 
-val endpoint: Endpoint[Unit, Book, ZNothing, ZNothing, None] =
+val endpoint: Endpoint[Unit, Book, ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.POST / "books" )
     .in[Book]
 ```
@@ -214,9 +213,9 @@ object Book {
   implicit val schema: Schema[Book] = DeriveSchema.gen[Book]
 }
 
-val endpoint: Endpoint[Unit, String, ZNothing, List[Book], None] =
+val endpoint: Endpoint[Unit, String, ZNothing, List[Book], AuthType.None] =
   Endpoint(RoutePattern.GET / "books")
-    .query(QueryCodec.query("q"))
+    .query(HttpCodec.query[String]("q"))
     .out[List[Book]]
 ```
 
@@ -228,7 +227,6 @@ Sometimes based on the condition, we might want to return different types of res
 import zio._
 import zio.http.{RoutePattern, _}
 import zio.http.endpoint.Endpoint
-import zio.http.endpoint.EndpointMiddleware.None
 import zio.schema.DeriveSchema.gen
 import zio.schema._
 
@@ -255,20 +253,20 @@ object Quiz {
 }
 
 object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
-  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Quiz, Course], None] =
+  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Quiz, Course], AuthType.None] =
     Endpoint(RoutePattern.GET / "resources")
       .out[Course]
       .out[Quiz]
 
   def run = Server.serve(
-    endpoint.implement(handler {
+    endpoint.implement(_ =>
       ZIO.randomWith(_.nextBoolean)
         .map(r =>
           if (r) Right(Course("Introduction to Programming", 49.99))
           else Left(Quiz("What is the boiling point of water in Celsius?", 2)),
         )
-    })
-    .toRoutes).provide(Server.default, Scope.default)
+    )
+    .toRoutes).provide(Server.default)
 }
 ```
 
@@ -283,10 +281,10 @@ For failure outputs, we can describe the output properties using the `Endpoint#o
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/endpoint/EndpointWithError.scala")
+printSource("zio-http-example/src/main/scala/example/endpoint/style/DeclarativeProgrammingExample.scala")
 ```
 
-In the above example, we defined an endpoint that describes a path parameter `id` as input and returns a `Book` as output. If the book is not found, the endpoint returns a `NotFound` status code with a custom error message.
+In the above example, we defined an endpoint that describes a query parameter `id` as input and returns a `Book` as output. If the book is not found, the endpoint returns a `NotFound` status code with a custom error message.
 
 ### Multiple Failure Outputs Using `Endpoint#outError`
 
@@ -306,7 +304,7 @@ implicit val bookSchema     = DeriveSchema.gen[Book]
 implicit val notFoundSchema = DeriveSchema.gen[BookNotFound]
 implicit val authSchema     = DeriveSchema.gen[AuthenticationError]
 
-val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, None] =
+val endpoint: Endpoint[Int, (Int, Header.Authorization), Either[AuthenticationError, BookNotFound], Book, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
     .header(HeaderCodec.authorization)
     .out[Book]
@@ -342,7 +340,7 @@ case class AuthenticationError(message: String, userId: Int) extends AppError(me
 implicit val notFoundSchema = DeriveSchema.gen[BookNotFound]
 implicit val authSchema     = DeriveSchema.gen[AuthenticationError]
 
-val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, None] =
+val endpoint: Endpoint[Int, (Int, Header.Authorization), AppError, Book, AuthType.None] =
   Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
     .header(HeaderCodec.authorization)
     .out[Book]
@@ -369,12 +367,12 @@ To transform the input, output, and error types of an endpoint, we can use the `
 ```scala mdoc:compile-only
 case class BookQuery(query: String, genre: String, title: String)
 
-val endpoint: Endpoint[String, (String, String, String), ZNothing, ZNothing, None] =
+val endpoint: Endpoint[String, (String, String, String), ZNothing, ZNothing, AuthType.None] =
   Endpoint(RoutePattern.POST / "books" / PathCodec.string("genre"))
-    .query(QueryCodec.query("q"))
-    .query(QueryCodec.query("title"))
+    .query(HttpCodec.query[String]("q"))
+    .query(HttpCodec.query[String]("title"))
 
-val mappedEndpoint: Endpoint[String, BookQuery, ZNothing, ZNothing, None] =
+val mappedEndpoint: Endpoint[String, BookQuery, ZNothing, ZNothing, AuthType.None] =
   endpoint.transformIn[BookQuery] { case (genre, q, title) => BookQuery(q, genre, title) } { i =>
     (i.genre, i.query, i.title)
   }
@@ -392,7 +390,7 @@ Every property of an `Endpoint` API can be annotated with documentation, may be 
 val endpoint =
   Endpoint((RoutePattern.GET / "books") ?? Doc.p("Route for querying books"))
     .query(
-      QueryCodec.queryTo[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
+      HttpCodec.query[String]("q").examples(("example1", "scala"), ("example2", "zio")) ?? Doc.p(
         "Query parameter for searching books",
       ),
     )
@@ -417,7 +415,7 @@ case class Book(
 The `OpenAPIGen.fromEndpoints` constructor generates OpenAPI documentation from the endpoints. By having the OpenAPI documentation, we can easily generate Swagger UI routes using the `SwaggerUI.routes` constructor:
 
 ```scala
-val booksRoute = endpoint.implement(handler((query: String) => BookRepo.find(query)))
+val booksRoute = endpoint.implement(query => BookRepo.find(query))
 val openAPI    = OpenAPIGen.fromEndpoints(title = "Library API", version = "1.0", endpoint)
 val swaggerRoutes = SwaggerUI.routes("docs" / "openapi", openAPI)
 val routes     = Routes(booksRoute) ++ swaggerRoutes
@@ -449,9 +447,9 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/endpoint/GenerateEndpointFromOpenAPIExample.scala")
 ```
 
-## Generating ZIO‌ CLI App from Endpoint API
+## Generating ZIO CLI App from Endpoint API
 
-The ZIO‌ CLI is a ZIO‌ library that provides a way to build command-line applications using ZIO facilities. With ZIO‌ HTTP, we can generate a ZIO CLI client from the `Endpoint` API.
+The ZIO CLI is a ZIO library that provides a way to build command-line applications using ZIO facilities. With ZIO HTTP, we can generate a ZIO CLI client from the `Endpoint` API.
 
 To do this, first, we need to add the following line to the `build.sbt` file:
 

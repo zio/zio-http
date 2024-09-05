@@ -16,11 +16,11 @@
 
 package zio.http.netty.client
 
+import zio.ZIO
 import zio.test.Assertion._
 import zio.test._
 
 import zio.http.internal.HttpGen
-import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.{Body, QueryParams, Request, URL, ZIOHttpSpec}
 
@@ -59,68 +59,72 @@ object NettyRequestEncoderSpec extends ZIOHttpSpec {
   def spec = suite("EncodeClientParams")(
     test("method") {
       check(anyClientParam) { params =>
-        val req = encode(params).map(_.method())
+        val req = ZIO.succeed(encode(params)).map(_.method())
         assertZIO(req)(equalTo(Conversions.methodToNetty(params.method)))
       }
     },
     test("method on Body.RandomAccessFile") {
       check(HttpGen.clientParamsForFileBody()) { params =>
-        val req = encode(params).map(_.method())
+        val req = ZIO.succeed(encode(params)).map(_.method())
         assertZIO(req)(equalTo(Conversions.methodToNetty(params.method)))
       }
     },
     suite("uri")(
       test("uri") {
         check(anyClientParam) { params =>
-          val req = encode(params).map(_.uri())
+          val req = ZIO.succeed(encode(params)).map(_.uri())
           assertZIO(req)(equalTo(params.url.relative.addLeadingSlash.encode))
         }
       },
       test("uri on Body.RandomAccessFile") {
         check(HttpGen.clientParamsForFileBody()) { params =>
-          val req = encode(params).map(_.uri())
+          val req = ZIO.succeed(encode(params)).map(_.uri())
           assertZIO(req)(equalTo(params.url.relative.addLeadingSlash.encode))
         }
       },
     ),
     test("content-length") {
       check(clientParamWithFiniteData(5)) { params =>
-        val req = encode(params).map(
-          _.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong,
-        )
+        val req = ZIO
+          .succeed(encode(params))
+          .map(
+            _.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong,
+          )
         assertZIO(req)(equalTo(5L))
       }
     },
     test("host header") {
       check(anyClientParam) { params =>
         val req =
-          encode(params).map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
+          ZIO.succeed(encode(params)).map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
         assertZIO(req)(equalTo(params.url.hostPort))
       }
     },
     test("host header when absolute url") {
       check(clientParamWithAbsoluteUrl) { params =>
-        val req = encode(params)
+        val req = ZIO
+          .succeed(encode(params))
           .map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
         assertZIO(req)(equalTo(params.url.hostPort))
       }
     },
     test("only one host header exists") {
       check(clientParamWithAbsoluteUrl) { params =>
-        val req = encode(params)
+        val req = ZIO
+          .succeed(encode(params))
           .map(_.headers().getAll(HttpHeaderNames.HOST).size)
         assertZIO(req)(equalTo(1))
       }
     },
     test("http version") {
       check(anyClientParam) { params =>
-        val req = encode(params).map(i => i.protocolVersion())
+        val req = ZIO.succeed(encode(params)).map(i => i.protocolVersion())
         assertZIO(req)(equalTo(Conversions.versionToNetty(params.version)))
       }
     },
     test("url with an empty path and query params") {
       check(clientParamWithEmptyPathAndQueryParams) { params =>
-        val uri = encode(params).map(_.uri)
+        val uri = ZIO.succeed(encode(params)).map(_.uri)
         assertZIO(uri)(not(equalTo(params.url.encode))) &&
         assertZIO(uri)(equalTo(params.url.addLeadingSlash.encode))
       }
@@ -128,8 +132,21 @@ object NettyRequestEncoderSpec extends ZIOHttpSpec {
     test("leading slash added to path") {
       val url     = URL.decode("https://api.github.com").toOption.get / "something" / "else"
       val req     = Request(url = url)
-      val encoded = encode(req).map(_.uri)
+      val encoded = ZIO.succeed(encode(req)).map(_.uri)
       assertZIO(encoded)(equalTo("/something/else"))
+    },
+    test("trailing slash") {
+      val url     = URL.decode("https://api.github.com").toOption.get / "something" / "else"
+      val req     = Request(url = url.addTrailingSlash)
+      val encoded = ZIO.succeed(encode(req)).map(_.uri)
+      assertZIO(encoded)(equalTo("/something/else/"))
+    },
+    test("request fragments not included") {
+      val url     = URL.decode("https://api.github.com/path#frag").toOption.get
+      val req     = Request(url = url)
+      val encoded = ZIO.succeed(encode(req)).map(_.uri)
+      assertZIO(encoded)(equalTo("/path"))
+        .map(_ && assertTrue(url.fragment.exists(_.raw == "frag")))
     },
   )
 }

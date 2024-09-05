@@ -1,5 +1,7 @@
 package example
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.stream.{ZSink, ZStream}
@@ -63,6 +65,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
       },
     ).sandbox @@ Middleware.debug
 
+  @nowarn("msg=dead code")
   private def program: ZIO[Server, Throwable, Unit] =
     for {
       port <- Server.install(app)
@@ -70,7 +73,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
       _    <- ZIO.never
     } yield ()
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
+  override def run =
     program
       .provide(
         ZLayer.succeed(Server.Config.default.enableRequestStreaming),

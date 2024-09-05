@@ -47,10 +47,7 @@ object TestServerSpec extends ZIOHttpSpec {
           client        <- ZIO.service[Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
-          finalResponse <-
-            client(
-              testRequest,
-            )
+          finalResponse <- client(testRequest)
 
         } yield assertTrue(status(finalResponse) == Status.Ok)
       },
@@ -59,10 +56,7 @@ object TestServerSpec extends ZIOHttpSpec {
           client        <- ZIO.service[Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
-          finalResponse <-
-            client(
-              testRequest.addHeaders(Headers(Header.ContentLanguage.French)),
-            )
+          finalResponse <- client(testRequest.addHeaders(Headers(Header.ContentLanguage.French)))
 
         } yield assertTrue(status(finalResponse) == Status.Ok)
       },
@@ -121,7 +115,7 @@ object TestServerSpec extends ZIOHttpSpec {
 
   private def requestToCorrectPort =
     for {
-      port <- ZIO.serviceWith[Server](_.port)
+      port <- ZIO.serviceWithZIO[Server](_.port)
     } yield Request
       .get(url = URL.root.port(port))
       .addHeaders(Headers(Header.Accept(MediaType.text.`plain`)))

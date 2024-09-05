@@ -18,11 +18,11 @@ If you prefer not to use ZIO HTTP but still want to build HTTP applications usin
 
 ### How Can I Serialize/Deserialize Data to/from JSON in Requests and Responses?
 
-ZIO HTTP provides built-in support for JSON serialization and deserialization using [ZIO Schema](https://zio.dev/zio-schema/). You can derive JSON codecs for your custom data types using ZIO Schema and use them to encode/decode data to/from request/response bodies. Check out the [BinaryCodecs](./binary_codecs.md) section in the documentation for more details.
+ZIO HTTP provides built-in support for JSON serialization and deserialization using [ZIO Schema](https://zio.dev/zio-schema/). You can derive JSON codecs for your custom data types using ZIO Schema and use them to encode/decode data to/from request/response bodies. Check out the [BinaryCodecs](./reference/body/binary_codecs.md) section in the documentation for more details.
 
 ### How Can I Handle CORS Requests in ZIO HTTP?
 
-ZIO has several middlewares including `CORS` that can be used to handle cross-origin resource sharing requests. Check out the [Middleware](./reference/middleware.md) section in the documentation for more details.
+ZIO has several middlewares including `CORS` that can be used to handle cross-origin resource sharing requests. Check out the [Middleware](./reference/aop/middleware.md) section in the documentation for more details.
 
 ### How Does ZIO HTTP Handle Errors?
 

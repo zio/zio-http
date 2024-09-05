@@ -17,44 +17,36 @@
 package zio.http.netty.client
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Trace}
+import zio.{Exit, Promise, Trace, Unsafe}
 
 import zio.http.Status
 import zio.http.internal.ChannelState
-import zio.http.netty.{AsyncBodyReader, NettyFutureExecutor, NettyRuntime}
+import zio.http.netty.AsyncBodyReader
 
 import io.netty.channel._
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
+
 final class ClientResponseStreamHandler(
-  rtm: NettyRuntime,
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
   status: Status,
 )(implicit trace: Trace)
     extends AsyncBodyReader { self =>
 
-  override def channelRead0(
-    ctx: ChannelHandlerContext,
-    msg: HttpContent,
-  ): Unit = {
+  private implicit val unsafe: Unsafe = Unsafe.unsafe
+
+  override def onLastMessage(): Unit =
+    if (keepAlive)
+      onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
+    else
+      onComplete.unsafe.done(Exit.succeed(ChannelState.Invalid))
+
+  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
     val isLast = msg.isInstanceOf[LastHttpContent]
     super.channelRead0(ctx, msg)
-
-    if (isLast) {
-      if (keepAlive)
-        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.forStatus(status)))(
-          unsafeClass,
-          trace,
-        )
-      else {
-        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-          onComplete.succeed(ChannelState.Invalid) *> NettyFutureExecutor.executed(ctx.close()),
-        )(unsafeClass, trace)
-      }
-    }
+    if (isLast && !keepAlive) ctx.close(): Unit
   }
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.fail(cause))(unsafeClass, trace)
-  }
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
+    onComplete.unsafe.done(Exit.fail(cause))
 }

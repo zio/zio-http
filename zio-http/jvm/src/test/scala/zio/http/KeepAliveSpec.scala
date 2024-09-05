@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.Scope
+import zio._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test.{Spec, assert}
@@ -66,7 +66,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   override def spec: Spec[Any, Throwable] = {
     suite("KeepAliveSpec") {
       keepAliveSpec
-    }.provide(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock @@ sequential
+    }.provide(DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
   }
 
 }

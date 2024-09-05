@@ -16,24 +16,12 @@
 
 package zio.http.endpoint
 
-import java.time.Instant
-
 import zio._
 import zio.test._
 
-import zio.stream.ZStream
-
-import zio.schema.annotation.validate
-import zio.schema.validation.Validation
-import zio.schema.{DeriveSchema, Schema}
-
-import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
-import zio.http.endpoint._
-import zio.http.forms.Fixtures.formField
 
 object NotFoundSpec extends ZIOHttpSpec {
   def spec = suite("NotFoundSpec")(
@@ -43,15 +31,15 @@ object NotFoundSpec extends ZIOHttpSpec {
           Routes(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId)"
                 }
               },
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-              .query(query("name"))
+              .query(HttpCodec.query[String]("name"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, name) =>
                   s"path(users, $userId, posts, $postId) query(name=$name)"
                 }
@@ -68,15 +56,15 @@ object NotFoundSpec extends ZIOHttpSpec {
           Routes(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId)"
                 }
               },
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-              .query(query("name"))
+              .query(HttpCodec.query[String]("name"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, name) =>
                   s"path(users, $userId, posts, $postId) query(name=$name)"
                 }

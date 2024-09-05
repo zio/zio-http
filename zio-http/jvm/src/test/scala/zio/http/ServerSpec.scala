@@ -240,7 +240,7 @@ object ServerSpec extends HttpRunnableSpec {
 
               for {
                 res <-
-                  Client.request(
+                  Client.batched(
                     Request(method = req.method, headers = req.headers, body = req.body, url = url),
                   )
               } yield res
@@ -421,7 +421,7 @@ object ServerSpec extends HttpRunnableSpec {
           val res = Handler.text("äöü").sandbox.toRoutes.deploy.contentLength.run()
           assertZIO(res)(isSome(equalTo(Header.ContentLength(6L))))
         } +
-          test("already set") {
+          test("provided content-length is overwritten by actual length") {
             val res =
               Handler
                 .text("1234567890")
@@ -431,7 +431,7 @@ object ServerSpec extends HttpRunnableSpec {
                 .deploy
                 .contentLength
                 .run()
-            assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
+            assertZIO(res)(isSome(equalTo(Header.ContentLength(10L))))
           }
       },
     ),
@@ -497,14 +497,13 @@ object ServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("ServerSpec") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
-      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
-    }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
-      .provideShared(
-        DynamicServer.live,
-        ZLayer.succeed(configApp),
-        Server.customized,
-        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Client.default,
-      ) @@ sequential @@ withLiveClock
+      suite("app without request streaming") { app.as(List(spec)) }
+    }.provideShared(
+      DynamicServer.live,
+      ZLayer.succeed(configApp),
+      Server.customized,
+      ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+      Client.default,
+    ) @@ sequential @@ withLiveClock
 
 }

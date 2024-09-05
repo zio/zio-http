@@ -2,14 +2,15 @@ package zio.http.endpoint.openapi
 
 import java.util.UUID
 
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.collection.{immutable, mutable}
 
+import zio._
 import zio.json.EncoderOps
 import zio.json.ast.Json
-import zio.{Chunk, schema}
 
-import zio.schema.Schema.Record
+import zio.schema.Schema.{Record, Transform}
 import zio.schema.codec.JsonCodec
 import zio.schema.{Schema, TypeId}
 
@@ -96,7 +97,7 @@ object OpenAPIGen {
   final case class AtomizedMetaCodecs(
     method: Chunk[MetaCodec[SimpleCodec[Method, _]]],
     path: Chunk[MetaCodec[SegmentCodec[_]]],
-    query: Chunk[MetaCodec[HttpCodec.Query[_]]],
+    query: Chunk[MetaCodec[HttpCodec.Query[_, _]]],
     header: Chunk[MetaCodec[HttpCodec.Header[_]]],
     content: Chunk[MetaCodec[HttpCodec.Atom[HttpCodecType.Content, _]]],
     status: Chunk[MetaCodec[HttpCodec.Status[_]]],
@@ -108,8 +109,8 @@ object OpenAPIGen {
         )
       case MetaCodec(_: SegmentCodec[_], _)                   =>
         copy(path = path :+ metaCodec.asInstanceOf[MetaCodec[SegmentCodec[_]]])
-      case MetaCodec(_: HttpCodec.Query[_], _)                =>
-        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_]]])
+      case MetaCodec(_: HttpCodec.Query[_, _], _)             =>
+        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_, _]]])
       case MetaCodec(_: HttpCodec.Header[_], _)               =>
         copy(header = header :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Header[_]]])
       case MetaCodec(_: HttpCodec.Status[_], _)               =>
@@ -213,13 +214,20 @@ object OpenAPIGen {
             )
         case path: HttpCodec.Path[_]                          => metaCodecFromPathCodec(path.pathCodec, annotations)
         case atom: HttpCodec.Atom[_, A]                       => Chunk(MetaCodec(atom, annotations))
-        case map: HttpCodec.TransformOrFail[_, _, _]          => flattenedAtoms(map.api, annotations)
+        case map: HttpCodec.TransformOrFail[_, _, _]          =>
+          flattenedAtoms(map.api, annotations.map(_.transformOrFail(map.g.asInstanceOf[Any => Either[String, Any]])))
         case HttpCodec.Empty                                  => Chunk.empty
         case HttpCodec.Halt                                   => Chunk.empty
         case _: HttpCodec.Fallback[_, _, _]       => in.alternatives.map(_._1).flatMap(flattenedAtoms(_, annotations))
         case HttpCodec.Annotated(api, annotation) =>
           flattenedAtoms(api, annotations :+ annotation.asInstanceOf[HttpCodec.Metadata[Any]])
       }
+  }
+
+  def method(in: Chunk[MetaCodec[SimpleCodec[Method, _]]]): Method = {
+    if (in.size > 1) throw new Exception("Multiple methods not supported")
+    in.collectFirst { case MetaCodec(SimpleCodec.Specified(method: Method), _) => method }
+      .getOrElse(throw new Exception("No method specified"))
   }
 
   def metaCodecFromPathCodec(
@@ -248,6 +256,8 @@ object OpenAPIGen {
             }
           }),
         )
+      case PathCodec.Fallback(left, _)                  =>
+        loop(left, annotations)
     }
 
     loop(codec, annotations).map { case (sc, annotations) =>
@@ -266,7 +276,9 @@ object OpenAPIGen {
     metadata: Chunk[HttpCodec.Metadata[_]] = Chunk.empty,
     referenceType: SchemaStyle = SchemaStyle.Inline,
     wrapInObject: Boolean = false,
+    omitDescription: Boolean = false,
   )(mediaType: MediaType): JsonSchema = {
+    val descriptionFromMeta = if (omitDescription) None else description(metadata)
     codec match {
       case atom: HttpCodec.Atom[_, _]                              =>
         atom match {
@@ -276,7 +288,7 @@ object OpenAPIGen {
             JsonSchema.obj(
               name -> JsonSchema
                 .fromZSchema(codec.lookup(mediaType).map(_.schema).getOrElse(codec.defaultSchema), referenceType)
-                .description(description(metadata))
+                .description(descriptionFromMeta)
                 .deprecated(deprecated(metadata))
                 .nullable(optional(metadata)),
             )
@@ -287,7 +299,7 @@ object OpenAPIGen {
             JsonSchema.obj(
               name -> JsonSchema
                 .fromZSchema(codec.lookup(mediaType).map(_.schema).getOrElse(codec.defaultSchema), referenceType)
-                .description(description(metadata))
+                .description(descriptionFromMeta)
                 .deprecated(deprecated(metadata))
                 .nullable(optional(metadata))
                 // currently we have no information about the encoding. So we just assume binary
@@ -300,26 +312,26 @@ object OpenAPIGen {
             JsonSchema.obj(
               name -> JsonSchema
                 .fromZSchema(codec.lookup(mediaType).map(_.schema).getOrElse(codec.defaultSchema), referenceType)
-                .description(description(metadata))
+                .description(descriptionFromMeta)
                 .deprecated(deprecated(metadata))
                 .nullable(optional(metadata)),
             )
           case HttpCodec.Content(codec, _, _)                               =>
             JsonSchema
               .fromZSchema(codec.lookup(mediaType).map(_.schema).getOrElse(codec.defaultSchema), referenceType)
-              .description(description(metadata))
+              .description(descriptionFromMeta)
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
           case HttpCodec.ContentStream(codec, _, _)                         =>
             JsonSchema
               .fromZSchema(codec.lookup(mediaType).map(_.schema).getOrElse(codec.defaultSchema), referenceType)
-              .description(description(metadata))
+              .description(descriptionFromMeta)
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
           case _                                                            => JsonSchema.Null
         }
       case HttpCodec.Annotated(codec, data)                        =>
-        contentAsJsonSchema(codec, metadata :+ data, referenceType, wrapInObject)(mediaType)
+        contentAsJsonSchema(codec, metadata :+ data, referenceType, wrapInObject, omitDescription)(mediaType)
       case HttpCodec.TransformOrFail(api, _, _)                    =>
         contentAsJsonSchema(api, metadata, referenceType, wrapInObject)(mediaType)
       case HttpCodec.Empty                                         => JsonSchema.Null
@@ -338,7 +350,21 @@ object OpenAPIGen {
                   .Object(p1 ++ p2, Left(false), r1 ++ r2)
                   .deprecated(deprecated(metadata))
                   .nullable(optional(metadata))
-                  .description(description(metadata))
+                  .description(descriptionFromMeta)
+                  .annotate(annotations)
+              case (JsonSchema.Object(p, _, r), JsonSchema.Null)                =>
+                JsonSchema
+                  .Object(p, Left(false), r)
+                  .deprecated(deprecated(metadata))
+                  .nullable(optional(metadata))
+                  .description(descriptionFromMeta)
+                  .annotate(annotations)
+              case (JsonSchema.Null, JsonSchema.Object(p, _, r))                =>
+                JsonSchema
+                  .Object(p, Left(false), r)
+                  .deprecated(deprecated(metadata))
+                  .nullable(optional(metadata))
+                  .description(descriptionFromMeta)
                   .annotate(annotations)
               case _ => throw new IllegalArgumentException("Multipart content without name.")
             }
@@ -346,8 +372,8 @@ object OpenAPIGen {
         }
       case HttpCodec.Combine(left, right, _)                       =>
         (
-          contentAsJsonSchema(left, Chunk.empty, referenceType, wrapInObject)(mediaType),
-          contentAsJsonSchema(right, Chunk.empty, referenceType, wrapInObject)(mediaType),
+          contentAsJsonSchema(left, Chunk.empty, referenceType, wrapInObject, omitDescription)(mediaType),
+          contentAsJsonSchema(right, Chunk.empty, referenceType, wrapInObject, omitDescription)(mediaType),
         ) match {
           case (JsonSchema.Null, JsonSchema.Null) =>
             JsonSchema.Null
@@ -355,12 +381,12 @@ object OpenAPIGen {
             schema
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
-              .description(description(metadata))
+              .description(descriptionFromMeta)
           case (schema, JsonSchema.Null)          =>
             schema
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
-              .description(description(metadata))
+              .description(descriptionFromMeta)
           case _                                  =>
             throw new IllegalStateException("A non multipart combine, should lead to at least one null schema.")
         }
@@ -483,6 +509,7 @@ object OpenAPIGen {
       schemaByStatusAndMediaType(
         endpoint.output.alternatives.map(_._1) ++ endpoint.error.alternatives.map(_._1),
         referenceType,
+        omitContentDescription = true,
       )
     // there is no status for inputs. So we just take the first one (default)
     val ins = schemaByStatusAndMediaType(endpoint.input.alternatives.map(_._1), referenceType).values.headOption
@@ -492,7 +519,7 @@ object OpenAPIGen {
       val method0        = method(inAtoms.method)
       // Endpoint has only one doc. But open api has a summery and a description
       val pathItem       = OpenAPI.PathItem.empty
-        .copy(description = Some(endpoint.doc + endpoint.input.doc.getOrElse(Doc.empty)).filter(!_.isEmpty))
+        .copy(description = Some(endpoint.documentation + endpoint.input.doc.getOrElse(Doc.empty)).filter(!_.isEmpty))
       val pathItemWithOp = method0 match {
         case Method.OPTIONS => pathItem.addOptions(operation(endpoint))
         case Method.GET     => pathItem.addGet(operation(endpoint))
@@ -533,16 +560,10 @@ object OpenAPIGen {
       OpenAPI.Path.fromString(pathString).getOrElse(throw new Exception(s"Invalid path: $pathString"))
     }
 
-    def method(in: Chunk[MetaCodec[SimpleCodec[Method, _]]]): Method = {
-      if (in.size > 1) throw new Exception("Multiple methods not supported")
-      in.collectFirst { case MetaCodec(SimpleCodec.Specified(method: Method), _) => method }
-        .getOrElse(throw new Exception("No method specified"))
-    }
-
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
-      val maybeDoc = Some(endpoint.doc + pathDoc).filter(!_.isEmpty)
+      val maybeDoc = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
-        tags = Nil,
+        tags = endpoint.tags,
         summary = None,
         description = maybeDoc,
         externalDocs = None,
@@ -593,24 +614,86 @@ object OpenAPIGen {
       queryParams ++ pathParams ++ headerParams
 
     def queryParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] = {
-      inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(name, codec, _, _), _) =>
-        OpenAPI.ReferenceOr.Or(
-          OpenAPI.Parameter.queryParameter(
-            name = name,
-            description = mc.docsOpt,
-            schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromTextCodec(codec))),
-            deprecated = mc.deprecated,
-            style = OpenAPI.Parameter.Style.Form,
-            explode = false,
-            allowReserved = false,
-            examples = mc.examples.map { case (name, value) =>
-              name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
-            },
-            required = mc.required,
-          ),
-        )
+      inAtoms.query.collect {
+        case mc @ MetaCodec(HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _)  =>
+          OpenAPI.ReferenceOr.Or(
+            OpenAPI.Parameter.queryParameter(
+              name = name,
+              description = mc.docsOpt,
+              schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
+              deprecated = mc.deprecated,
+              style = OpenAPI.Parameter.Style.Form,
+              explode = false,
+              allowReserved = false,
+              examples = mc.examples.map { case (name, value) =>
+                name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
+              },
+              required = mc.required,
+            ),
+          ) :: Nil
+        case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _) =>
+          val recordSchema = (schema match {
+            case schema if schema.isInstanceOf[Schema.Optional[_]] => schema.asInstanceOf[Schema.Optional[_]].schema
+            case _                                                 => schema
+          }).asInstanceOf[Schema.Record[Any]]
+          val examples     = mc.examples.map { case (exName, ex) =>
+            exName -> recordSchema.deconstruct(ex)(Unsafe.unsafe)
+          }
+          record.fieldAndCodecs.zipWithIndex.map { case ((field, codec), index) =>
+            OpenAPI.ReferenceOr.Or(
+              OpenAPI.Parameter.queryParameter(
+                name = field.name,
+                description = mc.docsOpt,
+                schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
+                deprecated = mc.deprecated,
+                style = OpenAPI.Parameter.Style.Form,
+                explode = false,
+                allowReserved = false,
+                examples = examples.map { case (exName, values) =>
+                  val fieldValue = values(index)
+                    .orElse(field.defaultValue)
+                    .getOrElse(
+                      throw new Exception(s"No value or default value found for field ${exName}_${field.name}"),
+                    )
+                  s"${exName}_${field.name}" -> OpenAPI.ReferenceOr.Or(
+                    OpenAPI.Example(value =
+                      Json.Str(codec.codec(CodecConfig.defaultConfig).encode(fieldValue).asString),
+                    ),
+                  )
+                },
+                required = mc.required,
+              ),
+            )
+
+          }
+        case mc @ MetaCodec(
+              HttpCodec.Query(
+                HttpCodec.Query.QueryType.Collection(
+                  _,
+                  HttpCodec.Query.QueryType.Primitive(name, codec),
+                  optional,
+                ),
+                _,
+              ),
+              _,
+            ) =>
+          OpenAPI.ReferenceOr.Or(
+            OpenAPI.Parameter.queryParameter(
+              name = name,
+              description = mc.docsOpt,
+              schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
+              deprecated = mc.deprecated,
+              style = OpenAPI.Parameter.Style.Form,
+              explode = false,
+              allowReserved = false,
+              examples = mc.examples.map { case (exName, value) =>
+                exName -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
+              },
+              required = !optional,
+            ),
+          ) :: Nil
       }
-    }.toSet
+    }.flatten.toSet
 
     def pathParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
       inAtoms.path.collect {
@@ -660,7 +743,10 @@ object OpenAPIGen {
             // There should be no enums with cases that are not records with a nominal id
             // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
             val typeId   =
-              case_.schema
+              (case_.schema match {
+                case lzy: Schema.Lazy[_] => lzy.schema
+                case _                   => case_.schema
+              })
                 .asInstanceOf[Schema.Record[_]]
                 .id
                 .asInstanceOf[TypeId.Nominal]
@@ -688,14 +774,15 @@ object OpenAPIGen {
 
     def segmentToJson(codec: SegmentCodec[_], value: Any): Json = {
       codec match {
-        case SegmentCodec.Empty      => throw new Exception("Empty segment not allowed")
-        case SegmentCodec.Literal(_) => throw new Exception("Literal segment not allowed")
-        case SegmentCodec.BoolSeg(_) => Json.Bool(value.asInstanceOf[Boolean])
-        case SegmentCodec.IntSeg(_)  => Json.Num(value.asInstanceOf[Int])
-        case SegmentCodec.LongSeg(_) => Json.Num(value.asInstanceOf[Long])
-        case SegmentCodec.Text(_)    => Json.Str(value.asInstanceOf[String])
-        case SegmentCodec.UUID(_)    => Json.Str(value.asInstanceOf[UUID].toString)
-        case SegmentCodec.Trailing   => throw new Exception("Trailing segment not allowed")
+        case SegmentCodec.Empty             => throw new Exception("Empty segment not allowed")
+        case SegmentCodec.Literal(_)        => throw new Exception("Literal segment not allowed")
+        case SegmentCodec.BoolSeg(_)        => Json.Bool(value.asInstanceOf[Boolean])
+        case SegmentCodec.IntSeg(_)         => Json.Num(value.asInstanceOf[Int])
+        case SegmentCodec.LongSeg(_)        => Json.Num(value.asInstanceOf[Long])
+        case SegmentCodec.Text(_)           => Json.Str(value.asInstanceOf[String])
+        case SegmentCodec.UUID(_)           => Json.Str(value.asInstanceOf[UUID].toString)
+        case SegmentCodec.Trailing          => throw new Exception("Trailing segment not allowed")
+        case SegmentCodec.Combined(_, _, _) => throw new Exception("Combined segment not allowed")
       }
     }
 
@@ -790,13 +877,19 @@ object OpenAPIGen {
   private def schemaByStatusAndMediaType(
     alternatives: Chunk[HttpCodec[_, _]],
     referenceType: SchemaStyle,
+    omitContentDescription: Boolean = false,
   ): Map[OpenAPI.StatusOrDefault, Map[MediaType, (JsonSchema, AtomizedMetaCodecs)]] = {
     val statusAndCodec =
       alternatives.map { codec =>
         val statusOrDefault =
           status(codec).map(OpenAPI.StatusOrDefault.StatusValue(_)).getOrElse(OpenAPI.StatusOrDefault.Default)
-        statusOrDefault -> (AtomizedMetaCodecs
-          .flatten(codec), contentAsJsonSchema(codec, referenceType = referenceType) _)
+        (
+          statusOrDefault,
+          (
+            AtomizedMetaCodecs.flatten(codec),
+            contentAsJsonSchema(codec, referenceType = referenceType, omitDescription = omitContentDescription) _,
+          ),
+        )
       }
 
     groupMap(statusAndCodec) { case (status, _) => status } { case (_, atomizedAndSchema) =>
@@ -805,7 +898,7 @@ object OpenAPIGen {
       val mapped = values
         .foldLeft(Chunk.empty[(MediaType, (AtomizedMetaCodecs, JsonSchema))]) { case (acc, (atomized, schema)) =>
           if (atomized.content.size > 1) {
-            acc :+ (MediaType.multipart.`form-data` -> (atomized, schema(MediaType.multipart.`form-data`)))
+            acc :+ ((MediaType.multipart.`form-data`, (atomized, schema(MediaType.multipart.`form-data`))))
           } else {
             val mediaType = atomized.content.headOption match {
               case Some(MetaCodec(HttpCodec.Content(codec, _, _), _))       =>
@@ -816,14 +909,14 @@ object OpenAPIGen {
               case _                                                        =>
                 MediaType.application.`json`
             }
-            acc :+ (mediaType -> (atomized, schema(mediaType)))
+            acc :+ ((mediaType, (atomized, schema(mediaType))))
           }
         }
       status -> groupMap(mapped) { case (mediaType, _) => mediaType } { case (_, atomizedAndSchema) =>
         atomizedAndSchema
       }.map {
         case (mediaType, Chunk((atomized, schema))) if values.size == 1 =>
-          mediaType -> (schema, atomized)
+          (mediaType, (schema, atomized))
         case (mediaType, values)                                        =>
           val combinedAtomized: AtomizedMetaCodecs = values.map(_._1).reduce(_ ++ _)
           val combinedContentDoc                   = combinedAtomized.contentDocs.toCommonMark
@@ -838,11 +931,12 @@ object OpenAPIGen {
               .minify
               .description(combinedContentDoc)
           }
-          mediaType -> (alternativesSchema, combinedAtomized)
+          (mediaType, (alternativesSchema, combinedAtomized))
       }
     }
   }
 
+  @tailrec
   def nominal(schema: Schema[_], referenceType: SchemaStyle): Option[String] =
     schema match {
       case enumSchema: Schema.Enum[_] =>
@@ -863,6 +957,8 @@ object OpenAPIGen {
           case nominal: TypeId.Nominal                                         =>
             Some(nominal.fullyQualified.replace(".", "_"))
         }
+      case t: Transform[_, _, _]      =>
+        nominal(t.schema, referenceType)
       case _                          => None
     }
 
@@ -880,6 +976,7 @@ object OpenAPIGen {
       }
       status -> OpenAPI.ReferenceOr.Or(
         OpenAPI.Response(
+          description = combinedAtomizedCodecs.status.headOption.flatMap(_.docsOpt),
           headers = headersFrom(combinedAtomizedCodecs),
           content = mediaTypeResponses,
           links = Map.empty,
@@ -902,7 +999,7 @@ object OpenAPIGen {
   }
   private def schemaReferencePath(nominal: TypeId.Nominal, referenceType: SchemaStyle): String = {
     referenceType match {
-      case SchemaStyle.Compact => s"#/components/schemas/${nominal.typeName}}"
+      case SchemaStyle.Compact => s"#/components/schemas/${nominal.typeName}"
       case _                   => s"#/components/schemas/${nominal.fullyQualified.replace(".", "_")}}"
     }
   }

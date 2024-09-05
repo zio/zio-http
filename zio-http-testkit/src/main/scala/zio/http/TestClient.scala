@@ -12,7 +12,7 @@ import zio._
 final case class TestClient(
   behavior: Ref[Routes[Any, Response]],
   serverSocketBehavior: Ref[WebSocketApp[Any]],
-) extends ZClient.Driver[Any, Throwable] {
+) extends ZClient.Driver[Any, Scope, Throwable] {
 
   /**
    * Adds an HttpApp to the TestClient
@@ -146,7 +146,7 @@ final case class TestClient(
     url: URL,
     headers: Headers,
     app: WebSocketApp[Env1],
-  )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
+  )(implicit trace: Trace, ev: Scope =:= Scope): ZIO[Env1 & Scope, Throwable, Response] = {
     for {
       env                   <- ZIO.environment[Env1]
       currentSocketBehavior <- serverSocketBehavior.get
