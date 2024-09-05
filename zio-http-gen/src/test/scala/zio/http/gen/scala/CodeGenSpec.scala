@@ -9,8 +9,8 @@ import scala.meta.parsers._
 import scala.util.{Failure, Success, Try}
 
 import zio.Scope
-import zio.json.{JsonDecoder, JsonEncoder}
-import zio.test.Assertion.{equalTo, hasSameElements, isFailure, isSuccess, succeeds}
+import zio.json.JsonDecoder
+import zio.test.Assertion.{hasSameElements, isFailure, isSuccess}
 import zio.test.TestAspect.{blocking, flaky}
 import zio.test._
 
@@ -24,6 +24,7 @@ import zio.http.codec._
 import zio.http.endpoint.Endpoint
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
+import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.gen.openapi.{Config, EndpointGen}
 
 @nowarn("msg=missing interpolator")
@@ -306,7 +307,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_sumtype_with_reusable_fields.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -331,11 +332,85 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema response body of sum-type with reusable aliased fields") {
+        val openAPIString = stringFromResource("/inline_schema_sumtype_with_reusable_aliased_fields.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(commonFieldsOnSuperType = true, generateSafeTypeAliases = true),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/zoo/Animal.scala",
+                "component/Animal.scala",
+                "component/AnimalSharedFields.scala",
+                "component/Age.scala",
+                "component/Weight.scala",
+                "component/HttpError.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "api/v1/zoo/Animal.scala",
+              "/EndpointForZoo.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/Age.scala",
+              "/ComponentAliasAge.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/Weight.scala",
+              "/ComponentAliasWeight.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/Animal.scala",
+              "/ComponentAnimalWithAbstractAliasedMembers.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/HttpError.scala",
+              "/ComponentHttpError.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema response body of sum-type with reusable un-aliased fields") {
+        val openAPIString = stringFromResource("/inline_schema_sumtype_with_reusable_aliased_fields.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(commonFieldsOnSuperType = true, generateSafeTypeAliases = false),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/zoo/Animal.scala",
+                "component/Animal.scala",
+                "component/AnimalSharedFields.scala",
+                "component/HttpError.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "api/v1/zoo/Animal.scala",
+              "/EndpointForZoo.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/Animal.scala",
+              "/ComponentAnimalWithAbstractUnAliasedMembers.scala",
+            ) && fileShouldBe(
+              testDir,
+              "component/HttpError.scala",
+              "/ComponentHttpError.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test("OpenAPI spec with inline schema response body of sum-type with multiple reusable fields") {
         val openAPIString = stringFromResource("/inline_schema_sumtype_with_multiple_reusable_fields.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -374,7 +449,7 @@ object CodeGenSpec extends ZIOSpecDefault {
 
         openApiFromYamlString(openAPIString) { oapi =>
           assert {
-            Try(EndpointGen.fromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)))
+            Try(EndpointGen.fromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)))
           }(isFailure)
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
@@ -385,7 +460,7 @@ object CodeGenSpec extends ZIOSpecDefault {
           stringFromResource("/inline_schema_sumtype_with_multiple_non_contradicting_reusable_fields.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -410,7 +485,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_sumtype_with_subtype_referenced_directly.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -439,7 +514,10 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_alias_primitives.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = true)) { testDir =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(commonFieldsOnSuperType = true, generateSafeTypeAliases = true),
+          ) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -487,7 +565,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_alias_primitives.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = true, generateSafeTypeAliases = false)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(commonFieldsOnSuperType = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -810,7 +888,7 @@ object CodeGenSpec extends ZIOSpecDefault {
         val openAPIString = stringFromResource("/inline_schema_constrained_keys_map.yaml")
 
         openApiFromYamlString(openAPIString) { oapi =>
-          codeGenFromOpenAPI(oapi, Config(commonFieldsOnSuperType = false, generateSafeTypeAliases = true)) { testDir =>
+          codeGenFromOpenAPI(oapi, Config.default.copy(generateSafeTypeAliases = true)) { testDir =>
             allFilesShouldBe(
               testDir.toFile,
               List(
@@ -864,5 +942,35 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       },
+      test("Endpoint with normalized field names") {
+        val openAPIString = stringFromResource("/inline_schema_weird_field_names.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(
+              fieldNamesNormalization = NormalizeFields(
+                enableAutomatic = true,
+                manualOverrides = Map(
+                  "1st item" -> "firstItem",
+                  "2nd item" -> "secondItem",
+                ),
+              ),
+            ),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/shop/order/Id.scala",
+                "component/Order.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Order.scala",
+              "/ComponentOrderWithNormalizedFieldNames.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
     ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }

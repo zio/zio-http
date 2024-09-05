@@ -2,6 +2,7 @@ package zio.http.endpoint.openapi
 
 import java.util.UUID
 
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.collection.{immutable, mutable}
 
@@ -9,7 +10,7 @@ import zio._
 import zio.json.EncoderOps
 import zio.json.ast.Json
 
-import zio.schema.Schema.Record
+import zio.schema.Schema.{Record, Transform}
 import zio.schema.codec.JsonCodec
 import zio.schema.{Schema, TypeId}
 
@@ -935,6 +936,7 @@ object OpenAPIGen {
     }
   }
 
+  @tailrec
   def nominal(schema: Schema[_], referenceType: SchemaStyle): Option[String] =
     schema match {
       case enumSchema: Schema.Enum[_] =>
@@ -955,6 +957,8 @@ object OpenAPIGen {
           case nominal: TypeId.Nominal                                         =>
             Some(nominal.fullyQualified.replace(".", "_"))
         }
+      case t: Transform[_, _, _]      =>
+        nominal(t.schema, referenceType)
       case _                          => None
     }
 
