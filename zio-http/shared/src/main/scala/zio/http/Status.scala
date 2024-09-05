@@ -40,7 +40,7 @@ sealed trait Status extends Product with Serializable { self =>
   lazy val text: String = code.toString
 
   /**
-   * Returns an Routes[Any, Nothing] that responses with this http status code.
+   * Returns a Routes[Any, Nothing] that responses with this http status code.
    */
   def toRoutes(implicit trace: Trace): Routes[Any, Nothing] =
     Handler.status(self).toRoutes

@@ -3,9 +3,9 @@ package zio.http.gen.scala
 import scala.meta.Term
 import scala.meta.prettyprinters.XtensionSyntax
 
+import zio.http.gen.openapi
+import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.{Method, Status}
-
-import com.sun.tools.javac.code.TypeMetadata.Annotations
 
 sealed trait Code extends Product with Serializable
 
@@ -134,7 +134,7 @@ object Code {
     abstractMembers: List[Field] = Nil,
   ) extends ScalaType
 
-  final case class Annotation(value: String)
+  final case class Annotation(value: String, imports: List[Code.Import]) extends Code
 
   sealed abstract case class Field private (name: String, fieldType: ScalaType, annotations: List[Annotation])
       extends Code {
@@ -145,18 +145,61 @@ object Code {
 
   object Field {
 
-    def apply(name: String): Field                                               = apply(name, ScalaType.Inferred)
-    def apply(name: String, fieldType: ScalaType): Field                         = {
-      val validScalaTermName = Term.Name(name).syntax
-      new Field(validScalaTermName, fieldType, Nil) {}
+    def apply(name: String): Field =
+      apply(name, ScalaType.Inferred)
+
+    def apply(name: String, conf: NormalizeFields): Field =
+      apply(name, ScalaType.Inferred, conf)
+
+    def apply(name: String, fieldType: ScalaType): Field =
+      apply(name, fieldType, openapi.Config.default.fieldNamesNormalization)
+
+    def apply(name: String, fieldType: ScalaType, conf: NormalizeFields): Field =
+      apply(name, fieldType, Nil, conf)
+
+    def apply(name: String, fieldType: ScalaType, annotation: Annotation, conf: NormalizeFields): Field =
+      apply(name, fieldType, List(annotation), conf)
+
+    def apply(name: String, fieldType: ScalaType, annotations: List[Annotation], conf: NormalizeFields): Field = {
+
+      def mkValidScalaTermName(term: String) = Term.Name(term).syntax
+
+      val (validScalaTermName, originalFieldNameAnnotation) = conf.manualOverrides
+        .get(name)
+        .orElse(if (conf.enableAutomatic) normalize(name) else None)
+        .fold(mkValidScalaTermName(name) -> Option.empty[Annotation]) { maybeValidScala =>
+          val valid = mkValidScalaTermName(maybeValidScala)
+          // if modified name is an invalid scala term,
+          // then no reason to use backticks wrapped non-original name.
+          // In this case we return the original name,
+          // after possibly wrapping with backticks.
+          if (valid != maybeValidScala) mkValidScalaTermName(name) -> Option.empty[Annotation]
+          else {
+            val annotationString = "@fieldName(\"" + name + "\")"
+            val annotationImport = List(Import("zio.schema.annotation.fieldName"))
+            maybeValidScala -> Some(Annotation(annotationString, annotationImport))
+          }
+        }
+
+      val allAnnotations = originalFieldNameAnnotation.fold(annotations)(annotations.::)
+      new Field(validScalaTermName, fieldType, allAnnotations.sortBy(_.value)) {}
     }
-    def apply(name: String, fieldType: ScalaType, annotation: Annotation): Field = {
-      val validScalaTermName = Term.Name(name).syntax
-      new Field(validScalaTermName, fieldType, List(annotation)) {}
-    }
-    def apply(name: String, fieldType: ScalaType, annotations: List[Annotation]): Field = {
-      val validScalaTermName = Term.Name(name).syntax
-      new Field(validScalaTermName, fieldType, annotations) {}
+
+    private val regex = "(?<=[a-z0-9])(?=[A-Z0-9])|(?<=[A-Z0-9])(?=[A-Z0-9][a-z0-9])|[^a-zA-Z0-9]+"
+
+    def normalize(name: String): Option[String] = {
+
+      name
+        .split(regex)
+        .toList match {
+        case Nil          => None
+        case head :: tail =>
+          val normalized = (head.toLowerCase :: tail.map(_.capitalize)).mkString
+          // no need to normalize if the name is already normalized
+          // returning None here will signal there's no need for annotation.
+          if (normalized == name) None
+          else Some(normalized)
+      }
     }
   }
 

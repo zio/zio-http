@@ -1,7 +1,7 @@
 package test.component
 
-import zio.schema._
 import zio.Chunk
+import zio.schema._
 
 case class Animal(
   species: String,

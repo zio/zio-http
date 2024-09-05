@@ -8,6 +8,7 @@ object Dependencies {
   val ZioVersion                    = "2.1.9"
   val ZioCliVersion                 = "0.5.0"
   val ZioJsonVersion                = "0.7.1"
+  val ZioParserVersion              = "0.1.10"
   val ZioSchemaVersion              = "1.4.1"
   val SttpVersion                   = "3.3.18"
   val ZioConfigVersion              = "4.0.2"
@@ -36,6 +37,9 @@ object Dependencies {
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
+  val `zio-config`          = "dev.zio" %% "zio-config"          % ZioConfigVersion
+  val `zio-config-magnolia` = "dev.zio" %% "zio-config-magnolia" % ZioConfigVersion
+  val `zio-config-typesafe` = "dev.zio" %% "zio-config-typesafe" % ZioConfigVersion
   val `zio-json-yaml`       = "dev.zio" %% "zio-json-yaml"       % ZioJsonVersion
   val `zio-streams`         = "dev.zio" %% "zio-streams"         % ZioVersion
   val `zio-schema`          = "dev.zio" %% "zio-schema"          % ZioSchemaVersion

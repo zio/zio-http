@@ -3101,6 +3101,142 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("components are generated for big model with 22+ fields") {
+        val endpoint     = Endpoint(Method.GET / "api" / "v1" / "users").out[BigModel]
+        val generated    = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "",
+                             |    "version" : ""
+                             |  },
+                             |  "paths" : {
+                             |    "/api/v1/users" : {
+                             |      "get" : {
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/BigModel"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "BigModel" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "f20" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f19" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f7" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f6" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f14" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f18" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f8" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f10" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f5" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f21" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f3" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f9" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f17" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f22" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f15" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f16" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f1" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f13" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f4" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f11" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f23" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f2" : {
+                             |            "type" : "boolean"
+                             |          },
+                             |          "f12" : {
+                             |            "type" : "boolean"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "f1",
+                             |          "f2",
+                             |          "f3",
+                             |          "f4",
+                             |          "f5",
+                             |          "f6",
+                             |          "f7",
+                             |          "f8",
+                             |          "f9",
+                             |          "f10",
+                             |          "f11",
+                             |          "f12",
+                             |          "f13",
+                             |          "f14",
+                             |          "f15",
+                             |          "f16",
+                             |          "f17",
+                             |          "f18",
+                             |          "f19",
+                             |          "f20",
+                             |          "f21",
+                             |          "f22",
+                             |          "f23"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}
+                             |""".stripMargin
+        assertTrue(
+          json == toJsonAst(expectedJson),
+        )
+      },
     )
 
 }
