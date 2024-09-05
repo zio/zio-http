@@ -51,7 +51,7 @@ sealed trait Header {
 object Header {
 
   sealed trait HeaderType {
-    type HeaderValue
+    type HeaderValue <: Header
 
     def name: String
 
