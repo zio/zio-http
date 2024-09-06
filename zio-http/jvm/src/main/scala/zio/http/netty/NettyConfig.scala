@@ -78,7 +78,7 @@ object NettyConfig {
   val default: NettyConfig = NettyConfig(
     LeakDetectionLevel.SIMPLE,
     ChannelType.AUTO,
-    0,
+    java.lang.Runtime.getRuntime.availableProcessors(),
     // Defaults taken from io.netty.util.concurrent.AbstractEventExecutor
     Duration.fromSeconds(2),
     Duration.fromSeconds(15),

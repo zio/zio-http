@@ -18,16 +18,18 @@ package zio.http.netty.server
 
 import java.lang.{Boolean => JBoolean}
 import java.net.InetSocketAddress
-
 import zio._
-
 import zio.http.Driver.StartResult
 import zio.http.netty._
 import zio.http.netty.client.NettyClientDriver
 import zio.http.{ClientDriver, Driver, Response, Routes, Server}
-
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
+import io.netty.channel.epoll.{EpollChannelOption, EpollEventLoopGroup, EpollMode}
+import io.netty.channel.kqueue.KQueueEventLoopGroup
+import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.unix.UnixChannelOption
+import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 import io.netty.util.ResourceLeakDetector
 
 private[zio] final case class NettyDriver(
@@ -40,16 +42,40 @@ private[zio] final case class NettyDriver(
   nettyConfig: NettyConfig,
 ) extends Driver { self =>
 
+  private val isUnix = !java.lang.System.getProperty("os.name").toLowerCase().contains("windows")
+
   def start(implicit trace: Trace): RIO[Scope, StartResult] =
     for {
+      boss    <- {
+        // The boss group is responsible for accepting new connections.
+        // It's recommended to use a separate, single-threaded group for this purpose to avoid contention between
+        // accepting new connections and processing I/O.
+        val cfg = nettyConfig.maxThreads(1).copy(shutdownQuietPeriodDuration = 0.seconds)
+        eventLoopGroup match {
+          case _: EpollEventLoopGroup   => EventLoopGroups.epoll(cfg)
+          case _: KQueueEventLoopGroup  => EventLoopGroups.kqueue(cfg)
+          case _: IOUringEventLoopGroup => EventLoopGroups.uring(cfg)
+          case _                        => EventLoopGroups.nio(cfg)
+        }
+      }
       chf     <- ZIO.attempt {
-        new ServerBootstrap()
-          .group(eventLoopGroup)
+        val isEpoll = eventLoopGroup.isInstanceOf[EpollEventLoopGroup]
+        val b       = new ServerBootstrap()
+          .group(boss, eventLoopGroup)
           .channelFactory(channelFactory)
           .childHandler(channelInitializer)
           .option[Integer](ChannelOption.SO_BACKLOG, serverConfig.soBacklog)
           .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.tcpNoDelay)
-          .bind(serverConfig.address)
+
+        if (isEpoll)
+          b
+            .option(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED)
+            .childOption(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED)
+
+        if (isUnix)
+          b.childOption[JBoolean](UnixChannelOption.SO_REUSEPORT, true)
+
+        b.bind(serverConfig.address)
       }
       _       <- NettyFutureExecutor.scoped(chf)
       _       <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyConfig.leakDetectionLevel.toNetty))
