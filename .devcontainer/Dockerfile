@@ -12,7 +12,6 @@ ARG SBT_VERSION="1.10.1"
 RUN \
   curl -L "https://github.com/sbt/sbt/releases/download/v$SBT_VERSION/sbt-$SBT_VERSION.tgz" | tar zxf - -C /usr/share  && \
   cd /usr/share/sbt/bin && \
-  rm sbt.bat sbtn-x86_64-apple-darwin sbtn-x86_64-pc-linux sbtn-x86_64-pc-win32.exe && \
   ln -s /usr/share/sbt/bin/sbt /usr/local/bin/sbt
 
 ARG SCALA_VERSION="3.3.3"
