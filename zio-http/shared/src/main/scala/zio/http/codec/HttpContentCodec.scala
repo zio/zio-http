@@ -27,11 +27,11 @@ sealed trait HttpContentCodec[A] { self =>
   def decodeRequest(request: Request, config: CodecConfig): Task[A] = {
     val contentType = mediaTypeFromContentTypeHeader(request)
     lookup(contentType) match {
-      case Some(codec) =>
+      case Some((_, codec)) =>
         request.body.asChunk.flatMap { bytes =>
           ZIO.fromEither(codec.codec(config).decode(bytes))
         }
-      case None        =>
+      case None             =>
         ZIO.fail(throw new IllegalArgumentException(s"No codec found for content type $contentType"))
     }
   }
@@ -42,11 +42,11 @@ sealed trait HttpContentCodec[A] { self =>
   def decodeResponse(response: Response, config: CodecConfig): Task[A] = {
     val contentType = mediaTypeFromContentTypeHeader(response)
     lookup(contentType) match {
-      case Some(codec) =>
+      case Some((_, codec)) =>
         response.body.asChunk.flatMap { bytes =>
           ZIO.fromEither(codec.codec(config).decode(bytes))
         }
-      case None        =>
+      case None             =>
         ZIO.fail(throw new IllegalArgumentException(s"No codec found for content type $contentType"))
     }
   }
@@ -97,7 +97,7 @@ sealed trait HttpContentCodec[A] { self =>
       while (i < mediaTypes.size && result == null) {
         val mediaType    = mediaTypes(i)
         val lookupResult = lookup(mediaType.mediaType)
-        if (lookupResult.isDefined) result = (mediaType.mediaType, lookupResult.get)
+        if (lookupResult.isDefined) result = lookupResult.get
         i += 1
       }
       if (result == null) {
@@ -118,14 +118,14 @@ sealed trait HttpContentCodec[A] { self =>
       while (i < mediaTypes.size && result == null) {
         val mediaType    = mediaTypes(i)
         val lookupResult = lookup(mediaType.mediaType)
-        if (lookupResult.isDefined) result = (mediaType.mediaType, lookupResult.get)
+        if (lookupResult.isDefined) result = lookupResult.get
         i += 1
       }
       if (result == null) (defaultMediaType, defaultBinaryCodecWithSchema)
       else result
     }
 
-  def lookup(mediaType: MediaType): Option[BinaryCodecWithSchema[A]]
+  def lookup(mediaType: MediaType): Option[(MediaType, BinaryCodecWithSchema[A])]
 
   private[http] val defaultMediaType: MediaType =
     choices.headOption.map(_._1).getOrElse {
@@ -151,16 +151,17 @@ object HttpContentCodec {
   final case class Choices[A](
     choices: ListMap[MediaType, BinaryCodecWithSchema[A]],
   ) extends HttpContentCodec[A] {
-    private var lookupCache: Map[MediaType, Option[BinaryCodecWithSchema[A]]] = Map.empty
+    private var lookupCache: Map[MediaType, Option[(MediaType, BinaryCodecWithSchema[A])]] = Map.empty
 
-    override def lookup(mediaType: MediaType): Option[BinaryCodecWithSchema[A]] =
-      lookupCache.getOrElse(
-        mediaType, {
-          val result = choices.get(mediaType)
-          lookupCache = lookupCache + (mediaType -> result)
-          result
-        },
-      )
+    override def lookup(mediaType: MediaType): Option[(MediaType, BinaryCodecWithSchema[A])] = {
+      if (lookupCache.contains(mediaType)) {
+        lookupCache(mediaType)
+      } else {
+        val codec = choices.collectFirst { case (mt, codec) if mt.matches(mediaType) => mt -> codec }
+        lookupCache = lookupCache + (mediaType -> codec)
+        codec
+      }
+    }
   }
 
   final case class Filtered[A](codec: HttpContentCodec[A], mediaType: MediaType) extends HttpContentCodec[A] {
@@ -168,11 +169,10 @@ object HttpContentCodec {
     override lazy val choices: ListMap[MediaType, BinaryCodecWithSchema[A]] =
       codec.choices.filter(_._1 == mediaType)
 
-    private val choice      = choices.headOption
-    private val codecChoice = choice.map(_._2)
+    private val choice = choices.headOption
 
-    override def lookup(mediaType: MediaType): Option[BinaryCodecWithSchema[A]] =
-      if (self.mediaType.matches(mediaType)) codecChoice else None
+    override def lookup(mediaType: MediaType): Option[(MediaType, BinaryCodecWithSchema[A])] =
+      if (self.mediaType.matches(mediaType)) choice else None
   }
 
   private final case class DefaultCodecError(name: String, message: String)
