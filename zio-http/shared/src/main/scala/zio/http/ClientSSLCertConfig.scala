@@ -8,8 +8,8 @@ sealed trait ClientSSLCertConfig
 object ClientSSLCertConfig {
   val config: Config[ClientSSLCertConfig] = {
     val tpe      = Config.string("type")
-    val certPath = Config.string("certPath")
-    val keyPath  = Config.string("keyPath")
+    val certPath = Config.string("cert-path")
+    val keyPath  = Config.string("key-path")
 
     val fromCertFile     = certPath.zipWith(keyPath)(FromClientCertFile(_, _))
     val fromCertResource = certPath.zipWith(keyPath)(FromClientCertResource(_, _))
