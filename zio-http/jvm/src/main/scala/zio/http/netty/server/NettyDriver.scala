@@ -45,6 +45,9 @@ private[zio] final case class NettyDriver(
   def start(implicit trace: Trace): RIO[Scope, StartResult] =
     for {
       chf     <- ZIO.attempt {
+        val isUnix  = !java.lang.System.getProperty("os.name").toLowerCase.startsWith("windows")
+        val isEpoll = eventLoopGroups.parent.isInstanceOf[EpollEventLoopGroup]
+
         val builder = new ServerBootstrap()
           .group(eventLoopGroups.parent, eventLoopGroups.child)
           .channelFactory(channelFactory)
@@ -52,10 +55,11 @@ private[zio] final case class NettyDriver(
           .option[Integer](ChannelOption.SO_BACKLOG, serverConfig.soBacklog)
           .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.tcpNoDelay)
 
-        if (eventLoopGroups.parent.isInstanceOf[EpollEventLoopGroup])
-          builder
-            .option(EpollChannelOption.EPOLL_MODE, EpollMode.LEVEL_TRIGGERED)
-            .option[JBoolean](UnixChannelOption.SO_REUSEPORT, true)
+        if (isUnix)
+          builder.option[JBoolean](UnixChannelOption.SO_REUSEPORT, true)
+
+        if (isEpoll)
+          builder.option(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED)
 
         builder.bind(serverConfig.address)
       }
