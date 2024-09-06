@@ -9,11 +9,11 @@ import scala.meta._
 import scala.meta.parsers._
 import scala.util.{Failure, Success, Try}
 
-import zio.Scope
 import zio.json.JsonDecoder
 import zio.test.Assertion.{hasSameElements, isFailure, isSuccess}
 import zio.test.TestAspect.{blocking, flaky}
 import zio.test._
+import zio.{Chunk, Scope}
 
 import zio.schema.annotation.validate
 import zio.schema.codec.JsonCodec
@@ -23,7 +23,7 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
-import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
+import zio.http.endpoint.openapi.{JsonSchema, OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.gen.openapi.{Config, EndpointGen}
@@ -446,7 +446,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test(
-        "OpenAPI spec with inline schema response body of sum-type with multiple contradicting reusable fields and super type members",
+        "OpenAPI spec with inline schema response body of sum-type with multiple contradicting reusable fields and " +
+          "super type members",
       ) {
         val openAPIString =
           stringFromResource("/inline_schema_sumtype_with_multiple_contradicting_reusable_fields.yaml")
@@ -458,7 +459,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test(
-        "OpenAPI spec with inline schema response body of sum-type with multiple non-contradicting reusable fields and super type members",
+        "OpenAPI spec with inline schema response body of sum-type with multiple non-contradicting reusable fields " +
+          "and super type members",
       ) {
         val openAPIString =
           stringFromResource("/inline_schema_sumtype_with_multiple_non_contradicting_reusable_fields.yaml")
@@ -929,7 +931,8 @@ object CodeGenSpec extends ZIOSpecDefault {
           assertTrue(
             Try(
               codeGenFromOpenAPI(oapi)(_ => TestResult(TestArrow.succeed(true))),
-            ).failed.get.getMessage == "x-string-key-schema must reference a string schema, but got: {\"type\":\"integer\",\"format\":\"int32\"}",
+            ).failed.get.getMessage == "x-string-key-schema must reference a string schema, but " +
+              "got: {\"type\":\"integer\",\"format\":\"int32\"}",
           )
         }
       },
@@ -1042,6 +1045,119 @@ object CodeGenSpec extends ZIOSpecDefault {
           maybeEndpointCode.is(_.some).outCodes.length == 1 &&
             maybeEndpointCode.is(_.some).errorsCode.length == 2,
         )
+      },
+      test("schema import is added when needed") {
+        val oapi =
+          OpenAPI(
+            openapi = "3.0.0",
+            info = OpenAPI.Info(
+              title = "XXX",
+              description = None,
+              termsOfService = None,
+              contact = None,
+              license = None,
+              version = "1.0.0",
+            ),
+            paths = ListMap(
+              OpenAPI.Path
+                .fromString(name = "/api/a/b")
+                .map { path =>
+                  path -> OpenAPI.PathItem(
+                    ref = None,
+                    summary = None,
+                    description = None,
+                    get = None,
+                    put = None,
+                    post = Some(
+                      OpenAPI.Operation(
+                        summary = None,
+                        description = None,
+                        externalDocs = None,
+                        operationId = None,
+                        requestBody = Some(
+                          OpenAPI.ReferenceOr.Or(
+                            OpenAPI.RequestBody(
+                              content = Map(
+                                "application/json" -> OpenAPI.MediaType(
+                                  OpenAPI.ReferenceOr.Or(
+                                    JsonSchema.Object(
+                                      properties = Map(
+                                        "h" -> JsonSchema.String(None, None),
+                                        "i" -> JsonSchema.String(None, None),
+                                        "j" -> JsonSchema.String(None, None),
+                                        "k" -> JsonSchema.String(None, None),
+                                      ),
+                                      additionalProperties = Left(true),
+                                      required = Chunk("h", "i", "j", "k"),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    delete = None,
+                    options = None,
+                    head = None,
+                    patch = None,
+                    trace = None,
+                  )
+                }
+                .toSeq: _*,
+            ),
+            components = None,
+            externalDocs = None,
+          )
+
+        def suspendAssertion[A](assertion: => Assertion[A]) =
+          Assertion(
+            TestArrow.suspend((a: A) => TestArrow.succeed(a) >>> assertion.arrow),
+          )
+
+        val importsZioSchema: Assertion[Code.File] =
+          Assertion.hasField("imports", (_: Code.File).imports, Assertion.contains(Code.Import("zio.schema._")))
+        val objectsOwnSchemaIsNone = Assertion.hasField("schema", (_: Code.Object).schema, Assertion.isNone)
+        lazy val objectCaseClassesContainNoSchema: Assertion[Code.Object]      =
+          Assertion.hasField(
+            "caseClasses",
+            (_: Code.Object).caseClasses,
+            Assertion.forall(caseClassCompanionsContainNoSchema),
+          )
+        lazy val caseClassCompanionsContainNoSchema: Assertion[Code.CaseClass] =
+          Assertion.hasField(
+            "companionObject",
+            (_: Code.CaseClass).companionObject,
+            Assertion.isNone || Assertion.isSome(objectContainsNoSchema),
+          )
+        lazy val objectObjectsContainNoSchema: Assertion[Code.Object]          =
+          Assertion.hasField(
+            "objects",
+            (_: Code.Object).objects,
+            Assertion.forall(objectContainsNoSchema),
+          )
+        lazy val objectContainsNoSchema: Assertion[Code.Object]                =
+          suspendAssertion {
+            objectsOwnSchemaIsNone &&
+            objectObjectsContainNoSchema &&
+            objectCaseClassesContainNoSchema
+          }
+        val fileObjectsContainNoSchema: Assertion[Code.File]                   =
+          Assertion.hasField("objects", (_: Code.File).objects, Assertion.forall(objectContainsNoSchema))
+        val fileCaseClassCompanionsContainNoSchema                             =
+          Assertion.hasField(
+            "caseClasses",
+            (_: Code.File).caseClasses,
+            Assertion.forall(caseClassCompanionsContainNoSchema),
+          )
+        val fileContainsNoSchema: Assertion[Code.File]                         =
+          fileObjectsContainNoSchema &&
+            fileCaseClassCompanionsContainNoSchema
+
+        assert(EndpointGen.fromOpenAPI(oapi, Config.default).files) {
+          Assertion.forall(importsZioSchema || fileContainsNoSchema)
+        }
       },
     ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }
