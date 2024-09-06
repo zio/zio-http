@@ -8,7 +8,7 @@ import zio.http.netty.client.NettyClientDriver
 
 trait ZClientPlatformSpecific {
 
-  lazy val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
+  def customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
@@ -25,7 +25,7 @@ trait ZClientPlatformSpecific {
     }
   }
 
-  lazy val live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
+  def live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     (NettyClientDriver.live ++ ZLayer.service[DnsResolver]) >>> customized
   }.fresh
@@ -39,7 +39,7 @@ trait ZClientPlatformSpecific {
         ZLayer(ZIO.config(NettyConfig.config.nested(path.head, path.tail: _*)))
     ).mapError(error => new RuntimeException(s"Configuration error: $error")) >>> live
 
-  lazy val default: ZLayer[Any, Throwable, Client] = {
+  def default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.defaultWithFastShutdown) ++
       DnsResolver.default) >>> live

@@ -151,9 +151,9 @@ final case class JsonSchemas(
 
 sealed trait JsonSchema extends Product with Serializable { self =>
 
-  lazy val toJsonBytes: Chunk[Byte] = JsonCodec.schemaBasedBinaryCodec[JsonSchema].encode(self)
+  def toJsonBytes: Chunk[Byte] = JsonCodec.schemaBasedBinaryCodec[JsonSchema].encode(self)
 
-  lazy val toJson: String = toJsonBytes.asString
+  def toJson: String = toJsonBytes.asString
 
   protected[openapi] def toSerializableSchema: SerializableJsonSchema
   def annotate(annotations: Chunk[JsonSchema.MetaData]): JsonSchema =

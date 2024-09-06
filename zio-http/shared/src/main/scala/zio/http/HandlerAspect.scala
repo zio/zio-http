@@ -273,11 +273,11 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def basicAuth(u: String, p: String): HandlerAspect[Any, Unit] =
     basicAuth { credentials =>
-      val passwd                = zio.Config.Secret(p)
-      val dummy                 = zio.Config.Secret(if (p.isEmpty) "a" else "")
-      lazy val userComparison   = zio.Config.Secret(credentials.uname) == zio.Config.Secret(u)
-      lazy val passwdComparison = credentials.upassword == passwd
-      lazy val dummyComparison  =
+      val passwd           = zio.Config.Secret(p)
+      val dummy            = zio.Config.Secret(if (p.isEmpty) "a" else "")
+      def userComparison   = zio.Config.Secret(credentials.uname) == zio.Config.Secret(u)
+      def passwdComparison = credentials.upassword == passwd
+      def dummyComparison  =
         passwd == dummy // comparison to make the password comparison run regardless of the userComparison
       if (userComparison) passwdComparison else dummyComparison
     }

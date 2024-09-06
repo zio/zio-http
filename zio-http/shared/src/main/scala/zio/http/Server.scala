@@ -198,7 +198,7 @@ object Server extends ServerPlatformSpecific {
   }
 
   object Config {
-    lazy val config: zio.Config[Config] = {
+    def config: zio.Config[Config] = {
       SSLConfig.config.optional ++
         zio.Config.string("binding-host").optional ++
         zio.Config.int("binding-port").withDefault(Config.default.address.getPort) ++
@@ -254,7 +254,7 @@ object Server extends ServerPlatformSpecific {
         )
     }
 
-    lazy val default: Config = Config(
+    val default: Config = Config(
       sslConfig = None,
       address = new InetSocketAddress(8080),
       acceptContinue = false,
@@ -279,7 +279,7 @@ object Server extends ServerPlatformSpecific {
     )
 
     object ResponseCompressionConfig {
-      lazy val config: zio.Config[ResponseCompressionConfig] =
+      def config: zio.Config[ResponseCompressionConfig] =
         (
           zio.Config.int("content-threshold").withDefault(ResponseCompressionConfig.default.contentThreshold) ++
             CompressionOptions.config.repeat.nested("options")
@@ -287,7 +287,7 @@ object Server extends ServerPlatformSpecific {
           ResponseCompressionConfig(contentThreshold, options)
         }
 
-      lazy val default: ResponseCompressionConfig =
+      val default: ResponseCompressionConfig =
         ResponseCompressionConfig(0, IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()))
     }
 
@@ -388,7 +388,7 @@ object Server extends ServerPlatformSpecific {
       ): CompressionOptions =
         CompressionOptions.Brotli(BrotliConfig(quality, lgwin, mode))
 
-      lazy val config: zio.Config[CompressionOptions] =
+      def config: zio.Config[CompressionOptions] =
         (
           (zio.Config.int("level").withDefault(DeflateConfig.DefaultLevel) ++
             zio.Config.int("bits").withDefault(DeflateConfig.DefaultBits) ++
@@ -426,7 +426,7 @@ object Server extends ServerPlatformSpecific {
      */
     final case class Hybrid(maximumAggregatedLength: Int) extends RequestStreaming
 
-    lazy val config: zio.Config[RequestStreaming] =
+    val config: zio.Config[RequestStreaming] =
       (zio.Config.boolean("enabled").withDefault(true) ++
         zio.Config.int("maximum-content-length").withDefault(1024 * 100)).map {
         case (true, _)          => Enabled

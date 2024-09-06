@@ -51,7 +51,7 @@ final case class Request(
     )
 
   /** Custom headers and headers required by the used Body */
-  lazy val allHeaders: Headers = {
+  val allHeaders: Headers = {
     body.mediaType match {
       case Some(mediaType) =>
         headers ++ Headers(Header.ContentType(mediaType, body.boundary))

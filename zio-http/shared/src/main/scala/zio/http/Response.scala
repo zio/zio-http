@@ -406,9 +406,8 @@ object Response {
 
   def unauthorized(message: String): Response = error(Status.Unauthorized, message)
 
-  private lazy val contentTypeJson: Headers        = Headers(Header.ContentType(MediaType.application.json).untyped)
-  private lazy val contentTypeHtml: Headers        = Headers(Header.ContentType(MediaType.text.html).untyped)
-  private lazy val contentTypeText: Headers        = Headers(Header.ContentType(MediaType.text.plain).untyped)
-  private lazy val contentTypeEventStream: Headers =
-    Headers(Header.ContentType(MediaType.text.`event-stream`).untyped)
+  private val contentTypeJson: Headers        = Headers(Header.ContentType(MediaType.application.json).untyped)
+  private val contentTypeHtml: Headers        = Headers(Header.ContentType(MediaType.text.html).untyped)
+  private val contentTypeText: Headers        = Headers(Header.ContentType(MediaType.text.plain).untyped)
+  private val contentTypeEventStream: Headers = Headers(Header.ContentType(MediaType.text.`event-stream`).untyped)
 }

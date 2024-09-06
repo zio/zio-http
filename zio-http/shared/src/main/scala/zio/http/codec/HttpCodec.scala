@@ -64,11 +64,11 @@ sealed trait HttpCodec[-AtomTypes, Value] {
         }
     }
 
-  private lazy val statusCodes: Set[Status] = statusCodecs.collect { case SimpleCodec.Specified(status) =>
-    status
-  }.toSet
+  private lazy val statusCodes: Set[Status] =
+    statusCodecs.collect { case SimpleCodec.Specified(status) => status }.toSet
 
-  private lazy val matchesAnyStatus: Boolean = statusCodecs.contains(SimpleCodec.Unspecified[Status]())
+  private lazy val matchesAnyStatus: Boolean =
+    statusCodecs.contains(SimpleCodec.Unspecified[Status]())
 
   /**
    * Returns a new codec that is the same as this one, but has attached docs,

@@ -7,7 +7,7 @@ import zio.http.internal.FetchDriver
 
 trait ZClientPlatformSpecific {
 
-  lazy val customized: ZLayer[Config with ZClient.Driver[Any, Scope, Throwable], Throwable, Client] = {
+  def customized: ZLayer[Config with ZClient.Driver[Any, Scope, Throwable], Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
@@ -22,7 +22,7 @@ trait ZClientPlatformSpecific {
     }
   }
 
-  lazy val live: ZLayer[ZClient.Config, Throwable, Client] = {
+  def live: ZLayer[ZClient.Config, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     FetchDriver.live >>> customized
   }.fresh
@@ -33,7 +33,7 @@ trait ZClientPlatformSpecific {
     ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*)))
       .mapError(error => new RuntimeException(s"Configuration error: $error")) >>> live
 
-  lazy val default: ZLayer[Any, Throwable, Client] = {
+  def default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.succeed(Config.default) >>> live
   }
