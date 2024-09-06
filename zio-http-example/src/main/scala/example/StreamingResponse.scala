@@ -11,12 +11,12 @@ import zio.http._
  */
 object StreamingResponse extends ZIOAppDefault {
   // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(routes).provide(Server.default)
 
   // Create a message as a Chunk[Byte]
   def message = Chunk.fromArray("Hello world !\r\n".getBytes(Charsets.Http))
 
-  def app: Routes[Any, Response] = Routes(
+  def routes: Routes[Any, Response] = Routes(
     // Simple (non-stream) based route
     Method.GET / "health" -> handler(Response.ok),
 

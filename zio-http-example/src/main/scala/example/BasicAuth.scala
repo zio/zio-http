@@ -16,9 +16,9 @@ object BasicAuth extends ZIOAppDefault {
       },
   )
 
-  // Composing all the HttpApps together
-  val app: Routes[Any, Response] = user @@ basicAuth("admin", "admin")
+  // Add basic auth middleware
+  val routes: Routes[Any, Response] = user @@ basicAuth("admin", "admin")
 
   // Run it like any simple app
-  val run = Server.serve(app).provide(Server.default)
+  val run = Server.serve(routes).provide(Server.default)
 }

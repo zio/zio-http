@@ -22,7 +22,7 @@ import zio.http._
 
 object GracefulShutdown extends ZIOAppDefault {
 
-  val app: Routes[Any, Response] = Handler
+  val routes: Routes[Any, Response] = Handler
     .fromFunctionZIO[Request] { _ =>
       ZIO.sleep(10.seconds).debug("request handler delay done").as(Response.text("done"))
     }
@@ -33,7 +33,7 @@ object GracefulShutdown extends ZIOAppDefault {
     (for {
       started  <- Promise.make[Nothing, Unit]
       fiber    <- Server
-        .install(app)
+        .install(routes)
         .zipRight(started.succeed(()))
         .zipRight(ZIO.never)
         .provide(

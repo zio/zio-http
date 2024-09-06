@@ -21,10 +21,10 @@ import zio.test.TestAspect._
 import zio.test.assertTrue
 
 import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
 
-object WebSocketConfigSpec extends HttpRunnableSpec {
+object WebSocketConfigSpec extends RoutesRunnableSpec {
 
   val closeFrame = Read(WebSocketFrame.Close(1000, Some("goodbye")))
 

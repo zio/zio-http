@@ -55,11 +55,11 @@ Routes(
 
   // 4. A handler that takes the name from the path and returns a greeting message
   Method.GET / "name" / string("name") -> 
-    handler{ (name: String, _: Request) => (Response.text(s"Hello, $name!")) },
+    handler{ (name: String, _: Request) => Response.text(s"Hello, $name!") },
 
   // 5. A handler that takes the name and age from the path and returns birthday greetings
   Method.GET / "name" / string("name") / "age" / int("age") ->
-    handler{ (name: String, age: Int, _: Request) => (Response.text(s"Happy $age-th birthday, $name!")) }
+    handler{ (name: String, age: Int, _: Request) => Response.text(s"Happy $age-th birthday, $name!") }
 
 )
 ```

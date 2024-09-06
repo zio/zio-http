@@ -27,9 +27,9 @@ import zio.test._
 
 import zio.stream.ZStream
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
-object ClientSpec extends HttpRunnableSpec {
+object ClientSpec extends RoutesRunnableSpec {
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {

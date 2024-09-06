@@ -22,28 +22,28 @@ import zio.http.URL.Location
 import zio.http._
 
 /**
- * Should be used only when e2e tests needs to be written. Typically we would
+ * Should be used only when e2e tests needs to be written. Typically, we would
  * want to do that when we want to test the logic that is part of the netty
- * based backend. For most of the other use cases directly running the HttpApp
- * should suffice. HttpRunnableSpec spins of an actual Http server and makes
+ * based backend. For most of the other use cases directly running the Routes
+ * should suffice. RoutesRunnableSpec spins of an actual Http server and makes
  * requests.
  */
-abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
+abstract class RoutesRunnableSpec extends ZIOHttpSpec { self =>
   implicit class RunnableHttpClientAppSyntax[R](route: Routes[R, Response]) {
 
-    def app: Routes[R, Response] = route
+    def routes: Routes[R, Response] = route
 
     /**
-     * Deploys the http application on the test server and returns a Http of
-     * type {{{Http[R, E, ClientRequest, ClientResponse}}}. This allows us to
-     * assert using all the powerful operators that are available on `Http`
-     * while writing tests. It also allows us to simply pass a request in the
-     * end, to execute, and resolve it with a response, like a normal HttpApp.
+     * Deploys the http application on the test server and returns a
+     * [[Handler]]. This allows us to assert using all the powerful operators
+     * that are available on [[Handler]] while writing tests. It also allows us
+     * to simply pass a request in the end, to execute, and resolve it with a
+     * response. Just like with [[Routes]]
      */
     def deploy: Handler[DynamicServer with R with Client, Throwable, Request, Response] =
       for {
         port     <- Handler.fromZIO(DynamicServer.port)
-        id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
+        id       <- Handler.fromZIO(DynamicServer.deploy[R](routes))
         client   <- Handler.fromZIO(ZIO.service[Client])
         response <- Handler.fromFunctionZIO[Request] { params =>
           client.batched(
@@ -59,7 +59,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
     ): Handler[Client with DynamicServer with R with R0, Throwable, Any, Output] =
       for {
         port     <- Handler.fromZIO(DynamicServer.port)
-        id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
+        id       <- Handler.fromZIO(DynamicServer.deploy[R](routes))
         client   <- Handler.fromZIO(ZIO.service[Client])
         response <- Handler.fromZIO(
           call(
@@ -73,7 +73,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
     def deployChunked =
       for {
         port     <- Handler.fromZIO(DynamicServer.port)
-        id       <- Handler.fromZIO(DynamicServer.deploy(app))
+        id       <- Handler.fromZIO(DynamicServer.deploy(routes))
         client   <- Handler.fromZIO(ZIO.service[Client])
         response <- Handler.fromFunctionZIO[Request] { params =>
           client(
@@ -87,7 +87,7 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
     def deployWS
       : Handler[R with Client with DynamicServer with Scope, Throwable, WebSocketApp[Client with Scope], Response] =
       for {
-        id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
+        id       <- Handler.fromZIO(DynamicServer.deploy[R](routes))
         rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
         url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
         client   <- Handler.fromZIO(ZIO.service[Client])
@@ -111,10 +111,10 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
       _    <- DynamicServer.setStart(server)
     } yield port
 
-  def serve[R: EnvironmentTag](app: Routes[R, Response]): ZIO[R with DynamicServer with Server, Nothing, Int] =
+  def serve[R: EnvironmentTag](routes: Routes[R, Response]): ZIO[R with DynamicServer with Server, Nothing, Int] =
     for {
       server <- ZIO.service[Server]
-      port   <- Server.install(app)
+      port   <- Server.install(routes)
       _      <- DynamicServer.setStart(server)
     } yield port
 

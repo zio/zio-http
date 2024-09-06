@@ -34,7 +34,7 @@ object SSLSpec extends ZIOHttpSpec {
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
-  val app: Routes[Any, Response] = Routes(
+  val routes: Routes[Any, Response] = Routes(
     Method.GET / "success" -> handler(Response.ok),
     Method.GET / "file"    -> Handler.fromResource("TestStatic/TestFile1.txt"),
   ).sandbox
@@ -50,7 +50,7 @@ object SSLSpec extends ZIOHttpSpec {
 
   override def spec = suite("SSL")(
     Server
-      .install(app)
+      .install(routes)
       .as(
         List(
           test("succeed when client has the server certificate") {

@@ -107,7 +107,6 @@ const sidebars = {
             "guides/testing-http-apps",
           ],
         },
-        "faq",
 
         // Examples section
         {
