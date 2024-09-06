@@ -1,28 +1,28 @@
 package zio.http.gen.scala
 
+import java.net.URI
 import java.nio.file._
 
 import scala.annotation.nowarn
+import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 import scala.meta._
 import scala.meta.parsers._
 import scala.util.{Failure, Success, Try}
 
-import zio.Scope
+import zio.{Chunk, Scope}
 import zio.json.JsonDecoder
 import zio.test.Assertion.{hasSameElements, isFailure, isSuccess}
 import zio.test.TestAspect.{blocking, flaky}
 import zio.test._
-
 import zio.schema.annotation.validate
 import zio.schema.codec.JsonCodec
 import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
-import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
+import zio.http.endpoint.openapi.{JsonSchema, OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.gen.openapi.{Config, EndpointGen}
@@ -442,7 +442,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test(
-        "OpenAPI spec with inline schema response body of sum-type with multiple contradicting reusable fields and super type members",
+        "OpenAPI spec with inline schema response body of sum-type with multiple contradicting reusable fields and " +
+          "super type members",
       ) {
         val openAPIString =
           stringFromResource("/inline_schema_sumtype_with_multiple_contradicting_reusable_fields.yaml")
@@ -454,7 +455,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test(
-        "OpenAPI spec with inline schema response body of sum-type with multiple non-contradicting reusable fields and super type members",
+        "OpenAPI spec with inline schema response body of sum-type with multiple non-contradicting reusable fields " +
+          "and super type members",
       ) {
         val openAPIString =
           stringFromResource("/inline_schema_sumtype_with_multiple_non_contradicting_reusable_fields.yaml")
@@ -925,7 +927,8 @@ object CodeGenSpec extends ZIOSpecDefault {
           assertTrue(
             Try(
               codeGenFromOpenAPI(oapi)(_ => TestResult(TestArrow.succeed(true))),
-            ).failed.get.getMessage == "x-string-key-schema must reference a string schema, but got: {\"type\":\"integer\",\"format\":\"int32\"}",
+            ).failed.get.getMessage == "x-string-key-schema must reference a string schema, but " +
+              "got: {\"type\":\"integer\",\"format\":\"int32\"}",
           )
         }
       },
@@ -972,5 +975,67 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3,
+      test("Generate all responses") {
+        val oapi =
+          OpenAPI(
+            openapi = "3.0.0",
+            info = OpenAPI.Info(
+              title = "XXX",
+              description = None,
+              termsOfService = None,
+              contact = None,
+              license = None,
+              version = "1.0.0",
+            ),
+            paths = ListMap(
+              OpenAPI.Path(name = "/api/a/b") -> OpenAPI.PathItem(
+                ref = None,
+                summary = None,
+                description = None,
+                get = None,
+                put = None,
+                post = Some(
+                  OpenAPI.Operation(
+                    summary = None,
+                    description = None,
+                    externalDocs = None,
+                    operationId = None,
+                    requestBody = None,
+                    responses = Map(
+                      OpenAPI.StatusOrDefault.StatusValue(status = Status.Ok)  ->
+                        OpenAPI.ReferenceOr.Or(value = OpenAPI.Response()),
+                      OpenAPI.StatusOrDefault.StatusValue(Status.BadRequest)   ->
+                        OpenAPI.ReferenceOr.Or(OpenAPI.Response()),
+                      OpenAPI.StatusOrDefault.StatusValue(Status.Unauthorized) ->
+                        OpenAPI.ReferenceOr.Or(OpenAPI.Response()),
+                    ),
+                  ),
+                ),
+                delete = None,
+                options = None,
+                head = None,
+                patch = None,
+                trace = None,
+              ),
+            ),
+            components = None,
+            externalDocs = None,
+          )
+
+        val maybeEndpointCode =
+          EndpointGen
+            .fromOpenAPI(oapi, Config.default)
+            .files
+            .flatMap(_.objects)
+            .flatMap(_.endpoints)
+            .collectFirst {
+              case (field, code) if field.name == "post" => code
+            }
+
+        assertTrue(
+          maybeEndpointCode.is(_.some).outCodes.length == 1 &&
+            maybeEndpointCode.is(_.some).errorsCode.length == 2,
+        )
+      },
     ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }
