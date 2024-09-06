@@ -9,16 +9,6 @@ import scala.meta.parsers._
 import scala.util.{Failure, Success, Try}
 
 import zio.Scope
-import zio.json.JsonDecoder
-import zio.test.Assertion.{hasSameElements, isFailure, isSuccess}
-import zio.test.TestAspect.{blocking, flaky}
-import zio.test._
-
-import zio.schema.annotation.validate
-import zio.schema.codec.JsonCodec
-import zio.schema.validation.Validation
-import zio.schema.{DeriveSchema, Schema}
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
@@ -26,6 +16,14 @@ import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.gen.openapi.{Config, EndpointGen}
+import zio.json.JsonDecoder
+import zio.schema.annotation.validate
+import zio.schema.codec.JsonCodec
+import zio.schema.validation.Validation
+import zio.schema.{DeriveSchema, Schema}
+import zio.test.Assertion.{hasSameElements, isFailure, isSuccess}
+import zio.test.TestAspect.{blocking, flaky}
+import zio.test._
 
 @nowarn("msg=missing interpolator")
 object CodeGenSpec extends ZIOSpecDefault {
@@ -442,7 +440,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test(
-        "OpenAPI spec with inline schema response body of sum-type with multiple contradicting reusable fields and super type members",
+        "OpenAPI spec with inline schema response body of sum-type with multiple contradicting reusable fields and " +
+          "super type members",
       ) {
         val openAPIString =
           stringFromResource("/inline_schema_sumtype_with_multiple_contradicting_reusable_fields.yaml")
@@ -454,7 +453,8 @@ object CodeGenSpec extends ZIOSpecDefault {
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
       test(
-        "OpenAPI spec with inline schema response body of sum-type with multiple non-contradicting reusable fields and super type members",
+        "OpenAPI spec with inline schema response body of sum-type with multiple non-contradicting reusable fields " +
+          "and super type members",
       ) {
         val openAPIString =
           stringFromResource("/inline_schema_sumtype_with_multiple_non_contradicting_reusable_fields.yaml")
@@ -925,7 +925,8 @@ object CodeGenSpec extends ZIOSpecDefault {
           assertTrue(
             Try(
               codeGenFromOpenAPI(oapi)(_ => TestResult(TestArrow.succeed(true))),
-            ).failed.get.getMessage == "x-string-key-schema must reference a string schema, but got: {\"type\":\"integer\",\"format\":\"int32\"}",
+            ).failed.get.getMessage == "x-string-key-schema must reference a string schema, but " +
+              "got: {\"type\":\"integer\",\"format\":\"int32\"}",
           )
         }
       },
@@ -972,5 +973,24 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3,
+      test("Can decode header SecurityScheme") {
+        import zio.json.yaml.DecoderYamlOps
+        implicit val decoder: JsonDecoder[OpenAPI] = JsonCodec.jsonDecoder(OpenAPI.schema)
+
+        val spec =
+          """openapi: 3.0.0
+            |info:
+            |  title: XXX
+            |  version: 1.0.0
+            |components:
+            |  securitySchemes:
+            |    apiKeyAuth:
+            |      type: apiKey
+            |      name: X-API-Key
+            |      in: header
+            |""".stripMargin
+
+        assertTrue(spec.fromYaml[OpenAPI].isRight)
+      },
     ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }
