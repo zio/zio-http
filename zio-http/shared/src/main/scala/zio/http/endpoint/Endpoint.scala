@@ -623,6 +623,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     )
 
   /**
+   * Returns a new endpoint derived from this one, whose response must satisfy
+   * the specified codec.
+   */
+  def outCodec[Output2](codec: HttpCodec[HttpCodecType.ResponseType, Output2])(implicit
+    alt: Alternator[Output2, Output],
+  ): Endpoint[PathInput, Input, Err, alt.Out, Auth] =
+    copy(output = codec | self.output)
+
+  /**
    * Converts a codec error into a specific error type. The given media types
    * are sorted by q-factor. Beginning with the highest q-factor.
    */
@@ -655,14 +664,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
   def outErrors[Err2]: OutErrors[PathInput, Input, Err, Output, Auth, Err2] = OutErrors(self)
 
-  /**
-   * Returns a new endpoint derived from this one, whose response must satisfy
-   * the specified codec.
-   */
-  def outCodec[Output2](codec: HttpCodec[HttpCodecType.ResponseType, Output2])(implicit
-    alt: Alternator[Output2, Output],
-  ): Endpoint[PathInput, Input, Err, alt.Out, Auth] =
-    copy(output = codec | self.output)
+  def outHeader[A](codec: HeaderCodec[A])(implicit
+    combiner: Combiner[Output, A],
+  ): Endpoint[PathInput, Input, Err, combiner.Out, Auth] =
+    copy(output = self.output ++ codec)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream
@@ -799,7 +804,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = self.input ++ codec)
 
   /**
-   * Adds tags to the endpoint. The are used for documentation generation. For
+   * Adds tags to the endpoint. They are used for documentation generation. For
    * example to group endpoints for OpenAPI.
    */
   def tag(tag: String, tags: String*): Endpoint[PathInput, Input, Err, Output, Auth] =
