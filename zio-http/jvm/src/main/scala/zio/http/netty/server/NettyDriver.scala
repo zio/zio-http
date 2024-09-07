@@ -31,7 +31,7 @@ import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
 
 private[zio] final case class NettyDriver(
-  appRef: AppRef,
+  appRef: RoutesRef,
   channelFactory: ChannelFactory[ServerChannel],
   channelInitializer: ChannelInitializer[Channel],
   serverInboundHandler: ServerInboundHandler,
@@ -94,7 +94,7 @@ object NettyDriver {
   implicit val trace: Trace = Trace.empty
 
   val make: ZIO[
-    AppRef
+    RoutesRef
       & ChannelFactory[ServerChannel]
       & ChannelInitializer[Channel]
       & EventLoopGroup
@@ -105,7 +105,7 @@ object NettyDriver {
     Driver,
   ] =
     for {
-      app   <- ZIO.service[AppRef]
+      app   <- ZIO.service[RoutesRef]
       cf    <- ZIO.service[ChannelFactory[ServerChannel]]
       cInit <- ZIO.service[ChannelInitializer[Channel]]
       elg   <- ZIO.service[EventLoopGroup]

@@ -23,9 +23,9 @@ import zio.test.Assertion._
 import zio.test.TestAspect.{mac, os, sequential, unix, withLiveClock}
 import zio.test.assertZIO
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
-object StaticFileServerSpec extends HttpRunnableSpec {
+object StaticFileServerSpec extends RoutesRunnableSpec {
 
   private val fileOk       = Handler.fromResource("TestFile.txt").sandbox.toRoutes.deploy
   private val fileNotFound = Handler.fromResource("Nothing").sandbox.toRoutes.deploy

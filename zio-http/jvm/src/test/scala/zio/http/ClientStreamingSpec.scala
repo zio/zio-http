@@ -25,11 +25,11 @@ import zio.stream.{ZStream, ZStreamAspect}
 
 import zio.http.Server.RequestStreaming
 import zio.http.forms.Fixtures.formField
-import zio.http.internal.HttpRunnableSpec
+import zio.http.internal.RoutesRunnableSpec
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
-object ClientStreamingSpec extends HttpRunnableSpec {
+object ClientStreamingSpec extends RoutesRunnableSpec {
   def extractStatus(response: Response): Status = response.status
 
   val app = Routes(

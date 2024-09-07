@@ -28,7 +28,7 @@ import zio.http.codec.{PathCodec, SegmentCodec}
 @nowarn("msg=shadows type")
 trait Middleware[-UpperEnv] { self =>
 
-  def apply[Env1 <: UpperEnv, Err](app: Routes[Env1, Err]): Routes[Env1, Err]
+  def apply[Env1 <: UpperEnv, Err](routes: Routes[Env1, Err]): Routes[Env1, Err]
 
   def @@[UpperEnv1 <: UpperEnv](
     that: Middleware[UpperEnv1],
