@@ -59,14 +59,13 @@ private[zio] final case class NettyDriver(
         }
       }
       chf     <- ZIO.attempt {
-        val b = new ServerBootstrap()
+        new ServerBootstrap()
           .group(boss, eventLoopGroup)
           .channelFactory(channelFactory)
           .childHandler(channelInitializer)
           .option[Integer](ChannelOption.SO_BACKLOG, serverConfig.soBacklog)
           .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.tcpNoDelay)
-
-        b.bind(serverConfig.address)
+          .bind(serverConfig.address)
       }
       _       <- NettyFutureExecutor.scoped(chf)
       _       <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyConfig.leakDetectionLevel.toNetty))
