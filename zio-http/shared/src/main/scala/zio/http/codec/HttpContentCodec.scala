@@ -11,7 +11,6 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec.internal.TextBinaryCodec
 import zio.http.internal.HeaderOps
 import zio.http.template._
 
@@ -326,9 +325,9 @@ object HttpContentCodec {
         val codec = HttpContentCodec.Choices(
           ListMap(
             MediaType.text.`plain`               ->
-              BinaryCodecWithSchema(zio.http.codec.internal.TextBinaryCodec.fromSchema[A](schema), schema),
+              BinaryCodecWithSchema(http.codec.TextBinaryCodec.fromSchema[A](schema), schema),
             MediaType.application.`octet-stream` ->
-              BinaryCodecWithSchema(zio.http.codec.internal.TextBinaryCodec.fromSchema[A](schema), schema),
+              BinaryCodecWithSchema(http.codec.TextBinaryCodec.fromSchema[A](schema), schema),
           ),
         )
         textCodecCache = textCodecCache + (schema -> codec)

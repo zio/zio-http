@@ -26,7 +26,7 @@ import zio.http.netty.model.Conversions
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
 
-private object NettyResponseEncoder {
+private[netty] object NettyResponseEncoder {
   private val dateHeaderCache = CachedDateHeader.default
 
   def encode(method: Method, response: Response)(implicit unsafe: Unsafe): HttpResponse =

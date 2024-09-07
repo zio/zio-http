@@ -79,7 +79,7 @@ object NettyBody extends BodyEncoding {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
-    override def toString(): String = s"Body.fromAsciiString($asciiString)"
+    override def toString: String = s"Body.fromAsciiString($asciiString)"
 
     private[zio] override def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = asciiString.array()
 
@@ -131,7 +131,7 @@ object NettyBody extends BodyEncoding {
 
     override def isEmpty: Boolean = false
 
-    override def toString(): String = s"AsyncBody($unsafeAsync)"
+    override def toString: String = s"AsyncBody($unsafeAsync)"
 
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
   }

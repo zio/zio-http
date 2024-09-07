@@ -16,8 +16,6 @@
 
 package zio.http
 
-import scala.annotation.tailrec
-
 final case class MediaType(
   mainType: String,
   subType: String,

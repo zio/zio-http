@@ -22,7 +22,6 @@ object MetricsSpec extends ZIOHttpSpec {
     Chunk(TestAspect.timeout(120.seconds), TestAspect.timed)
 
   def testMetrics[A](name: String, maxReq: Int, init: A, inc: A => A, mkRequest0: Int => A => Request) = {
-    val reqDelay = 100.millis
 
     val routes = Routes(
       Method.GET / PathCodec.trailing -> Handler.ok,
@@ -30,12 +29,6 @@ object MetricsSpec extends ZIOHttpSpec {
       extraLabels = Set(MetricLabel("test", name)),
     )
 
-    val gauge     = Metric
-      .gauge("http_concurrent_requests_total")
-      .tagged("test", name)
-      .tagged("path", "/...")
-      .tagged("method", "GET")
-      .tagged("status", "200")
     val histogram = Metric
       .histogram(
         "http_request_duration_seconds",
@@ -51,7 +44,6 @@ object MetricsSpec extends ZIOHttpSpec {
 
     test(name) {
       for {
-        ref  <- Ref.make[List[Double]](List.empty)
         port <- Server.install(routes)
         mkRequest = mkRequest0(port)
         _             <- ZIO.iterate((0, init))(_._1 < maxReq) { case (n, content) =>

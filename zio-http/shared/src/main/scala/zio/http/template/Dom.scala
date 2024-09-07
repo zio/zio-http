@@ -21,7 +21,7 @@ import scala.collection.immutable.ListMap
 import zio.schema.Schema
 
 import zio.http.MediaType
-import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec}
+import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec, TextBinaryCodec}
 import zio.http.internal.OutputEncoder
 
 /**
@@ -93,7 +93,7 @@ object Dom {
     HttpContentCodec(
       ListMap(
         MediaType.text.`html` ->
-          BinaryCodecWithSchema.fromBinaryCodec(zio.http.codec.internal.TextBinaryCodec.fromSchema(Schema[Dom])),
+          BinaryCodecWithSchema.fromBinaryCodec(TextBinaryCodec.fromSchema(Schema[Dom])),
       ),
     )
   }

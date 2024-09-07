@@ -29,7 +29,7 @@ object TimingAttacksSpec extends ZIOSpecDefault {
     }
 
   // after a few iterations, boxTest doesn't detect differences accurately when dealing with `Handlers`
-  def boxTest[A](
+  def boxTest(
     h: () => Handler[Any, Nothing, Request, Response],
     slow: Request,
     fast: Request,
@@ -41,9 +41,9 @@ object TimingAttacksSpec extends ZIOSpecDefault {
       !(diff > statisticsB._2 / 20)
     }
 
-  def statistics[A](h: () => Handler[Any, Nothing, Request, Response], slow: Request): (Long, Long) = {
+  def statistics(h: () => Handler[Any, Nothing, Request, Response], slow: Request): (Long, Long) = {
     var sampleUnsorted = List.empty[Long]
-    for (i <- 0 until nOfTries) {
+    for (_ <- 0 until nOfTries) {
       val b = java.lang.System.nanoTime
       runZ { h().runZIO(slow) }
       val a = java.lang.System.nanoTime

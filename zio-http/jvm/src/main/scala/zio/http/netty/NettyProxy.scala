@@ -23,7 +23,7 @@ import zio.http.{Credentials, Proxy}
 
 import io.netty.handler.proxy.HttpProxyHandler
 
-class NettyProxy private (proxy: Proxy) {
+private[netty] class NettyProxy private (proxy: Proxy) {
 
   /**
    * Converts a Proxy to [io.netty.handler.proxy.HttpProxyHandler]

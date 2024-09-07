@@ -43,7 +43,7 @@ trait EndpointLocator { self =>
 }
 object EndpointLocator {
   def fromURL(url: URL)(implicit trace: Trace): EndpointLocator = new EndpointLocator {
-    val effect = ZIO.succeed(url)
+    private val effect = ZIO.succeed(url)
 
     def locate[P, A, E, B](api: Endpoint[P, A, E, B, _ <: AuthType])(implicit
       trace: Trace,

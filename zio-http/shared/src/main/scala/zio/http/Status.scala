@@ -21,8 +21,6 @@ import scala.util.Try
 import zio.Trace
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http._
-
 sealed trait Status extends Product with Serializable { self =>
 
   def isInformational: Boolean = code >= 100 && code < 200

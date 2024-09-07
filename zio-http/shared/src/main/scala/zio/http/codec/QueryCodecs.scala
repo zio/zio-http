@@ -15,13 +15,10 @@
  */
 
 package zio.http.codec
-import zio.Chunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema.Schema
 import zio.schema.annotation.simpleEnum
-
-import zio.http.codec.internal.TextBinaryCodec
 
 private[codec] trait QueryCodecs {
 

@@ -1,4 +1,4 @@
-package zio.http.codec.internal
+package zio.http.codec
 
 import java.time._
 import java.util.{Currency, UUID}
@@ -15,19 +15,19 @@ object TextBinaryCodec {
   private def errorCodec[A](schema: Schema[A]) =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] = throw new IllegalArgumentException(
-        s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
+        s"Schema $schema is not supported by TextBinaryCodec.",
       )
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = throw new IllegalArgumentException(
-        s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
+        s"Schema $schema is not supported by TextBinaryCodec.",
       )
 
       override def encode(value: A): Chunk[Byte] = throw new IllegalArgumentException(
-        s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
+        s"Schema $schema is not supported by TextBinaryCodec.",
       )
 
       override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = throw new IllegalArgumentException(
-        s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
+        s"Schema $schema is not supported by TextBinaryCodec.",
       )
     }
 

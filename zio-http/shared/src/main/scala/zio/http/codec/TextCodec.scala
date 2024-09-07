@@ -69,7 +69,7 @@ object TextCodec {
 
     def isDefinedAt(value: String): Boolean = value == string
 
-    override def toString(): String = s"TextCodec.constant(${string})"
+    override def toString: String = s"TextCodec.constant(${string})"
   }
 
   case object StringCodec extends TextCodec[String] {
@@ -81,7 +81,7 @@ object TextCodec {
 
     def isDefinedAt(value: String): Boolean = true
 
-    override def toString(): String = "TextCodec.string"
+    override def toString: String = "TextCodec.string"
   }
 
   case object IntCodec extends TextCodec[Int] {
@@ -105,7 +105,7 @@ object TextCodec {
       defined && i >= 1
     }
 
-    override def toString(): String = "TextCodec.int"
+    override def toString: String = "TextCodec.int"
   }
 
   case object LongCodec extends TextCodec[Long] {
@@ -129,7 +129,7 @@ object TextCodec {
       defined && i >= 1
     }
 
-    override def toString(): String = "TextCodec.long"
+    override def toString: String = "TextCodec.long"
   }
 
   case object BooleanCodec extends TextCodec[Boolean] {
@@ -150,7 +150,7 @@ object TextCodec {
       valueLower == "no" || valueLower == "off" || valueLower == "yes" || valueLower == "on"
     }
 
-    override def toString(): String = "TextCodec.boolean"
+    override def toString: String = "TextCodec.boolean"
   }
 
   case object UUIDCodec extends TextCodec[UUID] {
@@ -187,7 +187,7 @@ object TextCodec {
       defined && i == 36
     }
 
-    override def toString(): String = "TextCodec.uuid"
+    override def toString: String = "TextCodec.uuid"
   }
 
 }

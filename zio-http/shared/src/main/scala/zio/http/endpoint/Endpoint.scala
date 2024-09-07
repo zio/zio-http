@@ -23,11 +23,10 @@ import zio._
 
 import zio.stream.ZStream
 
-import zio.schema._
+import zio.schema.Schema
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec.HttpCodecType.{RequestType, ResponseType}
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
@@ -258,7 +257,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
 
-    def authCodec(authType: AuthType): HttpCodec[RequestType, Unit] = authType match {
+    def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
       case AuthType.None                => HttpCodec.empty
       case AuthType.Basic               =>
         HeaderCodec.authorization.transformOrFail {

@@ -1,16 +1,6 @@
 package zio.http.endpoint.cli
 
-import java.io.{File, IOException}
-import java.nio.channels.FileChannel
-import java.nio.file.Path
-
-import scala.io.Source
-
 import zio._
-import zio.cli._
-import zio.json.ast._
-
-import zio.stream.{ZSink, ZStream}
 
 import zio.http._
 
@@ -28,16 +18,16 @@ private[cli] final case class CliRequest(
   saveResponse: Boolean = false,
 ) { self =>
 
-  def addBody(value: Retriever) =
+  def addBody(value: Retriever): CliRequest =
     self.copy(body = self.body ++ Chunk(value))
 
   def addHeader(name: String, value: String): CliRequest =
     self.copy(headers = self.headers.addHeader(name, value))
 
-  def addPathParam(value: String) =
+  def addPathParam(value: String): CliRequest =
     self.copy(url = self.url.copy(path = self.url.path / value))
 
-  def addQueryParam(key: String, value: String) =
+  def addQueryParam(key: String, value: String): CliRequest =
     self.copy(url = self.url.setQueryParams(self.url.queryParams.addQueryParam(key, value)))
 
   def method(method: Method): CliRequest =
@@ -63,6 +53,6 @@ private[cli] final case class CliRequest(
 
 private[cli] object CliRequest {
 
-  val empty = CliRequest(Chunk.empty, Headers.empty, Method.GET, URL.empty)
+  val empty: CliRequest = CliRequest(Chunk.empty, Headers.empty, Method.GET, URL.empty)
 
 }

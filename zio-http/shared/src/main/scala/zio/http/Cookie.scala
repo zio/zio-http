@@ -23,9 +23,8 @@ import javax.crypto.spec.SecretKeySpec
 
 import scala.collection.mutable
 
-import zio.{Chunk, Duration}
+import zio._
 
-import zio.http._
 import zio.http.internal.CookieEncoding
 
 /**

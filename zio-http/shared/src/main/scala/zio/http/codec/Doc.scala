@@ -539,7 +539,7 @@ private[codec] class DocWriter(stringBuilder: StringBuilder, startOffset: Int, c
 
   def indent(adjust: Int): Unit = self.marginStack = adjust :: self.marginStack
 
-  override def toString(): String = stringBuilder.toString()
+  override def toString: String = stringBuilder.toString()
 
   def unindent(): Unit = self.marginStack = self.marginStack.drop(1)
 }
