@@ -28,9 +28,8 @@ import zio.http.{ClientDriver, Driver, Response, Routes, Server}
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
-import io.netty.channel.epoll.{EpollChannelOption, EpollEventLoopGroup, EpollMode}
+import io.netty.channel.epoll.EpollEventLoopGroup
 import io.netty.channel.kqueue.KQueueEventLoopGroup
-import io.netty.channel.unix.UnixChannelOption
 import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 import io.netty.util.ResourceLeakDetector
 
