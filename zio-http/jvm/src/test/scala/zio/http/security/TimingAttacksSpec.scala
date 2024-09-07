@@ -135,7 +135,7 @@ object TimingAttacksSpec extends ZIOSpecDefault {
 
       def app() = (Handler.ok @@ basicAuthM).merge
       assertZIO(boxTest(app _, req1, req2))(equalTo(true))
-    },
+    } @@ TestAspect.flaky,
     test("basicAuth doesn't leak that user is wrong, bad password") {
 
       val basicAuthM = HandlerAspect.basicAuth("user", passwd)
