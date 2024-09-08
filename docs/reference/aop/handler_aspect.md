@@ -390,7 +390,8 @@ There are several built-in `HandlerAspect`s that can be used to implement authen
 
 1. **Basic Authentication**: The `basicAuth` and `basicAuthZIO` handler aspect can be used to implement basic authentication.
 2. **Bearer Authentication**: The `bearerAuth` and `bearerAuthZIO` handler aspect can be used to implement bearer authentication. We have to provide a function that validates the bearer token.
-3. **Custom Authentication**: The `customAuth`, `customAuthZIO`, `customAuthProviding`, and `customAuthProvidingZIO` handler aspects can be used to implement custom authentication. We have to provide a function that validates the request.
+3. **Custom Authentication**: The `customAuth` and `customAuthZIO` handler aspects can be used to implement custom authentication. We have to provide a function that validates the request.
+4. **Custom Authentication providing**: The `customAuthProviding` and `customAuthProvidingZIO` handler aspects allow us to provide a value to the handler based on the authentication result.
 
 ### Basic Authentication Example
 
@@ -398,6 +399,14 @@ There are several built-in `HandlerAspect`s that can be used to implement authen
 import utils._
 
 printSource("zio-http-example/src/main/scala/example/BasicAuth.scala")
+```
+
+### Custom Authentication Providing Example
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/middleware/CustomAuthProviding.scala")
 ```
 
 To the example, start the server and fire a curl request with an incorrect user/password combination:
@@ -531,27 +540,6 @@ HandlerAspect.patch(request =>
 )
 ```
 
-## Beautify Errors Handler Aspect
-
-To make the error responses more user-friendly, we have a built-in handler aspect called `beautifyErrors`. This aspect beautifies the error responses based on the requested content type. If the client requests an HTML response, it returns a formatted HTML response, otherwise, it returns a plain text response:
-
-```scala
-val route = 
-  Method.GET / "internal-error" -> Handler.fromResponse(Response.forbidden) @@ HandlerAspect.beautifyErrors
-```
-
-If we deploy this route and send a GET request to the `/internal-error` route with the `Accept: text/html` header, we will get the following response body:
-
-```html
-<!DOCTYPE html><html><head><title>ZIO HTTP - Forbidden</title><style>
- body {
-   font-family: monospace;
-   font-size: 16px;
-   background-color: #edede0;
- }
-</style></head><body><div style="margin: auto; padding: 2em 4em; max-width: 80%"><h1>Forbidden</h1><div><div style="text-align: center"><div style="font-size: 20em">403</div><div>403</div></div></div></div></body></html>⏎
-```
-
 ## Debug Handler Aspect
 
 The `debug` handler aspect is a useful aspect for debugging requests and responses. It prints the response status code, request method and url, and the response time of each request to the console.
@@ -592,12 +580,4 @@ X-Environment: Dev
 content-length: 12
 
 Hello Bob
-```
-
-### Endpoint Middleware Example
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/EndpointExamples.scala")
 ```
