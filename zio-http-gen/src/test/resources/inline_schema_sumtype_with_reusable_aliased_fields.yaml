@@ -1,0 +1,81 @@
+info:
+  title: Animals Service
+  version: 0.0.1
+tags:
+  - name: Animals_API
+paths:
+  /api/v1/zoo/{animal}:
+    get:
+      operationId: get_animal
+      parameters:
+        - in: path
+          name: animal
+          schema:
+            type: string
+          required: true
+      tags:
+        - Animals_API
+      description: Get animals by species name
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Animal'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HttpError'
+          description: Internal Server Error
+openapi: 3.0.3
+components:
+  schemas:
+    Age:
+      type: integer
+      format: int32
+    Weight:
+      type: number
+      format: float
+    Animal:
+      oneOf:
+        - $ref: '#/components/schemas/Alligator'
+        - $ref: '#/components/schemas/Zebra'
+    AnimalSharedFields:
+      type: object
+      required:
+        - age
+        - weight
+      properties:
+        age:
+          $ref: '#/components/schemas/Age'
+        weight:
+          $ref: '#/components/schemas/Weight'
+    Alligator:
+      allOf:
+        - $ref: '#/components/schemas/AnimalSharedFields'
+        - type: object
+          required:
+            - num_teeth
+          properties:
+            num_teeth:
+              type: integer
+              format: int32
+    Zebra:
+      allOf:
+        - $ref: '#/components/schemas/AnimalSharedFields'
+        - type: object
+          required:
+            - num_stripes
+          properties:
+            num_stripes:
+              type: integer
+              format: int32
+    HttpError:
+      type: object
+      properties:
+        messages:
+          type: string

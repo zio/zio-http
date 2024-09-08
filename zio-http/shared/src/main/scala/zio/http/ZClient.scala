@@ -579,7 +579,7 @@ object ZClient extends ZClientPlatformSpecific {
   }
 
   object Config {
-    lazy val config: zio.Config[Config] =
+    def config: zio.Config[Config] =
       (
         ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++
           zio.http.Proxy.config.nested("proxy").optional.withDefault(Config.default.proxy) ++
@@ -615,7 +615,7 @@ object ZClient extends ZClientPlatformSpecific {
           )
       }
 
-    lazy val default: Config = Config(
+    val default: Config = Config(
       ssl = None,
       proxy = None,
       connectionPool = ConnectionPoolConfig.Fixed(10),

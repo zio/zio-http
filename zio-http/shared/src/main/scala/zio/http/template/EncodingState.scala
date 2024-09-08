@@ -28,7 +28,7 @@ object EncodingState {
   }
 
   final case class Indentation(current: Int, spaces: Int) extends EncodingState {
-    lazy val nextElemSeparator: String = "\n" + (" " * (current * spaces))
-    def inner: EncodingState           = Indentation(current + 1, spaces)
+    val nextElemSeparator: String = "\n" + (" " * (current * spaces))
+    def inner: EncodingState      = Indentation(current + 1, spaces)
   }
 }

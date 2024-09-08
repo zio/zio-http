@@ -23,9 +23,9 @@ import zio.test._
 import zio.http.Middleware._
 import zio.http._
 import zio.http.codec.PathCodec
-import zio.http.internal.HttpAppTestExtensions
+import zio.http.internal.TestExtensions
 
-object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
+object WebSpec extends ZIOHttpSpec with TestExtensions { self =>
   def extractStatus(response: Response): Status = response.status
 
   private val app =
@@ -63,7 +63,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
     suite("debug")(
       test("log status method url and time") {
         for {
-          _   <- runApp(app @@ debug)
+          _   <- runRoutes(app @@ debug)
           log <- TestConsole.output
         } yield assertTrue(
           log.size == 1,
@@ -73,7 +73,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
       },
       test("log 404 status method url and time") {
         for {
-          _   <- runApp(Handler.notFound.toRoutes @@ debug)
+          _   <- runRoutes(Handler.notFound.toRoutes @@ debug)
           log <- TestConsole.output
         } yield assertTrue(
           log.size == 1,
@@ -84,40 +84,40 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
     ),
     suite("when")(
       test("condition is true") {
-        val program = runApp(self.app @@ debug.when((_: Any) => true)) *> TestConsole.output
+        val program = runRoutes(self.app @@ debug.when((_: Any) => true)) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       } +
         test("condition is false") {
-          val log = runApp(self.app @@ debug.when((_: Any) => false)) *> TestConsole.output
+          val log = runRoutes(self.app @@ debug.when((_: Any) => false)) *> TestConsole.output
           assertZIO(log)(equalTo(Vector()))
         },
     ),
     suite("whenZIO")(
       test("condition is true") {
         val program =
-          runApp(self.app @@ debug.whenZIO((_: Request) => ZIO.succeed(true))) *> TestConsole.output
+          runRoutes(self.app @@ debug.whenZIO((_: Request) => ZIO.succeed(true))) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       },
       test("condition is false") {
         val log =
-          runApp(self.app @@ debug.whenZIO((_: Request) => ZIO.succeed(false))) *> TestConsole.output
+          runRoutes(self.app @@ debug.whenZIO((_: Request) => ZIO.succeed(false))) *> TestConsole.output
         assertZIO(log)(equalTo(Vector()))
       },
     ),
     suite("race")(
       test("achieved") {
-        val program = runApp(self.app @@ Middleware.timeout(5 seconds)).map(_.status)
+        val program = runRoutes(self.app @@ Middleware.timeout(5 seconds)).map(_.status)
         assertZIO(program)(equalTo(Status.Ok))
       },
       test("un-achieved") {
-        val program = runApp(self.app @@ Middleware.timeout(500 millis)).map(_.status)
+        val program = runRoutes(self.app @@ Middleware.timeout(500 millis)).map(_.status)
         assertZIO(program)(equalTo(Status.RequestTimeout))
       },
     ),
     suite("combine")(
       test("before and after") {
         val middleware = runBefore(Console.printLine("A").orDie)
-        val program    = runApp(self.app @@ middleware) *> TestConsole.output
+        val program    = runRoutes(self.app @@ middleware) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("A\n")))
       },
       test("add headers twice") {
@@ -354,9 +354,9 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
 
   private def condZIO(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
-  private def runApp[R](app: Routes[R, Response]): ZIO[R, Response, Response] = {
+  private def runRoutes[R](routes: Routes[R, Response]): ZIO[R, Response, Response] = {
     for {
-      fib <- app.runZIO { Request.get(url = URL(Path.root / "health")) }.fork
+      fib <- routes.runZIO { Request.get(url = URL(Path.root / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res

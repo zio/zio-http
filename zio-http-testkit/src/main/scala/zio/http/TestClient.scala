@@ -15,19 +15,12 @@ final case class TestClient(
 ) extends ZClient.Driver[Any, Scope, Throwable] {
 
   /**
-   * Adds an HttpApp to the TestClient
-   * @param app
-   *   The HttpApp to be added to the TestClient
-   *
-   * @example
-   *   {{{
-   *    TestClient.addRoutes(HttpApp.empty)
-   *   }}}
+   * Adds Routes to the TestClient
    */
   def addRoutes(
-    app: Routes[Any, Response],
+    routes: Routes[Any, Response],
   ): ZIO[Any, Nothing, Unit] =
-    behavior.update(_ ++ app)
+    behavior.update(_ ++ routes)
 
   /**
    * Adds an exact 1-1 behavior
@@ -174,8 +167,8 @@ final case class TestClient(
 
 object TestClient {
 
-  def addRoutes(app: Routes[Any, Response]): ZIO[TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addRoutes(app))
+  def addRoutes(routes: Routes[Any, Response]): ZIO[TestClient, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClient](_.addRoutes(routes))
 
   /**
    * Adds an exact 1-1 behavior

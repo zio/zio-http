@@ -104,14 +104,8 @@ const sidebars = {
           link: { type: "doc", id: "index" },
           items: [
             "guides/integration-with-zio-config",
+            "guides/testing-http-apps",
           ],
-        },
-        "faq",
-        {
-          // Subcategory: Tutorials
-          type: "category",
-          label: "Tutorials",
-          items: ["tutorials/testing-http-apps"],
         },
 
         // Examples section

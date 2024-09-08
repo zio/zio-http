@@ -47,11 +47,24 @@ object CodeGen {
       val (objImports, objContent)   = objects.map(render(basePackage)).unzip
       val (ccImports, ccContent)     = caseClasses.map(render(basePackage)).unzip
       val (enumImports, enumContent) = enums.map(render(basePackage)).unzip
-      val allImports = (imports ++ objImports.flatten ++ ccImports.flatten ++ enumImports.flatten).distinct
-      val content    =
+
+      val allImports            = (imports ++ objImports.flatten ++ ccImports.flatten ++ enumImports.flatten).distinct
+      val renderedSortedImports = {
+        val javaImports  = List.newBuilder[String]
+        val scalaImports = List.newBuilder[String]
+        val otherImports = List.newBuilder[String]
+        allImports.foreach { imprt =>
+          val rendered = render(basePackage)(imprt)._2
+          if (rendered.startsWith("import java.")) javaImports += rendered
+          else if (rendered.startsWith("import scala.")) scalaImports += rendered
+          else otherImports += rendered
+        }
+        otherImports.result().sorted ::: javaImports.result().sorted ::: scalaImports.result().sorted
+      }
+      val content               =
         s"package $basePackage${if (path.exists(_.nonEmpty)) path.mkString(if (basePackage.isEmpty) "" else ".", ".", "")
-          else ""}\n\n" +
-          s"${allImports.map(render(basePackage)(_)._2).mkString("\n")}\n\n" +
+          else ""}" +
+          renderedSortedImports.mkString("\n\n", "\n", "\n\n") +
           objContent.mkString("\n") +
           ccContent.mkString("\n") +
           enumContent.mkString("\n")
@@ -168,7 +181,7 @@ object CodeGen {
               traitBodyBuilder ++= ": "
               traitBodyBuilder ++= tpe
 
-              imports ::: importsAcc
+              annotations.foldRight(imports ::: importsAcc)(_.imports ::: _).distinct
             }
         }
         val body             =
@@ -210,10 +223,12 @@ object CodeGen {
       }
 
     case Code.Field(name, fieldType, annotations) =>
-      val (imports, tpe) = render(basePackage)(fieldType)
-      val annotationsStr = annotations.map(_.value).mkString("\n")
-      val content        = if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
-      imports -> (annotationsStr + content)
+      val (imports, tpe)                        = render(basePackage)(fieldType)
+      val (annotationValues, annotationImports) = annotations.unzip(ann => ann.value -> ann.imports)
+      val allImports                            = annotationImports.foldRight(imports)(_ ::: _).distinct
+      val content                               = if (tpe.isEmpty) s"val $name" else s"val $name: $tpe"
+      val multipleAnnotationsAboveContent       = if (annotationValues.size > 1) "\n" + content else content
+      allImports -> annotationValues.mkString("", "\n", multipleAnnotationsAboveContent)
 
     case Code.Primitive.ScalaBoolean => Nil                                 -> "Boolean"
     case Code.Primitive.ScalaByte    => Nil                                 -> "Byte"

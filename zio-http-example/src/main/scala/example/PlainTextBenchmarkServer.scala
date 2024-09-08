@@ -22,7 +22,7 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
 
   private val STATIC_SERVER_NAME = "zio-http"
 
-  val app: Routes[Any, Response] = Routes(
+  val routes: Routes[Any, Response] = Routes(
     Method.GET / plaintextPath ->
       Handler.fromResponse(
         Response
@@ -60,6 +60,6 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
   private val nettyConfigLayer = channelTypeLayer >>> nettyConfig
 
   val run: UIO[ExitCode] =
-    Server.serve(app).provide(configLayer, nettyConfigLayer, Server.customized).exitCode
+    Server.serve(routes).provide(configLayer, nettyConfigLayer, Server.customized).exitCode
 
 }

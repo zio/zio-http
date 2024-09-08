@@ -23,10 +23,10 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
 
-object ClientConnectionSpec extends HttpRunnableSpec {
+object ClientConnectionSpec extends RoutesRunnableSpec {
 
   private def tests =
     List(

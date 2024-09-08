@@ -55,7 +55,7 @@ final case class NettyConfig(
 }
 
 object NettyConfig {
-  lazy val config: Config[NettyConfig] =
+  def config: Config[NettyConfig] =
     (LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
       Config
         .string("channel-type")
@@ -75,7 +75,7 @@ object NettyConfig {
         NettyConfig(leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout)
     }
 
-  lazy val default: NettyConfig = NettyConfig(
+  val default: NettyConfig = NettyConfig(
     LeakDetectionLevel.SIMPLE,
     ChannelType.AUTO,
     0,
@@ -84,7 +84,7 @@ object NettyConfig {
     Duration.fromSeconds(15),
   )
 
-  lazy val defaultWithFastShutdown: NettyConfig = default.copy(
+  val defaultWithFastShutdown: NettyConfig = default.copy(
     shutdownQuietPeriodDuration = Duration.fromMillis(50),
     shutdownTimeoutDuration = Duration.fromMillis(250),
   )
@@ -108,7 +108,7 @@ object NettyConfig {
 
     case object PARANOID extends LeakDetectionLevel
 
-    lazy val config: Config[LeakDetectionLevel] =
+    def config: Config[LeakDetectionLevel] =
       Config.string.mapOrFail {
         case "disabled" => Right(LeakDetectionLevel.DISABLED)
         case "simple"   => Right(LeakDetectionLevel.SIMPLE)

@@ -82,6 +82,28 @@ object Scala3OpenAPIGenSpec extends ZIOSpecDefault {
           zio.http.endpoint.openapi.OpenAPIGen.gen(endpoint = testEndpoint)
           assertTrue(true)
         },
+        test("scala doc for api doc is sanetized") {
+          /**
+           * This is the Input documentation
+           */
+          final case class Input(a: String)
+
+          implicit val schema: Schema[Input] = DeriveSchema.gen[Input]
+
+          val testEndpoint =
+            (Endpoint(RoutePattern.POST / "test") ?? Doc.p("This is my 'POST /test' endpoint doc"))
+              .in[Input]
+              .out[String](mediaType = MediaType.application.json, doc = Doc.p("this is the output doc"))
+
+          val spec: String =
+            OpenAPIGen.fromEndpoints(
+              title = "This is my OpenAPI doc title",
+              version = "0.0.0",
+              endpoints = List(testEndpoint)
+              ).toJson
+
+          assertTrue(spec.contains(""""description":"This is the Input documentation""""))
+        }
       )
     )
 }

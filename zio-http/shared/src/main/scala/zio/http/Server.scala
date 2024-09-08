@@ -32,7 +32,7 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](httpApp: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
+  def install[R](routes: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
@@ -198,7 +198,7 @@ object Server extends ServerPlatformSpecific {
   }
 
   object Config {
-    lazy val config: zio.Config[Config] = {
+    def config: zio.Config[Config] = {
       SSLConfig.config.optional ++
         zio.Config.string("binding-host").optional ++
         zio.Config.int("binding-port").withDefault(Config.default.address.getPort) ++
@@ -254,7 +254,7 @@ object Server extends ServerPlatformSpecific {
         )
     }
 
-    lazy val default: Config = Config(
+    val default: Config = Config(
       sslConfig = None,
       address = new InetSocketAddress(8080),
       acceptContinue = false,
@@ -279,7 +279,7 @@ object Server extends ServerPlatformSpecific {
     )
 
     object ResponseCompressionConfig {
-      lazy val config: zio.Config[ResponseCompressionConfig] =
+      def config: zio.Config[ResponseCompressionConfig] =
         (
           zio.Config.int("content-threshold").withDefault(ResponseCompressionConfig.default.contentThreshold) ++
             CompressionOptions.config.repeat.nested("options")
@@ -287,7 +287,7 @@ object Server extends ServerPlatformSpecific {
           ResponseCompressionConfig(contentThreshold, options)
         }
 
-      lazy val default: ResponseCompressionConfig =
+      val default: ResponseCompressionConfig =
         ResponseCompressionConfig(0, IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()))
     }
 
@@ -388,7 +388,7 @@ object Server extends ServerPlatformSpecific {
       ): CompressionOptions =
         CompressionOptions.Brotli(BrotliConfig(quality, lgwin, mode))
 
-      lazy val config: zio.Config[CompressionOptions] =
+      def config: zio.Config[CompressionOptions] =
         (
           (zio.Config.int("level").withDefault(DeflateConfig.DefaultLevel) ++
             zio.Config.int("bits").withDefault(DeflateConfig.DefaultBits) ++
@@ -426,7 +426,7 @@ object Server extends ServerPlatformSpecific {
      */
     final case class Hybrid(maximumAggregatedLength: Int) extends RequestStreaming
 
-    lazy val config: zio.Config[RequestStreaming] =
+    val config: zio.Config[RequestStreaming] =
       (zio.Config.boolean("enabled").withDefault(true) ++
         zio.Config.int("maximum-content-length").withDefault(1024 * 100)).map {
         case (true, _)          => Enabled
@@ -435,10 +435,10 @@ object Server extends ServerPlatformSpecific {
   }
 
   def serve[R](
-    httpApp: Routes[R, Response],
+    routes: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
-      ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *>
+      ZIO.serviceWithZIO[Server](_.install[R](routes)) *>
       ZIO.logInfo("Server started") *>
       ZIO.never
   }
@@ -451,9 +451,9 @@ object Server extends ServerPlatformSpecific {
   }
 
   def install[R](
-    httpApp: Routes[R, Response],
+    routes: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install[R](httpApp)) *> ZIO.serviceWithZIO[Server](_.port)
+    ZIO.serviceWithZIO[Server](_.install[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
@@ -523,14 +523,14 @@ object Server extends ServerPlatformSpecific {
     // or a throwable if starting the driver failed for any reason.
     private val serverStarted: Promise[Throwable, Int],
   ) extends Server {
-    override def install[R](httpApp: Routes[R, Response])(implicit
+    override def install[R](routes: Routes[R, Response])(implicit
       trace: Trace,
       tag: EnvironmentTag[R],
     ): URIO[R, Unit] =
       for {
         _ <- initialInstall.succeed(())
         _ <- serverStarted.await.orDie
-        _ <- ZIO.environment[R].flatMap(env => driver.addApp(httpApp, env.prune[R]))
+        _ <- ZIO.environment[R].flatMap(env => driver.addApp(routes, env.prune[R]))
       } yield ()
 
     override def port: UIO[Int] = serverStarted.await.orDie

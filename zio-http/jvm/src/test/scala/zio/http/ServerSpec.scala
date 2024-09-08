@@ -26,11 +26,11 @@ import zio.test._
 
 import zio.stream.{ZPipeline, ZStream}
 
-import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, HttpGen, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 import zio.http.template.{body, div, id}
 
-object ServerSpec extends HttpRunnableSpec {
+object ServerSpec extends RoutesRunnableSpec {
 
   private val nonEmptyContent = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
@@ -267,7 +267,7 @@ object ServerSpec extends HttpRunnableSpec {
   )
 
   def requestSpec = suite("RequestSpec") {
-    val app: Routes[Any, Response] =
+    val routes: Routes[Any, Response] =
       Routes
         .singleton(handler { (_: Path, req: Request) =>
           Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString)
@@ -276,7 +276,7 @@ object ServerSpec extends HttpRunnableSpec {
 
     test("has content-length") {
       check(Gen.alphaNumericString) { string =>
-        val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(string))
+        val res = routes.deploy.body.mapZIO(_.asString).run(body = Body.fromString(string))
         assertZIO(res)(equalTo(string.length.toString))
       }
     } +
@@ -432,6 +432,31 @@ object ServerSpec extends HttpRunnableSpec {
                 .contentLength
                 .run()
             assertZIO(res)(isSome(equalTo(Header.ContentLength(10L))))
+          } +
+          test("provided content-length is used for HEAD requests") {
+            val res =
+              Handler.ok
+                .addHeader(Header.ContentLength(4L))
+                .sandbox
+                .toRoutes
+                .deploy
+                .contentLength
+                .run(method = Method.HEAD)
+            assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
+          } +
+          test("provided content-length is used for HEAD requests with stream body") {
+            // NOTE: Unlikely use-case, but just in case some 3rd party integration
+            // uses streams as a generalised way to provide content
+            val res =
+              Handler
+                .fromStream(ZStream.empty, 0L)
+                .addHeader(Header.ContentLength(4L))
+                .sandbox
+                .toRoutes
+                .deploy
+                .contentLength
+                .run(method = Method.HEAD)
+            assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
           }
       },
     ),
@@ -462,7 +487,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   def requestBodySpec = suite("RequestBodySpec")(
     test("POST Request stream") {
-      val app: Routes[Any, Response] = Routes.singleton {
+      val routes: Routes[Any, Response] = Routes.singleton {
         handler { (_: Path, req: Request) =>
           Response(body = Body.fromStreamChunked(req.body.asStream))
         }
@@ -470,7 +495,7 @@ object ServerSpec extends HttpRunnableSpec {
 
       check(Gen.alphaNumericString) { c =>
         assertZIO(
-          app.deploy.body.mapZIO(_.asString).run(path = Path.root, method = Method.POST, body = Body.fromString(c)),
+          routes.deploy.body.mapZIO(_.asString).run(path = Path.root, method = Method.POST, body = Body.fromString(c)),
         )(
           equalTo(c),
         )

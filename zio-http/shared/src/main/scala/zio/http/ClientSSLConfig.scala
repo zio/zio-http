@@ -24,9 +24,9 @@ sealed trait ClientSSLConfig
 object ClientSSLConfig {
   val config: Config[ClientSSLConfig] = {
     val tpe                = Config.string("type")
-    val certPath           = Config.string("certPath")
-    val trustStorePath     = Config.string("trustStorePath")
-    val trustStorePassword = Config.secret("trustStorePassword")
+    val certPath           = Config.string("cert-path")
+    val trustStorePath     = Config.string("trust-store-path")
+    val trustStorePassword = Config.secret("trust-store-password")
 
     val default                 = Config.succeed(Default)
     val fromCertFile            = certPath.map(FromCertFile(_))
@@ -34,8 +34,8 @@ object ClientSSLConfig {
     val fromTrustStoreFile      = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile(_, _))
     val fromTrustStoreResource  = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource(_, _))
     val fromClientAndServerCert = Config.defer {
-      val serverCertConfig = config.nested("serverCertConfig")
-      val clientCertConfig = ClientSSLCertConfig.config.nested("clientCertConfig")
+      val serverCertConfig = config.nested("cert", "server")
+      val clientCertConfig = ClientSSLCertConfig.config.nested("cert", "client")
       serverCertConfig.zipWith(clientCertConfig)(FromClientAndServerCert(_, _))
     }
 

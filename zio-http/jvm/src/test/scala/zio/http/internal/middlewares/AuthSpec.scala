@@ -22,9 +22,9 @@ import zio.test._
 import zio.{Ref, ZIO}
 
 import zio.http._
-import zio.http.internal.HttpAppTestExtensions
+import zio.http.internal.TestExtensions
 
-object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
+object AuthSpec extends ZIOHttpSpec with TestExtensions {
   def extractStatus(response: Response): Status = response.status
 
   private val successBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "resu"))
@@ -61,7 +61,7 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
 
   def spec = suite("AuthSpec")(
     suite("basicAuth")(
-      test("HttpApp is accepted if the basic authentication succeeds") {
+      test("Request is accepted if the basic authentication succeeds") {
         val app = (Handler.ok @@ basicAuthM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo(Status.Ok))
       },
@@ -94,7 +94,7 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       },
     ),
     suite("basicAuthZIO")(
-      test("HttpApp is accepted if the basic authentication succeeds") {
+      test("Request is accepted if the basic authentication succeeds") {
         val app = (Handler.ok @@ basicAuthZIOM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo(Status.Ok))
       },
@@ -131,7 +131,7 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       },
     ),
     suite("bearerAuth")(
-      test("HttpApp is accepted if the bearer authentication succeeds") {
+      test("Request is accepted if the bearer authentication succeeds") {
         val app = (Handler.ok @@ bearerAuthM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBearerHeader)))(equalTo(Status.Ok))
       },
@@ -157,7 +157,7 @@ object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
       },
     ),
     suite("bearerAuthZIO")(
-      test("HttpApp is accepted if the bearer authentication succeeds") {
+      test("Request is accepted if the bearer authentication succeeds") {
         val app = (Handler.ok @@ bearerAuthZIOM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBearerHeader)))(equalTo(Status.Ok))
       },

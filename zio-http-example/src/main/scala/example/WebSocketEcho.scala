@@ -21,7 +21,7 @@ object WebSocketEcho extends ZIOAppDefault {
       }
     }
 
-  private val app: Routes[Any, Response] =
+  private val routes: Routes[Any, Response] =
     Routes(
       Method.GET / "greet" / string("name") -> handler { (name: String, _: Request) =>
         Response.text(s"Greetings {$name}!")
@@ -29,5 +29,5 @@ object WebSocketEcho extends ZIOAppDefault {
       Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
     )
 
-  override val run = Server.serve(app).provide(Server.default)
+  override val run = Server.serve(routes).provide(Server.default)
 }

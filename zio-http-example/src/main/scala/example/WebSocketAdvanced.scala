@@ -50,7 +50,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
       }
     }
 
-  val app: Routes[Any, Response] =
+  val routes: Routes[Any, Response] =
     Routes(
       Method.GET / "greet" / string("name") -> handler { (name: String, _: Request) =>
         Response.text(s"Greetings ${name}!")
@@ -58,7 +58,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
       Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
     )
 
-  override val run = Server.serve(app).provide(Server.default)
+  override val run = Server.serve(routes).provide(Server.default)
 }
 
 object WebSocketAdvancedClient extends ZIOAppDefault {

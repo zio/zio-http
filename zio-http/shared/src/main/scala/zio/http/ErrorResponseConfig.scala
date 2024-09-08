@@ -32,7 +32,10 @@ object ErrorResponseConfig {
   val debugConfig: ErrorResponseConfig =
     ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0)
 
-  lazy val debug: HandlerAspect[Any, Unit] =
+  private[http] val configRef: FiberRef[ErrorResponseConfig] =
+    FiberRef.unsafe.make(default)(Unsafe)
+
+  val debug: HandlerAspect[Any, Unit] =
     Middleware.runBefore(setConfig(debugConfig))
 
   def withConfig(config: ErrorResponseConfig): HandlerAspect[Any, Unit] =
@@ -47,7 +50,4 @@ object ErrorResponseConfig {
 
   def configLayer(config: ErrorResponseConfig): ULayer[Unit] =
     ZLayer(setConfig(config))
-
-  private[http] lazy val configRef: FiberRef[ErrorResponseConfig] =
-    FiberRef.unsafe.make(default)(Unsafe)
 }
