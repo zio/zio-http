@@ -25,7 +25,6 @@ import io.netty.handler.codec.http.{DefaultHttpResponse, HttpMessage, HttpRespon
 private[zio] class ServerHttpsHandler(httpBehaviour: HttpBehaviour) extends SimpleChannelInboundHandler[HttpMessage] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpMessage): Unit = {
 
-    // TODO: PatMat maybe???
     if (msg.isInstanceOf[HttpMessage]) {
       if (httpBehaviour == HttpBehaviour.Redirect) {
         val message  = msg.asInstanceOf[HttpMessage]

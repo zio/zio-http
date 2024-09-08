@@ -16,8 +16,8 @@
 
 package zio.http.netty.client
 
+import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Exit, Promise, Trace, Unsafe}
 
 import zio.http.Status
 import zio.http.internal.ChannelState
@@ -26,7 +26,7 @@ import zio.http.netty.AsyncBodyReader
 import io.netty.channel._
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 
-final class ClientResponseStreamHandler(
+private[netty] final class ClientResponseStreamHandler(
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
   status: Status,

@@ -124,7 +124,7 @@ object Header {
       }
     }
 
-    override def toString(): String = (customName, value).toString()
+    override def toString: String = (customName, value).toString()
   }
 
   final case class Accept(mimeTypes: NonEmptyChunk[Accept.MediaTypeWithQFactor]) extends Header {

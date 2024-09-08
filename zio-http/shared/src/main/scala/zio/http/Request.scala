@@ -21,7 +21,6 @@ import java.security.cert.Certificate
 
 import zio._
 
-import zio.http.codec.TextCodec
 import zio.http.internal.{HeaderOps, QueryOps}
 
 final case class Request(

@@ -32,7 +32,7 @@ import io.netty.buffer.Unpooled
 import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
 
-object NettyBodyWriter {
+private[netty] object NettyBodyWriter {
 
   @tailrec
   def writeAndFlush(

@@ -120,7 +120,7 @@ private[http] object BodyCodec {
         case Left(error)                                                            => ZIO.fail(error)
         case Right((_, BinaryCodecWithSchema(_, schema))) if schema == Schema[Unit] =>
           ZIO.unit.asInstanceOf[IO[Throwable, A]]
-        case Right((_, bc @ BinaryCodecWithSchema(codec, schema)))                  =>
+        case Right((_, bc @ BinaryCodecWithSchema(_, schema)))                      =>
           field.asChunk.flatMap { chunk => ZIO.fromEither(bc.codec(config).decode(chunk)) }.flatMap(validateZIO(schema))
       }
     }

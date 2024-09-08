@@ -8,7 +8,7 @@ import zio.http.internal.ChannelState
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 
 /** Handles failures happening in ClientInboundHandler */
-final class ClientFailureHandler(
+private[netty] final class ClientFailureHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
 ) extends ChannelInboundHandlerAdapter {

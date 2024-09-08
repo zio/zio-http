@@ -1315,7 +1315,7 @@ object OpenAPI {
                   case "query"  => Right(Query)
                   case "header" => Right(Header)
                   case "cookie" => Right(Cookie)
-                  case value    => Left(s"Invalid ApiKey.In $s")
+                  case _        => Left(s"Invalid ApiKey.In $s")
                 },
               {
                 case Query  => Right("query")

@@ -16,17 +16,14 @@
 
 package zio.http.codec.internal
 
-import scala.annotation.nowarn
 import scala.util.Try
 
 import zio._
 
-import zio.stream.ZStream
-
 import zio.schema.codec.{BinaryCodec, DecodeError}
 import zio.schema.{Schema, StandardType}
 
-import zio.http.Header.Accept.{MediaTypeWithQFactor, render}
+import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec.HttpCodec.Query.QueryType
 import zio.http.codec._
