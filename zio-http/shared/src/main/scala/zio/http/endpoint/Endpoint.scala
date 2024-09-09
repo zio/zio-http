@@ -360,7 +360,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
           }
       }
 
-    Route.handled(self.route)(handler)
+    Route.handledIgnoreParams(self.route)(handler)
   }
 
   /**
