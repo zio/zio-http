@@ -303,11 +303,11 @@ object UserRepository {
 
 ```scala mdoc:silent
 Routes(
-  Method.GET / "user" / int("userId") -> sessionMiddleware -> handler { 
-    (userId: Int, session: Session, request: Request) =>
-      UserRepository.getUser(session.organizationId, userId)
+  Method.GET / "user" / int("userId") -> handler { 
+    (userId: Int, request: Request) =>
+      withContext((session: Session) => UserRepository.getUser(session.organizationId, userId))
   }
-)
+) @@ sessionMiddleware
 ```
 
 The `HandlerAspect` companion object provides a number of helpful constructors for these middlewares.

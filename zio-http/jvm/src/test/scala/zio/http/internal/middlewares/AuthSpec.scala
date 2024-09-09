@@ -83,7 +83,7 @@ object AuthSpec extends ZIOHttpSpec with TestExtensions {
         val app = {
           Routes(
             Method.GET / "context" ->
-              handler { (_: Request) => withContext((c: AuthContext) => Response.text(c.value))} @@ basicAuthContextM,
+              handler { (_: Request) => withContext((c: AuthContext) => Response.text(c.value)) } @@ basicAuthContextM,
           )
         }
         assertZIO(

@@ -82,7 +82,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def handleError(f: Err => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleError(f)))
 
-  def handleErrorZIO(f: Err => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
+  def handleErrorZIO[Env1 <: Env](f: Err => ZIO[Env1, Nothing, Response])(implicit
+    trace: Trace,
+  ): Routes[Env1, Nothing] =
     new Routes(routes.map(_.handleErrorZIO(f)))
 
   /**
