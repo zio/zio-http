@@ -30,12 +30,19 @@ final case class NettyConfig(
   nThreads: Int,
   shutdownQuietPeriodDuration: Duration,
   shutdownTimeoutDuration: Duration,
+  bossGroup: NettyConfig.BossGroup,
 ) extends EventLoopGroups.Config { self =>
+
+  /**
+   * Configure Netty's boss event-loop group. This only applies to server
+   * applications and is ignored for the Client
+   */
+  def bossGroup(cfg: NettyConfig.BossGroup): NettyConfig = self.copy(bossGroup = cfg)
 
   def channelType(channelType: ChannelType): NettyConfig = self.copy(channelType = channelType)
 
   /**
-   * Configure the server to use the leak detection level provided.
+   * Configure Netty to use the leak detection level provided.
    *
    * @see
    *   <a
@@ -44,50 +51,104 @@ final case class NettyConfig(
   def leakDetection(level: LeakDetectionLevel): NettyConfig = self.copy(leakDetectionLevel = level)
 
   /**
-   * Configure the server to use a maximum of nThreads to process requests.
+   * Configure Netty to use a maximum of `nThreads` for the worker event-loop
+   * group.
    */
   def maxThreads(nThreads: Int): NettyConfig = self.copy(nThreads = nThreads)
 
-  val shutdownTimeUnit: TimeUnit = TimeUnit.MILLISECONDS
-
-  val shutdownQuietPeriod: Long = shutdownQuietPeriodDuration.toMillis
-  val shutdownTimeOut: Long     = shutdownTimeoutDuration.toMillis
+  def shutdownTimeUnit: TimeUnit = TimeUnit.MILLISECONDS
+  def shutdownQuietPeriod: Long  = shutdownQuietPeriodDuration.toMillis
+  def shutdownTimeOut: Long      = shutdownTimeoutDuration.toMillis
 }
 
 object NettyConfig {
-  def config: Config[NettyConfig] =
-    (LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
-      Config
-        .string("channel-type")
-        .mapOrFail {
-          case "auto"   => Right(ChannelType.AUTO)
-          case "nio"    => Right(ChannelType.NIO)
-          case "epoll"  => Right(ChannelType.EPOLL)
-          case "kqueue" => Right(ChannelType.KQUEUE)
-          case "uring"  => Right(ChannelType.URING)
-          case other    => Left(Config.Error.InvalidData(message = s"Invalid channel type: $other"))
-        }
-        .withDefault(NettyConfig.default.channelType) ++
+  final case class BossGroup(
+    channelType: ChannelType,
+    nThreads: Int,
+    shutdownQuietPeriodDuration: Duration,
+    shutdownTimeOutDuration: Duration,
+  ) extends EventLoopGroups.Config {
+    def shutdownTimeUnit: TimeUnit = TimeUnit.MILLISECONDS
+    def shutdownQuietPeriod: Long  = shutdownQuietPeriodDuration.toMillis
+    def shutdownTimeOut: Long      = shutdownTimeOutDuration.toMillis
+  }
+
+  private def baseConfig: Config[EventLoopGroups.Config] =
+    (Config
+      .string("channel-type")
+      .mapOrFail {
+        case "auto"   => Right(ChannelType.AUTO)
+        case "nio"    => Right(ChannelType.NIO)
+        case "epoll"  => Right(ChannelType.EPOLL)
+        case "kqueue" => Right(ChannelType.KQUEUE)
+        case "uring"  => Right(ChannelType.URING)
+        case other    => Left(Config.Error.InvalidData(message = s"Invalid channel type: $other"))
+      }
+      .withDefault(NettyConfig.default.channelType) ++
       Config.int("max-threads").withDefault(NettyConfig.default.nThreads) ++
       Config.duration("shutdown-quiet-period").withDefault(NettyConfig.default.shutdownQuietPeriodDuration) ++
       Config.duration("shutdown-timeout").withDefault(NettyConfig.default.shutdownTimeoutDuration)).map {
-      case (leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout) =>
-        NettyConfig(leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout)
+      case (channelT, maxThreads, quietPeriod, timeout) =>
+        new EventLoopGroups.Config {
+          override val channelType: ChannelType   = channelT
+          override val nThreads: Int              = maxThreads
+          override val shutdownQuietPeriod: Long  = quietPeriod.toMillis
+          override val shutdownTimeOut: Long      = timeout.toMillis
+          override val shutdownTimeUnit: TimeUnit = TimeUnit.MILLISECONDS
+        }
     }
 
-  val default: NettyConfig = NettyConfig(
-    LeakDetectionLevel.SIMPLE,
-    ChannelType.AUTO,
-    java.lang.Runtime.getRuntime.availableProcessors(),
-    // Defaults taken from io.netty.util.concurrent.AbstractEventExecutor
-    Duration.fromSeconds(2),
-    Duration.fromSeconds(15),
-  )
+  def config: Config[NettyConfig] =
+    (LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
+      baseConfig.nested("worker-group").orElse(baseConfig) ++
+      baseConfig.nested("boss-group")).map { case (leakDetectionLevel, worker, boss) =>
+      def toDuration(n: Long, timeUnit: TimeUnit) = Duration.fromJava(java.time.Duration.of(n, timeUnit.toChronoUnit))
+      NettyConfig(
+        leakDetectionLevel,
+        worker.channelType,
+        worker.nThreads,
+        shutdownQuietPeriodDuration = toDuration(worker.shutdownQuietPeriod, worker.shutdownTimeUnit),
+        shutdownTimeoutDuration = toDuration(worker.shutdownTimeOut, worker.shutdownTimeUnit),
+        NettyConfig.BossGroup(
+          boss.channelType,
+          boss.nThreads,
+          shutdownQuietPeriodDuration = toDuration(boss.shutdownQuietPeriod, boss.shutdownTimeUnit),
+          shutdownTimeOutDuration = toDuration(boss.shutdownTimeOut, boss.shutdownTimeUnit),
+        ),
+      )
+    }
 
-  val defaultWithFastShutdown: NettyConfig = default.copy(
-    shutdownQuietPeriodDuration = Duration.fromMillis(50),
-    shutdownTimeoutDuration = Duration.fromMillis(250),
-  )
+  val default: NettyConfig = {
+    val quietPeriod = Duration.fromSeconds(2)
+    val timeout     = Duration.fromSeconds(15)
+    NettyConfig(
+      LeakDetectionLevel.SIMPLE,
+      ChannelType.AUTO,
+      java.lang.Runtime.getRuntime.availableProcessors(),
+      // Defaults taken from io.netty.util.concurrent.AbstractEventExecutor
+      shutdownQuietPeriodDuration = quietPeriod,
+      shutdownTimeoutDuration = timeout,
+      NettyConfig.BossGroup(
+        ChannelType.AUTO,
+        1,
+        shutdownQuietPeriodDuration = quietPeriod,
+        shutdownTimeOutDuration = timeout,
+      ),
+    )
+  }
+
+  val defaultWithFastShutdown: NettyConfig = {
+    val quietPeriod = Duration.fromMillis(50)
+    val timeout     = Duration.fromMillis(250)
+    default.copy(
+      shutdownQuietPeriodDuration = quietPeriod,
+      shutdownTimeoutDuration = timeout,
+      bossGroup = default.bossGroup.copy(
+        shutdownQuietPeriodDuration = quietPeriod,
+        shutdownTimeOutDuration = timeout,
+      ),
+    )
+  }
 
   sealed trait LeakDetectionLevel {
     self =>

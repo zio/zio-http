@@ -36,11 +36,9 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
 
   private val config = Server.Config.default
     .port(8080)
-    .enableRequestStreaming
 
   private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)
-    .maxThreads(8)
 
   private val configLayer      = ZLayer.succeed(config)
   private val nettyConfigLayer = ZLayer.succeed(nettyConfig)
