@@ -15,11 +15,10 @@
  */
 package zio.http
 
-import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
-import zio.{Chunk, NonEmptyChunk, Zippable}
+import zio._
 
 import zio.http.codec._
 
@@ -139,7 +138,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, A] =
     MethodCodec.method(method) ++ HttpCodec.Path(pathCodec)
 
-  override def toString(): String = render
+  override def toString: String = render
 
   /**
    * This exists for use with Scala custom extractor syntax, allowing route

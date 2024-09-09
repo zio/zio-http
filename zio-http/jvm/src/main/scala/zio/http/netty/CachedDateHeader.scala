@@ -9,7 +9,7 @@ private object CachedDateHeader {
   lazy val default: CachedDateHeader = new CachedDateHeader()
 }
 
-final private class CachedDateHeader(
+private final class CachedDateHeader(
   clock: Clock = Clock.tickSeconds(ZoneOffset.UTC),
   dateEncoding: DateEncoding = DateEncoding.default,
 ) {

@@ -649,7 +649,7 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
     loop(self)
   }
 
-  override def toString(): String = render
+  override def toString: String = render
 
   final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), output => Right(g(output)))

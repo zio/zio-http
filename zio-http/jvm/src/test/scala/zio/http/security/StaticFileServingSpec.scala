@@ -24,9 +24,6 @@ object StaticFileServingSpec extends ZIOSpecDefault {
     val symlinkContent = Files.createFile(symlinks.resolve("symlinkContent"))
     Files.write(symlinkContent, "something".getBytes())
 
-    val secrets = Files.createDirectory(root.resolve("secrets"))
-    val secret  = Files.createFile(secrets.resolve("secret"))
-
     val local = Files.createDirectory(root.resolve("local"))
     val dir   = Files.createDirectory(local.resolve("dir"))
     val file  = Files.createFile(dir.resolve("file"))
@@ -94,7 +91,7 @@ object StaticFileServingSpec extends ZIOSpecDefault {
   def spec =
     suite("StaticFileServingSpec")(
       test("Middleware.serveDirectory can't escape sandbox") {
-        ZIO.acquireRelease(mkDir)(deleteDir).flatMap { case tempDir =>
+        ZIO.acquireRelease(mkDir)(deleteDir).flatMap { tempDir =>
           val routes = serveDirectory(tempDir.resolve("local/dir"))
           check(serveDirectoryPaths) { case (path, expectedStatus) =>
             for {
@@ -108,7 +105,7 @@ object StaticFileServingSpec extends ZIOSpecDefault {
         }
       },
       test("Middleware.serveResources can't escape sandbox") {
-        ZIO.acquireRelease(mkDir)(deleteDir).flatMap { case _ =>
+        ZIO.acquireRelease(mkDir)(deleteDir).flatMap { _ =>
           val routes = serveResources
           check(serveResourcesPaths) { case (path, expectedStatus) =>
             for {

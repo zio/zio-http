@@ -466,7 +466,7 @@ object Body {
 
     override def isEmpty: Boolean = true
 
-    override def toString(): String = "Body.empty"
+    override def toString: String = "Body.empty"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = Array.empty[Byte]
 
@@ -513,7 +513,7 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
-    override def toString(): String = s"Body.fromChunk($data)"
+    override def toString: String = s"Body.fromChunk($data)"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
@@ -538,7 +538,7 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
-    override def toString(): String = s"Body.fromArray($data)"
+    override def toString: String = s"Body.fromArray($data)"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data
 
