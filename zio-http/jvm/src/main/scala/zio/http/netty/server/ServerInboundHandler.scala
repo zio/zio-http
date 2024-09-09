@@ -149,15 +149,12 @@ private[zio] final case class ServerInboundHandler(
       val jResponse  = NettyResponseEncoder.fastEncode(method, response, bytes)
       val djResponse = jResponse.retainedDuplicate()
 
-      // ctx.write and ctx.channel.write are different in netty. ctx.write will write to the next handler in the pipeline
-      // whereas ctx.channel.write will write to the channel directly. If we're not on the event loop, it's better
-      // to use ctx.channel.write
-      if (ctx.executor().inEventLoop()) {
-        ctx.writeAndFlush(djResponse, ctx.voidPromise())
-      } else {
-        val ch = ctx.channel()
-        ch.writeAndFlush(djResponse, ch.voidPromise())
-      }
+      // This handler sits at the tail of the pipeline, so using ctx.channel.writeAndFlush won't add any
+      // overhead of passing through the pipeline. It's also better to use ctx.channel.writeAndFlush in
+      // cases that we're writing to the channel from a different thread (which is most of the time as we're
+      // creating responses in ZIO's executor).
+      val ch = ctx.channel()
+      ch.writeAndFlush(djResponse, ch.voidPromise())
       true
     }
 
