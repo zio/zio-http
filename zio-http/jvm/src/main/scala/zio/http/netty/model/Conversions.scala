@@ -109,10 +109,13 @@ private[netty] object Conversions {
   }
 
   def statusToNetty(status: Status): HttpResponseStatus =
-    HttpResponseStatus.valueOf(status.code)
+    HttpResponseStatus.valueOf(status.code, status.reasonPhrase)
 
   def statusFromNetty(status: HttpResponseStatus): Status =
-    Status.fromInt(status.code)
+    Status.fromInt(status.code) match {
+      case Status.Custom(code, _) => Status.Custom(code, status.reasonPhrase)
+      case status                 => status
+    }
 
   def schemeToNetty(scheme: Scheme): Option[HttpScheme] = scheme match {
     case Scheme.HTTP  => Option(HttpScheme.HTTP)
