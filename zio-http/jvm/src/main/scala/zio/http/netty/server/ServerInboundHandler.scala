@@ -41,15 +41,15 @@ import io.netty.util.ReferenceCountUtil
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
-  appRef: AppRef,
+  appRef: RoutesRef,
   config: Server.Config,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private var app: Routes[Any, Response] = _
-  private var runtime: NettyRuntime      = _
+  private var routes: Routes[Any, Response] = _
+  private var runtime: NettyRuntime         = _
 
   val inFlightRequests: LongAdder = new LongAdder()
   private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
@@ -58,7 +58,7 @@ private[zio] final case class ServerInboundHandler(
   def refreshApp(): Unit = {
     val pair = appRef.get()
 
-    this.app = pair._1
+    this.routes = pair._1
     this.runtime = new NettyRuntime(pair._2)
   }
 
@@ -88,7 +88,7 @@ private[zio] final case class ServerInboundHandler(
             releaseRequest()
           } else {
             val req  = makeZioRequest(ctx, jReq)
-            val exit = app(req)
+            val exit = routes(req)
             if (attemptImmediateWrite(ctx, req.method, exit)) {
               releaseRequest()
             } else {
@@ -356,14 +356,14 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
 
   val live: ZLayer[
-    AppRef & Server.Config,
+    RoutesRef & Server.Config,
     Nothing,
     ServerInboundHandler,
   ] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
-        appRef <- ZIO.service[AppRef]
+        appRef <- ZIO.service[RoutesRef]
         config <- ZIO.service[Server.Config]
       } yield ServerInboundHandler(appRef, config)
     }

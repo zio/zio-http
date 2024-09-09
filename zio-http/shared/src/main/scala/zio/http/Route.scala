@@ -438,7 +438,7 @@ object Route                   {
     override def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Any, Response, Request, Response] =
       route.toHandler.provideEnvironment(env)
 
-    override def toString() = s"Route.Provided(${route}, ${env})"
+    override def toString = s"Route.Provided(${route}, ${env})"
   }
 
   private final case class Augmented[InEnv, -OutEnv, +Err](
@@ -452,7 +452,7 @@ object Route                   {
     override def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[OutEnv, Response, Request, Response] =
       aspect(route.toHandler)
 
-    override def toString() = s"Route.Augmented(${route}, ${aspect})"
+    override def toString = s"Route.Augmented(${route}, ${aspect})"
   }
 
   private final case class Handled[-Env](
@@ -463,7 +463,7 @@ object Route                   {
     override def toHandler(implicit ev: Nothing <:< Response, trace: Trace): Handler[Env, Response, Request, Response] =
       Handler.fromZIO(handler(routePattern)).flatten
 
-    override def toString() = s"Route.Handled(${routePattern}, ${location})"
+    override def toString = s"Route.Handled(${routePattern}, ${location})"
   }
   private final case class Unhandled[Params, Input, -Env, +Err](
     rpm: Route.Builder[Env, Params],
@@ -478,7 +478,7 @@ object Route                   {
       convert(handler.asErrorType[Response])
     }
 
-    override def toString() = s"Route.Unhandled(${routePattern}, ${location})"
+    override def toString = s"Route.Unhandled(${routePattern}, ${location})"
 
     private def convert[Env1 <: Env](
       handler: Handler[Env1, Response, Input, Response],

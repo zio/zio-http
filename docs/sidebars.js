@@ -9,7 +9,18 @@ const sidebars = {
       link: { type: "doc", id: "index" },
       items: [
         "installation",
+        // Concepts section
+        {
+            type: "category",
+            collapsed: true,
+            label: "Concepts",
+            items: [
+                "concepts/routing",
+                "concepts/middleware",
+                "concepts/endpoint",
+                ],
 
+        },
         // Reference section
         {
           type: "category",
@@ -107,7 +118,6 @@ const sidebars = {
             "guides/testing-http-apps",
           ],
         },
-        "faq",
 
         // Examples section
         {

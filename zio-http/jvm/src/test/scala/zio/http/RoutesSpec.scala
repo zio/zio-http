@@ -23,7 +23,7 @@ import zio.http.codec.PathCodec
 object RoutesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
-  def spec = suite("HttpAppSpec")(
+  def spec = suite("RoutesSpec")(
     test("empty not found") {
       val app = Routes.empty
 

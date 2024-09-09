@@ -82,7 +82,6 @@ The `TestServer` allows us to write tests for our HTTP applications by defining 
 
 - `TestServer.addRequestResponse` - Adds an 1-1 mapping from a `Request` to a `Response` to the `TestServer`. 
 - `TestServer.addRoute` and `TestServer.addRoutes` - Add one or more `Route` or a single `Routes` instance to the `TestServer`. 
-- `TestServer.install` - Installs a `HttpApp` to the `TestServer`.
 
 After defining the behavior of the test server, we can use the `TestServer.layer` to provide the `TestServer` to any test cases that require `Server`:
 

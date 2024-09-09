@@ -24,9 +24,29 @@ import zio.test._
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
+import zio.http.codec.{HttpCodec, HttpContentCodec}
 
 object EndpointSpec extends ZIOHttpSpec {
-  def spec = suite("EndpointSpec")()
+  final case class Data(name: String, age: Int)
+  object Data {
+    implicit val schema: Schema[Data] = DeriveSchema.gen[Data]
+  }
+  def spec = suite("EndpointSpec")(
+    test("Derive correct HttpContentCodec for endpoint") {
+      val endpoint = Endpoint(Method.GET / "image" / "metadata")
+        .in[Data]
+        .out[Data]
+
+      val inCodec  =
+        endpoint.input.asInstanceOf[HttpCodec.Combine[_, _, _, _, _]].right.asInstanceOf[HttpCodec.Content[Data]].codec
+      val outCodec =
+        endpoint.output.asInstanceOf[HttpCodec.Combine[_, _, _, _, _]].left.asInstanceOf[HttpCodec.Content[Data]].codec
+
+      val expectedCodec = HttpContentCodec.fromSchema[Data]
+
+      assertTrue(inCodec == expectedCodec, outCodec == expectedCodec)
+    },
+  )
 
   def testEndpoint[R](service: Routes[R, Nothing])(
     url: String,

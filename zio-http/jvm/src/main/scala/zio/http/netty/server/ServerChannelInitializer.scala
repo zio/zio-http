@@ -28,7 +28,7 @@ import zio.http.netty.{HybridContentLengthHandler, Names}
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
-import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
+import io.netty.handler.codec.http.HttpObjectDecoder.DEFAULT_MAX_CHUNK_SIZE
 import io.netty.handler.codec.http._
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.timeout.ReadTimeoutHandler

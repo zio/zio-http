@@ -28,7 +28,7 @@ import zio.http.codec.PathCodec.trailing
 import zio.http.internal._
 import zio.http.netty.NettyConfig
 
-object NettyConnectionPoolSpec extends HttpRunnableSpec {
+object NettyConnectionPoolSpec extends RoutesRunnableSpec {
 
   private val app = Routes(
     Method.POST / "streaming" -> handler((req: Request) => Response(body = Body.fromStreamChunked(req.body.asStream))),

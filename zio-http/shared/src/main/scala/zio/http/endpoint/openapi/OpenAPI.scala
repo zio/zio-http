@@ -1307,6 +1307,23 @@ object OpenAPI {
       sealed trait In extends Product with Serializable
 
       object In {
+        implicit val schema: Schema[In] =
+          Schema[String]
+            .transformOrFail(
+              s =>
+                s.toLowerCase match {
+                  case "query"  => Right(Query)
+                  case "header" => Right(Header)
+                  case "cookie" => Right(Cookie)
+                  case _        => Left(s"Invalid ApiKey.In $s")
+                },
+              {
+                case Query  => Right("query")
+                case Header => Right("header")
+                case Cookie => Right("cookie")
+              },
+            )
+
         case object Query extends In
 
         case object Header extends In

@@ -6,7 +6,7 @@ import zio.http._
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
-  val app: Routes[Any, Response] = Routes(
+  val routes: Routes[Any, Response] = Routes(
     Method.GET / "text" -> handler(Response.text("Hello World!")),
     Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}""")),
   )
@@ -42,6 +42,6 @@ object HttpsHelloWorld extends ZIOAppDefault {
   private val configLayer = ZLayer.succeed(config)
 
   override val run =
-    Server.serve(app).provide(configLayer, Server.live)
+    Server.serve(routes).provide(configLayer, Server.live)
 
 }

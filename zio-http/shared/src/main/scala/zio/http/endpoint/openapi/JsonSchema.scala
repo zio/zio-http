@@ -1,21 +1,18 @@
 package zio.http.endpoint.openapi
 
 import scala.annotation.{nowarn, tailrec}
-import scala.util.chaining.scalaUtilChainingOps
 
 import zio._
 import zio.json.ast.Json
 
 import zio.schema.Schema.CaseClass0
-import zio.schema.StandardType.Tags
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
 
-import zio.http.codec.{PathCodec, SegmentCodec, TextCodec}
-import zio.http.endpoint.openapi.BoolOrSchema.SchemaWrapper
+import zio.http.codec._
 import zio.http.endpoint.openapi.JsonSchema.MetaData
 
 @nowarn("msg=possible missing interpolator")

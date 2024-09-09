@@ -22,9 +22,9 @@ import zio.test._
 import zio.http.Header.AccessControlAllowMethods
 import zio.http.Middleware.{CorsConfig, cors}
 import zio.http._
-import zio.http.internal.HttpAppTestExtensions
+import zio.http.internal.TestExtensions
 
-object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
+object CorsSpec extends ZIOHttpSpec with TestExtensions {
   def extractStatus(response: Response): Status = response.status
 
   val app = Routes(

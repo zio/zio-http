@@ -2,7 +2,6 @@ package example
 
 import zio._
 
-import zio.http.Header.Authorization
 import zio.http._
 import zio.http.codec.PathCodec.path
 import zio.http.codec._

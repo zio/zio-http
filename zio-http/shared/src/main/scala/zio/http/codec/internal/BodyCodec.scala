@@ -117,10 +117,10 @@ private[http] object BodyCodec {
         .lookup(field.contentType)
         .toRight(HttpCodecError.CustomError("UnsupportedMediaType", s"MediaType: ${field.contentType}"))
       codec0 match {
-        case Left(error)                                                       => ZIO.fail(error)
-        case Right(BinaryCodecWithSchema(_, schema)) if schema == Schema[Unit] =>
+        case Left(error)                                                            => ZIO.fail(error)
+        case Right((_, BinaryCodecWithSchema(_, schema))) if schema == Schema[Unit] =>
           ZIO.unit.asInstanceOf[IO[Throwable, A]]
-        case Right(bc @ BinaryCodecWithSchema(codec, schema))                  =>
+        case Right((_, bc @ BinaryCodecWithSchema(_, schema)))                      =>
           field.asChunk.flatMap { chunk => ZIO.fromEither(bc.codec(config).decode(chunk)) }.flatMap(validateZIO(schema))
       }
     }
@@ -128,10 +128,10 @@ private[http] object BodyCodec {
     override def decodeFromBody(body: Body, config: CodecConfig)(implicit trace: Trace): IO[Throwable, A] = {
       val codec0 = codecForBody(codec, body)
       codec0 match {
-        case Left(error)                                                       => ZIO.fail(error)
-        case Right(BinaryCodecWithSchema(_, schema)) if schema == Schema[Unit] =>
+        case Left(error)                                                            => ZIO.fail(error)
+        case Right((_, BinaryCodecWithSchema(_, schema))) if schema == Schema[Unit] =>
           ZIO.unit.asInstanceOf[IO[Throwable, A]]
-        case Right(bc @ BinaryCodecWithSchema(_, schema))                      =>
+        case Right((_, bc @ BinaryCodecWithSchema(_, schema)))                      =>
           body.asChunk.flatMap { chunk => ZIO.fromEither(bc.codec(config).decode(chunk)) }.flatMap(validateZIO(schema))
       }
     }
@@ -178,7 +178,7 @@ private[http] object BodyCodec {
         codec
           .lookup(field.contentType)
           .toRight(HttpCodecError.CustomError("UnsupportedMediaType", s"MediaType: ${field.contentType}"))
-          .map { bc =>
+          .map { case (_, bc) =>
             (field.asStream >>> bc.codec(config).streamDecoder >>> validateStream(bc.schema)).orDie
           }
       }
@@ -187,7 +187,7 @@ private[http] object BodyCodec {
       trace: Trace,
     ): IO[Throwable, ZStream[Any, Nothing, E]] =
       ZIO.fromEither {
-        codecForBody(codec, body).map { case bc @ BinaryCodecWithSchema(_, schema) =>
+        codecForBody(codec, body).map { case (_, bc @ BinaryCodecWithSchema(_, schema)) =>
           (body.asStream >>> bc.codec(config).streamDecoder >>> validateStream(schema)).orDie
         }
       }

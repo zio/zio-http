@@ -20,10 +20,10 @@ import zio._
 import zio.test.TestAspect._
 import zio.test._
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 
-object ServerRuntimeSpec extends HttpRunnableSpec {
+object ServerRuntimeSpec extends RoutesRunnableSpec {
 
   override val bootstrap: ZLayer[Any, Any, TestEnvironment] =
     ZLayer.make[TestEnvironment](

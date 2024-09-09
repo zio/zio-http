@@ -16,10 +16,6 @@
 
 package zio.http.internal
 
-import java.util
-
-import scala.jdk.CollectionConverters._
-
 import zio._
 
 import zio.http._
