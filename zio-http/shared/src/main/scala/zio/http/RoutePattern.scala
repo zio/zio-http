@@ -41,6 +41,7 @@ import zio.http.codec._
  * `RoutePattern.GET`.
  */
 final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self =>
+  type Params = A
 
   /**
    * Attaches documentation to the route pattern, which may be used when
@@ -61,7 +62,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
     zippable: RequestHandlerInput[A, I],
     trace: zio.Trace,
   ): Route[Env, Err] =
-    Route.route(Route.Builder(self, HandlerAspect.identity))(handler)(zippable.zippable, trace)
+    Route.route(self)(handler)(zippable.zippable, trace)
 
   /**
    * Creates a route from this pattern and the specified handler, which ignores
@@ -72,16 +73,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   def ->[Env, Err](handler: Handler[Env, Response, Request, Response])(implicit
     trace: zio.Trace,
   ): Route[Env, Err] =
-    Route.handled(self)(handler)
-
-  /**
-   * Combines this route pattern with the specified middleware, which can be
-   * used to build a route by providing a handler.
-   */
-  def ->[Env, Context](middleware: HandlerAspect[Env, Context])(implicit
-    zippable: Zippable[A, Context],
-  ): Route.Builder[Env, zippable.Out] =
-    Route.Builder(self, middleware)(zippable)
+    Route.handledIgnoreParams(self)(handler)
 
   def alternatives: List[RoutePattern[A]] = pathCodec.alternatives.map(RoutePattern(method, _))
 
@@ -147,7 +139,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   def unapply(tuple: (Method, Path)): Option[A] =
     decode(tuple._1, tuple._2).toOption
 }
-object RoutePattern {
+object RoutePattern                                                       {
   import PathCodec.SegmentSubtree
 
   val CONNECT: RoutePattern[Unit] = fromMethod(Method.CONNECT)
