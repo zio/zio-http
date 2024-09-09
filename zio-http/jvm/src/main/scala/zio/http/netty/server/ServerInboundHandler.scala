@@ -152,10 +152,10 @@ private[zio] final case class ServerInboundHandler(
       // ctx.write and ctx.channel.write are different in netty. ctx.write will write to the next handler in the pipeline
       // whereas ctx.channel.write will write to the channel directly. If we're not on the event loop, it's better
       // to use ctx.channel.write
-      val ch = ctx.channel()
-      if (ch.eventLoop().inEventLoop()) {
+      if (ctx.executor().inEventLoop()) {
         ctx.writeAndFlush(djResponse, ctx.voidPromise())
       } else {
+        val ch = ctx.channel()
         ch.writeAndFlush(djResponse, ch.voidPromise())
       }
       true
