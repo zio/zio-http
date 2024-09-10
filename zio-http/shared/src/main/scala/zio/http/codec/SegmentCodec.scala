@@ -114,6 +114,7 @@ sealed trait SegmentCodec[A] { self =>
     }
     if (self ne SegmentCodec.Empty) b.append('/')
     loop(self.asInstanceOf[SegmentCodec[_]])
+    if (b.isEmpty) b.appendAll("/")
     b.result()
   }
 
