@@ -148,7 +148,13 @@ private[zio] final case class ServerInboundHandler(
     def fastEncode(response: Response, bytes: Array[Byte]) = {
       val jResponse  = NettyResponseEncoder.fastEncode(method, response, bytes)
       val djResponse = jResponse.retainedDuplicate()
-      ctx.writeAndFlush(djResponse, ctx.voidPromise())
+
+      // This handler sits at the tail of the pipeline, so using ctx.channel.writeAndFlush won't add any
+      // overhead of passing through the pipeline. It's also better to use ctx.channel.writeAndFlush in
+      // cases that we're writing to the channel from a different thread (which is most of the time as we're
+      // creating responses in ZIO's executor).
+      val ch = ctx.channel()
+      ch.writeAndFlush(djResponse, ch.voidPromise())
       true
     }
 

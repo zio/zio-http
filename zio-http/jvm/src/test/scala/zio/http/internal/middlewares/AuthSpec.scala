@@ -82,8 +82,8 @@ object AuthSpec extends ZIOHttpSpec with TestExtensions {
       test("Extract username via context with Routes") {
         val app = {
           Routes(
-            Method.GET / "context" -> basicAuthContextM ->
-              handler { (c: AuthContext, _: Request) => Response.text(c.value) },
+            Method.GET / "context" ->
+              handler { (_: Request) => withContext((c: AuthContext) => Response.text(c.value)) } @@ basicAuthContextM,
           )
         }
         assertZIO(
