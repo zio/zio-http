@@ -63,7 +63,6 @@ object BoundarySpec extends ZIOHttpSpec {
       test("generated boundary is RFC 2046 compliant") {
         for {
           boundary <- Boundary.randomUUID
-          _        <- ZIO.logInfo(s"Generated boundary: ${boundary.id}")
         } yield assertTrue(
           boundary.id.matches("^[a-zA-Z0-9-]+$"),
           boundary.id.startsWith("----"),
