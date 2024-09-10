@@ -1,6 +1,6 @@
 # Thanks for 3.0
 
-We finally made the 3.0 release 🎉🎊 . Which is also the first real production read release with stable API of zio-http.
+We finally made the 3.0 release 🎉🎊 . Which is also the first real production-ready release with stable API of zio-http.
 I am very happy to have reached this milestone.
 
 Thanks to all the contributors and users of ZIO HTTP!
