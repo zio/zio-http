@@ -369,6 +369,43 @@ object RoundtripSpec extends ZIOHttpSpec {
           (stream: ZStream[Any, Nothing, Byte]) => stream.runCount.map(c => assert(c)(equalTo(1024L * 1024L))),
         )
       },
+      test("string stream output") {
+        val api   = Endpoint(GET / "download").query(HttpCodec.query[Int]("count")).outStream[String]
+        val route = api.implementHandler {
+          Handler.fromFunctionZIO { count =>
+            ZIO.succeed(ZStream.fromIterable((0 until count).map(_.toString)))
+          }
+        }
+
+        testEndpointZIO(
+          api,
+          Routes(route),
+          1024 * 1024,
+          (stream: ZStream[Any, Nothing, String]) =>
+            stream.zipWithIndex
+              .runFold((true, 0)) { case ((allOk, count), (str, idx)) =>
+                (allOk && str == idx.toString, count + 1)
+              }
+              .map { case (allOk, c) =>
+                assertTrue(allOk && c == 1024 * 1024)
+              },
+        )
+      },
+      test("string output") {
+        val api   = Endpoint(GET / "download").query(HttpCodec.query[String]("param")).out[String]
+        val route = api.implementHandler {
+          Handler.fromFunctionZIO { param =>
+            ZIO.succeed(param)
+          }
+        }
+
+        testEndpointZIO(
+          api,
+          Routes(route),
+          "test",
+          (str: String) => assertTrue(str == "test"),
+        )
+      },
       test("multi-part input") {
         val api = Endpoint(POST / "test")
           .in[String]("name")
