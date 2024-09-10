@@ -45,8 +45,8 @@ object ServerEventLoopGroupsSpec extends ZIOHttpSpec {
           _  <- ZIO.scoped(ServerEventLoopGroups.live.build <* Clock.nanoTime.flatMap(st.set))
           et <- Clock.nanoTime
           st <- st.get
-          d = Duration.fromNanos(et - st)
-        } yield assertTrue(d >= 500.millis, d < 700.millis)).provide(configLayer)
+          d = Duration.fromNanos(et - st).toMillis
+        } yield assertTrue(d >= 500L, d < 700L)).provide(configLayer)
       } @@ withLiveClock,
     ) @@ sequential
 }
