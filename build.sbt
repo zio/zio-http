@@ -281,6 +281,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
   .settings(
+    run / fork := true,
+    run / javaOptions ++= Seq("-Xms4G", "-Xmx4G", "-XX:+UseG1GC"),
     libraryDependencies ++= Seq(
       `zio-config`,
       `zio-config-magnolia`,
@@ -404,7 +406,7 @@ lazy val docs = project
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       `jwt-core`,
-      "dev.zio" %% "zio-test"            % ZioVersion,
+      "dev.zio" %% "zio-test" % ZioVersion,
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
