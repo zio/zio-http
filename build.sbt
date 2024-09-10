@@ -167,6 +167,12 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-test`,
       `zio-test-sbt`,
     ),
+    dependencyOverrides ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, n)) if n <= 12 =>
@@ -314,6 +320,12 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
         .exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
       `zio-json-yaml` % Test,
     ),
+    dependencyOverrides ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
   )
   .settings(
     libraryDependencies ++= {
@@ -426,3 +438,5 @@ Global / excludeLintKeys ++= Set(
   sbtZioHttpGrpcTests / autoAPIMappings,
   ideSkipProject,
 )
+
+Global / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
