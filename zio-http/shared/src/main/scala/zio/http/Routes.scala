@@ -39,10 +39,13 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def @@[Env0](aspect: HandlerAspect[Env0, Unit]): Routes[Env with Env0, Err] =
     aspect(self)
 
-  def @@[Env0, Ctx <: Env](
-    aspect: HandlerAspect[Env0, Ctx],
-  )(implicit tag: Tag[Ctx]): Routes[Env0, Err] =
-    self.transform(_ @@ aspect)
+  def @@[Env0, Ctx <: Env](aspect: HandlerAspect[Env0, Ctx])(implicit tag: Tag[Ctx]): Routes[Env0, Err] = {
+    if (isScala2 && isIntersectionType[Ctx]) {
+      self.transform(_ @@ aspect).asInstanceOf[Routes[Env0, Err]]
+    } else {
+      self.transform(_ @@ aspect)
+    }
+  }
 
   def @@[Env0]: ApplyContextAspect[Env, Err, Env0] =
     new ApplyContextAspect[Env, Err, Env0](self)
@@ -103,6 +106,15 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    */
   def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleErrorCauseZIO(f)))
+
+  def isScala2: Boolean = util.Properties.versionNumberString.startsWith("2.")
+
+  def isIntersectionType[T](implicit tag: Tag[T]): Boolean = {
+    tag.tag match {
+      case t if t.toString.contains("with") => true
+      case _                                => false
+    }
+  }
 
   /**
    * Allows the transformation of the Err type through an Effectful program
