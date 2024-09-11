@@ -195,7 +195,7 @@ object RouteSpec extends ZIOHttpSpec {
         val routes                                     = Routes(route).@@[Int & Long](authContext)
 
         val env: ZEnvironment[Int with Long] = ZEnvironment(1).add(2L)
-        val expected = s"\"effectWithTwoDependencyResult 1 2\""
+        val expected = "\"effectWithTwoDependencyResult 1 2\""
         for {
           response   <- routes
             .provideEnvironment(env)
