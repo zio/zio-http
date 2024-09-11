@@ -75,6 +75,6 @@ object Boundary {
 
   def randomUUID(implicit trace: Trace): zio.UIO[Boundary] =
     zio.Random.nextUUID.map { id =>
-      Boundary(s"----${id.toString.replaceAll("[^a-zA-Z0-9]", "-")}----")
+      Boundary(s"----${id.toString}----")
     }
 }
