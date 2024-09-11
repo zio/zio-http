@@ -33,6 +33,13 @@ ThisBuild / githubWorkflowAddedJobs    :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
+    WorkflowJob(
+      id = "mima_check",
+      name = "Mima Check",
+      steps = WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.CheckoutFull :+ WorkflowStep.Sbt(List("mimaChecks")),
+      cond = Option("${{ github.event_name == 'pull_request' }}"),
+      javas = List(JavaSpec.temurin("21")),
+    ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
@@ -176,6 +183,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     },
     libraryDependencies ++= netty ++ Seq(`netty-incubator`),
   )
+  .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
@@ -274,6 +282,7 @@ lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
     ),
   )
   .dependsOn(zioHttpJVM)
+  .settings(MimaSettings.mimaSettings(failOnProblem = true))
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))

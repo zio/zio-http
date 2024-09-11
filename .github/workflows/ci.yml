@@ -219,6 +219,31 @@ jobs:
     steps:
       - uses: release-drafter/release-drafter@v5
 
+  mima_check:
+    name: Mima Check
+    if: ${{ github.event_name == 'pull_request' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.10]
+        java: [temurin@21]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup Java (temurin@21)
+        if: matrix.java == 'temurin@21'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: sbt
+
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: sbt mimaChecks
+
   unsafeRunScoverage:
     name: Unsafe Scoverage
     strategy:
