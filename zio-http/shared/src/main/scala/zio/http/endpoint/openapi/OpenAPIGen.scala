@@ -618,7 +618,7 @@ object OpenAPIGen {
 
     def queryParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] = {
       inAtoms.query.collect {
-        case mc @ MetaCodec(HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _)  =>
+        case mc @ MetaCodec(q @ HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _) =>
           OpenAPI.ReferenceOr.Or(
             OpenAPI.Parameter.queryParameter(
               name = name,
@@ -631,10 +631,10 @@ object OpenAPIGen {
               examples = mc.examples.map { case (name, value) =>
                 name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
               },
-              required = mc.required,
+              required = mc.required && !q.isOptional,
             ),
           ) :: Nil
-        case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _) =>
+        case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _)    =>
           val recordSchema = (schema match {
             case schema if schema.isInstanceOf[Schema.Optional[_]] => schema.asInstanceOf[Schema.Optional[_]].schema
             case _                                                 => schema
@@ -692,7 +692,7 @@ object OpenAPIGen {
               examples = mc.examples.map { case (exName, value) =>
                 exName -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
               },
-              required = !optional,
+              required = mc.required && !optional,
             ),
           ) :: Nil
       }
@@ -723,7 +723,8 @@ object OpenAPIGen {
             OpenAPI.Parameter.headerParameter(
               name = mc.name.getOrElse(codec.name),
               description = mc.docsOpt,
-              definition = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromTextCodec(codec.textCodec))),
+              definition =
+                Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromTextCodec(codec.textCodec).nullable(!mc.required))),
               deprecated = mc.deprecated,
               examples = mc.examples.map { case (name, value) =>
                 name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(codec.textCodec.encode(value).toJsonAST.toOption.get))
@@ -923,9 +924,13 @@ object OpenAPIGen {
         case (mediaType, values)                                        =>
           val combinedAtomized: AtomizedMetaCodecs = values.map(_._1).reduce(_ ++ _)
           val combinedContentDoc                   = combinedAtomized.contentDocs.toCommonMark
+          val vals                                 =
+            if (values.forall(v => v._2.isNullable || v._2 == JsonSchema.Null))
+              values.map(_._2).filter(_ != JsonSchema.Null)
+            else values.map(_._2)
           val alternativesSchema                   = {
             JsonSchema
-              .AnyOfSchema(values.map { case (_, schema) =>
+              .AnyOfSchema(vals.map { schema =>
                 schema.description match {
                   case Some(value) => schema.description(value.replace(combinedContentDoc, ""))
                   case None        => schema
