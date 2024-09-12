@@ -151,7 +151,10 @@ object CodeGenSpec extends ZIOSpecDefault {
       },
       test("Endpoint with headers") {
         val endpoint =
-          Endpoint(Method.GET / "api" / "v1" / "users").header(HeaderCodec.accept).header(HeaderCodec.contentType)
+          Endpoint(Method.GET / "api" / "v1" / "users")
+            .header(HeaderCodec.accept)
+            .header(HeaderCodec.contentType)
+            .header(HeaderCodec.name[String]("Token"))
         val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
 
         codeGenFromOpenAPI(openAPI) { testDir =>
