@@ -36,7 +36,7 @@ ThisBuild / githubWorkflowAddedJobs    :=
     WorkflowJob(
       id = "mima_check",
       name = "Mima Check",
-      steps = WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.CheckoutFull :+ WorkflowStep.Sbt(List("mimaChecks")),
+      steps = WorkflowStep.CheckoutFull +: WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+  WorkflowStep.Sbt(List("mimaChecks")),
       cond = Option("${{ github.event_name == 'pull_request' }}"),
       javas = List(JavaSpec.temurin("21")),
     ),
