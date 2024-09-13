@@ -19,6 +19,9 @@ package zio.http
 import zio._
 import zio.test._
 
+import zio.http.codec.{HttpCodec, StatusCodec}
+import zio.http.endpoint.{AuthType, Endpoint}
+
 object RouteSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
@@ -162,6 +165,48 @@ object RouteSpec extends ZIOHttpSpec {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+      },
+      test(
+        "Routes with context can eliminate environment type partially when elimination produces intersection type environment",
+      ) {
+
+        val authContext: HandlerAspect[Any, String] = HandlerAspect.customAuthProviding[String] { request =>
+          {
+            request.headers.get(Header.Authorization).flatMap {
+              case Header.Authorization.Basic(uname, secret) if uname.reverse == secret.value.mkString =>
+                Some(uname)
+              case _                                                                                   =>
+                None
+            }
+          }
+        }
+
+        val endpoint = Endpoint(RoutePattern(Method.GET, Path.root))
+          .outCodec[String](StatusCodec.Ok ++ HttpCodec.content[String])
+          .auth(AuthType.Basic)
+
+        val effectWithTwoDependency: ZIO[Int & Long, Nothing, String] = for {
+          int  <- ZIO.service[Int]
+          long <- ZIO.service[Long]
+        } yield s"effectWithTwoDependencyResult $int $long"
+
+        val route: Route[Int & Long & String, Nothing] =
+          endpoint.implement((_: Unit) => withContext((_: String) => "") *> effectWithTwoDependency)
+        val routes                                     = Routes(route).@@[Int & Long](authContext)
+
+        val env: ZEnvironment[Int with Long] = ZEnvironment(1).add(2L)
+        val expected                         = "\"effectWithTwoDependencyResult 1 2\""
+        for {
+          response   <- routes
+            .provideEnvironment(env)
+            .apply(
+              Request(
+                headers = Headers("accept", "text") ++ Headers(Header.Authorization.Basic("123", "321")),
+                method = Method.GET,
+              ).path(Path.root),
+            )
+          bodyString <- response.body.asString
+        } yield assertTrue(bodyString == expected)
       },
     ),
   )
