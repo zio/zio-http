@@ -23,7 +23,6 @@ import zio.http.codec.{HttpCodec, StatusCodec}
 import zio.http.endpoint.{AuthType, Endpoint}
 
 object RouteSpec extends ZIOHttpSpec {
-  def extractStatus(response: Response): Status = response.status
 
   def spec = suite("RouteSpec")(
     suite("Route#prefix")(
@@ -45,7 +44,7 @@ object RouteSpec extends ZIOHttpSpec {
 
         for {
           result <- ignored.toHandler.run().merge
-        } yield assertTrue(extractStatus(result) == Status.Ok)
+        } yield assertTrue(result.status == Status.Ok)
       },
       test("route dying with throwable ends in internal server error") {
         val route =
@@ -56,7 +55,7 @@ object RouteSpec extends ZIOHttpSpec {
 
         for {
           result <- ignored.toHandler.merge.run()
-        } yield assertTrue(extractStatus(result) == Status.InternalServerError)
+        } yield assertTrue(result.status == Status.InternalServerError)
       },
     ),
     suite("auto-sandboxing for middleware")(
@@ -88,7 +87,24 @@ object RouteSpec extends ZIOHttpSpec {
           response <- errorHandled.toRoutes.runZIO(request)
           result   <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
 
-        } yield assertTrue(extractStatus(response) == Status.InternalServerError, result.contains("hmm..."))
+        } yield assertTrue(response.status == Status.InternalServerError, result.contains("hmm..."))
+      },
+      test("handleErrorCauseZIO should not execute the ZIO effect if called on handled route") {
+        val route = Route.handled(Method.GET / "endpoint")(Handler.fail(Response.status(Status.ExpectationFailed)))
+        val errorHandled = route
+          .handleErrorCauseZIO(_ => ZIO.die(new Exception("hmm...")))
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          response <- errorHandled.toRoutes.runZIO(request)
+        } yield assertTrue(response.status == Status.ExpectationFailed)
+      },
+      test("handleErrorCauseZIO should execute the ZIO effect on die") {
+        val route        = Route.handled(Method.GET / "endpoint")(Handler.fromZIO(ZIO.dieMessage("hmm...")))
+        val errorHandled = route.handleErrorCauseZIO(_ => ZIO.succeed(Response.status(Status.ExpectationFailed)))
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          response <- errorHandled.toRoutes.runZIO(request)
+        } yield assertTrue(response.status == Status.ExpectationFailed)
       },
       test("handleErrorCauseRequestZIO should produce an error based on the request") {
         val route = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hmm...")) }
@@ -105,7 +121,7 @@ object RouteSpec extends ZIOHttpSpec {
           result   <- p.await.catchAllCause(c => ZIO.succeed(c.prettyPrint))
           body     <- response.body.asString
         } yield assertTrue(
-          extractStatus(response) == Status.InternalServerError,
+          response.status == Status.InternalServerError,
           result.contains("hmm..."),
           body == "error accessing /endpoint",
         )
@@ -122,7 +138,7 @@ object RouteSpec extends ZIOHttpSpec {
           body     <- response.body.asString
 
         } yield assertTrue(
-          extractStatus(response) == Status.InternalServerError,
+          response.status == Status.InternalServerError,
           body == "error accessing /endpoint: hmm...",
         )
       },
@@ -133,7 +149,7 @@ object RouteSpec extends ZIOHttpSpec {
         for {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
-        } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+        } yield assertTrue(response.status == Status.InternalServerError, bodyString == "error")
       },
       test("handleErrorCauseZIO should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
@@ -143,7 +159,7 @@ object RouteSpec extends ZIOHttpSpec {
         for {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
-        } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+        } yield assertTrue(response.status == Status.InternalServerError, bodyString == "error")
       },
       test("handleErrorRequestCause should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
@@ -153,7 +169,7 @@ object RouteSpec extends ZIOHttpSpec {
         for {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
-        } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+        } yield assertTrue(response.status == Status.InternalServerError, bodyString == "error")
       },
       test("handleErrorRequestCauseZIO should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
@@ -164,7 +180,7 @@ object RouteSpec extends ZIOHttpSpec {
         for {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
-        } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+        } yield assertTrue(response.status == Status.InternalServerError, bodyString == "error")
       },
       test(
         "Routes with context can eliminate environment type partially when elimination produces intersection type environment",
