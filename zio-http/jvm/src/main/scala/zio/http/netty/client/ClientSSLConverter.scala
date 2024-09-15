@@ -18,7 +18,7 @@ package zio.http.netty.client
 
 import java.io.{File, FileInputStream, InputStream}
 import java.security.KeyStore
-import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.{KeyManagerFactory, TrustManagerFactory}
 
 import scala.util.Using
 
@@ -31,6 +31,39 @@ import zio.http.ClientSSLConfig
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 private[netty] object ClientSSLConverter {
+  private def keyManagerTrustManagerToSslContext(
+    keyManagerInfo: Option[(String, InputStream, Option[Secret])],
+    trustManagerInfo: Option[(String, InputStream, Option[Secret])],
+    sslContextBuilder: SslContextBuilder,
+  ): SslContextBuilder = {
+    val mkeyManagerFactory =
+      keyManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
+        val keyStore          = KeyStore.getInstance(keyStoreType)
+        val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
+        val password          = maybePassword.map(_.value.toArray).orNull
+
+        keyStore.load(inputStream, password)
+        keyManagerFactory.init(keyStore, password)
+        keyManagerFactory
+      }
+
+    val mtrustManagerFactory =
+      trustManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
+        val keyStore            = KeyStore.getInstance(keyStoreType)
+        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+        val password            = maybePassword.map(_.value.toArray).orNull
+
+        keyStore.load(inputStream, password)
+        trustManagerFactory.init(keyStore)
+        trustManagerFactory
+      }
+
+    var bldr = SslContextBuilder.forClient()
+    mkeyManagerFactory.foreach(kmf => bldr = bldr.keyManager(kmf))
+    mtrustManagerFactory.foreach(tmf => bldr = bldr.trustManager(tmf))
+    bldr
+  }
+
   private def trustStoreToSslContext(
     trustStoreStream: InputStream,
     trustStorePassword: Secret,
@@ -78,6 +111,41 @@ private[netty] object ClientSSLConverter {
     case ClientSSLConfig.FromTrustStoreFile(trustStorePath, trustStorePassword)                               =>
       val trustStoreStream = new FileInputStream(trustStorePath)
       trustStoreToSslContext(trustStoreStream, trustStorePassword, sslContextBuilder)
+    case ClientSSLConfig.FromJavaxNetSsl(
+          keyManagerKeyStoreType,
+          keyManagerSource,
+          keyManagerPassword,
+          trustManagerKeyStoreType,
+          trustManagerSource,
+          trustManagerPassword,
+        ) =>
+      val keyManagerInfo =
+        keyManagerSource match {
+          case ClientSSLConfig.FromJavaxNetSsl.File(path)     =>
+            Option(new FileInputStream(path)).map(inputStream =>
+              (keyManagerKeyStoreType, inputStream, keyManagerPassword),
+            )
+          case ClientSSLConfig.FromJavaxNetSsl.Resource(path) =>
+            Option(getClass.getClassLoader.getResourceAsStream(path)).map(inputStream =>
+              (keyManagerKeyStoreType, inputStream, keyManagerPassword),
+            )
+          case ClientSSLConfig.FromJavaxNetSsl.Empty          => None
+        }
+
+      val trustManagerInfo =
+        trustManagerSource match {
+          case ClientSSLConfig.FromJavaxNetSsl.File(path)     =>
+            Option(new FileInputStream(path)).map(inputStream =>
+              (trustManagerKeyStoreType, inputStream, trustManagerPassword),
+            )
+          case ClientSSLConfig.FromJavaxNetSsl.Resource(path) =>
+            Option(getClass.getClassLoader.getResourceAsStream(path)).map(inputStream =>
+              (trustManagerKeyStoreType, inputStream, trustManagerPassword),
+            )
+          case ClientSSLConfig.FromJavaxNetSsl.Empty          => None
+        }
+
+      keyManagerTrustManagerToSslContext(keyManagerInfo, trustManagerInfo, sslContextBuilder)
   }
 
   def toNettySSLContext(sslConfig: ClientSSLConfig): SslContext = {
