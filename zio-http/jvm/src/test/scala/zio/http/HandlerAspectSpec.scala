@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+import zio.http.netty.NettyConfig
 import zio.test._
 
 object HandlerAspectSpec extends ZIOSpecDefault {
@@ -45,6 +46,41 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "1 test")
       },
+
+      test("Reproducing class cast exception") {
+        //Fails on Handler.scala line 57
+        //...
+        // val handler: ZIO[Ctx, Response, Response] = self.asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
+        //...
+
+
+
+
+        case class WebSession(id: Int)
+        val handlerAspect: HandlerAspect[Any, Option[WebSession]] =
+          HandlerAspect.interceptIncomingHandler(
+            Handler.fromFunctionZIO[Request] { req =>
+              ZIO.succeed((req, None))
+            }
+          )
+        val route = Method.GET / "base" / string("1") -> handler((a: String, req: Request) => {
+          withContext((c: Option[WebSession]) => {
+            ZIO.logInfo("Hello").as(Response.ok)
+          })
+        }) @@ handlerAspect
+
+        for {
+          port <- Server.install(Routes(route))
+          client <- ZIO.service[Client]
+          url <- ZIO.fromEither(URL.decode(s"http://127.0.0.1:$port/base/1"))
+          response <- client.apply(Request.get(url))
+        } yield assertTrue(response.status == Status.Ok)
+      }.provideSome[TestEnvironment with Scope](
+        ZLayer.succeed(Server.Config.default.onAnyOpenPort),
+        Server.customized,
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+        Client.default
+      )
       // format: on
     )
 }
