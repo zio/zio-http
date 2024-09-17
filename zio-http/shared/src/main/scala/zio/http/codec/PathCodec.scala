@@ -788,7 +788,7 @@ object PathCodec {
     def get(path: Path): Chunk[A] =
       get(path, 0)
 
-    private def get(path: Path, from: Int, skipLiteralsFor: Set[Int] = Set.empty): Chunk[A] = {
+    private def get(path: Path, from: Int, skipLiteralsFor: Set[Int] = null): Chunk[A] = {
       val segments  = path.segments
       val nSegments = segments.length
       var subtree   = self
@@ -801,7 +801,7 @@ object PathCodec {
         val segment = segments(i)
 
         // Fast path, jump down the tree:
-        if (!skipLiteralsFor.contains(i) && subtree.literals.contains(segment)) {
+        if ((skipLiteralsFor.eq(null) || !skipLiteralsFor.contains(i)) && subtree.literals.contains(segment)) {
 
           // this subtree segment have conflict with others
           // will try others if result was empty
@@ -875,19 +875,19 @@ object PathCodec {
 
       // Might be some other matches because trailing matches everything:
       if (subtree ne null) {
-        subtree.others.get(SegmentCodec.trailing) match {
-          case Some(subtree) =>
-            result = result ++ subtree.value
-          case None          =>
+        subtree.others.getOrElse(SegmentCodec.Trailing, null) match {
+          case null    => ()
+          case subtree => result = result ++ subtree.value
         }
       }
 
       if (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
         trySkipLiteralIdx = trySkipLiteralIdx.reverse
+        val skipLiteralsFor0 = if (skipLiteralsFor eq null) Set.empty[Int] else skipLiteralsFor
         while (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
           val skipIdx = trySkipLiteralIdx.head
           trySkipLiteralIdx = trySkipLiteralIdx.tail
-          result = get(path, from, skipLiteralsFor + skipIdx)
+          result = get(path, from, skipLiteralsFor0 + skipIdx)
         }
         result
       } else result
