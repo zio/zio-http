@@ -135,6 +135,12 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
+      test("handleErrorCause should pass through responses in error channel of handled routes") {
+        val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+        val errorHandled = route.handleErrorCause(_ => Response.text("error").status(Status.InternalServerError))
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        errorHandled.toRoutes.runZIO(request).map(response => assertTrue(extractStatus(response) == Status.Ok))
+      },
       test("handleErrorCauseZIO should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
         val errorHandled =
@@ -144,6 +150,18 @@ object RouteSpec extends ZIOHttpSpec {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+      },
+      test("handleErrorCauseZIO should pass through responses in error channel of handled routes") {
+        val route   = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+        val request = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          ref <- Ref.make(false)
+          errorHandled = route.handleErrorCauseZIO(_ =>
+            ref.set(true) *> ZIO.succeed(Response.text("error").status(Status.InternalServerError)),
+          )
+          response <- errorHandled.toRoutes.runZIO(request)
+          refValue <- ref.get
+        } yield assertTrue(extractStatus(response) == Status.Ok, !refValue)
       },
       test("handleErrorRequestCause should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
@@ -155,6 +173,13 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
+      test("handleErrorRequestCause should pass through responses in error channel of handled routes") {
+        val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+        val errorHandled =
+          route.handleErrorRequestCause((_, _) => Response.text("error").status(Status.InternalServerError))
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        errorHandled.toRoutes.runZIO(request).map(response => assertTrue(extractStatus(response) == Status.Ok))
+      },
       test("handleErrorRequestCauseZIO should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
         val errorHandled = route.handleErrorRequestCauseZIO((_, _) =>
@@ -165,6 +190,18 @@ object RouteSpec extends ZIOHttpSpec {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+      },
+      test("handleErrorRequestCauseZIO should pass through responses in error channel of handled routes") {
+        val route   = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+        val request = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          ref <- Ref.make(false)
+          errorHandled = route.handleErrorRequestCauseZIO((_, _) =>
+            ref.set(true) *> ZIO.succeed(Response.text("error").status(Status.InternalServerError)),
+          )
+          response <- errorHandled.toRoutes.runZIO(request)
+          refValue <- ref.get
+        } yield assertTrue(extractStatus(response) == Status.Ok, !refValue)
       },
       test(
         "Routes with context can eliminate environment type partially when elimination produces intersection type environment",
