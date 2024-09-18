@@ -32,7 +32,21 @@ import zio.http.codec.PathCodec
  * Individual routes can be aggregated using [[zio.http.Routes]].
  */
 sealed trait Route[-Env, +Err] { self =>
-  import Route.{Augmented, Handled, Provided, Unhandled}
+  import Route._
+
+  def @@[Env1 <: Env](aspect: Middleware[Env1]): Route[Env1, Err] =
+    aspect(self)
+
+  def @@[Env0](aspect: HandlerAspect[Env0, Unit]): Route[Env with Env0, Err] =
+    aspect(self)
+
+  def @@[Env0, Ctx <: Env](
+    aspect: HandlerAspect[Env0, Ctx],
+  )(implicit tag: Tag[Ctx]): Route[Env0, Err] =
+    self.transform(_ @@ aspect)
+
+  def @@[Env0]: ApplyContextAspect[Env, Err, Env0] =
+    new ApplyContextAspect[Env, Err, Env0](self)
 
   /**
    * Applies the route to the specified request. The route must be defined for
@@ -332,7 +346,7 @@ sealed trait Route[-Env, +Err] { self =>
   ): Route[Env1, Err] =
     Route.Augmented(self, f)
 }
-object Route                   {
+object Route extends RouteCompanionVersionSpecific {
 
   def handledIgnoreParams[Env](
     routePattern: RoutePattern[_],
