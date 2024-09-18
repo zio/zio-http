@@ -159,7 +159,7 @@ private[http] object BodyCodec {
       trace: Trace,
     ): Body = {
       val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
-      Body.fromChunk(bc.codec(config).encode(value)).contentType(mediaType)
+      Body.fromChunk(bc.codec(config).encode(value), mediaType)
     }
 
     type Element = A
