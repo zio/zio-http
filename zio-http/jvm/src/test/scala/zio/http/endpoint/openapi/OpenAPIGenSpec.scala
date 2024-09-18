@@ -11,7 +11,7 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http.Method.{GET, POST}
 import zio.http._
 import zio.http.codec.PathCodec.string
-import zio.http.codec.{ContentCodec, Doc, HttpCodec, HttpContentCodec, QueryCodec}
+import zio.http.codec.{ContentCodec, Doc, HttpCodec}
 import zio.http.endpoint._
 
 object OpenAPIGenSpec extends ZIOSpecDefault {
@@ -212,7 +212,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("OpenAPIGenSpec")(
       test("simple endpoint to OpenAPI") {
-        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", simpleEndpoint.tag("simple", "endpoint"))
+        val generated    = OpenAPIGen.fromEndpoints(
+          "Simple Endpoint",
+          "1.0",
+          simpleEndpoint.tag("simple", "endpoint") ?? Doc.p("some extra doc"),
+        )
         val json         = toJsonAst(generated)
         val expectedJson = """{
                              |  "openapi" : "3.1.0",
@@ -222,7 +226,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  },
                              |  "paths" : {
                              |    "/static/{id}/{uuid}/{name}" : {
-                             |      "description" : "- simple\n- endpoint\n",
+                             |      "description" : "some extra doc\n\n- simple\n- endpoint\n",
                              |      "get" : {
                              |        "tags" : [
                              |          "simple",

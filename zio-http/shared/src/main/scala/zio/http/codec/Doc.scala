@@ -31,9 +31,10 @@ sealed trait Doc { self =>
 
   def +(that: Doc): Doc =
     (self, that) match {
-      case (self, that) if self.isEmpty => that
-      case (self, that) if that.isEmpty => self
-      case _                            => Doc.Sequence(self, that)
+      case (self, that) if self.isEmpty           => that
+      case (self, that) if that.isEmpty           => self
+      case _ if tags.isEmpty && that.tags.isEmpty => Doc.Sequence(self, that)
+      case _                                      => Doc.Sequence(self, that).tag(self.tags ++ that.tags)
     }
 
   def isEmpty: Boolean =
@@ -148,7 +149,8 @@ sealed trait Doc { self =>
         case Doc.Raw(_, docType) =>
           throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
 
-        case Doc.Tagged(_, _) =>
+        case Doc.Tagged(doc, _) =>
+          render(doc, indent)
 
       }
     }
