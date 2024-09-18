@@ -172,16 +172,15 @@ object RoutePattern                                                       {
         tree.add(p, v)
       }
 
-    def get(method: Method, path: Path): Chunk[A] = {
-      val wildcards = roots.get(Method.ANY) match {
-        case None        => Chunk.empty
-        case Some(value) => value.get(path)
-      }
+    private val wildcardsTree = roots.getOrElse(Method.ANY, null)
 
-      (roots.get(method) match {
-        case None        => Chunk.empty
-        case Some(value) => value.get(path)
-      }) ++ wildcards
+    def get(method: Method, path: Path): Chunk[A] = {
+      val forMethod = roots.getOrElse(method, null) match {
+        case null  => Chunk.empty
+        case value => value.get(path)
+      }
+      if (wildcardsTree eq null) forMethod
+      else forMethod ++ wildcardsTree.get(path)
     }
 
     def map[B](f: A => B): Tree[B] =
