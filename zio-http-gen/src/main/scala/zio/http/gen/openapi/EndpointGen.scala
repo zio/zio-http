@@ -449,7 +449,7 @@ final case class EndpointGen(config: Config) {
                           caseClasses = code.caseClasses,
                           enums = code.enums,
                         )
-                      Nil                               -> s"$method.${Inline.RequestBodyType}"
+                      code.imports                      -> s"$method.${Inline.RequestBodyType}"
                   }
                 case OpenAPI.ReferenceOr.Reference(SchemaRef(ref), _, _) => Nil -> ref
                 case other => throw new Exception(s"Unexpected request body schema: $other")
