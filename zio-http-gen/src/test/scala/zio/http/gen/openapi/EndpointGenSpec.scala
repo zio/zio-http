@@ -910,7 +910,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val expected = Code.File(
             List("api", "v1", "Users.scala"),
             pkgPath = List("api", "v1"),
-            imports = List(Code.Import.FromBase(path = "component._")),
+            imports = List(Code.Import.FromBase(path = "component._"), Code.Import.Absolute("zio.schema._")),
             objects = List(
               Code.Object(
                 "Users",
@@ -1026,7 +1026,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val expected = Code.File(
             List("api", "v1", "Users.scala"),
             pkgPath = List("api", "v1"),
-            imports = List(Code.Import.FromBase(path = "component._")),
+            imports = List(Code.Import.FromBase(path = "component._"), Code.Import.Absolute("zio.schema._")),
             objects = List(
               Code.Object(
                 "Users",
