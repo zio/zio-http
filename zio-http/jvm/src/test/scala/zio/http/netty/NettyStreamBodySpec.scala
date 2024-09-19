@@ -54,7 +54,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
   }
 
   def makeRequest(client: Client, port: Int) = client
-    .request(
+    .streaming(
       Request.get(URL.decode(s"http://localhost:$port/with-content-length").toOption.get),
     )
 
