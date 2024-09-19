@@ -3,6 +3,7 @@ package zio.http.gen.scala
 import java.nio.file._
 
 import scala.annotation.nowarn
+import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 import scala.meta._
 import scala.meta.parsers._
@@ -975,5 +976,72 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3,
+      test("Generate all responses") {
+        val oapi =
+          OpenAPI(
+            openapi = "3.0.0",
+            info = OpenAPI.Info(
+              title = "XXX",
+              description = None,
+              termsOfService = None,
+              contact = None,
+              license = None,
+              version = "1.0.0",
+            ),
+            paths = ListMap(
+              OpenAPI.Path
+                .fromString(name = "/api/a/b")
+                .map { path =>
+                  path -> OpenAPI.PathItem(
+                    ref = None,
+                    summary = None,
+                    description = None,
+                    get = None,
+                    put = None,
+                    post = Some(
+                      OpenAPI.Operation(
+                        summary = None,
+                        description = None,
+                        externalDocs = None,
+                        operationId = None,
+                        requestBody = None,
+                        responses = Map(
+                          OpenAPI.StatusOrDefault.StatusValue(status = Status.Ok)  ->
+                            OpenAPI.ReferenceOr.Or(value = OpenAPI.Response()),
+                          OpenAPI.StatusOrDefault.StatusValue(Status.BadRequest)   ->
+                            OpenAPI.ReferenceOr.Or(OpenAPI.Response()),
+                          OpenAPI.StatusOrDefault.StatusValue(Status.Unauthorized) ->
+                            OpenAPI.ReferenceOr.Or(OpenAPI.Response()),
+                        ),
+                      ),
+                    ),
+                    delete = None,
+                    options = None,
+                    head = None,
+                    patch = None,
+                    trace = None,
+                  )
+                }
+                .toSeq: _*,
+            ),
+            components = None,
+            externalDocs = None,
+          )
+
+        val maybeEndpointCode =
+          EndpointGen
+            .fromOpenAPI(oapi, Config.default)
+            .files
+            .flatMap(_.objects)
+            .flatMap(_.endpoints)
+            .collectFirst {
+              case (field, code) if field.name == "post" => code
+            }
+
+        assertTrue(
+          maybeEndpointCode.is(_.some).outCodes.length == 1 &&
+            maybeEndpointCode.is(_.some).errorsCode.length == 2,
+        )
+      },
     ) @@ java11OrNewer @@ flaky @@ blocking // Downloading scalafmt on CI is flaky
 }

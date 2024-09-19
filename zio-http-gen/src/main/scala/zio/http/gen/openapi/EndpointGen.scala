@@ -460,7 +460,7 @@ final case class EndpointGen(config: Config) {
 
     val (outImports: Iterable[List[Code.Import]], outCodes: Iterable[Code.OutCode]) =
       // TODO: ignore default for now. Not sure how to handle it
-      op.responses.collect {
+      op.responses.toSeq.collect {
         case (OpenAPI.StatusOrDefault.StatusValue(status), OpenAPI.ReferenceOr.Reference(ResponseRef(key), _, _)) =>
           val response        = resolveResponseRef(openAPI, key)
           val (imports, code) =
