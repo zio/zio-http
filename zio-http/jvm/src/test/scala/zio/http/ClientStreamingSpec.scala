@@ -62,7 +62,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
         for {
           port     <- server(streamingServer)
           client   <- ZIO.service[Client]
-          response <- client.request(
+          response <- client.batched(
             Request.get(URL.decode(s"http://localhost:$port/simple-get").toOption.get),
           )
           body     <- response.body.asString
@@ -72,7 +72,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
         for {
           port     <- server(streamingServer)
           client   <- ZIO.service[Client]
-          response <- client.request(
+          response <- client.streaming(
             Request.get(URL.decode(s"http://localhost:$port/streaming-get").toOption.get),
           )
           body     <- response.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
@@ -94,7 +94,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
           port     <- server(streamingServer)
           client   <- ZIO.service[Client]
           response <- client
-            .request(
+            .batched(
               Request.post(
                 URL.decode(s"http://localhost:$port/simple-post").toOption.get,
                 Body.fromStreamChunked(
@@ -110,7 +110,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
           port     <- server(streamingServer)
           client   <- ZIO.service[Client]
           response <- client
-            .request(
+            .streaming(
               Request.post(
                 URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
                 Body.fromStreamChunked(
@@ -146,7 +146,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
             for {
               boundary <- Boundary.randomUUID
               response <- client
-                .request(
+                .batched(
                   Request
                     .post(
                       URL.decode(s"http://localhost:$port/form").toOption.get,
@@ -178,8 +178,8 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
               boundary <- Boundary.randomUUID
               stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
               bytes    <- stream.runCollect
-              response <- client.batched
-                .request(
+              response <- client
+                .batched(
                   Request
                     .post(
                       URL.decode(s"http://localhost:$port/form").toOption.get,
@@ -219,7 +219,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
               boundary <- Boundary.randomUUID
               stream = form.multipartBytes(boundary).rechunk(chunkSize)
               response  <- client
-                .request(
+                .streaming(
                   Request
                     .post(
                       URL.decode(s"http://localhost:$port/form").toOption.get,
@@ -242,7 +242,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
           port     <- server(streamingServer)
           client   <- ZIO.service[Client]
           response <- client
-            .request(
+            .streaming(
               Request.post(
                 URL.decode(s"http://localhost:$port/simple-post").toOption.get,
                 Body.fromStreamChunked(ZStream.fail(new RuntimeException("Some error"))),
@@ -261,7 +261,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
           client   <- ZIO.service[Client]
           sync     <- Promise.make[Nothing, Unit]
           response <- client
-            .request(
+            .streaming(
               Request.post(
                 URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
                 Body.fromStreamChunked(

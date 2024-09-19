@@ -62,7 +62,7 @@ private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
       for {
         authInput <- authProvider
         config    <- CodecConfig.codecRef.get
-        response  <- client.request(withDefaultAcceptHeader(config, authInput)).orDie
+        response  <- client.batched(withDefaultAcceptHeader(config, authInput)).orDie
       } yield response
 
     requested.flatMap { response =>
