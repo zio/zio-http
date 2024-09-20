@@ -48,8 +48,8 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private var routes: Routes[Any, Response] = _
-  private var runtime: NettyRuntime         = _
+  private var handler: Handler[Any, Nothing, Request, Response] = _
+  private var runtime: NettyRuntime                             = _
 
   val inFlightRequests: LongAdder = new LongAdder()
   private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
@@ -58,7 +58,7 @@ private[zio] final case class ServerInboundHandler(
   def refreshApp(): Unit = {
     val pair = appRef.get()
 
-    this.routes = pair._1
+    this.handler = pair._1.toHandler
     this.runtime = new NettyRuntime(pair._2)
   }
 
@@ -88,7 +88,7 @@ private[zio] final case class ServerInboundHandler(
             releaseRequest()
           } else {
             val req  = makeZioRequest(ctx, jReq)
-            val exit = routes(req)
+            val exit = handler(req)
             if (attemptImmediateWrite(ctx, req.method, exit)) {
               releaseRequest()
             } else {
@@ -148,7 +148,13 @@ private[zio] final case class ServerInboundHandler(
     def fastEncode(response: Response, bytes: Array[Byte]) = {
       val jResponse  = NettyResponseEncoder.fastEncode(method, response, bytes)
       val djResponse = jResponse.retainedDuplicate()
-      ctx.writeAndFlush(djResponse, ctx.voidPromise())
+
+      // This handler sits at the tail of the pipeline, so using ctx.channel.writeAndFlush won't add any
+      // overhead of passing through the pipeline. It's also better to use ctx.channel.writeAndFlush in
+      // cases that we're writing to the channel from a different thread (which is most of the time as we're
+      // creating responses in ZIO's executor).
+      val ch = ctx.channel()
+      ch.writeAndFlush(djResponse, ch.voidPromise())
       true
     }
 

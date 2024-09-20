@@ -12,6 +12,8 @@ val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 
+ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+
 ThisBuild / githubWorkflowJavaVersions := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
@@ -32,6 +34,13 @@ ThisBuild / githubWorkflowAddedJobs    :=
       name = "Release Drafter",
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
+    ),
+    WorkflowJob(
+      id = "mima_check",
+      name = "Mima Check",
+      steps = WorkflowStep.CheckoutFull +: WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+  WorkflowStep.Sbt(List("mimaChecks")),
+      cond = Option("${{ github.event_name == 'pull_request' }}"),
+      javas = List(JavaSpec.temurin("21")),
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
 
@@ -176,6 +185,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     },
     libraryDependencies ++= netty ++ Seq(`netty-incubator`),
   )
+  .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
@@ -274,6 +284,7 @@ lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
     ),
   )
   .dependsOn(zioHttpJVM)
+  .settings(MimaSettings.mimaSettings(failOnProblem = true))
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
@@ -281,6 +292,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
   .settings(
+    run / fork := true,
+    run / javaOptions ++= Seq("-Xms4G", "-Xmx4G", "-XX:+UseG1GC"),
     libraryDependencies ++= Seq(
       `zio-config`,
       `zio-config-magnolia`,
@@ -404,7 +417,7 @@ lazy val docs = project
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       `jwt-core`,
-      "dev.zio" %% "zio-test"            % ZioVersion,
+      "dev.zio" %% "zio-test" % ZioVersion,
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,

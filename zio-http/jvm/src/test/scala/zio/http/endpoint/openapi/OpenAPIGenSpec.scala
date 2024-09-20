@@ -2873,6 +2873,119 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("Stream schema") {
+        val endpoint     = Endpoint(RoutePattern.POST / "folder")
+          .outStream[Int]
+        val openApi      = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(openApi)
+        val expectedJson =
+          """
+            |{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "",
+            |    "version" : ""
+            |  },
+            |  "paths" : {
+            |    "/folder" : {
+            |      "post" : {
+            |        "responses" : {
+            |          "200" :
+            |            {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" :
+            |                  {
+            |                  "type" :
+            |                    "array",
+            |                  "items" : {
+            |                    "type" :
+            |                      "integer",
+            |                    "format" : "int32"
+            |                  }
+            |                }
+            |              }
+            |            }
+            |          }
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |
+            |  }
+            |}
+            |""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("Stream schema multipart") {
+        val endpoint     = Endpoint(RoutePattern.POST / "folder")
+          .outCodec(
+            HttpCodec.contentStream[String]("strings") ++
+              HttpCodec.contentStream[Int]("ints"),
+          )
+        val openApi      = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(openApi)
+        val expectedJson =
+          """
+            |{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "",
+            |    "version" : ""
+            |  },
+            |  "paths" : {
+            |    "/folder" : {
+            |      "post" : {
+            |        "responses" : {
+            |          "default" :
+            |            {
+            |            "content" : {
+            |              "multipart/form-data" : {
+            |                "schema" :
+            |                  {
+            |                  "type" :
+            |                    "object",
+            |                  "properties" : {
+            |                    "strings" : {
+            |                      "type" :
+            |                        "array",
+            |                      "items" : {
+            |                        "type" :
+            |                          "string"
+            |                      }
+            |                    },
+            |                    "ints" : {
+            |                      "type" :
+            |                        "array",
+            |                      "items" : {
+            |                        "type" :
+            |                          "integer",
+            |                        "format" : "int32"
+            |                      }
+            |                    }
+            |                  },
+            |                  "additionalProperties" :
+            |                    false,
+            |                  "required" : [
+            |                    "strings",
+            |                    "ints"
+            |                  ]
+            |                }
+            |              }
+            |            }
+            |          }
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |
+            |  }
+            |}
+            |""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
       test("Lazy schema") {
         val endpoint     = Endpoint(RoutePattern.POST / "lazy")
           .in[Lazy.A]

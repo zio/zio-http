@@ -84,5 +84,8 @@ private[codec] trait StatusCodecs {
   val NotExtended: StatusCodec[Unit]                   = status(Status.NotExtended)
   val NetworkAuthenticationRequired: StatusCodec[Unit] =
     status(Status.NetworkAuthenticationRequired)
-  def CustomStatus(code: Int): StatusCodec[Unit]       = status(Status.Custom(code))
+  def CustomStatus(code: Int): StatusCodec[Unit]       = status(Status.Custom(code, ""))
+
+  def CustomStatus(code: Int, reasonPhrase: String): StatusCodec[Unit] =
+    status(Status.Custom(code, reasonPhrase))
 }

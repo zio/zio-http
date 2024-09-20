@@ -82,7 +82,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def handleError(f: Err => Response)(implicit trace: Trace): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleError(f)))
 
-  def handleErrorZIO(f: Err => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
+  def handleErrorZIO[Env1 <: Env](f: Err => ZIO[Env1, Nothing, Response])(implicit
+    trace: Trace,
+  ): Routes[Env1, Nothing] =
     new Routes(routes.map(_.handleErrorZIO(f)))
 
   /**
@@ -243,20 +245,25 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    */
   def toHandler(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] = {
     implicit val trace: Trace = Trace.empty
+    val tree                  = self.tree
     Handler
       .fromFunctionHandler[Request] { req =>
         val chunk = tree.get(req.method, req.path)
-
-        if (chunk.length == 0) Handler.notFound
-        else if (chunk.length == 1) chunk(0)
-        else {
-          // TODO: Support precomputed fallback among all chunk elements:
-          chunk.tail.foldLeft(chunk.head) { (acc, h) =>
-            acc.catchAll { response =>
-              if (response.status == Status.NotFound) h
-              else Handler.fail(response)
+        chunk.length match {
+          case 0 => Handler.notFound
+          case 1 => chunk(0)
+          case n => // TODO: Support precomputed fallback among all chunk elements
+            var acc = chunk(0)
+            var i   = 1
+            while (i < n) {
+              val h = chunk(i)
+              acc = acc.catchAll { response =>
+                if (response.status == Status.NotFound) h
+                else Handler.fail(response)
+              }
+              i += 1
             }
-          }
+            acc
         }
       }
       .merge

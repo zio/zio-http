@@ -9,7 +9,7 @@ object Dependencies {
   val ZioCliVersion                 = "0.5.0"
   val ZioJsonVersion                = "0.7.1"
   val ZioParserVersion              = "0.1.10"
-  val ZioSchemaVersion              = "1.4.1"
+  val ZioSchemaVersion              = "1.5.0"
   val SttpVersion                   = "3.3.18"
   val ZioConfigVersion              = "4.0.2"
 
@@ -21,15 +21,15 @@ object Dependencies {
 
   val netty =
     Seq(
-      "io.netty" % "netty-codec-http"              % NettyVersion,
-      "io.netty" % "netty-handler-proxy"           % NettyVersion,
-      "io.netty" % "netty-transport-native-epoll"  % NettyVersion,
-      "io.netty" % "netty-transport-native-epoll"  % NettyVersion % Runtime classifier "linux-x86_64",
-      "io.netty" % "netty-transport-native-epoll"  % NettyVersion % Runtime classifier "linux-aarch_64",
-      "io.netty" % "netty-transport-native-kqueue" % NettyVersion,
-      "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-x86_64",
-      "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-aarch_64",
-      "com.aayushatharva.brotli4j" % "brotli4j" % "1.16.0" % "provided",
+      "io.netty"                   % "netty-codec-http"              % NettyVersion,
+      "io.netty"                   % "netty-handler-proxy"           % NettyVersion,
+      "io.netty"                   % "netty-transport-native-epoll"  % NettyVersion,
+      "io.netty"                   % "netty-transport-native-epoll"  % NettyVersion classifier "linux-x86_64",
+      "io.netty"                   % "netty-transport-native-epoll"  % NettyVersion classifier "linux-aarch_64",
+      "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion,
+      "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion classifier "osx-x86_64",
+      "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion classifier "osx-aarch_64",
+      "com.aayushatharva.brotli4j" % "brotli4j"                      % "1.16.0" % "provided",
     )
 
   val `netty-incubator` =
