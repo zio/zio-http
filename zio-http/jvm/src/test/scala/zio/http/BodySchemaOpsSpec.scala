@@ -39,7 +39,9 @@ object BodySchemaOpsSpec extends ZIOHttpSpec {
     },
     test("Body.fromStream") {
       val body     = Body.fromStream(persons)
-      val expected = """{"name":"John","age":42}{"name":"Jane","age":43}"""
+      val expected =
+        """{"name":"John","age":42}
+          |{"name":"Jane","age":43}""".stripMargin
       body.asString.map(s => assertTrue(s == expected))
     },
     test("Body#to") {
