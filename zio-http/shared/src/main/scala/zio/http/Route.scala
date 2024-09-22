@@ -49,6 +49,9 @@ sealed trait Route[-Env, +Err] { self =>
    * Handles all typed errors in the route by converting them into responses.
    * This method can be used to convert a route that does not handle its errors
    * into one that does handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCauseWith(c, _)(f)))
@@ -187,6 +190,9 @@ sealed trait Route[-Env, +Err] { self =>
    * taking into account the request that caused the error. This method can be
    * used to convert a route that does not handle its errors into one that does
    * handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorRequestCauseZIO((request, cause) =>
