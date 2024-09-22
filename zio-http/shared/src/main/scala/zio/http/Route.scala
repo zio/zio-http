@@ -245,6 +245,9 @@ sealed trait Route[-Env, +Err] { self =>
    * account the request that caused the error. This method can be used to
    * convert a route that does not handle its errors into one that does handle
    * its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleErrorRequestCauseZIO[Env1 <: Env](
     f: (Request, Cause[Err]) => ZIO[Env1, Nothing, Response],
