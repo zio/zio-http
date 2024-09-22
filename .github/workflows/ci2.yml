@@ -1,0 +1,64 @@
+name: ZIO-HTTP Conformance Testing
+
+on:
+  pull_request:
+    branches: ['**']
+  push:
+    branches: ['**']
+    tags: [v*]
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  JDK_JAVA_OPTIONS: '-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8'
+  SBT_OPTS: '-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8'
+
+jobs:
+  build:
+    name: Build, Test, and Conformance
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.12.19, 2.13.14, 3.3.3]
+        java:
+          - temurin@17
+          - temurin@21
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: sbt
+
+      - name: Build and Test ZIO-HTTP
+        run: |
+          sbt clean compile
+          sbt test
+
+      # Step 1: Run ZIO-HTTP Server in Background
+      - name: Run ZIO-HTTP server
+        run: sbt run &
+
+      # Step 2: Install CISPA HTTP Conformance Suite
+      - name: Install CISPA HTTP Conformance Suite
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip
+          git clone --recurse-submodules https://github.com/cispa/http-conformance
+          cd http-conformance
+          pip3 install poetry
+          poetry install
+
+      # Step 3: Run the HTTP Conformance Tests
+      - name: Run HTTP Conformance Tests
+        run: |
+          cd http-conformance
+          poetry run python run_checks.py --mode=local
