@@ -211,7 +211,7 @@ sealed trait Route[-Env, +Err] { self =>
           routePattern,
           handler0.map { h =>
             Handler.fromFunctionHandler { (req: Request) =>
-              h.mapErrorCause(c => c.failureOrCause.fold(identity, f(req, _)))
+              h.mapErrorCause(_.failureOrCause.fold(identity, f(req, _)))
             }
           },
           location,
