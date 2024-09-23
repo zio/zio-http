@@ -117,12 +117,10 @@ object TestServerExampleSpec extends ZIOSpecDefault {
         fallbackResponse <- client.batched(Request.get(testRequest.url / "any"))
         fallbackBody     <- fallbackResponse.body.asString
       } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
-    }.provideSome[Client with Driver](TestServer.layer)
+    }
   }.provide(
-    ZLayer.succeed(Server.Config.default.onAnyOpenPort),
+    TestServer.default,
     Client.default,
-    NettyDriver.customized,
-    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
 }
 ```
