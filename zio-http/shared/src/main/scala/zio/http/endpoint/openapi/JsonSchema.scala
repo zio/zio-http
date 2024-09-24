@@ -117,8 +117,8 @@ private[openapi] object BoolOrSchema {
 private[openapi] sealed trait TypeOrTypes { self =>
   def add(value: String): TypeOrTypes =
     self match {
-      case TypeOrTypes.Type(string) => TypeOrTypes.Types(Chunk(string, value))
-      case TypeOrTypes.Types(chunk) => TypeOrTypes.Types(chunk :+ value)
+      case TypeOrTypes.Type(string) => TypeOrTypes.Types(Chunk(string, value).distinct)
+      case TypeOrTypes.Types(chunk) => TypeOrTypes.Types((chunk :+ value).distinct)
     }
 }
 
