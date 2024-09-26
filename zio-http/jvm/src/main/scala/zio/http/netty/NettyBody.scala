@@ -41,11 +41,13 @@ object NettyBody extends BodyEncoding {
     unsafeAsync: UnsafeAsync => Unit,
     knownContentLength: Option[Long],
     contentTypeHeader: Option[Header.ContentType] = None,
+    readMore: () => Unit = () => (),
   ): Body = {
     AsyncBody(
       unsafeAsync,
       knownContentLength,
       contentTypeHeader.map(Body.ContentType.fromHeader),
+      readMore,
     )
   }
 
@@ -92,6 +94,7 @@ object NettyBody extends BodyEncoding {
     unsafeAsync: UnsafeAsync => Unit,
     knownContentLength: Option[Long],
     override val contentType: Option[Body.ContentType] = None,
+    nettyRead: () => Unit,
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map {
@@ -110,12 +113,14 @@ object NettyBody extends BodyEncoding {
       }
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = {
-      asyncUnboundedStream[Any, Throwable, Byte](emit =>
-        try {
-          unsafeAsync(new UnsafeAsync.Streaming(emit))
-        } catch {
-          case e: Throwable => emit(ZIO.fail(Option(e)))
-        },
+      asyncUnboundedStream[Any, Throwable, Byte](
+        emit =>
+          try {
+            unsafeAsync(new UnsafeAsync.Streaming(emit))
+          } catch {
+            case e: Throwable => emit(ZIO.fail(Option(e)))
+          },
+        ZIO.succeed(nettyRead()),
       )
     }
 
@@ -137,10 +142,13 @@ object NettyBody extends BodyEncoding {
   }
 
   /**
-   * Code ported from zio.stream to use an unbounded queue
+   * Code ported from zio.stream to use an unbounded queue On top of that the
+   * nettyRead() function is added. It is used to call netty ctx.read() when the
+   * queue is empty
    */
   private def asyncUnboundedStream[R, E, A](
     register: ZStream.Emit[R, E, A, Unit] => Unit,
+    nettyRead: UIO[Unit],
   )(implicit trace: Trace): ZStream[R, E, A] =
     ZStream.unwrapScoped[R](for {
       queue   <- ZIO.acquireRelease(Queue.unbounded[Take[E, A]])(_.shutdown)
@@ -166,7 +174,7 @@ object NettyBody extends BodyEncoding {
               maybeError =>
                 ZChannel.fromZIO(queue.shutdown) *>
                   maybeError.fold[ZChannel[Any, Any, Any, Any, E, Chunk[A], Unit]](ZChannel.unit)(ZChannel.fail(_)),
-              a => ZChannel.write(a) *> loop,
+              a => ZChannel.write(a) *> ZChannel.fromZIO(nettyRead.whenZIO(queue.isEmpty)) *> loop,
             ),
         )
 
