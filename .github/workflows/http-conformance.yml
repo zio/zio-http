@@ -1,0 +1,73 @@
+name: HTTP Spec Conformance Test
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: ["**"]
+    tags: [v*]
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  JDK_JAVA_OPTIONS: "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8"
+  SBT_OPTS: "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8"
+
+jobs:
+  build:
+    name: Build and Test
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.12.19, 2.13.14, 3.3.3]
+        java:
+          - graal_graalvm@17
+          - graal_graalvm@21
+          - temurin@17
+          - temurin@21
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup GraalVM (graal_graalvm@17)
+        if: matrix.java == 'graal_graalvm@17'
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: 17
+          distribution: graalvm
+          components: native-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: sbt
+
+      - name: Setup GraalVM (graal_graalvm@21)
+        if: matrix.java == 'graal_graalvm@21'
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: 21
+          distribution: graalvm
+          components: native-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: sbt
+
+      - name: Setup Java (temurin@17)
+        if: matrix.java == 'temurin@17'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: sbt
+
+      - name: Setup Java (temurin@21)
+        if: matrix.java == 'temurin@21'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: sbt
+
+      - name: Run HTTP Conformance Tests
+        run: sbt "project zioHttpJVM" "testOnly zio.http.ConformanceSpec"
