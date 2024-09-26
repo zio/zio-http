@@ -253,7 +253,7 @@ object JsonSchema {
       .toOption
       .get
 
-  private def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
+  private[openapi] def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
     val additionalProperties = schema.additionalProperties match {
       case Some(BoolOrSchema.BooleanWrapper(bool))  => Left(bool)
       case Some(BoolOrSchema.SchemaWrapper(schema)) =>
