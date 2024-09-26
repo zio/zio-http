@@ -118,7 +118,7 @@ private[netty] abstract class AsyncBodyReader extends SimpleChannelInboundHandle
           case State.Direct(callback)                                     =>
             // We're streaming, emit chunks as they come
             callback(Chunk.fromArray(content), isLast)
-            true
+            !isLast
         }
 
       if (readMore) ctx.read(): Unit
