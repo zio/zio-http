@@ -49,10 +49,21 @@ sealed trait Route[-Env, +Err] { self =>
    * Handles all typed errors in the route by converting them into responses.
    * This method can be used to convert a route that does not handle its errors
    * into one that does handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCauseWith(c, _)(f)))
 
+  /**
+   * Handles all typed errors in the route by converting them into a zio effect
+   * that produces a response. This method can be used to convert a route that
+   * does not handle its errors into one that does handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
+   */
   final def handleErrorZIO[Env1 <: Env](
     f: Err => ZIO[Env1, Nothing, Response],
   )(implicit trace: Trace): Route[Env1, Nothing] =
@@ -67,13 +78,16 @@ sealed trait Route[-Env, +Err] { self =>
    * Handles all typed errors, as well as all non-recoverable errors, by
    * converting them into responses. This method can be used to convert a route
    * that does not handle its errors into one that does handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorCause(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorCause(f), aspect)
       case Handled(routePattern, handler, location) =>
-        Handled(routePattern, handler.map(_.mapErrorCause(c => f(c.asInstanceOf[Cause[Nothing]]))), location)
+        Handled(routePattern, handler.map(_.mapErrorCause(_.failureOrCause.fold(identity, f))), location)
 
       case Unhandled(pattern, handler0, zippable, location) =>
         val handler2: Handler[Any, Nothing, RoutePattern[_], Handler[Env, Response, Request, Response]] =
@@ -89,7 +103,6 @@ sealed trait Route[-Env, +Err] { self =>
                 }
               }
 
-            // Sandbox before applying aspect:
             paramHandler.mapErrorCause(f)
           }
 
@@ -101,6 +114,9 @@ sealed trait Route[-Env, +Err] { self =>
    * converting them into a ZIO effect that produces the response. This method
    * can be used to convert a route that does not handle its errors into one
    * that does handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleErrorCauseZIO[Env1 <: Env](
     f: Cause[Err] => ZIO[Env1, Nothing, Response],
@@ -120,7 +136,7 @@ sealed trait Route[-Env, +Err] { self =>
       case Augmented(route, aspect)                 =>
         Augmented(route.handleErrorCauseZIO(f).asInstanceOf[Route[Any, Nothing]], aspect)
       case Handled(routePattern, handler, location) =>
-        Handled(routePattern, handler.map(_.mapErrorCauseZIO(c => f(c.asInstanceOf[Cause[Nothing]]))), location)
+        Handled(routePattern, handler.map(_.mapErrorCauseZIO(_.failureOrCause.fold(ZIO.succeed(_), f))), location)
 
       case Unhandled(pattern, handler0, zippable, location) =>
         val handler2: Handler[Any, Nothing, RoutePattern[_], Handler[Env1, Response, Request, Response]] = {
@@ -174,6 +190,9 @@ sealed trait Route[-Env, +Err] { self =>
    * taking into account the request that caused the error. This method can be
    * used to convert a route that does not handle its errors into one that does
    * handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorRequestCauseZIO((request, cause) =>
@@ -185,6 +204,9 @@ sealed trait Route[-Env, +Err] { self =>
    * converting them into responses, taking into account the request that caused
    * the error. This method can be used to convert a route that does not handle
    * its errors into one that does handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleErrorRequestCause(f: (Request, Cause[Err]) => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self match {
@@ -195,7 +217,7 @@ sealed trait Route[-Env, +Err] { self =>
           routePattern,
           handler0.map { h =>
             Handler.fromFunctionHandler { (req: Request) =>
-              h.mapErrorCause(c => f(req, c.asInstanceOf[Cause[Nothing]]))
+              h.mapErrorCause(_.failureOrCause.fold(identity, f(req, _)))
             }
           },
           location,
@@ -229,6 +251,9 @@ sealed trait Route[-Env, +Err] { self =>
    * account the request that caused the error. This method can be used to
    * convert a route that does not handle its errors into one that does handle
    * its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
    */
   final def handleErrorRequestCauseZIO[Env1 <: Env](
     f: (Request, Cause[Err]) => ZIO[Env1, Nothing, Response],
@@ -252,7 +277,7 @@ sealed trait Route[-Env, +Err] { self =>
           routePattern,
           handler.map { handler =>
             Handler.fromFunctionHandler { (req: Request) =>
-              handler.mapErrorCauseZIO(c => f(req, c.asInstanceOf[Cause[Nothing]]))
+              handler.mapErrorCauseZIO(_.failureOrCause.fold(ZIO.succeed(_), f(req, _)))
             }
           },
           location,
@@ -336,10 +361,8 @@ object Route                   {
 
   def handledIgnoreParams[Env](
     routePattern: RoutePattern[_],
-  )(handler0: Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] = {
-    // Sandbox before constructing:
-    Route.Handled(routePattern, handler((_: RoutePattern[_]) => handler0.sandbox), Trace.empty)
-  }
+  )(handler0: Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] =
+    Route.Handled(routePattern, handler((_: RoutePattern[_]) => handler0), Trace.empty)
 
   def handled[Params, Env](rpm: RoutePattern[Params]): HandledConstructor[Env, Params] =
     new HandledConstructor[Env, Params](rpm)
@@ -365,7 +388,7 @@ object Route                   {
             }
 
           // Sandbox before applying aspect:
-          paramHandler.sandbox
+          paramHandler
         }
       }
 
@@ -414,7 +437,7 @@ object Route                   {
     location: Trace,
   ) extends Route[Env, Nothing] {
     override def toHandler(implicit ev: Nothing <:< Response, trace: Trace): Handler[Env, Response, Request, Response] =
-      Handler.fromZIO(handler(routePattern)).flatten
+      Handler.fromZIO(handler(routePattern).map(_.sandbox)).flatten
 
     override def toString = s"Route.Handled(${routePattern}, ${location})"
   }
