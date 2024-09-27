@@ -48,8 +48,11 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   final def ++[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
     PathCodec.Concat(self, that, combiner)
 
-  final def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
-    self ++ that
+  final def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] = {
+    if (self == PathCodec.empty) that.asInstanceOf[PathCodec[combiner.Out]]
+    else if (that == PathCodec.empty) self.asInstanceOf[PathCodec[combiner.Out]]
+    else self ++ that
+  }
 
   final def /[Env, Err](routes: Routes[Env, Err])(implicit
     ev: PathCodec[A] <:< PathCodec[Unit],

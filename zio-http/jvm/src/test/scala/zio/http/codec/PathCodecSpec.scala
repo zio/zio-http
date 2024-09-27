@@ -194,17 +194,14 @@ object PathCodecSpec extends ZIOHttpSpec {
         test("/users") {
           val codec = PathCodec.empty / PathCodec.literal("users")
 
-          assertTrue(
-            codec.segments ==
-              Chunk(SegmentCodec.empty, SegmentCodec.literal("users")),
-          )
+          assertTrue(codec.segments == Chunk(SegmentCodec.literal("users")))
         },
       ),
       suite("render")(
         test("empty") {
           val codec = PathCodec.empty
 
-          assertTrue(codec.render == "")
+          assertTrue(codec.render == "/")
         },
         test("/users") {
           val codec = PathCodec.empty / PathCodec.literal("users")

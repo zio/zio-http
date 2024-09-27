@@ -1,11 +1,15 @@
 package zio.http.codec
 
+import java.nio.charset.StandardCharsets
+
 import scala.collection.immutable.ListMap
 
 import zio._
 
-import zio.stream.ZPipeline
+import zio.stream.{ZChannel, ZPipeline}
 
+import zio.schema.codec.DecodeError.ReadError
+import zio.schema.codec.JsonCodec.{JsonDecoder, JsonEncoder}
 import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
 
@@ -144,6 +148,36 @@ sealed trait HttpContentCodec[A] { self =>
     choices.headOption.map(_._2).getOrElse {
       throw new IllegalArgumentException(s"No codec defined")
     }
+
+  def optional: HttpContentCodec[Option[A]] =
+    self match {
+      case HttpContentCodec.Choices(choices)           =>
+        HttpContentCodec.Choices(
+          choices.map { case (mediaType, BinaryCodecWithSchema(fromConfig, schema)) =>
+            mediaType -> BinaryCodecWithSchema(fromConfig.andThen(optBinaryCodec), schema.optional)
+          },
+        )
+      case HttpContentCodec.Filtered(codec, mediaType) =>
+        HttpContentCodec.Filtered(codec.optional, mediaType)
+    }
+
+  private def optBinaryCodec(bc: BinaryCodec[A]): BinaryCodec[Option[A]] = new BinaryCodec[Option[A]] {
+    override def encode(value: Option[A]): Chunk[Byte] = value match {
+      case Some(a) => bc.encode(a)
+      case None    => Chunk.empty
+    }
+
+    override def decode(bytes: Chunk[Byte]): Either[DecodeError, Option[A]] =
+      if (bytes.isEmpty) Right(None)
+      else bc.decode(bytes).map(Some(_))
+
+    override def streamDecoder: ZPipeline[Any, DecodeError, Byte, Option[A]] =
+      ZPipeline.chunks[Byte].map(bc.decode).map(_.toOption)
+
+    override def streamEncoder: ZPipeline[Any, Nothing, Option[A], Byte] =
+      ZPipeline.identity[Option[A]].map(_.fold(Chunk.empty[Byte])(bc.encode)).flattenChunks
+  }
+
 }
 
 object HttpContentCodec {
@@ -273,6 +307,7 @@ object HttpContentCodec {
   }
 
   object json {
+
     private var jsonCodecCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
     def only[A](implicit schema: Schema[A]): HttpContentCodec[A]    =
       if (jsonCodecCache.contains(schema)) {
@@ -282,10 +317,12 @@ object HttpContentCodec {
           ListMap(
             MediaType.application.`json` ->
               BinaryCodecWithSchema(
-                config =>
-                  JsonCodec.schemaBasedBinaryCodec[A](
-                    JsonCodec.Config(ignoreEmptyCollections = config.ignoreEmptyCollections),
-                  )(schema),
+                config => {
+                  JsonCodec.schemaBasedBinaryCodec(
+                    JsonCodec
+                      .Config(ignoreEmptyCollections = config.ignoreEmptyCollections, treatStreamsAsArrays = true),
+                  )(schema)
+                },
                 schema,
               ),
           ),

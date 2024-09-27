@@ -18,18 +18,14 @@ package zio.http
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{ignore, nonFlaky}
+import zio.test.TestAspect.nonFlaky
 import zio.test.{TestAspect, assertZIO}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-object ClientHttpsSpec extends ZIOHttpSpec {
-
-  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
-    trustStorePath = "truststore.jks",
-    trustStorePassword = "changeit",
-  )
+abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
+  val sslConfig: ClientSSLConfig
 
   val zioDev =
     URL.decode("https://zio.dev").toOption.get
@@ -37,7 +33,7 @@ object ClientHttpsSpec extends ZIOHttpSpec {
   val badRequest =
     URL
       .decode(
-        "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
+        "https://httpbin.org/status/400",
       )
       .toOption
       .get
@@ -57,7 +53,7 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     test("should respond as Bad Request") {
       val actual = Client.batched(Request.get(badRequest)).map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
-    } @@ ignore,
+    },
     test("should throw DecoderException for handshake failure") {
       val actual = Client.batched(Request.get(untrusted)).exit
       assertZIO(actual)(
@@ -69,7 +65,7 @@ object ClientHttpsSpec extends ZIOHttpSpec {
           ),
         ),
       )
-    } @@ nonFlaky(20) @@ ignore,
+    } @@ nonFlaky(20),
   )
     .provideShared(
       ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
@@ -82,4 +78,21 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
+}
+
+object ClientHttpsSpec extends ClientHttpsSpecBase {
+
+  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
+    trustStorePath = "truststore.jks",
+    trustStorePassword = "changeit",
+  )
+}
+
+object ClientHttpsFromJavaxNetSslSpec extends ClientHttpsSpecBase {
+
+  val sslConfig =
+    ClientSSLConfig.FromJavaxNetSsl
+      .builderWithTrustManagerResource("trustStore.jks")
+      .trustManagerPassword("changeit")
+      .build()
 }
