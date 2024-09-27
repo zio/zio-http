@@ -566,6 +566,19 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def tag: AtomTag = AtomTag.Content
 
     def index(index: Int): Content[A] = copy(index = index)
+
+    /**
+     * Returns a new codec, where the value produced by this one is optional.
+     */
+    override def optional: HttpCodec[HttpCodecType.Content, Option[A]] =
+      Annotated(
+        Content(
+          codec.optional,
+          name,
+          index,
+        ),
+        Metadata.Optional(),
+      )
   }
   private[http] final case class ContentStream[A](
     codec: HttpContentCodec[A],

@@ -1398,8 +1398,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |                    "width",
                          |                    "height",
                          |                    "metadata"
-                         |                  ],
-                         |                  "description" : "Test doc\n\n"
+                         |                  ]
                          |                }
                          |              }
                          |            }
