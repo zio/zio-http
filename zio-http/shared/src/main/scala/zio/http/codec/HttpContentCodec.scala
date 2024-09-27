@@ -1,11 +1,15 @@
 package zio.http.codec
 
+import java.nio.charset.StandardCharsets
+
 import scala.collection.immutable.ListMap
 
 import zio._
 
-import zio.stream.ZPipeline
+import zio.stream.{ZChannel, ZPipeline}
 
+import zio.schema.codec.DecodeError.ReadError
+import zio.schema.codec.JsonCodec.{JsonDecoder, JsonEncoder}
 import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
 
@@ -273,6 +277,7 @@ object HttpContentCodec {
   }
 
   object json {
+
     private var jsonCodecCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
     def only[A](implicit schema: Schema[A]): HttpContentCodec[A]    =
       if (jsonCodecCache.contains(schema)) {
@@ -282,10 +287,12 @@ object HttpContentCodec {
           ListMap(
             MediaType.application.`json` ->
               BinaryCodecWithSchema(
-                config =>
-                  JsonCodec.schemaBasedBinaryCodec[A](
-                    JsonCodec.Config(ignoreEmptyCollections = config.ignoreEmptyCollections),
-                  )(schema),
+                config => {
+                  JsonCodec.schemaBasedBinaryCodec(
+                    JsonCodec
+                      .Config(ignoreEmptyCollections = config.ignoreEmptyCollections, treatStreamsAsArrays = true),
+                  )(schema)
+                },
                 schema,
               ),
           ),

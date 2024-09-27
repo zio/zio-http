@@ -12,6 +12,10 @@ import zio._
  * @param maxStackTraceDepth
  *   maximum number of stack trace lines to include in the response body. Set to
  *   0 to include all lines.
+ * @param errorFormat
+ *   the preferred format for the error response. If the context in which the
+ *   response is created has access to an Accept header, the header will be used
+ *   preferably to determine the format.
  */
 final case class ErrorResponseConfig(
   withErrorBody: Boolean = false,
@@ -37,6 +41,9 @@ object ErrorResponseConfig {
 
   val debug: HandlerAspect[Any, Unit] =
     Middleware.runBefore(setConfig(debugConfig))
+
+  val debugLayer: ULayer[Unit] =
+    ZLayer(setConfig(debugConfig))
 
   def withConfig(config: ErrorResponseConfig): HandlerAspect[Any, Unit] =
     Middleware.runBefore(setConfig(config))

@@ -188,6 +188,56 @@ val failedHandler = Handler.fail(new IOException())
 failedHandler.mapErrorCause(Response.fromCause)
 ```
 
+#### Failure Responses with Details
+
+By default, the `Response.fromThrowable` and `Response.fromCause` methods create a response with a status code only. If we want to include additional details in the response, we have to hand over a `ErrorResponseConfig`.
+
+```scala
+/**
+ * Configuration for the response generation
+ *
+ * @param withErrorBody
+ *   if true, includes the error message in the response body
+ * @param withStackTrace
+ *   if true, includes the stack trace in the response body
+ * @param maxStackTraceDepth
+ *   maximum number of stack trace lines to include in the response body. Set to
+ *   0 to include all lines.
+ * @param errorFormat
+ *   the preferred format for the error response. 
+ *   If the context in which the response is created has access to an Accept header,
+ *   the header will be used preferably to determine the format.
+ */
+final case class ErrorResponseConfig(
+  withErrorBody: Boolean = false,
+  withStackTrace: Boolean = false,
+  maxStackTraceDepth: Int = 10,
+  errorFormat: ErrorResponseConfig.ErrorFormat = ErrorResponseConfig.ErrorFormat.Html,
+)
+```
+
+This config can not only be used directly, but can also configure how ZIO-HTTP internally converts a `Cause` or `Throwable` to a `Response`.
+You can configure error responses globally by providing a custom `ErrorResponseConfig` via layer for example in the bootstrap of your application.
+Or you can apply the config locally to some routes via middleware.
+
+```scala mdoc
+import zio.http._
+
+object MyHttpApp extends ZIOAppDefault {
+  // Provide a custom ErrorResponseConfig via layer
+  // Equivalent to: val bootstrap = ErrorResponseConfig.configLayer(ErrorResponseConfig.debugConfig)
+  override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] = ErrorResponseConfig.debugLayer
+
+  // Apply the ErrorResponseConfig.debug middleware to routes
+  // Equivalent to: val myRoutes = Handler.ok.toRoutes @@ ErrorResponseConfig.withConfig(ErrorResponseConfig.debugConfig)
+  val myRoutes = Handler.ok.toRoutes @@ ErrorResponseConfig.debug
+
+  override def run = ???
+}
+```
+
+The debug config will include the error message and full stack trace in the response body.
+
 :::note
 In many cases, it is more convenient to use the `sandbox` method to automatically convert all failures into a corresponding `Response`. But in some cases, to have more granular control over the error handling, we may want to use `Response.fromCause` and `Response.fromThrowable` directly.
 :::

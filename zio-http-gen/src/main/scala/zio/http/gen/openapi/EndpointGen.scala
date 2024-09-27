@@ -449,7 +449,7 @@ final case class EndpointGen(config: Config) {
                           caseClasses = code.caseClasses,
                           enums = code.enums,
                         )
-                      Nil                               -> s"$method.${Inline.RequestBodyType}"
+                      code.imports                      -> s"$method.${Inline.RequestBodyType}"
                   }
                 case OpenAPI.ReferenceOr.Reference(SchemaRef(ref), _, _) => Nil -> ref
                 case other => throw new Exception(s"Unexpected request body schema: $other")
@@ -460,7 +460,7 @@ final case class EndpointGen(config: Config) {
 
     val (outImports: Iterable[List[Code.Import]], outCodes: Iterable[Code.OutCode]) =
       // TODO: ignore default for now. Not sure how to handle it
-      op.responses.collect {
+      op.responses.toSeq.collect {
         case (OpenAPI.StatusOrDefault.StatusValue(status), OpenAPI.ReferenceOr.Reference(ResponseRef(key), _, _)) =>
           val response        = resolveResponseRef(openAPI, key)
           val (imports, code) =

@@ -314,7 +314,17 @@ object OpenAPIGen {
               findName(metadata).orElse(maybeName).getOrElse(throw new Exception("Multipart content without name"))
             JsonSchema.obj(
               name -> JsonSchema
-                .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), referenceType)
+                .ArrayType(
+                  Some(
+                    JsonSchema
+                      .fromZSchema(
+                        codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema),
+                        referenceType,
+                      ),
+                  ),
+                  None,
+                  uniqueItems = false,
+                )
                 .description(descriptionFromMeta)
                 .deprecated(deprecated(metadata))
                 .nullable(optional(metadata)),
@@ -327,7 +337,14 @@ object OpenAPIGen {
               .nullable(optional(metadata))
           case HttpCodec.ContentStream(codec, _, _)                         =>
             JsonSchema
-              .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), referenceType)
+              .ArrayType(
+                Some(
+                  JsonSchema
+                    .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), referenceType),
+                ),
+                None,
+                uniqueItems = false,
+              )
               .description(descriptionFromMeta)
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))

@@ -371,7 +371,7 @@ object CodeGen {
       case "www-authenticate"                 => "HeaderCodec.wwwAuthenticate"
       case "x-frame-options"                  => "HeaderCodec.xFrameOptions"
       case "x-requested-with"                 => "HeaderCodec.xRequestedWith"
-      case name                               => s"HeaderCodec.name[String]($name)"
+      case name                               => s"""HeaderCodec.name[String]("$name")"""
     }
     s""".header($headerSelector)"""
   }
