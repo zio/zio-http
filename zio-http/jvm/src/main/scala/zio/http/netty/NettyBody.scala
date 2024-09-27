@@ -154,7 +154,8 @@ object NettyBody extends BodyEncoding {
       queue   <- ZIO.acquireRelease(Queue.unbounded[Take[E, A]])(_.shutdown)
       runtime <- ZIO.runtime[R]
     } yield {
-      val rtm = runtime.unsafe
+      val maybeRead = ZChannel.fromZIO(nettyRead.whenZIODiscard(queue.isEmpty))
+      val rtm       = runtime.unsafe
       register { k =>
         try {
           rtm
@@ -174,7 +175,7 @@ object NettyBody extends BodyEncoding {
               maybeError =>
                 ZChannel.fromZIO(queue.shutdown) *>
                   maybeError.fold[ZChannel[Any, Any, Any, Any, E, Chunk[A], Unit]](ZChannel.unit)(ZChannel.fail(_)),
-              a => ZChannel.write(a) *> ZChannel.fromZIO(nettyRead.whenZIO(queue.isEmpty)) *> loop,
+              a => ZChannel.write(a) *> maybeRead *> loop,
             ),
         )
 
