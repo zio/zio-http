@@ -979,6 +979,29 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3,
+      test("Schema with newtype only referenced as dictionary key") {
+        val openAPIString = stringFromResource("/inline_schema_alias_only_as_key_schema.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(generateSafeTypeAliases = true),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/Text_by_key.scala",
+                "component/Key.scala",
+                "component/ObjectWithDictionary.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Key.scala",
+              "/ComponentAliasKey.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
       test("Generate all responses") {
         val oapi =
           OpenAPI(
