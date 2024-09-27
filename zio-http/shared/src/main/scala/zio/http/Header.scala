@@ -2857,11 +2857,12 @@ object Header {
     }
 
     def render(forwarded: Forwarded): String = {
-      def formatDirective(directive: Option[String]) = directive.map(_ + ";").getOrElse("")
+      def formatDirective(directiveName: String, directiveValue: Option[String]) =
+        directiveValue.map(v => s"${directiveName}=${v};").getOrElse("")
 
-      val forValues = if (forwarded.forValues.nonEmpty) forwarded.forValues.map(v => s"for=$v").mkString(",") + ";" else ""
+      val forValues = if (forwarded.forValues.nonEmpty) forwarded.forValues.mkString("for=", ",for=", ";") else ""
 
-      s"${formatDirective(forwarded.by.map("by=" + _))}${forValues}${formatDirective(forwarded.host.map("host=" + _))}${formatDirective(forwarded.proto.map("proto=" + _))}"
+      s"${formatDirective("by", forwarded.by)}${forValues}${formatDirective("host", forwarded.host)}${formatDirective("proto", forwarded.proto)}"
     }
   }
 
