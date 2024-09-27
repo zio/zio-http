@@ -72,7 +72,7 @@ object ForwardedSpec extends ZIOHttpSpec {
         val expected = Header.Forwarded(by = by, forValues = forv, host = host, proto = proto)
         val raw      = Header.Forwarded.render(expected)
         val actual   = Header.Forwarded.parse(raw)
-        assertTrue(actual.is(_.right) == expected)
+        assertTrue(actual.is(_.right) == expected).label(s"Rendering result > '${raw}'")
       }
     } @@ TestAspect.shrinks(0),
   )
