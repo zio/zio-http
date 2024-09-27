@@ -2856,8 +2856,13 @@ object Header {
       Right(Forwarded(by, forValue, host, proto))
     }
 
-    def render(forwarded: Forwarded): String =
-      s"${forwarded.by}; ${forwarded.forValues.map(v => s"for=$v").mkString(",")}; ${forwarded.host}; ${forwarded.proto}"
+    def render(forwarded: Forwarded): String = {
+      def formatDirective(directive: Option[String]) = directive.map(_ + ";").getOrElse("")
+
+      val forValues = if (forwarded.forValues.nonEmpty) forwarded.forValues.map(v => s"for=$v").mkString(",") + ";" else ""
+
+      s"${formatDirective(forwarded.by.map("by=" + _))}${forValues}${formatDirective(forwarded.host.map("host=" + _))}${formatDirective(forwarded.proto.map("proto=" + _))}"
+    }
   }
 
   /** From header value. */
