@@ -43,7 +43,7 @@ Some of the key features of ZIO HTTP are:
 Setup via `build.sbt`:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-http" % "3.0.0"
+libraryDependencies += "dev.zio" %% "zio-http" % "3.0.1"
 ```
 
 **NOTES ON VERSIONING:**
