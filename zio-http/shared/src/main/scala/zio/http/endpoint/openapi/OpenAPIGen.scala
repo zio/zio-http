@@ -538,8 +538,7 @@ object OpenAPIGen {
       val path           = buildPath(endpoint.input)
       val method0        = method(inAtoms.method)
       // Endpoint has only one doc. But open api has a summery and a description
-      val pathItem       = OpenAPI.PathItem.empty
-        .copy(description = Some(endpoint.documentation + endpoint.input.doc.getOrElse(Doc.empty)).filter(!_.isEmpty))
+      val pathItem       = OpenAPI.PathItem.empty.copy(description = Some(endpoint.documentation).filter(!_.isEmpty))
       val pathItemWithOp = method0 match {
         case Method.OPTIONS => pathItem.addOptions(operation(endpoint))
         case Method.GET     => pathItem.addGet(operation(endpoint))
@@ -581,7 +580,7 @@ object OpenAPIGen {
     }
 
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
-      val maybeDoc = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
+      val maybeDoc = Some(pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
         tags = endpoint.tags,
         summary = None,

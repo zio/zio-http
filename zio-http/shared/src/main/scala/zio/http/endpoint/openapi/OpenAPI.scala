@@ -97,15 +97,48 @@ final case class OpenAPI(
         .groupBy(_._1)
         .map { case (path, pathItems) =>
           val pathItem = pathItems.map(_._2).reduce { (i, j) =>
+            var docI    = Doc.empty
+            var docJ    = Doc.empty
+            var get     = i.get
+            var put     = i.put
+            var post    = i.post
+            var delete  = i.delete
+            var options = i.options
+            var head    = i.head
+            var patch   = i.patch
+            var trace   = i.trace
+
+            if (
+              get.isDefined || put.isDefined || post.isDefined || delete.isDefined || options.isDefined || head.isDefined || patch.isDefined || trace.isDefined
+            ) {
+              docI = i.description.getOrElse(Doc.empty)
+            }
+            if (
+              (get.isEmpty && j.get.isDefined) || (put.isEmpty && j.put.isDefined) || (post.isEmpty && j.post.isDefined) || (delete.isEmpty && j.delete.isDefined) || (options.isEmpty && j.options.isDefined) || (head.isEmpty && j.head.isDefined) || (patch.isEmpty && j.patch.isDefined) || (trace.isEmpty && j.trace.isDefined)
+            ) {
+              docJ = j.description.getOrElse(Doc.empty)
+            }
+            get = get.orElse(j.get)
+            put = put.orElse(j.put)
+            post = post.orElse(j.post)
+            delete = delete.orElse(j.delete)
+            options = options.orElse(j.options)
+            head = head.orElse(j.head)
+            patch = patch.orElse(j.patch)
+            trace = trace.orElse(j.trace)
+
             i.copy(
-              get = i.get.orElse(j.get),
-              put = i.put.orElse(j.put),
-              post = i.post.orElse(j.post),
-              delete = i.delete.orElse(j.delete),
-              options = i.options.orElse(j.options),
-              head = i.head.orElse(j.head),
-              patch = i.patch.orElse(j.patch),
-              trace = i.trace.orElse(j.trace),
+              get = get,
+              put = put,
+              post = post,
+              delete = delete,
+              options = options,
+              head = head,
+              patch = patch,
+              trace = trace,
+              description = Some(docI + docJ).filter(!_.isEmpty),
+              servers = i.servers ++ j.servers,
+              parameters = i.parameters ++ j.parameters,
             )
           }
           (path, pathItem)
