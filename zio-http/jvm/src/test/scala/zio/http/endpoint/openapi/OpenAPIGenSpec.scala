@@ -1033,8 +1033,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                          |                  {
                          |                    "$ref" : "#/components/schemas/Payload"
                          |                  }
-                         |                ],
-                         |                "description" : ""
+                         |                ]
                          |              }
                          |            }
                          |          },

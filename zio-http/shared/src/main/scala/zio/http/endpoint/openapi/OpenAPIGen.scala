@@ -983,6 +983,10 @@ object OpenAPIGen {
         }
       case t: Transform[_, _, _]      =>
         nominal(t.schema, referenceType)
+      case Schema.Optional(inner, _)  =>
+        nominal(inner, referenceType)
+      case Schema.Lazy(schema0)       =>
+        nominal(schema0(), referenceType)
       case _                          => None
     }
 
