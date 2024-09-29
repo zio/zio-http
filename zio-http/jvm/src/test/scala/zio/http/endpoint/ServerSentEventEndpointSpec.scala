@@ -14,6 +14,7 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.HttpCodec
+import zio.http.netty.NettyConfig
 
 object ServerSentEventEndpointSpec extends ZIOHttpSpec {
 
@@ -40,13 +41,14 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
       : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
       sseEndpoint(())
 
-    def client(port: Int): ZIO[Scope, Throwable, Chunk[ServerSentEvent[String]]] =
-      (for {
+    def client(port: Int): ZIO[Client, Throwable, Chunk[ServerSentEvent[String]]] = ZIO.scoped {
+      for {
         client <- ZIO.service[Client]
         executor = EndpointExecutor(client, locator(port))
         stream <- executor(invocation)
         events <- stream.take(5).runCollect
-      } yield events).provideSome[Scope](ZClient.default)
+      } yield events
+    }
   }
 
   object JsonPayload {
@@ -77,13 +79,14 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
       : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
       sseEndpoint(())
 
-    def client(port: Int): ZIO[Scope, Throwable, Chunk[ServerSentEvent[Payload]]] =
-      (for {
+    def client(port: Int): ZIO[Client, Throwable, Chunk[ServerSentEvent[Payload]]] = ZIO.scoped {
+      for {
         client <- ZIO.service[Client]
         executor = EndpointExecutor(client, locator(port))
         stream <- executor(invocation)
         events <- stream.take(5).runCollect
-      } yield events).provideSome[Scope](ZClient.default)
+      } yield events
+    }
   }
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -95,7 +98,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
           port   <- ZIO.serviceWithZIO[Server](_.port)
           events <- client(port)
         } yield assertTrue(events.size == 5 && events.forall(event => Try(ISO_LOCAL_TIME.parse(event.data)).isSuccess))
-      }.provideSome[Scope](Server.defaultWithPort(0)),
+      },
       test("Send and receive ServerSentEvent with json payload") {
         import JsonPayload._
         for {
@@ -103,6 +106,14 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
           port   <- ZIO.serviceWithZIO[Server](_.port)
           events <- client(port)
         } yield assertTrue(events.size == 5 && events.forall(event => Try(event.data.timeStamp).isSuccess))
-      }.provideSome[Scope](Server.defaultWithPort(0)),
-    ) @@ TestAspect.withLiveClock
+      },
+    )
+      .provideSomeLayer[Client & Server.Config & NettyConfig](Server.customized)
+      .provideShared(
+        Client.live,
+        ZLayer.succeed(Server.Config.default.port(0)),
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+        ZLayer.succeed(ZClient.Config.default),
+        DnsResolver.default,
+      ) @@ TestAspect.withLiveClock
 }
