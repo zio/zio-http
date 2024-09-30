@@ -35,7 +35,7 @@ import zio.http.template._
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
-    in: Handler.IsRequest[In1],
+    ev: Request <:< In,
     out: Out <:< Response,
     err: Err <:< Response,
   ): Handler[Env1, Response, Request, Response] = {
@@ -46,7 +46,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
-    in: Handler.IsRequest[In1],
+    ev: Request <:< In,
     out: Out <:< Response,
     err: Err <:< Response,
     trace: Trace,
@@ -981,7 +981,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fromResponse(Response.html(view))
 
   /**
-   * Creates a pass thru Handler instance
+   * Creates a pass through Handler instance
    */
   def identity[A]: Handler[Any, Nothing, A, A] =
     new Handler[Any, Nothing, A, A] {
