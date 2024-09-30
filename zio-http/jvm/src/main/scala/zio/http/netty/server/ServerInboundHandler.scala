@@ -123,10 +123,8 @@ private[zio] final case class ServerInboundHandler(
         val isValidHost = validateHostname(hostname)
         val isValidPort = parts.length == 1 || (parts.length == 2 && parts(1).forall(_.isDigit))
         val isValid     = isValidHost && isValidPort
-        println(s"Host: $host, isValidHost: $isValidHost, isValidPort: $isValidPort, isValid: $isValid")
         isValid
       case None       =>
-        println("Host header missing!")
         false
     }
   }
