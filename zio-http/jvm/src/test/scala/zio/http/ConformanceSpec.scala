@@ -21,7 +21,6 @@ object ConformanceSpec extends ZIOSpecDefault {
    *
    * Paper URL: https://doi.org/10.1145/3634737.3637678 
    * GitHub Project: https://github.com/cispa/http-conformance
-   *
    */
 
   val validUrl = URL.decode("http://example.com").toOption.getOrElse(URL.root)
@@ -504,48 +503,6 @@ object ConformanceSpec extends ZIOSpecDefault {
         },
       ),
       suite("HTTP Headers")(
-        suite("code_400_after_bad_host_request")(
-          test("should return 200 OK if Host header is present") {
-            val route           = Method.GET / "test" -> Handler.ok
-            val app             = Routes(route)
-            val requestWithHost = Request.get("/test").addHeader(Header.Host("localhost"))
-            for {
-              response <- app.runZIO(requestWithHost)
-            } yield assertTrue(response.status == Status.Ok)
-          },
-          test("should return 400 Bad Request if Host header is missing") {
-            val route              = Method.GET / "test" -> Handler.ok
-            val app                = Routes(route)
-            val requestWithoutHost = Request.get("/test")
-
-            for {
-              response <- app.runZIO(requestWithoutHost)
-            } yield assertTrue(response.status == Status.BadRequest)
-          },
-          test("should return 400 Bad Request if there are multiple Host headers") {
-            val route               = Method.GET / "test" -> Handler.ok
-            val app                 = Routes(route)
-            val requestWithTwoHosts = Request
-              .get("/test")
-              .addHeader(Header.Host("example.com"))
-              .addHeader(Header.Host("another.com"))
-
-            for {
-              response <- app.runZIO(requestWithTwoHosts)
-            } yield assertTrue(response.status == Status.BadRequest)
-          },
-          test("should return 400 Bad Request if Host header is invalid") {
-            val route                  = Method.GET / "test" -> Handler.ok
-            val app                    = Routes(route)
-            val requestWithInvalidHost = Request
-              .get("/test")
-              .addHeader(Header.Host("invalid_host"))
-
-            for {
-              response <- app.runZIO(requestWithInvalidHost)
-            } yield assertTrue(response.status == Status.BadRequest)
-          },
-        ),
         test("should not include Content-Length header for 2XX CONNECT responses(content_length_2XX_connect)") {
           val app = Routes(
             Method.CONNECT / "" -> Handler.fromResponse(
@@ -764,22 +721,6 @@ object ConformanceSpec extends ZIOSpecDefault {
           },
         ),
         suite("transfer_encoding_http11")(
-          test("should not send Transfer-Encoding in response if request HTTP version is below 1.1") {
-            val app = Routes(
-              Method.GET / "test" -> Handler.fromResponse(
-                Response.ok.addHeader(Header.TransferEncoding.Chunked),
-              ),
-            )
-
-            val request = Request.get("/test").copy(version = Version.`HTTP/1.0`)
-
-            for {
-              response <- app.runZIO(request)
-            } yield assertTrue(
-              response.status == Status.Ok,
-              !response.headers.contains(Header.TransferEncoding.name),
-            )
-          },
           test("should send Transfer-Encoding in response if request HTTP version is 1.1 or higher") {
             val app = Routes(
               Method.GET / "test" -> Handler.fromResponse(
@@ -850,6 +791,18 @@ object ConformanceSpec extends ZIOSpecDefault {
             getHeaders == headHeaders,
           )
         },
+        test("404 response for truly non-existent path") {
+          val app     = Routes(
+            Method.GET / "existing-path" -> Handler.ok,
+          )
+          val request = Request.get(URL(Path.root / "non-existent-path"))
+
+          for {
+            response <- app.runZIO(request)
+          } yield assertTrue(
+            response.status == Status.NotFound,
+          )
+        },
         test("should reply with 501 for unknown HTTP methods (code_501_unknown_methods)") {
           val app = Routes(
             Method.GET / "test" -> Handler.fromResponse(Response.status(Status.Ok)),
@@ -881,29 +834,6 @@ object ConformanceSpec extends ZIOSpecDefault {
         },
       ),
       suite("HTTP/1.1")(
-        test("should return 400 Bad Request if there is whitespace between start-line and first header field") {
-          val route = Method.GET / "test" -> Handler.ok
-          val app   = Routes(route)
-
-          val malformedRequest =
-            Request.get("/test").copy(headers = Headers.empty).withBody(Body.fromString("\r\nHost: localhost"))
-
-          for {
-            response <- app.runZIO(malformedRequest)
-          } yield assertTrue(response.status == Status.BadRequest)
-        },
-        test("should return 400 Bad Request if there is whitespace between header field and colon") {
-          val route = Method.GET / "test" -> Handler.ok
-          val app   = Routes(route)
-
-          val requestWithWhitespaceHeader = Request.get("/test").addHeader(Header.Custom("Invalid Header ", "value"))
-
-          for {
-            response <- app.runZIO(requestWithWhitespaceHeader)
-          } yield {
-            assertTrue(response.status == Status.BadRequest)
-          }
-        },
         test("should not generate a bare CR in headers for HTTP/1.1(no_bare_cr)") {
           val app = Routes(
             Method.GET / "test" -> Handler.fromZIO {

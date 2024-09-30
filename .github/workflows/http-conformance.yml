@@ -1,4 +1,4 @@
-name: HTTP Spec Conformance Test
+name: HTTP Conformance
 
 on:
   pull_request:
@@ -70,4 +70,4 @@ jobs:
           cache: sbt
 
       - name: Run HTTP Conformance Tests
-        run: sbt "project zioHttpJVM" "testOnly zio.http.ConformanceSpec"
+        run: sbt "project zioHttpJVM" "testOnly zio.http.ConformanceSpec zio.http.ConformanceE2ESpec"
