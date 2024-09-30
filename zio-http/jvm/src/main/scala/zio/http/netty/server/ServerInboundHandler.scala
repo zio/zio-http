@@ -250,7 +250,12 @@ private[zio] final case class ServerInboundHandler(
       case nettyReq: HttpRequest     =>
         val knownContentLength = headers.get(Header.ContentLength).map(_.length)
         val handler            = addAsyncBodyHandler(ctx)
-        val body = NettyBody.fromAsync(async => handler.connect(async), knownContentLength, contentTypeHeader)
+        val body               = NettyBody.fromAsync(
+          async => handler.connect(async),
+          knownContentLength,
+          contentTypeHeader,
+          () => ctx.read(): Unit,
+        )
 
         Request(
           body = body,
