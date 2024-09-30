@@ -32,7 +32,11 @@ import zio.http._
  */
 trait HeaderModifier[+A] { self =>
   final def addHeader(header: Header): A =
-    addHeaders(Headers(header))
+    if (header.headerName == Header.XFrameOptions.name) {
+      updateHeaders(headers => Headers(headers.filterNot(_.headerName == Header.XFrameOptions.name)) ++ Headers(header))
+    } else {
+      addHeaders(Headers(header))
+    }
 
   final def addHeader(name: CharSequence, value: CharSequence): A =
     addHeaders(Headers.apply(name, value))
