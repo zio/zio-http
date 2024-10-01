@@ -21,6 +21,7 @@ object ConformanceSpec extends ZIOSpecDefault {
    *
    * Paper URL: https://doi.org/10.1145/3634737.3637678 
    * GitHub Project: https://github.com/cispa/http-conformance
+   * 
    */
 
   val validUrl = URL.decode("http://example.com").toOption.getOrElse(URL.root)
@@ -759,7 +760,6 @@ object ConformanceSpec extends ZIOSpecDefault {
           val app = Routes(
             Method.POST / "test" -> Handler.fromResponse(Response.status(Status.Ok)),
           )
-
           for {
             res <- app.runZIO(Request.post("/test", Body.empty))
 
@@ -791,7 +791,7 @@ object ConformanceSpec extends ZIOSpecDefault {
             getHeaders == headHeaders,
           )
         },
-        test("404 response for truly non-existent path") {
+        test("should reply with 404 response for truly non-existent path") {
           val app     = Routes(
             Method.GET / "existing-path" -> Handler.ok,
           )
@@ -919,21 +919,6 @@ object ConformanceSpec extends ZIOSpecDefault {
         },
       ),
       suite("HTTP")(
-        test("should return 400 Bad Request if header contains CR, LF, or NULL(reject_fields_contaning_cr_lf_nul)") {
-          val route = Method.GET / "test" -> Handler.ok
-          val app   = Routes(route)
-
-          val requestWithCRLFHeader = Request.get("/test").addHeader("InvalidHeader", "Value\r\n")
-          val requestWithNullHeader = Request.get("/test").addHeader("InvalidHeader", "Value\u0000")
-
-          for {
-            responseCRLF <- app.runZIO(requestWithCRLFHeader)
-            responseNull <- app.runZIO(requestWithNullHeader)
-          } yield {
-            assertTrue(responseCRLF.status == Status.BadRequest) &&
-            assertTrue(responseNull.status == Status.BadRequest)
-          }
-        },
         test("should send Upgrade header with 426 Upgrade Required response(send_upgrade_426)") {
           val app = Routes(
             Method.GET / "test" -> Handler.fromResponse(

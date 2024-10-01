@@ -71,6 +71,10 @@ private[netty] object Conversions {
     url0.relative.addLeadingSlash.encode
   }
 
+  private def validateHeaderValue(value: String): Boolean = {
+    value.contains('\r') || value.contains('\n') || value.contains('\u0000')
+  }
+
   private def nettyHeadersIterator(headers: HttpHeaders): Iterator[Header] =
     new AbstractIterator[Header] {
       private val nettyIterator = headers.iteratorCharSequence()
@@ -99,6 +103,10 @@ private[netty] object Conversions {
     while (iter.hasNext) {
       val header = iter.next()
       val name   = header.headerName
+      val value  = header.renderedValueAsCharSequence.toString
+      if (validateHeaderValue(value)) {
+        throw new IllegalArgumentException(s"Invalid header value containing prohibited characters in header $name")
+      }
       if (name == setCookieName) {
         nettyHeaders.add(name, header.renderedValueAsCharSequence)
       } else {
