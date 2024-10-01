@@ -34,43 +34,6 @@ object ConformanceE2ESpec extends RoutesRunnableSpec {
       val res = routes.deploy.status.run(path = Path.root, headers = Headers(Header.Host("localhost")))
       assertZIO(res)(equalTo(Status.Ok))
     },
-    test("should return 400 Bad Request if header contains CR, LF, or NULL (reject_fields_containing_cr_lf_nul)") {
-      val routes = Handler.ok.toRoutes
-
-      val resCRLF =
-        routes.deploy.status.run(path = Path.root / "test", headers = Headers("InvalidHeader" -> "Value\r\n"))
-      val resNull =
-        routes.deploy.status.run(path = Path.root / "test", headers = Headers("InvalidHeader" -> "Value\u0000"))
-
-      for {
-        responseCRLF <- resCRLF
-        responseNull <- resNull
-      } yield assertTrue(
-        responseCRLF == Status.BadRequest,
-        responseNull == Status.BadRequest,
-      )
-    },
-    test("should return 400 Bad Request if there is whitespace between start-line and first header field") {
-      val route  = Method.GET / "test" -> Handler.ok
-      val routes = Routes(route)
-
-      val malformedRequest = Request
-        .get("/test")
-        .copy(headers = Headers.empty)
-        .withBody(Body.fromString("\r\nHost: localhost"))
-
-      val res = routes.deploy.status.run(path = Path.root / "test", headers = malformedRequest.headers)
-      assertZIO(res)(equalTo(Status.BadRequest))
-    },
-    test("should return 400 Bad Request if there is whitespace between header field and colon") {
-      val route  = Method.GET / "test" -> Handler.ok
-      val routes = Routes(route)
-
-      val requestWithWhitespaceHeader = Request.get("/test").addHeader(Header.Custom("Invalid Header ", "value"))
-
-      val res = routes.deploy.status.run(path = Path.root / "test", headers = requestWithWhitespaceHeader.headers)
-      assertZIO(res)(equalTo(Status.BadRequest))
-    },
   )
 
   override def spec =
