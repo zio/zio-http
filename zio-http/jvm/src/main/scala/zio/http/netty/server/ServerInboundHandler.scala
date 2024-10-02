@@ -116,16 +116,16 @@ private[zio] final case class ServerInboundHandler(
   }
 
   private def validateHostHeader(req: Request): Boolean = {
-    req.headers.get("Host") match {
-      case Some(host) =>
-        val parts       = host.split(":")
-        val hostname    = parts(0)
-        val isValidHost = validateHostname(hostname)
-        val isValidPort = parts.length == 1 || (parts.length == 2 && parts(1).forall(_.isDigit))
-        val isValid     = isValidHost && isValidPort
-        isValid
-      case None       =>
-        false
+    val host = req.headers.get("Host").getOrElse(null)
+    if (host != null) {
+      val parts       = host.split(":")
+      val hostname    = parts(0)
+      val isValidHost = validateHostname(hostname)
+      val isValidPort = parts.length == 1 || (parts.length == 2 && parts(1).forall(_.isDigit))
+      val isValid     = isValidHost && isValidPort
+      isValid
+    } else {
+      false
     }
   }
 
@@ -143,6 +143,7 @@ private[zio] final case class ServerInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
     cause match {
+
       case ioe: IOException if {
             val msg = ioe.getMessage
             (msg ne null) && msg.contains("Connection reset")

@@ -249,32 +249,36 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     Handler
       .fromFunctionHandler[Request] { req =>
         val chunk          = tree.get(req.method, req.path)
-        val allowedMethods = tree.getAllMethods(req.path)
+        def allowedMethods = tree.getAllMethods(req.path)
         req.method match {
           case Method.CUSTOM(_) =>
             Handler.notImplemented
           case _                =>
-            chunk.length match {
-              case 0 =>
-                if (allowedMethods.nonEmpty) {
-                  val allowHeader = Header.Allow(NonEmptyChunk.fromIterableOption(allowedMethods).get)
-                  Handler.methodNotAllowed.addHeader(allowHeader)
-                } else {
-                  Handler.notFound
-                }
-              case 1 => chunk(0)
-              case n => // TODO: Support precomputed fallback among all chunk elements
-                var acc = chunk(0)
-                var i   = 1
-                while (i < n) {
-                  val h = chunk(i)
-                  acc = acc.catchAll { response =>
-                    if (response.status == Status.NotFound) h
-                    else Handler.fail(response)
+            if (chunk.isEmpty) {
+              if (allowedMethods.isEmpty) {
+                // If no methods are allowed for the path, return 404 Not Found
+                Handler.notFound
+              } else {
+                // If there are allowed methods for the path but none match the request method, return 405 Method Not Allowed
+                val allowHeader = Header.Allow(NonEmptyChunk.fromIterableOption(allowedMethods).get)
+                Handler.methodNotAllowed.addHeader(allowHeader)
+              }
+            } else {
+              chunk.length match {
+                case 1 => chunk(0)
+                case n => // TODO: Support precomputed fallback among all chunk elements
+                  var acc = chunk(0)
+                  var i   = 1
+                  while (i < n) {
+                    val h = chunk(i)
+                    acc = acc.catchAll { response =>
+                      if (response.status == Status.NotFound) h
+                      else Handler.fail(response)
+                    }
+                    i += 1
                   }
-                  i += 1
-                }
-                acc
+                  acc
+              }
             }
         }
       }

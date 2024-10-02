@@ -1,7 +1,7 @@
 package zio.http
 
-import java.time.format.DateTimeFormatter
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 import zio._
 import zio.test.Assertion._
