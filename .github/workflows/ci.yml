@@ -636,6 +636,44 @@ jobs:
           name: Jmh_Main_ProbeContentTypeBenchmark
           path: Main_ProbeContentTypeBenchmark.txt
 
+  Jmh_RoutesBenchmark:
+    name: Jmh RoutesBenchmark
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.14]
+        java: [temurin@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
+          cat > Main_RoutesBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 RoutesBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_RoutesBenchmark.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jmh_Main_RoutesBenchmark
+          path: Main_RoutesBenchmark.txt
+
   Jmh_SchemeDecodeBenchmark:
     name: Jmh SchemeDecodeBenchmark
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -752,7 +790,7 @@ jobs:
 
   Jmh_cache:
     name: Cache Jmh benchmarks
-    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     strategy:
       matrix:
@@ -823,6 +861,13 @@ jobs:
 
       - name: Format_Main_ProbeContentTypeBenchmark
         run: cat Main_ProbeContentTypeBenchmark.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Jmh_Main_RoutesBenchmark
+
+      - name: Format_Main_RoutesBenchmark
+        run: cat Main_RoutesBenchmark.txt >> Main_benchmarks.txt
 
       - uses: actions/download-artifact@v4
         with:
