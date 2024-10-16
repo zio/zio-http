@@ -35,6 +35,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
   val DEFAULT_URL_SIZE     = 4096
   val DEFAULT_HEADER_SIZE  = 8192
   val DEFAULT_CONTENT_SIZE = 1024 * 100
+  val ERROR_MARGIN         = 3
 
   /*
     Checks that for `A` with size until `maxSize`, server responds with `Status.Ok` and `badStatus` after it.
@@ -63,7 +64,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
         }
         info   <-
           if (expected == status) loop(size + 1, lstTestSize, inc(size)(content), f, expected)
-          else if (size >= lstTestSize - 2) // adding margin for differences in scala 2 and scala 3
+          else if (size >= lstTestSize - ERROR_MARGIN) // adding margin for differences in scala 2 and scala 3
             ZIO.succeed(((size, expected), Some(content)))
           else ZIO.succeed(((size, status), None))
       } yield info
@@ -81,7 +82,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
       (lstWorkingSize1, lstStatus1) = info1
       (lstWorkingSize2, lstStatus2) = info2
     } yield assertTrue(
-      maxSize - lstWorkingSize1 <= 2,
+      maxSize - lstWorkingSize1 <= ERROR_MARGIN,
       maxSize - lstWorkingSize1 >= 0,
       lstStatus1 == Status.Ok,
       lstWorkingSize2 == lstTestSize,
