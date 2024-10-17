@@ -30,6 +30,9 @@ trait Middleware[-UpperEnv] { self =>
 
   def apply[Env1 <: UpperEnv, Err](routes: Routes[Env1, Err]): Routes[Env1, Err]
 
+  def apply[Env1 <: UpperEnv, Err](route: Route[Env1, Err]): Route[Env1, Err] =
+    (route.toRoutes @@ self).routes.head
+
   def @@[UpperEnv1 <: UpperEnv](
     that: Middleware[UpperEnv1],
   ): Middleware[UpperEnv1] =
