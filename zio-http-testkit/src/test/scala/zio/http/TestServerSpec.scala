@@ -37,8 +37,8 @@ object TestServerSpec extends ZIOHttpSpec {
           )
       } yield assertTrue(status(response1) == Status.Ok) &&
         assertTrue(status(response2) == Status.InternalServerError)
-    }.provideSome[Client with Driver](
-      TestServer.layer,
+    }.provideSome[Client](
+      TestServer.default,
       Scope.default,
     ),
     suite("Exact Request=>Response version")(
@@ -83,8 +83,8 @@ object TestServerSpec extends ZIOHttpSpec {
         } yield assertTrue(status(finalResponse) == Status.NotFound)
       },
     )
-      .provideSome[Client with Driver](
-        TestServer.layer,
+      .provideSome[Client](
+        TestServer.default,
         Scope.default,
       ),
     test("add routes to the server") {
@@ -102,15 +102,12 @@ object TestServerSpec extends ZIOHttpSpec {
         fallbackResponse <- client(Request.get(testRequest.url / "any"))
         fallbackBody     <- fallbackResponse.body.asString
       } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
-    }.provideSome[Client with Driver](
-      TestServer.layer,
+    }.provideSome[Client](
+      TestServer.default,
       Scope.default,
     ),
   ).provide(
-    ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,
-    NettyDriver.customized,
-    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
 
   private def requestToCorrectPort =
