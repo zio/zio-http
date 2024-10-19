@@ -118,6 +118,10 @@ object TestServerSpec extends ZIOHttpSpec {
       port <- ZIO.serviceWithZIO[Server](_.port)
     } yield Request
       .get(url = URL.root.port(port))
-      .addHeaders(Headers(Header.Accept(MediaType.text.`plain`)))
-
+      .addHeaders(
+        Headers(
+          Header.Accept(MediaType.text.`plain`),
+          Header.Host("localhost"),
+        ),
+      )
 }
