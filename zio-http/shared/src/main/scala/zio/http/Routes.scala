@@ -252,14 +252,12 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
 
         val chunk          = tree.get(req.method, req.path)
         def allowedMethods = tree.getAllMethods(req.path)
-        println(s"[DEBUG] Chunk length for Method ${req.method} and Path ${req.path} = ${chunk.length}")
-        println(s"[DEBUG] Allowed methods for Path ${req.path} = ${allowedMethods.mkString(", ")}")
         req.method match {
           case Method.CUSTOM(_) =>
             Handler.notImplemented
           case _                =>
             if (chunk.isEmpty) {
-              if (allowedMethods.isEmpty || allowedMethods == Set(Method.OPTIONS)) {
+              if (allowedMethods.isEmpty) {
                 // If no methods are allowed for the path, return 404 Not Found
                 Handler.notFound
               } else {
