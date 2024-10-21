@@ -1,28 +1,36 @@
 package zio.http.endpoint.openapi
 
 import java.util.UUID
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.collection.{immutable, mutable}
-
 import zio._
+import zio.http.Header.Authorization
+import zio.http.Header.Authorization.Basic
 import zio.json.EncoderOps
 import zio.json.ast.Json
-
 import zio.schema.Schema.{Record, Transform}
 import zio.schema.codec.JsonCodec
 import zio.schema.{Schema, TypeId}
-
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
+import zio.http.endpoint.AuthType.Bearer
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
-import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.{ApiKey, SecurityRequirement}
+import zio.http.endpoint.openapi.OpenAPI.{Key, Path, PathItem, ReferenceOr, SecurityScheme, securityRequirementSchema}
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
+
+  val apiKeyHeaderName     = "x-api-key" // opinionated names
+  val apiKeyQueryParamName = "api_key"
+  val apiKeyAuth           = "apiKeyAuth"
+  val basicAuth            = "basicAuth"
+  val bearerAuth           = "bearerAuth"
+  val digestAuth           = "digestAuth"
+  private val noAuth       = "noAuth"    // will be removed
 
   private[openapi] def groupMap[A, K, B](chunk: Chunk[A])(key: A => K)(f: A => B): immutable.Map[K, Chunk[B]] = {
     val m = mutable.Map.empty[K, mutable.Builder[B, Chunk[B]]]
@@ -591,7 +599,7 @@ object OpenAPIGen {
         requestBody = requestBody,
         responses = responses,
         callbacks = Map.empty,
-        security = Nil,
+        security = security(endpoint),
         servers = Nil,
       )
     }
@@ -628,6 +636,10 @@ object OpenAPIGen {
 
     def responses: OpenAPI.Responses =
       responsesForAlternatives(outs)
+
+    def security(endpoint: Endpoint[_, _, _, _, _]): List[SecurityRequirement] = {
+      extractSecurityRequirements(endpoint, queryParams ++ headerParams)
+    }
 
     def parameters: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
       queryParams ++ pathParams ++ headerParams
@@ -780,6 +792,51 @@ object OpenAPIGen {
       }
     }
 
+    def collectSecurityScheme(endpoint: Endpoint[_, _, _, _, _], params: Set[ReferenceOr[OpenAPI.Parameter]]) = {
+      ListMap(
+        params.collect {
+          case OpenAPI.ReferenceOr.Or(param)
+              if param.name.equalsIgnoreCase(apiKeyHeaderName) || param.name.equalsIgnoreCase(apiKeyQueryParamName) =>
+            createApiKeySecurityScheme(param.name)
+        }.toSeq ++
+          Set(
+            endpoint.authType match {
+              case AuthType.Basic  => createHttpSecurityScheme(basicAuth, "basic")
+              case AuthType.Bearer => createHttpSecurityScheme(bearerAuth, "bearer")
+              case AuthType.Digest => createHttpSecurityScheme(digestAuth, "digest")
+              case _               => createHttpSecurityScheme()
+            },
+          ).filterNot(_._1 == OpenAPI.Key.fromString("noAuth").get).toSeq: _*,
+      )
+    }
+
+    def createApiKeySecurityScheme(name: String) =
+      OpenAPI.Key.fromString(apiKeyAuth).get -> OpenAPI.ReferenceOr.Or(
+        OpenAPI.SecurityScheme.ApiKey(description = None, name = name, in = in(name)),
+      )
+
+    def in(paramName: String): OpenAPI.SecurityScheme.ApiKey.In = {
+      if (paramName.equalsIgnoreCase(apiKeyHeaderName))
+        OpenAPI.SecurityScheme.ApiKey.In.Header
+      else if (paramName.equalsIgnoreCase(apiKeyQueryParamName))
+        OpenAPI.SecurityScheme.ApiKey.In.Query
+      else throw new IllegalArgumentException(s"Unknown apiKey param name: $paramName")
+    }
+
+    def createHttpSecurityScheme(
+      name: String = noAuth,
+      scheme: String = "",
+      description: Option[Doc] = None,
+    ): (OpenAPI.Key, OpenAPI.ReferenceOr[OpenAPI.SecurityScheme.Http]) = {
+      OpenAPI.Key.fromString(name).get -> OpenAPI.ReferenceOr.Or(
+        OpenAPI.SecurityScheme.Http(
+          scheme = scheme,
+          bearerFormat = None,
+          description = description,
+        ),
+      )
+    }
+
     def components = OpenAPI.Components(
       schemas = ListMap(componentSchemas.toSeq.sortBy(_._1.name): _*),
       responses = ListMap.empty,
@@ -787,7 +844,7 @@ object OpenAPIGen {
       examples = ListMap.empty,
       requestBodies = ListMap.empty,
       headers = ListMap.empty,
-      securitySchemes = ListMap.empty,
+      securitySchemes = collectSecurityScheme(endpoint, headerParams ++ queryParams),
       links = ListMap.empty,
       callbacks = ListMap.empty,
     )
@@ -1011,6 +1068,23 @@ object OpenAPIGen {
         ),
       )
     }
+
+  private def extractSecurityRequirements(
+    endpoint: Endpoint[_, _, _, _, _],
+    parameters: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
+  ): List[SecurityRequirement] = {
+    parameters.collect {
+      case OpenAPI.ReferenceOr.Or(param: OpenAPI.Parameter)
+          if param.name.equalsIgnoreCase(apiKeyHeaderName) || param.name.equalsIgnoreCase(apiKeyQueryParamName) =>
+        SecurityRequirement(Map(apiKeyAuth -> Nil))
+    }.toList ++
+      List(endpoint.authType match {
+        case AuthType.Basic  => SecurityRequirement(Map(basicAuth -> Nil))
+        case AuthType.Bearer => SecurityRequirement(Map(bearerAuth -> Nil))
+        case AuthType.Digest => SecurityRequirement(Map(digestAuth -> Nil))
+        case _               => SecurityRequirement(Map.empty)
+      }).filterNot(_.securitySchemes.isEmpty)
+  }
 
   private def headersFrom(codec: AtomizedMetaCodecs)                                           = {
     codec.header.map { case mc @ MetaCodec(codec, _) =>
