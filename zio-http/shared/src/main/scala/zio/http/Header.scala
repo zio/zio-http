@@ -1088,7 +1088,7 @@ object Header {
 
     private def parseBasic(value: String): Either[String, Authorization] = {
       try {
-        val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(":")
+        val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(":", 2)
         if (partsOfBasic.length == 2) {
           Right(Basic(partsOfBasic(0), Secret(partsOfBasic(1))))
         } else {
