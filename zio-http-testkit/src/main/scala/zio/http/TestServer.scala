@@ -2,6 +2,9 @@ package zio.http
 
 import zio._
 
+import zio.http.netty.NettyConfig
+import zio.http.netty.server.NettyDriver
+
 /**
  * Enables tests that make calls against "localhost" with user-specified
  * Behavior/Responses.
@@ -135,5 +138,12 @@ object TestServer {
         result <- driver.start
       } yield TestServer(driver, result.port)
     }
+
+  val default: ZLayer[Any, Nothing, Server with TestServer] = ZLayer.make[Server with TestServer][Nothing](
+    TestServer.layer.orDie,
+    ZLayer.succeed(Server.Config.default.onAnyOpenPort),
+    NettyDriver.customized.orDie,
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+  )
 
 }

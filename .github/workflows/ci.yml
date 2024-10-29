@@ -77,6 +77,8 @@ jobs:
           java-version: 21
           cache: sbt
 
+      - uses: coursier/setup-action@v1
+
       - name: Check formatting
         if: matrix.scala == '2.13.14'
         run: sbt ++2.13.14 fmtCheck
@@ -86,6 +88,8 @@ jobs:
 
       - name: Build project
         run: sbt '++ ${{ matrix.scala }}' test
+
+      - uses: coursier/setup-action@v1
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
@@ -229,10 +233,11 @@ jobs:
         java: [temurin@21]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout current branch (full)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: coursier/setup-action@v1
 
       - name: Setup Java (temurin@21)
         if: matrix.java == 'temurin@21'
@@ -253,10 +258,13 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout current branch (full)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
 
       - name: Add Scoverage
         id: add_plugin
@@ -286,11 +294,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -305,7 +317,7 @@ jobs:
           cat > Main_CachedDateHeaderBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CachedDateHeaderBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_CachedDateHeaderBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_CachedDateHeaderBenchmark
           path: Main_CachedDateHeaderBenchmark.txt
@@ -320,11 +332,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -339,7 +355,7 @@ jobs:
           cat > Main_ClientBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ClientBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ClientBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_ClientBenchmark
           path: Main_ClientBenchmark.txt
@@ -354,11 +370,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -373,7 +393,7 @@ jobs:
           cat > Main_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_CookieDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_CookieDecodeBenchmark
           path: Main_CookieDecodeBenchmark.txt
@@ -388,11 +408,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -407,7 +431,7 @@ jobs:
           cat > Main_EndpointBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 EndpointBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_EndpointBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_EndpointBenchmark
           path: Main_EndpointBenchmark.txt
@@ -422,11 +446,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -441,7 +469,7 @@ jobs:
           cat > Main_HttpCollectEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCollectEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_HttpCollectEval
           path: Main_HttpCollectEval.txt
@@ -456,11 +484,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -475,7 +507,7 @@ jobs:
           cat > Main_HttpCombineEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpCombineEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_HttpCombineEval
           path: Main_HttpCombineEval.txt
@@ -490,11 +522,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -509,7 +545,7 @@ jobs:
           cat > Main_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep -e "thrpt" -e "avgt" >> ../Main_HttpNestedFlatMapEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
           path: Main_HttpNestedFlatMapEval.txt
@@ -524,11 +560,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -543,7 +583,7 @@ jobs:
           cat > Main_HttpRouteTextPerf.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep -e "thrpt" -e "avgt" >> ../Main_HttpRouteTextPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_HttpRouteTextPerf
           path: Main_HttpRouteTextPerf.txt
@@ -558,11 +598,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -577,7 +621,7 @@ jobs:
           cat > Main_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
           path: Main_ProbeContentTypeBenchmark.txt
@@ -592,11 +636,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -611,7 +659,7 @@ jobs:
           cat > Main_SchemeDecodeBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 SchemeDecodeBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_SchemeDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_SchemeDecodeBenchmark
           path: Main_SchemeDecodeBenchmark.txt
@@ -626,11 +674,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -645,7 +697,7 @@ jobs:
           cat > Main_ServerInboundHandlerBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ServerInboundHandlerBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_ServerInboundHandlerBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_ServerInboundHandlerBenchmark
           path: Main_ServerInboundHandlerBenchmark.txt
@@ -660,11 +712,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
@@ -679,7 +735,7 @@ jobs:
           cat > Main_UtilBenchmark.txt
           sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 UtilBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_UtilBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Jmh_Main_UtilBenchmark
           path: Main_UtilBenchmark.txt
@@ -695,91 +751,91 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_CachedDateHeaderBenchmark
 
       - name: Format_Main_CachedDateHeaderBenchmark
         run: cat Main_CachedDateHeaderBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_ClientBenchmark
 
       - name: Format_Main_ClientBenchmark
         run: cat Main_ClientBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_CookieDecodeBenchmark
 
       - name: Format_Main_CookieDecodeBenchmark
         run: cat Main_CookieDecodeBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_EndpointBenchmark
 
       - name: Format_Main_EndpointBenchmark
         run: cat Main_EndpointBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_HttpCollectEval
 
       - name: Format_Main_HttpCollectEval
         run: cat Main_HttpCollectEval.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_HttpCombineEval
 
       - name: Format_Main_HttpCombineEval
         run: cat Main_HttpCombineEval.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
 
       - name: Format_Main_HttpNestedFlatMapEval
         run: cat Main_HttpNestedFlatMapEval.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_HttpRouteTextPerf
 
       - name: Format_Main_HttpRouteTextPerf
         run: cat Main_HttpRouteTextPerf.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
 
       - name: Format_Main_ProbeContentTypeBenchmark
         run: cat Main_ProbeContentTypeBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_SchemeDecodeBenchmark
 
       - name: Format_Main_SchemeDecodeBenchmark
         run: cat Main_SchemeDecodeBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_ServerInboundHandlerBenchmark
 
       - name: Format_Main_ServerInboundHandlerBenchmark
         run: cat Main_ServerInboundHandlerBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Jmh_Main_UtilBenchmark
 
       - name: Format_Main_UtilBenchmark
         run: cat Main_UtilBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
@@ -814,11 +870,11 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: sudo rm -rf *
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           repository: khajavi/FrameworkBenchmarks
           path: FrameworkBenchMarks
@@ -872,7 +928,7 @@ jobs:
 
           if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
             echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
-          else 
+          else
             echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
              exit 1
           fi
@@ -893,11 +949,11 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: sudo rm -rf *
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: zio-http
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           repository: khajavi/FrameworkBenchmarks
           path: FrameworkBenchMarks
@@ -951,7 +1007,7 @@ jobs:
 
           if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
             echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
-          else 
+          else
             echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
              exit 1
           fi
