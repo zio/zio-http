@@ -17,6 +17,7 @@
 package zio.http.headers
 
 import java.net.URI
+import java.util.Base64
 
 import zio.Scope
 import zio.test._
@@ -26,6 +27,8 @@ import zio.http.Header.Authorization.Digest
 import zio.http.ZIOHttpSpec
 
 object AuthorizationSpec extends ZIOHttpSpec {
+  private def encodeCredentials(username: String, password: String): String =
+    Base64.getEncoder.encodeToString(s"$username:$password".getBytes)
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Authorization header suite")(
@@ -103,6 +106,16 @@ object AuthorizationSpec extends ZIOHttpSpec {
       test("Parsing an invalid basic auth header") {
         val auth = Authorization.parse("Basic not-base64")
         assertTrue(auth.isLeft)
+      },
+      test("should parse valid Basic Authorization header") {
+        val encodedHeader = encodeCredentials("user", "pass")
+        val result = Authorization.parse(s"Basic $encodedHeader")
+        assert(result)(isRight(equalTo(Basic("user", Secret("pass")))))
+      },
+      test("should parse header with multiple colons in password") {
+        val encodedHeader = encodeCredentials("user", "pass:with:colon")
+        val result = Authorization.parse(s"Basic $encodedHeader")
+        assert(result)(isRight(equalTo(Basic("user", Secret("pass:with:colon")))))
       },
     )
 }

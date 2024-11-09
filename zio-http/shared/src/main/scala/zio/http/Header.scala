@@ -1088,9 +1088,14 @@ object Header {
 
     private def parseBasic(value: String): Either[String, Authorization] = {
       try {
-        val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(":")
-        if (partsOfBasic.length == 2) {
-          Right(Basic(partsOfBasic(0), Secret(partsOfBasic(1))))
+        val decoded = new String(Base64.getDecoder.decode(value))
+        val indexOfColon = decoded.indexOf(":")
+
+        if (indexOfColon > 0) {
+          // Extract username as everything before the first ":", and password as everything after
+          val username = decoded.substring(0, indexOfColon)
+          val password = decoded.substring(indexOfColon + 1)
+          Right(Basic(username, Secret(password)))
         } else {
           Left("Basic Authorization header value is not in the format username:password")
         }
