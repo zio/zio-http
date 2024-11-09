@@ -22,6 +22,7 @@ final case class ErrorResponseConfig(
   withStackTrace: Boolean = false,
   maxStackTraceDepth: Int = 10,
   errorFormat: ErrorResponseConfig.ErrorFormat = ErrorResponseConfig.ErrorFormat.Html,
+  logCodecErrors: Boolean = false,
 )
 
 object ErrorResponseConfig {
@@ -34,7 +35,7 @@ object ErrorResponseConfig {
 
   val default: ErrorResponseConfig     = ErrorResponseConfig()
   val debugConfig: ErrorResponseConfig =
-    ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0)
+    ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0, logCodecErrors = true)
 
   private[http] val configRef: FiberRef[ErrorResponseConfig] =
     FiberRef.unsafe.make(default)(Unsafe)

@@ -109,9 +109,11 @@ private[http] object BodyCodec {
 
   final case class Single[A](codec: HttpContentCodec[A], name: Option[String]) extends BodyCodec[A] {
 
-    def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType] =
-      Some(codec.chooseFirstOrDefault(accepted)._1)
-
+    def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType]                             =
+      codec.chooseFirstOrDefault(accepted) match {
+        case Right((mediaType, _)) => Some(mediaType)
+        case Left(_)               => None
+      }
     def decodeFromField(field: FormField, config: CodecConfig)(implicit trace: Trace): IO[Throwable, A] = {
       val codec0 = codec
         .lookup(field.contentType)
@@ -139,27 +141,36 @@ private[http] object BodyCodec {
     def encodeToField(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], name: String, config: CodecConfig)(implicit
       trace: Trace,
     ): FormField = {
-      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
-      if (mediaType.binary) {
-        FormField.binaryField(
-          name,
-          bc.codec(config).encode(value),
-          mediaType,
-        )
-      } else {
-        FormField.textField(
-          name,
-          bc.codec(config).encode(value).asString,
-          mediaType,
-        )
+      codec.chooseFirstOrDefault(mediaTypes) match {
+
+        case Right((mediaType, bc @ BinaryCodecWithSchema(_, _))) =>
+          if (mediaType.binary) {
+            FormField.binaryField(
+              name,
+              bc.codec(config).encode(value),
+              mediaType,
+            )
+          } else {
+            FormField.textField(
+              name,
+              bc.codec(config).encode(value).asString,
+              mediaType,
+            )
+          }
+        case Left(error)                                          =>
+          throw new IllegalArgumentException(s"Unsupported media type: ${error.mediaType}")
       }
     }
 
     def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
     ): Body = {
-      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
-      Body.fromChunk(bc.codec(config).encode(value), mediaType)
+      codec.chooseFirstOrDefault(mediaTypes) match {
+        case Right((mediaType, bc @ BinaryCodecWithSchema(_, _))) =>
+          Body.fromChunk(bc.codec(config).encode(value), mediaType)
+        case Left(error)                                          =>
+          throw new IllegalArgumentException(s"Unsupported media type: ${error.mediaType}")
+      }
     }
 
     type Element = A
@@ -169,8 +180,10 @@ private[http] object BodyCodec {
       extends BodyCodec[ZStream[Any, Nothing, E]] {
 
     def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType] =
-      Some(codec.chooseFirstOrDefault(accepted)._1)
-
+      codec.chooseFirstOrDefault(accepted) match {
+        case Right((mediaType, _)) => Some(mediaType)
+        case Left(_)               => None
+      }
     override def decodeFromField(field: FormField, config: CodecConfig)(implicit
       trace: Trace,
     ): IO[Throwable, ZStream[Any, Nothing, E]] =
@@ -200,12 +213,16 @@ private[http] object BodyCodec {
     )(implicit
       trace: Trace,
     ): FormField = {
-      val (mediaType, bc) = codec.chooseFirstOrDefault(mediaTypes)
-      FormField.streamingBinaryField(
-        name,
-        value >>> bc.codec(config).streamEncoder,
-        mediaType,
-      )
+      codec.chooseFirstOrDefault(mediaTypes) match {
+        case Right((mediaType, bc)) =>
+          FormField.streamingBinaryField(
+            name,
+            value >>> bc.codec(config).streamEncoder,
+            mediaType,
+          )
+        case Left(error)            =>
+          throw new IllegalArgumentException(s"Unsupported media type: ${error.mediaType}")
+      }
     }
 
     override def encodeToBody(
@@ -215,8 +232,12 @@ private[http] object BodyCodec {
     )(implicit
       trace: Trace,
     ): Body = {
-      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
-      Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType)
+      codec.chooseFirstOrDefault(mediaTypes) match {
+        case Right((mediaType, bc @ BinaryCodecWithSchema(_, _))) =>
+          Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType)
+        case Left(error)                                          =>
+          throw new IllegalArgumentException(s"Unsupported media type: ${error.mediaType}")
+      }
     }
 
     type Element = E

@@ -32,10 +32,23 @@ sealed trait HttpContentCodec[A] { self =>
     lookup(contentType) match {
       case Some((_, codec)) =>
         request.body.asChunk.flatMap { bytes =>
-          ZIO.fromEither(codec.codec(config).decode(bytes))
+          ZIO
+            .fromEither(codec.codec(config).decode(bytes))
+            .mapError(_ => CodecDecodeError(s"Failed to decode request body for media type: $contentType"))
+            .tapError(error =>
+              ErrorResponseConfig.configRef.get.flatMap { errConfig =>
+                if (errConfig.logCodecErrors) ZIO.logWarning(error.getMessage) else ZIO.unit
+              },
+            )
         }
       case None             =>
-        ZIO.fail(throw new IllegalArgumentException(s"No codec found for content type $contentType"))
+        ZIO
+          .fail(UnsupportedMediaTypeError(contentType))
+          .tapError(error =>
+            ErrorResponseConfig.configRef.get.flatMap { errConfig =>
+              if (errConfig.logCodecErrors) ZIO.logWarning(error.getMessage) else ZIO.unit
+            },
+          )
     }
   }
 
@@ -47,10 +60,23 @@ sealed trait HttpContentCodec[A] { self =>
     lookup(contentType) match {
       case Some((_, codec)) =>
         response.body.asChunk.flatMap { bytes =>
-          ZIO.fromEither(codec.codec(config).decode(bytes))
+          ZIO
+            .fromEither(codec.codec(config).decode(bytes))
+            .mapError(_ => CodecDecodeError(s"Failed to decode response body for media type: $contentType"))
+            .tapError(error =>
+              ErrorResponseConfig.configRef.get.flatMap { errConfig =>
+                if (errConfig.logCodecErrors) ZIO.logWarning(error.getMessage) else ZIO.unit
+              },
+            )
         }
       case None             =>
-        ZIO.fail(throw new IllegalArgumentException(s"No codec found for content type $contentType"))
+        ZIO
+          .fail(UnsupportedMediaTypeError(contentType))
+          .tapError(error =>
+            ErrorResponseConfig.configRef.get.flatMap { errConfig =>
+              if (errConfig.logCodecErrors) ZIO.logWarning(error.getMessage) else ZIO.unit
+            },
+          )
     }
   }
 
@@ -112,9 +138,9 @@ sealed trait HttpContentCodec[A] { self =>
 
   private[http] def chooseFirstOrDefault(
     mediaTypes: Chunk[MediaTypeWithQFactor],
-  ): (MediaType, BinaryCodecWithSchema[A]) =
+  ): Either[UnsupportedMediaTypeError, (MediaType, BinaryCodecWithSchema[A])] =
     if (mediaTypes.isEmpty) {
-      (defaultMediaType, defaultBinaryCodecWithSchema)
+      Right((defaultMediaType, defaultBinaryCodecWithSchema))
     } else {
       var i                                             = 0
       var result: (MediaType, BinaryCodecWithSchema[A]) = null
@@ -124,8 +150,10 @@ sealed trait HttpContentCodec[A] { self =>
         if (lookupResult.isDefined) result = lookupResult.get
         i += 1
       }
-      if (result == null) (defaultMediaType, defaultBinaryCodecWithSchema)
-      else result
+      if (result == null) {
+        ZIO.logWarning(s"Unsupported media type: ${mediaTypes.head.mediaType}")
+        Right((defaultMediaType, defaultBinaryCodecWithSchema))
+      } else Right(result)
     }
 
   def lookup(mediaType: MediaType): Option[(MediaType, BinaryCodecWithSchema[A])]
@@ -178,6 +206,15 @@ sealed trait HttpContentCodec[A] { self =>
       ZPipeline.identity[Option[A]].map(_.fold(Chunk.empty[Byte])(bc.encode)).flattenChunks
   }
 
+}
+
+sealed trait CodecError                                    extends Throwable
+case class UnsupportedMediaTypeError(mediaType: MediaType) extends CodecError {
+  override def getMessage: String = s"Unsupported media type: $mediaType"
+}
+
+case class CodecDecodeError(details: String) extends CodecError {
+  override def getMessage: String = s"Codec decode error: $details"
 }
 
 object HttpContentCodec {
