@@ -65,7 +65,8 @@ object MediaType extends MediaTypes {
     if (contentTypeParts.length == 2) {
       val subtypeParts = contentTypeParts(1).split(';')
       // Default binary to true for unknown types unless they belong to text families
-      val isBinary     = !customMediaType.startsWith("text/") &&
+      val isBinary     = customMediaType != "*/*" &&
+        !customMediaType.startsWith("text/") &&
         !customMediaType.startsWith("application/json") &&
         !customMediaType.startsWith("application/xml")
       if (subtypeParts.length >= 1) {

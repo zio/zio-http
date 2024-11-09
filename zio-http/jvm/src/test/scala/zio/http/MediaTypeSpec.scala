@@ -37,7 +37,7 @@ object MediaTypeSpec extends ZIOHttpSpec {
       }
     },
     test("custom mime type parsing") {
-      assertTrue(MediaType.parseCustomMediaType("custom/mime").contains(MediaType("custom", "mime")))
+      assertTrue(MediaType.parseCustomMediaType("custom/mime").contains(MediaType("custom", "mime", binary = true)))
     },
     test("optional parameter parsing") {
       assertTrue(
