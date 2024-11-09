@@ -32,24 +32,26 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
     queryParameters.getAll(key)
 
   /**
-   * Retrieves all typed query parameter values having the specified name.
+   * Retrieves all typed query parameter values having the specified name, with schema validation.
    */
-  def queryParamsTo[T](key: String)(implicit codec: TextCodec[T]): Either[QueryParamsError, Chunk[T]] =
+  def queryParamsTo[T](key: String, schema: Option[TextCodec[T]] = None)
+                      (implicit codec: TextCodec[T]): Either[QueryParamsError, Chunk[T]] =
     for {
       params <- if (hasQueryParam(key)) Right(queryParams(key)) else Left(QueryParamsError.Missing(key))
-      (failed, typed) = params.partitionMap(p => codec.decode(p).toRight(p))
+      validatedCodec = schema.getOrElse(codec)
+      (failed, typed) = params.partitionMap(p => validatedCodec.decode(p).toRight(p))
       result <- NonEmptyChunk
         .fromChunk(failed)
-        .map(fails => QueryParamsError.Malformed(key, codec, fails))
+        .map(fails => QueryParamsError.Malformed(key, validatedCodec, fails))
         .toLeft(typed)
     } yield result
 
   /**
-   * Retrieves all typed query parameter values having the specified name as
-   * ZIO.
+   * Retrieves all typed query parameter values having the specified name as ZIO, with schema validation.
    */
-  def queryParamsToZIO[T](key: String)(implicit codec: TextCodec[T]): IO[QueryParamsError, Chunk[T]] =
-    ZIO.fromEither(queryParamsTo[T](key))
+  def queryParamsToZIO[T](key: String, schema: Option[TextCodec[T]] = None)
+                         (implicit codec: TextCodec[T]): IO[QueryParamsError, Chunk[T]] =
+    ZIO.fromEither(queryParamsTo[T](key, schema))
 
   /**
    * Retrieves the first query parameter value having the specified name.
@@ -58,44 +60,42 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
     if (hasQueryParam(key)) Some(queryParams(key).head) else None
 
   /**
-   * Retrieves the first typed query parameter value having the specified name.
+   * Retrieves the first typed query parameter value having the specified name, with schema validation.
    */
-  def queryParamTo[T](key: String)(implicit codec: TextCodec[T]): Either[QueryParamsError, T] = for {
+  def queryParamTo[T](key: String, schema: Option[TextCodec[T]] = None)
+                     (implicit codec: TextCodec[T]): Either[QueryParamsError, T] = for {
     param      <- queryParam(key).toRight(QueryParamsError.Missing(key))
-    typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, codec, NonEmptyChunk(param)))
+    validatedCodec = schema.getOrElse(codec)
+    typedParam <- validatedCodec.decode(param).toRight(QueryParamsError.Malformed(key, validatedCodec, NonEmptyChunk(param)))
   } yield typedParam
 
   /**
-   * Retrieves the first typed query parameter value having the specified name
-   * as ZIO.
+   * Retrieves the first typed query parameter value having the specified name as ZIO, with schema validation.
    */
-  def queryParamToZIO[T](key: String)(implicit codec: TextCodec[T]): IO[QueryParamsError, T] =
-    ZIO.fromEither(queryParamTo[T](key))
+  def queryParamToZIO[T](key: String, schema: Option[TextCodec[T]] = None)
+                        (implicit codec: TextCodec[T]): IO[QueryParamsError, T] =
+    ZIO.fromEither(queryParamTo[T](key, schema))
 
   /**
-   * Retrieves all query parameter values having the specified name, or else
-   * uses the default iterable.
+   * Retrieves all query parameter values having the specified name, or else uses the default iterable.
    */
   def queryParamsOrElse(key: String, default: => Iterable[String]): Chunk[String] =
     if (hasQueryParam(key)) queryParams(key) else Chunk.fromIterable(default)
 
   /**
-   * Retrieves all query parameter values having the specified name, or else
-   * uses the default iterable.
+   * Retrieves all query parameter values having the specified name, or else uses the default iterable.
    */
   def queryParamsToOrElse[T](key: String, default: => Iterable[T])(implicit codec: TextCodec[T]): Chunk[T] =
     queryParamsTo[T](key).getOrElse(Chunk.fromIterable(default))
 
   /**
-   * Retrieves the first query parameter value having the specified name, or
-   * else uses the default value.
+   * Retrieves the first query parameter value having the specified name, or else uses the default value.
    */
   def queryParamOrElse(key: String, default: => String): String =
     queryParam(key).getOrElse(default)
 
   /**
-   * Retrieves the first typed query parameter value having the specified name,
-   * or else uses the default value.
+   * Retrieves the first typed query parameter value having the specified name, or else uses the default value.
    */
   def queryParamToOrElse[T](key: String, default: => T)(implicit codec: TextCodec[T]): T =
     queryParamTo[T](key).getOrElse(default)
