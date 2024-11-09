@@ -48,5 +48,13 @@ object MediaTypeSpec extends ZIOHttpSpec {
           ),
       )
     },
+    test("application/x-zip-compressed should be binary") {
+      val mediaType = MediaType.forContentType("application/x-zip-compressed")
+      assertTrue(mediaType.exists(_.binary))
+    },
+    test("text/plain should not be binary") {
+      val mediaType = MediaType.forContentType("text/plain")
+      assertTrue(mediaType.exists(!_.binary))
+    },
   )
 }
