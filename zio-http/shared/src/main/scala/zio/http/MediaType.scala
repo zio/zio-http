@@ -65,10 +65,7 @@ object MediaType extends MediaTypes {
     if (contentTypeParts.length == 2) {
       val subtypeParts = contentTypeParts(1).split(';')
       // Default binary to true for unknown types unless they belong to text families
-      val isBinary     = customMediaType != "*/*" &&
-        !customMediaType.startsWith("text/") &&
-        !customMediaType.startsWith("application/json") &&
-        !customMediaType.startsWith("application/xml")
+      val isBinary     = customMediaType != "*/*" && customMediaType != "text/*" && !customMediaType.startsWith("text/")
       if (subtypeParts.length >= 1) {
         Some(
           MediaType(
@@ -86,10 +83,12 @@ object MediaType extends MediaTypes {
     val contentTypeParts = customMediaType.split('/')
     if (contentTypeParts.length == 2) {
       val subtypeParts = contentTypeParts(1).split(';')
+      val isBinary     = customMediaType != "*/*" && customMediaType != "text/*" && !customMediaType.startsWith("text/")
       if (subtypeParts.length >= 1) {
         MediaType(
           mainType = contentTypeParts.head,
           subType = subtypeParts.head,
+          binary = isBinary,
           parameters = if (subtypeParts.length >= 2) parseOptionalParameters(subtypeParts.tail) else Map.empty,
         )
       } else throw new IllegalArgumentException(s"Invalid media type $customMediaType")
