@@ -23,6 +23,8 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.Authorization
+import zio.http.Header.Authorization.Basic
+import zio.http.Header.Authorization.Bearer
 import zio.http.Header.Authorization.Digest
 import zio.http.ZIOHttpSpec
 
@@ -109,13 +111,13 @@ object AuthorizationSpec extends ZIOHttpSpec {
       },
       test("should parse valid Basic Authorization header") {
         val encodedHeader = encodeCredentials("user", "pass")
-        val result = Authorization.parse(s"Basic $encodedHeader")
-        assert(result)(isRight(equalTo(Basic("user", Secret("pass")))))
+        val result        = Authorization.parse(s"Basic $encodedHeader")
+        assertTrue(result.isRight) && assertTrue(result.toOption.get == Basic("user", "pass"))
       },
       test("should parse header with multiple colons in password") {
         val encodedHeader = encodeCredentials("user", "pass:with:colon")
-        val result = Authorization.parse(s"Basic $encodedHeader")
-        assert(result)(isRight(equalTo(Basic("user", Secret("pass:with:colon")))))
+        val result        = Authorization.parse(s"Basic $encodedHeader")
+        assertTrue(result.isRight) && assertTrue(result.toOption.get == Basic("user", "pass:with:colon"))
       },
     )
 }
