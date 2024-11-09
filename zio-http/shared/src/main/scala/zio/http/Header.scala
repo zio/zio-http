@@ -1088,7 +1088,7 @@ object Header {
 
     private def parseBasic(value: String): Either[String, Authorization] = {
       try {
-        val decoded = new String(Base64.getDecoder.decode(value))
+        val decoded      = new String(Base64.getDecoder.decode(value))
         val indexOfColon = decoded.indexOf(":")
 
         if (indexOfColon > 0) {
