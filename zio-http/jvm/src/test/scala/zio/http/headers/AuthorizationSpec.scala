@@ -23,9 +23,7 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.Authorization
-import zio.http.Header.Authorization.Basic
-import zio.http.Header.Authorization.Bearer
-import zio.http.Header.Authorization.Digest
+import zio.http.Header.Authorization.{Basic, Digest}
 import zio.http.ZIOHttpSpec
 
 object AuthorizationSpec extends ZIOHttpSpec {
