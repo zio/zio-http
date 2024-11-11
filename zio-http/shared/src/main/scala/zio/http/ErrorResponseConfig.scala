@@ -33,7 +33,17 @@ object ErrorResponseConfig {
     case object Json extends ErrorFormat { val mediaType: MediaType = MediaType.application.json }
   }
 
-  val default: ErrorResponseConfig     = ErrorResponseConfig()
+  // Backward-compatible apply method for older usage, without logCodecErrors
+  def apply(
+    withErrorBody: Boolean,
+    withStackTrace: Boolean,
+    maxStackTraceDepth: Int,
+    errorFormat: ErrorFormat,
+  ): ErrorResponseConfig =
+    new ErrorResponseConfig(withErrorBody, withStackTrace, maxStackTraceDepth, errorFormat, logCodecErrors = false)
+
+  val default: ErrorResponseConfig = ErrorResponseConfig()
+
   val debugConfig: ErrorResponseConfig =
     ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0, logCodecErrors = true)
 
