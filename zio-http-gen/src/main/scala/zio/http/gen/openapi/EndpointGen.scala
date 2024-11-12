@@ -1353,8 +1353,6 @@ final case class EndpointGen(config: Config) {
         Some(Code.Field(name, Code.ScalaType.Unit, config.fieldNamesNormalization))
       case JsonSchema.AnyJson                                                                                         =>
         Some(Code.Field(name, Code.ScalaType.JsonAST, config.fieldNamesNormalization))
-      case JsonSchema.AnyJsonObj                                                                                         =>
-        Some(Code.Field(name, Code.ScalaType.JsonObj, config.fieldNamesNormalization))
     }
   }
 
