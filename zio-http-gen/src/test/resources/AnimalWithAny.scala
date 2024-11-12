@@ -7,7 +7,7 @@ import zio.schema.annotation.fieldName
 case class Animal(
   name: String,
   eats: Json,
-  @fieldName("extra_attributes") extraAttributes: Json.Obj,
+  @fieldName("extra_attributes") extraAttributes: Map[String, Json],
 )
 object Animal {
   implicit val codec: Schema[Animal] = DeriveSchema.gen[Animal]
