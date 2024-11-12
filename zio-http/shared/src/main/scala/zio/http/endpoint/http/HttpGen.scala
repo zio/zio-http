@@ -114,6 +114,7 @@ object HttpGen {
       case JsonSchema.Enum(values) => Seq(HttpVariable(getName(name), None, Some(s"enum: ${values.mkString(",")}")))
       case JsonSchema.Null         => Seq.empty
       case JsonSchema.AnyJson      => Seq.empty
+      case JsonSchema.AnyJsonObj   => Seq.empty
     }
 
     bodySchema0 match {

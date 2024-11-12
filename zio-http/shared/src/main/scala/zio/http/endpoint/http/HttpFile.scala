@@ -51,6 +51,7 @@ final case class HttpEndpoint(
       case JsonSchema.Enum(_)                    => s""""${getName(name)}": {{${getName(name)}}}"""
       case JsonSchema.Null                       => ""
       case JsonSchema.AnyJson                    => ""
+      case JsonSchema.AnyJsonObj                 => ""
     }
 
   private def getName(name: Option[String]) = { name.getOrElse(throw new IllegalArgumentException("name is required")) }

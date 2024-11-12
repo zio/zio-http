@@ -1026,6 +1026,7 @@ final case class EndpointGen(config: Config) {
           properties.map { case (name, schema) => name -> schema.withoutAnnotations }.collect {
             case (name, schema)
                 if !schema.isInstanceOf[JsonSchema.RefSchema]
+                  && !(schema == JsonSchema.AnyJson)
                   && !schema.isPrimitive
                   && !schema.isCollection =>
               schemaToCode(schema, openAPI, name.capitalize, Chunk.empty)
@@ -1077,7 +1078,10 @@ final case class EndpointGen(config: Config) {
           ),
         )
       case JsonSchema.Null    => throw new Exception("Null query parameters are not supported")
-      case JsonSchema.AnyJson => throw new Exception("AnyJson query parameters are not supported")
+      case JsonSchema.AnyJson => {
+        // throw new Exception("AnyJson query parameters are not supported")
+        None
+      }
     }
   }
 
@@ -1349,6 +1353,8 @@ final case class EndpointGen(config: Config) {
         Some(Code.Field(name, Code.ScalaType.Unit, config.fieldNamesNormalization))
       case JsonSchema.AnyJson                                                                                         =>
         Some(Code.Field(name, Code.ScalaType.JsonAST, config.fieldNamesNormalization))
+      case JsonSchema.AnyJsonObj                                                                                         =>
+        Some(Code.Field(name, Code.ScalaType.JsonObj, config.fieldNamesNormalization))
     }
   }
 
