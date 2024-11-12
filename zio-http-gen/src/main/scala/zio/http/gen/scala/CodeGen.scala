@@ -260,6 +260,12 @@ object CodeGen {
     case Code.TypeRef(name) =>
       Nil -> name
 
+    case Code.ScalaType.JsonAST =>
+      List(Code.Import("zio.json.ast.Json")) -> "Json"
+
+    case Code.ScalaType.JsonObj =>
+      List(Code.Import("zio.json.ast.Json")) -> "Json.Obj"
+
     case scalaType =>
       throw new Exception(s"Unknown ScalaType: $scalaType")
   }

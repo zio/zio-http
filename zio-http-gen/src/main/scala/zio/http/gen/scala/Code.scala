@@ -21,6 +21,7 @@ object Code {
     case object Inferred                                   extends ScalaType
     case object Unit                                       extends ScalaType
     case object JsonAST                                    extends ScalaType
+    case object JsonObj                                    extends ScalaType
     final case class Or(left: ScalaType, right: ScalaType) extends ScalaType
   }
 
