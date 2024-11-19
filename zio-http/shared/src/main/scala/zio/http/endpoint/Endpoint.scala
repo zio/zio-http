@@ -18,13 +18,9 @@ package zio.http.endpoint
 
 import scala.annotation.nowarn
 import scala.reflect.ClassTag
-
 import zio._
-
 import zio.stream.ZStream
-
 import zio.schema.Schema
-
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec._
@@ -367,66 +363,69 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema.
    */
-  def in[Input2: HttpContentCodec](implicit
+  def in[Input2: EnvironmentTag: HttpContentCodec](implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ HttpCodec.content[Input2])
+    inCodec(HttpCodec.content[Input2])
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema and is documented.
    */
-  def in[Input2: HttpContentCodec](doc: Doc)(implicit
+  def in[Input2: EnvironmentTag: HttpContentCodec](doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ HttpCodec.content[Input2] ?? doc)
+    inCodec(HttpCodec.content[Input2] ?? doc)
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema and is documented.
    */
-  def in[Input2: HttpContentCodec](name: String)(implicit
+  def in[Input2: EnvironmentTag: HttpContentCodec](name: String)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ HttpCodec.content[Input2](name))
+    inCodec(HttpCodec.content[Input2](name))
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema and is documented.
    */
-  def in[Input2: HttpContentCodec](name: String, doc: Doc)(implicit
+  def in[Input2: EnvironmentTag: HttpContentCodec](name: String, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ (HttpCodec.content[Input2](name) ?? doc))
+    inCodec(HttpCodec.content[Input2](name) ?? doc)
 
-  def in[Input2: HttpContentCodec](mediaType: MediaType)(implicit
+  def in[Input2: EnvironmentTag: HttpContentCodec](mediaType: MediaType)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ HttpCodec.content[Input2](mediaType))
+    inCodec(HttpCodec.content[Input2](mediaType))
 
-  def in[Input2: HttpContentCodec](mediaType: MediaType, doc: Doc)(implicit
+  def in[Input2: EnvironmentTag: HttpContentCodec](mediaType: MediaType, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ (HttpCodec.content(mediaType) ?? doc))
+    inCodec(HttpCodec.content(mediaType) ?? doc)
 
-  def in[Input2: HttpContentCodec](mediaType: MediaType, name: String)(implicit
+  def in[Input2: EnvironmentTag: HttpContentCodec](mediaType: MediaType, name: String)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ HttpCodec.content(name, mediaType))
+    inCodec(HttpCodec.content(name, mediaType))
 
-  def in[Input2: HttpContentCodec](mediaType: MediaType, name: String, doc: Doc)(implicit
+  def in[Input2: EnvironmentTag: HttpContentCodec](mediaType: MediaType, name: String, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ (HttpCodec.content(name, mediaType) ?? doc))
+    inCodec(HttpCodec.content(name, mediaType) ?? doc)
 
   /**
    * Returns a new endpoint derived from this one, whose request must satisfy
    * the specified codec.
    */
-  def inCodec[Input2](codec: HttpCodec[HttpCodecType.RequestType, Input2])(implicit
+  def inCodec[Input2: EnvironmentTag](codec: HttpCodec[HttpCodecType.RequestType, Input2])(implicit
     combiner: Combiner[Input, Input2],
-  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
-    copy(input = input ++ codec)
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] = {
+    val isOptional = EnvironmentTag[Input2] <:< EnvironmentTag[Option[?]]
+    println(s"==================== Is optional: $isOptional ==================== ")
+    copy(input = input ++ (if (isOptional) codec.optional.asInstanceOf[zio.http.codec.HttpCodec[zio.http.codec.HttpCodecType.RequestType,Input2]] else codec))
+  }
 
   /**
    * Returns a new endpoint derived from this one, whose input type is a stream
