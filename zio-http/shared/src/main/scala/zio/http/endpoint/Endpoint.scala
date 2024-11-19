@@ -257,34 +257,35 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
 
-    def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
-      case AuthType.None                => HttpCodec.empty
-      case AuthType.Basic               =>
-        HeaderCodec.authorization.transformOrFail {
-          case Header.Authorization.Basic(_, _) => Right(())
-          case _                                => Left("Basic auth required")
-        } { case () =>
-          Left("Unsupported")
-        }
-      case AuthType.Bearer              =>
-        HeaderCodec.authorization.transformOrFail {
-          case Header.Authorization.Bearer(_) => Right(())
-          case _                              => Left("Bearer auth required")
-        } { case () =>
-          Left("Unsupported")
-        }
-      case AuthType.Digest              =>
-        HeaderCodec.authorization.transformOrFail {
-          case _: Header.Authorization.Digest => Right(())
-          case _                              => Left("Digest auth required")
-        } { case () =>
-          Left("Unsupported")
-        }
-      case AuthType.Custom(codec)       =>
-        codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
-      case AuthType.Or(auth1, auth2, _) =>
-        authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
-    }
+    def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] =
+      authType match {
+        case AuthType.None                => HttpCodec.empty
+        case AuthType.Basic               =>
+          HeaderCodec.authorization.transformOrFail {
+            case Header.Authorization.Basic(_, _) => Right(())
+            case _                                => Left("Basic auth required")
+          } { case () =>
+            Left("Unsupported")
+          }
+        case AuthType.Bearer              =>
+          HeaderCodec.authorization.transformOrFail {
+            case Header.Authorization.Bearer(_) => Right(())
+            case _                              => Left("Bearer auth required")
+          } { case () =>
+            Left("Unsupported")
+          }
+        case AuthType.Digest              =>
+          HeaderCodec.authorization.transformOrFail {
+            case _: Header.Authorization.Digest => Right(())
+            case _                              => Left("Digest auth required")
+          } { case () =>
+            Left("Unsupported")
+          }
+        case AuthType.Custom(codec)       =>
+          codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
+        case AuthType.Or(auth1, auth2, _) =>
+          authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
+      }
 
     val maybeUnauthedResponse = authType.asInstanceOf[AuthType] match {
       case AuthType.None => None
@@ -295,13 +296,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       self.alternatives.map { case (endpoint, condition) =>
         Handler.fromFunctionZIO { (request: zio.http.Request) =>
           val outputMediaTypes =
-            NonEmptyChunk
-              .fromChunk(
-                request.headers
-                  .getAll(Header.Accept)
-                  .flatMap(_.mimeTypes),
-              )
-              .getOrElse(defaultMediaTypes)
+            request.headers
+              .getAll(Header.Accept)
+              .flatMap(_.mimeTypes)
+              .nonEmptyOrElse(defaultMediaTypes)(identity)
+
           (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
             original(value).map(endpoint.output.encodeResponse(_, outputMediaTypes, config)).catchAll { error =>
               ZIO.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config))
@@ -311,14 +310,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       }
 
     // TODO: What to do if there are no endpoints??
-    def handlers2(handlers: Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)]) =
-      NonEmptyChunk
-        .fromChunk(handlers)
-        .getOrElse(
-          NonEmptyChunk(
-            Handler.fail(zio.http.Response(status = Status.NotFound)) -> HttpCodec.Fallback.Condition.IsHttpCodecError,
-          ),
+    def handlers2(handlers: Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)]) = {
+      def noFound =
+        NonEmptyChunk(
+          Handler.fail(zio.http.Response(status = Status.NotFound)) -> HttpCodec.Fallback.Condition.IsHttpCodecError,
         )
+
+      handlers.nonEmptyOrElse(ifEmpty = noFound)(identity)
+    }
 
     val handler =
       Handler.fromZIO(CodecConfig.codecRef.get).flatMap { config =>
@@ -343,13 +342,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
                     val outputMediaTypes =
-                      NonEmptyChunk
-                        .fromChunk(
-                          request.headers
-                            .getAll(Header.Accept)
-                            .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0)),
-                        )
-                        .getOrElse(defaultMediaTypes)
+                      (
+                        request.headers
+                          .getAll(Header.Accept)
+                          .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
+                      ).nonEmptyOrElse(defaultMediaTypes)(identity)
+
                     codecError.encodeResponse(error, outputMediaTypes, config)
                   }
                   ZIO.succeed(response)
