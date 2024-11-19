@@ -2513,25 +2513,27 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
      * recover from `MissingHeader` or `MissingQueryParam` errors.
      */
     sealed trait Condition { self =>
-      def apply(cause: Cause[Any]): Boolean   =
+      final def apply(cause: Cause[Any]): Boolean   =
         self match {
           case Condition.IsHttpCodecError  => HttpCodecError.isHttpCodecError(cause)
           case Condition.isMissingDataOnly => HttpCodecError.isMissingDataOnly(cause)
         }
-      def combine(that: Condition): Condition =
+      final def combine(that: Condition): Condition =
         (self, that) match {
           case (Condition.isMissingDataOnly, _) => Condition.isMissingDataOnly
           case (_, Condition.isMissingDataOnly) => Condition.isMissingDataOnly
           case _                                => Condition.IsHttpCodecError
         }
-      def isHttpCodecError: Boolean           = self match {
-        case Condition.IsHttpCodecError => true
-        case _                          => false
-      }
-      def isMissingDataOnly: Boolean          = self match {
-        case Condition.isMissingDataOnly => true
-        case _                           => false
-      }
+      final def isHttpCodecError: Boolean           =
+        self match {
+          case Condition.IsHttpCodecError => true
+          case _                          => false
+        }
+      final def isMissingDataOnly: Boolean          =
+        self match {
+          case Condition.isMissingDataOnly => true
+          case _                           => false
+        }
     }
     object Condition       {
       case object IsHttpCodecError  extends Condition
