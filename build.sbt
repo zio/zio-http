@@ -442,3 +442,35 @@ Global / excludeLintKeys ++= Set(
   sbtZioHttpGrpcTests / autoAPIMappings,
   ideSkipProject,
 )
+lazy val benchmarks = project
+  .in(file("zio-http-benchmarks"))
+  .enablePlugins(JmhPlugin)
+  .settings(
+    name := "zio-http-benchmarks",
+    libraryDependencies ++= Seq(
+      "org.openjdk.jmh" % "jmh-core" % "1.37",
+      "org.openjdk.jmh" % "jmh-generator-annprocess" % "1.37",
+      "dev.zio" %% "zio-test"     % zioVersion % Test,
+      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+    )
+  )
+  .dependsOn(root)
+
+lazy val zioHttpGen = project
+  .in(file("zio-http-gen"))
+  .settings(stdSettings("zio-http-gen"))
+  .settings(publishSetting(true))
+  .settings(
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-test`,
+      `zio-test-sbt`,
+      // Add JMH dependencies for benchmarking
+      "org.openjdk.jmh" % "jmh-core" % "1.37",
+      "org.openjdk.jmh" % "jmh-generator-annprocess" % "1.37"
+    ),
+    // Enable JMH plugin
+    enablePlugins(JmhPlugin)
+  )
+  .dependsOn(zioHttpJVM)
+
