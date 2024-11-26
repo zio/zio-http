@@ -72,7 +72,7 @@ private[http] object AtomizedCodecs {
       query = Chunk.empty,
       header = Chunk.empty,
       content = Chunk.empty,
-      status = Chunk.empty
+      status = Chunk.empty,
     )
 
   def flatten[R, A](in: HttpCodec[R, A]): AtomizedCodecs = {
