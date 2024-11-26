@@ -570,7 +570,7 @@ object Body {
         ZIO.blocking {
           for {
             r <- ZIO.attempt {
-              val fs = new FileInputStream(file)
+              val fs   = new FileInputStream(file)
               val size = Math.min(chunkSize.toLong, file.length()).toInt
 
               (fs, size)
@@ -580,8 +580,8 @@ object Body {
             .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
               for {
                 buffer <- ZIO.succeed(new Array[Byte](size))
-                len <- ZIO.attempt(fs.read(buffer)).mapError(Some(_))
-                bytes <-
+                len    <- ZIO.attempt(fs.read(buffer)).mapError(Some(_))
+                bytes  <-
                   if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
                   else ZIO.fail(None)
               } yield bytes
