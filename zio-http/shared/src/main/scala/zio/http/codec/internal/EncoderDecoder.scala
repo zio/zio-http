@@ -423,7 +423,7 @@ private[codec] object EncoderDecoder {
       if (isNonMultiPart) {
         val codecs = flattened.content
 
-        //noinspection SimplifyUnlessInspection
+        // noinspection SimplifyUnlessInspection
         if (codecs.isEmpty) ZIO.unit
         else {
           val codec = codecs.head
