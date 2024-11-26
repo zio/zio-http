@@ -255,21 +255,21 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
         val generated       = OpenAPIGen.fromEndpoints("Generic Endpoint", "1.0", genericEndpoint)
         val json            = toJsonAst(generated)
         val expectedJson    = """{
-                                |  "openapi" : "3.1.0",
-                                |  "info" : {
-                                |    "title" : "Generic Endpoint",
-                                |    "version" : "1.0"
-                                |  },
-                                |  "paths" : {
-                                |    "/users" : {
-                                |      "description" : "Get all users\n\n",
-                                |      "get" : {
-                                |        "description" : "Get all users\n\n"
-                                |      }
-                                |    }
-                                |  },
-                                |  "components" : {}
-                                |}""".stripMargin
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Generic Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/users" : {
+                             |      "description" : "Get all users\n\n",
+                             |      "get" : {
+                             |        "description" : "Get all users\n\n"
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {}
+                             |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
       test("simple endpoint to OpenAPI") {
