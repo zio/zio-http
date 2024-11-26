@@ -55,7 +55,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   documentation: Doc,
   authType: Auth,
-) { self =>
+) {
+  self =>
 
   val authCombiner: Combiner[Input, authType.ClientRequirement]                   =
     implicitly[Combiner[Input, authType.ClientRequirement]]
@@ -67,6 +68,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): HttpCodec[HttpCodecType.RequestType, AuthedInput] = {
     input ++ authCodec
   }.asInstanceOf[HttpCodec[HttpCodecType.RequestType, AuthedInput]]
+
   type AuthedInput = authCombiner.Out
 
   /**
@@ -299,7 +301,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
             request.headers
               .getAll(Header.Accept)
               .flatMap(_.mimeTypes)
-              .nonEmptyOrElse(defaultMediaTypes)(identity)
+              .nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
 
           (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
             original(value).map(endpoint.output.encodeResponse(_, outputMediaTypes, config)).catchAll { error =>
@@ -310,13 +312,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       }
 
     // TODO: What to do if there are no endpoints??
-    def handlers2(handlers: Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)]) = {
-      def noFound =
+    def handlers2(
+      handlers: Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)],
+    ): NonEmptyChunk[(Handler[Env, Response, Request, Response], HttpCodec.Fallback.Condition)] = {
+      def noFound: NonEmptyChunk[(Handler[Env, Response, Request, Response], HttpCodec.Fallback.Condition)] =
         NonEmptyChunk(
           Handler.fail(zio.http.Response(status = Status.NotFound)) -> HttpCodec.Fallback.Condition.IsHttpCodecError,
         )
 
-      handlers.nonEmptyOrElse(ifEmpty = noFound)(identity)
+      handlers.nonEmptyOrElse(ifEmpty = noFound)(ZIO.identityFn)
     }
 
     val handler =
@@ -346,7 +350,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                         request.headers
                           .getAll(Header.Accept)
                           .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
-                      ).nonEmptyOrElse(defaultMediaTypes)(identity)
+                      ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
 
                     codecError.encodeResponse(error, outputMediaTypes, config)
                   }
