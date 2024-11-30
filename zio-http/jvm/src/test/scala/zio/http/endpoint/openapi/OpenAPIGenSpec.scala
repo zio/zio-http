@@ -1,5 +1,6 @@
 package zio.http.endpoint.openapi
 
+import zio.http.Header.Authorization.{Basic, Bearer}
 import zio.json.ast.Json
 import zio.test._
 import zio.{Chunk, Scope, ZIO}
@@ -11,8 +12,10 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http.Method.{GET, POST}
 import zio.http._
 import zio.http.codec.PathCodec.{empty, string}
+import zio.http.codec.TextCodec.StringCodec
 import zio.http.codec._
 import zio.http.endpoint._
+import zio.http.endpoint.openapi.OpenAPIGen.{apiKeyHeaderName, apiKeyQueryParamName}
 
 object OpenAPIGenSpec extends ZIOSpecDefault {
 
@@ -222,6 +225,44 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       )
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
+
+  private val apiKeyAuthHeaderEndpoint =
+    Endpoint(GET / "withAuthHeader")
+      .in[SimpleInputBody]
+      .header(HttpCodec.Header.apply(apiKeyHeaderName, StringCodec).optional)
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+
+  private val apiKeyAuthQueryEndpoint =
+    Endpoint(GET / "withAuthQuery")
+      .in[SimpleInputBody]
+      .query(HttpCodec.query[String](apiKeyQueryParamName).optional)
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+
+  private val basicAuthEndpoint =
+    Endpoint(GET / "withAuthHeader")
+      .in[SimpleInputBody]
+      .header(HttpCodec.authorization)
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+      .auth(AuthType.Basic)
+
+  private val bearerAuthEndpoint =
+    Endpoint(GET / "withAuthHeader")
+      .in[SimpleInputBody]
+      .header(HttpCodec.authorization)
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+      .auth(AuthType.Bearer)
+
+  private val digestAuthEndpoint =
+    Endpoint(GET / "withAuthHeader")
+      .in[SimpleInputBody]
+      .header(HttpCodec.authorization)
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+      .auth(AuthType.Digest)
 
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
@@ -1004,6 +1045,600 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "userName",
                              |          "score"
                              |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("api key auth in header") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", apiKeyAuthHeaderEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withAuthHeader" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |          {
+                             |            "name" : "x-api-key",
+                             |            "in" : "header",
+                             |            "schema" : {
+                             |              "type" : [
+                             |                "string",
+                             |                "null"
+                             |              ]
+                             |            },
+                             |            "style" : "simple"
+                             |          }
+                             |        ],
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody",
+                             |                "description" : ""
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        },
+                             |        "security" : [
+                             |          {
+                             |            "apiKeyAuth" : []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" : "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    },
+                             |    "securitySchemes" : {
+                             |      "apiKeyAuth" : {
+                             |        "type" : "apiKey",
+                             |        "name" : "x-api-key",
+                             |        "in" : "header"
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("api key auth in query") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", apiKeyAuthQueryEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withAuthQuery" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |          {
+                             |            "name" : "api_key",
+                             |            "in" : "query",
+                             |            "schema" : {
+                             |              "type" : [
+                             |                "string",
+                             |                "null"
+                             |              ]
+                             |            },
+                             |            "allowReserved" : false,
+                             |            "style" : "form"
+                             |          }
+                             |        ],
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        },
+                             |         "security" : [
+                             |          {
+                             |            "apiKeyAuth" : []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" : "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    },
+                             |    "securitySchemes" : {
+                             |      "apiKeyAuth" :
+                             |        {
+                             |        "type" : "apiKey",
+                             |        "name" : "api_key",
+                             |        "in" : "query"
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("basic auth in query") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", basicAuthEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withAuthHeader" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |          {
+                             |            "name": "authorization",
+                             |            "in" : "header",
+                             |            "required" : true,
+                             |            "schema" : {
+                             |              "type" : "string"
+                             |            },
+                             |            "style" : "simple"
+                             |          }
+                             |        ],
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        },
+                             |        "security" : [
+                             |          {
+                             |            "basicAuth" : []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" : "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    },
+                             |    "securitySchemes" : {
+                             |      "basicAuth" : {
+                             |        "type" : "http",
+                             |        "scheme" : "basic"
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("bearer auth in header") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", bearerAuthEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withAuthHeader" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |          {
+                             |            "name": "authorization",
+                             |            "in" : "header",
+                             |            "required" : true,
+                             |            "schema" : {
+                             |              "type" : "string"
+                             |            },
+                             |            "style" : "simple"
+                             |          }
+                             |        ],
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        },
+                             |        "security" : [
+                             |          {
+                             |            "bearerAuth" : []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" : "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    },
+                             |    "securitySchemes" : {
+                             |      "bearerAuth" : {
+                             |        "type" : "http",
+                             |        "scheme" : "bearer"
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("digest auth in header") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", digestAuthEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withAuthHeader" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |          {
+                             |            "name": "authorization",
+                             |            "in" : "header",
+                             |            "required" : true,
+                             |            "schema" : {
+                             |              "type" : "string"
+                             |            },
+                             |            "style" : "simple"
+                             |          }
+                             |        ],
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        },
+                             |        "security" : [
+                             |          {
+                             |            "digestAuth" : []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" : "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    },
+                             |    "securitySchemes" : {
+                             |      "digestAuth" : {
+                             |        "type" : "http",
+                             |        "scheme" : "digest"
                              |      }
                              |    }
                              |  }
