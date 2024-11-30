@@ -7,8 +7,6 @@ import scala.collection.immutable.ListMap
 import scala.collection.{immutable, mutable}
 
 import zio._
-import zio.http.Header.Authorization
-import zio.http.Header.Authorization.Basic
 import zio.json.EncoderOps
 import zio.json.ast.Json
 
@@ -16,15 +14,16 @@ import zio.schema.Schema.{Record, Transform}
 import zio.schema.codec.JsonCodec
 import zio.schema.{Schema, TypeId}
 
+import zio.http.Header.Authorization
+import zio.http.Header.Authorization.Basic
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint.AuthType.Bearer
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
-import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.{ApiKey, SecurityRequirement}
-import zio.http.endpoint.openapi.OpenAPI.{Key, Path, PathItem, ReferenceOr, SecurityScheme, securityRequirementSchema}
+import zio.http.endpoint.openapi.OpenAPI._
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -814,7 +813,7 @@ object OpenAPIGen {
           ).filterNot(_._1 == OpenAPI.Key.fromString("noAuth").get).toSeq: _*,
       )
     }
-    def createApiKeySecurityScheme(name: String) =
+    def createApiKeySecurityScheme(name: String)                                                              =
       OpenAPI.Key.fromString(apiKeyAuth).get -> OpenAPI.ReferenceOr.Or(
         OpenAPI.SecurityScheme.ApiKey(description = None, name = name, in = in(name)),
       )
