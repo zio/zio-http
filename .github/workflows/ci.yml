@@ -95,6 +95,12 @@ jobs:
         with:
           apps: sbt
 
+      - name: Test sbt plugin
+        if: ${{ github.event_name == 'pull_request' }} && matrix.scala == '2.12.19'
+        run: sbt ++2.12.19 zioHttpGenSbt/scripted
+
+      - uses: coursier/setup-action@v1
+
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
         run: sbt ++2.13.14 doc
@@ -106,7 +112,7 @@ jobs:
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
 
       - name: Compress target directories
-        run: tar cf targets.tar sbt-zio-http-grpc/target zio-http-cli/target target zio-http/jvm/target zio-http-docs/target sbt-zio-http-grpc-tests/target zio-http-gen/target zio-http-benchmarks/target zio-http-tools/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
+        run: tar cf targets.tar sbt-zio-http-grpc/target zio-http-gen-sbt-plugin/target zio-http-cli/target target zio-http/jvm/target zio-http-docs/target sbt-zio-http-grpc-tests/target zio-http-gen/target zio-http-benchmarks/target zio-http-tools/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v4
