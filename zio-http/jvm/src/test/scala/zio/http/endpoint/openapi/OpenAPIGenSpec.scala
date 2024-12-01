@@ -1,6 +1,5 @@
 package zio.http.endpoint.openapi
 
-import zio.http.Header.Authorization.{Basic, Bearer}
 import zio.json.ast.Json
 import zio.test._
 import zio.{Chunk, Scope, ZIO}
@@ -9,6 +8,7 @@ import zio.schema.annotation._
 import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
 
+import zio.http.Header.Authorization.{Basic, Bearer}
 import zio.http.Method.{GET, POST}
 import zio.http._
 import zio.http.codec.PathCodec.{empty, string}

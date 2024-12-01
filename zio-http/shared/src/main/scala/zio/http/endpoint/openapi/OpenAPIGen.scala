@@ -23,7 +23,7 @@ import zio.http.endpoint.AuthType.Bearer
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.{ApiKey, SecurityRequirement}
-import zio.http.endpoint.openapi.OpenAPI._
+import zio.http.endpoint.openapi.OpenAPI.{MediaType => OpenAPIMediaType, _}
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -546,7 +546,7 @@ object OpenAPIGen {
     // there is no status for inputs. So we just take the first one (default)
     val ins = schemaByStatusAndMediaType(endpoint.input.alternatives.map(_._1), referenceType).values.headOption
 
-    def path: Map[Path, PathItem] = {
+    def path: Map[OpenAPI.Path, PathItem] = {
       val path           = buildPath(endpoint.input)
       val method0        = method(inAtoms.method)
       // Endpoint has only one doc. But open api has a summery and a description
