@@ -1078,10 +1078,7 @@ final case class EndpointGen(config: Config) {
           ),
         )
       case JsonSchema.Null    => throw new Exception("Null query parameters are not supported")
-      case JsonSchema.AnyJson => {
-        // throw new Exception("AnyJson query parameters are not supported")
-        None
-      }
+      case JsonSchema.AnyJson => None
     }
   }
 
