@@ -51,7 +51,13 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {
-      val actual = Client.batched(Request.get(badRequest)).map(_.status)
+      val actual = Client
+        .batched(Request.get(badRequest))
+        .map(_.status)
+        .reject { case Status.ServiceUnavailable =>
+          new RuntimeException("503 is expected from time to time")
+        }
+        .retry(Schedule.exponential(1.second) && Schedule.recurs(5))
       assertZIO(actual)(equalTo(Status.BadRequest))
     } @@ flaky /* sometimes we get 503 */,
     test("should throw DecoderException for handshake failure") {
