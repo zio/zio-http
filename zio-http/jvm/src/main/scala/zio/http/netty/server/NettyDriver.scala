@@ -62,12 +62,38 @@ private[zio] final case class NettyDriver(
     } yield StartResult(port, serverInboundHandler.inFlightRequests)
 
   def addApp[R](newApp: Routes[R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] =
+    addAppImpl(asScoped = false, newApp, env)
+
+  def addAppScoped[R](newApp: Routes[R with Scope, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] =
+    addAppImpl(asScoped = true, newApp, env)
+
+  override def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
+    for {
+      channelFactory <- ChannelFactories.Client.live.build
+        .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](nettyConfig))
+      nettyRuntime   <- NettyRuntime.live.build
+    } yield NettyClientDriver(channelFactory.get, eventLoopGroups.worker, nettyRuntime.get)
+
+  override def toString: String = s"NettyDriver($serverConfig)"
+
+  private def addAppImpl[E, R <: E](asScoped: Boolean, newApp: Routes[R, Response], env: ZEnvironment[E])(implicit
+    trace: Trace,
+  ): UIO[Unit] =
     ZIO.fiberId.map { fiberId =>
       var loop = true
       while (loop) {
         val oldAppAndRt     = appRef.get()
         val (oldApp, oldRt) = oldAppAndRt
-        val updatedApp      = (oldApp ++ newApp).asInstanceOf[Routes[Any, Response]]
+        val updatedApp      = oldApp.fold(
+          oldUnscoped => {
+            if (asScoped) {
+              Right((oldUnscoped ++ newApp).asInstanceOf[Routes[Scope, Response]])
+            } else {
+              Left((oldUnscoped ++ newApp).asInstanceOf[Routes[Any, Response]])
+            }
+          },
+          oldScoped => Right((oldScoped ++ newApp).asInstanceOf[Routes[Scope, Response]]),
+        )
         val updatedEnv      = oldRt.environment.unionAll(env)
         // Update the fiberRefs with the new environment to avoid doing this every time we run / fork a fiber
         val updatedFibRefs  = oldRt.fiberRefs.updatedAs(fiberId)(FiberRef.currentEnvironment, updatedEnv)
@@ -78,15 +104,6 @@ private[zio] final case class NettyDriver(
       }
       serverInboundHandler.refreshApp()
     }
-
-  override def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
-    for {
-      channelFactory <- ChannelFactories.Client.live.build
-        .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](nettyConfig))
-      nettyRuntime   <- NettyRuntime.live.build
-    } yield NettyClientDriver(channelFactory.get, eventLoopGroups.worker, nettyRuntime.get)
-
-  override def toString: String = s"NettyDriver($serverConfig)"
 }
 
 object NettyDriver {

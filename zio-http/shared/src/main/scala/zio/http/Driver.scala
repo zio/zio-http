@@ -27,6 +27,7 @@ trait Driver {
   def start(implicit trace: Trace): RIO[Scope, StartResult]
 
   def addApp[R](newRoutes: Routes[R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
+  def addAppScoped[R](newRoutes: Routes[R with Scope, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
 
   def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver]
 }

@@ -24,13 +24,14 @@ import java.util.concurrent.atomic.AtomicReference // scalafix:ok;
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 package object server {
-  private[server] type RoutesRef = AtomicReference[(Routes[Any, Response], Runtime[Any])]
+  private[server] type RoutesRef =
+    AtomicReference[(Either[Routes[Any, Response], Routes[Scope, Response]], Runtime[Any])]
 
   private[server] object AppRef {
     val empty: UIO[RoutesRef] = {
       implicit val trace: Trace = Trace.empty
       // Environment will be populated when we `install` the app
-      ZIO.runtime[Any].map(rt => new AtomicReference((Routes.empty, rt.mapEnvironment(_ => ZEnvironment.empty))))
+      ZIO.runtime[Any].map(rt => new AtomicReference((Left(Routes.empty), rt.mapEnvironment(_ => ZEnvironment.empty))))
     }
   }
 

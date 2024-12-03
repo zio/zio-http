@@ -111,6 +111,19 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
         ),
       )
 
+  override def installScoped[R](routes: Routes[R with Scope, Response])(implicit
+    trace: zio.Trace,
+    tag: EnvironmentTag[R],
+  ): URIO[R, Unit] =
+    ZIO
+      .environment[R]
+      .flatMap(
+        driver.addAppScoped(
+          routes,
+          _,
+        ),
+      )
+
   override def port: UIO[Int] = ZIO.succeed(bindPort)
 }
 
