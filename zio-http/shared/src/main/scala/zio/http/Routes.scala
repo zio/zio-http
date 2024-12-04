@@ -105,6 +105,18 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     new Routes(routes.map(_.handleErrorCauseZIO(f)))
 
   /**
+   * Effectfully peeks at the unhandled failure of this Routes.
+   */
+  def tapErrorZIO[Err1 >: Err](f: Err => ZIO[Any, Err1, Any])(implicit trace: Trace): Routes[Env, Err1] =
+    new Routes(routes.map(_.tapErrorZIO(f)))
+
+  /**
+   * Effectfully peeks at the unhandled failure cause of this Routes.
+   */
+  def tapErrorCauseZIO[Err1 >: Err](f: Cause[Err] => ZIO[Any, Err1, Any])(implicit trace: Trace): Routes[Env, Err1] =
+    new Routes(routes.map(_.tapErrorCauseZIO(f)))
+
+  /**
    * Allows the transformation of the Err type through an Effectful program
    * allowing one to build up Routes in Stages delegates to the Route.
    */
