@@ -1019,6 +1019,18 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(Status.NotFound, message)
 
   /**
+   * Creates a handler which always responds with a 501 status code.
+   */
+  def notImplemented: Handler[Any, Nothing, Any, Response] =
+    error(Status.NotImplemented)
+
+  /**
+   * Creates a handler which always responds with a 501 status code.
+   */
+  def notImplemented(message: => String): Handler[Any, Nothing, Any, Response] =
+    error(Status.NotImplemented, message)
+
+  /**
    * Creates a handler which always responds with a 200 status code.
    */
   def ok: Handler[Any, Nothing, Any, Response] =
