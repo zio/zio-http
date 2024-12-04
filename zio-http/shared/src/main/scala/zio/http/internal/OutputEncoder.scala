@@ -19,7 +19,7 @@ package zio.http.internal
 import scala.collection.mutable
 
 private[http] object OutputEncoder {
-  private val `&` = "&amp"
+  private val `&` = "&amp;"
   private val `<` = "&lt;"
   private val `>` = "&gt;"
   private val `"` = "&quot;"
