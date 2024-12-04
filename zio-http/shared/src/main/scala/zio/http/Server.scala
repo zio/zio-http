@@ -35,6 +35,14 @@ trait Server {
   def install[R](routes: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
 
   /**
+   * Installs the given HTTP application into the server, providing a Scope for
+   * each request.
+   */
+  def installScoped[R](
+    routes: Routes[R with Scope, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
+
+  /**
    * The port on which the server is listening.
    *
    * @return
@@ -443,6 +451,15 @@ object Server extends ServerPlatformSpecific {
       ZIO.never
   }
 
+  def serveScoped[R](
+    routes: Routes[R with Scope, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
+    ZIO.logInfo("Starting the server...") *>
+      ZIO.serviceWithZIO[Server](_.installScoped[R](routes)) *>
+      ZIO.logInfo("Server started") *>
+      ZIO.never
+  }
+
   def serve[R](
     route: Route[R, Response],
     routes: Route[R, Response]*,
@@ -450,10 +467,23 @@ object Server extends ServerPlatformSpecific {
     serve(Routes(route, routes: _*))
   }
 
+  def serveScoped[R](
+    route: Route[R with Scope, Response],
+    routes: Route[R with Scope, Response]*,
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
+    serveScoped[R](Routes(route, routes: _*))
+  }
+
   def install[R](
     routes: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server](_.install[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
+  }
+
+  def installScoped[R](
+    routes: Routes[R with Scope, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.installScoped[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
@@ -531,6 +561,16 @@ object Server extends ServerPlatformSpecific {
         _ <- initialInstall.succeed(())
         _ <- serverStarted.await.orDie
         _ <- ZIO.environment[R].flatMap(env => driver.addApp(routes, env.prune[R]))
+      } yield ()
+
+    override def installScoped[R](routes: Routes[R with Scope, Response])(implicit
+      trace: Trace,
+      tag: EnvironmentTag[R],
+    ): URIO[R, Unit] =
+      for {
+        _ <- initialInstall.succeed(())
+        _ <- serverStarted.await.orDie
+        _ <- ZIO.environment[R].flatMap(env => driver.addAppScoped(routes, env.prune[R]))
       } yield ()
 
     override def port: UIO[Int] = serverStarted.await.orDie
