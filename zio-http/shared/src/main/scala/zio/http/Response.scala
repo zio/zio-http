@@ -213,7 +213,7 @@ object Response {
     Response(
       Status.Ok,
       contentTypeEventStream,
-      Body.fromCharSequenceStreamChunked(data.map(codec.encode).map(_.asString)),
+      Body.fromCharSequenceStreamChunked(data.map(codec.encode(_).asString)),
     )
   }
 
