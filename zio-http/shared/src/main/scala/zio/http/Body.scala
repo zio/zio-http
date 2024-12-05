@@ -578,13 +578,18 @@ object Body {
             (fs, size) = r
           } yield ZStream
             .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
-              for {
-                buffer <- ZIO.succeed(new Array[Byte](size))
-                len    <- ZIO.attempt(fs.read(buffer)).mapError(Some(_))
-                bytes  <-
-                  if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
-                  else ZIO.fail(None)
-              } yield bytes
+              ZIO.attempt {
+                val buffer = new Array[Byte](size)
+                val len    = fs.read(buffer)
+                if (len > 0) Some(Chunk.fromArray(buffer.slice(0, len)))
+                else None
+              }.foldZIO(
+                failure = e => Exit.fail(Some(e)),
+                success = {
+                  case Some(bytes) => Exit.succeed(bytes)
+                  case None        => Exit.failNone
+                }
+              )
             }
             .ensuring(ZIO.attempt(fs.close()).ignoreLogged)
         }
