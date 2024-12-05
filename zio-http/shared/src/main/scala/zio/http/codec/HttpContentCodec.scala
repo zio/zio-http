@@ -172,7 +172,7 @@ sealed trait HttpContentCodec[A] { self =>
       else bc.decode(bytes).map(Some(_))
 
     override def streamDecoder: ZPipeline[Any, DecodeError, Byte, Option[A]] =
-      ZPipeline.chunks[Byte].map(bc.decode).map(_.toOption)
+      ZPipeline.chunks[Byte].map(bc.decode(_).toOption)
 
     override def streamEncoder: ZPipeline[Any, Nothing, Option[A], Byte] =
       ZPipeline.identity[Option[A]].map(_.fold(Chunk.empty[Byte])(bc.encode)).flattenChunks
