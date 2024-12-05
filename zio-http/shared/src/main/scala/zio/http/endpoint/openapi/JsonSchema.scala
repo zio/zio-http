@@ -425,7 +425,7 @@ object JsonSchema {
                 refType,
                 seenWithCurrent,
               )
-              nested.rootRef.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
+              nested.rootRef.fold(ifEmpty = nested.children)(k => nested.children + (k -> nested.root))
             }
             .toMap
           JsonSchemas(fromZSchema(record, SchemaStyle.Inline), ref, children)
