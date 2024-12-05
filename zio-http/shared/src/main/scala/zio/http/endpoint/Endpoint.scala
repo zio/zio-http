@@ -55,8 +55,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   documentation: Doc,
   authType: Auth,
-) {
-  self =>
+) { self =>
 
   val authCombiner: Combiner[Input, authType.ClientRequirement]                   =
     implicitly[Combiner[Input, authType.ClientRequirement]]
@@ -259,35 +258,34 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
 
-    def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] =
-      authType match {
-        case AuthType.None                => HttpCodec.empty
-        case AuthType.Basic               =>
-          HeaderCodec.authorization.transformOrFail {
-            case Header.Authorization.Basic(_, _) => Right(())
-            case _                                => Left("Basic auth required")
-          } { case () =>
-            Left("Unsupported")
-          }
-        case AuthType.Bearer              =>
-          HeaderCodec.authorization.transformOrFail {
-            case Header.Authorization.Bearer(_) => Right(())
-            case _                              => Left("Bearer auth required")
-          } { case () =>
-            Left("Unsupported")
-          }
-        case AuthType.Digest              =>
-          HeaderCodec.authorization.transformOrFail {
-            case _: Header.Authorization.Digest => Right(())
-            case _                              => Left("Digest auth required")
-          } { case () =>
-            Left("Unsupported")
-          }
-        case AuthType.Custom(codec)       =>
-          codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
-        case AuthType.Or(auth1, auth2, _) =>
-          authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
-      }
+    def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
+      case AuthType.None                => HttpCodec.empty
+      case AuthType.Basic               =>
+        HeaderCodec.authorization.transformOrFail {
+          case Header.Authorization.Basic(_, _) => Right(())
+          case _                                => Left("Basic auth required")
+        } { case () =>
+          Left("Unsupported")
+        }
+      case AuthType.Bearer              =>
+        HeaderCodec.authorization.transformOrFail {
+          case Header.Authorization.Bearer(_) => Right(())
+          case _                              => Left("Bearer auth required")
+        } { case () =>
+          Left("Unsupported")
+        }
+      case AuthType.Digest              =>
+        HeaderCodec.authorization.transformOrFail {
+          case _: Header.Authorization.Digest => Right(())
+          case _                              => Left("Digest auth required")
+        } { case () =>
+          Left("Unsupported")
+        }
+      case AuthType.Custom(codec)       =>
+        codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
+      case AuthType.Or(auth1, auth2, _) =>
+        authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
+    }
 
     val maybeUnauthedResponse = authType.asInstanceOf[AuthType] match {
       case AuthType.None => None
