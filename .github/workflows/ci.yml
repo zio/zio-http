@@ -102,7 +102,7 @@ jobs:
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
 
       - name: Compress target directories
-        run: tar cf targets.tar sbt-zio-http-grpc/target zio-http-cli/target target zio-http/jvm/target zio-http-docs/target sbt-zio-http-grpc-tests/target zio-http-gen/target zio-http-benchmarks/target zio-http-tools/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
+        run: tar cf targets.tar sbt-zio-http-grpc/target zio-http-cli/target target zio-http/jvm/target zio-http-reactjs/target zio-http-docs/target sbt-zio-http-grpc-tests/target zio-http-gen/target zio-http-benchmarks/target zio-http-tools/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v4

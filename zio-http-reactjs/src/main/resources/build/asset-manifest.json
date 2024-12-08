@@ -1,0 +1,16 @@
+{
+  "files": {
+    "main.css": "http://localhost:8090/build/static/css/main.f855e6bc.css",
+    "main.js": "http://localhost:8090/build/static/js/main.7ef8e13b.js",
+    "static/js/453.2a82e7ac.chunk.js": "http://localhost:8090/build/static/js/453.2a82e7ac.chunk.js",
+    "static/media/logo.svg": "http://localhost:8090/build/static/media/logo.6ce24c58023cc2f8fd88fe9d219db6c6.svg",
+    "index.html": "http://localhost:8090/build/index.html",
+    "main.f855e6bc.css.map": "http://localhost:8090/build/static/css/main.f855e6bc.css.map",
+    "main.7ef8e13b.js.map": "http://localhost:8090/build/static/js/main.7ef8e13b.js.map",
+    "453.2a82e7ac.chunk.js.map": "http://localhost:8090/build/static/js/453.2a82e7ac.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.f855e6bc.css",
+    "static/js/main.7ef8e13b.js"
+  ]
+}

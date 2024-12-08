@@ -141,6 +141,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
       zioHttpExample,
+      zioHttpReactjs,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -293,6 +294,24 @@ lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
+  .settings(publishSetting(false))
+  .settings(runSettings(Debug.Main))
+  .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
+  .settings(
+    run / fork := true,
+    run / javaOptions ++= Seq("-Xms4G", "-Xmx4G", "-XX:+UseG1GC"),
+    libraryDependencies ++= Seq(
+      `zio-config`,
+      `zio-config-magnolia`,
+      `zio-config-typesafe`,
+      "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1",
+    ),
+  )
+  .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen)
+
+lazy val zioHttpReactjs = (project in file("zio-http-reactjs"))
+  .settings(stdSettings("zio-http-reactjs"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
