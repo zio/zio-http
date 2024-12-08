@@ -61,7 +61,7 @@ object CliSpec extends ZIOSpecDefault {
                 for {
                   text <- body.asMultipartForm
                     .map(_.formData)
-                    .map(_.map(_.stringValue.toString()))
+                    .map(_.map(_.stringValue.toString))
                     .map(_.toString())
                     .mapError(e => Response.error(Status.BadRequest, e.getMessage))
                 } yield if (text == "Chunk(Some(342.76))") Response.text("received 1") else Response.text(text)

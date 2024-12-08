@@ -16,6 +16,8 @@
 
 package zio.http.netty.model
 
+import scala.annotation.nowarn
+
 import zio.Scope
 import zio.test._
 
@@ -24,6 +26,7 @@ import zio.http.{Header, Headers, Version, ZIOHttpSpec}
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme, HttpVersion}
 
+@nowarn("msg=possible missing interpolator")
 object ConversionsSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Netty conversions")(
@@ -42,7 +45,7 @@ object ConversionsSpec extends ZIOHttpSpec {
         test("header with multiple values should not be escaped") {
           val headers               = Headers("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
           val expected: HttpHeaders =
-            new DefaultHttpHeaders(true).add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+            new DefaultHttpHeaders().add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
           assertTrue(Conversions.headersToNetty(headers) == expected)
         },
       ),

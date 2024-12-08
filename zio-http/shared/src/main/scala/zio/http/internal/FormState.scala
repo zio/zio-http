@@ -30,7 +30,10 @@ private[http] object FormState {
   final class FormStateBuffer(boundary: Boundary) extends FormState { self =>
 
     private val tree0: ChunkBuilder[FormAST] = ChunkBuilder.make[FormAST]()
-    private val buffer: ChunkBuilder.Byte    = new ChunkBuilder.Byte
+    private val buffer: ChunkBuilder[Byte]   = new ChunkBuilder.Byte
+    private var bufferSize: Int              = 0
+    private val closingBoundaryBytesSize     = boundary.closingBoundaryBytes.size
+    private var boundaryMatches: Boolean     = true
 
     private var lastByte: OptionalByte = OptionalByte.None
     private var isBufferEmpty          = true
@@ -54,8 +57,14 @@ private[http] object FormState {
 
       val crlf = byte == '\n' && !lastByte.isEmpty && lastByte.get == '\r'
 
+      val posInLine        = bufferSize + (if (this.lastByte.isEmpty) 0 else 1)
+      boundaryMatches &&= posInLine < closingBoundaryBytesSize && boundary.closingBoundaryBytes(posInLine) == byte
+      val boundaryDetected = boundaryMatches && posInLine == closingBoundaryBytesSize - 1
+
       def flush(ast: FormAST): Unit = {
         buffer.clear()
+        bufferSize = 0
+        boundaryMatches = true
         lastByte = OptionalByte.None
         if (crlf && isBufferEmpty && (phase eq Phase.Part1)) phase0 = Phase.Part2
         if (ast.isContent && dropContents) () else addToTree(ast)
@@ -72,7 +81,11 @@ private[http] object FormState {
           case ClosingBoundary(_)       => BoundaryClosed(tree)
         }
 
-      } else if (crlf && (phase eq Phase.Part2)) {
+      } else if ((crlf || boundaryDetected) && (phase eq Phase.Part2)) {
+        if (boundaryDetected) {
+          buffer += '-'
+          buffer += '-'
+        }
         val ast = FormAST.makePart2(buffer.result(), boundary)
 
         ast match {
@@ -87,6 +100,7 @@ private[http] object FormState {
         if (!lastByte.isEmpty) {
           if (isBufferEmpty) isBufferEmpty = false
           buffer += lastByte.get
+          bufferSize += 1
         }
         lastByte = OptionalByte.Some(byte)
         self
@@ -102,6 +116,8 @@ private[http] object FormState {
     def reset(): Unit = {
       tree0.clear()
       buffer.clear()
+      bufferSize = 0
+      boundaryMatches = true
       isBufferEmpty = true
       dropContents = false
       phase0 = Phase.Part1

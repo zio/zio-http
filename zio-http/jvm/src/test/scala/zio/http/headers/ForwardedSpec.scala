@@ -19,7 +19,7 @@ package zio.http.headers
 import zio.Scope
 import zio.test._
 
-import zio.http.{Header, ZIOHttpSpec}
+import zio.http.{Header, Headers, Request, ZIOHttpSpec}
 
 object ForwardedSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Forwarded suite")(
@@ -58,5 +58,22 @@ object ForwardedSpec extends ZIOHttpSpec {
       )
       assertTrue(Header.Forwarded.parse(headerValue) == Right(header))
     },
+    test("render Forwarded produces a valid raw header value") {
+      val gen = for {
+        by    <- Gen.option(Gen.const("by.host"))
+        forv  <- Gen.listOf(
+          Gen.elements("127.0.0.1", "localhost", "0.0.0.0"),
+        )
+        host  <- Gen.option(Gen.const("host.com"))
+        proto <- Gen.option(Gen.const("http"))
+      } yield (by, forv, host, proto)
+
+      check(gen) { case (by, forv, host, proto) =>
+        val expected = Header.Forwarded(by = by, forValues = forv, host = host, proto = proto)
+        val raw      = Header.Forwarded.render(expected)
+        val actual   = Header.Forwarded.parse(raw)
+        assertTrue(actual.is(_.right) == expected).label(s"Rendering result > '${raw}'")
+      }
+    } @@ TestAspect.shrinks(0),
   )
 }

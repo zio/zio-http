@@ -18,6 +18,7 @@ package zio.http.endpoint.openapi
 
 import java.net.URI
 
+import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 import scala.util.matching.Regex
 
@@ -25,7 +26,7 @@ import zio.Chunk
 import zio.json.ast._
 
 import zio.schema._
-import zio.schema.annotation.{fieldName, noDiscriminator}
+import zio.schema.annotation.{caseName, discriminatorName, fieldName, noDiscriminator}
 import zio.schema.codec.JsonCodec
 import zio.schema.codec.json._
 
@@ -96,15 +97,48 @@ final case class OpenAPI(
         .groupBy(_._1)
         .map { case (path, pathItems) =>
           val pathItem = pathItems.map(_._2).reduce { (i, j) =>
+            var docI    = Doc.empty
+            var docJ    = Doc.empty
+            var get     = i.get
+            var put     = i.put
+            var post    = i.post
+            var delete  = i.delete
+            var options = i.options
+            var head    = i.head
+            var patch   = i.patch
+            var trace   = i.trace
+
+            if (
+              get.isDefined || put.isDefined || post.isDefined || delete.isDefined || options.isDefined || head.isDefined || patch.isDefined || trace.isDefined
+            ) {
+              docI = i.description.getOrElse(Doc.empty)
+            }
+            if (
+              (get.isEmpty && j.get.isDefined) || (put.isEmpty && j.put.isDefined) || (post.isEmpty && j.post.isDefined) || (delete.isEmpty && j.delete.isDefined) || (options.isEmpty && j.options.isDefined) || (head.isEmpty && j.head.isDefined) || (patch.isEmpty && j.patch.isDefined) || (trace.isEmpty && j.trace.isDefined)
+            ) {
+              docJ = j.description.getOrElse(Doc.empty)
+            }
+            get = get.orElse(j.get)
+            put = put.orElse(j.put)
+            post = post.orElse(j.post)
+            delete = delete.orElse(j.delete)
+            options = options.orElse(j.options)
+            head = head.orElse(j.head)
+            patch = patch.orElse(j.patch)
+            trace = trace.orElse(j.trace)
+
             i.copy(
-              get = i.get.orElse(j.get),
-              put = i.put.orElse(j.put),
-              post = i.post.orElse(j.post),
-              delete = i.delete.orElse(j.delete),
-              options = i.options.orElse(j.options),
-              head = i.head.orElse(j.head),
-              patch = i.patch.orElse(j.patch),
-              trace = i.trace.orElse(j.trace),
+              get = get,
+              put = put,
+              post = post,
+              delete = delete,
+              options = options,
+              head = head,
+              patch = patch,
+              trace = trace,
+              description = Some(docI + docJ).filter(!_.isEmpty),
+              servers = i.servers ++ j.servers,
+              parameters = i.parameters ++ j.parameters,
             )
           }
           (path, pathItem)
@@ -250,6 +284,15 @@ object OpenAPI {
         },
         t => Right(Map(t._1 -> t._2)),
       )
+
+  implicit def securityRequirementSchema: Schema[SecurityRequirement] = {
+    zio.schema
+      .Schema[Map[String, List[String]]]
+      .transform[SecurityRequirement](
+        m => SecurityRequirement(m),
+        s => s.securitySchemes,
+      )
+  }
 
   /**
    * Allows referencing an external resource for extended documentation.
@@ -450,7 +493,7 @@ object OpenAPI {
 
     // todo maybe not the best regex, but the old one was not working at all
     // safe chars from RFC1738 "$" | "-" | "_" | "." | "+"
-    val validPath: Regex = """\/[\/a-zA-Z0-9\-_{}$.+]*""".r
+    private val validPath: Regex = """\/[\/a-zA-Z0-9\-_{}$.+]*""".r
 
     def fromString(name: String): Option[Path] = name match {
       case validPath() => Some(Path(name))
@@ -499,6 +542,7 @@ object OpenAPI {
    *   to link to parameters that are defined at the OpenAPI Object’s
    *   components/parameters.
    */
+  @nowarn("msg=possible missing interpolator")
   final case class PathItem(
     @fieldName("$ref") ref: Option[String],
     summary: Option[String],
@@ -1194,6 +1238,7 @@ object OpenAPI {
     implicit def schema[T: Schema]: Schema[ReferenceOr[T]] =
       DeriveSchema.gen[ReferenceOr[T]]
 
+    @nowarn("msg=possible missing interpolator")
     final case class Reference(
       @fieldName("$ref") ref: String,
       summary: Option[Doc] = None,
@@ -1268,8 +1313,8 @@ object OpenAPI {
    */
   final case class XML(name: String, namespace: URI, prefix: String, attribute: Boolean = false, wrapped: Boolean)
 
+  @discriminatorName("type")
   sealed trait SecurityScheme {
-    def `type`: String
     def description: Option[Doc]
   }
 
@@ -1288,14 +1333,30 @@ object OpenAPI {
      * @param in
      *   The location of the API key.
      */
-    final case class ApiKey(description: Option[Doc], name: String, in: ApiKey.In) extends SecurityScheme {
-      override def `type`: String = "apiKey"
-    }
+    @caseName("apiKey")
+    final case class ApiKey(description: Option[Doc], name: String, in: ApiKey.In) extends SecurityScheme
 
     object ApiKey {
       sealed trait In extends Product with Serializable
 
       object In {
+        implicit val schema: Schema[In] =
+          Schema[String]
+            .transformOrFail(
+              s =>
+                s.toLowerCase match {
+                  case "query"  => Right(Query)
+                  case "header" => Right(Header)
+                  case "cookie" => Right(Cookie)
+                  case _        => Left(s"Invalid ApiKey.In $s")
+                },
+              {
+                case Query  => Right("query")
+                case Header => Right("header")
+                case Cookie => Right("cookie")
+              },
+            )
+
         case object Query extends In
 
         case object Header extends In
@@ -1316,11 +1377,8 @@ object OpenAPI {
      *   Bearer tokens are usually generated by an authorization server, so this
      *   information is primarily for documentation purposes.
      */
-    final case class Http(description: Option[Doc], scheme: String, bearerFormat: Option[String])
-        extends SecurityScheme {
-      override def `type`: String = "http"
-
-    }
+    @caseName("http")
+    final case class Http(description: Option[Doc], scheme: String, bearerFormat: Option[String]) extends SecurityScheme
 
     /**
      * @param description
@@ -1329,10 +1387,8 @@ object OpenAPI {
      *   An object containing configuration information for the flow types
      *   supported.
      */
-    final case class OAuth2(description: Option[Doc], flows: OAuthFlows) extends SecurityScheme {
-      override def `type`: String = "oauth2"
-
-    }
+    @caseName("oauth2")
+    final case class OAuth2(description: Option[Doc], flows: OAuthFlows) extends SecurityScheme
 
     /**
      * @param description
@@ -1340,10 +1396,8 @@ object OpenAPI {
      * @param openIdConnectUrl
      *   OpenId Connect URL to discover OAuth2 configuration values.
      */
-    final case class OpenIdConnect(description: Option[Doc], openIdConnectUrl: URI) extends SecurityScheme {
-      override def `type`: String = "openIdConnect"
-
-    }
+    @caseName("openIdConnect")
+    final case class OpenIdConnect(description: Option[Doc], openIdConnectUrl: URI) extends SecurityScheme
 
     /**
      * Allows configuration of the supported OAuth Flows.

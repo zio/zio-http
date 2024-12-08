@@ -20,6 +20,10 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
+import zio.stream.ZStream
+
+import zio.http.ErrorResponseConfig.ErrorFormat
+
 object ResponseSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
   private val location: URL                     = URL.decode("www.google.com").toOption.get
@@ -32,22 +36,161 @@ object ResponseSpec extends ZIOHttpSpec {
         assertTrue(Response.fromCause(cause) == Response.ok)
       },
       test("from IllegalArgumentException") {
-        val cause = Cause.fail(new IllegalArgumentException)
+        val cause            = Cause.fail(new IllegalArgumentException)
+        val responseWithBody = Response.fromCause(cause, ErrorResponseConfig(withErrorBody = true))
+        val responseNoBody   = Response.fromCause(cause, ErrorResponseConfig(withErrorBody = false))
 
-        assertTrue(extractStatus(Response.fromCause(cause)) == Status.BadRequest)
+        val expectedErrorMsg =
+          """<!DOCTYPE html><html><head><title>ZIO Http - BadRequest</title><style>
+            | body {
+            |   font-family: monospace;
+            |   font-size: 16px;
+            |   background-color: #edede0;
+            | }
+            |</style></head><body><div style="margin: auto; padding: 2em 4em; max-width: 80%"><h1>BadRequest</h1><div><div style="text-align: center"><div style="font-size: 20em">400</div><div></div><div></div></div></div></div></body></html>""".stripMargin
+
+        val expectedErrorBody = Body.fromString(expectedErrorMsg).contentType(MediaType.text.html)
+
+        assertTrue(
+          extractStatus(responseWithBody) == Status.BadRequest,
+          extractStatus(responseNoBody) == Status.BadRequest,
+          responseWithBody.body == expectedErrorBody,
+          responseNoBody.body == Body.empty,
+        )
       },
       test("from String") {
         val cause = Cause.fail("error")
 
-        assertTrue(extractStatus(Response.fromCause(cause)) == Status.InternalServerError)
+        val responseWithBody = Response.fromCause(cause, ErrorResponseConfig(withErrorBody = true))
+        val responseNoBody   = Response.fromCause(cause, ErrorResponseConfig(withErrorBody = false))
+        val expectedErrorMsg = "Exception in thread \"zio-fiber-\" java.lang.String: error"
+        val expectedBody     = Body.fromString(expectedErrorMsg).contentType(MediaType.text.plain)
+
+        assertTrue(
+          extractStatus(responseWithBody) == Status.InternalServerError,
+          extractStatus(responseNoBody) == Status.InternalServerError,
+          responseWithBody.body == expectedBody,
+          responseNoBody.body == Body.empty,
+        )
       },
     ),
     suite("fromThrowable")(
       test("from Throwable") {
-        assertTrue(extractStatus(Response.fromThrowable(new Throwable)) == Status.InternalServerError)
+        val throwable               = new Throwable
+        val stackTrace10            = throwable.getStackTrace.take(10).mkString("\n", "\n", "")
+        val stackTraceFull          = throwable.getStackTrace.mkString("\n", "\n", "")
+        val responseWithBody        = Response.fromThrowable(throwable, ErrorResponseConfig(withErrorBody = true))
+        val responseWithStacktrace  =
+          Response.fromThrowable(throwable, ErrorResponseConfig(withErrorBody = true, withStackTrace = true))
+        val responseWithStacktrace2 = Response.fromThrowable(
+          throwable,
+          ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0),
+        )
+        val responseNoBody          = Response.fromThrowable(throwable, ErrorResponseConfig(withErrorBody = false))
+        val expectedErrorMsg        =
+          """<!DOCTYPE html><html><head><title>ZIO Http - InternalServerError</title><style>
+            | body {
+            |   font-family: monospace;
+            |   font-size: 16px;
+            |   background-color: #edede0;
+            | }
+            |</style></head><body><div style="margin: auto; padding: 2em 4em; max-width: 80%"><h1>InternalServerError</h1><div><div style="text-align: center"><div style="font-size: 20em">500</div><div></div><div></div></div></div></div></body></html>""".stripMargin
+        def expectedErrorMsgStackTrace(stackTrace: String) =
+          s"""<!DOCTYPE html><html><head><title>ZIO Http - InternalServerError</title><style>
+             | body {
+             |   font-family: monospace;
+             |   font-size: 16px;
+             |   background-color: #edede0;
+             | }
+             |</style></head><body><div style="margin: auto; padding: 2em 4em; max-width: 80%"><h1>InternalServerError</h1><div><div style="text-align: center"><div style="font-size: 20em">500</div><div></div><div>$stackTrace</div></div></div></div></body></html>""".stripMargin
+        val expectedBody                = Body.fromString(expectedErrorMsg).contentType(MediaType.text.`html`)
+        val expectedBodyWithStackTrace  =
+          Body.fromString(expectedErrorMsgStackTrace(stackTrace10)).contentType(MediaType.text.`html`)
+        val expectedBodyWithStackTrace2 =
+          Body.fromString(expectedErrorMsgStackTrace(stackTraceFull)).contentType(MediaType.text.`html`)
+        assertTrue(
+          extractStatus(responseNoBody) == Status.InternalServerError,
+          extractStatus(responseWithBody) == Status.InternalServerError,
+          responseNoBody.body == Body.empty,
+          responseWithBody.body == expectedBody,
+          responseWithStacktrace.body == expectedBodyWithStackTrace,
+          responseWithStacktrace2.body == expectedBodyWithStackTrace2,
+        )
       },
       test("from IllegalArgumentException") {
-        assertTrue(extractStatus(Response.fromThrowable(new IllegalArgumentException)) == Status.BadRequest)
+        val exception               = new IllegalArgumentException("Some message")
+        val stackTrace10            = exception.getStackTrace.take(10).mkString("\n", "\n", "")
+        val stackTraceFull          = exception.getStackTrace.mkString("\n", "\n", "")
+        val responseWithBody        = Response.fromThrowable(exception, ErrorResponseConfig(withErrorBody = true))
+        val responseWithStacktrace  =
+          Response.fromThrowable(exception, ErrorResponseConfig(withErrorBody = true, withStackTrace = true))
+        val responseWithStacktrace2 = Response.fromThrowable(
+          exception,
+          ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0),
+        )
+        val responseNoBody          = Response.fromThrowable(exception, ErrorResponseConfig(withErrorBody = false))
+        val expectedErrorMsg        =
+          """<!DOCTYPE html><html><head><title>ZIO Http - BadRequest</title><style>
+            | body {
+            |   font-family: monospace;
+            |   font-size: 16px;
+            |   background-color: #edede0;
+            | }
+            |</style></head><body><div style="margin: auto; padding: 2em 4em; max-width: 80%"><h1>BadRequest</h1><div><div style="text-align: center"><div style="font-size: 20em">400</div><div>Some message</div><div></div></div></div></div></body></html>""".stripMargin
+        def expectedErrorMsgStackTrace(stackTrace: String) =
+          s"""<!DOCTYPE html><html><head><title>ZIO Http - BadRequest</title><style>
+             | body {
+             |   font-family: monospace;
+             |   font-size: 16px;
+             |   background-color: #edede0;
+             | }
+             |</style></head><body><div style="margin: auto; padding: 2em 4em; max-width: 80%"><h1>BadRequest</h1><div><div style="text-align: center"><div style="font-size: 20em">400</div><div>Some message</div><div>${stackTrace}</div></div></div></div></body></html>""".stripMargin
+        val expectedErrorBody                = Body.fromString(expectedErrorMsg).contentType(MediaType.text.html)
+        val expectedErrorBodyWithStackTrace  =
+          Body.fromString(expectedErrorMsgStackTrace(stackTrace10)).contentType(MediaType.text.html)
+        val expectedErrorBodyWithStackTrace2 =
+          Body.fromString(expectedErrorMsgStackTrace(stackTraceFull)).contentType(MediaType.text.html)
+        assertTrue(
+          extractStatus(responseWithBody) == Status.BadRequest,
+          extractStatus(responseNoBody) == Status.BadRequest,
+          responseWithBody.body == expectedErrorBody,
+          responseNoBody.body == Body.empty,
+          responseWithStacktrace.body == expectedErrorBodyWithStackTrace,
+          responseWithStacktrace2.body == expectedErrorBodyWithStackTrace2,
+        )
+      },
+      test("from IllegalArgumentException as json") {
+        val exception                                      = new IllegalArgumentException("Some message")
+        val stackTrace10                                   = exception.getStackTrace.take(10).mkString("\n", "\n", "")
+        val stackTraceFull                                 = exception.getStackTrace.mkString("\n", "\n", "")
+        val responseWithBody                               =
+          Response.fromThrowable(exception, ErrorResponseConfig(withErrorBody = true, errorFormat = ErrorFormat.Json))
+        val responseWithStacktrace                         = Response.fromThrowable(
+          exception,
+          ErrorResponseConfig(withErrorBody = true, withStackTrace = true, errorFormat = ErrorFormat.Json),
+        )
+        val responseWithStacktrace2                        = Response.fromThrowable(
+          exception,
+          ErrorResponseConfig(
+            withErrorBody = true,
+            withStackTrace = true,
+            maxStackTraceDepth = 0,
+            errorFormat = ErrorFormat.Json,
+          ),
+        )
+        def expectedErrorMsgStackTrace(stackTrace: String) =
+          s"""{"status": "${Status.BadRequest.code}", "message": "Some message", "stackTrace": "$stackTrace"}"""
+        val expectedErrorBodyWithStackTrace                =
+          Body.fromString(expectedErrorMsgStackTrace(stackTrace10)).contentType(MediaType.application.json)
+        val expectedErrorBodyWithStackTrace2               =
+          Body.fromString(expectedErrorMsgStackTrace(stackTraceFull)).contentType(MediaType.application.json)
+        assertTrue(
+          extractStatus(responseWithBody) == Status.BadRequest,
+          extractStatus(responseWithStacktrace) == Status.BadRequest,
+          extractStatus(responseWithStacktrace2) == Status.BadRequest,
+          responseWithStacktrace.body == expectedErrorBodyWithStackTrace,
+          responseWithStacktrace2.body == expectedErrorBodyWithStackTrace2,
+        )
       },
     ),
     suite("redirect")(
@@ -99,6 +242,52 @@ object ResponseSpec extends ZIOHttpSpec {
         val ok   = Response.ok
         val http = ok.toHandler
         assertZIO(http.runZIO(()))(equalTo(ok))
+      },
+    ),
+    suite("ignore")(
+      test("consumes the stream") {
+        for {
+          flag <- Ref.make(false)
+          stream   = ZStream.succeed(1.toByte) ++ ZStream.fromZIO(flag.set(true).as(2.toByte))
+          response = Response(body = Body.fromStreamChunked(stream))
+          _ <- response.ignoreBody
+          v <- flag.get
+        } yield assertTrue(v)
+      },
+      test("ignores failures when consuming the stream") {
+        for {
+          flag1 <- Ref.make(false)
+          flag2 <- Ref.make(false)
+          stream   = ZStream.succeed(1.toByte) ++
+            ZStream.fromZIO(flag1.set(true).as(2.toByte)) ++
+            ZStream.fail(new Throwable("boom")) ++
+            ZStream.fromZIO(flag1.set(true).as(2.toByte))
+          response = Response(body = Body.fromStreamChunked(stream))
+          _  <- response.ignoreBody
+          v1 <- flag1.get
+          v2 <- flag2.get
+        } yield assertTrue(v1, !v2)
+      },
+    ),
+    suite("collect")(
+      test("materializes the stream") {
+        val stream   = ZStream.succeed(1.toByte) ++ ZStream.succeed(2.toByte)
+        val response = Response(body = Body.fromStreamChunked(stream))
+        for {
+          newResp <- response.collect
+          body = newResp.body
+          bytes <- body.asChunk
+        } yield assertTrue(body.isComplete, body.isInstanceOf[Body.UnsafeBytes], bytes == Chunk[Byte](1, 2))
+      },
+      test("failures are preserved") {
+        val err      = new Throwable("boom")
+        val stream   = ZStream.succeed(1.toByte) ++ ZStream.fail(err) ++ ZStream.succeed(2.toByte)
+        val response = Response(body = Body.fromStreamChunked(stream))
+        for {
+          newResp <- response.collect
+          body = newResp.body
+          bytes <- body.asChunk.either
+        } yield assertTrue(body.isComplete, body.isInstanceOf[Body.ErrorBody], bytes == Left(err))
       },
     ),
   )

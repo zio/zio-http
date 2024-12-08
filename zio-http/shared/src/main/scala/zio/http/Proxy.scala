@@ -41,7 +41,7 @@ final case class Proxy(
 }
 
 object Proxy {
-  lazy val config: Config[Proxy] =
+  def config: Config[Proxy] =
     (
       Config
         .string("url")

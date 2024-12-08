@@ -20,7 +20,7 @@ object CookieServerSide extends ZIOAppDefault {
       handler(Response.ok.addCookie(cookie.copy(isSecure = true, path = Some(Path.root / "secure-cookie")))),
     Method.GET / "cookie" / "remove" ->
       handler(res.addCookie(Cookie.clear("key"))),
-  ).toHttpApp
+  )
 
   // Run it like any simple app
   val run =

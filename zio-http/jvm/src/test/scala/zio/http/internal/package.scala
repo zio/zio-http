@@ -25,7 +25,7 @@ import zio.http.netty.client.NettyClientDriver
 package object internal {
 
   val testServerConfig: ZLayer[Any, Nothing, Server.Config] =
-    ZLayer.succeed(Server.Config.default.onAnyOpenPort)
+    ZLayer.succeed(Server.Config.default.onAnyOpenPort.logWarningOnFatalError(false))
 
   val testNettyServerConfig: ZLayer[Any, Nothing, NettyConfig] =
     ZLayer.succeed(

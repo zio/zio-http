@@ -108,7 +108,7 @@ object Fixtures {
         Gen.const(StandardType.IntType),
         Gen.const(StandardType.UUIDType),
       )
-      value        <- standardType match {
+      value        <- (standardType: @unchecked) match {
         case StandardType.StringType => Gen.string
         case StandardType.BoolType   => Gen.boolean
         case StandardType.IntType    => Gen.int

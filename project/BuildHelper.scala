@@ -6,12 +6,11 @@ import xerial.sbt.Sonatype.autoImport.*
 import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 
 object BuildHelper extends ScalaSettings {
-  val Scala212         = "2.12.18"
-  val Scala213         = "2.13.12"
-  val Scala3           = "3.3.1"
-  val ScoverageVersion = "2.0.9"
-  val JmhVersion       = "0.4.3"
-  val SilencerVersion  = "1.7.14"
+  val Scala212         = "2.12.19"
+  val Scala213         = "2.13.14"
+  val Scala3           = "3.3.3"
+  val ScoverageVersion = "2.0.12"
+  val JmhVersion       = "0.4.7"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -36,7 +35,7 @@ object BuildHelper extends ScalaSettings {
       case _             => Seq.empty
     }
 
-  def settingsWithHeaderLicense() =
+  def settingsWithHeaderLicense =
     headerLicense := Some(HeaderLicense.ALv2("2021 - 2023", "Sporta Technologies PVT LTD & the ZIO HTTP contributors."))
 
   def publishSetting(publishArtifacts: Boolean) = {
@@ -85,17 +84,6 @@ object BuildHelper extends ScalaSettings {
       s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
     ),
     ThisBuild / fork               := true,
-    libraryDependencies ++= {
-      if (scalaVersion.value == Scala3)
-        Seq(
-          "com.github.ghik" % s"silencer-lib_$Scala213" % SilencerVersion % Provided,
-        )
-      else
-        Seq(
-          "com.github.ghik" % "silencer-lib"            % SilencerVersion % Provided cross CrossVersion.full,
-          compilerPlugin("com.github.ghik" % "silencer-plugin" % SilencerVersion cross CrossVersion.full),
-        )
-    },
     semanticdbEnabled              := scalaVersion.value != Scala3,
     semanticdbOptions += "-P:semanticdb:synthetics:on",
     semanticdbVersion              := {
@@ -114,7 +102,7 @@ object BuildHelper extends ScalaSettings {
   )
 
   def meta = Seq(
-    ThisBuild / homepage   := Some(url("https://github.com/zio/zio-http")),
+    ThisBuild / homepage   := Some(url("https://zio.dev/zio-http")),
     ThisBuild / scmInfo    :=
       Some(
         ScmInfo(url("https://github.com/zio/zio-http"), "scm:git@github.com:zio/zio-http.git"),

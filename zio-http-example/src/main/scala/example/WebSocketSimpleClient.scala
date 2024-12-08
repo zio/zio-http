@@ -33,10 +33,10 @@ object WebSocketSimpleClient extends ZIOAppDefault {
         }
       }
 
-  val app: ZIO[Client with Scope, Throwable, Response] =
-    socketApp.connect(url) *> ZIO.never
+  val app: ZIO[Client, Throwable, Response] =
+    ZIO.scoped(socketApp.connect(url) *> ZIO.never)
 
   val run: ZIO[Any, Throwable, Any] =
-    app.provide(Client.default, Scope.default)
+    app.provide(Client.default)
 
 }

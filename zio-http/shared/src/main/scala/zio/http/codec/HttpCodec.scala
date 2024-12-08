@@ -16,10 +16,7 @@
 
 package zio.http.codec
 
-import java.util.concurrent.ConcurrentHashMap
-
 import scala.annotation.tailrec
-import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 import zio._
@@ -27,11 +24,13 @@ import zio._
 import zio.stream.ZStream
 
 import zio.schema.Schema
+import zio.schema.annotation._
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
+import zio.http.codec.HttpCodec.Query.QueryType
 import zio.http.codec.HttpCodec.{Annotated, Metadata}
-import zio.http.codec.internal.EncoderDecoder
+import zio.http.codec.internal._
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -50,6 +49,27 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   private lazy val encoderDecoder: EncoderDecoder[AtomTypes, Value] = EncoderDecoder(self)
 
+  private def statusCodecs: Chunk[SimpleCodec[Status, _]] =
+    self.asInstanceOf[HttpCodec[_, _]] match {
+      case HttpCodec.Fallback(left, right, _, _)  => left.statusCodecs ++ right.statusCodecs
+      case HttpCodec.Combine(left, right, _)      => left.statusCodecs ++ right.statusCodecs
+      case HttpCodec.Annotated(codec, _)          => codec.statusCodecs
+      case HttpCodec.TransformOrFail(codec, _, _) => codec.statusCodecs
+      case HttpCodec.Empty                        => Chunk.empty
+      case HttpCodec.Halt                         => Chunk.empty
+      case atom: HttpCodec.Atom[_, _]             =>
+        atom match {
+          case HttpCodec.Status(codec, _) => Chunk.single(codec)
+          case _                          => Chunk.empty
+        }
+    }
+
+  private lazy val statusCodes: Set[Status] =
+    statusCodecs.collect { case SimpleCodec.Specified(status) => status }.toSet
+
+  private lazy val matchesAnyStatus: Boolean =
+    statusCodecs.contains(SimpleCodec.Unspecified[Status]())
+
   /**
    * Returns a new codec that is the same as this one, but has attached docs,
    * which will render whenever docs are generated from the codec.
@@ -61,6 +81,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     that: HttpCodec[AtomTypes1, Value2],
   )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] = {
     if (self eq HttpCodec.Halt) that.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
+    else if (that eq HttpCodec.Halt) self.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
     else {
       HttpCodec
         .Fallback(self, that, alternator, HttpCodec.Fallback.Condition.IsHttpCodecError)
@@ -150,18 +171,23 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Uses this codec to decode the Scala value from a request.
    */
   final def decodeRequest(request: Request)(implicit trace: Trace): Task[Value] =
-    decode(request.url, Status.Ok, request.method, request.headers, request.body)
+    CodecConfig.codecRef.getWith(
+      encoderDecoder.decode(_, request.url, Status.Ok, request.method, request.headers, request.body),
+    )
+
+  /**
+   * Uses this codec to decode the Scala value from a request.
+   */
+  final def decodeRequest(request: Request, config: CodecConfig)(implicit trace: Trace): Task[Value] =
+    encoderDecoder.decode(config, request.url, Status.Ok, request.method, request.headers, request.body)
 
   /**
    * Uses this codec to decode the Scala value from a response.
    */
-  final def decodeResponse(response: Response)(implicit trace: Trace): Task[Value] =
-    decode(URL.empty, response.status, Method.GET, response.headers, response.body)
-
-  private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+  final def decodeResponse(response: Response, config: CodecConfig = CodecConfig.defaultConfig)(implicit
     trace: Trace,
   ): Task[Value] =
-    encoderDecoder.decode(url, status, method, headers, body)
+    encoderDecoder.decode(config, URL.empty, response.status, Method.GET, response.headers, response.body)
 
   def doc: Option[Doc] = {
     @tailrec
@@ -176,10 +202,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   }
 
   /**
-   * Uses this codec to encode the Scala value into a request.
+   * Uses this codec and [[CodecConfig.defaultConfig]] to encode the Scala value
+   * into a request.
    */
   final def encodeRequest(value: Value): Request =
-    encodeWith(value, Chunk.empty)((url, _, method, headers, body) =>
+    encodeRequest(value, CodecConfig.defaultConfig)
+
+  /**
+   * Uses this codec to encode the Scala value into a request.
+   */
+  final def encodeRequest(value: Value, config: CodecConfig): Request =
+    encodeWith(config, value, Chunk.empty)((url, _, method, headers, body) =>
       Request(
         url = url,
         method = method.getOrElse(Method.GET),
@@ -191,36 +224,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     )
 
   /**
-   * Uses this codec to encode the Scala value as a patch to a request.
-   */
-  final def encodeRequestPatch(value: Value): Request.Patch =
-    encodeWith(value, Chunk.empty)((url, _, _, headers, _) =>
-      Request.Patch(
-        addQueryParams = url.queryParams,
-        addHeaders = headers,
-      ),
-    )
-
-  /**
    * Uses this codec to encode the Scala value as a response.
    */
-  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor]): Response =
-    encodeWith(value, outputTypes)((_, status, _, headers, body) =>
+  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig): Response =
+    encodeWith(config, value, outputTypes)((_, status, _, headers, body) =>
       Response(headers = headers, body = body, status = status.getOrElse(Status.Ok)),
     )
 
-  /**
-   * Uses this codec to encode the Scala value as a response patch.
-   */
-  final def encodeResponsePatch[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor]): Response.Patch =
-    encodeWith(value, outputTypes)((_, status, _, headers, _) =>
-      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.status(_)).getOrElse(Response.Patch.empty),
-    )
-
-  private final def encodeWith[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+  private final def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder.encodeWith(value, outputTypes.sortBy(mt => -mt.qFactor.getOrElse(1.0)))(f)
+    encoderDecoder.encodeWith(config, value, outputTypes.sorted)(f)
 
   def examples(examples: Iterable[(String, Value)]): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Examples(Chunk.fromIterable(examples).toMap))
@@ -240,6 +254,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       else Left(s"Expected ${expected} but found ${actual}"),
     )(_ => expected)
 
+  private[http] def matchesStatus(status: Status) =
+    matchesAnyStatus || statusCodes.contains(status)
+
   def named(name: String): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Named(name))
 
@@ -253,7 +270,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Returns a new codec, where the value produced by this one is optional.
    */
-  final def optional: HttpCodec[AtomTypes, Option[Value]] =
+  def optional: HttpCodec[AtomTypes, Option[Value]] =
     Annotated(
       if (self eq HttpCodec.Halt) HttpCodec.empty.asInstanceOf[HttpCodec[AtomTypes, Option[Value]]]
       else {
@@ -313,10 +330,10 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   def enumeration[Value]: Enumeration[Value] =
     new Enumeration[Value](())
 
-  def error[Body](status: zio.http.Status)(implicit
-    schema: Schema[Body],
-  ): HttpCodec[HttpCodecType.Status with HttpCodecType.Content, Body] =
-    content[Body]("error-response") ++ this.status(status)
+  def error[Body0](status: zio.http.Status)(implicit
+    schema: Schema[Body0],
+  ): HttpCodec[HttpCodecType.Status with HttpCodecType.Content, Body0] =
+    content[Body0]("error-response") ++ this.status(status)
 
   private[http] sealed trait AtomTag
   private[http] object AtomTag {
@@ -513,6 +530,1680 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           case _          => Left(s"Unexpected error type")
         },
       )
+
+    def f9[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9).transformOrFail(either =>
+        Right(
+          either.left
+            .map(
+              _.left
+                .map(_.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge)
+                .merge,
+            )
+            .merge,
+        ),
+      )((value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(Left(Left(sub1)))))))))
+          case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub2)))))))))
+          case sub3: Sub3 => Right(Left(Left(Left(Left(Left(Left(Right(sub3))))))))
+          case sub4: Sub4 => Right(Left(Left(Left(Left(Left(Right(sub4)))))))
+          case sub5: Sub5 => Right(Left(Left(Left(Left(Right(sub5))))))
+          case sub6: Sub6 => Right(Left(Left(Left(Right(sub6)))))
+          case sub7: Sub7 => Right(Left(Left(Right(sub7))))
+          case sub8: Sub8 => Right(Left(Right(sub8)))
+          case sub9: Sub9 => Right(Right(sub9))
+          case _          => Left(s"Unexpected error type")
+        },
+      )
+
+    def f10[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10).transformOrFail(
+        either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge)
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+      )((value: Value) =>
+        value match {
+          case sub1: Sub1   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1))))))))))
+          case sub2: Sub2   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2))))))))))
+          case sub3: Sub3   => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub3)))))))))
+          case sub4: Sub4   => Right(Left(Left(Left(Left(Left(Left(Right(sub4))))))))
+          case sub5: Sub5   => Right(Left(Left(Left(Left(Left(Right(sub5)))))))
+          case sub6: Sub6   => Right(Left(Left(Left(Left(Right(sub6))))))
+          case sub7: Sub7   => Right(Left(Left(Left(Right(sub7)))))
+          case sub8: Sub8   => Right(Left(Left(Right(sub8))))
+          case sub9: Sub9   => Right(Left(Right(sub9)))
+          case sub10: Sub10 => Right(Right(sub10))
+          case _            => Left(s"Unexpected error type")
+        },
+      )
+
+    def f11[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge)
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1)))))))))))
+            case sub2: Sub2   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2)))))))))))
+            case sub3: Sub3   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3))))))))))
+            case sub4: Sub4   => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub4)))))))))
+            case sub5: Sub5   => Right(Left(Left(Left(Left(Left(Left(Right(sub5))))))))
+            case sub6: Sub6   => Right(Left(Left(Left(Left(Left(Right(sub6)))))))
+            case sub7: Sub7   => Right(Left(Left(Left(Left(Right(sub7))))))
+            case sub8: Sub8   => Right(Left(Left(Left(Right(sub8)))))
+            case sub9: Sub9   => Right(Left(Left(Right(sub9))))
+            case sub10: Sub10 => Right(Left(Right(sub10)))
+            case sub11: Sub11 => Right(Right(sub11))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+    def f12[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge)
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1))))))))))))
+            case sub2: Sub2   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2))))))))))))
+            case sub3: Sub3   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3)))))))))))
+            case sub4: Sub4   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4))))))))))
+            case sub5: Sub5   => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub5)))))))))
+            case sub6: Sub6   => Right(Left(Left(Left(Left(Left(Left(Right(sub6))))))))
+            case sub7: Sub7   => Right(Left(Left(Left(Left(Left(Right(sub7)))))))
+            case sub8: Sub8   => Right(Left(Left(Left(Left(Right(sub8))))))
+            case sub9: Sub9   => Right(Left(Left(Left(Right(sub9)))))
+            case sub10: Sub10 => Right(Left(Left(Right(sub10))))
+            case sub11: Sub11 => Right(Left(Right(sub11)))
+            case sub12: Sub12 => Right(Right(sub12))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+    def f13[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1)))))))))))))
+            case sub2: Sub2   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2)))))))))))))
+            case sub3: Sub3   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3))))))))))))
+            case sub4: Sub4   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4)))))))))))
+            case sub5: Sub5   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5))))))))))
+            case sub6: Sub6   => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub6)))))))))
+            case sub7: Sub7   => Right(Left(Left(Left(Left(Left(Left(Right(sub7))))))))
+            case sub8: Sub8   => Right(Left(Left(Left(Left(Left(Right(sub8)))))))
+            case sub9: Sub9   => Right(Left(Left(Left(Left(Right(sub9))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Right(sub10)))))
+            case sub11: Sub11 => Right(Left(Left(Right(sub11))))
+            case sub12: Sub12 => Right(Left(Right(sub12)))
+            case sub13: Sub13 => Right(Right(sub13))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+    def f14[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge)
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )(value =>
+          value match {
+            case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1))))))))))))))
+            case sub2: Sub2 =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2))))))))))))))
+            case sub3: Sub3 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3)))))))))))))
+            case sub4: Sub4 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4))))))))))))
+            case sub5: Sub5 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5)))))))))))
+            case sub6: Sub6 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6))))))))))
+            case sub7: Sub7 => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub7)))))))))
+            case sub8: Sub8 => Right(Left(Left(Left(Left(Left(Left(Right(sub8))))))))
+            case sub9: Sub9 => Right(Left(Left(Left(Left(Left(Right(sub9)))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Left(Right(sub10))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Right(sub11)))))
+            case sub12: Sub12 => Right(Left(Left(Right(sub12))))
+            case sub13: Sub13 => Right(Left(Right(sub13)))
+            case sub14: Sub14 => Right(Right(sub14))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+
+    def f15[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+      Sub15 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+      codec15: HttpCodec[AtomTypes, Sub15],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14 | codec15)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(
+                                                _.left
+                                                  .map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge)
+                                                  .merge,
+                                              )
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1)))))))))))))))
+            case sub2: Sub2   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2)))))))))))))))
+            case sub3: Sub3   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3))))))))))))))
+            case sub4: Sub4   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4)))))))))))))
+            case sub5: Sub5   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5))))))))))))
+            case sub6: Sub6   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6)))))))))))
+            case sub7: Sub7   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub7))))))))))
+            case sub8: Sub8   => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub8)))))))))
+            case sub9: Sub9   => Right(Left(Left(Left(Left(Left(Left(Right(sub9))))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Left(Left(Right(sub10)))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Left(Right(sub11))))))
+            case sub12: Sub12 => Right(Left(Left(Left(Right(sub12)))))
+            case sub13: Sub13 => Right(Left(Left(Right(sub13))))
+            case sub14: Sub14 => Right(Left(Right(sub14)))
+            case sub15: Sub15 => Right(Right(sub15))
+            case _            => Left(s"Unexpected error type")
+
+          },
+        )
+
+    def f16[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+      Sub15 <: Value: ClassTag,
+      Sub16 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+      codec15: HttpCodec[AtomTypes, Sub15],
+      codec16: HttpCodec[AtomTypes, Sub16],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14 | codec15 | codec16)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(
+                                                _.left
+                                                  .map(
+                                                    _.left
+                                                      .map(
+                                                        _.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge,
+                                                      )
+                                                      .merge,
+                                                  )
+                                                  .merge,
+                                              )
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1))))))))))))))))
+            case sub2: Sub2   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2))))))))))))))))
+            case sub3: Sub3   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3)))))))))))))))
+            case sub4: Sub4   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4))))))))))))))
+            case sub5: Sub5   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5)))))))))))))
+            case sub6: Sub6   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6))))))))))))
+            case sub7: Sub7   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub7)))))))))))
+            case sub8: Sub8   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub8))))))))))
+            case sub9: Sub9   => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub9)))))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Left(Left(Left(Right(sub10))))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Left(Left(Right(sub11)))))))
+            case sub12: Sub12 => Right(Left(Left(Left(Left(Right(sub12))))))
+            case sub13: Sub13 => Right(Left(Left(Left(Right(sub13)))))
+            case sub14: Sub14 => Right(Left(Left(Right(sub14))))
+            case sub15: Sub15 => Right(Left(Right(sub15)))
+            case sub16: Sub16 => Right(Right(sub16))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+
+    def f17[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+      Sub15 <: Value: ClassTag,
+      Sub16 <: Value: ClassTag,
+      Sub17 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+      codec15: HttpCodec[AtomTypes, Sub15],
+      codec16: HttpCodec[AtomTypes, Sub16],
+      codec17: HttpCodec[AtomTypes, Sub17],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14 | codec15 | codec16 | codec17)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(
+                                                _.left
+                                                  .map(
+                                                    _.left
+                                                      .map(
+                                                        _.left
+                                                          .map(
+                                                            _.left
+                                                              .map(_.left.map(_.left.map(_.merge).merge).merge)
+                                                              .merge,
+                                                          )
+                                                          .merge,
+                                                      )
+                                                      .merge,
+                                                  )
+                                                  .merge,
+                                              )
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   =>
+              Right(
+                Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1)))))))))))))))),
+              )
+            case sub2: Sub2   =>
+              Right(
+                Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2)))))))))))))))),
+              )
+            case sub3: Sub3   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3))))))))))))))))
+            case sub4: Sub4   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4)))))))))))))))
+            case sub5: Sub5   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5))))))))))))))
+            case sub6: Sub6   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6)))))))))))))
+            case sub7: Sub7   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub7))))))))))))
+            case sub8: Sub8   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub8)))))))))))
+            case sub9: Sub9   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub9))))))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub10)))))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Left(Left(Left(Right(sub11))))))))
+            case sub12: Sub12 => Right(Left(Left(Left(Left(Left(Right(sub12)))))))
+            case sub13: Sub13 => Right(Left(Left(Left(Left(Right(sub13))))))
+            case sub14: Sub14 => Right(Left(Left(Left(Right(sub14)))))
+            case sub15: Sub15 => Right(Left(Left(Right(sub15))))
+            case sub16: Sub16 => Right(Left(Right(sub16)))
+            case sub17: Sub17 => Right(Right(sub17))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+
+    def f18[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+      Sub15 <: Value: ClassTag,
+      Sub16 <: Value: ClassTag,
+      Sub17 <: Value: ClassTag,
+      Sub18 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+      codec15: HttpCodec[AtomTypes, Sub15],
+      codec16: HttpCodec[AtomTypes, Sub16],
+      codec17: HttpCodec[AtomTypes, Sub17],
+      codec18: HttpCodec[AtomTypes, Sub18],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14 | codec15 | codec16 | codec17 | codec18)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(
+                                                _.left
+                                                  .map(
+                                                    _.left
+                                                      .map(
+                                                        _.left
+                                                          .map(
+                                                            _.left
+                                                              .map(
+                                                                _.left
+                                                                  .map(_.left.map(_.left.map(_.merge).merge).merge)
+                                                                  .merge,
+                                                              )
+                                                              .merge,
+                                                          )
+                                                          .merge,
+                                                      )
+                                                      .merge,
+                                                  )
+                                                  .merge,
+                                              )
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   =>
+              Right(
+                Left(
+                  Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1)))))))))))))))),
+                ),
+              )
+            case sub2: Sub2   =>
+              Right(
+                Left(
+                  Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2)))))))))))))))),
+                ),
+              )
+            case sub3: Sub3   =>
+              Right(
+                Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3)))))))))))))))),
+              )
+            case sub4: Sub4   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4))))))))))))))))
+            case sub5: Sub5   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5)))))))))))))))
+            case sub6: Sub6   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6))))))))))))))
+            case sub7: Sub7   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub7)))))))))))))
+            case sub8: Sub8   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub8))))))))))))
+            case sub9: Sub9   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub9)))))))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub10))))))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub11)))))))))
+            case sub12: Sub12 => Right(Left(Left(Left(Left(Left(Left(Right(sub12))))))))
+            case sub13: Sub13 => Right(Left(Left(Left(Left(Left(Right(sub13)))))))
+            case sub14: Sub14 => Right(Left(Left(Left(Left(Right(sub14))))))
+            case sub15: Sub15 => Right(Left(Left(Left(Right(sub15)))))
+            case sub16: Sub16 => Right(Left(Left(Right(sub16))))
+            case sub17: Sub17 => Right(Left(Right(sub17)))
+            case sub18: Sub18 => Right(Right(sub18))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+
+    def f19[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+      Sub15 <: Value: ClassTag,
+      Sub16 <: Value: ClassTag,
+      Sub17 <: Value: ClassTag,
+      Sub18 <: Value: ClassTag,
+      Sub19 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+      codec15: HttpCodec[AtomTypes, Sub15],
+      codec16: HttpCodec[AtomTypes, Sub16],
+      codec17: HttpCodec[AtomTypes, Sub17],
+      codec18: HttpCodec[AtomTypes, Sub18],
+      codec19: HttpCodec[AtomTypes, Sub19],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14 | codec15 | codec16 | codec17 | codec18 | codec19)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(
+                                                _.left
+                                                  .map(
+                                                    _.left
+                                                      .map(
+                                                        _.left
+                                                          .map(
+                                                            _.left
+                                                              .map(
+                                                                _.left
+                                                                  .map(
+                                                                    _.left
+                                                                      .map(_.left.map(_.left.map(_.merge).merge).merge)
+                                                                      .merge,
+                                                                  )
+                                                                  .merge,
+                                                              )
+                                                              .merge,
+                                                          )
+                                                          .merge,
+                                                      )
+                                                      .merge,
+                                                  )
+                                                  .merge,
+                                              )
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   =>
+              Right(
+                Left(
+                  Left(
+                    Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1)))))))))))))))),
+                  ),
+                ),
+              )
+            case sub2: Sub2   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2))))))))))))))),
+                    ),
+                  ),
+                ),
+              )
+            case sub3: Sub3   =>
+              Right(
+                Left(
+                  Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3)))))))))))))))),
+                ),
+              )
+            case sub4: Sub4   =>
+              Right(
+                Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4)))))))))))))))),
+              )
+            case sub5: Sub5   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5))))))))))))))))
+            case sub6: Sub6   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6)))))))))))))))
+            case sub7: Sub7   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub7))))))))))))))
+            case sub8: Sub8   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub8)))))))))))))
+            case sub9: Sub9   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub9))))))))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub10)))))))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub11))))))))))
+            case sub12: Sub12 => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub12)))))))))
+            case sub13: Sub13 => Right(Left(Left(Left(Left(Left(Left(Right(sub13))))))))
+            case sub14: Sub14 => Right(Left(Left(Left(Left(Left(Right(sub14)))))))
+            case sub15: Sub15 => Right(Left(Left(Left(Left(Right(sub15))))))
+            case sub16: Sub16 => Right(Left(Left(Left(Right(sub16)))))
+            case sub17: Sub17 => Right(Left(Left(Right(sub17))))
+            case sub18: Sub18 => Right(Left(Right(sub18)))
+            case sub19: Sub19 => Right(Right(sub19))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+
+    def f20[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+      Sub15 <: Value: ClassTag,
+      Sub16 <: Value: ClassTag,
+      Sub17 <: Value: ClassTag,
+      Sub18 <: Value: ClassTag,
+      Sub19 <: Value: ClassTag,
+      Sub20 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+      codec15: HttpCodec[AtomTypes, Sub15],
+      codec16: HttpCodec[AtomTypes, Sub16],
+      codec17: HttpCodec[AtomTypes, Sub17],
+      codec18: HttpCodec[AtomTypes, Sub18],
+      codec19: HttpCodec[AtomTypes, Sub19],
+      codec20: HttpCodec[AtomTypes, Sub20],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14 | codec15 | codec16 | codec17 | codec18 | codec19 | codec20)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(
+                                                _.left
+                                                  .map(
+                                                    _.left
+                                                      .map(
+                                                        _.left
+                                                          .map(
+                                                            _.left
+                                                              .map(
+                                                                _.left
+                                                                  .map(
+                                                                    _.left
+                                                                      .map(
+                                                                        _.left
+                                                                          .map(
+                                                                            _.left.map(_.left.map(_.merge).merge).merge,
+                                                                          )
+                                                                          .merge,
+                                                                      )
+                                                                      .merge,
+                                                                  )
+                                                                  .merge,
+                                                              )
+                                                              .merge,
+                                                          )
+                                                          .merge,
+                                                      )
+                                                      .merge,
+                                                  )
+                                                  .merge,
+                                              )
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1))))))))))))))),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub2: Sub2   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2))))))))))))))),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub3: Sub3   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3))))))))))))))),
+                    ),
+                  ),
+                ),
+              )
+            case sub4: Sub4   =>
+              Right(
+                Left(
+                  Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4)))))))))))))))),
+                ),
+              )
+            case sub5: Sub5   =>
+              Right(
+                Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5)))))))))))))))),
+              )
+            case sub6: Sub6   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6))))))))))))))))
+            case sub7: Sub7   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub7)))))))))))))))
+            case sub8: Sub8   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub8))))))))))))))
+            case sub9: Sub9   => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub9)))))))))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub10))))))))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub11)))))))))))
+            case sub12: Sub12 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub12))))))))))
+            case sub13: Sub13 => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub13)))))))))
+            case sub14: Sub14 => Right(Left(Left(Left(Left(Left(Left(Right(sub14))))))))
+            case sub15: Sub15 => Right(Left(Left(Left(Left(Left(Right(sub15)))))))
+            case sub16: Sub16 => Right(Left(Left(Left(Left(Right(sub16))))))
+            case sub17: Sub17 => Right(Left(Left(Left(Right(sub17)))))
+            case sub18: Sub18 => Right(Left(Left(Right(sub18))))
+            case sub19: Sub19 => Right(Left(Right(sub19)))
+            case sub20: Sub20 => Right(Right(sub20))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+
+    def f21[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+      Sub15 <: Value: ClassTag,
+      Sub16 <: Value: ClassTag,
+      Sub17 <: Value: ClassTag,
+      Sub18 <: Value: ClassTag,
+      Sub19 <: Value: ClassTag,
+      Sub20 <: Value: ClassTag,
+      Sub21 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+      codec15: HttpCodec[AtomTypes, Sub15],
+      codec16: HttpCodec[AtomTypes, Sub16],
+      codec17: HttpCodec[AtomTypes, Sub17],
+      codec18: HttpCodec[AtomTypes, Sub18],
+      codec19: HttpCodec[AtomTypes, Sub19],
+      codec20: HttpCodec[AtomTypes, Sub20],
+      codec21: HttpCodec[AtomTypes, Sub21],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14 | codec15 | codec16 | codec17 | codec18 | codec19 | codec20 | codec21)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(
+                                                _.left
+                                                  .map(
+                                                    _.left
+                                                      .map(
+                                                        _.left
+                                                          .map(
+                                                            _.left
+                                                              .map(
+                                                                _.left
+                                                                  .map(
+                                                                    _.left
+                                                                      .map(
+                                                                        _.left
+                                                                          .map(
+                                                                            _.left
+                                                                              .map(
+                                                                                _.left
+                                                                                  .map(_.left.map(_.merge).merge)
+                                                                                  .merge,
+                                                                              )
+                                                                              .merge,
+                                                                          )
+                                                                          .merge,
+                                                                      )
+                                                                      .merge,
+                                                                  )
+                                                                  .merge,
+                                                              )
+                                                              .merge,
+                                                          )
+                                                          .merge,
+                                                      )
+                                                      .merge,
+                                                  )
+                                                  .merge,
+                                              )
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(
+                          Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1))))))))))))))),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub2: Sub2   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(
+                          Left(
+                            Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2)))))))))))))),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub3: Sub3   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3))))))))))))))),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub4: Sub4   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4))))))))))))))),
+                    ),
+                  ),
+                ),
+              )
+            case sub5: Sub5   =>
+              Right(
+                Left(
+                  Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5)))))))))))))))),
+                ),
+              )
+            case sub6: Sub6   =>
+              Right(
+                Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6)))))))))))))))),
+              )
+            case sub7: Sub7   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub7))))))))))))))))
+            case sub8: Sub8   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub8)))))))))))))))
+            case sub9: Sub9   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub9))))))))))))))
+            case sub10: Sub10 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub10)))))))))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub11))))))))))))
+            case sub12: Sub12 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub12)))))))))))
+            case sub13: Sub13 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub13))))))))))
+            case sub14: Sub14 => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub14)))))))))
+            case sub15: Sub15 => Right(Left(Left(Left(Left(Left(Left(Right(sub15))))))))
+            case sub16: Sub16 => Right(Left(Left(Left(Left(Left(Right(sub16)))))))
+            case sub17: Sub17 => Right(Left(Left(Left(Left(Right(sub17))))))
+            case sub18: Sub18 => Right(Left(Left(Left(Right(sub18)))))
+            case sub19: Sub19 => Right(Left(Left(Right(sub19))))
+            case sub20: Sub20 => Right(Left(Right(sub20)))
+            case sub21: Sub21 => Right(Right(sub21))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+
+    def f22[
+      AtomTypes,
+      Sub1 <: Value: ClassTag,
+      Sub2 <: Value: ClassTag,
+      Sub3 <: Value: ClassTag,
+      Sub4 <: Value: ClassTag,
+      Sub5 <: Value: ClassTag,
+      Sub6 <: Value: ClassTag,
+      Sub7 <: Value: ClassTag,
+      Sub8 <: Value: ClassTag,
+      Sub9 <: Value: ClassTag,
+      Sub10 <: Value: ClassTag,
+      Sub11 <: Value: ClassTag,
+      Sub12 <: Value: ClassTag,
+      Sub13 <: Value: ClassTag,
+      Sub14 <: Value: ClassTag,
+      Sub15 <: Value: ClassTag,
+      Sub16 <: Value: ClassTag,
+      Sub17 <: Value: ClassTag,
+      Sub18 <: Value: ClassTag,
+      Sub19 <: Value: ClassTag,
+      Sub20 <: Value: ClassTag,
+      Sub21 <: Value: ClassTag,
+      Sub22 <: Value: ClassTag,
+    ](
+      codec1: HttpCodec[AtomTypes, Sub1],
+      codec2: HttpCodec[AtomTypes, Sub2],
+      codec3: HttpCodec[AtomTypes, Sub3],
+      codec4: HttpCodec[AtomTypes, Sub4],
+      codec5: HttpCodec[AtomTypes, Sub5],
+      codec6: HttpCodec[AtomTypes, Sub6],
+      codec7: HttpCodec[AtomTypes, Sub7],
+      codec8: HttpCodec[AtomTypes, Sub8],
+      codec9: HttpCodec[AtomTypes, Sub9],
+      codec10: HttpCodec[AtomTypes, Sub10],
+      codec11: HttpCodec[AtomTypes, Sub11],
+      codec12: HttpCodec[AtomTypes, Sub12],
+      codec13: HttpCodec[AtomTypes, Sub13],
+      codec14: HttpCodec[AtomTypes, Sub14],
+      codec15: HttpCodec[AtomTypes, Sub15],
+      codec16: HttpCodec[AtomTypes, Sub16],
+      codec17: HttpCodec[AtomTypes, Sub17],
+      codec18: HttpCodec[AtomTypes, Sub18],
+      codec19: HttpCodec[AtomTypes, Sub19],
+      codec20: HttpCodec[AtomTypes, Sub20],
+      codec21: HttpCodec[AtomTypes, Sub21],
+      codec22: HttpCodec[AtomTypes, Sub22],
+    ): HttpCodec[AtomTypes, Value] =
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8 | codec9 | codec10 | codec11 | codec12 | codec13 | codec14 | codec15 | codec16 | codec17 | codec18 | codec19 | codec20 | codec21 | codec22)
+        .transformOrFail(either =>
+          Right(
+            either.left
+              .map(
+                _.left
+                  .map(
+                    _.left
+                      .map(
+                        _.left
+                          .map(
+                            _.left
+                              .map(
+                                _.left
+                                  .map(
+                                    _.left
+                                      .map(
+                                        _.left
+                                          .map(
+                                            _.left
+                                              .map(
+                                                _.left
+                                                  .map(
+                                                    _.left
+                                                      .map(
+                                                        _.left
+                                                          .map(
+                                                            _.left
+                                                              .map(
+                                                                _.left
+                                                                  .map(
+                                                                    _.left
+                                                                      .map(
+                                                                        _.left
+                                                                          .map(
+                                                                            _.left
+                                                                              .map(
+                                                                                _.left
+                                                                                  .map(
+                                                                                    _.left
+                                                                                      .map(_.left.map(_.merge).merge)
+                                                                                      .merge,
+                                                                                  )
+                                                                                  .merge,
+                                                                              )
+                                                                              .merge,
+                                                                          )
+                                                                          .merge,
+                                                                      )
+                                                                      .merge,
+                                                                  )
+                                                                  .merge,
+                                                              )
+                                                              .merge,
+                                                          )
+                                                          .merge,
+                                                      )
+                                                      .merge,
+                                                  )
+                                                  .merge,
+                                              )
+                                              .merge,
+                                          )
+                                          .merge,
+                                      )
+                                      .merge,
+                                  )
+                                  .merge,
+                              )
+                              .merge,
+                          )
+                          .merge,
+                      )
+                      .merge,
+                  )
+                  .merge,
+              )
+              .merge,
+          ),
+        )((value: Value) =>
+          value match {
+            case sub1: Sub1   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(
+                          Left(
+                            Left(
+                              Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(sub1)))))))))))))),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub2: Sub2   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(
+                          Left(
+                            Left(
+                              Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub2)))))))))))))),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub3: Sub3   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(
+                          Left(
+                            Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub3)))))))))))))),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub4: Sub4   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(
+                        Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub4))))))))))))))),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            case sub5: Sub5   =>
+              Right(
+                Left(
+                  Left(
+                    Left(
+                      Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub5))))))))))))))),
+                    ),
+                  ),
+                ),
+              )
+            case sub6: Sub6   =>
+              Right(
+                Left(
+                  Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub6)))))))))))))))),
+                ),
+              )
+            case sub7: Sub7   =>
+              Right(
+                Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub7)))))))))))))))),
+              )
+            case sub8: Sub8   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub8))))))))))))))))
+            case sub9: Sub9   =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub9)))))))))))))))
+            case sub10: Sub10 =>
+              Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub10))))))))))))))
+            case sub11: Sub11 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub11)))))))))))))
+            case sub12: Sub12 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub12))))))))))))
+            case sub13: Sub13 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub13)))))))))))
+            case sub14: Sub14 => Right(Left(Left(Left(Left(Left(Left(Left(Left(Right(sub14))))))))))
+            case sub15: Sub15 => Right(Left(Left(Left(Left(Left(Left(Left(Right(sub15)))))))))
+            case sub16: Sub16 => Right(Left(Left(Left(Left(Left(Left(Right(sub16))))))))
+            case sub17: Sub17 => Right(Left(Left(Left(Left(Left(Right(sub17)))))))
+            case sub18: Sub18 => Right(Left(Left(Left(Left(Right(sub18))))))
+            case sub19: Sub19 => Right(Left(Left(Left(Right(sub19)))))
+            case sub20: Sub20 => Right(Left(Left(Right(sub20))))
+            case sub21: Sub21 => Right(Left(Right(sub21)))
+            case sub22: Sub22 => Right(Right(sub22))
+            case _            => Left(s"Unexpected error type")
+          },
+        )
+
   }
 
   private[http] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0] {
@@ -549,6 +2240,19 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def tag: AtomTag = AtomTag.Content
 
     def index(index: Int): Content[A] = copy(index = index)
+
+    /**
+     * Returns a new codec, where the value produced by this one is optional.
+     */
+    override def optional: HttpCodec[HttpCodecType.Content, Option[A]] =
+      Annotated(
+        Content(
+          codec.optional,
+          name,
+          index,
+        ),
+        Metadata.Optional(),
+      )
   }
   private[http] final case class ContentStream[A](
     codec: HttpContentCodec[A],
@@ -559,32 +2263,140 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
-  private[http] final case class Query[A](
-    name: String,
-    textCodec: TextCodec[A],
-    hint: Query.QueryParamHint,
+  private[http] final case class Query[A, Out](
+    queryType: Query.QueryType[A],
     index: Int = 0,
-  ) extends Atom[HttpCodecType.Query, Chunk[A]] {
+  ) extends Atom[HttpCodecType.Query, Out] {
     self =>
-    def erase: Query[Any] = self.asInstanceOf[Query[Any]]
+    def erase: Query[Any, Any] = self.asInstanceOf[Query[Any, Any]]
 
     def tag: AtomTag = AtomTag.Query
 
-    def index(index: Int): Query[A] = copy(index = index)
+    def index(index: Int): Query[A, Out] = copy(index = index)
+
+    def isOptional: Boolean =
+      queryType match {
+        case QueryType.Primitive(_, BinaryCodecWithSchema(_, schema)) if schema.isInstanceOf[Schema.Optional[_]] =>
+          true
+        case QueryType.Record(recordSchema)                                                                      =>
+          recordSchema match {
+            case s if s.isInstanceOf[Schema.Optional[_]]                      => true
+            case record: Schema.Record[_] if record.fields.forall(_.optional) => true
+            case _                                                            => false
+          }
+        case _ => false
+      }
+
+    /**
+     * Returns a new codec, where the value produced by this one is optional.
+     */
+    override def optional: HttpCodec[HttpCodecType.Query, Option[Out]] =
+      queryType match {
+        case QueryType.Primitive(name, codec) if codec.schema.isInstanceOf[Schema.Optional[_]] =>
+          throw new IllegalArgumentException(
+            s"Cannot make an optional query parameter optional. Name: $name schema: ${codec.schema}",
+          )
+        case QueryType.Primitive(name, codec)                                                  =>
+          val optionalSchema = codec.schema.optional
+          copy(queryType =
+            QueryType.Primitive(name, BinaryCodecWithSchema(TextBinaryCodec.fromSchema(optionalSchema), optionalSchema)),
+          )
+        case QueryType.Record(recordSchema) if recordSchema.isInstanceOf[Schema.Optional[_]]   =>
+          throw new IllegalArgumentException(s"Cannot make an optional query parameter optional")
+        case QueryType.Record(recordSchema)                                                    =>
+          val optionalSchema = recordSchema.optional
+          copy(queryType = QueryType.Record(optionalSchema))
+        case queryType @ QueryType.Collection(_, _, false)                                     =>
+          copy(queryType = QueryType.Collection(queryType.colSchema, queryType.elements, optional = true))
+        case queryType @ QueryType.Collection(_, _, true)                                      =>
+          throw new IllegalArgumentException(s"Cannot make an optional query parameter optional: $queryType")
+
+      }
+
   }
 
   private[http] object Query {
+    sealed trait QueryType[A]
+    object QueryType {
+      case class Primitive[A](name: String, codec: BinaryCodecWithSchema[A]) extends QueryType[A]
+      case class Collection[A](colSchema: Schema.Collection[_, _], elements: QueryType.Primitive[A], optional: Boolean)
+          extends QueryType[A] {
+        def toCollection(values: Chunk[Any]): A =
+          colSchema match {
+            case Schema.Sequence(_, fromChunk, _, _, _) =>
+              fromChunk.asInstanceOf[Chunk[Any] => Any](values).asInstanceOf[A]
+            case Schema.Set(_, _)                       =>
+              values.toSet.asInstanceOf[A]
+            case _                                      =>
+              throw new IllegalArgumentException(
+                s"Unsupported collection schema for query object field of type: $colSchema",
+              )
+          }
+      }
+      case class Record[A](recordSchema: Schema[A]) extends QueryType[A] {
+        private var namesAndCodecs: Chunk[(Schema.Field[_, _], BinaryCodecWithSchema[Any])]       = _
+        private[http] def fieldAndCodecs: Chunk[(Schema.Field[_, _], BinaryCodecWithSchema[Any])] =
+          if (namesAndCodecs == null) {
+            namesAndCodecs = recordSchema match {
+              case record: Schema.Record[A]                =>
+                record.fields.map { field =>
+                  validateSchema(field.name, field.schema)
+                  val codec = binaryCodecForField(field.annotations.foldLeft(field.schema)(_ annotate _))
+                  (unlazy(field.asInstanceOf[Schema.Field[Any, Any]]), codec)
+                }
+              case s if s.isInstanceOf[Schema.Optional[_]] =>
+                val record = s.asInstanceOf[Schema.Optional[A]].schema.asInstanceOf[Schema.Record[A]]
+                record.fields.map { field =>
+                  validateSchema(field.name, field.annotations.foldLeft(field.schema)(_ annotate _))
+                  val codec = binaryCodecForField(field.schema)
+                  (field, codec)
+                }
+              case s => throw new IllegalArgumentException(s"Unsupported schema for query object field of type: $s")
+            }
+            namesAndCodecs
+          } else {
+            namesAndCodecs
+          }
+      }
 
-    // Hint on how many query parameters codec expects
-    sealed trait QueryParamHint
-    object QueryParamHint {
-      case object One extends QueryParamHint
+      private def unlazy(field: Schema.Field[Any, Any]): Schema.Field[Any, Any] = field.schema match {
+        case Schema.Lazy(schema) =>
+          Schema.Field(
+            field.name,
+            schema(),
+            field.annotations,
+            field.validation,
+            field.get,
+            field.set,
+          )
+        case _                   => field
+      }
 
-      case object Many extends QueryParamHint
+      private def binaryCodecForField[A](schema: Schema[A]): BinaryCodecWithSchema[Any] = (schema match {
+        case schema @ Schema.Primitive(_, _)     => BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+        case Schema.Transform(_, _, _, _, _)     => BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+        case Schema.Optional(_, _)               => BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+        case e: Schema.Enum[_] if isSimple(e)    => BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+        case l @ Schema.Lazy(_)                  => binaryCodecForField(l.schema)
+        case Schema.Set(schema, _)               => binaryCodecForField(schema)
+        case Schema.Sequence(schema, _, _, _, _) => binaryCodecForField(schema)
+        case schema => throw new IllegalArgumentException(s"Unsupported schema for query object field of type: $schema")
+      }).asInstanceOf[BinaryCodecWithSchema[Any]]
 
-      case object Zero extends QueryParamHint
+      def isSimple(schema: Schema.Enum[_]): Boolean =
+        schema.annotations.exists(_.isInstanceOf[simpleEnum])
 
-      case object Any extends QueryParamHint
+      @tailrec
+      private def validateSchema[A](name: String, schema: Schema[A]): Unit = schema match {
+        case _: Schema.Primitive[A]               => ()
+        case Schema.Transform(schema, _, _, _, _) => validateSchema(name, schema)
+        case Schema.Optional(schema, _)           => validateSchema(name, schema)
+        case Schema.Lazy(schema)                  => validateSchema(name, schema())
+        case Schema.Set(schema, _)                => validateSchema(name, schema)
+        case Schema.Sequence(schema, _, _, _, _)  => validateSchema(name, schema)
+        case s => throw new IllegalArgumentException(s"Unsupported schema for query object field of type: $s")
+      }
+
     }
   }
 
@@ -626,6 +2438,19 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         case Metadata.Named(name)     => Metadata.Named(name)
         case Metadata.Optional()      => Metadata.Optional()
         case Metadata.Examples(ex)    => Metadata.Examples(ex.map { case (k, v) => k -> f(v) })
+        case Metadata.Documented(doc) => Metadata.Documented(doc)
+        case Metadata.Deprecated(doc) => Metadata.Deprecated(doc)
+      }
+
+    def transformOrFail[Value2](f: Value => Either[String, Value2]): Metadata[Value2] =
+      this match {
+        case Metadata.Named(name)     => Metadata.Named(name)
+        case Metadata.Optional()      => Metadata.Optional()
+        case Metadata.Examples(ex)    =>
+          Metadata.Examples(ex.collect {
+            case (k, v) if f(v).isRight =>
+              k -> f(v).toOption.get
+          })
         case Metadata.Documented(doc) => Metadata.Documented(doc)
         case Metadata.Deprecated(doc) => Metadata.Deprecated(doc)
       }

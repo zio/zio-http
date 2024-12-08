@@ -59,7 +59,7 @@ class ServerInboundHandlerBenchmark {
   private def shutdownRoute(shutdownSignal: Promise[Nothing, Unit]) =
     Route.route(Method.GET / shutdownEndpoint)(handler(shutdownSignal.succeed(()).as(shutdownResponse)))
   private def http(shutdownSignal: Promise[Nothing, Unit])          =
-    Routes(testRoute, arrayRoute, chunkRoute, shutdownRoute(shutdownSignal)).toHttpApp
+    Routes(testRoute, arrayRoute, chunkRoute, shutdownRoute(shutdownSignal))
 
   @Setup(Level.Trial)
   def setup(): Unit = {
@@ -71,8 +71,8 @@ class ServerInboundHandlerBenchmark {
 
     val waitForServerStarted: Task[Unit] = (for {
       client <- ZIO.service[Client]
-      _      <- client.request(Request(url = URL.decode(testUrl).toOption.get))
-    } yield ()).provide(ZClient.default, zio.Scope.default)
+      _      <- client.batched(Request(url = URL.decode(testUrl).toOption.get))
+    } yield ()).provide(ZClient.default)
 
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.fork(startServer))
     Unsafe.unsafe(implicit u =>
@@ -84,8 +84,8 @@ class ServerInboundHandlerBenchmark {
   def tearDown(): Unit = {
     val stopServer = (for {
       client <- ZIO.service[Client]
-      _      <- client.request(Request(url = URL.decode(shutdownUrl).toOption.get))
-    } yield ()).provide(ZClient.default, zio.Scope.default)
+      _      <- client.batched(Request(url = URL.decode(shutdownUrl).toOption.get))
+    } yield ()).provide(ZClient.default)
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(stopServer).getOrThrow())
   }
 

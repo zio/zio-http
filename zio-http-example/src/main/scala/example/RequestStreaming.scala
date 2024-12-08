@@ -17,7 +17,7 @@ object RequestStreaming extends ZIOAppDefault {
     val data = Body.fromStreamChunked(stream)
 
     Response(body = data)
-  }).toHttpApp
+  })
 
   // Run it like any simple app
   val run: UIO[ExitCode] =

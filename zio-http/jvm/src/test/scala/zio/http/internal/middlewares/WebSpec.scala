@@ -23,15 +23,15 @@ import zio.test._
 import zio.http.Middleware._
 import zio.http._
 import zio.http.codec.PathCodec
-import zio.http.internal.HttpAppTestExtensions
+import zio.http.internal.TestExtensions
 
-object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
+object WebSpec extends ZIOHttpSpec with TestExtensions { self =>
   def extractStatus(response: Response): Status = response.status
 
   private val app =
     Routes(
       Method.GET / "health" -> handler(ZIO.succeed(Response.ok).delay(1 second)),
-    ).toHttpApp
+    )
 
   private val midA = Middleware.addHeader("X-Custom", "A")
   private val midB = Middleware.addHeader("X-Custom", "B")
@@ -40,30 +40,30 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
     suite("headers suite")(
       test("addHeaders") {
         val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
-        val headers    = (Handler.ok @@ middleware).toHttpApp.headerValues
+        val headers    = (Handler.ok @@ middleware).headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA") && contains("ValueB"))
       },
       test("addHeader") {
         val middleware = addHeader("KeyA", "ValueA")
-        val headers    = (Handler.ok @@ middleware).toHttpApp.headerValues
+        val headers    = (Handler.ok @@ middleware).headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA"))
       },
       test("updateHeaders") {
         val middleware = updateHeaders(_ => Headers("KeyA", "ValueA"))
-        val headers    = (Handler.ok @@ middleware).toHttpApp.headerValues
+        val headers    = (Handler.ok @@ middleware).headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA"))
       },
       test("removeHeader") {
         val middleware = removeHeader("KeyA")
         val headers    =
-          (Handler.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware).toHttpApp rawHeader "KeyA"
+          (Handler.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware) rawHeader "KeyA"
         assertZIO(headers.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("debug")(
       test("log status method url and time") {
         for {
-          _   <- runApp(app @@ debug)
+          _   <- runRoutes(app @@ debug)
           log <- TestConsole.output
         } yield assertTrue(
           log.size == 1,
@@ -73,7 +73,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
       },
       test("log 404 status method url and time") {
         for {
-          _   <- runApp((Handler.notFound @@ debug).toHttpApp)
+          _   <- runRoutes(Handler.notFound.toRoutes @@ debug)
           log <- TestConsole.output
         } yield assertTrue(
           log.size == 1,
@@ -84,40 +84,40 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
     ),
     suite("when")(
       test("condition is true") {
-        val program = runApp(self.app @@ debug.when((_: Any) => true)) *> TestConsole.output
+        val program = runRoutes(self.app @@ debug.when((_: Any) => true)) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       } +
         test("condition is false") {
-          val log = runApp(self.app @@ debug.when((_: Any) => false)) *> TestConsole.output
+          val log = runRoutes(self.app @@ debug.when((_: Any) => false)) *> TestConsole.output
           assertZIO(log)(equalTo(Vector()))
         },
     ),
     suite("whenZIO")(
       test("condition is true") {
         val program =
-          runApp(self.app @@ debug.whenZIO((_: Request) => ZIO.succeed(true))) *> TestConsole.output
+          runRoutes(self.app @@ debug.whenZIO((_: Request) => ZIO.succeed(true))) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       },
       test("condition is false") {
         val log =
-          runApp(self.app @@ debug.whenZIO((_: Request) => ZIO.succeed(false))) *> TestConsole.output
+          runRoutes(self.app @@ debug.whenZIO((_: Request) => ZIO.succeed(false))) *> TestConsole.output
         assertZIO(log)(equalTo(Vector()))
       },
     ),
     suite("race")(
       test("achieved") {
-        val program = runApp(self.app @@ Middleware.timeout(5 seconds)).map(_.status)
+        val program = runRoutes(self.app @@ Middleware.timeout(5 seconds)).map(_.status)
         assertZIO(program)(equalTo(Status.Ok))
       },
       test("un-achieved") {
-        val program = runApp(self.app @@ Middleware.timeout(500 millis)).map(_.status)
+        val program = runRoutes(self.app @@ Middleware.timeout(500 millis)).map(_.status)
         assertZIO(program)(equalTo(Status.RequestTimeout))
       },
     ),
     suite("combine")(
       test("before and after") {
         val middleware = runBefore(Console.printLine("A").orDie)
-        val program    = runApp(self.app @@ middleware) *> TestConsole.output
+        val program    = runRoutes(self.app @@ middleware) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("A\n")))
       },
       test("add headers twice") {
@@ -220,7 +220,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
             Method.ANY / PathCodec.trailing -> handler { (_: Path, req: Request) =>
               Response.text(req.url.encode)
             },
-          ).toHttpApp @@ dropTrailingSlash(onlyIfNoQueryParams = true)
+          ) @@ dropTrailingSlash(onlyIfNoQueryParams = true)
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
@@ -240,7 +240,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
         )
 
         checkAll(urls zip Gen.fromIterable(Seq(true, false))) { case (url, expected, perm) =>
-          val app      = (Handler.ok @@ redirectTrailingSlash(perm)).toHttpApp
+          val app      = (Handler.ok @@ redirectTrailingSlash(perm)).toRoutes
           val location = if (url != expected) Some(expected) else None
           val status   =
             if (url == expected) Status.Ok
@@ -249,8 +249,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
 
           for {
             url      <- ZIO.fromEither(URL.decode(url))
-            response <- app.runZIO(Request.get(url = url)).debug("response")
-            _        <- ZIO.debug(response.headerOrFail(Header.Location))
+            response <- app.runZIO(Request.get(url = url))
           } yield assertTrue(
             extractStatus(response) == status,
             response.header(Header.Location) == location.map(l => Header.Location(URL.decode(l).toOption.get)),
@@ -268,7 +267,7 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
         )
 
         checkAll(urls) { url =>
-          val app = (Handler.ok @@ redirectTrailingSlash(true)).toHttpApp
+          val app = Handler.ok @@ redirectTrailingSlash(true)
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
@@ -277,38 +276,76 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
       },
     ),
     suite("prettify error")(
-      test("should not add anything to the body  as request do not have an accept header") {
-        val app = (Handler.internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
-        assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
+      test("missing accept header treated as */*") {
+        val handlerDefaultConfig = Handler.internalServerError("Error !!!").rawHeader("content-type")
+        val handlerDebugConfig   = Handler.internalServerError("Error !!!") @@ ErrorResponseConfig.debug
+
+        for {
+          contentType   <- handlerDefaultConfig.runZIO(Request.get(URL.empty))
+          debugResponse <- handlerDebugConfig.runZIO(Request.get(URL.empty))
+          config        <- ErrorResponseConfig.configRef.get
+          mediaType = config.errorFormat.mediaType
+        } yield assertTrue(
+          contentType.isEmpty,
+          debugResponse.hasContentType(mediaType),
+          !debugResponse.body.isEmpty,
+        )
+      },
+      test("should return error body when condition is met") {
+        val handlerDebugWhenHeader = Handler.internalServerError("Error !!!") @@ ErrorResponseConfig.debug.whenHeader(
+          _.get("zio-debug").contains("true"),
+        )
+
+        for {
+          debugWhenHeaderSetResponse <- handlerDebugWhenHeader.runZIO(
+            Request.get(URL.empty).copy(headers = Headers("zio-debug", "true")),
+          )
+          config                     <- ErrorResponseConfig.configRef.get
+          mediaType = config.errorFormat.mediaType
+        } yield assertTrue(
+          debugWhenHeaderSetResponse.hasContentType(mediaType),
+          !debugWhenHeaderSetResponse.body.isEmpty,
+        )
+
+      },
+      test("should not return error body when condition is not met") {
+        val handlerDebugWhenHeader = Handler.internalServerError("Error !!!") @@ ErrorResponseConfig.debug.whenHeader(
+          _.get("zio-debug").contains("true"),
+        )
+
+        for {
+          debugWhenHeaderNotSetResponse <- handlerDebugWhenHeader.runZIO(Request.get(URL.empty))
+        } yield assertTrue(
+          !debugWhenHeaderNotSetResponse.hasHeader(Header.ContentType),
+          debugWhenHeaderNotSetResponse.body.isEmpty,
+        )
+
       },
       test("should return a html body as the request has accept header set to text/html.") {
         val app = (Handler
-          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
+          .internalServerError("Error !!!") @@ ErrorResponseConfig.debug) rawHeader "content-type"
         assertZIO(
           app.runZIO(
             Request.get(URL.empty).copy(headers = Headers(Header.Accept(MediaType.text.`html`))),
           ),
         )(isSome(equalTo("text/html")))
       },
-      test("should return a plain body as the request has accept header set to */*.") {
-        val app = (Handler
-          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
-        assertZIO(
-          app.runZIO(
-            Request
-              .get(URL.empty)
-              .copy(headers = Headers(Header.Accept(MediaType.any))),
-          ),
-        )(isSome(equalTo("text/plain")))
+      test("should return body in default config format as the request has accept header set to */*.") {
+        val app = (Handler.internalServerError("Error !!!") @@ ErrorResponseConfig.debug) rawHeader "content-type"
+        for {
+          contentType <- app.runZIO(Request.get(URL.empty))
+          config      <- ErrorResponseConfig.configRef.get
+          mediaType = config.errorFormat.mediaType
+        } yield assertTrue(contentType.contains(mediaType.fullType))
       },
       test("should not add anything to the body as the request has accept header set to application/json.") {
         val app = (Handler
-          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
+          .internalServerError("Error !!!") @@ ErrorResponseConfig.debug) rawHeader "content-type"
         assertZIO(
           app.runZIO(
             Request.get(URL.empty).copy(headers = Headers(Header.Accept(MediaType.application.json))),
           ),
-        )(isNone)
+        )(isSome(equalTo("application/json")))
       },
     ),
   )
@@ -317,9 +354,9 @@ object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
 
   private def condZIO(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
-  private def runApp[R](app: HttpApp[R]): ZIO[R, Response, Response] = {
+  private def runRoutes[R](routes: Routes[R, Response]): ZIO[R, Response, Response] = {
     for {
-      fib <- app.runZIO { Request.get(url = URL(Root / "health")) }.fork
+      fib <- routes.runZIO { Request.get(url = URL(Path.root / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res

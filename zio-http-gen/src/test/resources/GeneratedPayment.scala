@@ -13,17 +13,13 @@ object Payment {
     cvv: String,
   )
   object Card {
-
     implicit val codec: Schema[Card] = DeriveSchema.gen[Card]
-
   }
   @caseName("cash")
   case class Cash(
     amount: Int,
   )
   object Cash {
-
     implicit val codec: Schema[Cash] = DeriveSchema.gen[Cash]
-
   }
 }

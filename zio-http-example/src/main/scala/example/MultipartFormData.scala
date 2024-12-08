@@ -1,12 +1,14 @@
 package example
 
-import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
+import scala.annotation.nowarn
+
+import zio._
 
 import zio.http._
 
 object MultipartFormData extends ZIOAppDefault {
 
-  private val app: HttpApp[Any] =
+  private val routes: Routes[Any, Response] =
     Routes(
       Method.POST / "upload" ->
         handler { (req: Request) =>
@@ -39,27 +41,31 @@ object MultipartFormData extends ZIOAppDefault {
             } yield response
           else ZIO.succeed(Response(status = Status.NotFound))
         },
-    ).sandbox.toHttpApp
+    ).sandbox
 
-  private def program: ZIO[Client with Server with Scope, Throwable, Unit] =
+  @nowarn("msg=dead code")
+  private def program: ZIO[Client & Server, Throwable, Unit] =
     for {
-      port         <- Server.install(app)
+      port         <- Server.install(routes)
       _            <- ZIO.logInfo(s"Server started on port $port")
       client       <- ZIO.service[Client]
       response     <- client
         .host("localhost")
         .port(port)
-        .post("/upload")(
-          Body.fromMultipartForm(
-            Form(
-              FormField.binaryField(
-                "file",
-                Chunk.fromArray("Hello, world!".getBytes),
-                MediaType.application.`octet-stream`,
-                filename = Some("hello.txt"),
+        .batched(
+          Request.post(
+            "/upload",
+            Body.fromMultipartForm(
+              Form(
+                FormField.binaryField(
+                  "file",
+                  Chunk.fromArray("Hello, world!".getBytes),
+                  MediaType.application.`octet-stream`,
+                  filename = Some("hello.txt"),
+                ),
               ),
+              Boundary("AaB03x"),
             ),
-            Boundary("AaB03x"),
           ),
         )
       responseBody <- response.body.asString
@@ -67,11 +73,6 @@ object MultipartFormData extends ZIOAppDefault {
       _            <- ZIO.never
     } yield ()
 
-  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    program
-      .provide(
-        Server.default,
-        Client.default,
-        Scope.default,
-      )
+  override def run =
+    program.provide(Server.default, Client.default)
 }

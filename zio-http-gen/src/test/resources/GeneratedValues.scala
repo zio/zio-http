@@ -7,7 +7,5 @@ case class Values(
   value2: String,
 )
 object Values {
-
   implicit val codec: Schema[Values] = DeriveSchema.gen[Values]
-
 }

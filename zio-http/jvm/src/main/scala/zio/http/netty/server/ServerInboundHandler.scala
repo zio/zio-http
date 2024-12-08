@@ -20,7 +20,6 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.LongAdder
 
-import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
 import zio._
@@ -38,66 +37,66 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.ssl.SslHandler
 import io.netty.handler.timeout.ReadTimeoutException
+import io.netty.util.ReferenceCountUtil
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
-  appRef: AppRef,
+  appRef: RoutesRef,
   config: Server.Config,
-  runtime: NettyRuntime,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private var app: HttpApp[Any]      = _
-  private var env: ZEnvironment[Any] = _
+  private var handler: Handler[Any, Nothing, Request, Response] = _
+  private var runtime: NettyRuntime                             = _
 
   val inFlightRequests: LongAdder = new LongAdder()
-  val readClientCert              = config.sslConfig.exists(_.includeClientCert)
+  private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
+  private val avoidCtxSwitching   = config.avoidContextSwitching
 
   def refreshApp(): Unit = {
     val pair = appRef.get()
 
-    this.app = pair._1
-    this.env = pair._2
+    this.handler = pair._1.toHandler
+    this.runtime = new NettyRuntime(pair._2)
   }
 
   private def ensureHasApp(): Unit = {
-    if (app eq null) {
+    if (runtime eq null) {
       refreshApp()
     }
   }
+
+  private val releaseRequest = () => inFlightRequests.decrement()
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     msg match {
       case jReq: HttpRequest =>
-        val req = makeZioRequest(ctx, jReq)
         inFlightRequests.increment()
-
-        val releaseRequest = { () =>
-          inFlightRequests.decrement()
-          jReq match {
-            case jFullReq: FullHttpRequest =>
-              if (jFullReq.refCnt() > 0) {
-                val _ = jFullReq.release()
-              }
-            case _                         =>
-          }
-          ()
-        }
-
         ensureHasApp()
-        val exit =
+
+        try {
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            Exit.succeed(Response.fromThrowable(throwable))
-          } else
-            app(req)
-        if (!attemptImmediateWrite(ctx, exit)) {
-          writeResponse(ctx, env, exit, jReq)(releaseRequest)
-        } else {
-          releaseRequest()
+            attemptFastWrite(
+              ctx,
+              Conversions.methodFromNetty(jReq.method()),
+              Response.fromThrowable(throwable, runtime.getRef(ErrorResponseConfig.configRef)),
+            )
+            releaseRequest()
+          } else {
+            val req  = makeZioRequest(ctx, jReq)
+            val exit = handler(req)
+            if (attemptImmediateWrite(ctx, req.method, exit)) {
+              releaseRequest()
+            } else {
+              writeResponse(ctx, runtime, exit, req)(releaseRequest)
+            }
+          }
+        } finally {
+          ReferenceCountUtil.safeRelease(jReq)
         }
 
       case msg: HttpContent =>
@@ -116,16 +115,16 @@ private[zio] final case class ServerInboundHandler(
             (msg ne null) && msg.contains("Connection reset")
           } =>
       case t =>
-        if (app ne null) {
-          runtime.run(ctx, () => {}) {
+        if ((runtime ne null) && config.logWarningOnFatalError) {
+          runtime.unsafeRunSync {
             // We cannot return the generated response from here, but still calling the handler for its side effect
             // for example logging.
-            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError)
+            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t))
           }
         }
         cause match {
           case _: ReadTimeoutException =>
-            ctx.close()
+            ctx.close(): Unit
           case _                       =>
             super.exceptionCaught(ctx, t)
         }
@@ -142,13 +141,20 @@ private[zio] final case class ServerInboundHandler(
 
   private def attemptFastWrite(
     ctx: ChannelHandlerContext,
+    method: Method,
     response: Response,
   ): Boolean = {
 
     def fastEncode(response: Response, bytes: Array[Byte]) = {
-      val jResponse  = NettyResponseEncoder.fastEncode(response, bytes)
+      val jResponse  = NettyResponseEncoder.fastEncode(method, response, bytes)
       val djResponse = jResponse.retainedDuplicate()
-      ctx.writeAndFlush(djResponse, ctx.voidPromise())
+
+      // This handler sits at the tail of the pipeline, so using ctx.channel.writeAndFlush won't add any
+      // overhead of passing through the pipeline. It's also better to use ctx.channel.writeAndFlush in
+      // cases that we're writing to the channel from a different thread (which is most of the time as we're
+      // creating responses in ZIO's executor).
+      val ch = ctx.channel()
+      ch.writeAndFlush(djResponse, ch.voidPromise())
       true
     }
 
@@ -166,35 +172,45 @@ private[zio] final case class ServerInboundHandler(
 
   private def attemptFullWrite(
     ctx: ChannelHandlerContext,
+    runtime: NettyRuntime,
     response: Response,
-    jRequest: HttpRequest,
-  ): Option[Task[Unit]] = {
+    request: Request,
+  ): Task[Option[Task[Unit]]] = {
     response.body match {
       case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
-        upgradeToWebSocket(ctx, jRequest, socketApp, runtime)
-        None
+        upgradeToWebSocket(ctx, request, socketApp, runtime).as(None)
       case _                                                                        =>
-        val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
-        // setServerTime(time, response, jResponse)
-        ctx.writeAndFlush(jResponse)
-        if (!jResponse.isInstanceOf[FullHttpResponse]) {
-          val contentLength = jResponse.headers.get(HttpHeaderNames.CONTENT_LENGTH) match {
-            case null  => None
-            case value => Some(value.toLong)
+        ZIO.attempt {
+          val jResponse = NettyResponseEncoder.encode(request.method, response)
+
+          if (!jResponse.isInstanceOf[FullHttpResponse]) {
+
+            // We MUST get the content length from the headers BEFORE we call writeAndFlush otherwise netty will mutate
+            // the headers and remove `content-length` since there is no content
+            val contentLength =
+              jResponse.headers().get(HttpHeaderNames.CONTENT_LENGTH) match {
+                case null  => None
+                case value => Some(value.toLong)
+              }
+
+            ctx.writeAndFlush(jResponse)
+            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
+          } else {
+            ctx.writeAndFlush(jResponse)
+            None
           }
-          NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
-        } else
-          None
+        }
     }
   }
 
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
+    method: Method,
     exit: ZIO[Any, Response, Response],
   ): Boolean = {
     exit match {
       case Exit.Success(response) if response ne null =>
-        attemptFastWrite(ctx, response)
+        attemptFastWrite(ctx, method, response)
       case _                                          => false
     }
   }
@@ -218,7 +234,7 @@ private[zio] final case class ServerInboundHandler(
     }
 
     val headers           = Conversions.headersFromNetty(nettyReq.headers())
-    val contentTypeHeader = headers.headers.get(Header.ContentType.name)
+    val contentTypeHeader = headers.get(Header.ContentType)
 
     nettyReq match {
       case nettyReq: FullHttpRequest =>
@@ -249,106 +265,86 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-  // TODO: reimplement it on server settings level
-//  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
-//    val _ =
-//      if (response.addServerTime)
-//        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
-//  }
-
   /*
    * Checks if the response requires to switch protocol to websocket. Returns
    * true if it can, otherwise returns false
    */
-  @tailrec
   private def upgradeToWebSocket(
     ctx: ChannelHandlerContext,
-    jReq: HttpRequest,
+    request: Request,
     webSocketApp: WebSocketApp[Any],
     runtime: NettyRuntime,
-  ): Unit = {
-    jReq match {
-      case jReq: FullHttpRequest =>
-        val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
-        runtime.runtime(ctx).unsafe.run {
+  ): Task[Unit] = for {
+    handshakeCompleted <- Promise.make[Nothing, Boolean]
+    queue              <- Queue
+      .unbounded[WebSocketChannelEvent]
+      .tap { queue =>
+        ZIO.suspend {
           val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
-          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue, handshakeCompleted)
           webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
         }
-        ctx
-          .channel()
-          .pipeline()
-          .addLast(
-            new WebSocketServerProtocolHandler(
-              NettySocketProtocol.serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig)).build(),
-            ),
-          )
-          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, None))
+      }
+    _                  <- ZIO.attempt {
+      ctx
+        .channel()
+        .pipeline()
+        .addLast(
+          new WebSocketServerProtocolHandler(
+            NettySocketProtocol
+              .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
+              .build(),
+          ),
+        )
+        .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, handshakeCompleted, None))
 
-        val retained = jReq.retainedDuplicate()
-        val _        = ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }
-
-      case jReq: HttpRequest =>
-        val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
-        fullRequest.headers().setAll(jReq.headers())
-        upgradeToWebSocket(ctx: ChannelHandlerContext, fullRequest, webSocketApp, runtime)
+      val jReq = new DefaultFullHttpRequest(
+        Conversions.versionToNetty(request.version),
+        Conversions.methodToNetty(request.method),
+        Conversions.urlToNetty(request.url),
+      )
+      jReq.headers().setAll(Conversions.headersToNetty(request.allHeaders))
+      ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(jReq) }
     }
-  }
-
-  private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
-    val response = Response.notFound(jReq.uri())
-    attemptFastWrite(ctx, response)
-  }
+  } yield ()
 
   private def writeResponse(
     ctx: ChannelHandlerContext,
-    env: ZEnvironment[Any],
+    runtime: NettyRuntime,
     exit: ZIO[Any, Response, Response],
-    jReq: HttpRequest,
+    req: Request,
   )(ensured: () => Unit): Unit = {
-    runtime.run(ctx, ensured) {
-      val pgm = exit.sandbox.catchAll { error =>
-        error.failureOrCause
-          .fold[UIO[Response]](
-            response => ZIO.succeed(response),
-            cause =>
-              if (cause.isInterruptedOnly) {
-                interrupted(ctx).as(null)
-              } else {
-                ZIO.succeed(withDefaultErrorResponse(FiberFailure(cause)))
-              },
-          )
-      }.flatMap { response =>
-        ZIO.attempt {
-          if (response ne null) {
-            val done = attemptFastWrite(ctx, response)
-            if (!done)
-              attemptFullWrite(ctx, response, jReq)
-            else
-              None
-          } else {
-            if (ctx.channel().isOpen) {
-              writeNotFound(ctx, jReq)
-            }
-            None
-          }
-        }.foldCauseZIO(
-          cause => ZIO.attempt(attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash))),
+
+    def closeChannel(): Task[Unit] =
+      NettyFutureExecutor.executed(ctx.channel().close())
+
+    def writeResponse(response: Response): Task[Unit] =
+      if (attemptFastWrite(ctx, req.method, response)) {
+        Exit.unit
+      } else {
+        attemptFullWrite(ctx, runtime, response, req).foldCauseZIO(
+          cause => {
+            attemptFastWrite(ctx, req.method, withDefaultErrorResponse(cause.squash))
+            Exit.unit
+          },
           {
-            case None       => ZIO.unit
-            case Some(task) => task.orElse(ZIO.attempt(ctx.close()))
+            case None       => Exit.unit
+            case Some(task) => task.orElse(closeChannel())
           },
         )
       }
 
-      pgm.provideEnvironment(env)
-    }
-  }
+    val program = exit.foldCauseZIO(
+      _.failureOrCause match {
+        case Left(resp)                      => writeResponse(resp)
+        case Right(c) if c.isInterruptedOnly => closeChannel()
+        case Right(c)                        => writeResponse(withDefaultErrorResponse(FiberFailure(c)))
+      },
+      writeResponse,
+    )
 
-  private def interrupted(ctx: ChannelHandlerContext): ZIO[Any, Nothing, Unit] =
-    ZIO.attempt {
-      ctx.channel().close()
-    }.unit.orDie
+    runtime.run(ctx, ensured, preferOnCurrentThread = avoidCtxSwitching)(program)
+  }
 
   private def withDefaultErrorResponse(cause: Throwable): Response =
     Response.internalServerError(cause.getMessage)
@@ -357,18 +353,16 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
 
   val live: ZLayer[
-    Server.Config with NettyRuntime with AppRef,
+    RoutesRef & Server.Config,
     Nothing,
     ServerInboundHandler,
   ] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
-        appRef <- ZIO.service[AppRef]
-        rtm    <- ZIO.service[NettyRuntime]
+        appRef <- ZIO.service[RoutesRef]
         config <- ZIO.service[Server.Config]
-
-      } yield ServerInboundHandler(appRef, config, rtm)
+      } yield ServerInboundHandler(appRef, config)
     }
   }
 

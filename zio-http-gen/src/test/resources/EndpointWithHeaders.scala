@@ -9,6 +9,7 @@ object Users {
   val get = Endpoint(Method.GET / "api" / "v1" / "users")
     .header(HeaderCodec.accept)
     .header(HeaderCodec.contentType)
+    .header(HeaderCodec.name[String]("token"))
     .in[Unit]
 
 }

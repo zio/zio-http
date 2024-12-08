@@ -22,9 +22,9 @@ import zio.test._
 import zio.http.Header.AccessControlAllowMethods
 import zio.http.Middleware.{CorsConfig, cors}
 import zio.http._
-import zio.http.internal.HttpAppTestExtensions
+import zio.http.internal.TestExtensions
 
-object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
+object CorsSpec extends ZIOHttpSpec with TestExtensions {
   def extractStatus(response: Response): Status = response.status
 
   val app = Routes(
@@ -33,12 +33,78 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     Method.GET / "die"     -> handler(ZIO.dieMessage("die")),
   ).handleErrorCause { cause =>
     Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
-  }.toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
+  } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
+
+  val appAllowAllHeaders = Routes(
+    Method.GET / "success" -> handler(Response.ok),
+  ).handleErrorCause { cause =>
+    Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
+  } @@ cors(
+    CorsConfig(
+      allowedOrigin = { case _ =>
+        Some(Header.AccessControlAllowOrigin.All)
+      },
+      allowedMethods = Header.AccessControlAllowMethods.All,
+      allowedHeaders = Header.AccessControlAllowHeaders.All,
+    ),
+  )
+
+  val appNoServerHeaders = Routes(
+    Method.GET / "success" -> handler(Response.ok),
+  ).handleErrorCause { cause =>
+    Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
+  } @@ cors(
+    CorsConfig(
+      allowedOrigin = { case _ =>
+        Some(Header.AccessControlAllowOrigin.All)
+      },
+      allowedMethods = Header.AccessControlAllowMethods.All,
+      allowedHeaders = Header.AccessControlAllowHeaders.None,
+    ),
+  )
 
   override def spec = suite("CorsSpec")(
+    test("OPTIONS request with allowAllHeaders server config") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "test-env"),
+              Header.AccessControlRequestMethod(Method.GET),
+            ),
+          )
+
+      for {
+        res <- appAllowAllHeaders.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.NoContent,
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+        res.hasHeader(Header.AccessControlAllowHeaders.All),
+      )
+    },
+    test("OPTIONS request with no headers allowed in server config") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "test-env"),
+              Header.AccessControlRequestMethod(Method.GET),
+            ),
+          )
+
+      for {
+        res <- appNoServerHeaders.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.NoContent,
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+        !res.hasHeader(Header.AccessControlAllowHeaders.All),
+      )
+    },
     test("OPTIONS request") {
       val request = Request
-        .options(URL(Root / "success"))
+        .options(URL(Path.root / "success"))
         .copy(
           headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
         )
@@ -57,7 +123,7 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     test("GET request") {
       val request =
         Request
-          .get(URL(Root / "success"))
+          .get(URL(Path.root / "success"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )
@@ -74,7 +140,7 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     test("GET request with server side failure") {
       val request =
         Request
-          .get(URL(Root / "failure"))
+          .get(URL(Path.root / "failure"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )
@@ -91,7 +157,7 @@ object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
     test("GET request with server side defect") {
       val request =
         Request
-          .get(URL(Root / "die"))
+          .get(URL(Path.root / "die"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )

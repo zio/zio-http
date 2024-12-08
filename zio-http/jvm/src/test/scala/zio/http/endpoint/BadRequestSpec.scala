@@ -15,10 +15,9 @@ object BadRequestSpec extends ZIOSpecDefault {
     suite("BadRequestSpec")(
       test("should return html rendered error message by default for html accept header") {
         val endpoint     = Endpoint(Method.GET / "test")
-          .query(QueryCodec.queryInt("age"))
+          .query(HttpCodec.query[Int]("age"))
           .out[Unit]
-        val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2").addHeader(Header.Accept(MediaType.text.`html`))
         val expectedBody =
@@ -26,93 +25,88 @@ object BadRequestSpec extends ZIOSpecDefault {
             body(
               h1("Codec Error"),
               p("There was an error en-/decoding the request/response"),
-              p("SchemaTransformationFailure", idAttr                                      := "name"),
-              p("Expected single value for query parameter age, but got 2 instead", idAttr := "message"),
+              p("InvalidQueryParamCount", idAttr                                         := "name"),
+              p("Invalid query parameter count for age: expected 1 but found 2.", idAttr := "message"),
             ),
           )
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody.encode.toString)
       },
       test("should return json rendered error message by default for json accept header") {
         val endpoint     = Endpoint(Method.GET / "test")
-          .query(QueryCodec.queryInt("age"))
+          .query(HttpCodec.query[Int]("age"))
           .out[Unit]
-        val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))
         val expectedBody =
-          """{"name":"SchemaTransformationFailure","message":"Expected single value for query parameter age, but got 2 instead"}"""
+          """{"name":"InvalidQueryParamCount","message":"Invalid query parameter count for age: expected 1 but found 2."}"""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },
       test("should return json rendered error message by default as fallback for unsupported accept header") {
         val endpoint     = Endpoint(Method.GET / "test")
-          .query(QueryCodec.queryInt("age"))
+          .query(HttpCodec.query[Int]("age"))
           .out[Unit]
-        val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.`atf`))
         val expectedBody =
-          """{"name":"SchemaTransformationFailure","message":"Expected single value for query parameter age, but got 2 instead"}"""
+          """{"name":"InvalidQueryParamCount","message":"Invalid query parameter count for age: expected 1 but found 2."}"""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },
       test("should return empty body after calling Endpoint#emptyErrorResponse") {
         val endpoint     = Endpoint(Method.GET / "test")
-          .query(QueryCodec.queryInt("age"))
+          .query(HttpCodec.query[Int]("age"))
           .out[Unit]
           .emptyErrorResponse
-        val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.`atf`))
         val expectedBody = ""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },
       test("should return custom error message") {
         val endpoint     = Endpoint(Method.GET / "test")
-          .query(QueryCodec.queryInt("age"))
+          .query(HttpCodec.query[Int]("age"))
           .out[Unit]
-        val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))
         val expectedBody =
-          """{"name":"SchemaTransformationFailure","message":"Expected single value for query parameter age, but got 2 instead"}"""
+          """{"name":"InvalidQueryParamCount","message":"Invalid query parameter count for age: expected 1 but found 2."}"""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },
       test("should use custom error codec over default error codec") {
         val endpoint     = Endpoint(Method.GET / "test")
-          .query(QueryCodec.queryInt("age"))
+          .query(HttpCodec.query[Int]("age"))
           .out[Unit]
           .outCodecError(default)
-        val route        = endpoint.implement(handler((_: Int) => ()))
-        val app          = route.toHttpApp
+        val route        = endpoint.implementHandler(handler((_: Int) => ()))
         val request      =
           Request(method = Method.GET, url = url"/test?age=1&age=2")
             .addHeader(Header.Accept(MediaType.application.json))
         val expectedBody =
-          """{"name2":"SchemaTransformationFailure","message2":"Expected single value for query parameter age, but got 2 instead"}"""
+          """{"name2":"InvalidQueryParamCount","message2":"Invalid query parameter count for age: expected 1 but found 2."}"""
         for {
-          response <- app.runZIO(request)
+          response <- route.toRoutes.runZIO(request)
           body     <- response.body.asString
         } yield assertTrue(body == expectedBody)
       },

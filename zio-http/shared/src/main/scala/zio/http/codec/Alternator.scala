@@ -20,8 +20,8 @@ import zio.ZNothing
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
- * A alternator is a type class responsible for combining invariant type
- * parameters using an either. It is used to compose parameters of the
+ * An alternator is a type class responsible for combining invariant type
+ * parameters using an Either. It is used to compose parameters of the
  * [[zio.http.codec.HttpCodec]] data type.
  */
 sealed trait Alternator[L, R] {

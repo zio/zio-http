@@ -103,7 +103,7 @@ object HeaderSpec extends ZIOHttpSpec {
     ),
     suite("hasMediaType")(
       test("should return true if content-type is application/json") {
-        val actual = contentTypeJson.hasMediaType(MediaType.application.json)
+        val actual = contentTypeJson.hasContentType(MediaType.application.json)
         assert(actual)(isTrue)
       },
     ),

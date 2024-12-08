@@ -22,10 +22,10 @@ import zio.test.TestAspect.{diagnose, sequential, shrinks, withLiveClock}
 import zio.test.{assertTrue, assertZIO}
 
 import zio.http.ServerSpec.requestBodySpec
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 
-object RequestStreamingServerSpec extends HttpRunnableSpec {
+object RequestStreamingServerSpec extends RoutesRunnableSpec {
   def extractStatus(res: Response): Status = res.status
 
   private val configAppWithRequestStreaming =
@@ -49,14 +49,15 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
     test("test unsafe large content") {
       val size    = 1024 * 1024
       val content = genString(size, '?')
-      val app     = Handler
+      val routes  = Handler
         .fromFunctionZIO[Request] {
           _.body.asStream.runCount
             .map(bytesCount => Response.text(bytesCount.toString))
         }
         .sandbox
-        .toHttpApp
-      val res     = app.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
+        .toRoutes
+
+      val res = routes.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
@@ -67,7 +68,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
             _ <- req.body.asChunk
           } yield Response.ok
         }
-      }.sandbox.toHttpApp
+      }.sandbox
       val res = app.deploy(Request()).map(_.status)
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
@@ -77,18 +78,14 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
           val host       = req.headers.get(Header.Host).get
           val newRequest =
             req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
-          ZIO.debug(s"#1: got response, forwarding") *>
-            ZIO.serviceWithZIO[Client] { client =>
-              client.request(newRequest)
-            }
+          ZIO.serviceWithZIO[Client](_.request(newRequest))
         },
         Method.POST / "2" -> handler { (req: Request) =>
-          ZIO.debug("#2: got response, collecting") *>
-            req.body.asChunk.map { body =>
-              Response.text(body.length.toString)
-            }
+          req.body.asChunk.map { body =>
+            Response.text(body.length.toString)
+          }
         },
-      ).sandbox.toHttpApp
+      ).sandbox
       val sizes = Chunk(0, 8192, 1024 * 1024)
       sizes.map { size =>
         test(s"with body length $size") {
@@ -110,7 +107,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       suite("app with request streaming") {
         appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec))
       }
-    }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
+    }.provideSome[DynamicServer & Server & Client](Scope.default)
       .provideShared(
         DynamicServer.live,
         ZLayer.succeed(configAppWithRequestStreaming),

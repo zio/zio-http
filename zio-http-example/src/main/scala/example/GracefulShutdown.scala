@@ -22,18 +22,18 @@ import zio.http._
 
 object GracefulShutdown extends ZIOAppDefault {
 
-  val app: HttpApp[Any] = Handler
+  val routes: Routes[Any, Response] = Handler
     .fromFunctionZIO[Request] { _ =>
       ZIO.sleep(10.seconds).debug("request handler delay done").as(Response.text("done"))
     }
     .sandbox
-    .toHttpApp
+    .toRoutes
 
   override def run: ZIO[Any, Throwable, Unit] =
     (for {
       started  <- Promise.make[Nothing, Unit]
       fiber    <- Server
-        .install(app)
+        .install(routes)
         .zipRight(started.succeed(()))
         .zipRight(ZIO.never)
         .provide(
@@ -43,12 +43,9 @@ object GracefulShutdown extends ZIOAppDefault {
         .fork
       _        <- started.await
       _        <- fiber.interrupt.delay(2.seconds).fork
-      response <- ZClient.request(Request.get(URL.decode("http://localhost:8080/test").toOption.get))
+      response <- ZClient.batched(Request.get(url"http://localhost:8080/test"))
       body     <- response.body.asString
       _        <- Console.printLine(response.status)
       _        <- Console.printLine(body)
-    } yield ()).provide(
-      Client.default,
-      Scope.default,
-    )
+    } yield ()).provide(Client.default)
 }

@@ -16,7 +16,9 @@
 
 package zio.http.template
 
-import zio.http.template.Attributes.PartialAttribute
+import scala.language.implicitConversions
+
+import zio.http.template.Attributes.{PartialAttribute, PartialBooleanAttribute}
 
 trait Attributes {
   final def acceptAttr: PartialAttribute[String] = PartialAttribute("accept")
@@ -301,7 +303,7 @@ trait Attributes {
 
   final def relAttr: PartialAttribute[String] = PartialAttribute("rel")
 
-  final def requiredAttr: PartialAttribute[String] = PartialAttribute("required")
+  final def requiredAttr: PartialBooleanAttribute = PartialBooleanAttribute("required")
 
   final def reversedAttr: PartialAttribute[String] = PartialAttribute("reversed")
 
@@ -365,9 +367,16 @@ trait Attributes {
 
   final def cellspacingAttr: PartialAttribute[String] = PartialAttribute("cellspacing")
 
+  implicit def partialBooleanToHtml(attr: PartialBooleanAttribute): Html = attr.apply()
 }
 
 object Attributes {
+  case class PartialBooleanAttribute(name: String) {
+    def :=(value: Boolean): Html    = Dom.booleanAttr(name, Some(value))
+    def apply(value: Boolean): Html = Dom.booleanAttr(name, Some(value))
+    def apply(): Html               = Dom.booleanAttr(name, None)
+  }
+
   case class PartialAttribute[A](name: String) {
     def :=(value: A)(implicit ev: IsAttributeValue[A]): Html    = Dom.attr(name, ev(value))
     def apply(value: A)(implicit ev: IsAttributeValue[A]): Html = Dom.attr(name, ev(value))

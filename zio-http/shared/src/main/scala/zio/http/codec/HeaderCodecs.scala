@@ -21,7 +21,7 @@ import scala.util.Try
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Header.HeaderType
-import zio.http.{Header, MediaType}
+import zio.http._
 
 private[codec] trait HeaderCodecs {
   private[http] def headerCodec[A](name: String, value: TextCodec[A]): HeaderCodec[A] =
@@ -143,7 +143,6 @@ private[codec] trait HeaderCodecs {
   final val userAgent: HeaderCodec[Header.UserAgent]                             = header(Header.UserAgent)
   final val vary: HeaderCodec[Header.Vary]                                       = header(Header.Vary)
   final val via: HeaderCodec[Header.Via]                                         = header(Header.Via)
-  final val warning: HeaderCodec[Header.Warning]                                 = header(Header.Warning)
   final val webSocketLocation: HeaderCodec[Header.SecWebSocketLocation]          = header(Header.SecWebSocketLocation)
   final val webSocketOrigin: HeaderCodec[Header.SecWebSocketOrigin]              = header(Header.SecWebSocketOrigin)
   final val webSocketProtocol: HeaderCodec[Header.SecWebSocketProtocol]          = header(Header.SecWebSocketProtocol)

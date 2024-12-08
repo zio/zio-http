@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.TestAspect.withLiveClock
 import zio.test._
@@ -26,24 +28,23 @@ import zio.http.netty.NettyConfig
 object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
-  val app: HttpApp[Any] = {
-    Route.handled(Method.GET / "hello")(Handler.fromResponse(Response.text("hello")))
-  }.toHttpApp
+  val routes: Routes[Any, Response] =
+    Route.handled(Method.GET / "hello")(Handler.fromResponse(Response.text("hello"))).toRoutes
 
-  val redir: HttpApp[Any] = {
-    Route.handled(Method.GET / "redirect")(Handler.fromResponse(Response.redirect(URL.empty / "hello")))
-  }.toHttpApp
+  val redir: Routes[Any, Response] =
+    Route.handled(Method.GET / "redirect")(Handler.fromResponse(Response.redirect(URL.empty / "hello"))).toRoutes
 
+  @nowarn("msg=possible missing interpolator")
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("ZClientAspect")(
       test("debug") {
         for {
-          port       <- Server.install(app)
+          port       <- Server.install(routes)
           baseClient <- ZIO.service[Client]
           client = baseClient.url(
             URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
           ) @@ ZClientAspect.debug
-          response <- client.request(Request.get(URL.empty / "hello"))
+          response <- client.batched(Request.get(URL.empty / "hello"))
           output   <- TestConsole.output
         } yield assertTrue(
           extractStatus(response) == Status.Ok,
@@ -54,17 +55,17 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       },
       test("requestLogging")(
         for {
-          port       <- Server.install(app)
+          port       <- Server.install(routes)
           baseClient <- ZIO.service[Client]
           client = baseClient
             .url(
               URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
             )
-            .disableStreaming @@ ZClientAspect.requestLogging(
+            .batched @@ ZClientAspect.requestLogging(
             loggedRequestHeaders = Set(Header.UserAgent),
             logResponseBody = true,
           )
-          response <- client.request(Request.get(URL.empty / "hello"))
+          response <- client(Request.get(URL.empty / "hello"))
           output   <- ZTestLogger.logOutput
           messages    = output.map(_.message())
           annotations = output.map(_.annotations)
@@ -87,13 +88,13 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       ),
       test("followRedirects")(
         for {
-          port       <- Server.install(redir ++ app)
+          port       <- Server.install(redir ++ routes)
           baseClient <- ZIO.service[Client]
           client = baseClient
             .url(
               URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
             )
-            .disableStreaming @@ ZClientAspect.followRedirects(2)((resp, message) => ZIO.logInfo(message).as(resp))
+            .batched @@ ZClientAspect.followRedirects(2)((resp, message) => ZIO.logInfo(message).as(resp))
           response <- client.request(Request.get(URL.empty / "redirect"))
         } yield assertTrue(
           extractStatus(response) == Status.Ok,
@@ -104,6 +105,5 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Client.default,
-      Scope.default,
     ) @@ withLiveClock
 }

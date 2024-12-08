@@ -17,56 +17,69 @@
 package zio.http.endpoint.internal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
+import zio.http.endpoint.internal.EndpointClient.protobufMediaType
 
-private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddleware](
+private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
   endpointRoot: URL,
-  endpoint: Endpoint[P, I, E, O, M],
+  endpoint: Endpoint[P, I, E, O, A],
 ) {
-  def execute(client: Client, invocation: Invocation[P, I, E, O, M])(
-    mi: invocation.middleware.In,
-  )(implicit alt: Alternator[E, invocation.middleware.Err], trace: Trace): ZIO[Scope, alt.Out, O] = {
-    val request0 = endpoint.input.encodeRequest(invocation.input)
-    val request  = request0.copy(url = endpointRoot ++ request0.url)
+  def execute[R](
+    client: Client,
+    invocation: Invocation[P, I, E, O, A],
+    authProvider: URIO[R, endpoint.authType.ClientRequirement],
+  )(implicit
+    combiner: Combiner[I, endpoint.authType.ClientRequirement],
+    trace: Trace,
+  ): ZIO[R with Scope, E, O] = {
+    def request0(config: CodecConfig, authInput: endpoint.authType.ClientRequirement) = {
+      val input = if (authInput.isInstanceOf[Unit]) invocation.input else combiner.combine(invocation.input, authInput)
+      endpoint
+        .authedInput(combiner)
+        .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]]
+        .encodeRequest(input, config)
+    }
+    def request(config: CodecConfig, authInput: endpoint.authType.ClientRequirement)  = {
+      val req0 = request0(config, authInput)
+      req0.copy(url = endpointRoot ++ req0.url)
+    }
 
-    val requestPatch            = invocation.middleware.input.encodeRequestPatch(mi)
-    val patchedRequest          = request.patch(requestPatch)
-    val withDefaultAcceptHeader =
-      if (patchedRequest.headers.exists(_.headerName == Header.Accept.name))
-        patchedRequest
-      else
-        patchedRequest.addHeader(
-          Header.Accept(MediaType.application.json, MediaType.parseCustomMediaType("application/protobuf").get),
+    def withDefaultAcceptHeader(config: CodecConfig, authInput: endpoint.authType.ClientRequirement) = {
+      val req = request(config, authInput)
+      if (req.headers.exists(_.headerName == Header.Accept.name))
+        req
+      else {
+        req.addHeader(
+          Header.Accept(MediaType.application.json, protobufMediaType, MediaType.text.`plain`),
         )
+      }
+    }
 
-    client.request(withDefaultAcceptHeader).orDie.flatMap { response =>
-      if (response.status.isSuccess) {
+    val requested =
+      for {
+        authInput <- authProvider
+        config    <- CodecConfig.codecRef.get
+        response  <- client.request(withDefaultAcceptHeader(config, authInput)).orDie
+      } yield response
+
+    requested.flatMap { response =>
+      if (endpoint.output.matchesStatus(response.status)) {
         endpoint.output.decodeResponse(response).orDie
+      } else if (endpoint.error.matchesStatus(response.status)) {
+        endpoint.error.decodeResponse(response).orDie.flip
       } else {
-        // Preferentially decode an error from the handler, before falling back
-        // to decoding the middleware error:
-        val handlerError =
-          endpoint.error
-            .decodeResponse(response)
-            .map(e => alt.left(e))
-            .mapError(t => new IllegalStateException("Cannot deserialize using endpoint error codec", t))
-
-        val middlewareError =
-          invocation.middleware.error
-            .decodeResponse(response)
-            .map(e => alt.right(e))
-            .mapError(t => new IllegalStateException("Cannot deserialize using middleware error codec", t))
-
-        handlerError.catchAllCause { handlerCause =>
-          middlewareError.catchAllCause { middlewareCause =>
-            ZIO.failCause(handlerCause ++ middlewareCause)
-          }
-        }.orDie.flip
+        val error = endpoint.codecError.decodeResponse(response)
+        error
+          .flatMap(codecError => ZIO.die(codecError))
+          .orElse(ZIO.die(new IllegalStateException(s"Status code: ${response.status} is not defined in the endpoint")))
       }
     }
   }
+}
+
+object EndpointClient {
+  private[internal] val protobufMediaType: MediaType = MediaType.parseCustomMediaType("application/protobuf").get
 }

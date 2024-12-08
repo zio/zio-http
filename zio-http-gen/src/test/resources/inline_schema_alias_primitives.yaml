@@ -1,0 +1,87 @@
+info:
+  title: Animals Service
+  version: 0.0.1
+servers:
+  - url: http://127.0.0.1:5000/
+tags:
+  - name: Animals_API
+paths:
+  /api/v1/zoo/info/{id}:
+    get:
+      operationId: get_animal_info
+      parameters:
+        - in: path
+          name: id
+          schema:
+            $ref: '#/components/schemas/Id'
+          required: true
+      tags:
+        - Animals_API
+      description: Get info by animal id
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+          description: OK
+  /api/v1/zoo/list/{species}:
+    get:
+      operationId: list_by_species
+      parameters:
+        - in: path
+          name: species
+          schema:
+            $ref: '#/components/schemas/Species'
+          required: true
+        - in: query
+          name: max-age
+          schema:
+            $ref: '#/components/schemas/Age'
+      tags:
+        - Animals_API
+      description: List all animals of a certain species, possibly filtering results up to a certain age
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Animal'
+          description: OK
+openapi: 3.0.3
+components:
+  schemas:
+    Animal:
+      type: object
+      required:
+        - id
+        - name
+        - species
+        - age
+        - relatives
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          $ref: '#/components/schemas/Name'
+        species:
+          $ref: '#/components/schemas/Species'
+        age:
+          $ref: '#/components/schemas/Age'
+        relatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/Species'
+    Age:
+      type: integer
+      format: int32
+      minimum: 0
+    Id:
+      type: integer
+      format: int32
+    Name:
+      type: string
+    Species:
+      type: string

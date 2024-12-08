@@ -118,7 +118,7 @@ object FlashSpec extends ZIOHttpSpec {
           } yield Response.html(html)
         }
 
-        val app = Routes(routeUserSave, routeConfirm).toHttpApp
+        val app = Routes(routeUserSave, routeConfirm)
 
         for {
           response1 <- app.runZIO(Request.post(URL(routeUserSavePath.format(()).toOption.get), Body.empty))

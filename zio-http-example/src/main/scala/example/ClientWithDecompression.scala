@@ -11,7 +11,10 @@ object ClientWithDecompression extends ZIOAppDefault {
   val program = for {
     url    <- ZIO.fromEither(URL.decode("https://jsonplaceholder.typicode.com"))
     client <- ZIO.serviceWith[Client](_.addUrl(url))
-    res    <- client.addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate())).get("/todos")
+    res    <-
+      client
+        .addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate()))
+        .batched(Request.get("/todos"))
     data   <- res.body.asString
     _      <- Console.printLine(data)
   } yield ()
@@ -23,7 +26,6 @@ object ClientWithDecompression extends ZIOAppDefault {
       Client.live,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
-      Scope.default,
     )
 
 }

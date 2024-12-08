@@ -3,6 +3,9 @@ package zio.http
 import zio._
 import zio.test._
 
+import zio.http.Header.UserAgent
+import zio.http.Header.UserAgent.ProductOrComment
+
 object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("LogAnnotationMiddlewareSpec")(
@@ -12,7 +15,6 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
             handler(ZIO.logWarning("Oh!") *> ZIO.succeed(Response.text("Hey logging!"))),
           )
           .@@(Middleware.logAnnotate("label", "value"))
-          .toHttpApp
           .runZIO(Request.get("/"))
 
         for {
@@ -32,7 +34,6 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
               Set(LogAnnotation("method", req.method.name), LogAnnotation("path", req.path.encode)),
             ),
           )
-          .toHttpApp
           .runZIO(Request.get("/"))
 
         for {
@@ -50,13 +51,12 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
             handler(ZIO.logWarning("Oh!") *> ZIO.succeed(Response.text("Hey logging!"))),
           )
           .@@(Middleware.logAnnotateHeaders("header"))
-          .@@(Middleware.logAnnotateHeaders(Header.UserAgent.name))
-          .toHttpApp
+          .@@(Middleware.logAnnotateHeaders(UserAgent.name))
           .runZIO {
             Request
               .get("/")
               .addHeader("header", "value")
-              .addHeader(Header.UserAgent.Product("zio-http", Some("3.0.0")))
+              .addHeader(UserAgent(ProductOrComment.Product("zio-http", Some("3.0.0"))))
           }
 
         for {
@@ -65,7 +65,7 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
           log = logs.filter(_.message() == "Oh!").head
         } yield assertTrue(
           log.annotations.get("header").contains("value"),
-          log.annotations.get(Header.UserAgent.name).contains("zio-http/3.0.0"),
+          log.annotations.get(UserAgent.name).contains("zio-http/3.0.0"),
         )
       },
     )

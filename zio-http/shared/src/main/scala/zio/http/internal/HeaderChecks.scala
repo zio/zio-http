@@ -29,6 +29,9 @@ trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
       CharSequenceExtensions.equals(ct.mediaType.fullType, value, CaseMode.Insensitive),
     )
 
+  final def hasContentType(mediaType: MediaType): Boolean =
+    header(Header.ContentType).exists(ct => ct.mediaType == mediaType)
+
   final def hasFormUrlencodedContentType: Boolean =
     hasContentType(MediaType.application.`x-www-form-urlencoded`.fullType)
 
@@ -46,9 +49,6 @@ trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
 
   final def hasJsonContentType: Boolean =
     hasContentType(MediaType.application.json.fullType)
-
-  final def hasMediaType(mediaType: MediaType): Boolean =
-    header(Header.ContentType).exists(ct => ct.mediaType == mediaType)
 
   final def hasTextPlainContentType: Boolean =
     hasContentType(MediaType.text.plain.fullType)

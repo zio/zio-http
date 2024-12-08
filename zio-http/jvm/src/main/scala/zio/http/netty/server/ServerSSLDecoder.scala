@@ -36,7 +36,7 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 import io.netty.handler.ssl._
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{ClientAuth => NettyClientAuth}
-object SSLUtil {
+private[netty] object SSLUtil {
 
   def getClientAuth(clientAuth: ClientAuth): NettyClientAuth = clientAuth match {
     case ClientAuth.Required => NettyClientAuth.REQUIRE

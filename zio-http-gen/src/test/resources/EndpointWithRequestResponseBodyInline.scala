@@ -1,6 +1,7 @@
 package test.api.v1
 
 import test.component._
+import zio.schema._
 
 object Users {
   import zio.http._
@@ -16,21 +17,15 @@ object Users {
       id: Int,
       name: String,
     )
-    object RequestBody {
-
+    object RequestBody  {
       implicit val codec: Schema[RequestBody] = DeriveSchema.gen[RequestBody]
-
     }
     case class ResponseBody(
       id: Int,
       name: String,
     )
     object ResponseBody {
-
       implicit val codec: Schema[ResponseBody] = DeriveSchema.gen[ResponseBody]
-
     }
-
   }
-
 }

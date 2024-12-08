@@ -12,7 +12,15 @@ import zio._
 final case class TestClient(
   behavior: Ref[Routes[Any, Response]],
   serverSocketBehavior: Ref[WebSocketApp[Any]],
-) extends ZClient.Driver[Any, Throwable] {
+) extends ZClient.Driver[Any, Scope, Throwable] {
+
+  /**
+   * Adds Routes to the TestClient
+   */
+  def addRoutes(
+    routes: Routes[Any, Response],
+  ): ZIO[Any, Nothing, Unit] =
+    behavior.update(_ ++ routes)
 
   /**
    * Adds an exact 1-1 behavior
@@ -84,11 +92,12 @@ final case class TestClient(
    *   }}}
    */
   def addRoutes[R](
-    routes: Routes[R, Response],
+    route: Route[R, Response],
+    routes: Route[R, Response]*,
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      provided = routes.provideEnvironment(r)
+      provided = Routes.fromIterable(route +: routes).provideEnvironment(r)
       _ <- behavior.update(_ ++ provided)
     } yield ()
 
@@ -130,7 +139,7 @@ final case class TestClient(
     url: URL,
     headers: Headers,
     app: WebSocketApp[Env1],
-  )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
+  )(implicit trace: Trace, ev: Scope =:= Scope): ZIO[Env1 & Scope, Throwable, Response] = {
     for {
       env                   <- ZIO.environment[Env1]
       currentSocketBehavior <- serverSocketBehavior.get
@@ -157,6 +166,9 @@ final case class TestClient(
 }
 
 object TestClient {
+
+  def addRoutes(routes: Routes[Any, Response]): ZIO[TestClient, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClient](_.addRoutes(routes))
 
   /**
    * Adds an exact 1-1 behavior
@@ -211,9 +223,10 @@ object TestClient {
    *   }}}
    */
   def addRoutes[R](
-    routes: Routes[R, Response],
+    route: Route[R, Response],
+    routes: Route[R, Response]*,
   ): ZIO[R with TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addRoutes(routes))
+    ZIO.serviceWithZIO[TestClient](_.addRoutes(route, routes: _*))
 
   def installSocketApp(
     app: WebSocketApp[Any],

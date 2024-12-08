@@ -1,0 +1,85 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "",
+    "version" : ""
+  },
+  "paths" : {
+    "/api/v1/keywords" : {
+      "post" : {
+        "requestBody" :
+        {
+          "content" : {
+            "application/json" : {
+              "schema" :
+              {
+                "type" :
+                "object",
+                "properties" : {
+                  "lazy" : {
+                    "type" :
+                    "boolean"
+                  },
+                  "case" : {
+                    "type" :
+                    "string"
+                  },
+                  "match" : {
+                    "type" :
+                    "string"
+                  }
+                },
+                "additionalProperties" :
+                true,
+                "required" : [
+                  "lazy",
+                  "case",
+                  "match"
+                ]
+              }
+
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" :
+          {
+            "description" : "",
+            "content" : {
+              "application/json" : {
+                "schema" :
+                {
+                  "type" :
+                  "object",
+                  "properties" : {
+                    "protected" : {
+                      "type" :
+                      "boolean"
+                    },
+                    "trait" : {
+                      "type" :
+                      "string"
+                    },
+                    "type" : {
+                      "type" :
+                      "string"
+                    }
+                  },
+                  "additionalProperties" :
+                  true,
+                  "required" : [
+                    "protected",
+                    "trait",
+                    "type"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
+    }
+  }
+}

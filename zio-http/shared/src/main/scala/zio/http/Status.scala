@@ -21,8 +21,6 @@ import scala.util.Try
 import zio.Trace
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http._
-
 sealed trait Status extends Product with Serializable { self =>
 
   def isInformational: Boolean = code >= 100 && code < 200
@@ -37,12 +35,16 @@ sealed trait Status extends Product with Serializable { self =>
    */
   val code: Int
 
+  val reasonPhrase: String =
+    self.productPrefix.flatMap { c => if (c.isUpper) s" $c" else s"$c" }.drop(1)
+
   lazy val text: String = code.toString
 
   /**
-   * Returns an HttpApp[Any, Nothing] that responses with this http status code.
+   * Returns a Routes[Any, Nothing] that responses with this http status code.
    */
-  def toHttpApp(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.status(self)
+  def toRoutes(implicit trace: Trace): Routes[Any, Nothing] =
+    Handler.status(self).toRoutes
 
   /**
    * Returns a Response with empty data and no headers.
@@ -54,7 +56,7 @@ object Status {
   sealed trait Informational extends Status // 100 – 199
   sealed trait Success       extends Status // 200 – 299
   sealed trait Redirection   extends Status // 300 – 399
-  sealed trait Error         extends Status // 400 – 499
+  sealed trait Error         extends Status // 400 – 599
   sealed trait ClientError   extends Error  // 400 – 499
   sealed trait ServerError   extends Error  // 500 – 599
 
@@ -170,7 +172,7 @@ object Status {
 
   case object NetworkAuthenticationRequired extends ServerError { override val code: Int = 511 }
 
-  final case class Custom(override val code: Int) extends Status
+  final case class Custom(override val code: Int, override val reasonPhrase: String = "") extends Status
 
   def fromString(code: String): Option[Status] =
     Try(code.toInt).toOption.map(fromInt)
@@ -233,7 +235,7 @@ object Status {
       case 507 => Status.InsufficientStorage
       case 510 => Status.NotExtended
       case 511 => Status.NetworkAuthenticationRequired
-      case _   => Status.Custom(code)
+      case _   => Status.Custom(code, "")
     }
   }
 }

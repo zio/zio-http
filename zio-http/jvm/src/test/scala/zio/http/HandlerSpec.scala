@@ -18,11 +18,14 @@ package zio.http
 
 import java.nio.file.Files
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
+@nowarn("msg=dead code")
 object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
 
   def spec = suite("Handler")(
@@ -395,7 +398,7 @@ object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
             assert(r.body)(equalTo(tempFile))
           }
         }
-      },
+      } @@ TestAspect.blocking,
       test("must fail if file does not exist") {
         val http = Handler.fromFileZIO(ZIO.succeed(new java.io.File("does-not-exist")))
 
@@ -414,7 +417,7 @@ object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
             status <- http.sandbox.merge.status.run()
           } yield assertTrue(status == Status.BadRequest)
         }
-      },
+      } @@ TestAspect.blocking,
       test("resource regression") {
         val handler = Handler.fromResource("TestFile.txt").sandbox
 

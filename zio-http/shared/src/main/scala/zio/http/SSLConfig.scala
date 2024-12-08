@@ -143,13 +143,13 @@ object SSLConfig {
       }
       val fromFile     =
         (Config.string("certPath") ++ Config.string("keyPath") ++ Config.Optional(
-          Config.string("trustCertCollectionPath"),
+          Config.string("trust-cert-collection-path"),
         )).map { case (certPath, keyPath, trustCertCollectionPath) =>
           FromFile(certPath, keyPath, trustCertCollectionPath)
         }
       val fromResource =
-        (Config.string("certResource") ++ Config.string("keyResource") ++ Config.Optional(
-          Config.string("trustCertCollectionResource"),
+        (Config.string("cert-resource") ++ Config.string("key-resource") ++ Config.Optional(
+          Config.string("trust-cert-collection-resource"),
         )).map { case (certPath, keyPath, trustCertCollectionPath) =>
           FromResource(certPath, keyPath, trustCertCollectionPath)
         }

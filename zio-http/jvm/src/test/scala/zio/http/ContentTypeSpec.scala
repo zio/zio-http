@@ -18,41 +18,43 @@ package zio.http
 
 import zio._
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.TestAspect.{timeout, withLiveClock}
+import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test._
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
-object ContentTypeSpec extends HttpRunnableSpec {
+object ContentTypeSpec extends RoutesRunnableSpec {
 
   val contentSpec = suite("Content type header on file response")(
     test("mp4") {
       val res =
-        Handler.fromResource("TestFile2.mp4").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+        Handler.fromResource("TestFile2.mp4").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.video.`mp4`))))
     },
     test("js") {
       val res =
-        Handler.fromResource("TestFile3.js").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
-      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.application.`javascript`))))
+        Handler.fromResource("TestFile3.js").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(
+        isSome(equalTo(Header.ContentType(MediaType.text.`javascript`, charset = Some(Charsets.Utf8)))),
+      )
     },
     test("no extension") {
-      val res = Handler.fromResource("TestFile4").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+      val res = Handler.fromResource("TestFile4").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isNone)
     },
     test("css") {
       val res =
-        Handler.fromResource("TestFile5.css").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
-      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.`css`))))
+        Handler.fromResource("TestFile5.css").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.`css`, charset = Some(Charsets.Utf8)))))
     },
     test("mp3") {
       val res =
-        Handler.fromResource("TestFile6.mp3").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
-      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.audio.`mpeg`))))
+        Handler.fromResource("TestFile6.mp3").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.audio.`mp3`))))
     },
     test("unidentified extension") {
       val res =
-        Handler.fromResource("truststore.jks").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+        Handler.fromResource("truststore.jks").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isNone)
     },
     test("already set content-type") {
@@ -62,7 +64,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
           .fromResource("TestFile6.mp3")
           .map(_.addHeader(Header.ContentType(expected)))
           .sandbox
-          .toHttpApp
+          .toRoutes
           .deploy(Request())
           .map(
             _.header(Header.ContentType),
@@ -74,6 +76,6 @@ object ContentTypeSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Content-type") {
       serve.as(List(contentSpec))
-    }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock
+    }.provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
   }
 }

@@ -17,6 +17,8 @@
 package zio.http
 import java.nio.charset._
 
+import scala.util.Try
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -73,6 +75,21 @@ sealed trait FormField {
       stream.runCollect
     case FormField.Simple(_, value)                    =>
       ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+  }
+
+  /**
+   * Gets the value of this form field as a chunk of bytes. If it is a text
+   * field, the value gets encoded as an UTF-8 byte stream.
+   */
+  final def asStream(implicit trace: Trace): ZStream[Any, Nothing, Byte] = this match {
+    case FormField.Text(_, value, _, _)                =>
+      ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+    case FormField.Binary(_, value, _, _, _)           =>
+      ZStream.fromChunk(value)
+    case FormField.StreamingBinary(_, _, _, _, stream) =>
+      stream
+    case FormField.Simple(_, value)                    =>
+      ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
   }
 
   def name(newName: String): FormField = this match {
@@ -145,9 +162,9 @@ object FormField {
   private[http] def fromFormAST(
     ast: Chunk[FormAST],
     defaultCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): ZIO[Any, FormDecodingError, FormField] = {
+  ): Either[FormDecodingError, FormField] = {
     val extract =
-      ast.foldLeft(
+      ast.init.foldLeft(
         (
           Option.empty[FormAST.Header],
           Option.empty[FormAST.Header],
@@ -157,6 +174,8 @@ object FormField {
       ) {
         case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Disposition")       =>
           (Some(header), accum._2, accum._3, accum._4)
+        case (accum, FormAST.EoL)                                                                         =>
+          (accum._1, accum._2, accum._3, accum._4 :+ FormAST.Content(FormAST.EoL.bytes))
         case (accum, content: FormAST.Content)                                                            =>
           (accum._1, accum._2, accum._3, accum._4 :+ content)
         case (accum, header: FormAST.Header) if header.name.equalsIgnoreCase("Content-Type")              =>
@@ -167,11 +186,12 @@ object FormField {
       }
 
     for {
-      disposition <- ZIO.fromOption(extract._1).orElseFail(FormDataMissingContentDisposition)
-      name        <- ZIO.fromOption(extract._1.flatMap(_.fields.get("name"))).orElseFail(ContentDispositionMissingName)
-      charset     <- ZIO
-        .attempt(extract._2.flatMap(x => x.fields.get("charset").map(Charset.forName)).getOrElse(defaultCharset))
-        .mapError(e => InvalidCharset(e.getMessage))
+      disposition <- extract._1.toRight(FormDataMissingContentDisposition)
+      name        <- extract._1.flatMap(_.fields.get("name")).toRight(ContentDispositionMissingName)
+      charset     <-
+        Try {
+          extract._2.flatMap(x => x.fields.get("charset").map(Charset.forName)).getOrElse(defaultCharset)
+        }.toEither.left.map(e => InvalidCharset(e.getMessage))
       contentParts     = extract._4.tail // Skip the first empty line
       content          = contentParts.foldLeft(Chunk.empty[Byte])(_ ++ _.bytes)
       contentType      = extract._2

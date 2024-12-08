@@ -367,7 +367,7 @@ object Flash {
       .flatMap(in => run(flash, in))
 
   private[http] def run[A](flash: Flash[A], sourceMap: Map[String, String]): Either[Throwable, A] = {
-    def loop[A](flash: Flash[A], map: Map[String, String]): Either[Throwable, A] =
+    def loop[A0](flash: Flash[A0], map: Map[String, String]): Either[Throwable, A0] =
       flash match {
         case Get(schema, key)   =>
           map
@@ -382,12 +382,12 @@ object Flash {
         case OrElse(self, that) =>
           loop(self, map) match {
             case Left(_)      => loop(that, map)
-            case r @ Right(_) => r.asInstanceOf[Either[Throwable, A]]
+            case r @ Right(_) => r.asInstanceOf[Either[Throwable, A0]]
           }
         case FlatMap(self, f)   =>
           loop(self, map) match {
             case Right(value) => loop(f(value), map)
-            case l @ Left(_)  => l.asInstanceOf[Either[Throwable, A]]
+            case l @ Left(_)  => l.asInstanceOf[Either[Throwable, A0]]
           }
         case Succeed(a)         => Right(a)
         case Fail(message)      => Left(new RuntimeException(message))

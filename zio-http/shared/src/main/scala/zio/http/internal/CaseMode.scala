@@ -16,7 +16,7 @@
 
 package zio.http.internal
 
-sealed trait CaseMode
+private[http] sealed trait CaseMode
 
 object CaseMode {
   case object Sensitive   extends CaseMode

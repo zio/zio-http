@@ -1,5 +1,7 @@
 package example
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
@@ -48,15 +50,15 @@ object WebSocketAdvanced extends ZIOAppDefault {
       }
     }
 
-  val app: HttpApp[Any] =
+  val routes: Routes[Any, Response] =
     Routes(
       Method.GET / "greet" / string("name") -> handler { (name: String, _: Request) =>
         Response.text(s"Greetings ${name}!")
       },
       Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
-    ).toHttpApp
+    )
 
-  override val run = Server.serve(app).provide(Server.default)
+  override val run = Server.serve(routes).provide(Server.default)
 }
 
 object WebSocketAdvancedClient extends ZIOAppDefault {
@@ -85,13 +87,15 @@ object WebSocketAdvancedClient extends ZIOAppDefault {
       } yield ()
     }.connect("ws://localhost:8080/subscriptions")
 
+  @nowarn("msg=dead code")
   override val run =
-    (for {
-      _ <- webSocketHandler
-      _ <- Console.readLine.flatMap(sendChatMessage).forever.forkDaemon
-      _ <- ZIO.never
-    } yield ())
-      .provideSome[Scope](
+    ZIO
+      .scoped(for {
+        _ <- webSocketHandler
+        _ <- Console.readLine.flatMap(sendChatMessage).forever.forkDaemon
+        _ <- ZIO.never
+      } yield ())
+      .provide(
         Client.default,
         ZLayer(Queue.bounded[String](100)),
       )

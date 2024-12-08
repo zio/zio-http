@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -72,7 +74,7 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   private[http] def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)]
 
   // TODO: Make this the one true representation and delete `incoming`
-  lazy val incomingHandler: Handler[Env, OutgoingOut, IncomingIn, (State, IncomingOut)] =
+  val incomingHandler: Handler[Env, OutgoingOut, IncomingIn, (State, IncomingOut)] =
     Handler.fromFunctionZIO[IncomingIn](incoming(_)(Trace.empty))
 
   def mapIncoming[IncomingOut2](
@@ -88,7 +90,7 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   private[http] def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut]
 
   // TODO: Make this the one true representation and delete `outgoing`
-  lazy val outgoingHandler: Handler[Env, Nothing, (State, OutgoingIn), OutgoingOut] =
+  val outgoingHandler: Handler[Env, Nothing, (State, OutgoingIn), OutgoingOut] =
     Handler.fromFunctionZIO[(State, OutgoingIn)] { case (state, in) =>
       outgoing(state, in)(Trace.empty)
     }
@@ -105,7 +107,9 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   ): ProtocolStack[Env1, IncomingIn, MiddleIncoming, MiddleOutgoing, OutgoingOut] =
     Concat(self, that)
 }
-object ProtocolStack                                                                   {
+
+@nowarn("msg=shadows")
+object ProtocolStack {
   def cond[IncomingIn](predicate: IncomingIn => Boolean): CondBuilder[IncomingIn] = new CondBuilder(predicate)
 
   def condZIO[IncomingIn]: CondZIOBuilder[IncomingIn] = new CondZIOBuilder[IncomingIn](())
@@ -200,7 +204,7 @@ object ProtocolStack                                                            
     def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] = incoming0(in)
 
     def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut] =
-      outgoing0(state, in)
+      outgoing0((state, in))
   }
   private[http] final case class Cond[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
     predicate: IncomingIn => Boolean,

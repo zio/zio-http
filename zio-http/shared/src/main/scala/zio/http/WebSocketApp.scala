@@ -72,8 +72,8 @@ final case class WebSocketApp[-R](
       Response.fromSocketApp(self.provideEnvironment(env))
     }
 
-  def toHttpAppWS(implicit trace: Trace): HttpApp[R] =
-    Handler.fromZIO(self.toResponse).toHttpApp
+  def toRoutes(implicit trace: Trace): Routes[R, Response] =
+    Handler.fromZIO(self.toResponse).toRoutes
 
   def withConfig(config: WebSocketConfig): WebSocketApp[R] =
     copy(customConfig = Some(config))

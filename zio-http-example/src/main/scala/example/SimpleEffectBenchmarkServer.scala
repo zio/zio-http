@@ -16,7 +16,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
 
   private val STATIC_SERVER_NAME = "zio-http"
 
-  private val app: HttpApp[Any] = Routes(
+  private val routes: Routes[Any, Response] = Routes(
     Method.GET / "plaintext" ->
       handler(
         Response
@@ -29,20 +29,18 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
           .json(jsonMessage)
           .addHeader(Header.Server(STATIC_SERVER_NAME)),
       ),
-  ).toHttpApp
+  )
 
   private val config = Server.Config.default
     .port(8080)
-    .enableRequestStreaming
 
   private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)
-    .maxThreads(8)
 
   private val configLayer      = ZLayer.succeed(config)
   private val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
   val run: UIO[ExitCode] =
-    Server.serve(app).provide(configLayer, nettyConfigLayer, Server.customized).exitCode
+    Server.serve(routes).provide(configLayer, nettyConfigLayer, Server.customized).exitCode
 
 }

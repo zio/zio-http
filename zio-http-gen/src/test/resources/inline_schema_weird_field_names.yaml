@@ -1,0 +1,49 @@
+info:
+  title: Shop Service
+  version: 0.0.1
+servers:
+  - url: http://127.0.0.1:5000/
+tags:
+  - name: Order_API
+paths:
+  /api/v1/shop/order/{id}:
+    get:
+      operationId: get_order_by_id
+      parameters:
+        - in: path
+          name: id
+          schema:
+            $ref: '#/components/schemas/OrderId'
+          required: true
+      tags:
+        - Order_API
+      description: Get order by id
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: OK
+openapi: 3.0.3
+components:
+  schemas:
+    Order:
+      type: object
+      required:
+        - ORDER-ID
+        - price_in dollars
+        - 1st item
+      properties:
+        ORDER-ID:
+          $ref: '#/components/schemas/OrderId'
+        price_in dollars:
+          type: number
+          minimum: 0
+        1st item:
+          type: string
+        2nd item:
+          type: string
+    OrderId:
+      type: string
+      format: uuid

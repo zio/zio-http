@@ -21,16 +21,16 @@ import zio.test.TestAspect.withLiveClock
 import zio.test._
 import zio.{Scope, ZIO, ZLayer}
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 
-object ServerStartSpec extends HttpRunnableSpec {
+object ServerStartSpec extends RoutesRunnableSpec {
 
   def serverStartSpec = suite("ServerStartSpec")(
     test("desired port") {
       val port   = 8088
       val config = Server.Config.default.port(port)
-      serve(HttpApp.empty).flatMap { port =>
+      serve(Routes.empty).flatMap { port =>
         assertZIO(ZIO.attempt(port))(equalTo(port))
       }.provide(
         ZLayer.succeed(config),
@@ -42,7 +42,7 @@ object ServerStartSpec extends HttpRunnableSpec {
     test("available port") {
       val port   = 0
       val config = Server.Config.default.port(port)
-      serve(HttpApp.empty).flatMap { bindPort =>
+      serve(Routes.empty).flatMap { bindPort =>
         assertZIO(ZIO.attempt(bindPort))(not(equalTo(port)))
       }.provide(
         ZLayer.succeed(config),
@@ -50,6 +50,15 @@ object ServerStartSpec extends HttpRunnableSpec {
         Server.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       )
+    },
+    test("application can shutdown if server is not started") {
+      ZIO
+        .succeed(assertCompletes)
+        .provide(
+          Server.customized.unit,
+          ZLayer.succeed(Server.Config.default.port(8089)),
+          ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+        )
     },
   )
 

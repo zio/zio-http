@@ -9,9 +9,9 @@ object StaticFiles extends ZIOAppDefault {
   /**
    * Creates an HTTP app that only serves static files from resources via
    * "/static". For paths other than the resources directory, see
-   * [[Middleware.serveDirectory]].
+   * [[zio.http.Middleware.serveDirectory]].
    */
-  val app = Routes.empty.toHttpApp @@ Middleware.serveResources(Path.empty / "static")
+  val routes = Routes.empty @@ Middleware.serveResources(Path.empty / "static")
 
-  override def run = Server.serve(app).provide(Server.default)
+  override def run = Server.serve(routes).provide(Server.default)
 }

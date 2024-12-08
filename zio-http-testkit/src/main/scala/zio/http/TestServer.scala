@@ -2,6 +2,9 @@ package zio.http
 
 import zio._
 
+import zio.http.netty.NettyConfig
+import zio.http.netty.server.NettyDriver
+
 /**
  * Enables tests that make calls against "localhost" with user-specified
  * Behavior/Responses.
@@ -68,9 +71,9 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      provided          = route.provideEnvironment(r)
-      app: HttpApp[Any] = provided.toHttpApp
-      _ <- driver.addApp(app, r)
+      provided                      = route.provideEnvironment(r)
+      routes: Routes[Any, Response] = provided.toRoutes
+      _ <- driver.addApp(routes, r)
     } yield ()
 
   /**
@@ -91,24 +94,24 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      provided          = routes.provideEnvironment(r)
-      app: HttpApp[Any] = provided.toHttpApp
-      _ <- driver.addApp(app, r)
+      provided: Routes[Any, Response] = routes.provideEnvironment(r)
+      _ <- driver.addApp(provided, r)
     } yield ()
 
-  override def install[R](httpApp: HttpApp[R])(implicit
+  override def install[R](routes: Routes[R, Response])(implicit
     trace: zio.Trace,
+    tag: EnvironmentTag[R],
   ): URIO[R, Unit] =
     ZIO
       .environment[R]
       .flatMap(
         driver.addApp(
-          httpApp,
+          routes,
           _,
         ),
       )
 
-  override def port: Int = bindPort
+  override def port: UIO[Int] = ZIO.succeed(bindPort)
 }
 
 object TestServer {
@@ -135,5 +138,12 @@ object TestServer {
         result <- driver.start
       } yield TestServer(driver, result.port)
     }
+
+  val default: ZLayer[Any, Nothing, Server with TestServer] = ZLayer.make[Server with TestServer][Nothing](
+    TestServer.layer.orDie,
+    ZLayer.succeed(Server.Config.default.onAnyOpenPort),
+    NettyDriver.customized.orDie,
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+  )
 
 }

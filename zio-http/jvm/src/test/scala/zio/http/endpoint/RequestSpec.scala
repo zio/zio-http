@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test._
 
@@ -26,10 +28,11 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.{extractStatus, testEndpoint, testEndpointWithHeaders}
 
+@nowarn("msg=possible missing interpolator")
+@nowarn("msg=dead code")
 object RequestSpec extends ZIOHttpSpec {
   def spec = suite("RequestSpec")(
     suite("handler")(
@@ -40,7 +43,7 @@ object RequestSpec extends ZIOHttpSpec {
               Endpoint(GET / "users" / int("userId"))
                 .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { case (userId, correlationId) =>
                     s"path(users, $userId) header(correlationId=$correlationId)"
                   }
@@ -48,7 +51,7 @@ object RequestSpec extends ZIOHttpSpec {
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
                 .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { case (userId, postId, correlationId) =>
                     s"path(users, $userId, posts, $postId) header(correlationId=$correlationId)"
                   }
@@ -71,15 +74,15 @@ object RequestSpec extends ZIOHttpSpec {
         check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
-              .query(query("id"))
+              .query(HttpCodec.query[String]("id"))
               .out[Int](MediaType.text.`plain`)
           val routes   =
-            endpoint.implement {
+            endpoint.implementHandler {
               Handler.succeed(id)
             }
 
           for {
-            response <- routes.toHttpApp.runZIO(
+            response <- routes.toRoutes.runZIO(
               Request
                 .get(URL.decode(s"/posts?id=$id").toOption.get)
                 .addHeader(Header.Accept(MediaType.text.`plain`)),
@@ -89,19 +92,64 @@ object RequestSpec extends ZIOHttpSpec {
             assertTrue(contentType == Some(ContentType(MediaType.text.`plain`)))
         }
       },
+      test("custom out header") {
+        val endpoint =
+          Endpoint(GET / "posts")
+            .out[String](MediaType.text.plain)
+            .outHeader(HttpCodec.age)
+        val routes   = endpoint.implementAs(("test", Header.Age(1.minute))).toRoutes
+        for {
+          response <- routes.runZIO(Request.get(URL.decode("/posts").toOption.get))
+          age = response.header(Header.Age)
+          body <- response.body.asString.orDie
+        } yield assertTrue(age.contains(Header.Age(1.minute)), body == "test")
+      },
+      test("custom out header for only one output") {
+        val endpoint    =
+          Endpoint(GET / "posts")
+            .out[String](MediaType.text.plain)
+            .outHeader(HttpCodec.age)
+            .out[Int](MediaType.text.plain)
+        val routesRight = endpoint.implementAs(Right(("test", Header.Age(1.minute)))).toRoutes
+        val routesLeft  = endpoint.implementAs(Left(1)).toRoutes
+        for {
+          responseRight <- routesRight.runZIO(Request.get(URL.decode("/posts").toOption.get))
+          ageRight = responseRight.header(Header.Age)
+          bodyRight    <- responseRight.body.asString.orDie
+          responseLeft <- routesLeft.runZIO(Request.get(URL.decode("/posts").toOption.get))
+          ageLeft = responseLeft.header(Header.Age)
+          bodyLeft <- responseLeft.body.asString.orDie
+        } yield assertTrue(
+          ageRight.contains(Header.Age(1.minute)),
+          bodyRight == "test",
+          ageLeft.isEmpty,
+          bodyLeft == "1",
+        )
+      },
+      test("custom out header with outCodec") {
+        val endpoint =
+          Endpoint(GET / "posts")
+            .outCodec((HttpCodec.content[String](MediaType.text.plain) | HttpCodec.content[Int]) ++ HttpCodec.age)
+        val routes   = endpoint.implementAs((Left("test"), Header.Age(1.minute))).toRoutes
+        for {
+          response <- routes.runZIO(Request.get(URL.decode("/posts").toOption.get))
+          age = response.header(Header.Age)
+          body <- response.body.asString.orDie
+        } yield assertTrue(age.contains(Header.Age(1.minute)), body == "test")
+      },
       test("multiple Accept headers") {
         check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
-              .query(query("id"))
+              .query(HttpCodec.query[String]("id"))
               .out[Int](MediaType.text.`plain`)
           val routes   =
-            endpoint.implement {
+            endpoint.implementHandler {
               Handler.succeed(id)
             }
 
           for {
-            response <- routes.toHttpApp.runZIO(
+            response <- routes.toRoutes.runZIO(
               Request
                 .get(URL.decode(s"/posts?id=$id").toOption.get)
                 .addHeader(Header.Accept(MediaType.application.`json`, MediaType.text.`plain`)),
@@ -115,15 +163,15 @@ object RequestSpec extends ZIOHttpSpec {
         check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
-              .query(query("id"))
+              .query(HttpCodec.query[String]("id"))
               .out[Int](Status.NotFound)
           val routes   =
-            endpoint.implement {
+            endpoint.implementHandler {
               Handler.succeed(id)
             }
 
           for {
-            response <- routes.toHttpApp.runZIO(
+            response <- routes.toRoutes.runZIO(
               Request.get(URL.decode(s"/posts?id=$id").toOption.get),
             )
           } yield assertTrue(extractStatus(response).code == 404)
@@ -134,11 +182,11 @@ object RequestSpec extends ZIOHttpSpec {
           check(Gen.int, Gen.boolean) { (id, notAnId) =>
             val endpoint =
               Endpoint(GET / "posts")
-                .query(queryInt("id"))
+                .query(HttpCodec.query[Int]("id"))
                 .out[Int]
-            val routes   = endpoint.implement { Handler.succeed(id) }
+            val routes   = endpoint.implementHandler { Handler.succeed(id) }
             for {
-              response <- routes.toHttpApp.runZIO(
+              response <- routes.toRoutes.runZIO(
                 Request.get(url"/posts?id=$notAnId").addHeader(Header.Accept(MediaType.application.`json`)),
               )
               contentType = response.header(Header.ContentType)
@@ -155,12 +203,12 @@ object RequestSpec extends ZIOHttpSpec {
                 .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
                 .out[Int]
             val routes   =
-              endpoint.implement {
+              endpoint.implementHandler {
                 Handler.succeed(id)
               }
 
             for {
-              response <- routes.toHttpApp.runZIO(
+              response <- routes.toRoutes.runZIO(
                 Request.get(URL.decode(s"/posts").toOption.get).addHeader("X-Correlation-ID", notACorrelationId),
               )
             } yield assertTrue(extractStatus(response).code == 400)
@@ -174,12 +222,12 @@ object RequestSpec extends ZIOHttpSpec {
               .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
               .out[Int]
           val routes   =
-            endpoint.implement {
+            endpoint.implementHandler {
               Handler.succeed(id)
             }
 
           for {
-            response <- routes.toHttpApp.runZIO(
+            response <- routes.toRoutes.runZIO(
               Request.get(URL.decode(s"/posts").toOption.get),
             )
           } yield assertTrue(extractStatus(response).code == 400)
@@ -191,16 +239,16 @@ object RequestSpec extends ZIOHttpSpec {
             Routes(
               Endpoint(GET / "users" / int("userId"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { userId =>
                     s"path(users, $userId)"
                   }
                 },
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-                .query(query("name"))
-                .query(query("age"))
+                .query(HttpCodec.query[String]("name"))
+                .query(HttpCodec.query[String]("age"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { case (userId, postId, name, age) =>
                     s"path(users, $userId, posts, $postId) query(name=$name, age=$age)"
                   }
@@ -219,9 +267,9 @@ object RequestSpec extends ZIOHttpSpec {
           val testRoutes = testEndpoint(
             Routes(
               Endpoint(GET / "users")
-                .query(queryInt("userId") | query("userId"))
+                .query(HttpCodec.query[Int]("userId") | HttpCodec.query[String]("userId"))
                 .out[String]
-                .implement {
+                .implementHandler {
                   Handler.fromFunction { userId =>
                     val value = userId.fold(_.toString, identity)
                     s"path(users) query(userId=$value)"
@@ -236,11 +284,11 @@ object RequestSpec extends ZIOHttpSpec {
       test("broad api") {
         check(Gen.int, Gen.int, Gen.int, Gen.int) { (userId, postId, commentId, replyId) =>
           val broadUsers                       =
-            Endpoint(GET / "users").out[String](Doc.p("Created user id")).implement {
+            Endpoint(GET / "users").out[String](Doc.p("Created user id")).implementHandler {
               Handler.succeed("path(users)")
             }
           val broadUsersId                     =
-            Endpoint(GET / "users" / int("userId")).out[String].implement {
+            Endpoint(GET / "users" / int("userId")).out[String].implementHandler {
               Handler.fromFunction { userId =>
                 s"path(users, $userId)"
               }
@@ -248,7 +296,7 @@ object RequestSpec extends ZIOHttpSpec {
           val boardUsersPosts                  =
             Endpoint(GET / "users" / int("userId") / "posts")
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId, posts)"
                 }
@@ -256,7 +304,7 @@ object RequestSpec extends ZIOHttpSpec {
           val boardUsersPostsId                =
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId) =>
                   s"path(users, $userId, posts, $postId)"
                 }
@@ -267,7 +315,7 @@ object RequestSpec extends ZIOHttpSpec {
                 "users" / int("userId") / "posts" / int("postId") / "comments",
             )
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId) =>
                   s"path(users, $userId, posts, $postId, comments)"
                 }
@@ -278,15 +326,15 @@ object RequestSpec extends ZIOHttpSpec {
                 "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId"),
             )
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, commentId) =>
                   s"path(users, $userId, posts, $postId, comments, $commentId)"
                 }
               }
           val broadPosts                       =
-            Endpoint(GET / "posts").out[String].implement(Handler.succeed("path(posts)"))
+            Endpoint(GET / "posts").out[String].implementHandler(Handler.succeed("path(posts)"))
           val broadPostsId                     =
-            Endpoint(GET / "posts" / int("postId")).out[String].implement {
+            Endpoint(GET / "posts" / int("postId")).out[String].implementHandler {
               Handler.fromFunction { postId =>
                 s"path(posts, $postId)"
               }
@@ -294,7 +342,7 @@ object RequestSpec extends ZIOHttpSpec {
           val boardPostsComments               =
             Endpoint(GET / "posts" / int("postId") / "comments")
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { postId =>
                   s"path(posts, $postId, comments)"
                 }
@@ -302,15 +350,15 @@ object RequestSpec extends ZIOHttpSpec {
           val boardPostsCommentsId             =
             Endpoint(GET / "posts" / int("postId") / "comments" / int("commentId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (postId, commentId) =>
                   s"path(posts, $postId, comments, $commentId)"
                 }
               }
           val broadComments                    =
-            Endpoint(GET / "comments").out[String].implement(Handler.succeed("path(comments)"))
+            Endpoint(GET / "comments").out[String].implementHandler(Handler.succeed("path(comments)"))
           val broadCommentsId                  =
-            Endpoint(GET / "comments" / int("commentId")).out[String].implement {
+            Endpoint(GET / "comments" / int("commentId")).out[String].implementHandler {
               Handler.fromFunction { commentId =>
                 s"path(comments, $commentId)"
               }
@@ -318,7 +366,7 @@ object RequestSpec extends ZIOHttpSpec {
           val broadUsersComments               =
             Endpoint(GET / "users" / int("userId") / "comments")
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId, comments)"
                 }
@@ -326,7 +374,7 @@ object RequestSpec extends ZIOHttpSpec {
           val broadUsersCommentsId             =
             Endpoint(GET / "users" / int("userId") / "comments" / int("commentId"))
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, commentId) =>
                   s"path(users, $userId, comments, $commentId)"
                 }
@@ -337,7 +385,7 @@ object RequestSpec extends ZIOHttpSpec {
                 "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies",
             )
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, commentId) =>
                   s"path(users, $userId, posts, $postId, comments, $commentId, replies)"
                 }
@@ -349,7 +397,7 @@ object RequestSpec extends ZIOHttpSpec {
                 "replies" / int("replyId"),
             )
               .out[String]
-              .implement {
+              .implementHandler {
                 Handler.fromFunction { case (userId, postId, commentId, replyId) =>
                   s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)"
                 }
@@ -405,9 +453,9 @@ object RequestSpec extends ZIOHttpSpec {
       },
       test("composite in codecs") {
         check(Gen.alphaNumericString, Gen.alphaNumericString) { (queryValue, headerValue) =>
-          val headerOrQuery             = HeaderCodec.name[String]("X-Header") | QueryCodec.query("header")
+          val headerOrQuery             = HeaderCodec.name[String]("X-Header") | HttpCodec.query[String]("header")
           val endpoint                  = Endpoint(GET / "test").out[String].inCodec(headerOrQuery)
-          val routes                    = endpoint.implement(Handler.identity)
+          val routes                    = endpoint.implementHandler(Handler.identity).toRoutes
           val request                   = Request.get(
             URL
               .decode(s"/test?header=$queryValue")
@@ -425,11 +473,11 @@ object RequestSpec extends ZIOHttpSpec {
             .addHeader("X-Header", headerValue)
 
           for {
-            response       <- routes.toHttpApp.runZIO(request)
+            response       <- routes.runZIO(request)
             onlyQuery      <- response.body.asString.orDie
-            response       <- routes.toHttpApp.runZIO(requestWithHeader)
+            response       <- routes.runZIO(requestWithHeader)
             onlyHeader     <- response.body.asString.orDie
-            response       <- routes.toHttpApp.runZIO(requestWithHeaderAndQuery)
+            response       <- routes.runZIO(requestWithHeaderAndQuery)
             headerAndQuery <- response.body.asString.orDie
           } yield assertTrue(
             onlyQuery == s""""$queryValue"""",
@@ -439,15 +487,15 @@ object RequestSpec extends ZIOHttpSpec {
         }
       },
       test("composite out codecs") {
-        val headerOrQuery     = HeaderCodec.name[String]("X-Header") | StatusCodec.status(Status.Created)
-        val endpoint          = Endpoint(GET / "test").query(QueryCodec.queryBool("Created")).outCodec(headerOrQuery)
-        val routes            =
-          endpoint.implement {
+        val headerOrQuery  = HeaderCodec.name[String]("X-Header") | StatusCodec.status(Status.Created)
+        val endpoint       = Endpoint(GET / "test").query(HttpCodec.query[Boolean]("Created")).outCodec(headerOrQuery)
+        val routes         =
+          endpoint.implementHandler {
             Handler.fromFunction { created =>
               if (created) Right(()) else Left("not created")
             }
-          }
-        val requestCreated    = Request.get(
+          }.toRoutes
+        val requestCreated = Request.get(
           URL
             .decode("/test?Created=true")
             .toOption
@@ -461,9 +509,9 @@ object RequestSpec extends ZIOHttpSpec {
         )
 
         for {
-          notCreated <- routes.toHttpApp.runZIO(requestNotCreated)
+          notCreated <- routes.runZIO(requestNotCreated)
           header = notCreated.rawHeader("X-Header").get
-          response <- routes.toHttpApp.runZIO(requestCreated)
+          response <- routes.runZIO(requestCreated)
           value = header == "not created" &&
             extractStatus(notCreated) == Status.Ok &&
             extractStatus(response) == Status.Created
@@ -481,7 +529,7 @@ object RequestSpec extends ZIOHttpSpec {
                 .in[NewPost](Doc.p("New post"))
                 .out[PostCreated](Status.Created, MediaType.application.`json`)
             val routes   =
-              endpoint.implement(Handler.succeed(PostCreated(postId)))
+              endpoint.implementHandler(Handler.succeed(PostCreated(postId))).toRoutes
             val request  =
               Request
                 .post(
@@ -490,7 +538,7 @@ object RequestSpec extends ZIOHttpSpec {
                 )
 
             for {
-              response <- routes.toHttpApp.runZIO(request)
+              response <- routes.runZIO(request)
               code        = extractStatus(response)
               contentType = response.header(Header.ContentType)
               body <- response.body.asString.orDie
@@ -509,10 +557,10 @@ object RequestSpec extends ZIOHttpSpec {
                 .in[NewPost]
                 .out[Int]
             val routes   =
-              endpoint.implement(Handler.succeed(postId))
+              endpoint.implementHandler(Handler.succeed(postId)).toRoutes
 
             for {
-              response <- routes.toHttpApp.runZIO(
+              response <- routes.runZIO(
                 Request
                   .post(
                     URL.decode("/posts").toOption.get,
@@ -528,10 +576,11 @@ object RequestSpec extends ZIOHttpSpec {
           check(Gen.chunkOfBounded(1, 1024)(Gen.byte)) { bytes =>
             val route = Endpoint(GET / "test-byte-stream")
               .outStream[Byte](Doc.p("Test data"))
-              .implement(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
+              .implementHandler(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
+              .toRoutes
 
             for {
-              result   <- route.toHttpApp.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
+              result   <- route.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
               response <- result match {
                 case Exit.Success(value) => ZIO.succeed(value)
                 case Exit.Failure(cause) =>
@@ -551,10 +600,11 @@ object RequestSpec extends ZIOHttpSpec {
           check(Gen.chunkOfBounded(1, 1024)(Gen.byte)) { bytes =>
             val route = Endpoint(GET / "test-byte-stream")
               .outStream[Byte](Status.Ok, MediaType.image.png)
-              .implement(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
+              .implementHandler(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
+              .toRoutes
 
             for {
-              result   <- route.toHttpApp.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
+              result   <- route.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
               response <- result match {
                 case Exit.Success(value) => ZIO.succeed(value)
                 case Exit.Failure(cause) =>
@@ -575,14 +625,15 @@ object RequestSpec extends ZIOHttpSpec {
             val route = Endpoint(POST / "test-byte-stream")
               .inStream[Byte]
               .out[Long]
-              .implement {
+              .implementHandler {
                 Handler.fromFunctionZIO { byteStream =>
                   byteStream.runCount
                 }
               }
+              .toRoutes
 
             for {
-              result   <- route.toHttpApp
+              result   <- route
                 .runZIO(Request.post(URL.decode("/test-byte-stream").toOption.get, Body.fromChunk(bytes)))
                 .exit
               response <- result match {

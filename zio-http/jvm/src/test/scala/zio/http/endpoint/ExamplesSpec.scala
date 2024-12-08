@@ -16,24 +16,10 @@
 
 package zio.http.endpoint
 
-import java.time.Instant
-
-import zio._
 import zio.test._
 
-import zio.stream.ZStream
-
-import zio.schema.annotation.validate
-import zio.schema.validation.Validation
-import zio.schema.{DeriveSchema, Schema}
-
-import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http._
-import zio.http.codec.HttpCodec.{query, queryInt}
-import zio.http.codec._
-import zio.http.endpoint._
-import zio.http.forms.Fixtures.formField
 
 object ExamplesSpec extends ZIOHttpSpec {
   def spec = suite("ExamplesSpec")(
@@ -47,10 +33,10 @@ object ExamplesSpec extends ZIOHttpSpec {
           Endpoint(GET / "repos" / string("org") / string("repo"))
             .out[String]
             .examplesIn(
-              "org/repo1" -> ("zio", "http"),
-              "org/repo2" -> ("zio", "zio"),
-              "org/repo3" -> ("zio", repo1),
-              "org/repo4" -> ("zio", repo2),
+              ("org/repo1", ("zio", "http")),
+              ("org/repo2", ("zio", "zio")),
+              ("org/repo3", ("zio", repo1)),
+              ("org/repo4", ("zio", repo2)),
             )
             .examplesOut("repos" -> s"zio, http, $repo1, $repo2")
         val inExamples1          = endpoint.examplesIn
@@ -59,10 +45,10 @@ object ExamplesSpec extends ZIOHttpSpec {
         val expectedOutExamples1 = Map("repos" -> s"all, zio, repos, $repo1, $repo2")
         val inExamples2          = endpoint2.examplesIn
         val expectedInExamples2  = Map(
-          "org/repo1" -> ("zio", "http"),
-          "org/repo2" -> ("zio", "zio"),
-          "org/repo3" -> ("zio", repo1),
-          "org/repo4" -> ("zio", repo2),
+          ("org/repo1", ("zio", "http")),
+          ("org/repo2", ("zio", "zio")),
+          ("org/repo3", ("zio", repo1)),
+          ("org/repo4", ("zio", repo2)),
         )
         val outExamples2         = endpoint2.examplesOut
         val expectedOutExamples2 = Map("repos" -> s"zio, http, $repo1, $repo2")

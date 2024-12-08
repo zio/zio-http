@@ -45,11 +45,7 @@ private[http] object UrlInterpolatorMacro {
         case Left(error) => errorAndAbort(s"Invalid URL: $error", sc)
         case Right(url) =>
           val uri = Expr(url.encode)
-          if (url.isAbsolute) {
-            '{ URL.fromAbsoluteURI(new java.net.URI($uri)).get }
-          } else {
-            '{ URL.fromRelativeURI(new java.net.URI($uri)).get }
-          }
+          '{ URL.fromURI(new java.net.URI($uri)).get }
       }
     } else {
       val injectedPartExamples =
@@ -96,15 +92,7 @@ private[http] object UrlInterpolatorMacro {
               '{$acc + $part}
             }
 
-          if (url.isAbsolute) {
-            '{
-              URL.fromAbsoluteURI(new java.net.URI($concatenated)).get
-            }
-          } else {
-            '{
-              URL.fromRelativeURI(new java.net.URI($concatenated)).get
-            }
-          }
+          '{ URL.fromURI(new java.net.URI($concatenated)).get }
       }
     }
 

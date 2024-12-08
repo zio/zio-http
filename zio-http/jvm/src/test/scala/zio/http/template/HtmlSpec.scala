@@ -63,6 +63,16 @@ case object HtmlSpec extends ZIOHttpSpec {
         val expected = """<div class="container">Hello!</div>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       },
+      test("tags with default boolean attributes") {
+        val view     = input(typeAttr := "text", requiredAttr)
+        val expected = """<input type="text" required/>"""
+        assert(view.encode)(equalTo(expected.stripMargin))
+      },
+      test("tags with boolean attributes") {
+        val view     = input(typeAttr := "text", requiredAttr := false)
+        val expected = """<input type="text" required="false"/>"""
+        assert(view.encode)(equalTo(expected.stripMargin))
+      },
       suite("implicit conversions")(
         test("from unit") {
           val view: Html = {}

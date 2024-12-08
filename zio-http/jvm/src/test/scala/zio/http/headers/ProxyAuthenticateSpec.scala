@@ -16,6 +16,8 @@
 
 package zio.http.headers
 
+import scala.annotation.nowarn
+
 import zio.Scope
 import zio.test._
 
@@ -23,6 +25,7 @@ import zio.http.Header.ProxyAuthenticate
 import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
+@nowarn("msg=possible missing interpolator")
 object ProxyAuthenticateSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("ProxyAuthenticateSpec")(

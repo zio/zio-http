@@ -16,11 +16,14 @@
 
 package zio.http.template
 
+import scala.annotation.nowarn
+
 import zio.test.{assertTrue, check, checkAll}
 
 import zio.http.ZIOHttpSpec
 import zio.http.template.HtmlGen.{tagGen, voidTagGen}
 
+@nowarn("msg=possible missing interpolator")
 object DomSpec extends ZIOHttpSpec {
   def spec = suite("DomSpec")(
     test("empty") {
@@ -77,6 +80,22 @@ object DomSpec extends ZIOHttpSpec {
         assertTrue(dom.encode == """<a href="https://www.zio-http.com" title="click me!"></a>""")
       },
     ),
+    test("element with non value required attribute") {
+      val dom = Dom.element(
+        "input",
+        Dom.booleanAttr("required"),
+      )
+
+      assertTrue(dom.encode == """<input required/>""")
+    },
+    test("element with value required attribute") {
+      val dom = Dom.element(
+        "input",
+        Dom.booleanAttr("required", Some(true)),
+      )
+
+      assertTrue(dom.encode == """<input required="true"/>""")
+    },
     test("element with attribute & children") {
       val dom = Dom.element(
         "a",

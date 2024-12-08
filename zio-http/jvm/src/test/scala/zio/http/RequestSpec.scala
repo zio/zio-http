@@ -16,8 +16,10 @@
 
 package zio.http
 
-import zio.Scope
 import zio.test._
+import zio.{Chunk, Ref, Scope}
+
+import zio.stream.ZStream
 
 object RequestSpec extends ZIOHttpSpec {
 
@@ -96,6 +98,52 @@ object RequestSpec extends ZIOHttpSpec {
       val actual   = Request.get("https://foo.com/bar")
       assertTrue(actual == expected)
     },
+    suite("ignore")(
+      test("consumes the stream") {
+        for {
+          flag <- Ref.make(false)
+          stream   = ZStream.succeed(1.toByte) ++ ZStream.fromZIO(flag.set(true).as(2.toByte))
+          response = Request(body = Body.fromStreamChunked(stream))
+          _ <- response.ignoreBody
+          v <- flag.get
+        } yield assertTrue(v)
+      },
+      test("ignores failures when consuming the stream") {
+        for {
+          flag1 <- Ref.make(false)
+          flag2 <- Ref.make(false)
+          stream   = ZStream.succeed(1.toByte) ++
+            ZStream.fromZIO(flag1.set(true).as(2.toByte)) ++
+            ZStream.fail(new Throwable("boom")) ++
+            ZStream.fromZIO(flag1.set(true).as(2.toByte))
+          response = Request(body = Body.fromStreamChunked(stream))
+          _  <- response.ignoreBody
+          v1 <- flag1.get
+          v2 <- flag2.get
+        } yield assertTrue(v1, !v2)
+      },
+    ),
+    suite("collect")(
+      test("materializes the stream") {
+        val stream   = ZStream.succeed(1.toByte) ++ ZStream.succeed(2.toByte)
+        val response = Request(body = Body.fromStreamChunked(stream))
+        for {
+          newResp <- response.collect
+          body = newResp.body
+          bytes <- body.asChunk
+        } yield assertTrue(body.isComplete, body.isInstanceOf[Body.UnsafeBytes], bytes == Chunk[Byte](1, 2))
+      },
+      test("failures are preserved") {
+        val err      = new Throwable("boom")
+        val stream   = ZStream.succeed(1.toByte) ++ ZStream.fail(err) ++ ZStream.succeed(2.toByte)
+        val response = Request(body = Body.fromStreamChunked(stream))
+        for {
+          newResp <- response.collect
+          body = newResp.body
+          bytes <- body.asChunk.either
+        } yield assertTrue(body.isComplete, body.isInstanceOf[Body.ErrorBody], bytes == Left(err))
+      },
+    ),
   )
 
 }
