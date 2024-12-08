@@ -37,7 +37,7 @@ object MediaTypeSpec extends ZIOHttpSpec {
       }
     },
     test("custom mime type parsing") {
-      assertTrue(MediaType.parseCustomMediaType("custom/mime").contains(MediaType("custom", "mime")))
+      assertTrue(MediaType.parseCustomMediaType("custom/mime").contains(MediaType("custom", "mime", binary = true)))
     },
     test("optional parameter parsing") {
       assertTrue(
@@ -47,6 +47,14 @@ object MediaTypeSpec extends ZIOHttpSpec {
             application.`json`.copy(parameters = Map("p1" -> "1", "p2" -> "2", "p3" -> "\"quoted\"")),
           ),
       )
+    },
+    test("application/x-zip-compressed should be binary") {
+      val mediaType = MediaType.forContentType("application/x-zip-compressed")
+      assertTrue(mediaType.exists(_.binary))
+    },
+    test("text/plain should not be binary") {
+      val mediaType = MediaType.forContentType("text/plain")
+      assertTrue(mediaType.exists(!_.binary))
     },
   )
 }
