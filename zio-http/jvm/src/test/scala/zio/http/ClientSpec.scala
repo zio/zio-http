@@ -120,6 +120,16 @@ object ClientSpec extends RoutesRunnableSpec {
         app.deploy(Request(headers = Headers(Header.Authorization.Unparsed("", "my-token")))).flatMap(_.body.asString)
       assertZIO(responseContent)(equalTo("my-token"))
     } @@ timeout(5.seconds),
+    test("URL and path manipulation on client level") {
+      for {
+        baseURL   <- DynamicServer.httpURL
+        _         <-
+          Handler.ok.toRoutes.deployAndRequest { c =>
+            (c.updatePath(_ / "my-service") @@ ZClientAspect.requestLogging()).batched.get("/hello")
+          }.runZIO(())
+        loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
+      } yield assertTrue(loggedUrl == baseURL + "/my-service/hello")
+    },
   )
 
   override def spec = {

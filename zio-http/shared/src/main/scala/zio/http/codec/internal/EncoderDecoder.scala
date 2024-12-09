@@ -419,18 +419,21 @@ private[codec] object EncoderDecoder {
     private def decodeBody(config: CodecConfig, body: Body, inputs: Array[Any])(implicit
       trace: Trace,
     ): Task[Unit] = {
-      val codecs = flattened.content
+      val isNonMultiPart = inputs.length < 2
+      if (isNonMultiPart) {
+        val codecs = flattened.content
 
-      if (inputs.length < 2) {
-        // non multi-part
-        codecs.headOption.map { codec =>
+        // noinspection SimplifyUnlessInspection
+        if (codecs.isEmpty) ZIO.unit
+        else {
+          val codec = codecs.head
           codec
             .decodeFromBody(body, config)
             .mapBoth(
-              { err => HttpCodecError.MalformedBody(err.getMessage(), Some(err)) },
+              { err => HttpCodecError.MalformedBody(err.getMessage, Some(err)) },
               result => inputs(0) = result,
             )
-        }.getOrElse(ZIO.unit)
+        }
       } else {
         // multi-part
         decodeForm(body.asMultipartFormStream, inputs, config) *> check(inputs)
