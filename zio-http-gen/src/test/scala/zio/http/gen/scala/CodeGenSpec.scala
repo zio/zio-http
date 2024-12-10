@@ -198,6 +198,16 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema request and response body with minLength and maxLength") {
+        val openAPIString = stringFromResource("/inline_schema_minmaxlength.json")
+
+        openApiFromJsonString(openAPIString) { openAPI =>
+          codeGenFromOpenAPI(openAPI) { testDir =>
+            fileShouldBe(testDir, "api/v1/Entries.scala", "/EndpointWithRequestResponseBodyInlineMinMaxLength.scala")
+          }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+
       test("OpenAPI spec with inline schema request and response body, with nested object schema") {
         val openAPIString = stringFromResource("/inline_schema_nested.json")
 

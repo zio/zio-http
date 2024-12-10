@@ -293,8 +293,8 @@ object JsonSchema {
         JsonSchema.String(
           schema.format.map(StringFormat.fromString),
           schema.pattern.map(Pattern.apply),
-          schema.minLength,
           schema.maxLength,
+          schema.minLength,
         )
       case schema if schema.schemaType.contains(TypeOrTypes.Type("boolean"))                             =>
         JsonSchema.Boolean
