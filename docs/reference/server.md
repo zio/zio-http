@@ -44,7 +44,7 @@ Server.serve(routes).provide(
 )
 ```
 
-:::note
+:::note[Handling Interrupt Signals (Ctrl+C) in SBT]
 Sometimes we may want to have more control over installation of the http application into the server. In such cases, we may want to use the `Server.install` method. This method only installs the `Routes` into the server, and the lifecycle of the server can be managed separately.
 :::
 
