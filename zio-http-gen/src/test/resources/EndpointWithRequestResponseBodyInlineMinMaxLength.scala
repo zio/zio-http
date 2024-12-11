@@ -14,6 +14,10 @@ object Entries {
   object POST {
     import zio.schema.annotation.validate
     import zio.schema.validation.Validation
+    import java.util.UUID
+    import java.time.Instant
+    import java.time.LocalTime
+    import java.time.LocalDate
 
     case class RequestBody(
       id: Int,
@@ -23,8 +27,12 @@ object Entries {
       implicit val codec: Schema[RequestBody] = DeriveSchema.gen[RequestBody]
     }
     case class ResponseBody(
-      id: Int,
       @validate[String](Validation.maxLength(255) && Validation.minLength(1)) name: String,
+      uuid: Option[UUID],
+      deadline: Option[Instant],
+      id: Int,
+      time: Option[LocalTime],
+      day: LocalDate,
     )
     object ResponseBody {
       implicit val codec: Schema[ResponseBody] = DeriveSchema.gen[ResponseBody]

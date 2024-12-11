@@ -61,13 +61,32 @@
                       "string",
                       "minLength" : 1,
                       "maxLength" : 255
+                    },
+                    "day" : {
+                      "type" :
+                      "string",
+                      "format": "date"
+                    },
+                    "deadline": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "time"
+                    },
+                    "uuid" : {
+                      "type" :
+                      "string",
+                      "format" : "uuid"
                     }
                   },
                   "additionalProperties" :
                   true,
                   "required" : [
                     "id",
-                    "name"
+                    "name",
+                    "day"
                   ]
                 }
 
