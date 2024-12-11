@@ -89,16 +89,15 @@ private[zio] final case class ServerInboundHandler(
           } else {
             val req = makeZioRequest(ctx, jReq)
             if (!validateHostHeader(req)) {
+              // Validation failed, return 400 Bad Request
               attemptFastWrite(ctx, req.method, Response.status(Status.BadRequest))
               releaseRequest()
             } else {
-
               val exit = handler(req)
               if (attemptImmediateWrite(ctx, req.method, exit)) {
                 releaseRequest()
               } else {
                 writeResponse(ctx, runtime, exit, req)(releaseRequest)
-
               }
             }
           }
@@ -119,31 +118,25 @@ private[zio] final case class ServerInboundHandler(
     val host = req.headers.get("Host").getOrElse(null)
     if (host != null) {
       val parts       = host.split(":")
-      val hostname    = parts(0)
-      val isValidHost = validateHostname(hostname)
+      val isValidHost = parts(0).forall(c => c.isLetterOrDigit || c == '.' || c == '-')
       val isValidPort = parts.length == 1 || (parts.length == 2 && parts(1).forall(_.isDigit))
       val isValid     = isValidHost && isValidPort
+      if (!isValid) {
+        ZIO
+          .logWarning(
+            s"Invalid Host header for request ${req.method} ${req.url}. " +
+              s"Host: $host, isValidHost: $isValidHost, isValidPort: $isValidPort",
+          )
+      }
       isValid
     } else {
+      ZIO.logWarning(s"Missing Host header for request ${req.method} ${req.url}")
       false
     }
   }
 
-// Validate a regular hostname (based on RFC 1035)
-  private def validateHostname(hostname: String): Boolean = {
-    if (hostname.isEmpty || hostname.contains("_")) {
-      return false
-    }
-    val labels = hostname.split("\\.")
-    if (labels.exists(label => label.isEmpty || label.length > 63 || label.startsWith("-") || label.endsWith("-"))) {
-      return false
-    }
-    hostname.forall(c => c.isLetterOrDigit || c == '.' || c == '-') && hostname.length <= 253
-  }
-
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
     cause match {
-
       case ioe: IOException if {
             val msg = ioe.getMessage
             (msg ne null) && msg.contains("Connection reset")
@@ -296,6 +289,7 @@ private[zio] final case class ServerInboundHandler(
           remoteCertificate = clientCert,
         )
     }
+
   }
 
   /*
