@@ -566,6 +566,12 @@ printSource("zio-http-example/src/main/scala/example/GracefulShutdown.scala")
 
 This approach ensures that clients receive appropriate responses for their requests, rather than encountering errors or abrupt disconnections. It helps maintain the integrity of the communication between clients and the server, providing a smoother experience for users and preventing potential data loss or corruption.
 
+:::Note
+When running a server through SBT, pressing Ctrl+C doesn't cleanly shut down the application. Instead, SBT intercepts the signal and throws a `java.lang.InterruptedException`, bypassing any custom shutdown handlers you may have implemented.
+
+However, if you run the same server directly from a packaged JAR file using `java -jar`, Ctrl+C will trigger the expected graceful shutdown sequence, allowing your application to clean up resources properly before terminating.
+:::
+
 ## Idle Timeout Configuration
 
 The idle timeout is a mechanism by which the server automatically terminates an inactive connection after a certain period of inactivity. When a client connects to the server, it establishes a connection to request and receive responses. However, there may be instances where the client becomes slow, inactive, or unresponsive, and the server needs to reclaim resources associated with idle connections to optimize server performance and resource utilization.
