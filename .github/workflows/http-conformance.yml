@@ -43,6 +43,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: sbt
 
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+          
       - name: Setup GraalVM (graal_graalvm@21)
         if: matrix.java == 'graal_graalvm@21'
         uses: graalvm/setup-graalvm@v1
