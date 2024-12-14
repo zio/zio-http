@@ -78,6 +78,8 @@ jobs:
           cache: sbt
 
       - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
 
       - name: Check formatting
         if: matrix.scala == '2.13.14'
@@ -90,6 +92,8 @@ jobs:
         run: sbt '++ ${{ matrix.scala }}' test
 
       - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
@@ -238,6 +242,8 @@ jobs:
           fetch-depth: 0
 
       - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
 
       - name: Setup Java (temurin@21)
         if: matrix.java == 'temurin@21'

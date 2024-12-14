@@ -24,6 +24,8 @@ jobs:
       with:
         fetch-depth: '0'
     - uses: coursier/setup-action@v1
+      with:
+        apps: 'sbt'
     - name: Setup Scala
       uses: actions/setup-java@v3.9.0
       with:
@@ -50,6 +52,8 @@ jobs:
         java-version: 17
         check-latest: true
     - uses: coursier/setup-action@v1
+      with:
+        apps: 'sbt'
     - name: Setup NodeJs
       uses: actions/setup-node@v3
       with:
@@ -70,6 +74,8 @@ jobs:
       with:
         fetch-depth: '0'
     - uses: coursier/setup-action@v1
+      with:
+          apps: 'sbt'
     - name: Install libuv
       run: sudo apt-get update && sudo apt-get install -y libuv1-dev
     - name: Setup Scala
