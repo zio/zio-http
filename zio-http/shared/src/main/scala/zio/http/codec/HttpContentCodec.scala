@@ -35,7 +35,7 @@ sealed trait HttpContentCodec[A] { self =>
           ZIO.fromEither(codec.codec(config).decode(bytes))
         }
       case None             =>
-        ZIO.fail(throw new IllegalArgumentException(s"No codec found for content type $contentType"))
+        ZIO.fail(new IllegalArgumentException(s"No codec found for content type $contentType"))
     }
   }
 
@@ -50,7 +50,7 @@ sealed trait HttpContentCodec[A] { self =>
           ZIO.fromEither(codec.codec(config).decode(bytes))
         }
       case None             =>
-        ZIO.fail(throw new IllegalArgumentException(s"No codec found for content type $contentType"))
+        ZIO.fail(new IllegalArgumentException(s"No codec found for content type $contentType"))
     }
   }
 

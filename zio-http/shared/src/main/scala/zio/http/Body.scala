@@ -567,21 +567,27 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap {
-        for {
-          file <- ZIO.attempt(file)
-          fs   <- ZIO.attemptBlocking(new FileInputStream(file))
-          size <- ZIO.attemptBlocking(Math.min(chunkSize.toLong, file.length()).toInt)
-        } yield ZStream
-          .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
-            for {
-              buffer <- ZIO.succeed(new Array[Byte](size))
-              len    <- ZIO.attemptBlocking(fs.read(buffer)).mapError(Some(_))
-              bytes  <-
-                if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
-                else ZIO.fail(None)
-            } yield bytes
-          }
-          .ensuring(ZIO.attemptBlocking(fs.close()).ignoreLogged)
+        ZIO.blocking {
+          for {
+            r <- ZIO.attempt {
+              val fs   = new FileInputStream(file)
+              val size = Math.min(chunkSize.toLong, file.length()).toInt
+
+              (fs, size)
+            }
+            (fs, size) = r
+          } yield ZStream
+            .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
+              for {
+                buffer <- ZIO.succeed(new Array[Byte](size))
+                len    <- ZIO.attempt(fs.read(buffer)).mapError(Some(_))
+                bytes  <-
+                  if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
+                  else ZIO.fail(None)
+              } yield bytes
+            }
+            .ensuring(ZIO.attempt(fs.close()).ignoreLogged)
+        }
       }.flattenChunks
 
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
