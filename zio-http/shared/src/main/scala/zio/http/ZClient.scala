@@ -154,8 +154,10 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
 
   def path(path: String): ZClient[Env, ReqEnv, In, Err, Out] = self.path(Path(path))
 
-  def path(path: Path): ZClient[Env, ReqEnv, In, Err, Out] =
-    copy(url = url.copy(path = path))
+  def path(path: Path): ZClient[Env, ReqEnv, In, Err, Out] = updatePath(_ => path)
+
+  def updatePath(f: Path => Path): ZClient[Env, ReqEnv, In, Err, Out] =
+    copy(url = url.copy(path = f(url.path)))
 
   def patch(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.PATCH, suffix)(ev(Body.empty))
@@ -289,6 +291,8 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   def uri(uri: URI): ZClient[Env, ReqEnv, In, Err, Out] = url(URL.fromURI(uri).getOrElse(URL.empty))
 
   def url(url: URL): ZClient[Env, ReqEnv, In, Err, Out] = copy(url = url)
+
+  def updateURL(f: URL => URL): ZClient[Env, ReqEnv, In, Err, Out] = copy(url = f(url))
 }
 
 object ZClient extends ZClientPlatformSpecific {
@@ -696,7 +700,7 @@ object ZClient extends ZClientPlatformSpecific {
         webSocketUrl <- url.scheme match {
           case Some(Scheme.HTTP) | Some(Scheme.WS) | None => ZIO.succeed(url.scheme(Scheme.WS))
           case Some(Scheme.WSS) | Some(Scheme.HTTPS)      => ZIO.succeed(url.scheme(Scheme.WSS))
-          case _ => ZIO.fail(throw new IllegalArgumentException("URL's scheme MUST be WS(S) or HTTP(S)"))
+          case _ => ZIO.fail(new IllegalArgumentException("URL's scheme MUST be WS(S) or HTTP(S)"))
         }
         scope        <- ZIO.scope
         res          <- requestAsync(
