@@ -92,14 +92,14 @@ jobs:
         run: sbt '++ ${{ matrix.scala }}' test
 
       - uses: coursier/setup-action@v1
-        with:
-          apps: sbt
 
       - name: Test sbt plugin
         if: ${{ github.event_name == 'pull_request' }} && matrix.scala == '2.12.19'
         run: sbt ++2.12.19 zioHttpGenSbt/scripted
 
       - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
