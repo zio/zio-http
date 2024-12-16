@@ -538,6 +538,7 @@ object ZClient extends ZClientPlatformSpecific {
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
+    enableInternalLogging: Boolean,
   ) {
     self =>
 
@@ -593,7 +594,8 @@ object ZClient extends ZClientPlatformSpecific {
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
           zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
           zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
-          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout)
+          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout) ++
+          zio.Config.boolean("enable-internal-logging").withDefault(Config.default.enableInternalLogging)
       ).map {
         case (
               ssl,
@@ -605,6 +607,7 @@ object ZClient extends ZClientPlatformSpecific {
               addUserAgentHeader,
               idleTimeout,
               connectionTimeout,
+              enableInternalLogging,
             ) =>
           default.copy(
             ssl = ssl,
@@ -616,6 +619,7 @@ object ZClient extends ZClientPlatformSpecific {
             addUserAgentHeader = addUserAgentHeader,
             idleTimeout = idleTimeout,
             connectionTimeout = connectionTimeout,
+            enableInternalLogging = enableInternalLogging,
           )
       }
 
@@ -631,6 +635,7 @@ object ZClient extends ZClientPlatformSpecific {
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = Some(50.seconds),
       connectionTimeout = None,
+      enableInternalLogging = false,
     )
   }
 
@@ -700,6 +705,7 @@ object ZClient extends ZClientPlatformSpecific {
               connectionAcquired <- Ref.make(false)
               onComplete         <- Promise.make[Throwable, ChannelState]
               onResponse         <- Promise.make[Throwable, Response]
+              onFailure          <- Promise.make[Nothing, Throwable]
               inChannelScope = outerScope match {
                 case Some(scope) => (zio: ZIO[Scope, Throwable, Unit]) => scope.extend(zio)
                 case None        => (zio: ZIO[Scope, Throwable, Unit]) => ZIO.scoped(zio)
@@ -731,7 +737,9 @@ object ZClient extends ZClientPlatformSpecific {
                         request,
                         onResponse,
                         onComplete,
+                        onFailure,
                         connectionPool.enableKeepAlive,
+                        clientConfig.enableInternalLogging,
                         createSocketApp,
                         clientConfig.webSocketConfig,
                       )
