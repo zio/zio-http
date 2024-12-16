@@ -31,7 +31,9 @@ trait ClientDriver {
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
+    onFailure: Promise[Nothing, Throwable],
     enableKeepAlive: Boolean,
+    enableInternalLogging: Boolean,
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
