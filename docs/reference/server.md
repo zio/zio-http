@@ -44,7 +44,7 @@ Server.serve(routes).provide(
 )
 ```
 
-:::note
+:::note[Handling Interrupt Signals (Ctrl+C) in SBT]
 Sometimes we may want to have more control over installation of the http application into the server. In such cases, we may want to use the `Server.install` method. This method only installs the `Routes` into the server, and the lifecycle of the server can be managed separately.
 :::
 
@@ -565,6 +565,12 @@ printSource("zio-http-example/src/main/scala/example/GracefulShutdown.scala")
 ```
 
 This approach ensures that clients receive appropriate responses for their requests, rather than encountering errors or abrupt disconnections. It helps maintain the integrity of the communication between clients and the server, providing a smoother experience for users and preventing potential data loss or corruption.
+
+:::Note
+When running a server through SBT, pressing Ctrl+C doesn't cleanly shut down the application. Instead, SBT intercepts the signal and throws a `java.lang.InterruptedException`, bypassing any custom shutdown handlers you may have implemented.
+
+However, if you run the same server directly from a packaged JAR file using `java -jar`, Ctrl+C will trigger the expected graceful shutdown sequence, allowing your application to clean up resources properly before terminating.
+:::
 
 ## Idle Timeout Configuration
 
