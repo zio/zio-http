@@ -685,6 +685,14 @@ final case class EndpointGen(config: Config) {
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Long)
       case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, _, _)        =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.UUID)
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Date), _, _, _)        =>
+        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.LocalDate)
+      case JsonSchema.String(Some(JsonSchema.StringFormat.DateTime), _, _, _)    =>
+        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Instant)
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Time), _, _, _)        =>
+        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.LocalTime)
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Duration), _, _, _)    =>
+        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Duration)
       case JsonSchema.String(_, _, _, _)                                         =>
         Code.PathSegmentCode(name = name, segmentType = Code.CodecType.String)
       case JsonSchema.Boolean                                                    =>
@@ -719,6 +727,14 @@ final case class EndpointGen(config: Config) {
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Long)
       case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp, _, _, _, _, _) =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.Long)
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Date), _, _, _)        =>
+        Code.QueryParamCode(name = name, queryType = Code.CodecType.LocalDate)
+      case JsonSchema.String(Some(JsonSchema.StringFormat.DateTime), _, _, _)    =>
+        Code.QueryParamCode(name = name, queryType = Code.CodecType.Instant)
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Duration), _, _, _)    =>
+        Code.QueryParamCode(name = name, queryType = Code.CodecType.Duration)
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Time), _, _, _)        =>
+        Code.QueryParamCode(name = name, queryType = Code.CodecType.LocalTime)
       case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, _, _)        =>
         Code.QueryParamCode(name = name, queryType = Code.CodecType.UUID)
       case JsonSchema.String(_, _, _, _)                                         =>
@@ -1237,9 +1253,19 @@ final case class EndpointGen(config: Config) {
         val annotations  = addNumericValidations[Long](exclusiveMin, exclusiveMax)
         Some(Code.Field(name, Code.Primitive.ScalaLong, annotations, config.fieldNamesNormalization))
 
+      case JsonSchema.String(Some(format), _, _, _) if config.stringFormatTypes.contains(format.value)                =>
+        Some(Code.Field(name, Code.TypeRef(config.stringFormatTypes(format.value)), config.fieldNamesNormalization))
       case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, maxLength, minLength)                             =>
         val annotations = addStringValidations(minLength, maxLength)
         Some(Code.Field(name, Code.Primitive.ScalaUUID, annotations, config.fieldNamesNormalization))
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Date), _, _, _)                                             =>
+        Some(Code.Field(name, Code.Primitive.ScalaLocalDate, config.fieldNamesNormalization))
+      case JsonSchema.String(Some(JsonSchema.StringFormat.DateTime), _, _, _)                                         =>
+        Some(Code.Field(name, Code.Primitive.ScalaInstant, config.fieldNamesNormalization))
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Time), _, _, _)                                             =>
+        Some(Code.Field(name, Code.Primitive.ScalaTime, config.fieldNamesNormalization))
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Duration), _, _, _)                                         =>
+        Some(Code.Field(name, Code.Primitive.ScalaDuration, config.fieldNamesNormalization))
       case JsonSchema.String(_, _, maxLength, minLength)                                                              =>
         val annotations = addStringValidations(minLength, maxLength)
         Some(Code.Field(name, Code.Primitive.ScalaString, annotations, config.fieldNamesNormalization))
