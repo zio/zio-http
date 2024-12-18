@@ -33,6 +33,7 @@ final case class Config(
   commonFieldsOnSuperType: Boolean,
   generateSafeTypeAliases: Boolean,
   fieldNamesNormalization: NormalizeFields,
+  stringFormatTypes: Map[String, String],
 )
 object Config {
 
@@ -73,11 +74,15 @@ object Config {
       enableAutomatic = false,
       manualOverrides = Map.empty,
     ),
+    stringFormatTypes = Map.empty,
   )
 
   def config: zio.Config[Config] = (
     zio.Config.boolean("common-fields-on-super-type").withDefault(Config.default.commonFieldsOnSuperType) ++
       zio.Config.boolean("generate-safe-type-aliases").withDefault(Config.default.generateSafeTypeAliases) ++
-      NormalizeFields.config.nested("fields-normalization")
+      NormalizeFields.config.nested("fields-normalization") ++ zio.Config.table(
+        "string-format-types",
+        zio.Config.string,
+      )
   ).to[Config]
 }
