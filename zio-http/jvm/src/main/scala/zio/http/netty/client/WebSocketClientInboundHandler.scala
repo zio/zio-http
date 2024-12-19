@@ -17,11 +17,9 @@
 package zio.http.netty.client
 
 import zio._
-
 import zio.http.Response
 import zio.http.internal.ChannelState
 import zio.http.netty.NettyResponse
-
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
 
