@@ -89,7 +89,7 @@ final case class NettyClientDriver private[netty] (
         val closeListener: GenericFutureListener[ChannelFuture] = { (_: ChannelFuture) =>
           nettyRuntime.unsafeRunSync {
             // wait for ClientFailureHandler.exceptionCaught to complete onFailure.
-            onFailure.await.flatMap { error  =>
+            onFailure.await.flatMap { error =>
               // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
               // so we don't need to fulfill `onResponse`
               onComplete.interrupt && onResponse.fail(error)
