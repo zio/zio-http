@@ -16,8 +16,7 @@
 
 package zio.http.netty.client
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Exit, Promise, Unsafe}
+import zio._
 
 import zio.http.Response
 import zio.http.internal.ChannelState
@@ -29,6 +28,7 @@ import io.netty.handler.codec.http.FullHttpResponse
 private[netty] final class WebSocketClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
+  onFailure: Promise[Nothing, Throwable],
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
@@ -42,8 +42,10 @@ private[netty] final class WebSocketClientInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    val exit = Exit.fail(error)
+    implicit val trace = Trace.empty
+    val exit           = Exit.fail(error)
     onResponse.unsafe.done(exit)
     onComplete.unsafe.done(exit)
+    onFailure.unsafe.done(ZIO.succeed(error))
   }
 }

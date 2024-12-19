@@ -513,3 +513,15 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/WebSocketReconnectingClient.scala")
 ```
+
+## Enabling Netty Internal Logging
+
+Netty's low-level, internal logging can be enabled by setting `ZClient.Config.enableNettyInternalLogging` to `true`. This can be useful for debugging and troubleshooting issues related to the underlying Netty client.
+
+You will also need to make sure that your preferred logging framework is configured to debug level for `zio.http.netty.InternalLogging`.
+
+Logback example:
+
+```xml
+<logger name="zio.http.netty.InternalLogging" level="DEBUG" additivity="false" />
+```
