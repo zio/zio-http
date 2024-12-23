@@ -27,7 +27,14 @@ ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Edited,
   PREventType.Labeled,
 )
-ThisBuild / githubWorkflowAddedJobs    :=
+
+val coursierSetup =
+  WorkflowStep.Use(
+    UseRef.Public("coursier", "setup-action", "v1"),
+    params = Map("apps" -> "sbt"),
+  )
+
+ThisBuild / githubWorkflowAddedJobs :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -40,7 +47,7 @@ ThisBuild / githubWorkflowAddedJobs    :=
       name = "Mima Check",
       steps = List(
         WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
-        WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1")),
+        coursierSetup,
       ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
       cond = Option("${{ github.event_name == 'pull_request' }}"),
       javas = List(JavaSpec.temurin("21")),
@@ -78,7 +85,7 @@ ThisBuild / githubWorkflowPublish       :=
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
 ThisBuild / githubWorkflowBuildPreamble := Seq(
-  WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1")),
+  coursierSetup,
   WorkflowStep.Run(
     name = Some("Check formatting"),
     commands = List(s"sbt ++${Scala213} fmtCheck"),
@@ -91,7 +98,7 @@ ThisBuild / githubWorkflowBuildPostamble :=
     "checkDocGeneration",
     "Check doc generation",
     List(
-      WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1")),
+      coursierSetup,
       WorkflowStep.Run(
         commands = List(s"sbt ++${Scala213} doc"),
         name = Some("Check doc generation"),
