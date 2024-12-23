@@ -11,7 +11,7 @@ object JmhBenchmarkWorkflow {
     Glob("zio-http-benchmarks/src/main/scala-2.13/**"),
     Glob("zio-http-benchmarks/src/main/scala/**")),scalaSources
     )
- 
+
   /**
    * Get zioHttpBenchmark file names
    */
@@ -45,7 +45,7 @@ object JmhBenchmarkWorkflow {
  def downloadArtifacts(branch: String, batchSize: Int) = groupedBenchmarks(batchSize).flatMap(l => {
     Seq(
       WorkflowStep.Use(
-        ref = UseRef.Public("actions", "download-artifact", "v3"),
+        ref = UseRef.Public("actions", "download-artifact", "v4"),
         Map(
           "name" -> s"Jmh_${branch}_${l.head}",
         ),
@@ -84,7 +84,7 @@ object JmhBenchmarkWorkflow {
       steps =  downloadArtifacts("Main", batchSize) ++
         Seq(
         WorkflowStep.Use(
-          UseRef.Public("actions", "checkout", "v2"),
+          UseRef.Public("actions", "checkout", "v4"),
           Map(
             "path" -> "zio-http"
           )
@@ -113,14 +113,15 @@ object JmhBenchmarkWorkflow {
       ),
       scalas = List(Scala213),
       steps = List(
+        WorkflowStep.Use(UseRef.Public("coursier", "setup-action","v1"), Map("apps" -> "sbt")),
         WorkflowStep.Use(
-          UseRef.Public("actions", "checkout", "v2"),
+          UseRef.Public("actions", "checkout", "v4"),
           Map(
             "path" -> "zio-http",
           ),
         ),
         WorkflowStep.Use(
-          UseRef.Public("actions", "setup-java", "v2"),
+          UseRef.Public("actions", "setup-java", "v4"),
           Map(
             "distribution" -> "temurin",
             "java-version" -> "11",
@@ -137,7 +138,7 @@ object JmhBenchmarkWorkflow {
           name = Some("Benchmark_Main"),
         ),
         WorkflowStep.Use(
-          UseRef.Public("actions", "upload-artifact", "v3"),
+          UseRef.Public("actions", "upload-artifact", "v4"),
           Map(
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt",

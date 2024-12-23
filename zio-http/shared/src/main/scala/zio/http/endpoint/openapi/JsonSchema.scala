@@ -1,21 +1,18 @@
 package zio.http.endpoint.openapi
 
 import scala.annotation.{nowarn, tailrec}
-import scala.util.chaining.scalaUtilChainingOps
 
 import zio._
 import zio.json.ast.Json
 
 import zio.schema.Schema.CaseClass0
-import zio.schema.StandardType.Tags
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
 
-import zio.http.codec.{PathCodec, SegmentCodec, TextCodec}
-import zio.http.endpoint.openapi.BoolOrSchema.SchemaWrapper
+import zio.http.codec._
 import zio.http.endpoint.openapi.JsonSchema.MetaData
 
 @nowarn("msg=possible missing interpolator")
@@ -58,11 +55,11 @@ private[openapi] case class SerializableJsonSchema(
     if (nullable && schemaType.isDefined)
       copy(schemaType = Some(schemaType.get.add("null")))
     else if (nullable && oneOf.isDefined)
-      copy(oneOf = Some(oneOf.get :+ typeNull))
+      copy(oneOf = Some((oneOf.get :+ typeNull).distinct))
     else if (nullable && allOf.isDefined)
-      SerializableJsonSchema(allOf = Some(Chunk(this, typeNull)))
+      SerializableJsonSchema(allOf = Some((allOf.get :+ typeNull).distinct))
     else if (nullable && anyOf.isDefined)
-      copy(anyOf = Some(anyOf.get :+ typeNull))
+      copy(anyOf = Some((anyOf.get :+ typeNull).distinct))
     else if (nullable && ref.isDefined)
       SerializableJsonSchema(anyOf = Some(Chunk(typeNull, this)))
     else
@@ -120,8 +117,8 @@ private[openapi] object BoolOrSchema {
 private[openapi] sealed trait TypeOrTypes { self =>
   def add(value: String): TypeOrTypes =
     self match {
-      case TypeOrTypes.Type(string) => TypeOrTypes.Types(Chunk(string, value))
-      case TypeOrTypes.Types(chunk) => TypeOrTypes.Types(chunk :+ value)
+      case TypeOrTypes.Type(string) => TypeOrTypes.Types(Chunk(string, value).distinct)
+      case TypeOrTypes.Types(chunk) => TypeOrTypes.Types((chunk :+ value).distinct)
     }
 }
 
@@ -151,9 +148,9 @@ final case class JsonSchemas(
 
 sealed trait JsonSchema extends Product with Serializable { self =>
 
-  lazy val toJsonBytes: Chunk[Byte] = JsonCodec.schemaBasedBinaryCodec[JsonSchema].encode(self)
+  def toJsonBytes: Chunk[Byte] = JsonCodec.schemaBasedBinaryCodec[JsonSchema].encode(self)
 
-  lazy val toJson: String = toJsonBytes.asString
+  def toJson: String = toJsonBytes.asString
 
   protected[openapi] def toSerializableSchema: SerializableJsonSchema
   def annotate(annotations: Chunk[JsonSchema.MetaData]): JsonSchema =
@@ -256,7 +253,7 @@ object JsonSchema {
       .toOption
       .get
 
-  private def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
+  private[openapi] def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
     val additionalProperties = schema.additionalProperties match {
       case Some(BoolOrSchema.BooleanWrapper(bool))  => Left(bool)
       case Some(BoolOrSchema.SchemaWrapper(schema)) =>
@@ -296,8 +293,8 @@ object JsonSchema {
         JsonSchema.String(
           schema.format.map(StringFormat.fromString),
           schema.pattern.map(Pattern.apply),
-          schema.minLength,
           schema.maxLength,
+          schema.minLength,
         )
       case schema if schema.schemaType.contains(TypeOrTypes.Type("boolean"))                             =>
         JsonSchema.Boolean
@@ -428,7 +425,7 @@ object JsonSchema {
                 refType,
                 seenWithCurrent,
               )
-              nested.rootRef.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
+              nested.rootRef.fold(ifEmpty = nested.children)(k => nested.children + (k -> nested.root))
             }
             .toMap
           JsonSchemas(fromZSchema(record, SchemaStyle.Inline), ref, children)

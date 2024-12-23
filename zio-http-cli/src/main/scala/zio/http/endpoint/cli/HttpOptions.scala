@@ -46,17 +46,17 @@ private[cli] object HttpOptions {
   ) extends HttpOptions {
     self =>
 
-    private lazy val optionName = if (name == "") "" else s"-$name"
+    private def optionName = if (name == "") "" else s"-$name"
 
-    lazy val jsonOptions: Options[Json] = fromSchema(schema)
-    lazy val fromFile                   = Options.file("f" + optionName)
-    lazy val fromUrl                    = Options.text("u" + optionName)
+    val jsonOptions: Options[Json] = fromSchema(schema)
+    val fromFile                   = Options.file("f" + optionName)
+    val fromUrl                    = Options.text("u" + optionName)
 
-    lazy val options: Options[Retriever] = {
+    def options: Options[Retriever] = {
 
-      lazy val retrieverWithJson = fromFile orElseEither fromUrl orElseEither jsonOptions
+      def retrieverWithJson = fromFile orElseEither fromUrl orElseEither jsonOptions
 
-      lazy val retrieverWithoutJson = fromFile orElseEither fromUrl
+      def retrieverWithoutJson = fromFile orElseEither fromUrl
 
       if (allowJsonInput)
         retrieverWithJson.map {
@@ -78,7 +78,7 @@ private[cli] object HttpOptions {
         cliRequest.addBody(retriever)
       }
 
-    private lazy val allowJsonInput: Boolean =
+    private def allowJsonInput: Boolean =
       schema.asInstanceOf[Schema[_]] match {
         case Schema.Primitive(StandardType.BinaryType, _) => false
         case Schema.Map(_, _, _)                          => false
@@ -95,7 +95,7 @@ private[cli] object HttpOptions {
 
       implicit def toJson[A0](options: Options[A0]): Options[Json] = options.map(value => Json.Str(value.toString()))
 
-      lazy val emptyJson: Options[Json] = Options.Empty.map(_ => Json.Obj())
+      def emptyJson: Options[Json] = Options.Empty.map(_ => Json.Obj())
 
       def loop(prefix: List[String], schema: zio.schema.Schema[_]): Options[Json] =
         schema match {
@@ -205,7 +205,7 @@ private[cli] object HttpOptions {
       extends HeaderOptions {
     self =>
 
-    lazy val options: Options[_] = optionsFromTextCodec(textCodec)(name)
+    def options: Options[_] = optionsFromTextCodec(textCodec)(name)
 
     override def ??(doc: Doc): Header = self.copy(doc = self.doc + doc)
 
@@ -248,7 +248,7 @@ private[cli] object HttpOptions {
       .filter(_ != "")
       .mkString("-")
 
-    lazy val options: zio.Chunk[Options[String]] = pathCodec.segments.map(optionsFromSegment)
+    def options: zio.Chunk[Options[String]] = pathCodec.segments.map(optionsFromSegment)
 
     override def ??(doc: Doc): Path = self.copy(doc = self.doc + doc)
 
@@ -268,8 +268,8 @@ private[cli] object HttpOptions {
       extends URLOptions {
     self =>
 
-    override val tag             = "?" + name
-    lazy val options: Options[_] = optionsFromSchema(codec)(name)
+    override val tag        = "?" + name
+    def options: Options[_] = optionsFromSchema(codec)(name)
 
     override def ??(doc: Doc): Query = self.copy(doc = self.doc + doc)
 

@@ -154,7 +154,7 @@ object AuthSpec extends ZIOSpecDefault {
         },
         test("Auth basic or bearer with context and endpoint client") {
           val endpoint =
-            Endpoint(Method.GET / "test" / "multiAuth")
+            Endpoint(Method.GET / "multiAuth")
               .out[String](MediaType.text.`plain`)
               .auth(AuthType.Basic | AuthType.Bearer)
           val routes   =
@@ -188,7 +188,7 @@ object AuthSpec extends ZIOSpecDefault {
           } yield assertTrue(responseBasic == "admin" && responseBearer == "bearer-admin")
         },
         test("Auth from query parameter with context and endpoint client") {
-          val endpoint = Endpoint(Method.GET / "test" / "query")
+          val endpoint = Endpoint(Method.GET / "query")
             .out[String](MediaType.text.`plain`)
             .auth(AuthType.Custom(HttpCodec.query[String]("token")))
           val routes   =
@@ -214,7 +214,7 @@ object AuthSpec extends ZIOSpecDefault {
         },
         test("Auth with context and endpoint client with path parameter") {
           val endpoint =
-            Endpoint(Method.GET / "test" / int("a")).out[String](MediaType.text.`plain`).auth(AuthType.Basic)
+            Endpoint(Method.GET / int("a")).out[String](MediaType.text.`plain`).auth(AuthType.Basic)
           val routes   =
             Routes(
               endpoint.implementHandler(handler((_: Int) => withContext((ctx: AuthContext) => ctx.value))),

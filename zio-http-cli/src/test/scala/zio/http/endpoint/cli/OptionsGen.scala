@@ -8,7 +8,6 @@ import zio.schema.Schema
 
 import zio.http._
 import zio.http.codec._
-import zio.http.codec.internal.TextBinaryCodec
 import zio.http.endpoint.cli.AuxGen._
 import zio.http.endpoint.cli.CliRepr._
 

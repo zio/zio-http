@@ -23,9 +23,9 @@ import zio.test._
 import zio.http.Middleware.metrics
 import zio.http._
 import zio.http.codec.{PathCodec, SegmentCodec}
-import zio.http.internal.HttpAppTestExtensions
+import zio.http.internal.TestExtensions
 
-object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
+object MetricsSpec extends ZIOHttpSpec with TestExtensions {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("MetricsSpec")(
       test("http_requests_total & http_errors_total") {
@@ -86,13 +86,13 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
           .tagged("method", "GET")
           .tagged("status", "200")
 
-        val app: Routes[Any, Response] =
+        val routes: Routes[Any, Response] =
           (Method.GET / "ok" -> Handler.ok).toRoutes @@ metrics(extraLabels =
             Set(MetricLabel("test", "http_request_duration_seconds")),
           )
 
         for {
-          _        <- app.runZIO(Request.get(url = URL(Path.root / "ok")))
+          _        <- routes.runZIO(Request.get(url = URL(Path.root / "ok")))
           observed <- histogram.value.map(_.buckets.exists { case (_, count) => count > 0 })
         } yield assertTrue(observed)
       },

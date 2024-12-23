@@ -21,9 +21,9 @@ import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test.{Spec, assert}
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
-object KeepAliveSpec extends HttpRunnableSpec {
+object KeepAliveSpec extends RoutesRunnableSpec {
 
   private val routes                = Handler.ok.toRoutes
   private val connectionCloseHeader = Headers(Header.Connection.Close)

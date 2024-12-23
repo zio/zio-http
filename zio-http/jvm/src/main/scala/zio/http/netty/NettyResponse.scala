@@ -16,19 +16,18 @@
 
 package zio.http.netty
 
+import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Exit, Promise, Trace, Unsafe, ZIO}
 
 import zio.http.internal.ChannelState
 import zio.http.netty.client.ClientResponseStreamHandler
 import zio.http.netty.model.Conversions
 import zio.http.{Body, Header, Response}
 
-import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 
-object NettyResponse {
+private[netty] object NettyResponse {
 
   def apply(jRes: FullHttpResponse)(implicit unsafe: Unsafe): Response = {
     val status  = Conversions.statusFromNetty(jRes.status())

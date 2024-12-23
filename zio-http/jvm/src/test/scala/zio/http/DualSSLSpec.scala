@@ -54,7 +54,7 @@ object DualSSLSpec extends ZIOHttpSpec {
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
-  val app: Routes[Any, Response] = Routes(
+  val routes: Routes[Any, Response] = Routes(
     Method.GET / "success" -> handler((req: Request) =>
       Response.text(
         req.remoteCertificate.map { _.asInstanceOf[X509Certificate].getSubjectX500Principal.getName() }.getOrElse(""),
@@ -70,7 +70,7 @@ object DualSSLSpec extends ZIOHttpSpec {
 
   override def spec = suite("SSL")(
     Server
-      .install(app)
+      .install(routes)
       .as(
         List(
           test("succeed when client has the server certificate and client certificate is configured") {

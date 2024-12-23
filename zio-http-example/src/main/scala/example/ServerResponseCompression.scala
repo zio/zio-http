@@ -5,7 +5,7 @@ import zio._
 import zio.http._
 
 object ServerResponseCompression extends ZIOAppDefault {
-  val httpApp = Routes(
+  val routes = Routes(
     Method.GET / "hello" -> handler(Response.text("Hello, World!")),
   ).sandbox
 
@@ -15,5 +15,5 @@ object ServerResponseCompression extends ZIOAppDefault {
     ),
   )
 
-  def run = Server.serve(httpApp).provide(Server.live, config)
+  def run = Server.serve(routes).provide(Server.live, config)
 }

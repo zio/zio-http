@@ -20,8 +20,8 @@ import java.nio.charset.Charset
 
 import zio.http.{Body, Charsets}
 
-trait BodyEncoding {
+private[http] trait BodyEncoding {
   def fromCharSequence(charSequence: CharSequence, charset: Charset = Charsets.Http): Body
 }
 
-object BodyEncoding extends BodyEncodingPlatformSpecific
+private[http] object BodyEncoding extends BodyEncodingPlatformSpecific

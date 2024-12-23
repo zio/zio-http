@@ -29,7 +29,7 @@ import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 
-abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](true) {
+private[netty] abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](true) {
   import zio.http.netty.AsyncBodyReader._
 
   private var state: State               = State.Buffering
@@ -138,7 +138,7 @@ abstract class AsyncBodyReader extends SimpleChannelInboundHandler[HttpContent](
   }
 }
 
-object AsyncBodyReader {
+private[netty] object AsyncBodyReader {
 
   sealed trait State
 

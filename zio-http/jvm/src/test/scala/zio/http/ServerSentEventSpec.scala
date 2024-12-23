@@ -15,14 +15,14 @@ object ServerSentEventSpec extends ZIOHttpSpec {
   val stream: ZStream[Any, Nothing, ServerSentEvent[String]] =
     ZStream.repeatWithSchedule(ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now)), Schedule.spaced(1.second))
 
-  val app: Routes[Any, Response] =
+  val routes: Routes[Any, Response] =
     Routes(
       Method.GET / "sse" ->
         handler(Response.fromServerSentEvents(stream)),
     )
 
   val server =
-    Server.install(app)
+    Server.install(routes)
 
   def eventStream(port: Int): ZStream[Client, Throwable, ServerSentEvent[String]] =
     for {

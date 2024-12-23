@@ -20,7 +20,7 @@ import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
-import zio.http.codec.{Alternator, CodecConfig, Combiner}
+import zio.http.codec._
 import zio.http.endpoint.internal.EndpointClient
 
 /**
@@ -34,7 +34,7 @@ final case class EndpointExecutor[R, Auth](
   authProvider: ZIO[R, Nothing, Auth],
 ) {
   private val metadata = {
-    implicit val trace0 = Trace.empty
+    implicit val trace0: Trace = Trace.empty
     zio.http.endpoint.internal
       .MemoizedZIO[Endpoint[_, _, _, _, _ <: AuthType], EndpointNotFound, EndpointClient[
         Any,

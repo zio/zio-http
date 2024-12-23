@@ -217,17 +217,21 @@ object Code {
   sealed trait Primitive extends ScalaType
 
   object Primitive {
-    case object ScalaInt     extends Primitive
-    case object ScalaLong    extends Primitive
-    case object ScalaDouble  extends Primitive
-    case object ScalaFloat   extends Primitive
-    case object ScalaChar    extends Primitive
-    case object ScalaByte    extends Primitive
-    case object ScalaShort   extends Primitive
-    case object ScalaBoolean extends Primitive
-    case object ScalaUnit    extends Primitive
-    case object ScalaUUID    extends Primitive
-    case object ScalaString  extends Primitive
+    case object ScalaInt       extends Primitive
+    case object ScalaLong      extends Primitive
+    case object ScalaDouble    extends Primitive
+    case object ScalaFloat     extends Primitive
+    case object ScalaChar      extends Primitive
+    case object ScalaByte      extends Primitive
+    case object ScalaShort     extends Primitive
+    case object ScalaBoolean   extends Primitive
+    case object ScalaUnit      extends Primitive
+    case object ScalaUUID      extends Primitive
+    case object ScalaLocalDate extends Primitive
+    case object ScalaInstant   extends Primitive
+    case object ScalaTime      extends Primitive
+    case object ScalaDuration  extends Primitive
+    case object ScalaString    extends Primitive
   }
 
   final case class EndpointCode(
@@ -253,6 +257,10 @@ object Code {
     case object Long                                               extends CodecType
     case object String                                             extends CodecType
     case object UUID                                               extends CodecType
+    case object LocalDate                                          extends CodecType
+    case object LocalTime                                          extends CodecType
+    case object Duration                                           extends CodecType
+    case object Instant                                            extends CodecType
     case class Aliased(underlying: CodecType, newtypeName: String) extends CodecType
   }
   final case class QueryParamCode(name: String, queryType: CodecType)

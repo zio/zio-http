@@ -12,6 +12,8 @@ val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 
+ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+
 ThisBuild / githubWorkflowJavaVersions := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
@@ -25,13 +27,30 @@ ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Edited,
   PREventType.Labeled,
 )
-ThisBuild / githubWorkflowAddedJobs    :=
+
+val coursierSetup =
+  WorkflowStep.Use(
+    UseRef.Public("coursier", "setup-action", "v1"),
+    params = Map("apps" -> "sbt"),
+  )
+
+ThisBuild / githubWorkflowAddedJobs :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
       name = "Release Drafter",
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
+    ),
+    WorkflowJob(
+      id = "mima_check",
+      name = "Mima Check",
+      steps = List(
+        WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
+        coursierSetup,
+      ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
+      cond = Option("${{ github.event_name == 'pull_request' }}"),
+      javas = List(JavaSpec.temurin("21")),
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
 
@@ -66,6 +85,7 @@ ThisBuild / githubWorkflowPublish       :=
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
 ThisBuild / githubWorkflowBuildPreamble := Seq(
+  coursierSetup,
   WorkflowStep.Run(
     name = Some("Check formatting"),
     commands = List(s"sbt ++${Scala213} fmtCheck"),
@@ -78,6 +98,7 @@ ThisBuild / githubWorkflowBuildPostamble :=
     "checkDocGeneration",
     "Check doc generation",
     List(
+      coursierSetup,
       WorkflowStep.Run(
         commands = List(s"sbt ++${Scala213} doc"),
         name = Some("Check doc generation"),
@@ -176,6 +197,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     },
     libraryDependencies ++= netty ++ Seq(`netty-incubator`),
   )
+  .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
@@ -274,6 +296,7 @@ lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
     ),
   )
   .dependsOn(zioHttpJVM)
+  .settings(MimaSettings.mimaSettings(failOnProblem = true))
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
@@ -281,6 +304,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
   .settings(
+    run / fork := true,
+    run / javaOptions ++= Seq("-Xms4G", "-Xmx4G", "-XX:+UseG1GC"),
     libraryDependencies ++= Seq(
       `zio-config`,
       `zio-config-magnolia`,
@@ -309,7 +334,8 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       scalafmt.cross(CrossVersion.for3Use2_13),
       scalametaParsers
         .cross(CrossVersion.for3Use2_13)
-        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
+        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13")
+        .exclude("com.lihaoyi", "sourcecode_2.13"),
       `zio-json-yaml` % Test,
     ),
   )
@@ -404,7 +430,7 @@ lazy val docs = project
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       `jwt-core`,
-      "dev.zio" %% "zio-test"            % ZioVersion,
+      "dev.zio" %% "zio-test" % ZioVersion,
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,

@@ -15,13 +15,12 @@
  */
 
 package zio.http.codec
-import zio.Chunk
+import scala.annotation.tailrec
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema.Schema
 import zio.schema.annotation.simpleEnum
-
-import zio.http.codec.internal.TextBinaryCodec
 
 private[codec] trait QueryCodecs {
 
@@ -121,10 +120,14 @@ private[codec] trait QueryCodecs {
         )
     }
 
-  private def supportedElementSchema(elementSchema: Schema[Any]) =
-    elementSchema.isInstanceOf[Schema.Primitive[_]] ||
+  @tailrec
+  private def supportedElementSchema(elementSchema: Schema[Any]): Boolean = elementSchema match {
+    case Schema.Lazy(schema0) => supportedElementSchema(schema0())
+    case _                    =>
+      elementSchema.isInstanceOf[Schema.Primitive[_]] ||
       elementSchema.isInstanceOf[Schema.Enum[_]] && elementSchema.annotations.exists(_.isInstanceOf[simpleEnum]) ||
       elementSchema.isInstanceOf[Schema.Record[_]] && elementSchema.asInstanceOf[Schema.Record[_]].fields.size == 1
+  }
 
   def queryAll[A](implicit schema: Schema[A]): QueryCodec[A] =
     schema match {

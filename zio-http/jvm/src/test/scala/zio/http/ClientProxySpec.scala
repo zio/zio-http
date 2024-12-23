@@ -24,11 +24,11 @@ import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test._
 import zio.{ZIO, ZLayer}
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-object ClientProxySpec extends HttpRunnableSpec {
+object ClientProxySpec extends RoutesRunnableSpec {
 
   def clientProxySpec = suite("ClientProxySpec")(
     test("handle proxy connection failure") {

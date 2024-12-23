@@ -20,7 +20,7 @@ import zio._
 import zio.http._
 
 object HelloExample extends ZIOAppDefault {
-  val app: Routes[Any, Response] =
+  val routes: Routes[Any, Response] =
     Routes(
       Method.GET / "hello" ->
         handler { req: Request =>
@@ -30,7 +30,7 @@ object HelloExample extends ZIOAppDefault {
         }.sandbox,
     )
 
-  override val run = Server.serve(app).provide(Server.default)
+  override val run = Server.serve(routes).provide(Server.default)
 }
 ```
 
@@ -46,7 +46,7 @@ import zio.stream._
 import zio.http._
 
 object HelloClientExample extends ZIOAppDefault {
-  val app: ZIO[Client, Throwable, Unit] =
+  val routes: ZIO[Client, Throwable, Unit] =
     for {
       name <- Console.readLine("What is your name? ")
       resp <- Client.batched(Request.post("http://localhost:8080/hello", Body.fromString(name)))
@@ -54,7 +54,7 @@ object HelloClientExample extends ZIOAppDefault {
       _    <- Console.printLine(s"Response: $body")
     } yield ()
 
-  def run = app.provide(Client.default)
+  def run = routes.provide(Client.default)
 }
 ```
 

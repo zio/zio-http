@@ -23,9 +23,9 @@ import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test.{TestAspect, assert, assertZIO}
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
-object StaticFileRoutesSpec extends HttpRunnableSpec {
+object StaticFileRoutesSpec extends RoutesRunnableSpec {
 
   private val createTempFile                    = ZIO.attempt(Files.createTempFile("", ".jpg"))
   private def deleteTempFile(tempPath: NIOPath) = ZIO.attempt(Files.deleteIfExists(tempPath)).ignore

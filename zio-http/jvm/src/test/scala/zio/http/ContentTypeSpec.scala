@@ -21,9 +21,9 @@ import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test._
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
-object ContentTypeSpec extends HttpRunnableSpec {
+object ContentTypeSpec extends RoutesRunnableSpec {
 
   val contentSpec = suite("Content type header on file response")(
     test("mp4") {

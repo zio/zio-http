@@ -19,6 +19,9 @@ package zio.http
 import zio._
 import zio.test._
 
+import zio.http.codec.{HttpCodec, StatusCodec}
+import zio.http.endpoint.{AuthType, Endpoint}
+
 object RouteSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
@@ -132,6 +135,12 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
+      test("handleErrorCause should pass through responses in error channel of handled routes") {
+        val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+        val errorHandled = route.handleErrorCause(_ => Response.text("error").status(Status.InternalServerError))
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        errorHandled.toRoutes.runZIO(request).map(response => assertTrue(extractStatus(response) == Status.Ok))
+      },
       test("handleErrorCauseZIO should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
         val errorHandled =
@@ -141,6 +150,18 @@ object RouteSpec extends ZIOHttpSpec {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+      },
+      test("handleErrorCauseZIO should pass through responses in error channel of handled routes") {
+        val route   = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+        val request = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          ref <- Ref.make(false)
+          errorHandled = route.handleErrorCauseZIO(_ =>
+            ref.set(true) *> ZIO.succeed(Response.text("error").status(Status.InternalServerError)),
+          )
+          response <- errorHandled.toRoutes.runZIO(request)
+          refValue <- ref.get
+        } yield assertTrue(extractStatus(response) == Status.Ok, !refValue)
       },
       test("handleErrorRequestCause should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
@@ -152,6 +173,13 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
+      test("handleErrorRequestCause should pass through responses in error channel of handled routes") {
+        val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+        val errorHandled =
+          route.handleErrorRequestCause((_, _) => Response.text("error").status(Status.InternalServerError))
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        errorHandled.toRoutes.runZIO(request).map(response => assertTrue(extractStatus(response) == Status.Ok))
+      },
       test("handleErrorRequestCauseZIO should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
         val errorHandled = route.handleErrorRequestCauseZIO((_, _) =>
@@ -162,6 +190,60 @@ object RouteSpec extends ZIOHttpSpec {
           response   <- errorHandled.toRoutes.runZIO(request)
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
+      },
+      test("handleErrorRequestCauseZIO should pass through responses in error channel of handled routes") {
+        val route   = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+        val request = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          ref <- Ref.make(false)
+          errorHandled = route.handleErrorRequestCauseZIO((_, _) =>
+            ref.set(true) *> ZIO.succeed(Response.text("error").status(Status.InternalServerError)),
+          )
+          response <- errorHandled.toRoutes.runZIO(request)
+          refValue <- ref.get
+        } yield assertTrue(extractStatus(response) == Status.Ok, !refValue)
+      },
+      test(
+        "Routes with context can eliminate environment type partially when elimination produces intersection type environment",
+      ) {
+
+        val authContext: HandlerAspect[Any, String] = HandlerAspect.customAuthProviding[String] { request =>
+          {
+            request.headers.get(Header.Authorization).flatMap {
+              case Header.Authorization.Basic(uname, secret) if uname.reverse == secret.value.mkString =>
+                Some(uname)
+              case _                                                                                   =>
+                None
+            }
+          }
+        }
+
+        val endpoint = Endpoint(RoutePattern(Method.GET, Path.root))
+          .outCodec[String](StatusCodec.Ok ++ HttpCodec.content[String])
+          .auth(AuthType.Basic)
+
+        val effectWithTwoDependency: ZIO[Int & Long, Nothing, String] = for {
+          int  <- ZIO.service[Int]
+          long <- ZIO.service[Long]
+        } yield s"effectWithTwoDependencyResult $int $long"
+
+        val route: Route[Int & Long & String, Nothing] =
+          endpoint.implement((_: Unit) => withContext((_: String) => "") *> effectWithTwoDependency)
+        val routes                                     = Routes(route).@@[Int & Long](authContext)
+
+        val env: ZEnvironment[Int with Long] = ZEnvironment(1).add(2L)
+        val expected                         = "\"effectWithTwoDependencyResult 1 2\""
+        for {
+          response   <- routes
+            .provideEnvironment(env)
+            .apply(
+              Request(
+                headers = Headers("accept", "text") ++ Headers(Header.Authorization.Basic("123", "321")),
+                method = Method.GET,
+              ).path(Path.root),
+            )
+          bodyString <- response.body.asString
+        } yield assertTrue(bodyString == expected)
       },
     ),
   )

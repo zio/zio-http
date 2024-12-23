@@ -21,7 +21,7 @@ object GRPCSpec extends ZIOSpecDefault {
     suite("GRPC imports")(
       test("correct mediatype") {
 
-        assertTrue(!codec.lookup(MediaType.parseCustomMediaType("application/grpc").get).isEmpty)
+        assertTrue(codec.lookup(MediaType.parseCustomMediaType("application/grpc").get).isDefined)
 
       },
       test("encode and decode") {

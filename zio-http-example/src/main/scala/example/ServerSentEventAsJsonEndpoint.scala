@@ -9,7 +9,7 @@ import zio.stream.ZStream
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.{CodecConfig, HttpCodec}
+import zio.http.codec._
 import zio.http.endpoint._
 
 object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {

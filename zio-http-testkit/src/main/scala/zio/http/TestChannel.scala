@@ -3,7 +3,7 @@ package zio.http
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.ChannelEvent.{Unregistered, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent._
 
 case class TestChannel(
   in: Queue[WebSocketChannelEvent],

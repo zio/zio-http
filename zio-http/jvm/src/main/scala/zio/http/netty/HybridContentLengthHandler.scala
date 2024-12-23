@@ -5,7 +5,7 @@ import io.netty.handler.codec.http.HttpUtil.getContentLength
 import io.netty.handler.codec.http._
 import io.netty.handler.stream.ChunkedWriteHandler
 
-class HybridContentLengthHandler(maxAggregatedLength: Int) extends ChannelInboundHandlerAdapter {
+private[netty] class HybridContentLengthHandler(maxAggregatedLength: Int) extends ChannelInboundHandlerAdapter {
   var maxLength                                                        = maxAggregatedLength
   override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
     msg match {

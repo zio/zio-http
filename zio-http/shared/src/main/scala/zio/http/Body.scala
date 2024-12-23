@@ -462,16 +462,18 @@ object Body {
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = zioEmptyChunk
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = ZStream.empty
-    override def isComplete: Boolean                                            = true
+
+    override def isComplete: Boolean = true
 
     override def isEmpty: Boolean = true
 
-    override def toString(): String = "Body.empty"
+    override def toString: String = "Body.empty"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = Array.empty[Byte]
 
     override def contentType(newContentType: Body.ContentType): Body = this
-    override def contentType: Option[Body.ContentType]               = None
+
+    override def contentType: Option[Body.ContentType] = None
 
     override def knownContentLength: Option[Long] = Some(0L)
   }
@@ -513,7 +515,7 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
-    override def toString(): String = s"Body.fromChunk($data)"
+    override def toString: String = s"Body.fromChunk($data)"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
@@ -538,7 +540,7 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
-    override def toString(): String = s"Body.fromArray($data)"
+    override def toString: String = s"Body.fromArray($data)"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data
 
@@ -567,22 +569,36 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap {
-        for {
-          file <- ZIO.attempt(file)
-          fs   <- ZIO.attemptBlocking(new FileInputStream(file))
-          size <- ZIO.attemptBlocking(Math.min(chunkSize.toLong, file.length()).toInt)
-        } yield ZStream
-          .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
-            for {
-              buffer <- ZIO.succeed(new Array[Byte](size))
-              len    <- ZIO.attemptBlocking(fs.read(buffer)).mapError(Some(_))
-              bytes  <-
-                if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
-                else ZIO.fail(None)
-            } yield bytes
+        ZIO.blocking {
+          ZIO.suspendSucceed {
+            try {
+              val fs   = new FileInputStream(file)
+              val size = Math.min(chunkSize.toLong, file.length()).toInt
+
+              val read: Task[Option[Chunk[Byte]]] =
+                ZIO.suspendSucceed {
+                  try {
+                    val buffer = new Array[Byte](size)
+                    val len    = fs.read(buffer)
+                    if (len > 0) Exit.succeed(Some(Chunk.fromArray(buffer.slice(0, len))))
+                    else Exit.none
+                  } catch {
+                    case e: Throwable => Exit.fail(e)
+                  }
+                }
+
+              Exit.succeed {
+                // Optimised for our needs version of `ZIO.repeatZIOChunkOption`
+                ZStream
+                  .unfoldChunkZIO(read)(_.map(_.map(_ -> read)))
+                  .ensuring(ZIO.attempt(fs.close()).ignoreLogged)
+              }
+            } catch {
+              case e: Throwable => Exit.fail(e)
+            }
           }
-          .ensuring(ZIO.attemptBlocking(fs.close()).ignoreLogged)
-      }.flattenChunks
+        }
+      }
 
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 

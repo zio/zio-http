@@ -1,6 +1,7 @@
 package test.api.v1
 
 import test.component._
+import zio.schema._
 
 object Users {
   import zio.http._

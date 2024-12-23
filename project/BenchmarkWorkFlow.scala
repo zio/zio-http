@@ -35,13 +35,13 @@ object BenchmarkWorkFlow {
           commands = List("sudo rm -rf *"),
         ),
         WorkflowStep.Use(
-          UseRef.Public("actions", "checkout", s"v2"),
+          UseRef.Public("actions", "checkout", s"v4"),
           Map(
             "path" -> "zio-http",
           ),
         ),
         WorkflowStep.Use(
-          UseRef.Public("actions", "checkout", s"v2"),
+          UseRef.Public("actions", "checkout", s"v4"),
           Map(
             "repository" -> "khajavi/FrameworkBenchmarks",
             "path"       -> "FrameworkBenchMarks",
@@ -103,7 +103,7 @@ object BenchmarkWorkFlow {
 
               |if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
               |  echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
-              |else 
+              |else
               |  echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
               |   exit 1
               |fi""".stripMargin,

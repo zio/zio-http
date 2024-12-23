@@ -27,7 +27,7 @@ object ConnectionPoolConfig {
   final case class DynamicPerHost(configs: Map[URL.Location.Absolute, Dynamic], default: Dynamic)
       extends ConnectionPoolConfig
 
-  lazy val config: Config[ConnectionPoolConfig] = {
+  def config: Config[ConnectionPoolConfig] = {
     val disabled       = Config.string.mapOrFail {
       case "disabled" => Right(Disabled)
       case other      => Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $other"))

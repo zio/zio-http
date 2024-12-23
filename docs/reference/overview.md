@@ -71,7 +71,7 @@ val echoRoute: Route[Any, Throwable] = Route.notFound
 ```scala mdoc:silent
 import zio.http._
 
-val app: Routes[Any, Response] =
+val routes: Routes[Any, Response] =
   Routes(greetRoute, echoRoute)
     .handleError(e => Response.internalServerError(e.getMessage))
 ```

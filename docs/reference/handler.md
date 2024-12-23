@@ -55,11 +55,11 @@ Routes(
 
   // 4. A handler that takes the name from the path and returns a greeting message
   Method.GET / "name" / string("name") -> 
-    handler{ (name: String, _: Request) => (Response.text(s"Hello, $name!")) },
+    handler{ (name: String, _: Request) => Response.text(s"Hello, $name!") },
 
   // 5. A handler that takes the name and age from the path and returns birthday greetings
   Method.GET / "name" / string("name") / "age" / int("age") ->
-    handler{ (name: String, age: Int, _: Request) => (Response.text(s"Happy $age-th birthday, $name!")) }
+    handler{ (name: String, age: Int, _: Request) => Response.text(s"Happy $age-th birthday, $name!") }
 
 )
 ```
@@ -612,6 +612,17 @@ In this example, the type of the handler before applying the `sandbox` operator 
 
 Without the `sandbox` operator, the compiler would complain about the unhandled `Throwable` error.
 
+By default, sandboxed errors will result in a `500 Internal Server Error` response without a body. If you want to have all information about the error in the response body you can use a different (`ErrorResponseConfig`)[response/response.md#failure-responses-with-details] like `ErrorResponseConfig.debug`:
+
+```scala mdoc:compile-only
+import zio.http._
+import java.nio.file._
+
+Routes(
+   Method.GET / "file" ->
+           Handler.fromFile(Paths.get("file.txt").toFile).sandbox,
+   ) @@ ErrorResponseConfig.debug
+```
 ### Converting a `Handler` to an `Routes`
 
 The `Handler#toRoutes` operator, converts a handler to an `Routes` to be served by the `Server`. The following example, shows an HTTP application that serves a simple "Hello, World!" response for all types of incoming requests:

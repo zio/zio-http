@@ -26,7 +26,7 @@ import zio.http.Driver.StartResult
 trait Driver {
   def start(implicit trace: Trace): RIO[Scope, StartResult]
 
-  def addApp[R](newApp: Routes[R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
+  def addApp[R](newRoutes: Routes[R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
 
   def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver]
 }

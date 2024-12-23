@@ -37,7 +37,7 @@ object Decompression {
     override def strict: Boolean  = false
   }
 
-  lazy val config: Config[Decompression] =
+  def config: Config[Decompression] =
     Config.string.mapOrFail {
       case "no"        => Right(No)
       case "strict"    => Right(Strict)

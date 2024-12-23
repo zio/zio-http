@@ -26,12 +26,12 @@ import zio.http.netty.client.NettyClientDriver
 object DynamicAppTest extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
-  val httpApp1: Routes[Any, Response] =
+  val routes1: Routes[Any, Response] =
     Routes(
       Method.GET / "good" -> Handler.ok,
     ).sandbox
 
-  val httpApp2: Routes[Any, Response] =
+  val routes2: Routes[Any, Response] =
     Routes(
       Method.GET / "better" -> handler(Response.status(Status.Created)),
     ).sandbox
@@ -51,11 +51,11 @@ object DynamicAppTest extends ZIOHttpSpec {
   def spec = suite("Server")(
     test("Should allow dynamic changes to the installed app") {
       for {
-        port <- Server.install(httpApp1)
+        port <- Server.install(routes1)
         good   = URL.decode(s"http://localhost:$port/good").toOption.get
         better = URL.decode(s"http://localhost:$port/better").toOption.get
         okResponse      <- Client.batched(Request.get(good))
-        _               <- Server.install(httpApp2)
+        _               <- Server.install(routes2)
         createdResponse <- Client.batched(Request.get(better))
       } yield assertTrue(
         extractStatus(okResponse) == Status.Ok &&

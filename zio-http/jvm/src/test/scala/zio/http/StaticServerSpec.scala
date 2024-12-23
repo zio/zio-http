@@ -23,9 +23,9 @@ import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
 
 import zio.http.Header.AccessControlAllowMethods
 import zio.http.Middleware.{CorsConfig, cors}
-import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, serverTestLayer, testClientLayer}
+import zio.http.internal.{DynamicServer, HttpGen, RoutesRunnableSpec, serverTestLayer, testClientLayer}
 
-object StaticServerSpec extends HttpRunnableSpec {
+object StaticServerSpec extends RoutesRunnableSpec {
 
   private val staticApp = Routes(
     Method.GET / "success"       -> handler(Response.ok),

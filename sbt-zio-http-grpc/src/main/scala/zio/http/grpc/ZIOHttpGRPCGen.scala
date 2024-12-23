@@ -5,11 +5,10 @@ import scala.jdk.CollectionConverters._
 import zio.http.gen.grpc._
 import zio.http.gen.scala.{Code, CodeGen}
 
+import com.google.protobuf._
 import com.google.protobuf.compiler.PluginProtos.CodeGeneratorResponse
-import com.google.protobuf.{Descriptors, ExtensionRegistry}
 import protocgen.{CodeGenApp, CodeGenRequest, CodeGenResponse}
-import scalapb.compiler.{DescriptorImplicits, ProtobufGenerator}
-import scalapb.options.Scalapb
+import scalapb.compiler._
 
 object ZIOHttpGRPCGen extends CodeGenApp {
 
@@ -17,11 +16,11 @@ object ZIOHttpGRPCGen extends CodeGenApp {
     ProtobufGenerator.parseParameters(request.parameter) match {
       case Right(_)    =>
         val services = request.filesToGenerate.flatMap(fromProtobuf(_).files)
-        val schemas  = services.map(getImplicitSchemas(_)).map { case (pkg, tpes) =>
+        val schemas  = services.map(getImplicitSchemas).map { case (pkg, tpes) =>
           schemasFile(pkg, tpes)
         }
         CodeGenResponse.succeed(
-          schemas ++ services.map(fileToPluginCode(_)),
+          schemas ++ services.map(fileToPluginCode),
           Set(CodeGeneratorResponse.Feature.FEATURE_PROTO3_OPTIONAL),
         )
       case Left(error) =>
@@ -55,7 +54,7 @@ object ZIOHttpGRPCGen extends CodeGenApp {
     val content =
       s"package ${pkg.mkString(".")} \nobject Schemas {\n" +
         "import zio.schema.{DeriveSchema, Schema}\n" +
-        tpes.distinct.map(tpeToSchema(_)).mkString("") +
+        tpes.distinct.map(tpeToSchema).mkString("") +
         "\n}"
     b.setContent(content)
     b.build
@@ -66,39 +65,36 @@ object ZIOHttpGRPCGen extends CodeGenApp {
   }
 
   def fromDescriptor(file: Descriptors.FileDescriptor): Protobuf.File = {
-    val deps    = file
-      .getDependencies()
-      .asScala
-      .toList
+    val deps    = file.getDependencies.asScala.toList
       .map(_.getName())
-    val opt     = file.getOptions()
-    val pkg     = if (opt.hasJavaPackage() && opt.getJavaPackage() != "") opt.getJavaPackage() else file.getPackage()
+    val opt     = file.getOptions
+    val pkg     = if (opt.hasJavaPackage && opt.getJavaPackage != "") opt.getJavaPackage else file.getPackage
     val pkgPath = if (pkg == "") Nil else pkg.split('.').toList
     val name0   =
-      if (opt.hasJavaOuterClassname() && opt.getJavaOuterClassname() != "") opt.getJavaOuterClassname()
-      else file.getName()
+      if (opt.hasJavaOuterClassname && opt.getJavaOuterClassname != "") opt.getJavaOuterClassname
+      else file.getName
     val name    = if (name0.endsWith(".proto")) name0.dropRight(6) else name0
 
     def fromService(service: Descriptors.ServiceDescriptor): Protobuf.Service =
       Protobuf.Service(
-        service.getName(),
-        service.getMethods.asScala.toList.map(fromMethod(_)),
+        service.getName,
+        service.getMethods.asScala.toList.map(fromMethod),
       )
 
     def fromMethod(method: Descriptors.MethodDescriptor): Protobuf.Method =
       Protobuf.Method(
-        method.getName(),
-        method.getInputType().getName(),
-        method.getOutputType().getName(),
-        method.isClientStreaming(),
-        method.isServerStreaming(),
+        method.getName,
+        method.getInputType.getName,
+        method.getOutputType.getName,
+        method.isClientStreaming,
+        method.isServerStreaming,
       )
 
     Protobuf.File(
       name,
       pkgPath,
       deps,
-      file.getServices().asScala.toList.map(fromService(_)),
+      file.getServices.asScala.toList.map(fromService),
     )
   }
 

@@ -10,7 +10,7 @@ import zio.http._
 
 object MultipartFormDataStreaming extends ZIOAppDefault {
 
-  private val app: Routes[Any, Response] =
+  private val routes: Routes[Any, Response] =
     Routes(
       Method.POST / "upload-simple"    -> handler { (req: Request) =>
         for {
@@ -68,7 +68,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
   @nowarn("msg=dead code")
   private def program: ZIO[Server, Throwable, Unit] =
     for {
-      port <- Server.install(app)
+      port <- Server.install(routes)
       _    <- ZIO.logInfo(s"Server started on port $port")
       _    <- ZIO.never
     } yield ()

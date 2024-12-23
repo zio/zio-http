@@ -23,7 +23,7 @@ import zio.test._
 object RoutesMiddlewareSpec extends ZIOHttpSpec with ExitAssertion {
 
   def spec: Spec[Any, Any] =
-    suite("HttpAppMiddleware")(
+    suite("RoutesMiddleware")(
       test("combine") {
         for {
           ref <- Ref.make(0)

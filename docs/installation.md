@@ -7,7 +7,7 @@ In this guide, we will learn how to get started with a new ZIO HTTP project.
 
 Before we dive in, we should make sure that we have the following on our computer:
 
-* JDK 1.8 or higher
+* JDK 17 or higher
 * sbt (scalaVersion >= 2.12)
 
 ## Manual Installation
@@ -51,7 +51,7 @@ Pressing enter will stop watching for changes, but not stop the application. We 
 reStop
 ```
 
-In case we already have an _sbt_ server running, i.e. to provide our IDE with BSP information, we should use _sbtn_ instead of _sbt_ to run `~reStart`, this lets both _sbt_ sessions share one server.
+In case we already have a _sbt_ server running, i.e. to provide our IDE with BSP information, we should use _sbtn_ instead of _sbt_ to run `~reStart`, this lets both _sbt_ sessions share one server.
 
 ### Formatting Source Code
 

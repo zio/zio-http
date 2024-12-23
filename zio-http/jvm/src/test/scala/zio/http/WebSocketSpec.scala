@@ -23,9 +23,9 @@ import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer, testNettyServerConfig, testServerConfig}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer, testNettyServerConfig, testServerConfig}
 
-object WebSocketSpec extends HttpRunnableSpec {
+object WebSocketSpec extends RoutesRunnableSpec {
 
   private val websocketSpec =
     List(

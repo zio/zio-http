@@ -25,7 +25,7 @@ import io.netty.channel.epoll._
 import io.netty.channel.kqueue._
 import io.netty.channel.socket.nio._
 import io.netty.incubator.channel.uring._
-object ChannelFactories {
+private[netty] object ChannelFactories {
 
   private[zio] def make[A <: Channel](channel: => A)(implicit trace: Trace): UIO[ChannelFactory[A]] =
     ZIO.succeed(new ChannelFactory[A] {

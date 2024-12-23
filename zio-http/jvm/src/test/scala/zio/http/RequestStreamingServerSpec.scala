@@ -22,10 +22,10 @@ import zio.test.TestAspect.{diagnose, sequential, shrinks, withLiveClock}
 import zio.test.{assertTrue, assertZIO}
 
 import zio.http.ServerSpec.requestBodySpec
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 
-object RequestStreamingServerSpec extends HttpRunnableSpec {
+object RequestStreamingServerSpec extends RoutesRunnableSpec {
   def extractStatus(res: Response): Status = res.status
 
   private val configAppWithRequestStreaming =

@@ -41,7 +41,7 @@ object UserDataSpec extends ZIOSpecDefault {
   val spec = suite("UserDataSpec")(
     test("No sanitation and write to server") {
       // this is not a bug but could be a vulnerability used wrong
-      check(tuples.zip(functions)) { case (mediaType, msg, expectedResponse, f) =>
+      check(tuples.zip(functions)) { case (_, msg, expectedResponse, _) =>
         val endpoint = Endpoint(Method.GET / "test")
           .query(HttpCodec.query[String]("data"))
           .out[String]
@@ -59,7 +59,7 @@ object UserDataSpec extends ZIOSpecDefault {
     } @@ TestAspect.failing,
     test("No sanitation using Dom") {
       // this is not a bug but could be a vulnerability used wrong
-      check(tuples.zip(functions)) { case (mediaType, msg, expectedResponse, f) =>
+      check(tuples.zip(functions)) { case (_, msg, expectedResponse, _) =>
         val endpoint = Endpoint(Method.GET / "test")
           .in[Dom]
           .out[Dom]
@@ -89,11 +89,11 @@ object UserDataSpec extends ZIOSpecDefault {
       }
     },
     test("Header injection DOM") {
-      check(tuples.zip(functions)) { case (mediaType, msg, expectedResponse, f) =>
+      check(tuples.zip(functions)) { case (mediaType, msg, expectedResponse, _) =>
         val endpoint = Endpoint(Method.GET / "test")
           .query(HttpCodec.query[Dom]("data"))
           .out[Dom]
-        val route    = endpoint.implementHandler(Handler.fromFunction { case s => s })
+        val route    = endpoint.implementHandler(Handler.fromFunction(s => s))
         val request  =
           Request
             .get(URL(Path.root / "test", queryParams = QueryParams(("data", msg))))
@@ -136,7 +136,7 @@ object UserDataSpec extends ZIOSpecDefault {
       }
     },
     test("Error injection") {
-      check(tuples.zip(functions)) { case (mediaType, msg, expectedResponse, f) =>
+      check(tuples.zip(functions)) { case (mediaType, msg, expectedResponse, _) =>
         val routes  = Routes(Method.POST / "test" -> handler { (req: Request) =>
           req.body.asString.orDie.map(msg => Response.error(Status.InternalServerError, msg))
         })

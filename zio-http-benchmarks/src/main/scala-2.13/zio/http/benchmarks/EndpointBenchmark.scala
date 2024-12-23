@@ -223,7 +223,7 @@ class EndpointBenchmark {
 
   // Collect DSL
 
-  val deepPathCollectHttpApp = Routes(
+  val deepPathCollectRoutes = Routes(
     Method.GET / "first" / int("id1") / "second" / int("id2") / "third" / int("id3") / "fourth" / int(
       "id4",
     ) / "fifth" / int("id5") / "sixth" / int("id6") / "seventh" / int("id7") ->
@@ -287,7 +287,7 @@ class EndpointBenchmark {
   @Benchmark
   def benchmarkDeepPathZioCollect(): Unit =
     unsafeRun {
-      deepPathCollectHttpApp.runZIO(deepPathRequest).repeatN(REPEAT_N)
+      deepPathCollectRoutes.runZIO(deepPathRequest).repeatN(REPEAT_N)
     }
 
 //  @Benchmark

@@ -35,7 +35,7 @@ import zio.http._
  * val pathCodec = empty / "users" / int("user-id") / "posts" / string("post-id")
  * }}}
  */
-sealed trait PathCodec[A] { self =>
+sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   import PathCodec._
 
   /**
@@ -48,8 +48,11 @@ sealed trait PathCodec[A] { self =>
   final def ++[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
     PathCodec.Concat(self, that, combiner)
 
-  final def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
-    self ++ that
+  final def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] = {
+    if (self == PathCodec.empty) that.asInstanceOf[PathCodec[combiner.Out]]
+    else if (that == PathCodec.empty) self.asInstanceOf[PathCodec[combiner.Out]]
+    else self ++ that
+  }
 
   final def /[Env, Err](routes: Routes[Env, Err])(implicit
     ev: PathCodec[A] <:< PathCodec[Unit],
@@ -339,7 +342,7 @@ sealed trait PathCodec[A] { self =>
           } else {
 
             try {
-              val int = Integer.parseInt(value, j, end, 10)
+              val int = parseInt(value, j, end, 10)
               j = end
               if (isNegative) stack.push(-int) else stack.push(int)
             } catch {
@@ -358,7 +361,7 @@ sealed trait PathCodec[A] { self =>
             return "Expected long path segment but found: " + value.substring(j, end)
           } else {
             try {
-              val long = java.lang.Long.parseLong(value, j, end, 10)
+              val long = parseLong(value, j, end, 10)
               j = end
               if (isNegative) stack.push(-long) else stack.push(long)
             } catch {
@@ -649,7 +652,7 @@ sealed trait PathCodec[A] { self =>
     loop(self)
   }
 
-  override def toString(): String = render
+  override def toString: String = render
 
   final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), output => Right(g(output)))
@@ -663,7 +666,7 @@ sealed trait PathCodec[A] { self =>
   final def transformOrFailRight[A2](f: A => A2)(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), g)
 }
-object PathCodec          {
+object PathCodec {
 
   /**
    * Constructs a path codec from a method and a path literal.
@@ -788,7 +791,7 @@ object PathCodec          {
     def get(path: Path): Chunk[A] =
       get(path, 0)
 
-    private def get(path: Path, from: Int, skipLiteralsFor: Set[Int] = Set.empty): Chunk[A] = {
+    private def get(path: Path, from: Int, skipLiteralsFor: Set[Int] = null): Chunk[A] = {
       val segments  = path.segments
       val nSegments = segments.length
       var subtree   = self
@@ -801,7 +804,7 @@ object PathCodec          {
         val segment = segments(i)
 
         // Fast path, jump down the tree:
-        if (!skipLiteralsFor.contains(i) && subtree.literals.contains(segment)) {
+        if ((skipLiteralsFor.eq(null) || !skipLiteralsFor.contains(i)) && subtree.literals.contains(segment)) {
 
           // this subtree segment have conflict with others
           // will try others if result was empty
@@ -875,19 +878,19 @@ object PathCodec          {
 
       // Might be some other matches because trailing matches everything:
       if (subtree ne null) {
-        subtree.others.get(SegmentCodec.trailing) match {
-          case Some(subtree) =>
-            result = result ++ subtree.value
-          case None          =>
+        subtree.others.getOrElse(SegmentCodec.Trailing, null) match {
+          case null    => ()
+          case subtree => result = result ++ subtree.value
         }
       }
 
       if (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
         trySkipLiteralIdx = trySkipLiteralIdx.reverse
+        val skipLiteralsFor0 = if (skipLiteralsFor eq null) Set.empty[Int] else skipLiteralsFor
         while (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
           val skipIdx = trySkipLiteralIdx.head
           trySkipLiteralIdx = trySkipLiteralIdx.tail
-          result = get(path, from, skipLiteralsFor + skipIdx)
+          result = get(path, from, skipLiteralsFor0 + skipIdx)
         }
         result
       } else result

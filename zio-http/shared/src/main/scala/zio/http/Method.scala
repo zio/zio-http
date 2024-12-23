@@ -31,7 +31,9 @@ sealed trait Method { self =>
     if (that == Method.ANY) self
     else that
 
-  def /[A](that: PathCodec[A]): RoutePattern[A] = RoutePattern.fromMethod(self) / that
+  def /[A](that: PathCodec[A]): RoutePattern[A] =
+    if (that == PathCodec.empty) RoutePattern.fromMethod(self).asInstanceOf[RoutePattern[A]]
+    else RoutePattern.fromMethod(self) / that
 
   def matches(that: Method): Boolean =
     if (self == Method.ANY) true

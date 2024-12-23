@@ -21,10 +21,10 @@ import zio.test.TestAspect.{diagnose, sequential, shrinks, withLiveClock}
 import zio.test.{assert, suite, test}
 
 import zio.http.ServerSpec.requestBodySpec
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 
-object HybridRequestStreamingServerSpec extends HttpRunnableSpec {
+object HybridRequestStreamingServerSpec extends RoutesRunnableSpec {
   def extractStatus(res: Response): Status = res.status
 
   private val MaxSize = 1024 * 10

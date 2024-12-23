@@ -21,10 +21,10 @@ import zio.test.TestAspect.withLiveClock
 import zio.test._
 import zio.{Scope, ZIO, ZLayer}
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 
-object ServerStartSpec extends HttpRunnableSpec {
+object ServerStartSpec extends RoutesRunnableSpec {
 
   def serverStartSpec = suite("ServerStartSpec")(
     test("desired port") {

@@ -23,11 +23,10 @@ import zio._
 
 import zio.stream.ZStream
 
-import zio.schema._
+import zio.schema.Schema
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec.HttpCodecType.{RequestType, ResponseType}
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
@@ -245,6 +244,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): Route[Any, Nothing] =
     implementHandler[Any](Handler.succeed(output))
 
+  def implementAsZIO(output: ZIO[Any, Err, Output])(implicit
+    trace: Trace,
+  ): Route[Any, Nothing] =
+    implementHandler[Any](Handler.fromZIO(output))
+
   def implementAsError(err: Err)(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
@@ -253,7 +257,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
 
-    def authCodec(authType: AuthType): HttpCodec[RequestType, Unit] = authType match {
+    def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
       case AuthType.None                => HttpCodec.empty
       case AuthType.Basic               =>
         HeaderCodec.authorization.transformOrFail {
@@ -299,9 +303,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               )
               .getOrElse(defaultMediaTypes)
           (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
-            original(value).map(endpoint.output.encodeResponse(_, outputMediaTypes, config)).catchAll { error =>
-              ZIO.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config))
-            }
+            original(value).foldZIO(
+              success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
+              failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
+            )
           }
         } -> condition
       }
@@ -356,7 +361,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
           }
       }
 
-    Route.handled(self.route)(handler)
+    Route.handledIgnoreParams(self.route)(handler)
   }
 
   /**
@@ -618,6 +623,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     )
 
   /**
+   * Returns a new endpoint derived from this one, whose response must satisfy
+   * the specified codec.
+   */
+  def outCodec[Output2](codec: HttpCodec[HttpCodecType.ResponseType, Output2])(implicit
+    alt: Alternator[Output2, Output],
+  ): Endpoint[PathInput, Input, Err, alt.Out, Auth] =
+    copy(output = codec | self.output)
+
+  /**
    * Converts a codec error into a specific error type. The given media types
    * are sorted by q-factor. Beginning with the highest q-factor.
    */
@@ -650,14 +664,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
   def outErrors[Err2]: OutErrors[PathInput, Input, Err, Output, Auth, Err2] = OutErrors(self)
 
-  /**
-   * Returns a new endpoint derived from this one, whose response must satisfy
-   * the specified codec.
-   */
-  def outCodec[Output2](codec: HttpCodec[HttpCodecType.ResponseType, Output2])(implicit
-    alt: Alternator[Output2, Output],
-  ): Endpoint[PathInput, Input, Err, alt.Out, Auth] =
-    copy(output = codec | self.output)
+  def outHeader[A](codec: HeaderCodec[A])(implicit
+    combiner: Combiner[Output, A],
+  ): Endpoint[PathInput, Input, Err, combiner.Out, Auth] =
+    copy(output = self.output ++ codec)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream
@@ -794,7 +804,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = self.input ++ codec)
 
   /**
-   * Adds tags to the endpoint. The are used for documentation generation. For
+   * Adds tags to the endpoint. They are used for documentation generation. For
    * example to group endpoints for OpenAPI.
    */
   def tag(tag: String, tags: String*): Endpoint[PathInput, Input, Err, Output, Auth] =
@@ -970,6 +980,751 @@ object Endpoint {
       val codec = HttpCodec.enumeration.f8(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8)
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
+
+    // apply 9
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f9(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8, codec9)
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec =
+        HttpCodec.enumeration.f10(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8, codec9, codec10)
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f11(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f12(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f13(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f14(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+      Sub15 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+      codec15: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub15],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f15(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+        codec15,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+      Sub15 <: Err2: ClassTag,
+      Sub16 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+      codec15: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub15],
+      codec16: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub16],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f16(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+        codec15,
+        codec16,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+      Sub15 <: Err2: ClassTag,
+      Sub16 <: Err2: ClassTag,
+      Sub17 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+      codec15: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub15],
+      codec16: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub16],
+      codec17: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub17],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f17(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+        codec15,
+        codec16,
+        codec17,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+      Sub15 <: Err2: ClassTag,
+      Sub16 <: Err2: ClassTag,
+      Sub17 <: Err2: ClassTag,
+      Sub18 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+      codec15: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub15],
+      codec16: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub16],
+      codec17: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub17],
+      codec18: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub18],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f18(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+        codec15,
+        codec16,
+        codec17,
+        codec18,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+      Sub15 <: Err2: ClassTag,
+      Sub16 <: Err2: ClassTag,
+      Sub17 <: Err2: ClassTag,
+      Sub18 <: Err2: ClassTag,
+      Sub19 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+      codec15: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub15],
+      codec16: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub16],
+      codec17: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub17],
+      codec18: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub18],
+      codec19: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub19],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f19(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+        codec15,
+        codec16,
+        codec17,
+        codec18,
+        codec19,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+      Sub15 <: Err2: ClassTag,
+      Sub16 <: Err2: ClassTag,
+      Sub17 <: Err2: ClassTag,
+      Sub18 <: Err2: ClassTag,
+      Sub19 <: Err2: ClassTag,
+      Sub20 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+      codec15: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub15],
+      codec16: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub16],
+      codec17: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub17],
+      codec18: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub18],
+      codec19: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub19],
+      codec20: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub20],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f20(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+        codec15,
+        codec16,
+        codec17,
+        codec18,
+        codec19,
+        codec20,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+      Sub15 <: Err2: ClassTag,
+      Sub16 <: Err2: ClassTag,
+      Sub17 <: Err2: ClassTag,
+      Sub18 <: Err2: ClassTag,
+      Sub19 <: Err2: ClassTag,
+      Sub20 <: Err2: ClassTag,
+      Sub21 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+      codec15: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub15],
+      codec16: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub16],
+      codec17: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub17],
+      codec18: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub18],
+      codec19: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub19],
+      codec20: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub20],
+      codec21: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub21],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f21(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+        codec15,
+        codec16,
+        codec17,
+        codec18,
+        codec19,
+        codec20,
+        codec21,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
+    def apply[
+      Sub1 <: Err2: ClassTag,
+      Sub2 <: Err2: ClassTag,
+      Sub3 <: Err2: ClassTag,
+      Sub4 <: Err2: ClassTag,
+      Sub5 <: Err2: ClassTag,
+      Sub6 <: Err2: ClassTag,
+      Sub7 <: Err2: ClassTag,
+      Sub8 <: Err2: ClassTag,
+      Sub9 <: Err2: ClassTag,
+      Sub10 <: Err2: ClassTag,
+      Sub11 <: Err2: ClassTag,
+      Sub12 <: Err2: ClassTag,
+      Sub13 <: Err2: ClassTag,
+      Sub14 <: Err2: ClassTag,
+      Sub15 <: Err2: ClassTag,
+      Sub16 <: Err2: ClassTag,
+      Sub17 <: Err2: ClassTag,
+      Sub18 <: Err2: ClassTag,
+      Sub19 <: Err2: ClassTag,
+      Sub20 <: Err2: ClassTag,
+      Sub21 <: Err2: ClassTag,
+      Sub22 <: Err2: ClassTag,
+    ](
+      codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
+      codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
+      codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
+      codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
+      codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
+      codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
+      codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
+      codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
+      codec9: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub9],
+      codec10: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub10],
+      codec11: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub11],
+      codec12: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub12],
+      codec13: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub13],
+      codec14: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub14],
+      codec15: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub15],
+      codec16: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub16],
+      codec17: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub17],
+      codec18: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub18],
+      codec19: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub19],
+      codec20: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub20],
+      codec21: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub21],
+      codec22: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub22],
+    )(implicit alt: Alternator[Err2, Err]): Endpoint[PathInput, Input, alt.Out, Output, Auth] = {
+      val codec = HttpCodec.enumeration.f22(
+        codec1,
+        codec2,
+        codec3,
+        codec4,
+        codec5,
+        codec6,
+        codec7,
+        codec8,
+        codec9,
+        codec10,
+        codec11,
+        codec12,
+        codec13,
+        codec14,
+        codec15,
+        codec16,
+        codec17,
+        codec18,
+        codec19,
+        codec20,
+        codec21,
+        codec22,
+      )
+      self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
+    }
+
   }
 
   private[endpoint] val defaultMediaTypes =

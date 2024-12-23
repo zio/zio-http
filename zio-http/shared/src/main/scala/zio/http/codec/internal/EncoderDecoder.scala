@@ -16,17 +16,14 @@
 
 package zio.http.codec.internal
 
-import scala.annotation.nowarn
 import scala.util.Try
 
 import zio._
 
-import zio.stream.ZStream
-
 import zio.schema.codec.{BinaryCodec, DecodeError}
 import zio.schema.{Schema, StandardType}
 
-import zio.http.Header.Accept.{MediaTypeWithQFactor, render}
+import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec.HttpCodec.Query.QueryType
 import zio.http.codec._
@@ -422,18 +419,21 @@ private[codec] object EncoderDecoder {
     private def decodeBody(config: CodecConfig, body: Body, inputs: Array[Any])(implicit
       trace: Trace,
     ): Task[Unit] = {
-      val codecs = flattened.content
+      val isNonMultiPart = inputs.length < 2
+      if (isNonMultiPart) {
+        val codecs = flattened.content
 
-      if (inputs.length < 2) {
-        // non multi-part
-        codecs.headOption.map { codec =>
+        // noinspection SimplifyUnlessInspection
+        if (codecs.isEmpty) ZIO.unit
+        else {
+          val codec = codecs.head
           codec
             .decodeFromBody(body, config)
             .mapBoth(
-              { err => HttpCodecError.MalformedBody(err.getMessage(), Some(err)) },
+              { err => HttpCodecError.MalformedBody(err.getMessage, Some(err)) },
               result => inputs(0) = result,
             )
-        }.getOrElse(ZIO.unit)
+        }
       } else {
         // multi-part
         decodeForm(body.asMultipartFormStream, inputs, config) *> check(inputs)

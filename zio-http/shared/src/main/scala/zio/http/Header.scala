@@ -45,13 +45,13 @@ sealed trait Header {
   private[http] def headerNameAsCharSequence: CharSequence    = headerName
   private[http] def renderedValueAsCharSequence: CharSequence = renderedValue
 
-  lazy val untyped: Header.Custom = Header.Custom(headerName, renderedValue)
+  def untyped: Header.Custom = Header.Custom(headerName, renderedValue)
 }
 
 object Header {
 
   sealed trait HeaderType {
-    type HeaderValue
+    type HeaderValue <: Header
 
     def name: String
 
@@ -71,7 +71,7 @@ object Header {
     override def headerType: HeaderType.Typed[Custom] = new Header.HeaderType {
       override type HeaderValue = Custom
 
-      override lazy val name: String = self.customName.toString
+      override def name: String = self.customName.toString
 
       override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
 
@@ -124,7 +124,7 @@ object Header {
       }
     }
 
-    override def toString(): String = (customName, value).toString()
+    override def toString: String = (customName, value).toString()
   }
 
   final case class Accept(mimeTypes: NonEmptyChunk[Accept.MediaTypeWithQFactor]) extends Header {
@@ -2856,8 +2856,14 @@ object Header {
       Right(Forwarded(by, forValue, host, proto))
     }
 
-    def render(forwarded: Forwarded): String =
-      s"${forwarded.by}; ${forwarded.forValues.map(v => s"for=$v").mkString(",")}; ${forwarded.host}; ${forwarded.proto}"
+    def render(forwarded: Forwarded): String = {
+      def formatDirective(directiveName: String, directiveValue: Option[String]) =
+        directiveValue.map(v => s"${directiveName}=${v};").getOrElse("")
+
+      val forValues = if (forwarded.forValues.nonEmpty) forwarded.forValues.mkString("for=", ",for=", ";") else ""
+
+      s"${formatDirective("by", forwarded.by)}${forValues}${formatDirective("host", forwarded.host)}${formatDirective("proto", forwarded.proto)}"
+    }
   }
 
   /** From header value. */

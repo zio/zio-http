@@ -2,8 +2,6 @@ package zio.benchmarks
 
 import java.util.concurrent.TimeUnit
 
-import zio.{Trace, Unsafe}
-
 import zio.http._
 
 import org.openjdk.jmh.annotations._

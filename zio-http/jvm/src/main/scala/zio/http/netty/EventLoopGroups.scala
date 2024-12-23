@@ -16,7 +16,6 @@
 
 package zio.http.netty
 
-import java.time.temporal.TemporalUnit
 import java.util.concurrent.Executor
 
 import scala.concurrent.duration.TimeUnit

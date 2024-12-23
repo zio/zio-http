@@ -21,9 +21,9 @@ import zio.{Scope, ZIO}
 
 import zio.http.Middleware.requestLogging
 import zio.http._
-import zio.http.internal.HttpAppTestExtensions
+import zio.http.internal.TestExtensions
 
-object RequestLoggingSpec extends ZIOHttpSpec with HttpAppTestExtensions {
+object RequestLoggingSpec extends ZIOHttpSpec with TestExtensions {
 
   private val app = Routes(
     Method.GET / "ok"     -> Handler.ok,

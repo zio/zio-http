@@ -7,14 +7,14 @@ import zio._
 import zio.http._
 
 object ServeOnAnyOpenPort extends ZIOAppDefault {
-  val httpApp =
+  val routes =
     Routes(
       Method.GET / "hello" -> handler(Response.text("Hello, World!")),
     )
 
   @nowarn("msg=dead code")
   val app = for {
-    port <- Server.install(httpApp)
+    port <- Server.install(routes)
     _    <- ZIO.log(s"server started on port $port")
     _    <- ZIO.never
   } yield ()

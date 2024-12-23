@@ -55,7 +55,7 @@ object MultipartMixed {
     bufferSize: Int,
   ) {
 
-    lazy val upstream: ZChannel[Any, Any, Any, Any, Throwable, Chunk[Byte], Any] = ZChannel
+    val upstream: ZChannel[Any, Any, Any, Any, Throwable, Chunk[Byte], Any] = ZChannel
       .fromZIO(pull)
       .foldCauseChannel(
         ZChannel.refailCause(_),

@@ -236,7 +236,7 @@ object DnsResolver {
   )
 
   object Config {
-    lazy val config: zio.Config[Config] =
+    def config: zio.Config[Config] =
       (zio.Config.duration("ttl").withDefault(Config.default.ttl) ++
         zio.Config.duration("unknown-host-ttl").withDefault(Config.default.unknownHostTtl) ++
         zio.Config.int("max-count").withDefault(Config.default.maxCount) ++
@@ -247,7 +247,7 @@ object DnsResolver {
           Config(ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate)
       }
 
-    lazy val default: Config = Config(
+    def default: Config = Config(
       ttl = 10.minutes,
       unknownHostTtl = 1.minute,
       maxCount = 4096,

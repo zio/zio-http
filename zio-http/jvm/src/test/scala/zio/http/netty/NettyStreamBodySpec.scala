@@ -8,12 +8,12 @@ import zio.stream.{ZPipeline, ZStream, ZStreamAspect}
 
 import zio.http.ZClient.Config
 import zio.http._
-import zio.http.internal.HttpRunnableSpec
+import zio.http.internal.RoutesRunnableSpec
 import zio.http.multipart.mixed.MultipartMixed
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 import zio.http.netty.NettyStreamBodySpec.app
 
-object NettyStreamBodySpec extends HttpRunnableSpec {
+object NettyStreamBodySpec extends RoutesRunnableSpec {
 
   def app(streams: Iterator[ZStream[Any, Throwable, Byte]], len: Long) =
     Routes(

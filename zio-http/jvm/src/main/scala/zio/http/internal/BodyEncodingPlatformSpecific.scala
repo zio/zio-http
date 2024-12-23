@@ -18,6 +18,6 @@ package zio.http.internal
 
 import zio.http.netty.NettyBody
 
-trait BodyEncodingPlatformSpecific {
+private[http] trait BodyEncodingPlatformSpecific {
   val default: BodyEncoding = NettyBody
 }

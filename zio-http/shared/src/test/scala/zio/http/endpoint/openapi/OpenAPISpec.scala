@@ -51,7 +51,7 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |        {
                        |        "type" : "apiKey",
                        |        "name" : "Authorization",
-                       |        "in" : "Header"
+                       |        "in" : "header"
                        |      }
                        |    }
                        |  },

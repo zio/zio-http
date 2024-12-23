@@ -29,9 +29,9 @@ object ExceptionSpec extends ZIOSpecDefault {
             .map(value => Response.text(s"The value of age query param is: $value"))
 
         Handler.fromZIO(response).catchAll {
-          case QueryParamsError.Missing(name)                  =>
+          case QueryParamsError.Missing(name)         =>
             Handler.badRequest(s"The $name query param is missing")
-          case QueryParamsError.Malformed(name, codec, values) =>
+          case QueryParamsError.Malformed(name, _, _) =>
             Handler.badRequest(s"The value of $name query param is malformed")
         }
       },

@@ -26,7 +26,7 @@ import zio.http.netty.NettyResponse
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
 
-final class WebSocketClientInboundHandler(
+private[netty] final class WebSocketClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
