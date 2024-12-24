@@ -48,8 +48,8 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private var handler: Handler[Any, Nothing, Request, Response] = _
-  private var runtime: NettyRuntime                             = _
+  private var handle: Request => ZIO[Any, Nothing, Response] = _
+  private var runtime: NettyRuntime                          = _
 
   val inFlightRequests: LongAdder = new LongAdder()
   private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
@@ -58,7 +58,15 @@ private[zio] final case class ServerInboundHandler(
   def refreshApp(): Unit = {
     val pair = appRef.get()
 
-    this.handler = pair._1.toHandler
+    this.handle = pair._1 match {
+      case Left(unscopedHandler) =>
+        val handler = unscopedHandler.toHandler
+        handler.apply
+      case Right(scopedHandler)  =>
+        val handler = scopedHandler.toHandler
+        (req: Request) => ZIO.scoped(handler(req))
+    }
+
     this.runtime = new NettyRuntime(pair._2)
   }
 
@@ -88,7 +96,7 @@ private[zio] final case class ServerInboundHandler(
             releaseRequest()
           } else {
             val req  = makeZioRequest(ctx, jReq)
-            val exit = handler(req)
+            val exit = handle(req)
             if (attemptImmediateWrite(ctx, req.method, exit)) {
               releaseRequest()
             } else {
