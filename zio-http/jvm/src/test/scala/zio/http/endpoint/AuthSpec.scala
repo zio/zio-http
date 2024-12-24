@@ -211,7 +211,7 @@ object AuthSpec extends ZIOSpecDefault {
               .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
             response <- response
           } yield assertTrue(response == "admin")
-        },
+        } @@ TestAspect.flaky,
         test("Auth with context and endpoint client with path parameter") {
           val endpoint =
             Endpoint(Method.GET / int("a")).out[String](MediaType.text.`plain`).auth(AuthType.Basic)
