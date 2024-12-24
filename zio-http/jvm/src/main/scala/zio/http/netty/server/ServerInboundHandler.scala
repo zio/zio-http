@@ -87,12 +87,18 @@ private[zio] final case class ServerInboundHandler(
             )
             releaseRequest()
           } else {
-            val req  = makeZioRequest(ctx, jReq)
-            val exit = handler(req)
-            if (attemptImmediateWrite(ctx, req.method, exit)) {
+            val req = makeZioRequest(ctx, jReq)
+            if (!validateHostHeader(req)) {
+              // Validation failed, return 400 Bad Request
+              attemptFastWrite(ctx, req.method, Response.status(Status.BadRequest))
               releaseRequest()
             } else {
-              writeResponse(ctx, runtime, exit, req)(releaseRequest)
+              val exit = handler(req)
+              if (attemptImmediateWrite(ctx, req.method, exit)) {
+                releaseRequest()
+              } else {
+                writeResponse(ctx, runtime, exit, req)(releaseRequest)
+              }
             }
           }
         } finally {
@@ -106,6 +112,27 @@ private[zio] final case class ServerInboundHandler(
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
     }
 
+  }
+
+  private def validateHostHeader(req: Request): Boolean = {
+    val host = req.headers.get("Host").getOrElse(null)
+    if (host != null) {
+      val parts       = host.split(":")
+      val isValidHost = parts(0).forall(c => c.isLetterOrDigit || c == '.' || c == '-')
+      val isValidPort = parts.length == 1 || (parts.length == 2 && parts(1).forall(_.isDigit))
+      val isValid     = isValidHost && isValidPort
+      if (!isValid) {
+        ZIO
+          .logWarning(
+            s"Invalid Host header for request ${req.method} ${req.url}. " +
+              s"Host: $host, isValidHost: $isValidHost, isValidPort: $isValidPort",
+          )
+      }
+      isValid
+    } else {
+      ZIO.logWarning(s"Missing Host header for request ${req.method} ${req.url}")
+      false
+    }
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
