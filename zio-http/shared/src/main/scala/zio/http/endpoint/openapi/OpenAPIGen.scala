@@ -19,6 +19,7 @@ import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
 
 object OpenAPIGen {
@@ -591,7 +592,15 @@ object OpenAPIGen {
         requestBody = requestBody,
         responses = responses,
         callbacks = Map.empty,
-        security = Nil,
+        security = endpoint.authType match {
+          case AuthType.Basic         =>
+            List(SecurityRequirement(Map("BasicAuth" -> Nil)))
+          case AuthType.Bearer        =>
+            List(SecurityRequirement(Map("BearerAuth" -> Nil)))
+          case AuthType.Digest =>
+            List(SecurityRequirement(Map("DigestAuth" -> Nil)))
+          case _ => Nil
+        },
         servers = Nil,
       )
     }
