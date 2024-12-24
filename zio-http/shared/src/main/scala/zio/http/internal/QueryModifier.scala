@@ -19,31 +19,37 @@ package zio.http.internal
 import zio.Chunk
 
 import zio.http.QueryParams
+import zio.http.codec.TextCodec
 
 trait QueryModifier[+A] { self: QueryOps[A] with A =>
 
   /**
-   * Combines two collections of query parameters together. If there are
-   * duplicate keys, the values from both sides are preserved, in order from
-   * left-to-right.
+   * Combines two collections of query parameters together. If there are duplicate keys,
+   * the values from both sides are preserved, in order from left-to-right.
    */
   def ++(that: QueryParams): A =
     updateQueryParams(params => QueryParams.fromEntries(params.seq ++ that.seq: _*))
 
   /**
-   * Adds the specified key/value pair to the query parameters.
+   * Adds the specified key/value pair to the query parameters with optional schema validation.
    */
-  def addQueryParam(key: String, value: String): A =
-    addQueryParams(key, Chunk(value))
+  def addQueryParam[T](key: String, value: T, schema: Option[TextCodec[T]] = None)(implicit codec: TextCodec[T]): Either[QueryParamsError, A] = {
+    val validatedCodec = schema.getOrElse(codec)
+    validatedCodec.encode(value) match {
+      case Left(_) => Left(QueryParamsError.Malformed(key, validatedCodec, NonEmptyChunk(value.toString)))
+      case Right(encodedValue) => Right(addQueryParams(key, Chunk(encodedValue)))
+    }
+  }
 
   /**
-   * Adds the specified key/value pairs to the query parameters.
+   * Adds the specified key/value pairs to the query parameters with optional schema validation.
    */
-  def addQueryParams(key: String, value: Chunk[String]): A =
-    updateQueryParams(params => params ++ QueryParams(key -> value))
+  def addQueryParams[T](key: String, values: Chunk[T], schema: Option[TextCodec[T]] = None)(implicit codec: TextCodec[T]): Either[QueryParamsError, A] = {
+    val validatedCodec = schema.getOrElse(codec)
+    val encodedValues = values.map(validatedCodec.encode(_).toOption.getOrElse(""))
 
-  def addQueryParams(values: String): A =
-    updateQueryParams(params => params ++ QueryParams.decode(values))
+    Right(updateQueryParams(params => params ++ QueryParams(key -> encodedValues)))
+  }
 
   /**
    * Removes the specified key from the query parameters.
