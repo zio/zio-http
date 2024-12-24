@@ -1,0 +1,6 @@
+# compile should depend on generated sources,
+# thus we'll check it triggers codegen by inspecting expected .class files
+# compiled from expected generated sources
+> compile
+$ exists target/scala-2.13/classes/dev/zoo/service/api/v1/zoo/Animal.class
+$ exists target/scala-2.13/classes/dev/zoo/service/component/Animal.class
