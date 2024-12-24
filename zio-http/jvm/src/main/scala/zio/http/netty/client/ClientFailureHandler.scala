@@ -1,6 +1,6 @@
 package zio.http.netty.client
 
-import zio.{Exit, Promise, Unsafe}
+import zio.{Exit, Promise, Unsafe, ZIO}
 
 import zio.http.Response
 import zio.http.internal.ChannelState
@@ -11,6 +11,7 @@ import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 private[netty] final class ClientFailureHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
+  onFailure: Promise[Nothing, Throwable],
 ) extends ChannelInboundHandlerAdapter {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
@@ -18,5 +19,6 @@ private[netty] final class ClientFailureHandler(
     val exit = Exit.fail(cause)
     onResponse.unsafe.done(exit)
     onComplete.unsafe.done(exit)
+    onFailure.unsafe.done(ZIO.succeed(cause))
   }
 }
