@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.StandardOpenOption._
 import java.nio.file._
 
+import scala.util.matching.Regex
+
 object CodeGen {
 
   private val EndpointImports =
@@ -230,18 +232,21 @@ object CodeGen {
       val multipleAnnotationsAboveContent       = if (annotationValues.size > 1) "\n" + content else content
       allImports -> annotationValues.mkString("", "\n", multipleAnnotationsAboveContent)
 
-    case Code.Primitive.ScalaBoolean => Nil                                 -> "Boolean"
-    case Code.Primitive.ScalaByte    => Nil                                 -> "Byte"
-    case Code.Primitive.ScalaChar    => Nil                                 -> "Char"
-    case Code.Primitive.ScalaDouble  => Nil                                 -> "Double"
-    case Code.Primitive.ScalaFloat   => Nil                                 -> "Float"
-    case Code.Primitive.ScalaInt     => Nil                                 -> "Int"
-    case Code.Primitive.ScalaLong    => Nil                                 -> "Long"
-    case Code.Primitive.ScalaShort   => Nil                                 -> "Short"
-    case Code.Primitive.ScalaString  => Nil                                 -> "String"
-    case Code.Primitive.ScalaUnit    => Nil                                 -> "Unit"
-    case Code.Primitive.ScalaUUID    => List(Code.Import("java.util.UUID")) -> "UUID"
-    case Code.ScalaType.Inferred     => Nil                                 -> ""
+    case Code.Primitive.ScalaBoolean   => Nil                                      -> "Boolean"
+    case Code.Primitive.ScalaByte      => Nil                                      -> "Byte"
+    case Code.Primitive.ScalaChar      => Nil                                      -> "Char"
+    case Code.Primitive.ScalaDouble    => Nil                                      -> "Double"
+    case Code.Primitive.ScalaFloat     => Nil                                      -> "Float"
+    case Code.Primitive.ScalaInt       => Nil                                      -> "Int"
+    case Code.Primitive.ScalaLong      => Nil                                      -> "Long"
+    case Code.Primitive.ScalaShort     => Nil                                      -> "Short"
+    case Code.Primitive.ScalaString    => Nil                                      -> "String"
+    case Code.Primitive.ScalaUnit      => Nil                                      -> "Unit"
+    case Code.Primitive.ScalaUUID      => List(Code.Import("java.util.UUID"))      -> "UUID"
+    case Code.Primitive.ScalaLocalDate => List(Code.Import("java.time.LocalDate")) -> "LocalDate"
+    case Code.Primitive.ScalaInstant   => List(Code.Import("java.time.Instant"))   -> "Instant"
+    case Code.Primitive.ScalaTime      => List(Code.Import("java.time.LocalTime")) -> "LocalTime"
+    case Code.ScalaType.Inferred       => Nil                                      -> ""
 
     case Code.EndpointCode(method, pathPatternCode, queryParamsCode, headersCode, inCode, outCodes, errorsCode) =>
       val (queryImports, queryContent) = queryParamsCode.map(renderQueryCode).unzip
@@ -266,12 +271,16 @@ object CodeGen {
 
   def renderSegmentType(name: String, segmentType: Code.CodecType): (String, List[Code.Import]) =
     segmentType match {
-      case Code.CodecType.Boolean                          => s"""bool("$name")"""   -> Nil
-      case Code.CodecType.Int                              => s"""int("$name")"""    -> Nil
-      case Code.CodecType.Long                             => s"""long("$name")"""   -> Nil
-      case Code.CodecType.String                           => s"""string("$name")""" -> Nil
-      case Code.CodecType.UUID                             => s"""uuid("$name")"""   -> Nil
-      case Code.CodecType.Literal                          => s""""$name""""         -> Nil
+      case Code.CodecType.Boolean                          => s"""bool("$name")"""      -> Nil
+      case Code.CodecType.Int                              => s"""int("$name")"""       -> Nil
+      case Code.CodecType.Long                             => s"""long("$name")"""      -> Nil
+      case Code.CodecType.String                           => s"""string("$name")"""    -> Nil
+      case Code.CodecType.UUID                             => s"""uuid("$name")"""      -> Nil
+      case Code.CodecType.LocalDate                        => s"""date("$name")"""      -> Nil
+      case Code.CodecType.LocalTime                        => s"""time("$name")"""      -> Nil
+      case Code.CodecType.Instant                          => s"""date-time("$name")""" -> Nil
+      case Code.CodecType.Duration                         => s"""duration("$name")"""  -> Nil
+      case Code.CodecType.Literal                          => s""""$name""""            -> Nil
       case Code.CodecType.Aliased(underlying, newtypeName) =>
         val sb              = new StringBuilder()
         val (code, imports) = renderSegmentType(name, underlying)
@@ -379,12 +388,16 @@ object CodeGen {
   def renderQueryCode(queryCode: Code.QueryParamCode): (List[Code.Import], String) = queryCode match {
     case Code.QueryParamCode(name, queryType) =>
       val (imports, tpe) = queryType match {
-        case Code.CodecType.Boolean => Nil                                 -> "Boolean"
-        case Code.CodecType.Int     => Nil                                 -> "Int"
-        case Code.CodecType.Long    => Nil                                 -> "Long"
-        case Code.CodecType.String  => Nil                                 -> "String"
-        case Code.CodecType.UUID    => List(Code.Import("java.util.UUID")) -> "UUID"
-        case Code.CodecType.Literal => throw new Exception("Literal query params are not supported")
+        case Code.CodecType.Boolean   => Nil                                      -> "Boolean"
+        case Code.CodecType.Int       => Nil                                      -> "Int"
+        case Code.CodecType.Long      => Nil                                      -> "Long"
+        case Code.CodecType.String    => Nil                                      -> "String"
+        case Code.CodecType.UUID      => List(Code.Import("java.util.UUID"))      -> "UUID"
+        case Code.CodecType.LocalDate => List(Code.Import("java.time.LocalDate")) -> "LocalDate"
+        case Code.CodecType.LocalTime => List(Code.Import("java.time.LocalTime")) -> "LocalTime"
+        case Code.CodecType.Instant   => List(Code.Import("java.time.Instant"))   -> "Instant"
+        case Code.CodecType.Duration  => List(Code.Import("java.time.Duration"))  -> "Duration"
+        case Code.CodecType.Literal   => throw new Exception("Literal query params are not supported")
         case Code.CodecType.Aliased(underlying, newtypeName) =>
           val (imports, _) = renderQueryCode(Code.QueryParamCode(name, underlying))
           (Code.Import.FromBase(s"components.$newtypeName") :: imports) -> (newtypeName + ".Type")

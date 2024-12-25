@@ -67,6 +67,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): HttpCodec[HttpCodecType.RequestType, AuthedInput] = {
     input ++ authCodec
   }.asInstanceOf[HttpCodec[HttpCodecType.RequestType, AuthedInput]]
+
   type AuthedInput = authCombiner.Out
 
   /**
@@ -295,30 +296,31 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       self.alternatives.map { case (endpoint, condition) =>
         Handler.fromFunctionZIO { (request: zio.http.Request) =>
           val outputMediaTypes =
-            NonEmptyChunk
-              .fromChunk(
-                request.headers
-                  .getAll(Header.Accept)
-                  .flatMap(_.mimeTypes),
-              )
-              .getOrElse(defaultMediaTypes)
+            request.headers
+              .getAll(Header.Accept)
+              .flatMap(_.mimeTypes)
+              .nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
+
           (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
-            original(value).map(endpoint.output.encodeResponse(_, outputMediaTypes, config)).catchAll { error =>
-              ZIO.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config))
-            }
+            original(value).foldZIO(
+              success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
+              failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
+            )
           }
         } -> condition
       }
 
     // TODO: What to do if there are no endpoints??
-    def handlers2(handlers: Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)]) =
-      NonEmptyChunk
-        .fromChunk(handlers)
-        .getOrElse(
-          NonEmptyChunk(
-            Handler.fail(zio.http.Response(status = Status.NotFound)) -> HttpCodec.Fallback.Condition.IsHttpCodecError,
-          ),
+    def handlers2(
+      handlers: Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)],
+    ): NonEmptyChunk[(Handler[Env, Response, Request, Response], HttpCodec.Fallback.Condition)] = {
+      def noFound: NonEmptyChunk[(Handler[Env, Response, Request, Response], HttpCodec.Fallback.Condition)] =
+        NonEmptyChunk(
+          Handler.fail(zio.http.Response(status = Status.NotFound)) -> HttpCodec.Fallback.Condition.IsHttpCodecError,
         )
+
+      handlers.nonEmptyOrElse(ifEmpty = noFound)(ZIO.identityFn)
+    }
 
     val handler =
       Handler.fromZIO(CodecConfig.codecRef.get).flatMap { config =>
@@ -343,13 +345,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
                     val outputMediaTypes =
-                      NonEmptyChunk
-                        .fromChunk(
-                          request.headers
-                            .getAll(Header.Accept)
-                            .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0)),
-                        )
-                        .getOrElse(defaultMediaTypes)
+                      (
+                        request.headers
+                          .getAll(Header.Accept)
+                          .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
+                      ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
+
                     codecError.encodeResponse(error, outputMediaTypes, config)
                   }
                   ZIO.succeed(response)

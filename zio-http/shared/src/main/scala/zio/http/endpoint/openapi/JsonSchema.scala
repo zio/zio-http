@@ -293,8 +293,8 @@ object JsonSchema {
         JsonSchema.String(
           schema.format.map(StringFormat.fromString),
           schema.pattern.map(Pattern.apply),
-          schema.minLength,
           schema.maxLength,
+          schema.minLength,
         )
       case schema if schema.schemaType.contains(TypeOrTypes.Type("boolean"))                             =>
         JsonSchema.Boolean
@@ -425,7 +425,7 @@ object JsonSchema {
                 refType,
                 seenWithCurrent,
               )
-              nested.rootRef.map(k => nested.children + (k -> nested.root)).getOrElse(nested.children)
+              nested.rootRef.fold(ifEmpty = nested.children)(k => nested.children + (k -> nested.root))
             }
             .toMap
           JsonSchemas(fromZSchema(record, SchemaStyle.Inline), ref, children)
