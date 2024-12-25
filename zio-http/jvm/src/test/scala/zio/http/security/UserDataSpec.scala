@@ -23,7 +23,7 @@ object UserDataSpec extends ZIOSpecDefault {
   val tuples = Gen.fromIterable(
     List(
       (MediaType.text.`html`, "<script>alert('XSS');</script>", "&lt;script&gt;alert(&#x27;XSS&#x27;);&lt;/script&gt;"),
-      (MediaType.text.`html`, "&", "&amp"),
+      (MediaType.text.`html`, "&", "&amp;"),
       (MediaType.text.`html`, "<", "&lt;"),
       (MediaType.text.`html`, ">", "&gt;"),
       (MediaType.text.`html`, "\"", "&quot;"),

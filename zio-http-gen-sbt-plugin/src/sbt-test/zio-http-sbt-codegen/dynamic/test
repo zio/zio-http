@@ -1,0 +1,7 @@
+# compile should depend on generated sources,
+# thus we'll check it triggers codegen by inspecting expected .class files
+# compiled from expected generated sources
+> compile
+$ exists target/scala-2.13/src_managed/oapi/gov/uspto/ibd/api.json
+$ exists target/scala-2.13/classes/gov/uspto/ibd/v1/weeklyarchivedata/SearchWeeklyArchiveData.class
+$ exists target/scala-2.13/classes/gov/uspto/ibd/component/ArchiveDataRecord.class

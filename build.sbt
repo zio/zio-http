@@ -93,6 +93,22 @@ ThisBuild / githubWorkflowBuildPreamble := Seq(
   ),
 )
 
+ThisBuild / githubWorkflowBuild := {
+  (ThisBuild / githubWorkflowBuild).value ++ WorkflowJob(
+    "testSbtPlugin",
+    "Test sbt plugin",
+    List(
+      WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1")),
+      WorkflowStep.Run(
+        name = Some(s"Test sbt plugin"),
+        commands = List(s"sbt ++${Scala212} zioHttpGenSbt/scripted"),
+        cond = Some(s"$${{ github.event_name == 'pull_request' }} && matrix.scala == '$Scala212'"),
+      ),
+    ),
+    scalas = List(Scala212),
+  ).steps
+}
+
 ThisBuild / githubWorkflowBuildPostamble :=
   WorkflowJob(
     "checkDocGeneration",
@@ -334,7 +350,8 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       scalafmt.cross(CrossVersion.for3Use2_13),
       scalametaParsers
         .cross(CrossVersion.for3Use2_13)
-        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
+        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13")
+        .exclude("com.lihaoyi", "sourcecode_2.13"),
       `zio-json-yaml` % Test,
     ),
   )
@@ -348,6 +365,26 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
     },
   )
   .dependsOn(zioHttpJVM)
+
+lazy val zioHttpGenSbt = (project in file("zio-http-gen-sbt-plugin"))
+  .enablePlugins(SbtPlugin)
+  .settings(publishSetting(true))
+  .settings(
+    name := "zio-http-sbt-codegen",
+    sbtPlugin    := true,
+    scalaVersion := Scala212,
+    semanticdbEnabled := true,
+    semanticdbVersion := scalafixSemanticdb.revision,
+    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
+    sbtTestDirectory := sourceDirectory.value / "sbt-test",
+    scriptedLaunchOpts += ("-Dplugin.version=" + version.value),
+    scriptedBufferLog := false,
+    libraryDependencies ++= Seq(
+      `zio-json-yaml`,
+      `zio-test`,
+      `zio-test-sbt`,
+    )
+  ).dependsOn(LocalProject("zioHttpGen"))
 
 lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
   .settings(stdSettings("sbt-zio-http-grpc"))
