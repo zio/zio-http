@@ -12,13 +12,13 @@ The plugin offers 2 modes of operation that can be mixed and used together:
 - Generating from managed dynamic OpenAPI spec files
 
 in `project/plugins.sbt` add the following line:
-```scala mdoc:silent
+```scala
 addSbtPlugin("dev.zio" % "zio-http-sbt-codegen" % "@VERSION@") // make sure the version of the sbt plugin
                                                                // matches the version of zio-http you are using
 ```
 
 in `build.sbt` enable the plugin by adding:
-```scala mdoc:silent
+```scala
 enablePlugins(ZioHttpCodegen)
 ```
 
@@ -34,7 +34,7 @@ or maybe you use services that expose OpenAPI specs via REST API, or perhaps you
 Whatever the scenario you're dealing with, it can be very handy to dynamically fetch/generate the latest most updated spec file, so the generated code stays up to date with any changes introduced.
 
 Here's how you can do it:
-```scala mdoc:silent
+```scala
 import gigahorse.support.apachehttp.Gigahorse
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
@@ -61,7 +61,7 @@ ZIOpenApi / sourceGenerators += Def.task[Seq[File]] {
 
 ## Configuration
 The plugin offers a setting key which you can set to control how code is generated:
-```scala mdoc:silent
+```scala
 zioHttpCodegenConf := zio.http.gen.openapi.Config.default
 ```
 
