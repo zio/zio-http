@@ -1,7 +1,6 @@
-package example
+package example.websocket
 
 import zio._
-
 import zio.http.ChannelEvent.Read
 import zio.http._
 import zio.http.codec.PathCodec.string

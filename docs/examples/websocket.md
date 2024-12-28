@@ -21,12 +21,12 @@ Our WebSocketApp will handle the following events send by the client:
 * If the client sends "end", we will close the connection.
 * If the client sends any other message, we will send the same message back to the client 10 times.
 
-For the client to establish a connection with the server, we offer the `/subscriptions` endpoint.
+For the client to establish a connection with the server, we offer the `/subscriptions` endpoint:
 
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/WebSocketAdvanced.scala", lines=Seq((3, 7), (9, 60)), showLineNumbers=false)
+printSource("zio-http-example/src/main/scala/example/websocket/WebSocketServerAdvanced.scala")
 ```
 
 A few things worth noting:
@@ -47,7 +47,7 @@ All we need for that, is the URL of the server. In our case it's `"ws://localhos
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/WebSocketAdvanced.scala", lines=Seq((3, 7), (62, 99)), showLineNumbers=false)
+printSource("zio-http-example/src/main/scala/example/webSocket/WebSocketClientAdvanced.scala")
 ```
 
 While we access here `Queue[String]` via the ZIO environment, you should use a service in a real world application, that requires a queue as one of its constructor dependencies.
@@ -59,5 +59,5 @@ See [ZIO Services](https://zio.dev/reference/service-pattern/) for more informat
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/WebSocketEcho.scala")
+printSource("zio-http-example/src/main/scala/example/websocket/WebSocketEcho.scala")
 ```
