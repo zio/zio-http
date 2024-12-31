@@ -261,21 +261,21 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
       case AuthType.None                => HttpCodec.empty
       case AuthType.Basic               =>
-        HeaderCodec.authorization.transformOrFail {
+        HeaderCodec.basicAuth.transformOrFail {
           case Header.Authorization.Basic(_, _) => Right(())
           case _                                => Left("Basic auth required")
         } { case () =>
           Left("Unsupported")
         }
       case AuthType.Bearer              =>
-        HeaderCodec.authorization.transformOrFail {
+        HeaderCodec.bearerAuth.transformOrFail {
           case Header.Authorization.Bearer(_) => Right(())
           case _                              => Left("Bearer auth required")
         } { case () =>
           Left("Unsupported")
         }
       case AuthType.Digest              =>
-        HeaderCodec.authorization.transformOrFail {
+        HeaderCodec.digestAuth.transformOrFail {
           case _: Header.Authorization.Digest => Right(())
           case _                              => Left("Digest auth required")
         } { case () =>

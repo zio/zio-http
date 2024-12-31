@@ -85,6 +85,54 @@ object HttpGenSpec extends ZIOSpecDefault {
           |Authorization: {{Authorization}}""".stripMargin
       assertTrue(rendered == expected)
     },
+    test("Basic Auth Header Codec") {
+      val endpoint     = Endpoint(Method.GET / "api" / "foo").header(HeaderCodec.basicAuth)
+      val httpEndpoint = HttpGen.fromEndpoint(endpoint)
+      val rendered     = httpEndpoint.render
+      val expected     =
+        """
+          |@Authorization=<no value>
+          |
+          |GET /api/foo
+          |Authorization: {{BasicAuth}}""".stripMargin
+      assertTrue(rendered == expected)
+
+      val endpointWithExample     = Endpoint(Method.GET / "api" / "foo")
+        .header(HeaderCodec.basicAuth.examples("default" -> Header.Authorization.Basic("admin", "admin")))
+      val httpEndpointWithExample = HttpGen.fromEndpoint(endpointWithExample)
+      val renderedWithExample     = httpEndpointWithExample.render
+      val expectedWithExample     =
+        """
+          |@Authorization=Basic YWRtaW46Q2h1bmsoYSxkLG0saSxuKQ==
+          |
+          |GET /api/foo
+          |Authorization: {{BasicAuth}}""".stripMargin
+      assertTrue(renderedWithExample == expectedWithExample)
+    },
+    test("Bearer Auth Header Codec") {
+      val endpoint     = Endpoint(Method.GET / "api" / "foo").header(HeaderCodec.bearerAuth)
+      val httpEndpoint = HttpGen.fromEndpoint(endpoint)
+      val rendered     = httpEndpoint.render
+      val expected     =
+        """
+          |@Authorization=<no value>
+          |
+          |GET /api/foo
+          |Authorization: {{BearerAuth}}""".stripMargin
+      assertTrue(rendered == expected)
+    },
+    test("Digest Auth Header Codec") {
+      val endpoint     = Endpoint(Method.GET / "api" / "foo").header(HeaderCodec.digestAuth)
+      val httpEndpoint = HttpGen.fromEndpoint(endpoint)
+      val rendered     = httpEndpoint.render
+      val expected     =
+        """
+          |@Authorization=<no value>
+          |
+          |GET /api/foo
+          |Authorization: {{DigestAuth}}""".stripMargin
+      assertTrue(rendered == expected)
+    },
     test("Header with example") {
       val endpoint     = Endpoint(Method.GET / "api" / "foo")
         .header(HeaderCodec.authorization.examples("default" -> Header.Authorization.Basic("admin", "admin")))
