@@ -1,6 +1,6 @@
 package zio.http.netty.client
 
-import zio.{Exit, Promise, Unsafe, ZIO}
+import zio.{Exit, Promise, Unsafe}
 
 import zio.http.Response
 import zio.http.internal.ChannelState
@@ -19,6 +19,6 @@ private[netty] final class ClientFailureHandler(
     val exit = Exit.fail(cause)
     onResponse.unsafe.done(exit)
     onComplete.unsafe.done(exit)
-    onFailure.unsafe.done(ZIO.succeed(cause))
+    onFailure.unsafe.done(Exit.succeed(cause))
   }
 }
