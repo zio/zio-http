@@ -69,7 +69,7 @@ private[zio] final class WebSocketAppHandler(
     callbacks match {
       case Some((onComplete, onFailure)) =>
         onComplete.unsafe.done(Exit.fail(cause))
-        onFailure.unsafe.done(ZIO.succeed(cause))
+        onFailure.unsafe.done(Exit.succeed(cause))
       case None                          => ()
     }
   }

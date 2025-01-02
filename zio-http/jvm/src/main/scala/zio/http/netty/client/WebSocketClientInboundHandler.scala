@@ -42,10 +42,9 @@ private[netty] final class WebSocketClientInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    implicit val trace = Trace.empty
-    val exit           = Exit.fail(error)
+    val exit = Exit.fail(error)
     onResponse.unsafe.done(exit)
     onComplete.unsafe.done(exit)
-    onFailure.unsafe.done(ZIO.succeed(error))
+    onFailure.unsafe.done(Exit.succeed(error))
   }
 }
