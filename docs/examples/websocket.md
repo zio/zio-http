@@ -47,7 +47,7 @@ All we need for that, is the URL of the server. In our case it's `"ws://localhos
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/webSocket/WebSocketClientAdvanced.scala")
+printSource("zio-http-example/src/main/scala/example/websocket/WebSocketClientAdvanced.scala")
 ```
 
 While we access here `Queue[String]` via the ZIO environment, you should use a service in a real world application, that requires a queue as one of its constructor dependencies.
