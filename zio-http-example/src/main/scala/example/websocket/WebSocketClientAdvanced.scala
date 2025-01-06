@@ -1,11 +1,12 @@
 package example.websocket
+import scala.annotation.nowarn
+
 import zio._
+
 import zio.http.ChannelEvent.Read
 import zio.http._
 
-import scala.annotation.nowarn
-
-object WebSocketSimpleClient extends ZIOAppDefault {
+object WebSocketSimpleClientAdvanced extends ZIOAppDefault {
 
   def sendChatMessage(message: String): ZIO[Queue[String], Throwable, Unit] =
     ZIO.serviceWithZIO[Queue[String]](_.offer(message).unit)

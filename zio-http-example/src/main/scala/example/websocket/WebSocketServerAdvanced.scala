@@ -1,11 +1,12 @@
 package example.websocket
 
+import scala.annotation.nowarn
+
 import zio._
+
 import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
 import zio.http._
 import zio.http.codec.PathCodec.string
-
-import scala.annotation.nowarn
 
 object WebSocketServerAdvanced extends ZIOAppDefault {
 
@@ -59,4 +60,3 @@ object WebSocketServerAdvanced extends ZIOAppDefault {
 
   override val run = Server.serve(routes).provide(Server.default)
 }
-
