@@ -16,6 +16,8 @@
 
 package zio.http.netty.client
 
+import scala.annotation.unroll
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -46,34 +48,37 @@ final case class NettyClientDriver private[netty] (
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
-    onFailure: Promise[Nothing, Throwable],
     enableKeepAlive: Boolean,
-    enableInternalLogging: Boolean,
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
+    @unroll enableInternalLogging: Boolean = false,
+    // Why this abomination? So we can provide a binary-compatible addition to this method.
+    onFailure: Trace => UIO[Promise[Nothing, Throwable]] = { (t: Trace) => Promise.make[Nothing, Throwable](t) },
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] =
-    if (location.scheme.isWebSocket)
-      requestWebsocket(
-        channel,
-        req,
-        onResponse,
-        onComplete,
-        onFailure,
-        createSocketApp,
-        webSocketConfig,
-        enableInternalLogging,
-      )
-    else
-      requestHttp(channel, req, onResponse, onComplete, onFailure, enableKeepAlive, enableInternalLogging)
+    onFailure(trace).flatMap {
+      if (location.scheme.isWebSocket) {
+        requestWebsocket(
+          channel,
+          req,
+          onResponse,
+          onComplete,
+          createSocketApp,
+          webSocketConfig,
+          enableInternalLogging,
+          _,
+        )
+      } else
+        requestHttp(channel, req, onResponse, onComplete, enableKeepAlive, enableInternalLogging, _)
+    }
 
   private def requestHttp(
     channel: Channel,
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
-    onFailure: Promise[Nothing, Throwable],
     enableKeepAlive: Boolean,
     enableInternalLogging: Boolean,
+    onFailure: Promise[Nothing, Throwable],
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] =
     ZIO
       .succeed(NettyRequestEncoder.encode(req))
@@ -139,10 +144,10 @@ final case class NettyClientDriver private[netty] (
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
-    onFailure: Promise[Nothing, Throwable],
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
     enableInternalLogging: Boolean,
+    onFailure: Promise[Nothing, Throwable],
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] = {
     for {
       queue              <- Queue.unbounded[WebSocketChannelEvent]

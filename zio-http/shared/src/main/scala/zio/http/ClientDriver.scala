@@ -16,8 +16,10 @@
 
 package zio.http
 
+import scala.annotation.unroll
+
+import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.internal.ChannelState
@@ -31,11 +33,12 @@ trait ClientDriver {
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
-    onFailure: Promise[Nothing, Throwable],
     enableKeepAlive: Boolean,
-    enableInternalLogging: Boolean,
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
+    @unroll enableInternalLogging: Boolean = false,
+    // Why this abomination? So we can provide a binary-compatible addition to this method.
+    onFailure: Trace => UIO[Promise[Nothing, Throwable]] = { (t: Trace) => Promise.make[Nothing, Throwable](t) },
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
 
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit

@@ -18,6 +18,8 @@ package zio.http
 
 import java.net.{InetSocketAddress, URI}
 
+import scala.annotation.unroll
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -538,7 +540,7 @@ object ZClient extends ZClientPlatformSpecific {
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
-    enableInternalLogging: Boolean,
+    @unroll enableInternalLogging: Boolean,
   ) {
     self =>
 
@@ -737,11 +739,11 @@ object ZClient extends ZClientPlatformSpecific {
                         request,
                         onResponse,
                         onComplete,
-                        onFailure,
                         connectionPool.enableKeepAlive,
-                        clientConfig.enableInternalLogging,
                         createSocketApp,
                         clientConfig.webSocketConfig,
+                        clientConfig.enableInternalLogging,
+                        _ => ZIO.succeed(onFailure),
                       )
                       .tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-

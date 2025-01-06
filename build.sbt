@@ -170,6 +170,10 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
     )
   }
 
+autoCompilerPlugins := true
+Global / libraryDependencies ++= unroll
+addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
+
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
