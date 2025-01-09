@@ -125,38 +125,36 @@ object HttpGen {
   private def getName(name: Option[String]) = { name.getOrElse(throw new IllegalArgumentException("name is required")) }
 
   def headersVariables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] =
-    inAtoms.header.collect { case mc @ MetaCodec(HttpCodec.Header(name, codec, _), _) =>
+    inAtoms.header.collect { case mc @ MetaCodec(HttpCodec.Header(headerType, _), _) =>
       HttpVariable(
-        name.capitalize,
-        mc.examples.values.headOption.map(e => codec.asInstanceOf[TextCodec[Any]].encode(e)),
+        headerType.name.capitalize,
+        mc.examples.values.headOption.map(e => headerType.render(e.asInstanceOf[headerType.HeaderValue])),
       )
     }
 
   def queryVariables(config: CodecConfig, inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
     inAtoms.query.collect {
-      case mc @ MetaCodec(HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _)  =>
+      case mc @ MetaCodec(HttpCodec.Query(codec, _), _) if codec.isPrimitive =>
         HttpVariable(
-          name,
-          mc.examples.values.headOption.map((e: Any) =>
-            codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(e).asString,
-          ),
+          codec.name.get,
+          mc.examples.values.headOption.map((e: Any) => codec.stringCodec.encode(e)),
         ) :: Nil
-      case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _) =>
-        val recordSchema = (schema match {
+      case mc @ MetaCodec(HttpCodec.Query(codec, _), _) if codec.isRecord    =>
+        val recordSchema = (codec.schema match {
           case value if value.isInstanceOf[Schema.Optional[_]] => value.asInstanceOf[Schema.Optional[Any]].schema
-          case _                                               => schema
+          case _                                               => codec.schema
         }).asInstanceOf[Schema.Record[Any]]
         val examples     = mc.examples.values.headOption.map { ex =>
           recordSchema.deconstruct(ex)(Unsafe.unsafe)
         }
-        record.fieldAndCodecs.zipWithIndex.map { case ((field, codec), index) =>
+        codec.recordFields.zipWithIndex.map { case ((field, codec), index) =>
           HttpVariable(
             field.name,
             examples.map(values => {
               val fieldValue = values(index)
                 .orElse(field.defaultValue)
                 .getOrElse(throw new Exception(s"No value or default value for field ${field.name}"))
-              codec.codec(config).encode(fieldValue).asString
+              codec.stringCodec.encode(fieldValue)
             }),
           )
         }

@@ -5,7 +5,9 @@ import zio.test._
 
 import zio.schema.Schema
 
+import zio.http.Header.HeaderType
 import zio.http._
+import zio.http.codec.HttpCodec.SchemaCodec
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.cli.AuxGen._
@@ -78,10 +80,9 @@ object EndpointGen {
   lazy val anyHeader: Gen[Any, CliReprOf[Codec[_]]] =
     Gen.alphaNumericStringBounded(1, 30).zip(anyTextCodec).map { case (name, codec) =>
       CliRepr(
-        HttpCodec.Header(name, codec),
+        HttpCodec.Header(Header.Custom(name, "").headerType), // todo use schema bases header
         codec match {
-          case TextCodec.Constant(value) => CliEndpoint(headers = HttpOptions.HeaderConstant(name, value) :: Nil)
-          case _                         => CliEndpoint(headers = HttpOptions.Header(name, codec) :: Nil)
+          case _ => CliEndpoint(headers = HttpOptions.Header(name, codec) :: Nil)
         },
       )
     }
@@ -102,10 +103,10 @@ object EndpointGen {
   lazy val anyQuery: Gen[Any, CliReprOf[Codec[_]]] =
     Gen.alphaNumericStringBounded(1, 30).zip(anyStandardType).map { case (name, schema0) =>
       val schema = schema0.asInstanceOf[Schema[Any]]
-      val codec  = BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+      val codec  = SchemaCodec(Some(name), schema)
       CliRepr(
-        HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec)),
-        CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
+        HttpCodec.Query(codec),
+        CliEndpoint(url = HttpOptions.Query(codec) :: Nil),
       )
     }
 

@@ -67,6 +67,13 @@ trait HeaderGetters { self =>
   /** Gets the raw unparsed header value */
   final def rawHeader(name: CharSequence): Option[String] = headers.get(name)
 
+  final def rawHeaders(name: CharSequence): Chunk[String] =
+    Chunk.fromIterator(
+      headers.iterator
+        .filter(header => CharSequenceExtensions.equals(header.headerNameAsCharSequence, name, CaseMode.Insensitive))
+        .map(_.renderedValue),
+    )
+
   /** Gets the raw unparsed header value */
   final def rawHeader(headerType: HeaderType): Option[String] =
     rawHeader(headerType.name)

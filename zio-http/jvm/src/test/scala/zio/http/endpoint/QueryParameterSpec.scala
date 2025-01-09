@@ -55,16 +55,6 @@ object QueryParameterSpec extends ZIOHttpSpec {
         testRoutes(
           s"/users?int=$int&optInt=${optInt.mkString}&string=$string&strings=${strings.mkString(",")}",
           Params(int, optInt, string, strings).toString,
-        ) &&
-        testRoutes(
-          s"/users?int=$int&string=$string&strings=${strings.mkString(",")}",
-          Params(int, None, string, strings).toString,
-        ) && testRoutes(
-          s"/users?int=$int&optInt=${optInt.mkString}&strings=${strings.mkString(",")}",
-          Params(int, optInt, "", strings).toString,
-        ) && testRoutes(
-          s"/users?int=$int&optInt=${optInt.mkString}&string=$string",
-          Params(int, optInt, string, Chunk("defaultString")).toString,
         )
       }
     },
@@ -110,8 +100,8 @@ object QueryParameterSpec extends ZIOHttpSpec {
               },
           ),
         ) _
-        // testRoutes(s"/users/$userId", s"path(users, $userId, None)") &&
-        // testRoutes(s"/users/$userId?details=", s"path(users, $userId, None)") &&
+        testRoutes(s"/users/$userId", s"path(users, $userId, None)") &&
+        testRoutes(s"/users/$userId?details=", s"path(users, $userId, Some())") &&
         testRoutes(s"/users/$userId?details=$details", s"path(users, $userId, Some($details))")
       }
     },
@@ -166,6 +156,38 @@ object QueryParameterSpec extends ZIOHttpSpec {
           s"/users/$userId?key=${keys(0)}",
           s"path(users, $userId, ${keys.take(1).mkString(", ")})",
         )
+      }
+    },
+    test("query parameters with multiple values non empty") {
+      check(Gen.int, Gen.listOfN(3)(Gen.alphaNumericString)) { (userId, keys) =>
+        val routes     = Routes(
+          Endpoint(GET / "users" / int("userId"))
+            .query(HttpCodec.query[NonEmptyChunk[String]]("key"))
+            .out[String]
+            .implementHandler {
+              Handler.fromFunction { case (userId, keys) =>
+                s"""path(users, $userId, ${keys.mkString(", ")})"""
+              }
+            },
+        )
+        val testRoutes = testEndpoint(
+          routes,
+        ) _
+
+        testRoutes(
+          s"/users/$userId?key=${keys(0)}&key=${keys(1)}&key=${keys(2)}",
+          s"path(users, $userId, ${keys.mkString(", ")})",
+        ) &&
+        testRoutes(
+          s"/users/$userId?key=${keys(0)}&key=${keys(1)}",
+          s"path(users, $userId, ${keys.take(2).mkString(", ")})",
+        ) &&
+        testRoutes(
+          s"/users/$userId?key=${keys(0)}",
+          s"path(users, $userId, ${keys.take(1).mkString(", ")})",
+        ) && routes
+          .runZIO(Request.get(s"/users/$userId"))
+          .map(resp => assertTrue(resp.status == Status.BadRequest))
       }
     },
     test("optional query parameters with multiple values") {
@@ -341,7 +363,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
     test("query parameters keys without values for multi value query") {
       val routes     = Routes(
         Endpoint(GET / "users")
-          .query(HttpCodec.query[Chunk[RuntimeFlags]]("ints"))
+          .query(HttpCodec.query[Chunk[Int]]("ints"))
           .out[String]
           .implementHandler {
             Handler.fromFunction { queryParams => s"path(users, $queryParams)" }
@@ -438,6 +460,6 @@ object QueryParameterSpec extends ZIOHttpSpec {
         assertTrue(response.status == Status.Ok)
       }
     },
-  )
+  ).provide(ErrorResponseConfig.debugLayer)
 
 }

@@ -27,6 +27,7 @@ private[http] final case class AtomizedCodecs(
   path: Chunk[PathCodec[_]],
   query: Chunk[Query[_, _]],
   header: Chunk[Header[_]],
+  headerCustom: Chunk[HeaderCustom[_]],
   content: Chunk[BodyCodec[_]],
   status: Chunk[SimpleCodec[zio.http.Status, _]],
 ) { self =>
@@ -35,9 +36,10 @@ private[http] final case class AtomizedCodecs(
     case method0: Method[_]        => self.copy(method = method :+ method0.codec)
     case query0: Query[_, _]       => self.copy(query = query :+ query0)
     case header0: Header[_]        => self.copy(header = header :+ header0)
+    case header0: HeaderCustom[_]  => self.copy(headerCustom = headerCustom :+ header0)
+    case status0: Status[_]        => self.copy(status = status :+ status0.codec)
     case content0: Content[_]      =>
       self.copy(content = content :+ BodyCodec.Single(content0.codec, content0.name))
-    case status0: Status[_]        => self.copy(status = status :+ status0.codec)
     case stream0: ContentStream[_] =>
       self.copy(content = content :+ BodyCodec.Multiple(stream0.codec, stream0.name))
   }
@@ -48,6 +50,7 @@ private[http] final case class AtomizedCodecs(
       path = Array.ofDim(path.length),
       query = Array.ofDim(query.length),
       header = Array.ofDim(header.length),
+      headerCustom = Array.ofDim(headerCustom.length),
       content = Array.ofDim(content.length),
       status = Array.ofDim(status.length),
     )
@@ -59,6 +62,7 @@ private[http] final case class AtomizedCodecs(
       path = path.materialize,
       query = query.materialize,
       header = header.materialize,
+      headerCustom = headerCustom.materialize,
       content = content.materialize,
       status = status.materialize,
     )
@@ -71,6 +75,7 @@ private[http] object AtomizedCodecs {
       path = Chunk.empty,
       query = Chunk.empty,
       header = Chunk.empty,
+      headerCustom = Chunk.empty,
       content = Chunk.empty,
       status = Chunk.empty,
     )

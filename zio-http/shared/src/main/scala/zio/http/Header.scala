@@ -64,6 +64,7 @@ object Header {
     type Typed[HV] = HeaderType { type HeaderValue = HV }
   }
 
+  // @deprecated("Use Schema based header codecs instead", "3.1.0")
   final case class Custom(customName: CharSequence, value: CharSequence) extends Header {
     override type Self = Custom
     override def self: Self = this

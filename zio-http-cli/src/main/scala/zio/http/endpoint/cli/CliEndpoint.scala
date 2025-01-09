@@ -1,7 +1,6 @@
 package zio.http.endpoint.cli
 
 import zio.http._
-import zio.http.codec.HttpCodec.Query.QueryType
 import zio.http.codec._
 import zio.http.endpoint._
 
@@ -112,13 +111,11 @@ private[cli] object CliEndpoint {
         }
         CliEndpoint(body = HttpOptions.Body(name, codec.defaultMediaType, codec.defaultSchema) :: List())
 
-      case HttpCodec.Header(name, textCodec, _) if textCodec.isInstanceOf[TextCodec.Constant] =>
-        CliEndpoint(headers =
-          HttpOptions.HeaderConstant(name, textCodec.asInstanceOf[TextCodec.Constant].string) :: List(),
-        )
-      case HttpCodec.Header(name, textCodec, _)                                               =>
-        CliEndpoint(headers = HttpOptions.Header(name, textCodec) :: List())
-      case HttpCodec.Method(codec, _)                                                         =>
+      case HttpCodec.Header(headerType, _)  =>
+        CliEndpoint(headers = HttpOptions.Header(headerType.name, TextCodec.string) :: List())
+      case HttpCodec.HeaderCustom(codec, _) =>
+        CliEndpoint(headers = HttpOptions.Header(codec.name.get, TextCodec.string) :: List())
+      case HttpCodec.Method(codec, _)       =>
         codec.asInstanceOf[SimpleCodec[_, _]] match {
           case SimpleCodec.Specified(method: Method) =>
             CliEndpoint(methods = method)
@@ -128,22 +125,16 @@ private[cli] object CliEndpoint {
       case HttpCodec.Path(pathCodec, _) =>
         CliEndpoint(url = HttpOptions.Path(pathCodec) :: List())
 
-      case HttpCodec.Query(queryType, _) =>
-        queryType match {
-          case QueryType.Primitive(name, codec)     =>
-            CliEndpoint(url = HttpOptions.Query(name, codec) :: List())
-          case record @ QueryType.Record(_)         =>
-            val queryOptions = record.fieldAndCodecs.map { case (field, codec) =>
-              HttpOptions.Query(field.name, codec)
-            }
-            CliEndpoint(url = queryOptions.toList)
-          case QueryType.Collection(_, elements, _) =>
-            val queryOptions =
-              HttpOptions.Query(elements.name, elements.codec)
-            CliEndpoint(url = queryOptions :: List())
-        }
-
-      case HttpCodec.Status(_, _) => CliEndpoint.empty
+      case HttpCodec.Query(codec, _) =>
+        if (codec.isPrimitive)
+          CliEndpoint(url = HttpOptions.Query(codec) :: List())
+        else if (codec.isRecord)
+          CliEndpoint(url = codec.recordFields.map { case (_, codec) =>
+            HttpOptions.Query(codec)
+          }.toList)
+        else
+          CliEndpoint(url = HttpOptions.Query(codec) :: List())
+      case HttpCodec.Status(_, _)    => CliEndpoint.empty
 
     }
   }
