@@ -91,50 +91,31 @@ final case class NettyClientDriver private[netty] (
         }
       }
       .map { jReq =>
-        val closeListener: GenericFutureListener[ChannelFuture] = { (_: ChannelFuture) =>
-          nettyRuntime.unsafeRunSync {
-            // wait for ClientFailureHandler.exceptionCaught to complete onFailure.
-            onFailure.await.flatMap { error =>
-              // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
-              // so we don't need to fulfill `onResponse`
-              onComplete.interrupt && onResponse.fail(error)
-            }.fork
-          }(Unsafe.unsafe, trace): Unit
-        }
-
         val pipeline = channel.pipeline()
 
         if (enableInternalLogging) pipeline.addLast(makeLogHandler)
 
         pipeline.addLast(
           Names.ClientInboundHandler,
-          new ClientInboundHandler(nettyRuntime, req, jReq, onResponse, onComplete, enableKeepAlive),
-        )
-
-        pipeline.addLast(
-          Names.ClientFailureHandler,
-          new ClientFailureHandler(onResponse, onComplete, onFailure),
+          new ClientInboundHandler(nettyRuntime, req, jReq, onResponse, onComplete, onFailure, enableKeepAlive),
         )
 
         pipeline
           .fireChannelRegistered()
           .fireUserEventTriggered(ClientInboundHandler.SendRequest)
 
-        channel.closeFuture().addListener(closeListener)
         new ChannelInterface {
           override def resetChannel: ZIO[Any, Throwable, ChannelState] = {
             ZIO.attempt {
-              channel.closeFuture().removeListener(closeListener)
               pipeline.remove(Names.ClientInboundHandler)
-              pipeline.remove(Names.ClientFailureHandler)
               ChannelState.Reusable // channel can be reused
             }
           }
 
           override def interrupt: ZIO[Any, Throwable, Unit] =
             ZIO.suspendSucceed {
-              channel.closeFuture().removeListener(closeListener)
-              NettyFutureExecutor.executed(channel.disconnect())
+              val error = new InterruptedException("Netty channel operation interrupted by ZIO Http.")
+              onResponse.fail(error) *> onFailure.succeed(error) *> NettyFutureExecutor.executed(channel.disconnect())
             }
         }
       }

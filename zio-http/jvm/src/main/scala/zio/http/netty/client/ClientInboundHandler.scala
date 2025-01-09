@@ -35,6 +35,7 @@ private[netty] final class ClientInboundHandler(
   jReq: HttpRequest,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
+  onFailure: Promise[Nothing, Throwable],
   enableKeepAlive: Boolean,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
@@ -72,8 +73,10 @@ private[netty] final class ClientInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    ctx.fireExceptionCaught(error)
-    ()
+    val exit = Exit.fail(error)
+    onResponse.unsafe.done(exit)
+    onComplete.unsafe.done(exit)
+    onFailure.unsafe.done(Exit.succeed(error))
   }
 }
 
