@@ -170,10 +170,6 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
     )
   }
 
-autoCompilerPlugins := true
-Global / libraryDependencies ++= unroll
-addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
-
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
@@ -188,6 +184,11 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(meta)
   .settings(crossProjectSettings)
   .settings(Shading.shadingSettings())
+  .settings(
+    autoCompilerPlugins := true,
+    libraryDependencies ++= unroll,
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
+  )
   .settings(
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
