@@ -540,7 +540,7 @@ object ZClient extends ZClientPlatformSpecific {
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
-    @unroll enableInternalLogging: Boolean,
+    @unroll enableInternalLogging: Boolean = false,
   ) {
     self =>
 
