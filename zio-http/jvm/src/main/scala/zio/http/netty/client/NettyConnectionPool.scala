@@ -147,9 +147,9 @@ private[netty] object NettyConnectionPool {
    *   true if the handler was successfully refreshed prior to the channel being
    *   closed and the channel is still open.
    *
-   *   true if the `timeout` is None and the channel is still open.
+   * true if the `timeout` is None and the channel is still open.
    *
-   *   false of the channel is closed.
+   * false of the channel is closed.
    */
   private def refreshIdleTimeoutHandler(
     channel: JChannel,
