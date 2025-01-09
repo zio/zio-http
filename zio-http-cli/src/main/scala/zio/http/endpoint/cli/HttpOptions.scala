@@ -11,6 +11,7 @@ import zio.schema._
 import zio.schema.annotation.description
 
 import zio.http._
+import zio.http.codec.HttpCodec.SchemaCodec
 import zio.http.codec._
 
 /*
@@ -264,10 +265,9 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class Query(override val name: String, codec: BinaryCodecWithSchema[_], doc: Doc = Doc.empty)
-      extends URLOptions {
+  final case class Query(codec: SchemaCodec[_], doc: Doc = Doc.empty) extends URLOptions {
     self =>
-
+    override val name       = codec.name.get
     override val tag        = "?" + name
     def options: Options[_] = optionsFromSchema(codec)(name)
 
@@ -293,7 +293,7 @@ private[cli] object HttpOptions {
 
   }
 
-  private[cli] def optionsFromSchema[A](codec: BinaryCodecWithSchema[A]): String => Options[A] =
+  private[cli] def optionsFromSchema[A](codec: SchemaCodec[A]): String => Options[A] =
     codec.schema match {
       case Schema.Primitive(standardType, _) =>
         standardType match {

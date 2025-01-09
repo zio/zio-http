@@ -41,7 +41,7 @@ object RequestSpec extends ZIOHttpSpec {
           val testRoutes = testEndpointWithHeaders(
             Routes(
               Endpoint(GET / "users" / int("userId"))
-                .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
+                .header(HeaderCodec.headerAs[java.util.UUID]("X-Correlation-ID"))
                 .out[String]
                 .implementHandler {
                   Handler.fromFunction { case (userId, correlationId) =>
@@ -49,7 +49,7 @@ object RequestSpec extends ZIOHttpSpec {
                   }
                 },
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-                .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
+                .header(HeaderCodec.headerAs[java.util.UUID]("X-Correlation-ID"))
                 .out[String]
                 .implementHandler {
                   Handler.fromFunction { case (userId, postId, correlationId) =>
@@ -67,6 +67,48 @@ object RequestSpec extends ZIOHttpSpec {
             s"/users/$userId/posts/$postId",
             List("X-Correlation-ID" -> correlationId.toString),
             s"path(users, $userId, posts, $postId) header(correlationId=$correlationId)",
+          )
+        }
+      },
+      test("simple request with header with multiple values") {
+        check(Gen.int, Gen.listOfN(3)(Gen.uuid)) { (userId, correlationId) =>
+          val testRoutes = testEndpointWithHeaders(
+            Routes(
+              Endpoint(GET / "users" / int("userId"))
+                .header(HeaderCodec.headerAs[Chunk[java.util.UUID]]("X-Correlation-ID"))
+                .out[String]
+                .implementHandler {
+                  Handler.fromFunction { case (userId, correlationId) =>
+                    s"path(users, $userId) header(correlationId=${correlationId.mkString(",")})"
+                  }
+                },
+            ),
+          ) _
+          testRoutes(
+            s"/users/$userId",
+            correlationId.map(uuid => "X-Correlation-ID" -> uuid.toString),
+            s"path(users, $userId) header(correlationId=${correlationId.mkString(",")})",
+          )
+        }
+      },
+      test("simple request with header with multiple values non empty") {
+        check(Gen.int, Gen.listOfN(3)(Gen.uuid)) { (userId, correlationId) =>
+          val testRoutes = testEndpointWithHeaders(
+            Routes(
+              Endpoint(GET / "users" / int("userId"))
+                .header(HeaderCodec.headerAs[NonEmptyChunk[java.util.UUID]]("X-Correlation-ID"))
+                .out[String]
+                .implementHandler {
+                  Handler.fromFunction { case (userId, correlationId) =>
+                    s"path(users, $userId) header(correlationId=${correlationId.mkString(",")})"
+                  }
+                },
+            ),
+          ) _
+          testRoutes(
+            s"/users/$userId",
+            correlationId.map(uuid => "X-Correlation-ID" -> uuid.toString),
+            s"path(users, $userId) header(correlationId=${correlationId.mkString(",")})",
           )
         }
       },
@@ -200,7 +242,7 @@ object RequestSpec extends ZIOHttpSpec {
           check(Gen.int, Gen.alphaNumericString) { (id, notACorrelationId) =>
             val endpoint =
               Endpoint(GET / "posts")
-                .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
+                .header(HeaderCodec.headerAs[java.util.UUID]("X-Correlation-ID"))
                 .out[Int]
             val routes   =
               endpoint.implementHandler {
@@ -219,7 +261,7 @@ object RequestSpec extends ZIOHttpSpec {
         check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
-              .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
+              .header(HeaderCodec.headerAs[java.util.UUID]("X-Correlation-ID"))
               .out[Int]
           val routes   =
             endpoint.implementHandler {
@@ -453,7 +495,7 @@ object RequestSpec extends ZIOHttpSpec {
       },
       test("composite in codecs") {
         check(Gen.alphaNumericString, Gen.alphaNumericString) { (queryValue, headerValue) =>
-          val headerOrQuery             = HeaderCodec.name[String]("X-Header") | HttpCodec.query[String]("header")
+          val headerOrQuery             = HeaderCodec.headerAs[String]("X-Header") | HttpCodec.query[String]("header")
           val endpoint                  = Endpoint(GET / "test").out[String].inCodec(headerOrQuery)
           val routes                    = endpoint.implementHandler(Handler.identity).toRoutes
           val request                   = Request.get(
@@ -487,7 +529,7 @@ object RequestSpec extends ZIOHttpSpec {
         }
       },
       test("composite out codecs") {
-        val headerOrQuery  = HeaderCodec.name[String]("X-Header") | StatusCodec.status(Status.Created)
+        val headerOrQuery  = HeaderCodec.headerAs[String]("X-Header") | StatusCodec.status(Status.Created)
         val endpoint       = Endpoint(GET / "test").query(HttpCodec.query[Boolean]("Created")).outCodec(headerOrQuery)
         val routes         =
           endpoint.implementHandler {

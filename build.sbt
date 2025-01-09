@@ -58,6 +58,7 @@ ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
 ThisBuild / githubWorkflowPublish       :=
   Seq(
+    WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
     WorkflowStep.Sbt(
       List("ci-release"),
       name = Some("Release"),

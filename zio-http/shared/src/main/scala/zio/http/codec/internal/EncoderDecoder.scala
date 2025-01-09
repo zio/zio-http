@@ -16,16 +16,17 @@
 
 package zio.http.codec.internal
 
+import scala.annotation.tailrec
 import scala.util.Try
 
 import zio._
 
-import zio.schema.codec.{BinaryCodec, DecodeError}
+import zio.schema.codec.DecodeError
 import zio.schema.{Schema, StandardType}
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec.HttpCodec.Query.QueryType
+import zio.http.codec.StringCodec.StringCodec
 import zio.http.codec._
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
@@ -46,7 +47,7 @@ private[codec] object EncoderDecoder {
     val flattened = httpCodec.alternatives
 
     flattened.length match {
-      case 0 => Undefined()
+      case 0 => Undefined.asInstanceOf[EncoderDecoder[AtomTypes, Value]]
       case 1 => Single(flattened.head._1)
       case _ => Multiple(flattened)
     }
@@ -109,7 +110,7 @@ private[codec] object EncoderDecoder {
     }
   }
 
-  private final case class Undefined[-AtomTypes, Value]() extends EncoderDecoder[AtomTypes, Value] {
+  private object Undefined extends EncoderDecoder[Any, Any] {
 
     val encodeWithErrorMessage =
       """
@@ -125,7 +126,7 @@ private[codec] object EncoderDecoder {
 
     override def encodeWith[Z](
       config: CodecConfig,
-      value: Value,
+      value: Any,
       outputTypes: Chunk[MediaTypeWithQFactor],
     )(f: (zio.http.URL, Option[zio.http.Status], Option[zio.http.Method], zio.http.Headers, zio.http.Body) => Z): Z = {
       throw new IllegalStateException(encodeWithErrorMessage)
@@ -138,7 +139,7 @@ private[codec] object EncoderDecoder {
       method: zio.http.Method,
       headers: zio.http.Headers,
       body: zio.http.Body,
-    )(implicit trace: zio.Trace): zio.Task[Value] = {
+    )(implicit trace: zio.Trace): zio.Task[Any] = {
       ZIO.fail(new IllegalStateException(decodeErrorMessage))
     }
   }
@@ -168,6 +169,7 @@ private[codec] object EncoderDecoder {
       decodeStatus(status, inputsBuilder.status)
       decodeMethod(method, inputsBuilder.method)
       decodeHeaders(headers, inputsBuilder.header)
+      decodeCustomHeaders(headers, inputsBuilder.headerCustom)
       decodeBody(config, body, inputsBuilder.content).as(constructor(inputsBuilder))
     }
 
@@ -180,7 +182,7 @@ private[codec] object EncoderDecoder {
       val query              = encodeQuery(config, inputs.query)
       val status             = encodeStatus(inputs.status)
       val method             = encodeMethod(inputs.method)
-      val headers            = encodeHeaders(inputs.header)
+      val headers            = encodeHeaders(inputs.header) ++ encodeCustomHeaders(inputs.headerCustom)
       def contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
       val body               = encodeBody(config, inputs.content, outputTypes)
 
@@ -220,156 +222,276 @@ private[codec] object EncoderDecoder {
         inputs,
         (codec, queryParams) => {
           val query      = codec.erase
-          val isOptional = query.isOptional
-          query.queryType match {
-            case QueryType.Primitive(name, bc @ BinaryCodecWithSchema(_, schema))     =>
-              val count    = queryParams.valueCount(name)
-              val hasParam = queryParams.hasQueryParam(name)
-              if (!hasParam && isOptional) None
-              else if (!hasParam) throw HttpCodecError.MissingQueryParam(name)
-              else if (count != 1) throw HttpCodecError.InvalidQueryParamCount(name, 1, count)
-              else {
-                val decoded          = bc
-                  .codec(config)
-                  .decode(
-                    Chunk.fromArray(queryParams.unsafeQueryParam(name).getBytes(Charsets.Utf8)),
-                  ) match {
+          val optional   = query.isOptionalSchema
+          val hasDefault = query.codec.defaultValue != null && query.isOptional
+          val default    = query.codec.defaultValue
+          if (codec.isPrimitive) {
+            val name     = query.nameUnsafe
+            val hasParam = queryParams.hasQueryParam(name)
+            if (
+              (!hasParam || (queryParams
+                .unsafeQueryParam(name) == "" && !emptyStringIsValue(codec.codec.schema))) && hasDefault
+            )
+              default
+            else if (!hasParam)
+              throw HttpCodecError.MissingQueryParam(name)
+            else if (queryParams.valueCount(name) != 1)
+              throw HttpCodecError.InvalidQueryParamCount(name, 1, queryParams.valueCount(name))
+            else {
+              val decoded          =
+                codec.codec.stringCodec.decode(queryParams.unsafeQueryParam(name)) match {
                   case Left(error)  => throw HttpCodecError.MalformedQueryParam(name, error)
                   case Right(value) => value
                 }
-                val validationErrors = schema.validate(decoded)(schema)
-                if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
-                if (isOptional && decoded == None && emptyStringIsValue(schema.asInstanceOf[Schema.Optional[_]].schema))
-                  Some("")
-                else decoded
-              }
-            case c @ QueryType.Collection(_, QueryType.Primitive(name, bc), optional) =>
-              if (!queryParams.hasQueryParam(name)) {
-                if (!optional) c.toCollection(Chunk.empty)
-                else None
-              } else {
-                val values           = queryParams.queryParams(name)
-                val decoded          = c.toCollection {
-                  values.map { value =>
-                    bc.codec(config).decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
-                      case Left(error)  => throw HttpCodecError.MalformedQueryParam(name, error)
-                      case Right(value) => value
-                    }
-                  }
-                }
-                val erasedSchema     = c.colSchema.asInstanceOf[Schema[Any]]
-                val validationErrors = erasedSchema.validate(decoded)(erasedSchema)
-                if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
-                if (optional) Some(decoded)
-                else decoded
-              }
-            case query @ QueryType.Record(recordSchema)                               =>
-              val hasAllParams = query.fieldAndCodecs.forall { case (field, _) =>
-                queryParams.hasQueryParam(field.name) || field.optional || field.defaultValue.isDefined
-              }
-              if (!hasAllParams && recordSchema.isInstanceOf[Schema.Optional[_]]) None
-              else if (!hasAllParams && isOptional) {
-                recordSchema.defaultValue match {
-                  case Left(err)    =>
-                    throw new IllegalStateException(s"Cannot compute default value for $recordSchema. Error was: $err")
+              val validationErrors = codec.codec.erasedSchema.validate(decoded)(codec.codec.erasedSchema)
+              if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
+              else decoded
+            }
+
+          } else if (codec.isCollection) {
+            val name     = query.nameUnsafe
+            val hasParam = queryParams.hasQueryParam(name)
+
+            if (!hasParam) {
+              if (query.codec.defaultValue != null) query.codec.defaultValue
+              else throw HttpCodecError.MissingQueryParam(name)
+            } else {
+              val decoded = queryParams.queryParams(name).map { value =>
+                query.codec.stringCodec.decode(value) match {
+                  case Left(error)  => throw HttpCodecError.MalformedQueryParam(name, error)
                   case Right(value) => value
                 }
-              } else if (!hasAllParams) throw HttpCodecError.MissingQueryParams {
-                query.fieldAndCodecs.collect {
-                  case (field, _)
-                      if !(queryParams.hasQueryParam(field.name) || field.optional || field.defaultValue.isDefined) =>
-                    field.name
+              }
+              if (optional)
+                Some(
+                  createAndValidateCollection(
+                    query.codec.schema.asInstanceOf[Schema.Optional[_]].schema.asInstanceOf[Schema.Collection[_, _]],
+                    decoded,
+                  ),
+                )
+              else createAndValidateCollection(query.codec.schema.asInstanceOf[Schema.Collection[_, _]], decoded)
+            }
+          } else {
+            val recordSchema = query.codec.recordSchema
+            val fields       = query.codec.recordFields
+            val hasAllParams = fields.forall { case (field, codec) =>
+              queryParams.hasQueryParam(field.fieldName) || field.optional || codec.isOptional
+            }
+            if (!hasAllParams && hasDefault) default
+            else if (!hasAllParams) throw HttpCodecError.MissingQueryParams {
+              fields.collect {
+                case (field, codec)
+                    if !(queryParams.hasQueryParam(field.fieldName) || field.optional || codec.isOptional) =>
+                  field.fieldName
+              }
+            }
+            else {
+              val decoded = fields.map {
+                case (field, codec) if field.schema.isInstanceOf[Schema.Collection[_, _]] =>
+                  val schema = field.schema.asInstanceOf[Schema.Collection[_, _]]
+                  if (!queryParams.hasQueryParam(field.fieldName)) {
+                    if (field.defaultValue.isDefined) field.defaultValue.get
+                    else throw HttpCodecError.MissingQueryParam(field.fieldName)
+                  } else {
+                    val values  = queryParams.queryParams(field.fieldName)
+                    val decoded =
+                      values.map(decodeAndUnwrap(field, codec, _, HttpCodecError.MalformedQueryParam.apply))
+                    createAndValidateCollection(schema, decoded)
+
+                  }
+                case (field, codec)                                                       =>
+                  val value   = queryParams.queryParamOrElse(field.fieldName, null)
+                  val decoded = {
+                    if (value == null || (value == "" && !emptyStringIsValue(codec.schema))) codec.defaultValue
+                    else decodeAndUnwrap(field, codec, value, HttpCodecError.MalformedQueryParam.apply)
+                  }
+                  validateDecoded(codec, decoded)
+              }
+              if (optional) {
+                val constructed = recordSchema.construct(decoded)(Unsafe.unsafe)
+                constructed match {
+                  case Left(value)  =>
+                    throw HttpCodecError.MalformedQueryParam(
+                      s"${recordSchema.id}",
+                      DecodeError.ReadError(Cause.empty, value),
+                    )
+                  case Right(value) =>
+                    recordSchema.validate(value)(recordSchema) match {
+                      case errors if errors.nonEmpty => throw HttpCodecError.InvalidEntity.wrap(errors)
+                      case _                         => Some(value)
+                    }
+                }
+              } else {
+                val constructed = recordSchema.construct(decoded)(Unsafe.unsafe)
+                constructed match {
+                  case Left(value)  =>
+                    throw HttpCodecError.MalformedQueryParam(
+                      s"${recordSchema.id}",
+                      DecodeError.ReadError(Cause.empty, value),
+                    )
+                  case Right(value) =>
+                    recordSchema.validate(value)(recordSchema) match {
+                      case errors if errors.nonEmpty => throw HttpCodecError.InvalidEntity.wrap(errors)
+                      case _                         => value
+                    }
                 }
               }
-              else {
-                val decoded = query.fieldAndCodecs.map {
-                  case (field, codec) if field.schema.isInstanceOf[Schema.Collection[_, _]] =>
-                    if (!queryParams.hasQueryParam(field.name) && field.defaultValue.nonEmpty) field.defaultValue.get
-                    else {
-                      val values            = queryParams.queryParams(field.name)
-                      val decoded           = values.map { value =>
-                        codec.codec(config).decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
-                          case Left(error)  => throw HttpCodecError.MalformedQueryParam(field.name, error)
-                          case Right(value) => value
-                        }
-                      }
-                      val decodedCollection =
-                        field.schema match {
-                          case s @ Schema.Sequence(_, fromChunk, _, _, _) =>
-                            val collection       = fromChunk.asInstanceOf[Chunk[Any] => Any](decoded)
-                            val erasedSchema     = s.asInstanceOf[Schema[Any]]
-                            val validationErrors = erasedSchema.validate(collection)(erasedSchema)
-                            if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
-                            collection
-                          case s @ Schema.Set(_, _)                       =>
-                            val collection       = decoded.toSet[Any]
-                            val erasedSchema     = s.asInstanceOf[Schema.Set[Any]]
-                            val validationErrors = erasedSchema.validate(collection)(erasedSchema)
-                            if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
-                            collection
-                          case _ => throw new IllegalStateException("Only Sequence and Set are supported.")
-                        }
-                      decodedCollection
-                    }
-                  case (field, codec)                                                       =>
-                    val value            = queryParams.queryParamOrElse(field.name, null)
-                    val decoded          = {
-                      if (value == null) field.defaultValue.get
-                      else {
-                        codec.codec(config).decode(Chunk.fromArray(value.getBytes(Charsets.Utf8))) match {
-                          case Left(error)  => throw HttpCodecError.MalformedQueryParam(field.name, error)
-                          case Right(value) => value
-                        }
-                      }
-                    }
-                    val validationErrors = codec.schema.validate(decoded)(codec.schema)
-                    if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
-                    decoded
-                }
-                if (recordSchema.isInstanceOf[Schema.Optional[_]]) {
-                  val schema = recordSchema.asInstanceOf[Schema.Optional[_]].schema.asInstanceOf[Schema.Record[Any]]
-                  val constructed = schema.construct(decoded)(Unsafe.unsafe)
-                  constructed match {
-                    case Left(value)  =>
-                      throw HttpCodecError.MalformedQueryParam(
-                        s"${schema.id}",
-                        DecodeError.ReadError(Cause.empty, value),
-                      )
-                    case Right(value) =>
-                      schema.validate(value)(schema) match {
-                        case errors if errors.nonEmpty => throw HttpCodecError.InvalidEntity.wrap(errors)
-                        case _                         => Some(value)
-                      }
-                  }
-                } else {
-                  val schema      = recordSchema.asInstanceOf[Schema.Record[Any]]
-                  val constructed = schema.construct(decoded)(Unsafe.unsafe)
-                  constructed match {
-                    case Left(value)  =>
-                      throw HttpCodecError.MalformedQueryParam(
-                        s"${schema.id}",
-                        DecodeError.ReadError(Cause.empty, value),
-                      )
-                    case Right(value) =>
-                      schema.validate(value)(schema) match {
-                        case errors if errors.nonEmpty => throw HttpCodecError.InvalidEntity.wrap(errors)
-                        case _                         => value
-                      }
-                  }
-                }
-              }
+            }
           }
         },
       )
 
-    private def emptyStringIsValue(schema: Schema[_]): Boolean =
-      schema.asInstanceOf[Schema.Primitive[_]].standardType match {
-        case StandardType.UnitType   => true
-        case StandardType.StringType => true
-        case StandardType.BinaryType => true
-        case StandardType.CharType   => true
-        case _                       => false
+    private def createAndValidateCollection(schema: Schema.Collection[_, _], decoded: Chunk[Any]) = {
+      val collection       = schema.fromChunk.asInstanceOf[Chunk[Any] => Any](decoded)
+      val erasedSchema     = schema.asInstanceOf[Schema[Any]]
+      val validationErrors = erasedSchema.validate(collection)(erasedSchema)
+      if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
+      collection
+    }
+
+    @tailrec
+    private def emptyStringIsValue(schema: Schema[_]): Boolean = {
+      schema match {
+        case value: Schema.Optional[_] =>
+          val innerSchema = value.schema
+          emptyStringIsValue(innerSchema)
+        case _                         =>
+          schema.asInstanceOf[Schema.Primitive[_]].standardType match {
+            case StandardType.UnitType   => true
+            case StandardType.StringType => true
+            case StandardType.BinaryType => true
+            case StandardType.CharType   => true
+            case _                       => false
+          }
       }
+    }
+
+    private def decodeCustomHeaders(headers: Headers, inputs: Array[Any]): Unit =
+      genericDecode[Headers, HttpCodec.HeaderCustom[_]](
+        headers,
+        flattened.headerCustom,
+        inputs,
+        (header, headers) => {
+          val optional = header.codec.isOptionalSchema
+          if (header.codec.isPrimitive) {
+            val schema = header.erase.codec.schema
+            val name   = header.codec.name.get
+            val value  = headers.getUnsafe(name)
+            if (value ne null) {
+              val decoded          = header.codec.stringCodec.decode(value) match {
+                case Left(error)  => throw HttpCodecError.MalformedCustomHeader(name, error)
+                case Right(value) => value
+              }
+              val validationErrors = schema.validate(decoded)(schema)
+              if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
+              else decoded
+            } else {
+              if (optional) None
+              else throw HttpCodecError.MissingHeader(name)
+            }
+          } else if (header.codec.isCollection) {
+            val name    = header.codec.name.get
+            val values  = headers.rawHeaders(name)
+            val decoded = values.map { value =>
+              header.codec.stringCodec.decode(value) match {
+                case Left(error)  => throw HttpCodecError.MalformedCustomHeader(name, error)
+                case Right(value) => value
+              }
+            }
+            if (optional)
+              Some(
+                createAndValidateCollection(
+                  header.codec.schema.asInstanceOf[Schema.Optional[_]].schema.asInstanceOf[Schema.Collection[_, _]],
+                  decoded,
+                ),
+              )
+            else createAndValidateCollection(header.codec.schema.asInstanceOf[Schema.Collection[_, _]], decoded)
+          } else {
+            val recordSchema = header.codec.recordSchema
+            val fields       = header.codec.recordFields
+            val hasAllParams = fields.forall { case (field, codec) =>
+              headers.contains(field.fieldName) || field.optional || codec.isOptional
+            }
+            if (!hasAllParams) {
+              if (header.codec.defaultValue != null && header.codec.isOptional) header.codec.defaultValue
+              else
+                throw HttpCodecError.MissingHeaders {
+                  fields.collect {
+                    case (field, codec) if !(headers.contains(field.fieldName) || field.optional || codec.isOptional) =>
+                      field.fieldName
+                  }
+                }
+            } else {
+              val decoded = fields.map {
+                case (field, codec) if field.schema.isInstanceOf[Schema.Collection[_, _]] =>
+                  if (!headers.contains(codec.name.get)) {
+                    if (codec.defaultValue != null) codec.defaultValue
+                    else throw HttpCodecError.MissingHeader(codec.name.get)
+                  } else {
+                    val schema  = field.schema.asInstanceOf[Schema.Collection[_, _]]
+                    val values  = headers.rawHeaders(codec.name.get)
+                    val decoded =
+                      values.map(decodeAndUnwrap(field, codec, _, HttpCodecError.MalformedCustomHeader.apply))
+                    createAndValidateCollection(schema, decoded)
+                  }
+                case (field, codec)                                                       =>
+                  val value   = headers.getUnsafe(codec.name.get)
+                  val decoded =
+                    if (value == null || (value == "" && !emptyStringIsValue(codec.schema))) codec.defaultValue
+                    else decodeAndUnwrap(field, codec, value, HttpCodecError.MalformedCustomHeader.apply)
+                  validateDecoded(codec, decoded)
+              }
+              if (optional) {
+                val constructed = recordSchema.construct(decoded)(Unsafe.unsafe)
+                constructed match {
+                  case Left(value)  =>
+                    throw HttpCodecError.MalformedCustomHeader(
+                      s"${recordSchema.id}",
+                      DecodeError.ReadError(Cause.empty, value),
+                    )
+                  case Right(value) =>
+                    recordSchema.validate(value)(recordSchema) match {
+                      case errors if errors.nonEmpty => throw HttpCodecError.InvalidEntity.wrap(errors)
+                      case _                         => Some(value)
+                    }
+                }
+              } else {
+                val constructed = recordSchema.construct(decoded)(Unsafe.unsafe)
+                constructed match {
+                  case Left(value)  =>
+                    throw HttpCodecError.MalformedCustomHeader(
+                      s"${recordSchema.id}",
+                      DecodeError.ReadError(Cause.empty, value),
+                    )
+                  case Right(value) =>
+                    recordSchema.validate(value)(recordSchema) match {
+                      case errors if errors.nonEmpty => throw HttpCodecError.InvalidEntity.wrap(errors)
+                      case _                         => value
+                    }
+                }
+              }
+            }
+          }
+        },
+      )
+
+    private def validateDecoded(codec: HttpCodec.SchemaCodec[Any], decoded: Any) = {
+      val validationErrors = codec.schema.validate(decoded)(codec.schema)
+      if (validationErrors.nonEmpty) throw HttpCodecError.InvalidEntity.wrap(validationErrors)
+      decoded
+    }
+
+    private def decodeAndUnwrap(
+      field: Schema.Field[_, _],
+      codec: HttpCodec.SchemaCodec[Any],
+      value: String,
+      ex: (String, DecodeError) => HttpCodecError,
+    ) = {
+      codec.stringCodec.decode(value) match {
+        case Left(error)  => throw ex(codec.name.get, error)
+        case Right(value) => value
+      }
+    }
 
     private def decodeHeaders(headers: Headers, inputs: Array[Any]): Unit =
       genericDecode[Headers, HttpCodec.Header[_]](
@@ -377,14 +499,14 @@ private[codec] object EncoderDecoder {
         flattened.header,
         inputs,
         (codec, headers) =>
-          headers.get(codec.name) match {
+          headers.get(codec.headerType.name) match {
             case Some(value) =>
-              codec.erase.textCodec
-                .decode(value)
-                .getOrElse(throw HttpCodecError.MalformedHeader(codec.name, codec.textCodec))
+              codec.erase.headerType
+                .parse(value)
+                .getOrElse(throw HttpCodecError.MalformedTypedHeader(codec.headerType.name))
 
             case None =>
-              throw HttpCodecError.MissingHeader(codec.name)
+              throw HttpCodecError.MissingHeader(codec.headerType.name)
           },
       )
 
@@ -513,111 +635,154 @@ private[codec] object EncoderDecoder {
         inputs,
         QueryParams.empty,
         (codec, input, queryParams) => {
-          val query = codec.erase
+          val query       = codec.erase
+          val optional    = query.isOptionalSchema
+          val stringCodec = codec.codec.stringCodec.asInstanceOf[StringCodec[Any]]
 
-          query.queryType match {
-            case QueryType.Primitive(name, codec)                                                        =>
-              val schema = codec.schema
-              if (schema.isInstanceOf[Schema.Primitive[_]]) {
-                if (schema.asInstanceOf[Schema.Primitive[_]].standardType.isInstanceOf[StandardType.UnitType.type]) {
-                  queryParams.addQueryParams(name, Chunk.empty[String])
-                } else {
-                  val encoded = codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(input).asString
-                  queryParams.addQueryParams(name, Chunk(encoded))
-                }
-              } else if (schema.isInstanceOf[Schema.Optional[_]]) {
-                val encoded = codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(input).asString
-                if (encoded.nonEmpty) queryParams.addQueryParams(name, Chunk(encoded)) else queryParams
+          if (query.isPrimitive) {
+            val schema = codec.codec.schema
+            val name   = query.nameUnsafe
+            if (schema.isInstanceOf[Schema.Primitive[_]]) {
+              if (schema.asInstanceOf[Schema.Primitive[_]].standardType.isInstanceOf[StandardType.UnitType.type]) {
+                queryParams.addQueryParams(name, Chunk.empty[String])
               } else {
-                throw new IllegalStateException(
-                  "Only primitive schema is supported for query parameters of type Primitive",
-                )
+                val encoded = stringCodec.encode(input)
+                queryParams.addQueryParams(name, Chunk(encoded))
               }
-            case QueryType.Collection(_, QueryType.Primitive(name, codec), optional)                     =>
-              var in: Any = input
-              if (optional) {
-                in = input.asInstanceOf[Option[Any]].getOrElse(Chunk.empty)
-              }
-              val values  = input.asInstanceOf[Iterable[Any]]
-              if (values.nonEmpty) {
-                queryParams.addQueryParams(
-                  name,
-                  Chunk.fromIterable(
-                    values.map { value =>
-                      codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(value).asString
-                    },
-                  ),
-                )
-              } else queryParams
-            case query @ QueryType.Record(recordSchema) if recordSchema.isInstanceOf[Schema.Optional[_]] =>
-              input match {
-                case None        => queryParams
-                case Some(value) =>
-                  val innerSchema =
-                    recordSchema.asInstanceOf[Schema.Optional[_]].schema.asInstanceOf[Schema.Record[Any]]
-                  val fieldValues = innerSchema.deconstruct(value)(Unsafe.unsafe)
-                  var j           = 0
-                  var qp          = queryParams
-                  while (j < fieldValues.size) {
-                    val (field, codec) = query.fieldAndCodecs(j)
-                    val name           = field.name
-                    val value          = fieldValues(j) match {
-                      case Some(value) => value
-                      case None        => field.defaultValue
-                    }
-                    value match {
-                      case values: Iterable[_] =>
-                        qp = qp.addQueryParams(
-                          name,
-                          Chunk.fromIterable(values.map { v =>
-                            codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(v).asString
-                          }),
-                        )
-                      case _                   =>
-                        val encoded = codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(value).asString
-                        qp = qp.addQueryParam(name, encoded)
-                    }
-                    j = j + 1
-                  }
-                  qp
-              }
-            case query @ QueryType.Record(recordSchema)                                                  =>
-              val innerSchema = recordSchema.asInstanceOf[Schema.Record[Any]]
-              val fieldValues = innerSchema.deconstruct(input)(Unsafe.unsafe)
-              var j           = 0
-              var qp          = queryParams
-              while (j < fieldValues.size) {
-                val (field, codec) = query.fieldAndCodecs(j)
-                val name           = field.name
-                val value          = fieldValues(j) match {
+            } else if (schema.isInstanceOf[Schema.Optional[_]]) {
+              val encoded = stringCodec.encode(input)
+              if (encoded.nonEmpty) queryParams.addQueryParams(name, Chunk(encoded)) else queryParams
+            } else {
+              throw new IllegalStateException(
+                "Only primitive schema is supported for query parameters of type Primitive",
+              )
+            }
+          } else if (query.isCollection) {
+            val name    = query.nameUnsafe
+            var in: Any = input
+            if (optional) {
+              in = input.asInstanceOf[Option[Any]].getOrElse(Chunk.empty)
+            }
+            val values  = input.asInstanceOf[Iterable[Any]]
+            if (values.nonEmpty) {
+              queryParams.addQueryParams(
+                name,
+                Chunk.fromIterable(values.map { value => stringCodec.encode(value) }),
+              )
+            } else queryParams
+          } else if (query.isRecord) {
+            val value = input match {
+              case None        => null
+              case Some(value) => value
+              case value       => value
+            }
+            if (value == null) queryParams
+            else {
+              val innerSchema   = query.codec.recordSchema
+              val fieldValues   = innerSchema.deconstruct(value)(Unsafe.unsafe)
+              var qp            = queryParams
+              val fieldIt       = query.codec.recordFields.iterator
+              val fieldValuesIt = fieldValues.iterator
+              while (fieldIt.hasNext) {
+                val (field, codec) = fieldIt.next()
+                val name           = field.fieldName
+                val value          = fieldValuesIt.next() match {
                   case Some(value) => value
                   case None        => field.defaultValue
                 }
                 value match {
-                  case values if values.isInstanceOf[Iterable[_]] =>
+                  case values: Iterable[_] =>
                     qp = qp.addQueryParams(
                       name,
-                      Chunk.fromIterable(values.asInstanceOf[Iterable[Any]].map { v =>
-                        codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(v).asString
+                      Chunk.fromIterable(values.map { v =>
+                        codec.stringCodec.encode(v)
                       }),
                     )
-                  case _                                          =>
-                    val encoded = codec.codec(config).asInstanceOf[BinaryCodec[Any]].encode(value).asString
+                  case _                   =>
+                    val encoded = codec.stringCodec.encode(value)
                     qp = qp.addQueryParam(name, encoded)
                 }
-                j = j + 1
               }
               qp
+            }
+          } else {
+            queryParams
           }
         },
       )
 
+    private def encodeCustomHeaders(inputs: Array[Any]): Headers = {
+      genericEncode[Headers, HttpCodec.HeaderCustom[_]](
+        flattened.headerCustom,
+        inputs,
+        Headers.empty,
+        (codec, input, headers) => {
+          val optional    = codec.codec.isOptionalSchema
+          val stringCodec = codec.erase.codec.stringCodec
+          if (codec.codec.isPrimitive) {
+            val name  = codec.codec.name.get
+            val value = input
+            if (optional && value == None) headers
+            else {
+              val encoded = stringCodec.encode(value)
+              headers ++ Headers(name, encoded)
+            }
+          } else if (codec.codec.isCollection) {
+            val name   = codec.codec.name.get
+            val values = input.asInstanceOf[Iterable[Any]]
+            if (values.nonEmpty) {
+              headers ++ Headers.FromIterable(
+                values.map { value =>
+                  Header.Custom(name, stringCodec.encode(value))
+                },
+              )
+            } else headers
+          } else {
+            val recordSchema = codec.codec.recordSchema
+            val fields       = codec.codec.recordFields
+            val value        = input match {
+              case None        => null
+              case Some(value) => value
+              case value       => value
+            }
+            if (value == null) headers
+            else {
+              val fieldValues   = recordSchema.deconstruct(value)(Unsafe.unsafe)
+              var hs            = headers
+              val fieldIt       = fields.iterator
+              val fieldValuesIt = fieldValues.iterator
+              while (fieldIt.hasNext) {
+                val (field, codec) = fieldIt.next()
+                val name           = field.fieldName
+                val value          = fieldValuesIt.next() match {
+                  case Some(value) => value
+                  case None        => field.defaultValue
+                }
+                value match {
+                  case values: Iterable[_] =>
+                    hs = hs ++ Headers.FromIterable(
+                      values.map { v =>
+                        Header.Custom(name, codec.stringCodec.encode(v))
+                      },
+                    )
+                  case _                   =>
+                    val encoded = codec.stringCodec.encode(value)
+                    hs = hs ++ Headers(name, encoded)
+                }
+              }
+              hs
+            }
+          }
+        },
+      )
+
+    }
     private def encodeHeaders(inputs: Array[Any]): Headers =
       genericEncode[Headers, HttpCodec.Header[_]](
         flattened.header,
         inputs,
         Headers.empty,
-        (codec, input, headers) => headers ++ Headers(codec.name, codec.erase.textCodec.encode(input)),
+        (codec, input, headers) => headers ++ Headers(codec.headerType.name, codec.erase.headerType.render(input)),
       )
 
     private def encodeStatus(inputs: Array[Any]): Option[Status] =

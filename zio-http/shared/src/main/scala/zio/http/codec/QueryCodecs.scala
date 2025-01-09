@@ -26,99 +26,32 @@ private[codec] trait QueryCodecs {
 
   def query[A](name: String)(implicit schema: Schema[A]): QueryCodec[A] =
     schema match {
-      case s @ Schema.Primitive(_, _)                                                    =>
-        HttpCodec.Query(
-          HttpCodec.Query.QueryType
-            .Primitive(name, BinaryCodecWithSchema.fromBinaryCodec(TextBinaryCodec.fromSchema(s))(s)),
-        )
-      case c @ Schema.Sequence(elementSchema, _, _, _, _)                                =>
-        if (supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Collection(
-              c,
-              HttpCodec.Query.QueryType.Primitive(
-                name,
-                BinaryCodecWithSchema(TextBinaryCodec.fromSchema(elementSchema), elementSchema),
-              ),
-              optional = false,
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of sequences")
-        }
-      case c @ Schema.Set(elementSchema, _)                                              =>
-        if (supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Collection(
-              c,
-              HttpCodec.Query.QueryType.Primitive(
-                name,
-                BinaryCodecWithSchema(TextBinaryCodec.fromSchema(elementSchema), elementSchema),
-              ),
-              optional = false,
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of sets")
-        }
-      case Schema.Optional(Schema.Primitive(_, _), _)                                    =>
-        HttpCodec.Query(
-          HttpCodec.Query.QueryType
-            .Primitive(name, BinaryCodecWithSchema.fromBinaryCodec(TextBinaryCodec.fromSchema(schema))(schema)),
-        )
-      case Schema.Optional(c @ Schema.Sequence(elementSchema, _, _, _, _), _)            =>
-        if (supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Collection(
-              c,
-              HttpCodec.Query.QueryType.Primitive(
-                name,
-                BinaryCodecWithSchema(TextBinaryCodec.fromSchema(elementSchema), elementSchema),
-              ),
-              optional = true,
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of sequences")
-        }
-      case Schema.Optional(inner, _) if inner.isInstanceOf[Schema.Set[_]]                =>
-        val elementSchema = inner.asInstanceOf[Schema.Set[Any]].elementSchema
-        if (supportedElementSchema(elementSchema)) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Collection(
-              inner.asInstanceOf[Schema.Set[_]],
-              HttpCodec.Query.QueryType.Primitive(
-                name,
-                BinaryCodecWithSchema(TextBinaryCodec.fromSchema(inner), inner),
-              ),
-              optional = true,
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of sets")
-        }
-      case enum0: Schema.Enum[_] if enum0.annotations.exists(_.isInstanceOf[simpleEnum]) =>
-        HttpCodec.Query(
-          HttpCodec.Query.QueryType
-            .Primitive(name, BinaryCodecWithSchema.fromBinaryCodec(TextBinaryCodec.fromSchema(schema))(schema)),
-        )
-      case record: Schema.Record[A] if record.fields.size == 1                           =>
-        val field = record.fields.head
-        if (supportedElementSchema(field.schema.asInstanceOf[Schema[Any]])) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Primitive(
-              name,
-              BinaryCodecWithSchema(TextBinaryCodec.fromSchema(record), record),
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of records")
-        }
-      case other                                                                         =>
+      case c: Schema.Collection[_, _] if !supportedCollection(c)                                                    =>
+        throw new IllegalArgumentException(s"Collection schema $c is not supported for query codecs")
+      case enum0: Schema.Enum[_] if !enum0.annotations.exists(_.isInstanceOf[simpleEnum])                           =>
+        throw new IllegalArgumentException(s"Enum schema $enum0 is not supported. All cases must be objects.")
+      case record: Schema.Record[A] if record.fields.size != 1                                                      =>
+        throw new IllegalArgumentException("Use queryAll[A] for records with more than one field")
+      case record: Schema.Record[A] if !supportedElementSchema(record.fields.head.schema.asInstanceOf[Schema[Any]]) =>
         throw new IllegalArgumentException(
-          s"Only primitive types, sequences, sets, optional, enums and records with a single field can be used to infer query codecs, but got $other",
+          s"Only primitive types and simple enums can be used in single field records, but got ${record.fields.head.schema}",
         )
+      case other                                                                                                    =>
+        HttpCodec.Query(name, other)
     }
+
+  private def supportedCollection(schema: Schema.Collection[_, _]): Boolean = schema match {
+    case Schema.Map(_, _, _)                                =>
+      false
+    case Schema.NonEmptyMap(_, _, _)                        =>
+      false
+    case Schema.Sequence(elementSchema, _, _, _, _)         =>
+      supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])
+    case Schema.NonEmptySequence(elementSchema, _, _, _, _) =>
+      supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])
+    case Schema.Set(elementSchema, _)                       =>
+      supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])
+  }
 
   @tailrec
   private def supportedElementSchema(elementSchema: Schema[Any]): Boolean = elementSchema match {
@@ -131,11 +64,16 @@ private[codec] trait QueryCodecs {
 
   def queryAll[A](implicit schema: Schema[A]): QueryCodec[A] =
     schema match {
-      case _: Schema.Primitive[A]   =>
+      case _: Schema.Primitive[A]                                    =>
         throw new IllegalArgumentException("Use query[A](name: String) for primitive types")
-      case record: Schema.Record[A] => HttpCodec.Query(HttpCodec.Query.QueryType.Record(record))
-      case Schema.Optional(_, _)    => HttpCodec.Query(HttpCodec.Query.QueryType.Record(schema))
-      case _ => throw new IllegalArgumentException("Only case classes can be used to infer query codecs")
+      case record: Schema.Record[A]                                  =>
+        HttpCodec.Query(record)
+      case Schema.Optional(s, _) if s.isInstanceOf[Schema.Record[_]] =>
+        HttpCodec.Query(schema)
+      case _                                                         =>
+        throw new IllegalArgumentException(
+          "Only case classes can be used with queryAll. Maybe you wanted to use query[A](name: String)?",
+        )
     }
 
 }

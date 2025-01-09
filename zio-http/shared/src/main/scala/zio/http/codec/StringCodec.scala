@@ -3,6 +3,8 @@ package zio.http.codec
 import java.time._
 import java.util.{Currency, UUID}
 
+import scala.annotation.tailrec
+
 import zio._
 
 import zio.stream._
@@ -11,48 +13,72 @@ import zio.schema._
 import zio.schema.annotation.simpleEnum
 import zio.schema.codec._
 
-object TextBinaryCodec {
+import zio.http.Charsets
+
+object StringCodec {
+  type StringCodec[A] = Codec[String, Char, A]
   private def errorCodec[A](schema: Schema[A]) =
-    new BinaryCodec[A] {
-      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] = throw new IllegalArgumentException(
-        s"Schema $schema is not supported by TextBinaryCodec.",
+    new Codec[String, Char, A] {
+      override def decode(whole: String): Either[DecodeError, A] = throw new IllegalArgumentException(
+        s"Schema $schema is not supported by StringCodec.",
       )
 
-      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = throw new IllegalArgumentException(
-        s"Schema $schema is not supported by TextBinaryCodec.",
+      override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] = throw new IllegalArgumentException(
+        s"Schema $schema is not supported by StringCodec.",
       )
 
-      override def encode(value: A): Chunk[Byte] = throw new IllegalArgumentException(
-        s"Schema $schema is not supported by TextBinaryCodec.",
+      override def encode(value: A): String = throw new IllegalArgumentException(
+        s"Schema $schema is not supported by StringCodec.",
       )
 
-      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = throw new IllegalArgumentException(
-        s"Schema $schema is not supported by TextBinaryCodec.",
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Char] = throw new IllegalArgumentException(
+        s"Schema $schema is not supported by StringCodec.",
       )
     }
 
-  implicit def fromSchema[A](implicit schema: Schema[A]): BinaryCodec[A] = {
+  @tailrec
+  private def emptyStringIsValue(schema: Schema[_]): Boolean = {
+    schema match {
+      case value: Schema.Optional[_] =>
+        val innerSchema = value.schema
+        emptyStringIsValue(innerSchema)
+      case _                         =>
+        schema.asInstanceOf[Schema.Primitive[_]].standardType match {
+          case StandardType.UnitType   => true
+          case StandardType.StringType => true
+          case StandardType.BinaryType => true
+          case StandardType.CharType   => true
+          case _                       => false
+        }
+    }
+  }
+
+  implicit def fromSchema[A](implicit schema: Schema[A]): Codec[String, Char, A] = {
     schema match {
       case Schema.Optional(schema, _)                                                    =>
-        val codec = fromSchema(schema).asInstanceOf[BinaryCodec[Any]]
-        new BinaryCodec[A] {
-          override def encode(a: A): Chunk[Byte] = {
+        val codec = fromSchema(schema).asInstanceOf[Codec[String, Char, Any]]
+        new Codec[String, Char, A] {
+          override def encode(a: A): String = {
             a match {
               case Some(value) => codec.encode(value)
-              case None        => Chunk.empty
+              case None        => ""
             }
           }
 
-          override def decode(c: Chunk[Byte]): Either[DecodeError, A]      =
-            if (c.isEmpty) Right(None.asInstanceOf[A])
-            else codec.decode(c).map(Some(_)).asInstanceOf[Either[DecodeError, A]]
-          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
-            ZPipeline.map(a => encode(a)).flattenChunks
-          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+          override def decode(c: String): Either[DecodeError, A] = {
+            if (c.isEmpty && !emptyStringIsValue(schema)) Right(None.asInstanceOf[A])
+            else {
+              codec.decode(c).map(Some(_)).asInstanceOf[Either[DecodeError, A]]
+            }
+          }
+
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Char]     =
+            ZPipeline.map((a: A) => encode(a).toSeq).flattenIterables
+          override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] =
             codec.streamDecoder.map(v => Some(v).asInstanceOf[A])
         }
       case enum0: Schema.Enum[_] if enum0.annotations.exists(_.isInstanceOf[simpleEnum]) =>
-        val stringCodec    = fromSchema(Schema.Primitive(StandardType.StringType)).asInstanceOf[BinaryCodec[String]]
+        val stringCodec    = fromSchema(Schema.Primitive(StandardType.StringType))
         val caseMap        = enum0.nonTransientCases
           .map(case_ =>
             case_.schema.asInstanceOf[Schema.CaseClass0[A]].defaultConstruct() ->
@@ -60,22 +86,22 @@ object TextBinaryCodec {
           )
           .toMap
         val reverseCaseMap = caseMap.map(_.swap)
-        new BinaryCodec[A] {
-          override def encode(a: A): Chunk[Byte] = {
+        new Codec[String, Char, A] {
+          override def encode(a: A): String = {
             val caseName = caseMap(a.asInstanceOf[A])
             stringCodec.encode(caseName)
           }
 
-          override def decode(c: Chunk[Byte]): Either[DecodeError, A]      =
+          override def decode(c: String): Either[DecodeError, A]           =
             stringCodec.decode(c).flatMap { caseName =>
               reverseCaseMap.get(caseName) match {
                 case Some(value) => Right(value.asInstanceOf[A])
                 case None        => Left(DecodeError.MissingCase(caseName, enum0))
               }
             }
-          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
-            ZPipeline.map(a => encode(a)).flattenChunks
-          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Char]     =
+            ZPipeline.map((a: A) => encode(a).toSeq).flattenIterables
+          override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] =
             stringCodec.streamDecoder.mapZIO { caseName =>
               reverseCaseMap.get(caseName) match {
                 case Some(value) => ZIO.succeed(value.asInstanceOf[A])
@@ -87,19 +113,19 @@ object TextBinaryCodec {
       case enum0: Schema.Enum[_]                               => errorCodec(enum0)
       case record: Schema.Record[_] if record.fields.size == 1 =>
         val fieldSchema = record.fields.head.schema
-        val codec       = fromSchema(fieldSchema).asInstanceOf[BinaryCodec[A]]
-        new BinaryCodec[A] {
-          override def encode(a: A): Chunk[Byte]                           =
+        val codec       = fromSchema(fieldSchema).asInstanceOf[Codec[String, Char, A]]
+        new Codec[String, Char, A] {
+          override def encode(a: A): String                                =
             codec.encode(record.deconstruct(a)(Unsafe.unsafe).head.get.asInstanceOf[A])
-          override def decode(c: Chunk[Byte]): Either[DecodeError, A]      =
+          override def decode(c: String): Either[DecodeError, A]           =
             codec
               .decode(c)
               .flatMap(a =>
                 record.construct(Chunk(a))(Unsafe.unsafe).left.map(s => DecodeError.ReadError(Cause.empty, s)),
               )
-          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
-            ZPipeline.map(a => encode(a)).flattenChunks
-          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Char]     =
+            ZPipeline.map((a: A) => encode(a).toSeq).flattenIterables
+          override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] =
             codec.streamDecoder.mapZIO(a =>
               ZIO.fromEither(
                 record.construct(Chunk(a))(Unsafe.unsafe).left.map(s => DecodeError.ReadError(Cause.empty, s)),
@@ -110,25 +136,25 @@ object TextBinaryCodec {
       case collection: Schema.Collection[_, _]                 => errorCodec(collection)
       case Schema.Transform(schema, f, g, _, _)                =>
         val codec = fromSchema(schema)
-        new BinaryCodec[A] {
-          override def encode(a: A): Chunk[Byte] = codec.encode(g(a).fold(e => throw new Exception(e), identity))
-          override def decode(c: Chunk[Byte]): Either[DecodeError, A]      = codec
+        new Codec[String, Char, A] {
+          override def encode(a: A): String = codec.encode(g(a).fold(e => throw new Exception(e), identity))
+          override def decode(c: String): Either[DecodeError, A]           = codec
             .decode(c)
             .flatMap(x =>
               f(x).left
                 .map(DecodeError.ReadError(Cause.fail(new Exception("Error during decoding")), _)),
             )
-          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Char]     =
             ZPipeline.mapChunks(_.flatMap(encode))
-          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = codec.streamDecoder.mapZIO { x =>
+          override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] = codec.streamDecoder.map { x =>
             f(x) match {
-              case Left(value) => ZIO.fail(DecodeError.ReadError(Cause.fail(new Exception("Error in decoding")), value))
-              case Right(a)    => ZIO.succeed(a)
+              case Left(value) => throw DecodeError.ReadError(Cause.fail(new Exception("Error in decoding")), value)
+              case Right(a)    => a
             }
           }
         }
       case Schema.Primitive(_, _)                              =>
-        new BinaryCodec[A] {
+        new Codec[String, Char, A] {
           val decode0: String => Either[DecodeError, Any] =
             schema match {
               case Schema.Primitive(standardType, _) =>
@@ -339,24 +365,26 @@ object TextBinaryCodec {
                 )
                 (_: String) => result
             }
-          override def encode(a: A): Chunk[Byte]          =
+          override def encode(a: A): String               =
             schema match {
-              case Schema.Primitive(_, _) => Chunk.fromArray(a.toString.getBytes)
+              case Schema.Primitive(_, _) => a.toString
               case _                      =>
                 throw new IllegalArgumentException(
                   s"Cannot encode $a of type ${a.getClass} with schema $schema",
                 )
             }
 
-          override def decode(c: Chunk[Byte]): Either[DecodeError, A] =
-            decode0(c.asString).map(_.asInstanceOf[A])
+          override def decode(c: String): Either[DecodeError, A] =
+            decode0(c).map(_.asInstanceOf[A])
 
-          override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
-            ZPipeline.map((a: A) => Chunk.fromArray(a.toString.getBytes)).flattenChunks
+          override def streamEncoder: ZPipeline[Any, Nothing, A, Char] =
+            ZPipeline.map((a: A) => a.toString.toSeq).flattenIterables
 
-          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-            (ZPipeline[Byte] >>> ZPipeline.utf8Decode)
-              .mapZIO(s => ZIO.fromEither(decode(Chunk.fromArray(s.getBytes))))
+          override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] =
+            ZPipeline
+              .chunks[Char]
+              .map(_.asString)
+              .mapZIO(s => ZIO.fromEither(decode(s)))
               .mapErrorCause(e => Cause.fail(DecodeError.ReadError(e, e.squash.getMessage)))
         }
       case Schema.Lazy(schema0)                                => fromSchema(schema0())
