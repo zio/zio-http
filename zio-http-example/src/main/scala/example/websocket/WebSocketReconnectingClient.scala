@@ -1,4 +1,4 @@
-package example
+package example.websocket
 
 import zio._
 
