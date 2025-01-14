@@ -37,7 +37,7 @@ private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
   queue: Queue[WebSocketChannelEvent],
   handshakeCompleted: Promise[Nothing, Boolean],
-  callbacks: Option[(Promise[Throwable, ChannelState], Promise[Nothing, Throwable])],
+  callbacks: Option[Promise[Throwable, ChannelState]],
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
@@ -58,20 +58,13 @@ private[zio] final class WebSocketAppHandler(
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
     dispatch(ChannelEvent.unregistered)
-    callbacks match {
-      case Some((onComplete, _)) => onComplete.unsafe.done(Exit.succeed(ChannelState.Invalid))
-      case None                  => ()
-    }
+    callbacks.foreach(_.unsafe.done(Exit.succeed(ChannelState.Invalid)))
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     dispatch(ChannelEvent.exceptionCaught(cause))
-    callbacks match {
-      case Some((onComplete, onFailure)) =>
-        onComplete.unsafe.done(Exit.fail(cause))
-        onFailure.unsafe.done(Exit.succeed(cause))
-      case None                          => ()
-    }
+    callbacks.foreach(_.unsafe.done(Exit.fail(cause)))
+    ()
   }
 
   override def userEventTriggered(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {

@@ -17,21 +17,18 @@
 package zio.http.netty.client
 
 import scala.annotation.unroll
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
 import zio.http.internal.ChannelState
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-
-import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, EventLoopGroup}
+import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, ChannelHandlerContext, ChannelInboundHandlerAdapter, EventLoopGroup}
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
-import io.netty.handler.logging.{LogLevel => NettyLogLevel, LoggingHandler}
+import io.netty.handler.logging.{LoggingHandler, LogLevel => NettyLogLevel}
 import io.netty.util.concurrent.GenericFutureListener
 
 final case class NettyClientDriver private[netty] (
@@ -52,10 +49,7 @@ final case class NettyClientDriver private[netty] (
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
     @unroll enableInternalLogging: Boolean = false,
-    // Why this abomination? So we can provide a binary-compatible addition to this method.
-    onFailure: Trace => UIO[Promise[Nothing, Throwable]] = { (t: Trace) => Promise.make[Nothing, Throwable](t) },
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] =
-    onFailure(trace).flatMap {
       if (location.scheme.isWebSocket) {
         requestWebsocket(
           channel,
@@ -65,11 +59,9 @@ final case class NettyClientDriver private[netty] (
           createSocketApp,
           webSocketConfig,
           enableInternalLogging,
-          _,
         )
       } else
-        requestHttp(channel, req, onResponse, onComplete, enableKeepAlive, enableInternalLogging, _)
-    }
+        requestHttp(channel, req, onResponse, onComplete, enableKeepAlive, enableInternalLogging)
 
   private def requestHttp(
     channel: Channel,
@@ -78,7 +70,6 @@ final case class NettyClientDriver private[netty] (
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
     enableInternalLogging: Boolean,
-    onFailure: Promise[Nothing, Throwable],
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] =
     ZIO
       .succeed(NettyRequestEncoder.encode(req))
@@ -97,7 +88,7 @@ final case class NettyClientDriver private[netty] (
 
         pipeline.addLast(
           Names.ClientInboundHandler,
-          new ClientInboundHandler(nettyRuntime, req, jReq, onResponse, onComplete, onFailure, enableKeepAlive),
+          new ClientInboundHandler(nettyRuntime, req, jReq, onResponse, onComplete, enableKeepAlive),
         )
 
         pipeline
@@ -115,7 +106,8 @@ final case class NettyClientDriver private[netty] (
           override def interrupt: ZIO[Any, Throwable, Unit] =
             ZIO.suspendSucceed {
               val error = new InterruptedException("Netty channel operation interrupted by ZIO Http.")
-              onResponse.fail(error) *> onFailure.succeed(error) *> NettyFutureExecutor.executed(channel.disconnect())
+              pipeline.remove(Names.ClientInboundHandler)
+              onResponse.fail(error) *> NettyFutureExecutor.executed(channel.disconnect())
             }
         }
       }
@@ -128,7 +120,6 @@ final case class NettyClientDriver private[netty] (
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
     enableInternalLogging: Boolean,
-    onFailure: Promise[Nothing, Throwable],
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] = {
     for {
       queue              <- Queue.unbounded[WebSocketChannelEvent]
@@ -141,7 +132,7 @@ final case class NettyClientDriver private[netty] (
       val pipeline = channel.pipeline()
 
       val httpObjectAggregator = new HttpObjectAggregator(Int.MaxValue)
-      val inboundHandler       = new WebSocketClientInboundHandler(onResponse, onComplete, onFailure)
+      val inboundHandler       = new WebSocketClientInboundHandler(onResponse, onComplete)
 
       pipeline.addLast(Names.HttpObjectAggregator, httpObjectAggregator)
       pipeline.addLast(Names.ClientInboundHandler, inboundHandler)
@@ -157,7 +148,7 @@ final case class NettyClientDriver private[netty] (
 
       // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
       val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-      val webSocket = new WebSocketAppHandler(nettyRuntime, queue, handshakeCompleted, Some((onComplete, onFailure)))
+      val webSocket = new WebSocketAppHandler(nettyRuntime, queue, handshakeCompleted, Some(onComplete))
 
       pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
       pipeline.addLast(Names.WebSocketHandler, webSocket)

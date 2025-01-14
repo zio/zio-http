@@ -26,7 +26,6 @@ import io.netty.handler.codec.http.FullHttpResponse
 private[netty] final class WebSocketClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
-  onFailure: Promise[Nothing, Throwable],
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
@@ -43,6 +42,5 @@ private[netty] final class WebSocketClientInboundHandler(
     val exit = Exit.fail(error)
     onResponse.unsafe.done(exit)
     onComplete.unsafe.done(exit)
-    onFailure.unsafe.done(Exit.succeed(error))
   }
 }

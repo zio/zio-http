@@ -37,8 +37,6 @@ trait ClientDriver {
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
     @unroll enableInternalLogging: Boolean = false,
-    // Why this abomination? So we can provide a binary-compatible addition to this method.
-    onFailure: Trace => UIO[Promise[Nothing, Throwable]] = { (t: Trace) => Promise.make[Nothing, Throwable](t) },
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
 
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit

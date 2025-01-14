@@ -35,7 +35,6 @@ private[netty] final class ClientInboundHandler(
   jReq: HttpRequest,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
-  onFailure: Promise[Nothing, Throwable],
   enableKeepAlive: Boolean,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
@@ -76,7 +75,7 @@ private[netty] final class ClientInboundHandler(
     val exit = Exit.fail(error)
     onResponse.unsafe.done(exit)
     onComplete.unsafe.done(exit)
-    onFailure.unsafe.done(Exit.succeed(error))
+    ()
   }
 }
 

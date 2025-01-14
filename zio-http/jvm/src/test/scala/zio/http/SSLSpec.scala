@@ -16,11 +16,11 @@
 
 package zio.http
 
-import zio.test.Assertion.equalTo
+import io.netty.handler.codec.DecoderException
+import zio.test.Assertion.{anything, equalTo}
 import zio.test.TestAspect.withLiveClock
-import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
+import zio.test._
 import zio.{Scope, ZLayer}
-
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
@@ -63,18 +63,14 @@ object SSLSpec extends ZIOHttpSpec {
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
           ),
-          // Unfortunately if the channel closes before we create the request, we can't extract the DecoderException
           test(
-            "fail with DecoderException or PrematureChannelClosureException when client doesn't have the server certificate",
+            "fail with DecoderException when client doesn't have the server certificate",
           ) {
             Client
               .batched(Request.get(httpsUrl))
               .fold(
                 { e =>
-                  val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
-                  val errorType      = e.getClass.getSimpleName
-                  if (expectedErrors.contains(errorType)) assertCompletes
-                  else assertNever(s"request failed with unexpected error type: $errorType")
+                  assert(e)(Assertion.isSubtype[DecoderException](anything))
                 },
                 _ => assertNever("expected request to fail"),
               )

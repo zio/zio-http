@@ -743,7 +743,6 @@ object ZClient extends ZClientPlatformSpecific {
                         createSocketApp,
                         clientConfig.webSocketConfig,
                         clientConfig.enableInternalLogging,
-                        _ => ZIO.succeed(onFailure),
                       )
                       .tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-
