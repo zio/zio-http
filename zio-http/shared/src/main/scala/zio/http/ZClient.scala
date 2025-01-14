@@ -707,7 +707,6 @@ object ZClient extends ZClientPlatformSpecific {
               connectionAcquired <- Ref.make(false)
               onComplete         <- Promise.make[Throwable, ChannelState]
               onResponse         <- Promise.make[Throwable, Response]
-              onFailure          <- Promise.make[Nothing, Throwable]
               inChannelScope = outerScope match {
                 case Some(scope) => (zio: ZIO[Scope, Throwable, Unit]) => scope.extend(zio)
                 case None        => (zio: ZIO[Scope, Throwable, Unit]) => ZIO.scoped(zio)
