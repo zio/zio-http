@@ -131,7 +131,7 @@ private[zio] class ServerSSLDecoder(sslConfig: SSLConfig, cfg: Server.Config) ex
     val httpBehaviour = sslConfig.behaviour
     if (in.readableBytes < 5)
       ()
-    else if (SslHandler.isEncrypted(in)) {
+    else if (SslHandler.isEncrypted(in, false)) {
       pipeline.replace(this, Names.SSLHandler, sslContext.newHandler(context.alloc()))
       ()
     } else {

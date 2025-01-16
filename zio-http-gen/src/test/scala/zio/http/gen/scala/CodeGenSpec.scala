@@ -1012,6 +1012,30 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3,
+      test("Schema with any and any object") {
+        val openAPIString = stringFromResource("/inline_schema_any_and_any_object.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(
+              fieldNamesNormalization = Config.default.fieldNamesNormalization.copy(enableAutomatic = true),
+            ),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/zoo/Animal.scala",
+                "component/Animal.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Animal.scala",
+              "/AnimalWithAny.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
       test("Generate all responses") {
         val oapi =
           OpenAPI(
