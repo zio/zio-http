@@ -56,6 +56,7 @@ ThisBuild / githubWorkflowAddedJobs :=
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
+ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
 ThisBuild / githubWorkflowPublish       :=
   Seq(
     WorkflowStep.Sbt(
