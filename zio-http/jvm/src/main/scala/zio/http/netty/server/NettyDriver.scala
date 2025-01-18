@@ -61,7 +61,7 @@ private[zio] final case class NettyDriver(
       )
     } yield StartResult(port, serverInboundHandler.inFlightRequests)
 
-  def addApp[R](newApp: Routes[R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] =
+  override def addApp[R](newApp: Routes[Scope & R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] =
     ZIO.fiberId.map { fiberId =>
       var loop = true
       while (loop) {

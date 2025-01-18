@@ -32,7 +32,7 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](routes: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
+  def install[R](routes: Routes[Scope & R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
@@ -435,7 +435,7 @@ object Server extends ServerPlatformSpecific {
   }
 
   def serve[R](
-    routes: Routes[R, Response],
+    routes: Routes[Scope & R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
       ZIO.serviceWithZIO[Server](_.install[R](routes)) *>
@@ -444,14 +444,14 @@ object Server extends ServerPlatformSpecific {
   }
 
   def serve[R](
-    route: Route[R, Response],
-    routes: Route[R, Response]*,
+    route: Route[Scope & R, Response],
+    routes: Route[Scope & R, Response]*,
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
     serve(Routes(route, routes: _*))
   }
 
   def install[R](
-    routes: Routes[R, Response],
+    routes: Routes[Scope & R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server](_.install[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
   }
@@ -523,7 +523,7 @@ object Server extends ServerPlatformSpecific {
     // or a throwable if starting the driver failed for any reason.
     private val serverStarted: Promise[Throwable, Int],
   ) extends Server {
-    override def install[R](routes: Routes[R, Response])(implicit
+    override def install[R](routes: Routes[Scope & R, Response])(implicit
       trace: Trace,
       tag: EnvironmentTag[R],
     ): URIO[R, Unit] =

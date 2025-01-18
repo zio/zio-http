@@ -334,13 +334,16 @@ private[zio] final case class ServerInboundHandler(
         )
       }
 
-    val program = exit.foldCauseZIO(
-      _.failureOrCause match {
-        case Left(resp)                      => writeResponse(resp)
-        case Right(c) if c.isInterruptedOnly => closeChannel()
-        case Right(c)                        => writeResponse(withDefaultErrorResponse(FiberFailure(c)))
-      },
-      writeResponse,
+    val scope   = Scope.unsafe.make
+    val program = scope.use(
+      exit.foldCauseZIO(
+        _.failureOrCause match {
+          case Left(resp)                      => writeResponse(resp)
+          case Right(c) if c.isInterruptedOnly => closeChannel()
+          case Right(c)                        => writeResponse(withDefaultErrorResponse(FiberFailure(c)))
+        },
+        writeResponse,
+      ),
     )
 
     runtime.run(ctx, ensured, preferOnCurrentThread = avoidCtxSwitching)(program)
