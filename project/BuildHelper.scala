@@ -12,7 +12,7 @@ object BuildHelper extends ScalaSettings {
   val ScoverageVersion = "2.0.12"
   val JmhVersion       = "0.4.7"
 
-  val stdOptions = Seq(
+  private val stdOptions = Seq(
     "-deprecation",
     "-encoding",
     "UTF-8",
