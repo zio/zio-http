@@ -21,8 +21,7 @@ import scala.collection.AbstractIterator
 import zio.http.Server.Config.CompressionOptions
 import zio.http._
 
-import com.aayushatharva.brotli4j.encoder.Encoder
-import io.netty.handler.codec.compression.StandardCompressionOptions
+import io.netty.handler.codec.compression.{BrotliMode, StandardCompressionOptions}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 
@@ -150,15 +149,13 @@ private[netty] object Conversions {
       case CompressionOptions.Deflate(cfg) =>
         StandardCompressionOptions.deflate(cfg.level, cfg.bits, cfg.mem)
       case CompressionOptions.Brotli(cfg)  =>
-        StandardCompressionOptions.brotli(
-          new Encoder.Parameters().setQuality(cfg.quality).setWindow(cfg.lgwin).setMode(brotliModeToJava(cfg.mode)),
-        )
+        StandardCompressionOptions.brotli(cfg.quality, cfg.lgwin, brotliModeToJava(cfg.mode))
     }
 
-  def brotliModeToJava(brotli: CompressionOptions.Mode): Encoder.Mode = brotli match {
-    case CompressionOptions.Mode.Font    => Encoder.Mode.FONT
-    case CompressionOptions.Mode.Text    => Encoder.Mode.TEXT
-    case CompressionOptions.Mode.Generic => Encoder.Mode.GENERIC
+  def brotliModeToJava(brotli: CompressionOptions.Mode): BrotliMode = brotli match {
+    case CompressionOptions.Mode.Font    => BrotliMode.FONT
+    case CompressionOptions.Mode.Text    => BrotliMode.TEXT
+    case CompressionOptions.Mode.Generic => BrotliMode.GENERIC
   }
 
   def versionToNetty(version: Version): HttpVersion = version match {
