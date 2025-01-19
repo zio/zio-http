@@ -18,7 +18,7 @@ package zio.http
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{flaky, ignore, nonFlaky}
+import zio.test.TestAspect.nonFlaky
 import zio.test.{TestAspect, assertZIO}
 
 import zio.http.netty.NettyConfig
@@ -53,16 +53,7 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
     test("should respond as Bad Request") {
       val actual = Client.batched(Request.get(badRequest)).map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
-    } @@ ignore /* started getting 503 consistently,
-    flaky does not help, nor exponential retries.
-    Either we're being throttled, or the service is under high load.
-    Regardless, we should not depend on an external service like that.
-    Luckily, httpbin is available via docker.
-    So once we make sure to:
-
-    $ docker run -p 80:80 kennethreitz/httpbin
-
-    before invoking tests, we can un-ignore this test. */,
+    },
     test("should throw DecoderException for handshake failure") {
       val actual = Client.batched(Request.get(untrusted)).exit
       assertZIO(actual)(
