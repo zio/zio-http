@@ -176,6 +176,11 @@ object RoundtripSpec extends ZIOHttpSpec {
           Post(20, "title", "body", 10),
         )
       },
+      test("simple get without payload") {
+        val healthCheckAPI     = Endpoint(GET / "health-check").out[Unit]
+        val healthCheckHandler = healthCheckAPI.implementAs(())
+        testEndpoint(healthCheckAPI, Routes(healthCheckHandler), (), ())
+      },
       test("simple get with query params from case class") {
         val endpoint = Endpoint(GET / "query")
           .query(HttpCodec.queryAll[Params])

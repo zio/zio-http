@@ -673,69 +673,44 @@ final case class EndpointGen(config: Config) {
     } else None
 
   @tailrec
-  private def schemaToPathCodec(schema: JsonSchema, openAPI: OpenAPI, name: String): Code.PathSegmentCode = {
+  private def schemaToPathCodec(schema: JsonSchema, openAPI: OpenAPI, name: String): Code.PathSegmentCode =
     schema match {
       case JsonSchema.AnnotatedSchema(s, _) => schemaToPathCodec(s, openAPI, name)
       case JsonSchema.RefSchema(ref)        => schemaToPathCodec(resolveSchemaRef(openAPI, ref), openAPI, name)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32, _, _, _, _, _)     =>
-        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Int)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64, _, _, _, _, _)     =>
-        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Long)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp, _, _, _, _, _) =>
-        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Long)
-      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, _, _)        =>
-        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.UUID)
-      case JsonSchema.String(_, _, _, _)                                         =>
-        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.String)
-      case JsonSchema.Boolean                                                    =>
-        Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Boolean)
-      case JsonSchema.OneOfSchema(_)           => throw new Exception("Alternative path variables are not supported")
-      case JsonSchema.AllOfSchema(_)           => throw new Exception("Path variables must have exactly one schema")
-      case JsonSchema.AnyOfSchema(_)           => throw new Exception("Path variables must have exactly one schema")
-      case JsonSchema.Number(_, _, _, _, _, _) =>
-        throw new Exception("Floating point path variables are currently not supported")
-      case JsonSchema.ArrayType(_, _, _)       => throw new Exception("Array path variables are not supported")
-      case JsonSchema.Object(_, _, _)          => throw new Exception("Object path variables are not supported")
-      case JsonSchema.Enum(_)                  => throw new Exception("Enum path variables are not supported")
-      case JsonSchema.Null                     => throw new Exception("Null path variables are not supported")
-      case JsonSchema.AnyJson                  => throw new Exception("AnyJson path variables are not supported")
+      case s: JsonSchema.Integer            => Code.PathSegmentCode(name = name, segmentType = integerCodec(s.format))
+      case s: JsonSchema.String             => Code.PathSegmentCode(name = name, segmentType = stringCodec(s.format))
+      case JsonSchema.Boolean               => Code.PathSegmentCode(name = name, segmentType = Code.CodecType.Boolean)
+      case JsonSchema.OneOfSchema(_)        => throw new Exception("Alternative path variables are not supported")
+      case JsonSchema.AllOfSchema(_)        => throw new Exception("Path variables must have exactly one schema")
+      case JsonSchema.AnyOfSchema(_)        => throw new Exception("Path variables must have exactly one schema")
+      case JsonSchema.ArrayType(_, _, _)    => throw new Exception("Array path variables are not supported")
+      case JsonSchema.Object(_, _, _)       => throw new Exception("Object path variables are not supported")
+      case JsonSchema.Enum(_)               => throw new Exception("Enum path variables are not supported")
+      case JsonSchema.Null                  => throw new Exception("Null path variables are not supported")
+      case JsonSchema.AnyJson               => throw new Exception("AnyJson path variables are not supported")
+      case _: JsonSchema.Number             => throw new Exception("Floating point path variables are not supported")
     }
-  }
 
   @tailrec
   private def schemaToQueryParamCodec(
     schema: JsonSchema,
     openAPI: OpenAPI,
     name: String,
-  ): Code.QueryParamCode = {
-    schema match {
-      case JsonSchema.AnnotatedSchema(s, _)                                      =>
-        schemaToQueryParamCodec(s, openAPI, name)
-      case JsonSchema.RefSchema(ref)                                             =>
-        schemaToQueryParamCodec(resolveSchemaRef(openAPI, ref), openAPI, name)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int32, _, _, _, _, _)     =>
-        Code.QueryParamCode(name = name, queryType = Code.CodecType.Int)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Int64, _, _, _, _, _)     =>
-        Code.QueryParamCode(name = name, queryType = Code.CodecType.Long)
-      case JsonSchema.Integer(JsonSchema.IntegerFormat.Timestamp, _, _, _, _, _) =>
-        Code.QueryParamCode(name = name, queryType = Code.CodecType.Long)
-      case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, _, _)        =>
-        Code.QueryParamCode(name = name, queryType = Code.CodecType.UUID)
-      case JsonSchema.String(_, _, _, _)                                         =>
-        Code.QueryParamCode(name = name, queryType = Code.CodecType.String)
-      case JsonSchema.Boolean                                                    =>
-        Code.QueryParamCode(name = name, queryType = Code.CodecType.Boolean)
-      case JsonSchema.OneOfSchema(_)           => throw new Exception("Alternative query parameters are not supported")
-      case JsonSchema.AllOfSchema(_)           => throw new Exception("Query parameters must have exactly one schema")
-      case JsonSchema.AnyOfSchema(_)           => throw new Exception("Query parameters must have exactly one schema")
-      case JsonSchema.Number(_, _, _, _, _, _) =>
-        throw new Exception("Floating point query parameters are currently not supported")
-      case JsonSchema.ArrayType(_, _, _)       => throw new Exception("Array query parameters are not supported")
-      case JsonSchema.Object(_, _, _)          => throw new Exception("Object query parameters are not supported")
-      case JsonSchema.Enum(_)                  => throw new Exception("Enum query parameters are not supported")
-      case JsonSchema.Null                     => throw new Exception("Null query parameters are not supported")
-      case JsonSchema.AnyJson                  => throw new Exception("AnyJson query parameters are not supported")
-    }
+  ): Code.QueryParamCode = schema match {
+    case JsonSchema.AnnotatedSchema(s, _) => schemaToQueryParamCodec(s, openAPI, name)
+    case JsonSchema.RefSchema(ref)        => schemaToQueryParamCodec(resolveSchemaRef(openAPI, ref), openAPI, name)
+    case JsonSchema.Boolean               => Code.QueryParamCode(name = name, queryType = Code.CodecType.Boolean)
+    case s: JsonSchema.Integer            => Code.QueryParamCode(name = name, queryType = integerCodec(s.format))
+    case s: JsonSchema.String             => Code.QueryParamCode(name = name, queryType = stringCodec(s.format))
+    case _: JsonSchema.Number             => throw new Exception("Floating point query parameters are not supported")
+    case JsonSchema.OneOfSchema(_)        => throw new Exception("Alternative query parameters are not supported")
+    case JsonSchema.AllOfSchema(_)        => throw new Exception("Query parameters must have exactly one schema")
+    case JsonSchema.AnyOfSchema(_)        => throw new Exception("Query parameters must have exactly one schema")
+    case JsonSchema.ArrayType(_, _, _)    => throw new Exception("Array query parameters are not supported")
+    case JsonSchema.Object(_, _, _)       => throw new Exception("Object query parameters are not supported")
+    case JsonSchema.Enum(_)               => throw new Exception("Enum query parameters are not supported")
+    case JsonSchema.Null                  => throw new Exception("Null query parameters are not supported")
+    case JsonSchema.AnyJson               => throw new Exception("AnyJson query parameters are not supported")
   }
 
   private def fieldsOfObject(openAPI: OpenAPI, annotations: Chunk[JsonSchema.MetaData])(
@@ -1026,6 +1001,7 @@ final case class EndpointGen(config: Config) {
           properties.map { case (name, schema) => name -> schema.withoutAnnotations }.collect {
             case (name, schema)
                 if !schema.isInstanceOf[JsonSchema.RefSchema]
+                  && !(schema == JsonSchema.AnyJson)
                   && !schema.isPrimitive
                   && !schema.isCollection =>
               schemaToCode(schema, openAPI, name.capitalize, Chunk.empty)
@@ -1077,7 +1053,7 @@ final case class EndpointGen(config: Config) {
           ),
         )
       case JsonSchema.Null    => throw new Exception("Null query parameters are not supported")
-      case JsonSchema.AnyJson => throw new Exception("AnyJson query parameters are not supported")
+      case JsonSchema.AnyJson => None
     }
   }
 
@@ -1237,9 +1213,19 @@ final case class EndpointGen(config: Config) {
         val annotations  = addNumericValidations[Long](exclusiveMin, exclusiveMax)
         Some(Code.Field(name, Code.Primitive.ScalaLong, annotations, config.fieldNamesNormalization))
 
+      case JsonSchema.String(Some(format), _, _, _) if config.stringFormatTypes.contains(format.value)                =>
+        Some(Code.Field(name, Code.TypeRef(config.stringFormatTypes(format.value)), config.fieldNamesNormalization))
       case JsonSchema.String(Some(JsonSchema.StringFormat.UUID), _, maxLength, minLength)                             =>
         val annotations = addStringValidations(minLength, maxLength)
         Some(Code.Field(name, Code.Primitive.ScalaUUID, annotations, config.fieldNamesNormalization))
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Date), _, _, _)                                             =>
+        Some(Code.Field(name, Code.Primitive.ScalaLocalDate, config.fieldNamesNormalization))
+      case JsonSchema.String(Some(JsonSchema.StringFormat.DateTime), _, _, _)                                         =>
+        Some(Code.Field(name, Code.Primitive.ScalaInstant, config.fieldNamesNormalization))
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Time), _, _, _)                                             =>
+        Some(Code.Field(name, Code.Primitive.ScalaTime, config.fieldNamesNormalization))
+      case JsonSchema.String(Some(JsonSchema.StringFormat.Duration), _, _, _)                                         =>
+        Some(Code.Field(name, Code.Primitive.ScalaDuration, config.fieldNamesNormalization))
       case JsonSchema.String(_, _, maxLength, minLength)                                                              =>
         val annotations = addStringValidations(minLength, maxLength)
         Some(Code.Field(name, Code.Primitive.ScalaString, annotations, config.fieldNamesNormalization))
@@ -1352,4 +1338,18 @@ final case class EndpointGen(config: Config) {
     }
   }
 
+  private def integerCodec(format: JsonSchema.IntegerFormat): Code.CodecType = format match {
+    case JsonSchema.IntegerFormat.Int32     => Code.CodecType.Int
+    case JsonSchema.IntegerFormat.Int64     => Code.CodecType.Long
+    case JsonSchema.IntegerFormat.Timestamp => Code.CodecType.Long
+  }
+
+  private def stringCodec(format: Option[JsonSchema.StringFormat]): Code.CodecType = format match {
+    case Some(JsonSchema.StringFormat.Date)     => Code.CodecType.LocalDate
+    case Some(JsonSchema.StringFormat.DateTime) => Code.CodecType.Instant
+    case Some(JsonSchema.StringFormat.Duration) => Code.CodecType.Duration
+    case Some(JsonSchema.StringFormat.Time)     => Code.CodecType.LocalTime
+    case Some(JsonSchema.StringFormat.UUID)     => Code.CodecType.UUID
+    case _                                      => Code.CodecType.String
+  }
 }

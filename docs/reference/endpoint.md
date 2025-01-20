@@ -289,6 +289,15 @@ object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
 }
 ```
 
+For Scala 3, we can use a union type instead of an `Either` by calling `Endpoint#orOut` for more than one output:
+
+```scala
+  val endpoint: Endpoint[Unit, Unit, ZNothing, Course | Quiz, AuthType.None] = 
+  Endpoint(RoutePattern.GET / "resources")
+    .out[Course]
+    .orOut[Quiz]
+```
+
 In the above example, we defined an endpoint that describes a path parameter `id` as input and returns either a `Book` or an `Article` as output.
 
 With multiple outputs, we can define if all of them or just some should add an output header, by the order of calling `out` and `outHeader` methods:
@@ -471,6 +480,30 @@ The `Endpoint#outErrors` method takes a list of `HttpCodec` that describes the e
 utils.printSource("zio-http-example/src/main/scala/example/endpoint/EndpointWithMultipleUnifiedErrors.scala")
 ```
 </details>
+
+### Multiple Failure Outputs Using Union Types
+
+The `Endpoint#orOutError` method can be used to describe multiple failure outputs using union types:
+
+```scala
+import zio.schema.DeriveSchema
+
+case class Book(title: String, authors: List[String])
+implicit val bookSchema = DeriveSchema.gen[Book]
+
+case class BookNotFound(message: String, bookId: Int)
+case class AuthenticationError(message: String, userId: Int)
+
+implicit val notFoundSchema = DeriveSchema.gen[BookNotFound]
+implicit val authSchema     = DeriveSchema.gen[AuthenticationError]
+
+val endpoint: Endpoint[Int, (Int, Header.Authorization), BookNotFound | AuthenticationError, Book, AuthType.None] =
+  Endpoint(RoutePattern.GET / "books" / PathCodec.int("id"))
+    .header(HeaderCodec.authorization)
+    .out[Book]
+    .outError[BookNotFound](Status.NotFound)
+    .orOutError[AuthenticationError](Status.Unauthorized)
+```
 
 ## Transforming Endpoint Input/Output and Error Types
 

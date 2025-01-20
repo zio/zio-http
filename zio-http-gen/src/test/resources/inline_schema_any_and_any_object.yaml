@@ -1,0 +1,49 @@
+info:
+  title: Animals Service
+  version: 0.0.1
+tags:
+  - name: Animals_API
+paths:
+  /api/v1/zoo/{animal}:
+    get:
+      operationId: get_animal
+      parameters:
+        - in: path
+          name: animal
+          schema:
+            type: string
+          required: true
+      tags:
+        - Animals_API
+      description: Get animals by species name
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Animal'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HttpError'
+          description: Internal Server Error
+openapi: 3.0.3
+components:
+  schemas:
+    Animal:
+      type: object
+      required:
+        - name
+        - eats
+        - extra_attributes
+      properties:
+        name:
+          type: string
+        eats: {}
+        extra_attributes:
+          type: object
+          additionalProperties: true

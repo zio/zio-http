@@ -198,6 +198,16 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema request and response body with minLength and maxLength") {
+        val openAPIString = stringFromResource("/inline_schema_minmaxlength.json")
+
+        openApiFromJsonString(openAPIString) { openAPI =>
+          codeGenFromOpenAPI(openAPI) { testDir =>
+            fileShouldBe(testDir, "api/v1/Entries.scala", "/EndpointWithRequestResponseBodyInlineMinMaxLength.scala")
+          }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+
       test("OpenAPI spec with inline schema request and response body, with nested object schema") {
         val openAPIString = stringFromResource("/inline_schema_nested.json")
 
@@ -998,6 +1008,30 @@ object CodeGenSpec extends ZIOSpecDefault {
               testDir,
               "component/Key.scala",
               "/ComponentAliasKey.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
+      test("Schema with any and any object") {
+        val openAPIString = stringFromResource("/inline_schema_any_and_any_object.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(
+              fieldNamesNormalization = Config.default.fieldNamesNormalization.copy(enableAutomatic = true),
+            ),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/zoo/Animal.scala",
+                "component/Animal.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Animal.scala",
+              "/AnimalWithAny.scala",
             )
           }
         }
