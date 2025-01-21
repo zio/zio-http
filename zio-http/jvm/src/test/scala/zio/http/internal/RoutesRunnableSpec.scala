@@ -16,7 +16,7 @@
 
 package zio.http.internal
 
-import zio._
+import zio.{EnvironmentTag, Scope, ZIO}
 
 import zio.http.URL.Location
 import zio.http._
@@ -111,9 +111,7 @@ abstract class RoutesRunnableSpec extends ZIOHttpSpec { self =>
       _    <- DynamicServer.setStart(server)
     } yield port
 
-  def serve[R: EnvironmentTag](
-    routes: Routes[Scope & R, Response],
-  ): ZIO[R with DynamicServer with Server, Nothing, Int] =
+  def serve[R: EnvironmentTag](routes: Routes[R, Response]): ZIO[R with DynamicServer with Server, Nothing, Int] =
     for {
       server <- ZIO.service[Server]
       port   <- Server.install(routes)

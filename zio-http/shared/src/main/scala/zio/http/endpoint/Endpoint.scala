@@ -302,10 +302,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               .nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
 
           (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
-            original(value).foldZIO(
-              success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
-              failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
-            )
+            original(value)
+              .asInstanceOf[ZIO[Env, Err, Output]]
+              .foldZIO(
+                success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
+                failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
+              )
           }
         } -> condition
       }

@@ -141,7 +141,7 @@ val routes: Routes[Any, Response] = ???
 
 routes.transform[Any] { handle =>
    handler { (request: Request) => 
-     ZIO.sleep(1.second) *> handle(request)
+     ZIO.sleep(1.second) *> ZIO.scoped(handle(request))
    }
 }
 ```

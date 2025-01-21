@@ -356,7 +356,7 @@ object WebSpec extends ZIOHttpSpec with TestExtensions { self =>
 
   private def runRoutes[R](routes: Routes[R, Response]): ZIO[R, Response, Response] = {
     for {
-      fib <- routes.runZIO { Request.get(url = URL(Path.root / "health")) }.fork
+      fib <- ZIO.scoped[R](routes.runZIO { Request.get(url = URL(Path.root / "health")) }).fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res
