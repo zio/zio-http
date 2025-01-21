@@ -181,7 +181,7 @@ object Middleware extends HandlerAspects {
           handler { (req: Request) =>
             if (req.headers.contains(header.name)) h(req)
             else h(req.addHeader(make))
-          }
+          }.asInstanceOf[Handler[Env1, Response, Request, Response]]
         }
     }
 
@@ -192,7 +192,7 @@ object Middleware extends HandlerAspects {
           handler { (req: Request) =>
             if (req.headers.contains(headerName)) h(req)
             else h(req.addHeader(headerName, make))
-          }
+          }.asInstanceOf[Handler[Env1, Response, Request, Response]]
         }
     }
 
@@ -222,7 +222,7 @@ object Middleware extends HandlerAspects {
                   Headers.fromIterable(headerValues.result())
               }
             } *> h(req)
-          }
+          }.asInstanceOf[Handler[Env1, Response, Request, Response]]
         }
     }
   }
@@ -249,7 +249,7 @@ object Middleware extends HandlerAspects {
                   Headers.fromIterable(headerValues.result())
               }
             } *> h(req)
-          }
+          }.asInstanceOf[Handler[Env1, Response, Request, Response]]
         }
     }
   }
@@ -267,6 +267,7 @@ object Middleware extends HandlerAspects {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
           handler((req: Request) => ZIO.logAnnotate(logAnnotations)(h(req)))
+            .asInstanceOf[Handler[Env1, Response, Request, Response]]
         }
     }
 
@@ -279,6 +280,7 @@ object Middleware extends HandlerAspects {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
           handler((req: Request) => ZIO.logAnnotate(fromRequest(req))(h(req)))
+            .asInstanceOf[Handler[Env1, Response, Request, Response]]
         }
     }
 
@@ -302,7 +304,7 @@ object Middleware extends HandlerAspects {
               i += 1
             }
             ZIO.logAnnotate(annotations.result())(h(req))
-          })
+          }).asInstanceOf[Handler[Env1, Response, Request, Response]]
         }
       }
     }

@@ -77,5 +77,5 @@ object RoutesMiddlewareSpec extends ZIOHttpSpec with ExitAssertion {
           result2 <- ref.get
         } yield assertTrue(result1 == 1, result2 == 1)
       },
-    )
+    ).provide(Scope.default)
 }

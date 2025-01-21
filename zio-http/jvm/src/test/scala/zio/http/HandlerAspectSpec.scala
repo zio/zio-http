@@ -23,7 +23,7 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           //can't be infix because of Scala 3
         }.@@[Boolean](handlerAspect)
         for {
-          response   <- handler0(Request(headers = Headers("accept", "*"))).provideEnvironment(ZEnvironment(true))
+          response   <- ZIO.scoped(handler0(Request(headers = Headers("accept", "*")))).provideEnvironment(ZEnvironment(true))
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "1")
       },
@@ -41,7 +41,7 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           //can't be infix because of Scala 3
         }.@@[Boolean](handlerAspect)
         for {
-          response   <- handler0(Request(headers = Headers("accept", "*"))).provideEnvironment(ZEnvironment(true) ++ ZEnvironment("test"))
+          response   <- ZIO.scoped(handler0(Request(headers = Headers("accept", "*")))).provideEnvironment(ZEnvironment(true) ++ ZEnvironment("test"))
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "1 test")
       },

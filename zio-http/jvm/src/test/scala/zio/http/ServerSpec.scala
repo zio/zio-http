@@ -524,6 +524,7 @@ object ServerSpec extends RoutesRunnableSpec {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { app.as(List(spec)) }
     }.provideShared(
+      Scope.default,
       DynamicServer.live,
       ZLayer.succeed(configApp),
       Server.customized,

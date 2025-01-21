@@ -43,7 +43,7 @@ object BenchmarkWorkFlow {
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", s"v4"),
           Map(
-            "repository" -> "khajavi/FrameworkBenchmarks",
+            "repository" -> "zio/FrameworkBenchmarks",
             "path"       -> "FrameworkBenchMarks",
           ),
         ),
