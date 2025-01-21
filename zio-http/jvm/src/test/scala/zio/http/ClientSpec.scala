@@ -135,6 +135,6 @@ object ClientSpec extends RoutesRunnableSpec {
   override def spec = {
     suite("Client") {
       serve.as(List(clientSpec))
-    }.provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
+    }.provideShared(Scope.default, DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
   }
 }

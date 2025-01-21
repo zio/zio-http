@@ -206,7 +206,7 @@ private[zio] final case class ServerInboundHandler(
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
     method: Method,
-    exit: ZIO[Any, Response, Response],
+    exit: ZIO[Scope, Response, Response],
   ): Boolean = {
     exit match {
       case Exit.Success(response) if response ne null =>
@@ -282,7 +282,7 @@ private[zio] final case class ServerInboundHandler(
         ZIO.suspend {
           val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
           val webSocketChannel = WebSocketChannel.make(nettyChannel, queue, handshakeCompleted)
-          webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
+          ZIO.scoped(webSocketApp.handler.runZIO(webSocketChannel)).ignoreLogged.forkDaemon
         }
       }
     _                  <- ZIO.attempt {
@@ -311,7 +311,7 @@ private[zio] final case class ServerInboundHandler(
   private def writeResponse(
     ctx: ChannelHandlerContext,
     runtime: NettyRuntime,
-    exit: ZIO[Any, Response, Response],
+    exit: ZIO[Scope, Response, Response],
     req: Request,
   )(ensured: () => Unit): Unit = {
 

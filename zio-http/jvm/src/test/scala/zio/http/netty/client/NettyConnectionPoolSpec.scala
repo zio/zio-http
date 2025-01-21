@@ -45,7 +45,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
   def connectionPoolTests(
     version: Version,
     casesByHeaders: Map[String, Headers],
-  ): Spec[Client with DynamicServer, Throwable] =
+  ): Spec[Scope & Client with DynamicServer, Throwable] =
     suite(version.toString)(
       casesByHeaders.map { case (name, extraHeaders) =>
         suite(name)(
@@ -193,6 +193,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
         ),
       )
     }.provideSome[Client](
+      Scope.default,
       ZLayer(appKeepAliveEnabled.unit),
       DynamicServer.live,
       ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
@@ -209,6 +210,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
 
     ZIO.collectAll(List.fill(4)(f)).map(_.foldLeft(assertCompletes)(_ && _))
   }.provide(
+    Scope.default,
     ZLayer(appKeepAliveEnabled.unit),
     DynamicServer.live,
     ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
@@ -267,6 +269,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
       } @@ ignore, // ZPool is broken in ZIO 2.1.9 should be fixed with 2.1.10
     )
   }.provide(
+    Scope.default,
     ZLayer(appKeepAliveEnabled.unit),
     DynamicServer.live,
     serverTestLayer,
@@ -297,6 +300,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
         connectionPoolTimeoutTest,
         connectionPoolShutdownSpec,
       ).provide(
+        Scope.default,
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         serverTestLayer,
@@ -324,6 +328,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
         connectionPoolTimeoutTest,
         connectionPoolShutdownSpec,
       ).provide(
+        Scope.default,
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         serverTestLayer,

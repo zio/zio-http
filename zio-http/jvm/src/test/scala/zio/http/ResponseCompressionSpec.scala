@@ -87,7 +87,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
         for {
           server       <- ZIO.service[Server]
           client       <- ZIO.service[Client]
-          _            <- server.install(app)
+          _            <- server.installInternal(app)
           port         <- server.port
           response     <- client.batched(
             Request(
@@ -110,7 +110,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
         for {
           server       <- ZIO.service[Server]
           client       <- ZIO.service[Client]
-          _            <- server.install(app)
+          _            <- server.installInternal(app)
           port         <- server.port
           response     <- client.batched(
             Request(
@@ -134,7 +134,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
     for {
       server       <- ZIO.service[Server]
       client       <- ZIO.service[Client]
-      _            <- server.install(app)
+      _            <- server.installInternal(app)
       port         <- server.port
       response     <- client.batched(
         Request(

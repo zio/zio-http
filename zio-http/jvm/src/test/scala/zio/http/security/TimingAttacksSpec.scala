@@ -19,11 +19,11 @@ object TimingAttacksSpec extends ZIOSpecDefault {
 
   val nOfTries = 1000
 
-  def runZ[A](a: ZIO[Any, Throwable, A]) =
+  def runZ[A](a: ZIO[Scope, Throwable, A]) =
     Unsafe.unsafe { implicit unsafe =>
       zio.Runtime.default.unsafe
         .run(
-          a,
+          ZIO.scoped(a),
         )
         .getOrThrowFiberFailure()
     }

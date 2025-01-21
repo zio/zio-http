@@ -674,15 +674,15 @@ class EndpointBenchmark {
       http4sRequestFromString(url),
     )
 
-  def unsafeRun[E, A](zio: ZIO[Any, E, A]): Unit = Unsafe.unsafe { implicit unsafe =>
+  def unsafeRun[E, A](z: ZIO[zio.Scope, E, A]): Unit = Unsafe.unsafe { implicit unsafe =>
     Runtime.default.unsafe
-      .run(zio.unit)
+      .run(ZIO.scoped(z.unit))
       .getOrThrowFiberFailure()
   }
 
-  private def unsafeRunResult[E, A](zio: ZIO[Any, E, A]): A = Unsafe.unsafe { implicit unsafe =>
+  private def unsafeRunResult[E, A](z: ZIO[zio.Scope, E, A]): A = Unsafe.unsafe { implicit unsafe =>
     Runtime.default.unsafe
-      .run(zio)
+      .run(ZIO.scoped(z))
       .getOrThrowFiberFailure()
   }
 
