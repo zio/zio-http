@@ -21,6 +21,8 @@ import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
 import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme
+import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -917,7 +919,18 @@ object OpenAPIGen {
       examples = ListMap.empty,
       requestBodies = ListMap.empty,
       headers = ListMap.empty,
-      securitySchemes = ListMap.empty,
+      securitySchemes = endpoint.authType match {
+        case AuthType.None => ListMap.empty
+        case AuthType.Bearer => ListMap(
+          OpenAPI.Key.fromString(endpoint.authType.toString()).get -> ReferenceOr.Or[SecurityScheme.Http](
+            SecurityScheme.Http(
+              scheme = endpoint.authType.toString(),
+              bearerFormat = Some("JWT"),
+              description = Some(Doc.empty)
+            )
+          )
+        )
+      },
       links = ListMap.empty,
       callbacks = ListMap.empty,
     )
