@@ -921,15 +921,16 @@ object OpenAPIGen {
       headers = ListMap.empty,
       securitySchemes = endpoint.authType match {
         case AuthType.None => ListMap.empty
-        case AuthType.Bearer => ListMap(
+        case AuthType.Basic | AuthType.Bearer | AuthType.Digest => ListMap(
           OpenAPI.Key.fromString(endpoint.authType.toString()).get -> ReferenceOr.Or[SecurityScheme.Http](
             SecurityScheme.Http(
               scheme = endpoint.authType.toString(),
-              bearerFormat = Some("JWT"),
+              bearerFormat = None,
               description = Some(Doc.empty)
             )
           )
         )
+        case _ => ???
       },
       links = ListMap.empty,
       callbacks = ListMap.empty,
