@@ -20,6 +20,7 @@ import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
 import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -699,6 +700,17 @@ object OpenAPIGen {
 
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
       val maybeDoc = Some(pathDoc).filter(!_.isEmpty)
+      val security: List[SecurityRequirement] = endpoint.authType match {
+        case AuthType.None => {
+          Nil
+        }
+        case authType => {
+          val securitySchemes = Map(authType.toString() -> List.empty)
+          List[SecurityRequirement](
+            SecurityRequirement(securitySchemes = securitySchemes)
+            )
+        }
+      }
       OpenAPI.Operation(
         tags = endpoint.tags,
         summary = None,
@@ -709,7 +721,7 @@ object OpenAPIGen {
         requestBody = requestBody,
         responses = responses,
         callbacks = Map.empty,
-        security = Nil,
+        security = security,
         servers = Nil,
       )
     }
