@@ -33,6 +33,9 @@ object HttpCodecError {
   final case class MissingHeader(headerName: String)                                           extends HttpCodecError {
     def message = s"Missing header $headerName"
   }
+  final case object MissingAuthorizationHeader                                                 extends HttpCodecError {
+    def message = "Missing header Authorization"
+  }
   final case class MalformedMethod(expected: zio.http.Method, actual: zio.http.Method)         extends HttpCodecError {
     def message = s"Expected $expected but found $actual"
   }
