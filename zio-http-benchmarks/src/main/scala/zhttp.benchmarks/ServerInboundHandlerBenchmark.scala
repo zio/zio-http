@@ -18,7 +18,7 @@ class ServerInboundHandlerBenchmark {
   private val largeString = random.alphanumeric.take(100000).mkString
 
   private val baseUrl = "http://localhost:8080"
-  private val headers = Headers(Header.ContentType(MediaType.text.`plain`).untyped)
+  private val headers = Headers(Header.ContentType(MediaType.text.`plain`))
 
   private val arrayEndpoint = "array"
   private val arrayResponse = ZIO.succeed(
