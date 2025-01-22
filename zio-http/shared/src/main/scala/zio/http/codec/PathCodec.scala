@@ -17,7 +17,7 @@
 package zio.http.codec
 
 import scala.annotation.tailrec
-import scala.collection.immutable.ListMap
+import scala.collection.immutable.{HashMap, ListMap}
 import scala.collection.mutable
 import scala.language.implicitConversions
 
@@ -763,7 +763,7 @@ object PathCodec {
   }
 
   private[http] final case class SegmentSubtree[+A](
-    literals: ListMap[String, SegmentSubtree[A]],
+    literals: Map[String, SegmentSubtree[A]],
     others: ListMap[SegmentCodec[_], SegmentSubtree[A]],
     literalsWithCollisions: Set[String],
     value: Chunk[A],
@@ -778,8 +778,8 @@ object PathCodec {
         newOthers.keys,
       )
       SegmentSubtree(
-        newLiterals,
-        newOthers,
+        Map(newLiterals.toList: _*),
+        ListMap(newOthers.toList: _*),
         newLiteralCollisions,
         self.value ++ that.value,
       )
@@ -791,7 +791,7 @@ object PathCodec {
     def get(path: Path): Chunk[A] =
       get(path, 0)
 
-    private def get(path: Path, from: Int, skipLiteralsFor: Set[Int] = null): Chunk[A] = {
+    private def get(path: Path, from: Int, skipLiteralsFor: Set[Int] = Set.empty): Chunk[A] = {
       val segments  = path.segments
       val nSegments = segments.length
       var subtree   = self
@@ -804,7 +804,10 @@ object PathCodec {
         val segment = segments(i)
 
         // Fast path, jump down the tree:
-        if ((skipLiteralsFor.eq(null) || !skipLiteralsFor.contains(i)) && subtree.literals.contains(segment)) {
+        if (
+          subtree.literals.contains(segment)
+          && (subtree.literalsWithCollisions.eq(Set.empty) || !skipLiteralsFor.contains(i))
+        ) {
 
           // this subtree segment have conflict with others
           // will try others if result was empty
@@ -830,7 +833,7 @@ object PathCodec {
                 result = subtree0.value
                 i += matched
               }
-            case n => // Slowest fallback path. Have to to find the first predicate where the subpath returns a result
+            case n => // Slowest fallback path. Have to find the first predicate where the subpath returns a result
               val matches         = Array.ofDim[Int](n)
               var index           = 0
               var nPositive       = 0
@@ -886,11 +889,10 @@ object PathCodec {
 
       if (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
         trySkipLiteralIdx = trySkipLiteralIdx.reverse
-        val skipLiteralsFor0 = if (skipLiteralsFor eq null) Set.empty[Int] else skipLiteralsFor
         while (trySkipLiteralIdx.nonEmpty && result.isEmpty) {
           val skipIdx = trySkipLiteralIdx.head
           trySkipLiteralIdx = trySkipLiteralIdx.tail
-          result = get(path, from, skipLiteralsFor0 + skipIdx)
+          result = get(path, from, skipLiteralsFor + skipIdx)
         }
         result
       } else result
@@ -914,7 +916,7 @@ object PathCodec {
   object SegmentSubtree    {
     def single[A](segments: Iterable[SegmentCodec[_]], value: A): SegmentSubtree[A] =
       segments.collect { case x if x.nonEmpty => x }
-        .foldRight[SegmentSubtree[A]](SegmentSubtree(ListMap(), ListMap(), Set.empty, Chunk(value))) {
+        .foldRight[SegmentSubtree[A]](SegmentSubtree(Map.empty, ListMap(), Set.empty, Chunk(value))) {
           case (segment, subtree) =>
             val literals =
               segment match {
@@ -928,14 +930,14 @@ object PathCodec {
                 case _                       => Chunk((segment, subtree))
               }): _*)
 
-            SegmentSubtree(literals, others, Set.empty, Chunk.empty)
+            SegmentSubtree(Map(literals.toList: _*), others, Set.empty, Chunk.empty)
         }
 
     val empty: SegmentSubtree[Nothing] =
-      SegmentSubtree(ListMap(), ListMap(), Set.empty, Chunk.empty)
+      SegmentSubtree(Map(), ListMap(), Set.empty, Chunk.empty)
   }
 
-  private def mergeMaps[A, B](left: ListMap[A, B], right: ListMap[A, B])(f: (B, B) => B): ListMap[A, B] =
+  private def mergeMaps[A, B](left: Map[A, B], right: Map[A, B])(f: (B, B) => B): Map[A, B] =
     right.foldLeft(left) { case (acc, (k, v)) =>
       acc.get(k) match {
         case None     => acc.updated(k, v)
