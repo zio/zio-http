@@ -19,7 +19,8 @@ import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
-import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
+import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem, ReferenceOr, SecurityScheme}
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
@@ -698,7 +699,18 @@ object OpenAPIGen {
     }
 
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
-      val maybeDoc = Some(pathDoc).filter(!_.isEmpty)
+      val maybeDoc                            = Some(pathDoc).filter(!_.isEmpty)
+      val security: List[SecurityRequirement] = endpoint.authType match {
+        case AuthType.None => {
+          Nil
+        }
+        case authType      => {
+          val securitySchemes = Map(authType.toString() -> List.empty)
+          List[SecurityRequirement](
+            SecurityRequirement(securitySchemes = securitySchemes),
+          )
+        }
+      }
       OpenAPI.Operation(
         tags = endpoint.tags,
         summary = None,
@@ -709,7 +721,7 @@ object OpenAPIGen {
         requestBody = requestBody,
         responses = responses,
         callbacks = Map.empty,
-        security = Nil,
+        security = security,
         servers = Nil,
       )
     }
@@ -905,7 +917,20 @@ object OpenAPIGen {
       examples = ListMap.empty,
       requestBodies = ListMap.empty,
       headers = ListMap.empty,
-      securitySchemes = ListMap.empty,
+      securitySchemes = endpoint.authType match {
+        case AuthType.None                                      => ListMap.empty
+        case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+          ListMap(
+            OpenAPI.Key.fromString(endpoint.authType.toString()).get -> ReferenceOr.Or[SecurityScheme.Http](
+              SecurityScheme.Http(
+                scheme = endpoint.authType.toString(),
+                bearerFormat = None,
+                description = Some(Doc.empty),
+              ),
+            ),
+          )
+        case _                                                  => ???
+      },
       links = ListMap.empty,
       callbacks = ListMap.empty,
     )
