@@ -87,3 +87,4 @@ object NotFoundSpec extends ZIOHttpSpec {
       result = response.status == Status.NotFound
     } yield assertTrue(result)
   }
+}
