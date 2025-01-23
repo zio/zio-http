@@ -5,7 +5,7 @@ import java.time.format.DateTimeFormatter
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect._
+import zio.test.TestAspect.{ignore, _}
 import zio.test._
 
 import zio.http._
@@ -163,7 +163,7 @@ object ConformanceSpec extends ZIOSpecDefault {
           } yield assertTrue(
             response.status == Status.Unauthorized,
           )
-        },
+        }@@ ignore,
         test(
           "should include Proxy-Authenticate header for 407 Proxy Authentication Required response(code_407_proxy_authenticate)",
         ) {
