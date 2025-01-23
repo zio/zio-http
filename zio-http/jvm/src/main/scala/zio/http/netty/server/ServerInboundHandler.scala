@@ -89,7 +89,6 @@ private[zio] final case class ServerInboundHandler(
           } else {
             val req = makeZioRequest(ctx, jReq)
             if (!validateHostHeader(req)) {
-              // Validation failed, return 400 Bad Request
               attemptFastWrite(ctx, req.method, Response.status(Status.BadRequest))
               releaseRequest()
             } else {
