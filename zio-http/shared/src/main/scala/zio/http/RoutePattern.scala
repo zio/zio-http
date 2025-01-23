@@ -185,7 +185,7 @@ object RoutePattern                                                       {
       else forMethod ++ wildcardsTree.get(path)
     }
 
-    def getAllMethods(path: Path): Set[Method] = {
+    private[http] def getAllMethods(path: Path): Set[Method] = {
       roots.collect {
         case (method, subtree) if subtree.get(path).nonEmpty => method
       }.toSet
