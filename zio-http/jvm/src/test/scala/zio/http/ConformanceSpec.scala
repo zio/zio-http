@@ -163,7 +163,7 @@ object ConformanceSpec extends ZIOSpecDefault {
           } yield assertTrue(
             response.status == Status.Unauthorized,
           )
-        }@@ ignore,
+        } @@ ignore,
         test(
           "should include Proxy-Authenticate header for 407 Proxy Authentication Required response(code_407_proxy_authenticate)",
         ) {
