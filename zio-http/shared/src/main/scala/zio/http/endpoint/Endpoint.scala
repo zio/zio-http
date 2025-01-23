@@ -27,7 +27,7 @@ import zio.schema.Schema
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec._
+import zio.http.codec.{StatusCodec, _}
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
 /**
@@ -340,9 +340,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
                 maybeUnauthedResponse.get
-              case Some(_) =>
+              case Some(HttpCodecError.MissingAuthorizationHeader) =>
+                Handler.succeed(Response.unauthorized)
+              case Some(error)                                     =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
-                  val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
                     val outputMediaTypes =
                       (
@@ -355,7 +356,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   }
                   ZIO.succeed(response)
                 }
-              case None    =>
+              case None                                            =>
                 Handler.failCause(cause)
             }
           }
