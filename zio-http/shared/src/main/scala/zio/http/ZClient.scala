@@ -18,6 +18,8 @@ package zio.http
 
 import java.net.{InetSocketAddress, URI}
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -37,6 +39,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   bodyDecoder: ZClient.BodyDecoder[Env, Err, Out],
   driver: ZClient.Driver[Env, ReqEnv, Err],
 ) extends HeaderOps[ZClient[Env, ReqEnv, In, Err, Out]] { self =>
+  @nowarn("cat=deprecation")
   def apply(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     self.request(request)
 
@@ -177,6 +180,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   ): ZClient[Env, ReqEnv, In, Err2, Out] =
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
+  @deprecated("Use `batched` or `streaming` instead", since = "3.0.0")
   def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] = {
     def makeRequest(body: Body) = {
       driver.request(
@@ -235,9 +239,31 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
     ev2: ReqEnv =:= Scope,
   ): ZStream[R & Env, E0, A] = ZStream.unwrapScoped[R & Env] {
     self
-      .request(request)
+      .streaming(request)
       .asInstanceOf[ZIO[R & Env & Scope, Err, Out]]
       .fold(ZStream.fail(_), f)
+  }
+
+  def streaming(
+    request: Request,
+  )(implicit ev: Body <:< In, trace: Trace, ev1: ReqEnv =:= Scope): ZIO[Env & ReqEnv, Err, Out] = {
+    def makeRequest(body: Body) = {
+      driver.request(
+        self.version ++ request.version,
+        request.method,
+        self.url ++ request.url,
+        self.headers ++ request.headers,
+        body,
+        sslConfig,
+        proxy,
+      )
+    }
+    if (bodyEncoder == ZClient.BodyEncoder.identity)
+      bodyDecoder.decodeZIO(makeRequest(request.body))
+    else
+      bodyEncoder
+        .encode(ev(request.body))
+        .flatMap(body => bodyDecoder.decodeZIO(makeRequest(body)))
   }
 
   def ssl(ssl: ClientSSLConfig): ZClient[Env, ReqEnv, In, Err, Out] =
@@ -283,7 +309,7 @@ object ZClient extends ZClientPlatformSpecific {
    *   memory, allowing to stream response bodies
    */
   def batched(request: Request)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
-    ZIO.serviceWithZIO[Client](_.batched.request(request))
+    ZIO.serviceWithZIO[Client](_.batched(request))
 
   def fromDriver[Env, ReqEnv, Err](driver: Driver[Env, ReqEnv, Err]): ZClient[Env, ReqEnv, Body, Err, Response] =
     ZClient(
@@ -316,7 +342,7 @@ object ZClient extends ZClientPlatformSpecific {
    *   request's resources (i.e., `Scope`)
    */
   def streaming(request: Request)(implicit trace: Trace): ZIO[Client & Scope, Throwable, Response] =
-    ZIO.serviceWithZIO[Client](_.request(request))
+    ZIO.serviceWithZIO[Client](_.batched(request))
 
   /**
    * Executes an HTTP request, and transforms the response to a `ZStream` using
