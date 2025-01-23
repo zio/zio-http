@@ -18,6 +18,8 @@ package zio.http
 
 import java.net.{InetSocketAddress, URI}
 
+import scala.annotation.unroll
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -538,6 +540,7 @@ object ZClient extends ZClientPlatformSpecific {
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
+    @unroll enableInternalLogging: Boolean = false,
   ) {
     self =>
 
@@ -593,7 +596,8 @@ object ZClient extends ZClientPlatformSpecific {
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
           zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
           zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
-          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout)
+          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout) ++
+          zio.Config.boolean("enable-internal-logging").withDefault(Config.default.enableInternalLogging)
       ).map {
         case (
               ssl,
@@ -605,6 +609,7 @@ object ZClient extends ZClientPlatformSpecific {
               addUserAgentHeader,
               idleTimeout,
               connectionTimeout,
+              enableInternalLogging,
             ) =>
           default.copy(
             ssl = ssl,
@@ -616,6 +621,7 @@ object ZClient extends ZClientPlatformSpecific {
             addUserAgentHeader = addUserAgentHeader,
             idleTimeout = idleTimeout,
             connectionTimeout = connectionTimeout,
+            enableInternalLogging = enableInternalLogging,
           )
       }
 
@@ -631,6 +637,7 @@ object ZClient extends ZClientPlatformSpecific {
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = Some(50.seconds),
       connectionTimeout = None,
+      enableInternalLogging = false,
     )
   }
 
@@ -734,6 +741,7 @@ object ZClient extends ZClientPlatformSpecific {
                         connectionPool.enableKeepAlive,
                         createSocketApp,
                         clientConfig.webSocketConfig,
+                        clientConfig.enableInternalLogging,
                       )
                       .tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-
