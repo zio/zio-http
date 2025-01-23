@@ -9,6 +9,8 @@ import zio.test.TestAspect._
 import zio.test._
 
 import zio.http._
+import zio.http.codec.{HeaderCodec, PathCodec}
+import zio.http.endpoint.Endpoint
 
 object ConformanceSpec extends ZIOSpecDefault {
 
@@ -144,6 +146,22 @@ object ConformanceSpec extends ZIOSpecDefault {
           } yield assertTrue(
             response.status == Status.Unauthorized,
             response.headers.contains(Header.WWWAuthenticate.name),
+          )
+        },
+        test("should return 401 Unauthorized when Authorization header is missing(code_401_missing_authorization)") {
+          val app = Routes(
+            Endpoint(RoutePattern.GET / "protected")
+              .header(HeaderCodec.authorization)
+              .out[String]
+              .implement { _ => ZIO.succeed("Authenticated") },
+          )
+
+          val requestWithoutAuth = Request.get("/protected")
+
+          for {
+            response <- app.runZIO(requestWithoutAuth)
+          } yield assertTrue(
+            response.status == Status.Unauthorized,
           )
         },
         test("should include Allow header for 405 Method Not Allowed response(code_405_allow)") {

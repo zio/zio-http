@@ -384,7 +384,11 @@ private[codec] object EncoderDecoder {
                 .getOrElse(throw HttpCodecError.MalformedHeader(codec.name, codec.textCodec))
 
             case None =>
-              throw HttpCodecError.MissingHeader(codec.name)
+              if (codec.name.equalsIgnoreCase("Authorization")) {
+                throw HttpCodecError.MissingHeader("Authorization")
+              } else {
+                throw HttpCodecError.MissingHeader(codec.name)
+              }
           },
       )
 

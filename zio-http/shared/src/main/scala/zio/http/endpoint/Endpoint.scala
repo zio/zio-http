@@ -340,7 +340,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
                 maybeUnauthedResponse.get
-              case Some(_) =>
+              case Some(HttpCodecError.MissingHeader(header)) if header.equalsIgnoreCase("Authorization") =>
+                Handler.succeed(
+                  Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm = "Restricted Area"))),
+                )
+              case Some(_)                                                                                =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
@@ -355,7 +359,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   }
                   ZIO.succeed(response)
                 }
-              case None    =>
+              case None                                                                                   =>
                 Handler.failCause(cause)
             }
           }
