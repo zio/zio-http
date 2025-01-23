@@ -164,23 +164,6 @@ object ConformanceSpec extends ZIOSpecDefault {
             response.status == Status.Unauthorized,
           )
         },
-        test("should include Allow header for 405 Method Not Allowed response(code_405_allow)") {
-          val app = Routes(
-            Method.POST / "not-allowed" -> Handler.fromResponse(
-              Response
-                .status(Status.Ok),
-            ),
-          )
-
-          val request = Request.get("/not-allowed")
-
-          for {
-            response <- app.runZIO(request)
-          } yield assertTrue(
-            response.status == Status.MethodNotAllowed,
-            response.headers.contains(Header.Allow.name),
-          )
-        },
         test(
           "should include Proxy-Authenticate header for 407 Proxy Authentication Required response(code_407_proxy_authenticate)",
         ) {
@@ -820,35 +803,6 @@ object ConformanceSpec extends ZIOSpecDefault {
             response.status == Status.NotFound,
           )
         },
-        test("should reply with 501 for unknown HTTP methods (code_501_unknown_methods)") {
-          val app = Routes(
-            Method.GET / "test" -> Handler.fromResponse(Response.status(Status.Ok)),
-          )
-
-          val unknownMethodRequest = Request(method = Method.CUSTOM("ABC"), url = URL(Path.root / "test"))
-
-          for {
-            response <- app.runZIO(unknownMethodRequest)
-          } yield assertTrue(
-            response.status == Status.NotImplemented,
-          )
-        },
-        test(
-          "should reply with 405 when the request method is not allowed for the target resource (code_405_blocked_methods)",
-        ) {
-          val app = Routes(
-            Method.GET / "test" -> Handler.fromResponse(Response.status(Status.Ok)),
-          )
-
-          // Testing a disallowed method (e.g., CONNECT)
-          val connectMethodRequest = Request(method = Method.CONNECT, url = URL(Path.root / "test"))
-
-          for {
-            response <- app.runZIO(connectMethodRequest)
-          } yield assertTrue(
-            response.status == Status.MethodNotAllowed,
-          )
-        },
       ),
       suite("HTTP/1.1")(
         test("should not generate a bare CR in headers for HTTP/1.1(no_bare_cr)") {
@@ -1082,24 +1036,6 @@ object ConformanceSpec extends ZIOSpecDefault {
             secondResponse.headers.contains(Header.Upgrade.name),
             secondResponse.headers.contains(Header.Connection.name),
           )
-        },
-        test("should not return forbidden duplicate headers in response(duplicate_fields)") {
-          val app = Routes(
-            Method.GET / "test" -> Handler.fromResponse(
-              Response
-                .status(Status.Ok)
-                .addHeader(Header.XFrameOptions.Deny)
-                .addHeader(Header.XFrameOptions.SameOrigin),
-            ),
-          )
-          for {
-            response <- app.runZIO(Request.get("/test"))
-          } yield {
-            val xFrameOptionsHeaders = response.headers.toList.collect {
-              case h if h.headerName == Header.XFrameOptions.name => h
-            }
-            assertTrue(xFrameOptionsHeaders.length == 1)
-          }
         },
         suite("Content-Length")(
           test("Content-Length in HEAD must match the one in GET (content_length_same_head_get)") {

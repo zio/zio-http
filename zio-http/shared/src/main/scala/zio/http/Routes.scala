@@ -248,40 +248,23 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     val tree                  = self.tree
     Handler
       .fromFunctionHandler[Request] { req =>
-        val chunk          = tree.get(req.method, req.path)
-        def allowedMethods = tree.getAllMethods(req.path)
-        req.method match {
-          case Method.CUSTOM(_) =>
-            Handler.notImplemented
-          case _                =>
-            if (chunk.isEmpty) {
-              if (allowedMethods.isEmpty || allowedMethods == Set(Method.OPTIONS)) {
-                // If no methods are allowed for the path, return 404 Not Found
-                Handler.notFound
-              } else {
-                // If there are allowed methods for the path but none match the request method, return 405 Method Not Allowed
-                val allowHeader = Header.Allow(NonEmptyChunk.fromIterableOption(allowedMethods).get)
-                Handler.methodNotAllowed.addHeader(allowHeader)
+        val chunk = tree.get(req.method, req.path)
+        chunk.length match {
+          case 0 => Handler.notFound
+          case 1 => chunk(0)
+          case n => // TODO: Support precomputed fallback among all chunk elements
+            var acc = chunk(0)
+            var i   = 1
+            while (i < n) {
+              val h = chunk(i)
+              acc = acc.catchAll { response =>
+                if (response.status == Status.NotFound) h
+                else Handler.fail(response)
               }
-            } else {
-              chunk.length match {
-                case 1 => chunk(0)
-                case n => // TODO: Support precomputed fallback among all chunk elements
-                  var acc = chunk(0)
-                  var i   = 1
-                  while (i < n) {
-                    val h = chunk(i)
-                    acc = acc.catchAll { response =>
-                      if (response.status == Status.NotFound) h
-                      else Handler.fail(response)
-                    }
-                    i += 1
-                  }
-                  acc
-              }
+              i += 1
             }
+            acc
         }
-
       }
       .merge
   }
@@ -304,7 +287,6 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     }
     _tree.asInstanceOf[Routes.Tree[Env]]
   }
-
 }
 
 object Routes extends RoutesCompanionVersionSpecific {
@@ -362,9 +344,6 @@ object Routes extends RoutesCompanionVersionSpecific {
     empty @@ Middleware.serveResources(path, resourcePrefix)
 
   private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
-
-    def getAllMethods(path: Path): Set[Method] = tree.getAllMethods(path)
-
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(self.tree ++ that.tree)
 
@@ -378,7 +357,7 @@ object Routes extends RoutesCompanionVersionSpecific {
     final def get(method: Method, path: Path): Chunk[RequestHandler[Env, Response]] =
       tree.get(method, path)
   }
-  private[http] object Tree {
+  private[http] object Tree                                                                         {
     val empty: Tree[Any] = Tree(RoutePattern.Tree.empty)
 
     def fromRoutes[Env](routes: Chunk[zio.http.Route[Env, Response]])(implicit trace: Trace): Tree[Env] =
