@@ -73,7 +73,7 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
           ),
         ),
       )
-    } @@ nonFlaky(20),
+    },
   )
     .provideShared(
       ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
