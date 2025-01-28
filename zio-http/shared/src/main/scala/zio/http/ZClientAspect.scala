@@ -577,14 +577,9 @@ object ZClientAspect {
             body: Body,
             sslConfig: Option[ClientSSLConfig],
             proxy: Option[Proxy],
-          )(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] = {
-
-            val r: ZIO[Env & ReqEnv, Err, Response] =
+          )(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] =
               logEffect(formatCurlCommand(version, method, url, headers, body, proxy)) *>
-                oldDriver
-                  .request(version, method, url, headers, body, sslConfig, proxy)
-            r
-          }
+                oldDriver.request(version, method, url, headers, body, sslConfig, proxy)
 
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
             implicit
