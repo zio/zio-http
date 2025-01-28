@@ -498,7 +498,7 @@ object ZClientAspect {
    */
   final def curlLogger(
     verbose: Boolean = true,
-    logEffect: String => ZIO[Any, Nothing, Unit] = (m: String) => ZIO.log(m),
+    logEffect: String => UIO[Unit] = (m: String) => ZIO.log(m),
   )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
 
