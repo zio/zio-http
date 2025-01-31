@@ -30,9 +30,8 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
             handler(ZIO.logWarning("Oh!") *> ZIO.succeed(Response.text("Hey logging!"))),
           )
           .@@(
-            Middleware.logAnnotate(req =>
-              Set(LogAnnotation("method", req.method.name), LogAnnotation("path", req.path.encode)),
-            ),
+            Middleware
+              .logAnnotate(req => Set(LogAnnotation("method", req.method.name), LogAnnotation("path", req.path.encode))),
           )
           .runZIO(Request.get("/"))
 

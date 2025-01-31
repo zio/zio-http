@@ -823,9 +823,9 @@ final case class EndpointGen(config: Config) {
          * `transform` that simply `wrap` / `unwrap` the provided value.
          */
       case JsonSchema.Boolean                   => aliasedSchemaToCode(openAPI, name, schema)
-      case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
+      case JsonSchema.OneOfSchema(schemas) if schemas.exists(_.isPrimitive)    =>
         throw new Exception("OneOf schemas with primitive types are not supported")
-      case JsonSchema.OneOfSchema(schemas)                                  =>
+      case JsonSchema.OneOfSchema(schemas)                                     =>
         val discriminatorInfo                       =
           annotations.collectFirst { case JsonSchema.MetaData.Discriminator(discriminator) => discriminator }
         val discriminator: Option[String]           = discriminatorInfo.map(_.propertyName)
@@ -885,7 +885,7 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.AllOfSchema(schemas)                                  =>
+      case JsonSchema.AllOfSchema(schemas)                                     =>
         val genericFieldIndex = Iterator.from(0)
         val unvalidatedFields = schemas.toList.map(_.withoutAnnotations).flatMap {
           case schema @ JsonSchema.Object(_, _, _)            =>
@@ -928,9 +928,9 @@ final case class EndpointGen(config: Config) {
             enums = Nil,
           ),
         )
-      case JsonSchema.AnyOfSchema(schemas) if schemas.exists(_.isPrimitive) =>
+      case JsonSchema.AnyOfSchema(schemas) if schemas.exists(_.isPrimitive)    =>
         throw new Exception("AnyOf schemas with primitive types are not supported")
-      case JsonSchema.AnyOfSchema(schemas)                                  =>
+      case JsonSchema.AnyOfSchema(schemas)                                     =>
         val discriminatorInfo                    =
           annotations.collectFirst { case JsonSchema.MetaData.Discriminator(discriminator) => discriminator }
         val discriminator: Option[String]        = discriminatorInfo.map(_.propertyName)
@@ -987,12 +987,12 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Number(_, _, _, _, _, _)      => aliasedSchemaToCode(openAPI, name, schema)
+      case JsonSchema.Number(_, _, _, _, _, _) => aliasedSchemaToCode(openAPI, name, schema)
       // should we provide support for (Newtype) aliasing arrays of primitives?
-      case JsonSchema.ArrayType(None, _, _)         => None
-      case JsonSchema.ArrayType(Some(schema), _, _) =>
+      case JsonSchema.ArrayType(None, _, _)                                    => None
+      case JsonSchema.ArrayType(Some(schema), _, _)                            =>
         schemaToCode(schema, openAPI, name, annotations)
-      case obj: JsonSchema.Object if obj.isInvalid  =>
+      case obj: JsonSchema.Object if obj.isInvalid                             =>
         throw new Exception("Object with properties and additionalProperties is not supported")
       case obj @ JsonSchema.Object(properties, _, _) if obj.isClosedDictionary =>
         val unvalidatedFields = fieldsOfObject(openAPI, annotations)(obj)
@@ -1052,8 +1052,8 @@ final case class EndpointGen(config: Config) {
             ),
           ),
         )
-      case JsonSchema.Null    => throw new Exception("Null query parameters are not supported")
-      case JsonSchema.AnyJson => None
+      case JsonSchema.Null => throw new Exception("Null query parameters are not supported")
+      case JsonSchema.AnyJson                                                  => None
     }
   }
 

@@ -537,27 +537,20 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    "/withQuery" : {
                              |      "get" : {
                              |        "parameters" : [
-                             |
-                             |            {
+                             |          {
                              |            "name" : "query",
                              |            "in" : "query",
-                             |            "schema" :
-                             |              {
-                             |              "type" :[
-                             |                "string",
-                             |                "null"
-                             |                ]
+                             |            "schema" : {
+                             |              "type" : "string"
                              |            },
                              |            "allowReserved" : false,
                              |            "style" : "form"
                              |          }
                              |        ],
-                             |        "requestBody" :
-                             |          {
+                             |        "requestBody" : {
                              |          "content" : {
                              |            "application/json" : {
-                             |              "schema" :
-                             |                {
+                             |              "schema" : {
                              |                "$ref" : "#/components/schemas/SimpleInputBody"
                              |              }
                              |            }
@@ -565,23 +558,19 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "required" : true
                              |        },
                              |        "responses" : {
-                             |          "200" :
-                             |            {
+                             |          "200" : {
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" :
-                             |                  {
+                             |                "schema" : {
                              |                  "$ref" : "#/components/schemas/SimpleOutputBody"
                              |                }
                              |              }
                              |            }
                              |          },
-                             |          "404" :
-                             |            {
+                             |          "404" : {
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" :
-                             |                  {
+                             |                "schema" : {
                              |                  "$ref" : "#/components/schemas/NotFoundError"
                              |                }
                              |              }
@@ -593,32 +582,25 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  },
                              |  "components" : {
                              |    "schemas" : {
-                             |      "NotFoundError" :
-                             |        {
-                             |        "type" :
-                             |          "object",
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
                              |        "properties" : {
                              |          "message" : {
-                             |            "type" :
-                             |              "string"
+                             |            "type" : "string"
                              |          }
                              |        },
                              |        "required" : [
                              |          "message"
                              |        ]
                              |      },
-                             |      "SimpleInputBody" :
-                             |        {
-                             |        "type" :
-                             |          "object",
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
                              |        "properties" : {
                              |          "name" : {
-                             |            "type" :
-                             |              "string"
+                             |            "type" : "string"
                              |          },
                              |          "age" : {
-                             |            "type" :
-                             |              "integer",
+                             |            "type" : "integer",
                              |            "format" : "int32"
                              |          }
                              |        },
@@ -627,18 +609,14 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "age"
                              |        ]
                              |      },
-                             |      "SimpleOutputBody" :
-                             |        {
-                             |        "type" :
-                             |          "object",
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
                              |        "properties" : {
                              |          "userName" : {
-                             |            "type" :
-                             |              "string"
+                             |            "type" : "string"
                              |          },
                              |          "score" : {
-                             |            "type" :
-                             |              "integer",
+                             |            "type" : "integer",
                              |            "format" : "int32"
                              |          }
                              |        },

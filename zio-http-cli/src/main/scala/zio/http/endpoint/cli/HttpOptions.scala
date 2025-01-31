@@ -11,8 +11,9 @@ import zio.schema._
 import zio.schema.annotation.description
 
 import zio.http._
-import zio.http.codec.HttpCodec.SchemaCodec
 import zio.http.codec._
+import zio.http.internal.StringSchemaCodec
+import zio.http.internal.StringSchemaCodec.PrimitiveCodec
 
 /*
  * HttpOptions is a wrapper of a transformation Options[CliRequest] => Options[CliRequest].
@@ -265,11 +266,10 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class Query(codec: SchemaCodec[_], doc: Doc = Doc.empty) extends URLOptions {
+  final case class Query(codec: PrimitiveCodec[_], name: String, doc: Doc = Doc.empty) extends URLOptions {
     self =>
-    override val name       = codec.name.get
     override val tag        = "?" + name
-    def options: Options[_] = optionsFromSchema(codec)(name)
+    def options: Options[_] = optionsFromSchema(codec.schema)(name)
 
     override def ??(doc: Doc): Query = self.copy(doc = self.doc + doc)
 
@@ -293,8 +293,8 @@ private[cli] object HttpOptions {
 
   }
 
-  private[cli] def optionsFromSchema[A](codec: SchemaCodec[A]): String => Options[A] =
-    codec.schema match {
+  private[cli] def optionsFromSchema[A](schema: Schema[A]): String => Options[A] =
+    schema match {
       case Schema.Primitive(standardType, _) =>
         standardType match {
           case StandardType.UnitType           =>

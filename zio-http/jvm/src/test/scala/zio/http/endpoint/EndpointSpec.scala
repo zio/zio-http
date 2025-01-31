@@ -18,6 +18,8 @@ package zio.http.endpoint
 
 import java.time.Instant
 
+import scala.math.BigDecimal.javaBigDecimal2bigDecimal
+
 import zio._
 import zio.test._
 

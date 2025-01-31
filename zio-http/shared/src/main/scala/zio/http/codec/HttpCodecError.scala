@@ -52,8 +52,8 @@ object HttpCodecError {
   final case class MalformedHeader(headerName: String, textCodec: TextCodec[_])                extends HttpCodecError {
     def message = s"Malformed header $headerName failed to decode using $textCodec"
   }
-  final case class MalformedCustomHeader(headerName: String, cause: DecodeError)               extends HttpCodecError {
-    def message = s"Malformed custom header $headerName could not be decoded: $cause"
+  final case class DecodingErrorHeader(headerName: String, cause: DecodeError)                 extends HttpCodecError {
+    def message = s"Malformed header $headerName could not be decoded: $cause"
   }
   final case class MalformedTypedHeader(headerName: String)                                    extends HttpCodecError {
     def message = s"Malformed header $headerName"
@@ -83,6 +83,9 @@ object HttpCodecError {
   final case class InvalidQueryParamCount(name: String, expected: Int, actual: Int)            extends HttpCodecError {
     def message = s"Invalid query parameter count for $name: expected $expected but found $actual."
   }
+  final case class InvalidHeaderCount(name: String, expected: Int, actual: Int)                extends HttpCodecError {
+    def message = s"Invalid query parameter count for $name: expected $expected but found $actual."
+  }
   final case class CustomError(name: String, message: String)                                  extends HttpCodecError
 
   final case class UnsupportedContentType(contentType: String) extends HttpCodecError {
@@ -102,6 +105,9 @@ object HttpCodecError {
 
   def isMissingDataOnly(cause: Cause[Any]): Boolean =
     !cause.isFailure && cause.defects.forall(e =>
-      e.isInstanceOf[HttpCodecError.MissingHeader] || e.isInstanceOf[HttpCodecError.MissingQueryParam],
+      e.isInstanceOf[HttpCodecError.MissingHeader]
+        || e.isInstanceOf[HttpCodecError.MissingQueryParam]
+        || e.isInstanceOf[HttpCodecError.MissingQueryParams]
+        || e.isInstanceOf[HttpCodecError.MissingHeaders],
     )
 }
