@@ -47,7 +47,7 @@ object CommandGen {
       case _: HttpOptions.Constant => false
       case _                       => true
     }.map {
-      case HttpOptions.Path(pathCodec, _)                   =>
+      case HttpOptions.Path(pathCodec, _)    =>
         pathCodec.segments.toList.flatMap { segment =>
           getSegment(segment) match {
             case (_, "")           => Nil
@@ -55,12 +55,12 @@ object CommandGen {
             case (name, codec)     => s"${getName(name, "")} $codec" :: Nil
           }
         }
-      case HttpOptions.Query(codec, _) if codec.isPrimitive =>
+      case HttpOptions.Query(codec, name, _) =>
         getType(codec.schema) match {
-          case ""  => s"[${getName(codec.name.get, "")}]" :: Nil
-          case tpy => s"${getName(codec.name.get, "")} $tpy" :: Nil
+          case ""  => s"[${getName(name, "")}]" :: Nil
+          case tpy => s"${getName(name, "")} $tpy" :: Nil
         }
-      case _                                                => Nil
+      case _                                 => Nil
     }.foldRight(List[String]())(_ ++ _)
 
     val headersOptions = cliEndpoint.headers.filter {

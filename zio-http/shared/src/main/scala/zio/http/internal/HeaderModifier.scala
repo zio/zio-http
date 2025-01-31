@@ -39,6 +39,9 @@ trait HeaderModifier[+A] { self =>
 
   final def addHeaders(headers: Headers): A = updateHeaders(_ ++ headers)
 
+  final def addHeaders(headers: Iterable[(CharSequence, CharSequence)]): A =
+    addHeaders(Headers.fromIterable(headers.map { case (k, v) => Header.Custom(k, v) }))
+
   final def removeHeader(headerType: HeaderType): A = removeHeader(headerType.name)
 
   final def removeHeader(name: String): A = removeHeaders(Set(name))

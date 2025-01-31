@@ -7,10 +7,10 @@ import zio.test.Gen
 import zio.schema.Schema
 
 import zio.http._
-import zio.http.codec.HttpCodec.SchemaCodec
 import zio.http.codec._
 import zio.http.endpoint.cli.AuxGen._
 import zio.http.endpoint.cli.CliRepr._
+import zio.http.internal.StringSchemaCodec.PrimitiveCodec
 
 /**
  * Constructs a Gen[Options[CliRequest], CliEndpoint]
@@ -33,10 +33,10 @@ object OptionsGen {
       .optionsFromTextCodec(textCodec)(name)
       .map(value => textCodec.encode(value))
 
-  def encodeOptions[A](name: String, codec: SchemaCodec[A]): Options[String] =
+  def encodeOptions[A](name: String, codec: PrimitiveCodec[A], schema: Schema[A]): Options[String] =
     HttpOptions
-      .optionsFromSchema(codec)(name)
-      .map(value => codec.stringCodec.encode(value))
+      .optionsFromSchema(schema)(name)
+      .map(value => codec.encode(value))
 
   lazy val anyBodyOption: Gen[Any, CliReprOf[Options[Retriever]]] =
     Gen
@@ -80,10 +80,10 @@ object OptionsGen {
         .alphaNumericStringBounded(1, 30)
         .zip(anyStandardType)
         .map { case (name, schema) =>
-          val codec = SchemaCodec(Some(name), schema)
+          val codec = QueryCodec.query(name)(schema).asInstanceOf[HttpCodec.Query[Any]]
           CliRepr(
-            encodeOptions(name, codec),
-            CliEndpoint(url = HttpOptions.Query(codec) :: Nil),
+            encodeOptions(name, codec.codec.recordFields.head._2, schema.asInstanceOf[Schema[Any]]),
+            CliEndpoint(url = HttpOptions.Query(codec.codec.recordFields.head._2, name) :: Nil),
           )
         },
     )

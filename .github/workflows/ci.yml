@@ -200,6 +200,10 @@ jobs:
         with:
           apps: sbt
 
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
       - name: Release
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}

@@ -111,11 +111,9 @@ private[cli] object CliEndpoint {
         }
         CliEndpoint(body = HttpOptions.Body(name, codec.defaultMediaType, codec.defaultSchema) :: List())
 
-      case HttpCodec.Header(headerType, _)  =>
-        CliEndpoint(headers = HttpOptions.Header(headerType.name, TextCodec.string) :: List())
-      case HttpCodec.HeaderCustom(codec, _) =>
-        CliEndpoint(headers = HttpOptions.Header(codec.name.get, TextCodec.string) :: List())
-      case HttpCodec.Method(codec, _)       =>
+      case HttpCodec.Header(headerType, _) =>
+        CliEndpoint(headers = HttpOptions.Header(headerType.names.head, TextCodec.string) :: List())
+      case HttpCodec.Method(codec, _)      =>
         codec.asInstanceOf[SimpleCodec[_, _]] match {
           case SimpleCodec.Specified(method: Method) =>
             CliEndpoint(methods = method)
@@ -126,14 +124,9 @@ private[cli] object CliEndpoint {
         CliEndpoint(url = HttpOptions.Path(pathCodec) :: List())
 
       case HttpCodec.Query(codec, _) =>
-        if (codec.isPrimitive)
-          CliEndpoint(url = HttpOptions.Query(codec) :: List())
-        else if (codec.isRecord)
-          CliEndpoint(url = codec.recordFields.map { case (_, codec) =>
-            HttpOptions.Query(codec)
-          }.toList)
-        else
-          CliEndpoint(url = HttpOptions.Query(codec) :: List())
+        CliEndpoint(url = codec.recordFields.map { case (f, codec) =>
+          HttpOptions.Query(codec, f.fieldName)
+        }.toList)
       case HttpCodec.Status(_, _)    => CliEndpoint.empty
 
     }

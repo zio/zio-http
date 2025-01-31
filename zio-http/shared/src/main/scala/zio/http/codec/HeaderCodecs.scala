@@ -24,7 +24,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema._
 
-import zio.http.Header.HeaderType
+import zio.http.Header.{HeaderType, SchemaHeaderType}
 import zio.http._
 
 private[codec] trait HeaderCodecs {
@@ -41,17 +41,17 @@ private[codec] trait HeaderCodecs {
       case TextCodec.BooleanCodec     => Schema[Boolean]
       case TextCodec.UUIDCodec        => Schema[UUID]
     }
-    HttpCodec.HeaderCustom(name, schema.asInstanceOf[Schema[A]])
+    HttpCodec.Header(SchemaHeaderType(name)(schema.asInstanceOf[Schema[A]]))
   }
 
   def header(headerType: HeaderType): HeaderCodec[headerType.HeaderValue] =
     HttpCodec.Header(headerType)
 
   def headerAs[A](name: String)(implicit schema: Schema[A]): HeaderCodec[A] =
-    HttpCodec.HeaderCustom(name, schema)
+    HttpCodec.Header(SchemaHeaderType(name))
 
   def headers[A](implicit schema: Schema[A]): HeaderCodec[A] =
-    HttpCodec.HeaderCustom(schema)
+    HttpCodec.Header(SchemaHeaderType("headers"))
 
   @deprecated("Use Schema based headerAs instead", "3.1.0")
   def name[A](name: String)(implicit codec: TextCodec[A]): HeaderCodec[A] =

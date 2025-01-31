@@ -5,9 +5,7 @@ import zio.test._
 
 import zio.schema.Schema
 
-import zio.http.Header.HeaderType
 import zio.http._
-import zio.http.codec.HttpCodec.SchemaCodec
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.cli.AuxGen._
@@ -103,10 +101,10 @@ object EndpointGen {
   lazy val anyQuery: Gen[Any, CliReprOf[Codec[_]]] =
     Gen.alphaNumericStringBounded(1, 30).zip(anyStandardType).map { case (name, schema0) =>
       val schema = schema0.asInstanceOf[Schema[Any]]
-      val codec  = SchemaCodec(Some(name), schema)
+      val codec  = QueryCodec.query(name)(schema).asInstanceOf[HttpCodec.Query[Any]]
       CliRepr(
-        HttpCodec.Query(codec),
-        CliEndpoint(url = HttpOptions.Query(codec) :: Nil),
+        codec,
+        CliEndpoint(url = HttpOptions.Query(codec.codec.recordFields.head._2, name) :: Nil),
       )
     }
 

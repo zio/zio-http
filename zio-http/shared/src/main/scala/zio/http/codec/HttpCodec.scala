@@ -20,21 +20,18 @@ import scala.annotation.tailrec
 import scala.reflect.ClassTag
 import scala.util.Try
 
-import zio._
+import zio.{http, _}
 
 import zio.stream.{ZPipeline, ZStream}
 
 import zio.schema.Schema
-import zio.schema.codec.DecodeError
-import zio.schema.validation.{Validation, ValidationError}
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
-import zio.http.Header.HeaderType
+import zio.http.Header.{HeaderTypeBase, SchemaHeaderType}
 import zio.http._
-import zio.http.codec.HttpCodec.SchemaCodec.camelToKebab
 import zio.http.codec.HttpCodec.{Annotated, Metadata}
-import zio.http.codec.StringCodec.StringCodec
 import zio.http.codec.internal._
+import zio.http.internal.StringSchemaCodec
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -341,13 +338,12 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
   private[http] sealed trait AtomTag
   private[http] object AtomTag {
-    case object Status       extends AtomTag
-    case object Path         extends AtomTag
-    case object Content      extends AtomTag
-    case object Query        extends AtomTag
-    case object Header       extends AtomTag
-    case object HeaderCustom extends AtomTag
-    case object Method       extends AtomTag
+    case object Status  extends AtomTag
+    case object Path    extends AtomTag
+    case object Content extends AtomTag
+    case object Query   extends AtomTag
+    case object Header  extends AtomTag
+    case object Method  extends AtomTag
   }
 
   def empty: HttpCodec[Any, Unit] =
@@ -2268,221 +2264,23 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
-  private[http] final case class Query[A, Out](
-    codec: SchemaCodec[A],
+  private[http] final case class Query[A](
+    codec: StringSchemaCodec[A, QueryParams],
     index: Int = 0,
-  ) extends Atom[HttpCodecType.Query, Out] {
+  ) extends Atom[HttpCodecType.Query, A] {
     self =>
-    def erase: Query[Any, Any] = self.asInstanceOf[Query[Any, Any]]
+    def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 
-    def index(index: Int): Query[A, Out] = copy(index = index)
-
-    def isCollection: Boolean = codec.isCollection
-
-    def isOptional: Boolean = codec.isOptional
-
-    def isOptionalSchema: Boolean = codec.isOptionalSchema
-
-    def isPrimitive: Boolean = codec.isPrimitive
-
-    def isRecord: Boolean = codec.isRecord
-
-    def nameUnsafe: String = codec.name.get
+    def index(index: Int): Query[A] = copy(index = index)
 
     /**
      * Returns a new codec, where the value produced by this one is optional.
      */
-    override def optional: HttpCodec[HttpCodecType.Query, Option[Out]] =
-      if (isOptionalSchema) {
-        throw new IllegalArgumentException("Query is already optional")
-      } else {
-        Annotated(Query(codec.optional, index), Metadata.Optional())
-      }
+    override def optional: HttpCodec[HttpCodecType.Query, Option[A]] =
+      Annotated(Query(codec.optional, index), Metadata.Optional())
 
     def tag: AtomTag = AtomTag.Query
 
-  }
-
-  object Query {
-    def apply[A](name: String, schema: Schema[A]): Query[A, A] = Query(SchemaCodec(Some(name), schema))
-    def apply[A](schema: Schema[A]): Query[A, A]               = Query(SchemaCodec(None, schema))
-  }
-
-  final case class SchemaCodec[A](name: Option[String], schema: Schema[A], kebabCase: Boolean = false) {
-
-    def erasedSchema: Schema[Any] = schema.asInstanceOf[Schema[Any]]
-
-    val isCollection: Boolean = schema match {
-      case _: Schema.Collection[_, _]                                              => true
-      case s: Schema.Optional[_] if s.schema.isInstanceOf[Schema.Collection[_, _]] => true
-      case _                                                                       => false
-    }
-
-    val isOptional: Boolean = schema match {
-      case _: Schema.Optional[_]      =>
-        true
-      case record: Schema.Record[_]   =>
-        record.fields.forall(_.optional) || record.defaultValue.isRight
-      case d: Schema.Collection[_, _] =>
-        Try(d.empty).isSuccess || d.defaultValue.isRight
-      case _                          =>
-        false
-    }
-
-    val isOptionalSchema: Boolean =
-      schema match {
-        case _: Schema.Optional[_]                                                     => true
-        case s: Schema.Transform[_, _, _] if s.schema.isInstanceOf[Schema.Optional[_]] => true
-        case _                                                                         => false
-      }
-
-    val isPrimitive: Boolean = schema match {
-      case _: Schema.Primitive[_]                                                     => true
-      case s: Schema.Optional[_] if s.schema.isInstanceOf[Schema.Primitive[_]]        => true
-      case s: Schema.Transform[_, _, _] if s.schema.isInstanceOf[Schema.Primitive[_]] => true
-      case _                                                                          => false
-    }
-
-    val isRecord: Boolean = schema match {
-      case _: Schema.Record[_]                                                     => true
-      case s: Schema.Optional[_] if s.schema.isInstanceOf[Schema.Record[_]]        => true
-      case s: Schema.Transform[_, _, _] if s.schema.isInstanceOf[Schema.Record[_]] => true
-      case _                                                                       => false
-    }
-
-    def optional: SchemaCodec[Option[A]] = copy(schema = schema.optional)
-
-    val recordFields: Chunk[(Schema.Field[_, _], SchemaCodec[Any])] = {
-      val fields = schema match {
-        case record: Schema.Record[A]                                                =>
-          record.fields
-        case s: Schema.Optional[_] if s.schema.isInstanceOf[Schema.Record[_]]        =>
-          s.schema.asInstanceOf[Schema.Record[A]].fields
-        case s: Schema.Transform[_, _, _] if s.schema.isInstanceOf[Schema.Record[_]] =>
-          s.schema.asInstanceOf[Schema.Record[A]].fields
-        case _                                                                       => Chunk.empty
-      }
-      fields.map(unlazyField).map {
-        case field if field.schema.isInstanceOf[Schema.Collection[_, _]] =>
-          val elementSchema = field.schema.asInstanceOf[Schema.Collection[_, _]] match {
-            case s: Schema.NonEmptySequence[_, _, _] => s.elementSchema
-            case s: Schema.Sequence[_, _, _]         => s.elementSchema
-            case s: Schema.Set[_]                    => s.elementSchema
-            case _: Schema.Map[_, _]                 => throw new IllegalArgumentException("Maps are not supported")
-            case _: Schema.NonEmptyMap[_, _]         => throw new IllegalArgumentException("Maps are not supported")
-          }
-          val codec         = SchemaCodec(Some(if (!kebabCase) field.name else camelToKebab(field.name)), elementSchema)
-          (field, codec.asInstanceOf[SchemaCodec[Any]])
-        case field                                                       =>
-          val codec = SchemaCodec(
-            Some(if (!kebabCase) field.name else camelToKebab(field.name)),
-            field.annotations.foldLeft(field.schema)(_ annotate _),
-          )
-          (field, codec.asInstanceOf[SchemaCodec[Any]])
-      }
-    }
-
-    val recordSchema: Schema.Record[Any] = schema match {
-      case record: Schema.Record[_]                                         =>
-        record.asInstanceOf[Schema.Record[Any]]
-      case s: Schema.Optional[_] if s.schema.isInstanceOf[Schema.Record[_]] =>
-        s.schema.asInstanceOf[Schema.Record[Any]]
-      case _                                                                => null
-    }
-
-    val stringCodec: StringCodec[Any] =
-      stringCodecForSchema(schema.asInstanceOf[Schema[Any]])
-
-    private def stringCodecForSchema(s: Schema[_]): StringCodec[Any] = {
-      (s match {
-        case s: Schema.Optional[_] if s.schema.isInstanceOf[Schema.Primitive[_]] =>
-          StringCodec.fromSchema(schema)
-        case s: Schema.Optional[_]                                               =>
-          stringCodecForSchema(s.schema)
-        case s: Schema.Collection[_, _]                                          =>
-          s match {
-            case schema: Schema.NonEmptySequence[_, _, _] => StringCodec.fromSchema(schema.elementSchema)
-            case schema: Schema.Sequence[_, _, _]         => StringCodec.fromSchema(schema.elementSchema)
-            case schema: Schema.Set[_]                    => StringCodec.fromSchema(schema.elementSchema)
-            case _: Schema.Map[_, _]                      => StringCodec.fromSchema(s)
-            case _: Schema.NonEmptyMap[_, _]              => StringCodec.fromSchema(s)
-          }
-        case s: Schema.Lazy[_]                                                   => StringCodec.fromSchema(s.schema)
-        case s: Schema.Transform[Any, Any, _] @unchecked                         =>
-          val stringCodec = StringCodec.fromSchema(s.schema)
-          new StringCodec[Any] {
-            override def decode(whole: String): Either[DecodeError, Any] =
-              stringCodec.decode(whole).flatMap(s.f(_).left.map(DecodeError.ReadError(Cause.empty, _)))
-
-            override def streamDecoder: ZPipeline[Any, DecodeError, Char, Any] =
-              stringCodec.streamDecoder >>> ZPipeline.map(s.f(_).left.map(DecodeError.ReadError(Cause.empty, _)))
-
-            override def encode(value: Any): String =
-              stringCodec.encode(s.g(value).fold(msg => throw new Exception(msg), identity))
-
-            override def streamEncoder: ZPipeline[Any, Nothing, Any, Char] =
-              ZPipeline.map[Any, Any](
-                s.g(_).fold(msg => throw new Exception(msg), identity),
-              ) >>> stringCodec.streamEncoder
-          }
-        case schema: Schema[_]                                                   => StringCodec.fromSchema(schema)
-      }).asInstanceOf[StringCodec[Any]]
-    }
-
-    private def unlazyField(field: Schema.Field[_, _]): Schema.Field[_, _] = field match {
-      case f if f.schema.isInstanceOf[Schema.Lazy[_]] =>
-        Schema.Field(
-          f.name,
-          f.schema.asInstanceOf[Schema.Lazy[_]].schema.asInstanceOf[Schema[Any]],
-          f.annotations,
-          f.validation.asInstanceOf[Validation[Any]],
-          f.get.asInstanceOf[Any => Any],
-          f.set.asInstanceOf[(Any, Any) => Any],
-        )
-      case f                                          => f
-    }
-
-    def validate(value: Any): Chunk[ValidationError] =
-      schema.asInstanceOf[Schema[_]] match {
-        case Schema.Optional(schema: Schema[Any], _) =>
-          schema.validate(value)(schema)
-        case schema: Schema[_]                       =>
-          schema.asInstanceOf[Schema[Any]].validate(value)(schema.asInstanceOf[Schema[Any]])
-      }
-    val defaultValue: A                              =
-      if (schema.isInstanceOf[Schema.Collection[_, _]]) {
-        Try(schema.asInstanceOf[Schema.Collection[A, _]].empty).fold(
-          _ => null.asInstanceOf[A],
-          identity,
-        )
-      } else {
-        schema.defaultValue match {
-          case Right(value) => value
-          case Left(_)      =>
-            schema match {
-              case _: Schema.Optional[_]               => None.asInstanceOf[A]
-              case collection: Schema.Collection[A, _] =>
-                Try(collection.empty).fold(
-                  _ => null.asInstanceOf[A],
-                  identity,
-                )
-              case _                                   => null.asInstanceOf[A]
-            }
-        }
-      }
-
-  }
-
-  object SchemaCodec {
-    private def camelToKebab(s: String): String =
-      if (s.isEmpty) ""
-      else if (s.head.isUpper) s.head.toLower.toString + camelToKebab(s.tail)
-      else if (s.contains('-')) s
-      else
-        s.foldLeft("") { (acc, c) =>
-          if (c.isUpper) acc + "-" + c.toLower
-          else acc + c
-        }
   }
 
   private[http] final case class Method[A](codec: SimpleCodec[zio.http.Method, A], index: Int = 0)
@@ -2494,34 +2292,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def index(index: Int): Method[A] = copy(index = index)
   }
 
-  private[http] final case class HeaderCustom[A](codec: SchemaCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Header, A] {
-    self =>
-    def erase: HeaderCustom[Any] = self.asInstanceOf[HeaderCustom[Any]]
-
-    override def optional: HttpCodec[HttpCodecType.Header, Option[A]] =
-      if (codec.isOptionalSchema) {
-        throw new IllegalArgumentException("Header is already optional")
-      } else {
-        Annotated(
-          HeaderCustom(codec.optional, index),
-          Metadata.Optional(),
-        )
-      }
-
-    def tag: AtomTag = AtomTag.HeaderCustom
-
-    def index(index: Int): HeaderCustom[A] = copy(index = index)
-  }
-
-  object HeaderCustom {
-    def apply[A](name: String, schema: Schema[A]): HeaderCustom[A] =
-      HeaderCustom(SchemaCodec(Some(name), schema, kebabCase = true))
-    def apply[A](schema: Schema[A]): HeaderCustom[A]               =
-      HeaderCustom(SchemaCodec(None, schema, kebabCase = true))
-  }
-
-  private[http] final case class Header[A](headerType: HeaderType.Typed[A], index: Int = 0)
+  private[http] final case class Header[A](headerType: HeaderTypeBase.Typed[A], index: Int = 0)
       extends Atom[HttpCodecType.Header, A] {
     self =>
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
@@ -2529,6 +2300,18 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def tag: AtomTag = AtomTag.Header
 
     def index(index: Int): Header[A] = copy(index = index)
+
+    override def optional: HttpCodec[HttpCodecType.Header, Option[A]] = {
+      headerType match {
+        case headerType if headerType.isInstanceOf[SchemaHeaderType] =>
+          Annotated(
+            Header(headerType.asInstanceOf[SchemaHeaderType.Typed[A]].optional, index),
+            Metadata.Optional(),
+          )
+        case _                                                       =>
+          super.optional
+      }
+    }
   }
 
   private[http] final case class Annotated[AtomTypes, Value](
