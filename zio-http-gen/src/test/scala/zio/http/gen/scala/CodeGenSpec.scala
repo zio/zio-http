@@ -958,7 +958,7 @@ object CodeGenSpec extends ZIOSpecDefault {
             )
           }
         }
-      } @@ TestAspect.ignore, // broke with zio schema update
+      } @@ TestAspect.ignore,       // broke with zio schema update
       test("Endpoint with normalized field names") {
         val openAPIString = stringFromResource("/inline_schema_weird_field_names.yaml")
 
