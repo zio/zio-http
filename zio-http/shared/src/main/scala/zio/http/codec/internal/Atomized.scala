@@ -50,5 +50,6 @@ private[http] final case class Atomized[A](
   }
 }
 private[http] object Atomized {
-  def apply[A](defValue: => A): Atomized[A] = Atomized(defValue, defValue, defValue, defValue, defValue, defValue)
+  def apply[A](defValue: => A): Atomized[A] =
+    Atomized(defValue, defValue, defValue, defValue, defValue, defValue)
 }

@@ -15,127 +15,57 @@
  */
 
 package zio.http.codec
-import scala.annotation.tailrec
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema.Schema
-import zio.schema.annotation.simpleEnum
+
+import zio.http.QueryParams
+import zio.http.internal.{ErrorConstructor, StringSchemaCodec}
 
 private[codec] trait QueryCodecs {
 
-  def query[A](name: String)(implicit schema: Schema[A]): QueryCodec[A] =
-    schema match {
-      case s @ Schema.Primitive(_, _)                                                    =>
-        HttpCodec.Query(
-          HttpCodec.Query.QueryType
-            .Primitive(name, BinaryCodecWithSchema.fromBinaryCodec(TextBinaryCodec.fromSchema(s))(s)),
-        )
-      case c @ Schema.Sequence(elementSchema, _, _, _, _)                                =>
-        if (supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Collection(
-              c,
-              HttpCodec.Query.QueryType.Primitive(
-                name,
-                BinaryCodecWithSchema(TextBinaryCodec.fromSchema(elementSchema), elementSchema),
-              ),
-              optional = false,
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of sequences")
-        }
-      case c @ Schema.Set(elementSchema, _)                                              =>
-        if (supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Collection(
-              c,
-              HttpCodec.Query.QueryType.Primitive(
-                name,
-                BinaryCodecWithSchema(TextBinaryCodec.fromSchema(elementSchema), elementSchema),
-              ),
-              optional = false,
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of sets")
-        }
-      case Schema.Optional(Schema.Primitive(_, _), _)                                    =>
-        HttpCodec.Query(
-          HttpCodec.Query.QueryType
-            .Primitive(name, BinaryCodecWithSchema.fromBinaryCodec(TextBinaryCodec.fromSchema(schema))(schema)),
-        )
-      case Schema.Optional(c @ Schema.Sequence(elementSchema, _, _, _, _), _)            =>
-        if (supportedElementSchema(elementSchema.asInstanceOf[Schema[Any]])) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Collection(
-              c,
-              HttpCodec.Query.QueryType.Primitive(
-                name,
-                BinaryCodecWithSchema(TextBinaryCodec.fromSchema(elementSchema), elementSchema),
-              ),
-              optional = true,
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of sequences")
-        }
-      case Schema.Optional(inner, _) if inner.isInstanceOf[Schema.Set[_]]                =>
-        val elementSchema = inner.asInstanceOf[Schema.Set[Any]].elementSchema
-        if (supportedElementSchema(elementSchema)) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Collection(
-              inner.asInstanceOf[Schema.Set[_]],
-              HttpCodec.Query.QueryType.Primitive(
-                name,
-                BinaryCodecWithSchema(TextBinaryCodec.fromSchema(inner), inner),
-              ),
-              optional = true,
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of sets")
-        }
-      case enum0: Schema.Enum[_] if enum0.annotations.exists(_.isInstanceOf[simpleEnum]) =>
-        HttpCodec.Query(
-          HttpCodec.Query.QueryType
-            .Primitive(name, BinaryCodecWithSchema.fromBinaryCodec(TextBinaryCodec.fromSchema(schema))(schema)),
-        )
-      case record: Schema.Record[A] if record.fields.size == 1                           =>
-        val field = record.fields.head
-        if (supportedElementSchema(field.schema.asInstanceOf[Schema[Any]])) {
-          HttpCodec.Query(
-            HttpCodec.Query.QueryType.Primitive(
-              name,
-              BinaryCodecWithSchema(TextBinaryCodec.fromSchema(record), record),
-            ),
-          )
-        } else {
-          throw new IllegalArgumentException("Only primitive types can be elements of records")
-        }
-      case other                                                                         =>
-        throw new IllegalArgumentException(
-          s"Only primitive types, sequences, sets, optional, enums and records with a single field can be used to infer query codecs, but got $other",
-        )
-    }
-
-  @tailrec
-  private def supportedElementSchema(elementSchema: Schema[Any]): Boolean = elementSchema match {
-    case Schema.Lazy(schema0) => supportedElementSchema(schema0())
-    case _                    =>
-      elementSchema.isInstanceOf[Schema.Primitive[_]] ||
-      elementSchema.isInstanceOf[Schema.Enum[_]] && elementSchema.annotations.exists(_.isInstanceOf[simpleEnum]) ||
-      elementSchema.isInstanceOf[Schema.Record[_]] && elementSchema.asInstanceOf[Schema.Record[_]].fields.size == 1
+  def query[A](name: String)(implicit schema: Schema[A]): QueryCodec[A] = {
+    val codec = StringSchemaCodec.fromSchema[A, QueryParams](
+      schema,
+      (qp, k, v) => qp.addQueryParam(k, v),
+      (qp, kvs) => qp.addQueryParams(kvs),
+      (qp, k) => qp.hasQueryParam(k),
+      (qp, k) => qp.unsafeQueryParam(k),
+      (qp, k) => qp.getAll(k),
+      (qp, k) => qp.valueCount(k),
+      ErrorConstructor(
+        param => HttpCodecError.MissingQueryParam(param),
+        params => HttpCodecError.MissingQueryParams(params),
+        validationErrors => HttpCodecError.InvalidEntity.wrap(validationErrors),
+        (param, value) => HttpCodecError.MalformedQueryParam(param, value),
+        (param, expected, actual) => HttpCodecError.InvalidQueryParamCount(param, expected, actual),
+      ),
+      isKebabCase = false,
+      name,
+    )
+    HttpCodec.Query(codec)
   }
 
-  def queryAll[A](implicit schema: Schema[A]): QueryCodec[A] =
-    schema match {
-      case _: Schema.Primitive[A]   =>
-        throw new IllegalArgumentException("Use query[A](name: String) for primitive types")
-      case record: Schema.Record[A] => HttpCodec.Query(HttpCodec.Query.QueryType.Record(record))
-      case Schema.Optional(_, _)    => HttpCodec.Query(HttpCodec.Query.QueryType.Record(schema))
-      case _ => throw new IllegalArgumentException("Only case classes can be used to infer query codecs")
-    }
+  def queryAll[A](implicit schema: Schema[A]): QueryCodec[A] = {
+    val codec = StringSchemaCodec.fromSchema[A, QueryParams](
+      schema,
+      (qp, k, v) => qp.addQueryParam(k, v),
+      (qp, kvs) => qp.addQueryParams(kvs),
+      (qp, k) => qp.hasQueryParam(k),
+      (qp, k) => qp.unsafeQueryParam(k),
+      (qp, k) => qp.getAll(k),
+      (qp, k) => qp.valueCount(k),
+      ErrorConstructor(
+        param => HttpCodecError.MissingQueryParam(param),
+        params => HttpCodecError.MissingQueryParams(params),
+        validationErrors => HttpCodecError.InvalidEntity.wrap(validationErrors),
+        (param, value) => HttpCodecError.MalformedQueryParam(param, value),
+        (param, expected, actual) => HttpCodecError.InvalidQueryParamCount(param, expected, actual),
+      ),
+      isKebabCase = false,
+      null,
+    )
+    HttpCodec.Query(codec)
+  }
 
 }

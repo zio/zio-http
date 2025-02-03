@@ -9688,7 +9688,7 @@ private[zio] trait MediaTypes {
     lazy val `vnd.dolby.heaac.2`: MediaType =
       new MediaType("audio", "vnd.dolby.heaac.2", compressible = false, binary = true)
 
-    lazy val `amr-wb+` : MediaType =
+    lazy val `amr-wb+`: MediaType =
       new MediaType("audio", "amr-wb+", compressible = false, binary = true)
 
     lazy val `dsr-es202211`: MediaType =

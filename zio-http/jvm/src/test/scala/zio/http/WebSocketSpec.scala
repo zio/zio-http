@@ -79,7 +79,7 @@ object WebSocketSpec extends RoutesRunnableSpec {
 
           // Setup websocket server
 
-          serverHttp   = Handler.webSocket { channel =>
+          serverHttp = Handler.webSocket { channel =>
             channel.receiveAll {
               case Unregistered =>
                 isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)

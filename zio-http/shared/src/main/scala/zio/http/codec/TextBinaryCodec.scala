@@ -120,10 +120,10 @@ object TextBinaryCodec {
             )
           override def streamEncoder: ZPipeline[Any, Nothing, A, Byte]     =
             ZPipeline.mapChunks(_.flatMap(encode))
-          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = codec.streamDecoder.map { x =>
+          override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = codec.streamDecoder.mapZIO { x =>
             f(x) match {
-              case Left(value) => throw DecodeError.ReadError(Cause.fail(new Exception("Error in decoding")), value)
-              case Right(a)    => a
+              case Left(value) => ZIO.fail(DecodeError.ReadError(Cause.fail(new Exception("Error in decoding")), value))
+              case Right(a)    => ZIO.succeed(a)
             }
           }
         }
@@ -356,7 +356,7 @@ object TextBinaryCodec {
 
           override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
             (ZPipeline[Byte] >>> ZPipeline.utf8Decode)
-              .map(s => decode(Chunk.fromArray(s.getBytes)).fold(throw _, identity))
+              .mapZIO(s => ZIO.fromEither(decode(Chunk.fromArray(s.getBytes))))
               .mapErrorCause(e => Cause.fail(DecodeError.ReadError(e, e.squash.getMessage)))
         }
       case Schema.Lazy(schema0)                                => fromSchema(schema0())

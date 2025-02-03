@@ -31,8 +31,12 @@ import scala.util.{Either, Failure, Success, Try}
 import zio.Config.Secret
 import zio._
 
-import zio.http.codec.RichTextCodec
-import zio.http.internal.DateEncoding
+import zio.schema.Schema
+import zio.schema.codec.DecodeError.ReadError
+
+import zio.http.Header.HeaderTypeBase.Typed
+import zio.http.codec.{HttpCodecError, RichTextCodec}
+import zio.http.internal.{DateEncoding, ErrorConstructor, StringSchemaCodec}
 
 sealed trait Header {
   type Self <: Header
@@ -50,14 +54,148 @@ sealed trait Header {
 
 object Header {
 
-  sealed trait HeaderType {
+  sealed trait HeaderTypeBase {
+    type HeaderValue
+
+    def names: Chunk[String]
+
+    def fromHeaders(headers: Headers): Either[String, HeaderValue]
+
+    private[http] def fromHeadersUnsafe(headers: Headers): HeaderValue
+
+    def toHeaders(value: HeaderValue): Headers =
+      value match {
+        case h: Header => Headers.fromIterable(h :: Nil)
+        case _         => Headers.empty
+      }
+  }
+
+  object HeaderTypeBase {
+    type Typed[HV] = HeaderTypeBase { type HeaderValue = HV }
+  }
+
+  sealed trait SchemaHeaderType extends HeaderTypeBase {
+    def schema: Schema[HeaderValue]
+
+    def optional: HeaderTypeBase.Typed[Option[HeaderValue]]
+  }
+
+  object SchemaHeaderType {
+    type Typed[H] = SchemaHeaderType { type HeaderValue = H }
+
+    def apply[H](implicit schema0: Schema[H]): SchemaHeaderType.Typed[H] = {
+      new SchemaHeaderType {
+        type HeaderValue = H
+        val schema: Schema[H]                    = schema0
+        val codec: StringSchemaCodec[H, Headers] = StringSchemaCodec.fromSchema(
+          schema,
+          (h: Headers, k: String, v: String) => h.addHeader(k, v),
+          (h: Headers, kvs: Iterable[(String, String)]) => h.addHeaders(kvs),
+          (h: Headers, k: String) => h.contains(k),
+          (h: Headers, k: String) => h.getUnsafe(k),
+          (h: Headers, k: String) => h.rawHeaders(k),
+          (h: Headers, k: String) => h.rawHeaders(k).size,
+          ErrorConstructor(
+            param => HttpCodecError.MissingHeader(param),
+            params => HttpCodecError.MissingHeaders(params),
+            validationErrors => HttpCodecError.InvalidEntity.wrap(validationErrors),
+            (param, value) => HttpCodecError.DecodingErrorHeader(param, value),
+            (param, expected, actual) => HttpCodecError.InvalidHeaderCount(param, expected, actual),
+          ),
+          isKebabCase = true,
+          null,
+        )
+
+        override def names: Chunk[String] =
+          codec.recordFields.map(_._1.fieldName)
+
+        override def optional: SchemaHeaderType.Typed[Option[H]] =
+          apply(schema.optional)
+
+        override def fromHeaders(headers: Headers): Either[String, H] =
+          try Right(codec.decode(headers))
+          catch {
+            case NonFatal(e) => Left(e.getMessage)
+          }
+
+        private[http] override def fromHeadersUnsafe(headers: Headers): H =
+          codec.decode(headers)
+
+        override def toHeaders(value: H): Headers =
+          codec.encode(value, Headers.empty)
+      }
+    }
+
+    def apply[H](name: String)(implicit schema0: Schema[H]): SchemaHeaderType.Typed[H] = {
+      new SchemaHeaderType {
+        type HeaderValue = H
+        val schema: Schema[H]                    = schema0
+        val codec: StringSchemaCodec[H, Headers] = StringSchemaCodec.fromSchema(
+          schema,
+          (h: Headers, k: String, v: String) => h.addHeader(k, v),
+          (h: Headers, kvs: Iterable[(String, String)]) => h.addHeaders(kvs),
+          (h: Headers, k: String) => h.contains(k),
+          (h: Headers, k: String) => h.getUnsafe(k),
+          (h: Headers, k: String) => h.rawHeaders(k),
+          (h: Headers, k: String) => h.rawHeaders(k).size,
+          ErrorConstructor(
+            header => HttpCodecError.MissingHeader(header),
+            headers => HttpCodecError.MissingHeaders(headers),
+            validationErrors => HttpCodecError.InvalidEntity.wrap(validationErrors),
+            (header, value) => HttpCodecError.DecodingErrorHeader(header, value),
+            (header, expected, actual) => HttpCodecError.InvalidHeaderCount(header, expected, actual),
+          ),
+          isKebabCase = true,
+          name,
+        )
+
+        override def names: Chunk[String] =
+          codec.recordFields.map(_._1.fieldName)
+
+        override def optional: SchemaHeaderType.Typed[Option[H]] =
+          apply(name)(schema.optional)
+
+        override def fromHeaders(headers: Headers): Either[String, H] =
+          try Right(codec.decode(headers))
+          catch {
+            case NonFatal(e) => Left(e.getMessage)
+          }
+
+        private[http] override def fromHeadersUnsafe(headers: Headers): H =
+          codec.decode(headers)
+
+        override def toHeaders(value: H): Headers =
+          codec.encode(value, Headers.empty)
+      }
+    }
+  }
+
+  sealed trait HeaderType extends HeaderTypeBase {
     type HeaderValue <: Header
+
+    def names: Chunk[String] = Chunk.single(name)
 
     def name: String
 
     def parse(value: String): Either[String, HeaderValue]
 
     def render(value: HeaderValue): String
+
+    def fromHeaders(headers: Headers): Either[String, HeaderValue] =
+      headers.getUnsafe(name) match {
+        case null  => Left(s"Header $name not found")
+        case value => parse(value)
+      }
+
+    def fromHeadersUnsafe(headers: Headers): HeaderValue =
+      fromHeaders(headers).fold(
+        e => throw HttpCodecError.DecodingErrorHeader(name, ReadError(Cause.empty, e)),
+        identity,
+      )
+
+    override def toHeaders(value: HeaderValue): Headers =
+      Headers.FromIterable(Iterable(value))
+
   }
 
   object HeaderType {

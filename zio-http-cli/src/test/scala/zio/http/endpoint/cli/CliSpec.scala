@@ -27,7 +27,7 @@ object CliSpec extends ZIOSpecDefault {
 
   val bodyStream = ContentCodec.contentStream[BigInt]("bodyStream")
 
-  val headerCodec = HttpCodec.Header("header", TextCodec.string)
+  val headerCodec = HttpCodec.headerAs[String]("header")
 
   val path1 = PathCodec.bool("path1")
 

@@ -10,6 +10,7 @@ import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.cli.AuxGen._
 import zio.http.endpoint.cli.CliRepr._
+import zio.http.internal.StringSchemaCodec.PrimitiveCodec
 
 /**
  * Constructs a Gen[Options[CliRequest], CliEndpoint]
@@ -32,10 +33,10 @@ object OptionsGen {
       .optionsFromTextCodec(textCodec)(name)
       .map(value => textCodec.encode(value))
 
-  def encodeOptions[A](name: String, codec: BinaryCodecWithSchema[A]): Options[String] =
+  def encodeOptions[A](name: String, codec: PrimitiveCodec[A], schema: Schema[A]): Options[String] =
     HttpOptions
-      .optionsFromSchema(codec)(name)
-      .map(value => codec.codec(CodecConfig.defaultConfig).encode(value).asString)
+      .optionsFromSchema(schema)(name)
+      .map(value => codec.encode(value))
 
   lazy val anyBodyOption: Gen[Any, CliReprOf[Options[Retriever]]] =
     Gen
@@ -50,18 +51,12 @@ object OptionsGen {
       }
 
   lazy val anyHeaderOption: Gen[Any, CliReprOf[Options[Headers]]] =
-    Gen.alphaNumericStringBounded(1, 30).zip(anyTextCodec).map {
-      case (name, TextCodec.Constant(value)) =>
-        CliRepr(
-          Options.Empty.map(_ => Headers(name, value)),
-          CliEndpoint(headers = HttpOptions.HeaderConstant(name, value) :: Nil),
-        )
-      case (name, codec)                     =>
-        CliRepr(
-          encodeOptions(name, codec)
-            .map(value => Headers(name, value)),
-          CliEndpoint(headers = HttpOptions.Header(name, codec) :: Nil),
-        )
+    Gen.alphaNumericStringBounded(1, 30).zip(anyTextCodec).map { case (name, codec) =>
+      CliRepr(
+        encodeOptions(name, codec)
+          .map(value => Headers(name, value)),
+        CliEndpoint(headers = HttpOptions.Header(name, codec) :: Nil),
+      )
     }
 
   lazy val anyURLOption: Gen[Any, CliReprOf[Options[String]]] =
@@ -83,14 +78,12 @@ object OptionsGen {
         },
       Gen
         .alphaNumericStringBounded(1, 30)
-        .zip(anyStandardType.map { s =>
-          val schema = s.asInstanceOf[Schema[Any]]
-          BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
-        })
-        .map { case (name, codec) =>
+        .zip(anyStandardType)
+        .map { case (name, schema) =>
+          val codec = QueryCodec.query(name)(schema).asInstanceOf[HttpCodec.Query[Any]]
           CliRepr(
-            encodeOptions(name, codec),
-            CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
+            encodeOptions(name, codec.codec.recordFields.head._2, schema.asInstanceOf[Schema[Any]]),
+            CliEndpoint(url = HttpOptions.Query(codec.codec.recordFields.head._2, name) :: Nil),
           )
         },
     )

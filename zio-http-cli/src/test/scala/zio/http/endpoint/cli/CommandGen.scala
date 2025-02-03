@@ -48,17 +48,17 @@ object CommandGen {
       case _                       => true
     }.map {
       case HttpOptions.Path(pathCodec, _)    =>
-        pathCodec.segments.toList.flatMap { case segment =>
+        pathCodec.segments.toList.flatMap { segment =>
           getSegment(segment) match {
             case (_, "")           => Nil
             case (name, "boolean") => s"[${getName(name, "")}]" :: Nil
             case (name, codec)     => s"${getName(name, "")} $codec" :: Nil
           }
         }
-      case HttpOptions.Query(name, codec, _) =>
-        getType(codec) match {
-          case ""    => s"[${getName(name, "")}]" :: Nil
-          case codec => s"${getName(name, "")} $codec" :: Nil
+      case HttpOptions.Query(codec, name, _) =>
+        getType(codec.schema) match {
+          case ""  => s"[${getName(name, "")}]" :: Nil
+          case tpy => s"${getName(name, "")} $tpy" :: Nil
         }
       case _                                 => Nil
     }.foldRight(List[String]())(_ ++ _)
@@ -121,8 +121,8 @@ object CommandGen {
       case _                      => ""
     }
 
-  def getType[A](codec: BinaryCodecWithSchema[A]): String =
-    codec.schema match {
+  def getType[A](schema: Schema[A]): String =
+    schema match {
       case Schema.Primitive(standardType, _) =>
         standardType match {
           case StandardType.UnitType           => ""

@@ -32,12 +32,11 @@ import zio.http.gen.openapi.{Config, EndpointGen}
 object CodeGenSpec extends ZIOSpecDefault {
 
   case class ValidatedData(
-    @validate(Validation.maxLength(10))
-    name: String,
-    @validate(Validation.greaterThan(0) && Validation.lessThan(100))
-    age: Int,
+    @validate(Validation.maxLength(10)) name: String,
+    @validate(Validation.greaterThan(0) && Validation.lessThan(100)) age: Int,
   )
-  implicit val validatedDataSchema: Schema[ValidatedData] = DeriveSchema.gen[ValidatedData]
+  implicit val validatedDataSchema: Schema[ValidatedData] =
+    DeriveSchema.gen[ValidatedData]
 
   private def fileShouldBe(dir: java.nio.file.Path, subPath: String, expectedFile: String): TestResult = {
     val filePath  = dir.resolve(Paths.get(subPath))
@@ -155,8 +154,9 @@ object CodeGenSpec extends ZIOSpecDefault {
           Endpoint(Method.GET / "api" / "v1" / "users")
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
-            .header(HeaderCodec.name[String]("Token"))
-        val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
+            .header(HeaderCodec.headerAs[String]("Token"))
+
+        val openAPI = OpenAPIGen.fromEndpoints(endpoint)
 
         codeGenFromOpenAPI(openAPI) { testDir =>
           fileShouldBe(testDir, "api/v1/Users.scala", "/EndpointWithHeaders.scala")
@@ -605,6 +605,7 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      //format: off
       test("Endpoint with array field in input") {
         val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
         val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)

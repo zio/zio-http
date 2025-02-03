@@ -45,6 +45,13 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
   def addQueryParams(values: String): A =
     updateQueryParams(params => params ++ QueryParams.decode(values))
 
+  def addQueryParams(queryParams: Iterable[(String, String)]): A =
+    updateQueryParams(params =>
+      params ++ QueryParams(queryParams.groupBy(_._1).map { case (k, v) =>
+        k -> Chunk.fromIterable(v).map(_._2)
+      }),
+    )
+
   /**
    * Removes the specified key from the query parameters.
    */
