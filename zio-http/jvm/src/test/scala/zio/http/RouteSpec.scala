@@ -203,6 +203,58 @@ object RouteSpec extends ZIOHttpSpec {
           refValue <- ref.get
         } yield assertTrue(extractStatus(response) == Status.Ok, !refValue)
       },
+      test("tapErrorZIO is not called when the route succeeds") {
+        val route       = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.attempt(Response.ok) }
+        val errorTapped = route.tapErrorZIO(_ => ZIO.log("tapErrorZIO")).sandbox
+        for {
+          _      <- errorTapped(Request.get("/endpoint"))
+          didLog <- ZTestLogger.logOutput.map(out => out.find(_.message() == "tapErrorZIO").isDefined)
+        } yield assertTrue(!didLog)
+      },
+      test("tapErrorZIO is called when the route fails with an error") {
+        val route       = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hm...")) }
+        val errorTapped = route.tapErrorZIO(_ => ZIO.log("tapErrorZIO")).sandbox
+        for {
+          _      <- errorTapped(Request.get("/endpoint")).sandbox
+          didLog <- ZTestLogger.logOutput.map(out => out.find(_.message() == "tapErrorZIO").isDefined)
+        } yield assertTrue(didLog)
+      },
+      test("tapErrorZIO is not called when the route fails with a defect") {
+        val route: Route[Any, Unit] = Method.GET / "endpoint" -> handler { (_: Request) =>
+          ZIO.die(new Exception("hm..."))
+        }
+        val errorTapped             = route.tapErrorZIO(_ => ZIO.log("tapErrorZIO")).sandbox
+        for {
+          _      <- errorTapped(Request.get("/endpoint")).sandbox
+          didLog <- ZTestLogger.logOutput.map(out => out.find(_.message() == "tapErrorZIO").isDefined)
+        } yield assertTrue(!didLog)
+      },
+      test("tapErrorCauseZIO is not called when the route succeeds") {
+        val route       = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.attempt(Response.ok) }
+        val causeTapped = route.tapErrorCauseZIO(_ => ZIO.log("tapErrorCauseZIO")).sandbox
+        for {
+          _      <- causeTapped(Request.get("/endpoint"))
+          didLog <- ZTestLogger.logOutput.map(out => out.find(_.message() == "tapErrorCauseZIO").isDefined)
+        } yield assertTrue(!didLog)
+      },
+      test("tapErrorCauseZIO is called when the route fails with an error") {
+        val route       = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hm...")) }
+        val causeTapped = route.tapErrorCauseZIO(_ => ZIO.log("tapErrorCauseZIO")).sandbox
+        for {
+          _      <- causeTapped(Request.get("/endpoint")).sandbox
+          didLog <- ZTestLogger.logOutput.map(out => out.find(_.message() == "tapErrorCauseZIO").isDefined)
+        } yield assertTrue(didLog)
+      },
+      test("tapErrorCauseZIO is called when the route fails with a defect") {
+        val route: Route[Any, Unit] = Method.GET / "endpoint" -> handler { (_: Request) =>
+          ZIO.die(new Exception("hm..."))
+        }
+        val causeTapped             = route.tapErrorCauseZIO(_ => ZIO.log("tapErrorCauseZIO")).sandbox
+        for {
+          _      <- causeTapped(Request.get("/endpoint")).sandbox
+          didLog <- ZTestLogger.logOutput.map(out => out.find(_.message() == "tapErrorCauseZIO").isDefined)
+        } yield assertTrue(didLog)
+      },
       test(
         "Routes with context can eliminate environment type partially when elimination produces intersection type environment",
       ) {
