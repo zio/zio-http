@@ -136,16 +136,18 @@ object OpenAPIGen {
       )
 
     def contentExamples: Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
-      contentExamples(genExamples = false)
+      contentExamples(mediaType = MediaType.application.json, genExamples = false)
 
-    def contentExamples(genExamples: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
+    def contentExamples(
+      mediaType: MediaType,
+      genExamples: Boolean,
+    ): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       content.flatMap {
-        case mc @ MetaCodec(HttpCodec.Content(codec, _, _), _) if codec.lookup(MediaType.application.json).isDefined =>
-          mc.examples(codec.lookup(MediaType.application.json).get._2.schema, genExamples)
-        case mc @ MetaCodec(HttpCodec.ContentStream(codec, _, _), _)
-            if codec.lookup(MediaType.application.json).isDefined =>
-          mc.examples(codec.lookup(MediaType.application.json).get._2.schema, genExamples)
-        case _                                                                                                       =>
+        case mc @ MetaCodec(HttpCodec.Content(codec, _, _), _) if codec.lookup(mediaType).isDefined       =>
+          mc.examples(codec.lookup(mediaType).get._2.schema, genExamples)
+        case mc @ MetaCodec(HttpCodec.ContentStream(codec, _, _), _) if codec.lookup(mediaType).isDefined =>
+          mc.examples(codec.lookup(mediaType).get._2.schema, genExamples)
+        case _                                                                                            =>
           Map.empty[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]]
       }.toMap
 
@@ -728,7 +730,7 @@ object OpenAPIGen {
         val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
           mediaType.fullType -> OpenAPI.MediaType(
             schema = OpenAPI.ReferenceOr.Or(schema),
-            examples = atomized.contentExamples(genExamples),
+            examples = atomized.contentExamples(mediaType, genExamples),
             encoding = Map.empty,
           )
         }
@@ -1117,7 +1119,7 @@ object OpenAPIGen {
       val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
         mediaType.fullType -> OpenAPI.MediaType(
           schema = OpenAPI.ReferenceOr.Or(schema),
-          examples = atomized.contentExamples(genExamples),
+          examples = atomized.contentExamples(mediaType, genExamples),
           encoding = Map.empty,
         )
       }
