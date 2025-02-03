@@ -251,19 +251,13 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
         val chunk = tree.get(req.method, req.path)
         chunk.length match {
           case 0 => Handler.notFound
-          case 1 => chunk(0)
-          case n => // TODO: Support precomputed fallback among all chunk elements
-            var acc = chunk(0)
-            var i   = 1
-            while (i < n) {
-              val h = chunk(i)
-              acc = acc.catchAll { response =>
+          case _ => // TODO: Support precomputed fallback among all chunk elements
+            chunk.reverseIterator.reduceLeft { (acc, h) =>
+              acc.catchAll { response =>
                 if (response.status == Status.NotFound) h
                 else Handler.fail(response)
               }
-              i += 1
             }
-            acc
         }
       }
       .merge
