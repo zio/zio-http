@@ -511,5 +511,5 @@ This example represents a WebSocket client application that automatically attemp
 ```scala mdoc:passthrough
 import utils._
 
-printSource("zio-http-example/src/main/scala/example/WebSocketReconnectingClient.scala")
+printSource("zio-http-example/src/main/scala/example/websocket/WebSocketReconnectingClient.scala")
 ```

@@ -2,14 +2,14 @@ import sbt.*
 
 object Dependencies {
   val JwtCoreVersion                = "10.0.1"
-  val NettyVersion                  = "4.1.116.Final"
+  val NettyVersion                  = "4.1.117.Final"
   val NettyIncubatorVersion         = "0.0.25.Final"
   val ScalaCompactCollectionVersion = "2.12.0"
   val ZioVersion                    = "2.1.11"
   val ZioCliVersion                 = "0.5.0"
-  val ZioJsonVersion                = "0.7.1"
+  val ZioJsonVersion                = "0.7.12"
   val ZioParserVersion              = "0.1.10"
-  val ZioSchemaVersion              = "1.5.0"
+  val ZioSchemaVersion              = "1.6.1"
   val SttpVersion                   = "3.3.18"
   val ZioConfigVersion              = "4.0.2"
 
