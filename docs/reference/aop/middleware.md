@@ -195,14 +195,17 @@ val urlRewrite: Middleware[Any] =
   new Middleware[Any] {
     override def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
       routes.transform { handler =>
-        Handler.fromFunctionZIO { request =>
-          handler(
-            request.updateURL(url =>
-              if (url.path.startsWith(Path("/api")))
-                url.copy(path = Path("/v1") ++ url.path)
-              else url,
-            ),
-          )
+        Handler.scoped[Env1] {
+          Handler.fromFunctionZIO { request =>
+            handler(
+              request.updateURL(
+                url =>
+                  if (url.path.startsWith(Path("/api")))
+                    url.copy(path = Path("/v1") ++ url.path)
+                  else url,
+                ),
+              )
+          }
         }
       }
   }

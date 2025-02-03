@@ -80,7 +80,7 @@ object NotFoundSpec extends ZIOHttpSpec {
   def test404[R](service: Routes[R, Nothing])(
     url: String,
     method: Method,
-  ): ZIO[R, Response, TestResult] = {
+  ): ZIO[Scope & R, Response, TestResult] = {
     val request = Request(method = method, url = URL.decode(url).toOption.get)
     for {
       response <- service.runZIO(request)

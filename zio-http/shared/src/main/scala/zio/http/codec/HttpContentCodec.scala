@@ -373,7 +373,7 @@ object HttpContentCodec {
 
   }
 
-  private val ByteChunkBinaryCodec: BinaryCodec[Chunk[Byte]] = new BinaryCodec[Chunk[Byte]] {
+  private[http] implicit val ByteChunkBinaryCodec: BinaryCodec[Chunk[Byte]] = new BinaryCodec[Chunk[Byte]] {
 
     override def encode(value: Chunk[Byte]): Chunk[Byte] = value
 

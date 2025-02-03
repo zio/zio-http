@@ -41,6 +41,7 @@ object ClientConnectionSpec extends RoutesRunnableSpec {
       serve.as(tests)
     }
       .provideShared(
+        Scope.default,
         DynamicServer.live,
         serverTestLayer,
         Client.live,
