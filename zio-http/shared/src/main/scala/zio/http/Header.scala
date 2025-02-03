@@ -1030,8 +1030,21 @@ object Header {
 
     final case class Basic(username: String, password: Secret) extends Authorization
 
-    object Basic {
+    object Basic extends HeaderType {
       def apply(username: String, password: String): Basic = new Basic(username, Secret(password))
+
+      override def name: String = "basicAuth"
+
+      override type HeaderValue = Authorization.Basic
+
+      def parse(value: String): Either[String, Authorization.Basic] = {
+        parseBasic(value).asInstanceOf[Either[String, Authorization.Basic]]
+      }
+
+      def render(header: Authorization.Basic): String = {
+        val encoded = Base64.getEncoder.encodeToString((header.username + ":" + header.password.value).getBytes)
+        s"Basic $encoded"
+      }
     }
 
     final case class Digest(
@@ -1048,10 +1061,40 @@ object Header {
       userhash: Boolean,
     ) extends Authorization
 
+    object Digest extends HeaderType {
+      override def name: String = "digestAuth"
+
+      override type HeaderValue = Authorization.Digest
+
+      def parse(value: String): Either[String, Authorization.Digest] = {
+        parseDigest(value).asInstanceOf[Either[String, Authorization.Digest]]
+      }
+
+      def render(header: Digest): String = {
+        s"""Digest response="${header.response}",username="${header.username}",realm="${header.realm}",uri=${header.uri.toString},opaque="${header.opaque}",algorithm=${header.algorithm},""" +
+          s"""qop=${header.qop},cnonce="${header.cnonce}",nonce="${header.nonce}",nc=${header.nc},userhash=${header.userhash.toString}"""
+      }
+    }
+
     final case class Bearer(token: Secret) extends Authorization
 
-    object Bearer {
+    object Bearer extends HeaderType {
       def apply(token: String): Bearer = Bearer(Secret(token))
+
+      override def name: String = "bearerAuth"
+
+      override type HeaderValue = Authorization.Bearer
+
+      def parse(value: String): Either[String, Authorization.Bearer] = {
+        val parts = value.split(" ").filter(_.nonEmpty)
+        if (parts.length == 2) {
+          Right(Bearer(Secret(parts(1))))
+        } else {
+          Left("Invalid Bearer Authorization header value")
+        }
+      }
+
+      def render(header: Authorization.Bearer): String = s"Bearer ${header.token.value}"
     }
 
     final case class Unparsed(authScheme: String, authParameters: Secret) extends Authorization
