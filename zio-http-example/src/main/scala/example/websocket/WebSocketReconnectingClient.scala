@@ -22,13 +22,13 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
             channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
 
           // On receiving "foo", we'll reply with another "foo" to keep echo loop going
-          case Read(WebSocketFrame.Text("foo"))                =>
+          case Read(WebSocketFrame.Text("foo")) =>
             ZIO.logInfo("Received foo message.") *>
               ZIO.sleep(1.second) *>
               channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
 
           // Handle exception and convert it to failure to signal the shutdown of the socket connection via the promise
-          case ExceptionCaught(t)                              =>
+          case ExceptionCaught(t) =>
             ZIO.fail(t)
 
           case _ =>

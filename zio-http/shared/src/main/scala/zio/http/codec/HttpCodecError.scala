@@ -23,6 +23,7 @@ import zio.{Cause, Chunk}
 import zio.schema.codec.DecodeError
 import zio.schema.validation.ValidationError
 
+import zio.http.Header.HeaderType
 import zio.http.{Path, Status}
 
 sealed trait HttpCodecError extends Exception with NoStackTrace with Product with Serializable {
@@ -32,6 +33,9 @@ sealed trait HttpCodecError extends Exception with NoStackTrace with Product wit
 object HttpCodecError {
   final case class MissingHeader(headerName: String)                                           extends HttpCodecError {
     def message = s"Missing header $headerName"
+  }
+  final case class MissingHeaders(headerNames: Chunk[String])                                  extends HttpCodecError {
+    def message = s"Missing headers ${headerNames.mkString(", ")}"
   }
   final case class MalformedMethod(expected: zio.http.Method, actual: zio.http.Method)         extends HttpCodecError {
     def message = s"Expected $expected but found $actual"
@@ -47,6 +51,12 @@ object HttpCodecError {
   }
   final case class MalformedHeader(headerName: String, textCodec: TextCodec[_])                extends HttpCodecError {
     def message = s"Malformed header $headerName failed to decode using $textCodec"
+  }
+  final case class DecodingErrorHeader(headerName: String, cause: DecodeError)                 extends HttpCodecError {
+    def message = s"Malformed header $headerName could not be decoded: $cause"
+  }
+  final case class MalformedTypedHeader(headerName: String)                                    extends HttpCodecError {
+    def message = s"Malformed header $headerName"
   }
   final case class MissingQueryParam(queryParamName: String)                                   extends HttpCodecError {
     def message = s"Missing query parameter $queryParamName"
@@ -73,6 +83,9 @@ object HttpCodecError {
   final case class InvalidQueryParamCount(name: String, expected: Int, actual: Int)            extends HttpCodecError {
     def message = s"Invalid query parameter count for $name: expected $expected but found $actual."
   }
+  final case class InvalidHeaderCount(name: String, expected: Int, actual: Int)                extends HttpCodecError {
+    def message = s"Invalid query parameter count for $name: expected $expected but found $actual."
+  }
   final case class CustomError(name: String, message: String)                                  extends HttpCodecError
 
   final case class UnsupportedContentType(contentType: String) extends HttpCodecError {
@@ -92,6 +105,9 @@ object HttpCodecError {
 
   def isMissingDataOnly(cause: Cause[Any]): Boolean =
     !cause.isFailure && cause.defects.forall(e =>
-      e.isInstanceOf[HttpCodecError.MissingHeader] || e.isInstanceOf[HttpCodecError.MissingQueryParam],
+      e.isInstanceOf[HttpCodecError.MissingHeader]
+        || e.isInstanceOf[HttpCodecError.MissingQueryParam]
+        || e.isInstanceOf[HttpCodecError.MissingQueryParams]
+        || e.isInstanceOf[HttpCodecError.MissingHeaders],
     )
 }

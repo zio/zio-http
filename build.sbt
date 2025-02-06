@@ -59,6 +59,7 @@ ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.T
 ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
 ThisBuild / githubWorkflowPublish       :=
   Seq(
+    WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
     WorkflowStep.Sbt(
       List("ci-release"),
       name = Some("Release"),

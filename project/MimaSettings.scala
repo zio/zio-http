@@ -12,6 +12,17 @@ object MimaSettings {
       mimaBinaryIssueFilters ++= Seq(
         exclude[Problem]("zio.http.internal.*"),
         exclude[Problem]("zio.http.codec.internal.*"),
+        exclude[Problem]("zio.http.codec.HttpCodec$Query$QueryType$Record$"),
+        exclude[Problem]("zio.http.codec.HttpCodec$Query$QueryType$Record"),
+        exclude[Problem]("zio.http.codec.HttpCodec$Query$QueryType$Primitive$"),
+        exclude[Problem]("zio.http.codec.HttpCodec$Query$QueryType$Primitive"),
+        exclude[Problem]("zio.http.codec.HttpCodec$Query$QueryType$Collection$"),
+        exclude[Problem]("zio.http.codec.HttpCodec$Query$QueryType$Collection"),
+        exclude[Problem]("zio.http.codec.HttpCodec$Query$QueryType$"),
+        exclude[Problem]("zio.http.codec.HttpCodec$Query$QueryType"),
+        exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.apply"),
+        exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.this"),
+        exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.copy"),
       ),
       mimaFailOnProblem := failOnProblem
     )

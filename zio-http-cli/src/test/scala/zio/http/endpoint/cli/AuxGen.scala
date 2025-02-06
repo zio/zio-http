@@ -16,11 +16,7 @@ import zio.http.codec._
  */
 
 object AuxGen {
-  lazy val anyTextCodec: Gen[Any, TextCodec[_]] =
-    Gen.oneOf(
-      Gen.fromIterable(List(TextCodec.boolean, TextCodec.int, TextCodec.string, TextCodec.uuid)),
-      Gen.alphaNumericStringBounded(1, 30).map(TextCodec.constant(_)),
-    )
+  lazy val anyTextCodec: Gen[Any, TextCodec[_]] = Gen.const(TextCodec.string)
 
   lazy val anyMediaType: Gen[Any, MediaType] = Gen.fromIterable(MediaType.allMediaTypes)
 

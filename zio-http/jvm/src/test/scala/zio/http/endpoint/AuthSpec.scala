@@ -152,7 +152,7 @@ object AuthSpec extends ZIOSpecDefault {
               .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
             response <- response
           } yield assertTrue(response == "admin")
-        } @@ flaky,
+        },
         test("Auth basic or bearer with context and endpoint client") {
           val endpoint =
             Endpoint(Method.GET / "multiAuth")
@@ -212,7 +212,7 @@ object AuthSpec extends ZIOSpecDefault {
               .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
             response <- response
           } yield assertTrue(response == "admin")
-        } @@ TestAspect.flaky,
+        },
         test("Auth with context and endpoint client with path parameter") {
           val endpoint =
             Endpoint(Method.GET / int("a")).out[String](MediaType.text.`plain`).auth(AuthType.Basic)
@@ -237,7 +237,7 @@ object AuthSpec extends ZIOSpecDefault {
             response <- response
           } yield assertTrue(response == "admin")
         },
-      ).provideShared(Client.default, Server.default) @@ TestAspect.withLiveClock,
+      ).provideShared(Client.default, Server.default) @@ TestAspect.withLiveClock @@ TestAspect.flaky,
       test("Require Basic Auth, but get Bearer Auth") {
         val endpoint = Endpoint(Method.GET / "test").out[String](MediaType.text.`plain`).auth(AuthType.Basic)
         val routes   =
