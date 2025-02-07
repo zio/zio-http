@@ -5,7 +5,6 @@ import zio.test._
 
 import zio.http._
 import zio.http.codec.HttpCodec
-import zio.http.codec.HttpCodec.queryAll
 import zio.http.codec.PathCodec.path
 import zio.http.endpoint.Endpoint
 

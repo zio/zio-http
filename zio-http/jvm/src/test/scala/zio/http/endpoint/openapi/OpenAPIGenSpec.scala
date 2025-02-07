@@ -204,7 +204,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   private val queryParamValidationEndpoint =
     Endpoint(GET / "withQuery")
       .in[SimpleInputBody]
-      .query(HttpCodec.queryAll[AgeParam])
+      .query(HttpCodec.query[AgeParam])
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
