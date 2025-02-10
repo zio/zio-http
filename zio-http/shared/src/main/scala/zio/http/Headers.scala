@@ -99,6 +99,7 @@ object Headers {
     value: T,
     iterate: T => Iterator[Header],
     unsafeGet: (T, CharSequence) => String,
+    getAll: (T, CharSequence) => Chunk[String],
     contains: (T, CharSequence) => Boolean,
   ) extends Headers {
     override def contains(key: CharSequence): Boolean = contains(value, key)
@@ -106,6 +107,9 @@ object Headers {
     override def iterator: Iterator[Header] = iterate(value)
 
     override private[http] def getUnsafe(key: CharSequence): String = unsafeGet(value, key)
+
+    override def rawHeaders(name: CharSequence): Chunk[String] = getAll(value, name)
+
   }
 
   private[zio] final case class Concat(first: Headers, second: Headers) extends Headers {
