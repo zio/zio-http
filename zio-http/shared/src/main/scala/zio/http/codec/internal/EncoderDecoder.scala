@@ -16,12 +16,13 @@
 
 package zio.http.codec.internal
 
+import scala.util.Try
+
 import zio._
+
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec._
-
-import scala.util.Try
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
   def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit

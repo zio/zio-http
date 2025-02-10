@@ -27,7 +27,7 @@ import zio.schema.Schema
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec.{StatusCodec, _}
+import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
 /**
