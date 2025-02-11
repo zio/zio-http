@@ -223,18 +223,6 @@ jobs:
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
         run: sbt ci-release
 
-  update_release_draft:
-    name: Release Drafter
-    if: ${{ github.base_ref == 'main' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.10]
-        java: [temurin@8]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: release-drafter/release-drafter@v5
-
   mima_check:
     name: Mima Check
     if: ${{ github.event_name == 'pull_request' }}

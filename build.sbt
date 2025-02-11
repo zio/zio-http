@@ -37,12 +37,6 @@ val coursierSetup =
 ThisBuild / githubWorkflowAddedJobs :=
   Seq(
     WorkflowJob(
-      id = "update_release_draft",
-      name = "Release Drafter",
-      steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
-      cond = Option("${{ github.base_ref == 'main' }}"),
-    ),
-    WorkflowJob(
       id = "mima_check",
       name = "Mima Check",
       steps = List(
