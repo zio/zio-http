@@ -18,10 +18,31 @@ package zio.http.internal
 
 import zio._
 
+import zio.schema.Schema
+import zio.schema.codec.DecodeError
+import zio.schema.validation.ValidationError
+
 import zio.http._
-import zio.http.codec.TextCodec
+import zio.http.codec.{HttpCodecError, TextCodec}
 
 trait QueryGetters[+A] { self: QueryOps[A] =>
+
+  private val errorConstructor = new ErrorConstructor {
+    override def missing(fieldName: String): HttpCodecError =
+      HttpCodecError.MissingQueryParam(fieldName)
+
+    override def missingAll(fieldNames: Chunk[String]): HttpCodecError =
+      HttpCodecError.MissingQueryParams(fieldNames)
+
+    override def invalid(errors: Chunk[ValidationError]): HttpCodecError =
+      HttpCodecError.InvalidEntity.wrap(errors)
+
+    override def malformed(fieldName: String, error: DecodeError): HttpCodecError =
+      HttpCodecError.MalformedQueryParam(fieldName, error)
+
+    override def invalidCount(fieldName: String, expected: Int, actual: Int): HttpCodecError =
+      HttpCodecError.InvalidQueryParamCount(fieldName, expected, actual)
+  }
 
   def queryParameters: QueryParams
 
@@ -34,6 +55,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
   /**
    * Retrieves all typed query parameter values having the specified name.
    */
+  @deprecated("Use query(key)[Chunk[T]", "3.1.0")
   def queryParamsTo[T](key: String)(implicit codec: TextCodec[T]): Either[QueryParamsError, Chunk[T]] =
     for {
       params <- if (hasQueryParam(key)) Right(queryParams(key)) else Left(QueryParamsError.Missing(key))
@@ -48,8 +70,64 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
    * Retrieves all typed query parameter values having the specified name as
    * ZIO.
    */
+  @deprecated("Use queryZIO(key)[Chunk[T]", "3.1.0")
   def queryParamsToZIO[T](key: String)(implicit codec: TextCodec[T]): IO[QueryParamsError, Chunk[T]] =
     ZIO.fromEither(queryParamsTo[T](key))
+
+  /**
+   * Retrieves the query parameter with the specified name as a value of the
+   * specified type. The type must have a schema and can be a primitive type
+   * (e.g. Int, String, UUID, Instant etc.), a case class with a single field or
+   * a collection of either of these.
+   */
+  def query[T](key: String)(implicit schema: Schema[T]): Either[HttpCodecError.QueryParamError, T] =
+    try
+      Right(
+        StringSchemaCodec
+          .queryFromSchema(
+            schema,
+            errorConstructor,
+            key,
+          )
+          .decode(queryParameters),
+      )
+    catch {
+      case e: HttpCodecError.QueryParamError => Left(e)
+    }
+
+  /**
+   * Retrieves query parameters as a value of the specified type. The type must
+   * have a schema and be a case class and all fields must be query parameters.
+   * So fields must be of primitive types (e.g. Int, String, UUID, Instant
+   * etc.), a case class with a single field or a collection of either of these.
+   * Query parameters are selected by field names.
+   */
+  def query[T](implicit schema: Schema[T]): Either[HttpCodecError.QueryParamError, T] =
+    try
+      Right(
+        StringSchemaCodec
+          .queryFromSchema(
+            schema,
+            errorConstructor,
+            null,
+          )
+          .decode(queryParameters),
+      )
+    catch {
+      case e: HttpCodecError.QueryParamError => Left(e)
+    }
+
+  def queryOrElse[T](key: String, default: => T)(implicit schema: Schema[T]): T =
+    query[T](key).getOrElse(default)
+
+  def queryOrElse[T](default: => T)(implicit schema: Schema[T]): T =
+    query[T].getOrElse(default)
+
+  /**
+   * Retrieves all typed query parameter values having the specified name as ZIO
+   */
+  def queryZIO[T](key: String)(implicit schema: Schema[T]): IO[HttpCodecError.QueryParamError, T] =
+    ZIO.fromEither(query[T](key))
 
   /**
    * Retrieves the first query parameter value having the specified name.
@@ -60,6 +138,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
   /**
    * Retrieves the first typed query parameter value having the specified name.
    */
+  @deprecated("Use query(key)[T]", "3.1.0")
   def queryParamTo[T](key: String)(implicit codec: TextCodec[T]): Either[QueryParamsError, T] = for {
     param      <- queryParam(key).toRight(QueryParamsError.Missing(key))
     typedParam <- codec.decode(param).toRight(QueryParamsError.Malformed(key, codec, NonEmptyChunk(param)))
@@ -69,6 +148,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
    * Retrieves the first typed query parameter value having the specified name
    * as ZIO.
    */
+  @deprecated("Use queryZIO(key)[T]", "3.1.0")
   def queryParamToZIO[T](key: String)(implicit codec: TextCodec[T]): IO[QueryParamsError, T] =
     ZIO.fromEither(queryParamTo[T](key))
 
@@ -83,6 +163,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
    * Retrieves all query parameter values having the specified name, or else
    * uses the default iterable.
    */
+  @deprecated("Use queryParamsOrElse(key, default)", "3.1.0")
   def queryParamsToOrElse[T](key: String, default: => Iterable[T])(implicit codec: TextCodec[T]): Chunk[T] =
     queryParamsTo[T](key).getOrElse(Chunk.fromIterable(default))
 
@@ -97,6 +178,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
    * Retrieves the first typed query parameter value having the specified name,
    * or else uses the default value.
    */
+  @deprecated("Use queryParamOrElse(key, default)", "3.1.0")
   def queryParamToOrElse[T](key: String, default: => T)(implicit codec: TextCodec[T]): T =
     queryParamTo[T](key).getOrElse(default)
 

@@ -49,10 +49,10 @@ object TimingAttacksSpec extends ZIOSpecDefault {
       val a = java.lang.System.nanoTime
       sampleUnsorted = (a - b) :: sampleUnsorted
     }
-    val sample = sampleUnsorted.sorted
-    val tail = sample.drop((nOfTries * i).round.toInt)
-    val low  = tail.head
-    val high = tail.drop((nOfTries * (j - i)).round.toInt).head
+    val sample         = sampleUnsorted.sorted
+    val tail           = sample.drop((nOfTries * i).round.toInt)
+    val low            = tail.head
+    val high           = tail.drop((nOfTries * (j - i)).round.toInt).head
     (low, high)
   }
 

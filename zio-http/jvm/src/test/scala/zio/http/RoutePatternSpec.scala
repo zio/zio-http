@@ -230,9 +230,10 @@ object RoutePatternSpec extends ZIOHttpSpec {
         var tree: Tree[Int] = RoutePattern.Tree.empty
 
         val pattern1 = Method.GET / "users" / "123"
-        val pattern2 = Method.GET / "users" / trailing
+        val pattern2 = Method.GET / "users" / trailing / "123"
 
         tree = tree.add(pattern2, 2)
+        println(tree.get(Method.GET, Path("/users/bla/123")))
         tree = tree.add(pattern1, 1)
 
         assertTrue(tree.get(Method.GET, Path("/users/123")).contains(1))

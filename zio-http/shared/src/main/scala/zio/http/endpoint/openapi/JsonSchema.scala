@@ -253,6 +253,16 @@ object JsonSchema {
       .toOption
       .get
 
+  def fromTextCodec(codec: TextCodec[_]): JsonSchema =
+    codec match {
+      case TextCodec.Constant(string) => JsonSchema.Enum(Chunk(EnumValue.Str(string)))
+      case TextCodec.StringCodec      => JsonSchema.String()
+      case TextCodec.IntCodec         => JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)
+      case TextCodec.LongCodec        => JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)
+      case TextCodec.BooleanCodec     => JsonSchema.Boolean
+      case TextCodec.UUIDCodec        => JsonSchema.String(JsonSchema.StringFormat.UUID)
+    }
+
   private[openapi] def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
 
     val definedAttributesCount = schema.productIterator.count(_.asInstanceOf[Option[_]].isDefined)
@@ -388,16 +398,6 @@ object JsonSchema {
       jsonSchema
     }
   }
-
-  def fromTextCodec(codec: TextCodec[_]): JsonSchema =
-    codec match {
-      case TextCodec.Constant(string) => JsonSchema.Enum(Chunk(EnumValue.Str(string)))
-      case TextCodec.StringCodec      => JsonSchema.String()
-      case TextCodec.IntCodec         => JsonSchema.Integer(JsonSchema.IntegerFormat.Int32)
-      case TextCodec.LongCodec        => JsonSchema.Integer(JsonSchema.IntegerFormat.Int64)
-      case TextCodec.BooleanCodec     => JsonSchema.Boolean
-      case TextCodec.UUIDCodec        => JsonSchema.String(JsonSchema.StringFormat.UUID)
-    }
 
   def fromSegmentCodec(codec: SegmentCodec[_]): JsonSchema =
     codec match {
