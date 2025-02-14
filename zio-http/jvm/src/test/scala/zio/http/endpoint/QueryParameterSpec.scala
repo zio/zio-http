@@ -46,7 +46,7 @@ object QueryParameterSpec extends ZIOHttpSpec {
         val testRoutes = testEndpoint(
           Routes(
             Endpoint(GET / "users")
-              .query(HttpCodec.queryAll[Params])
+              .query(HttpCodec.query[Params])
               .out[String]
               .implementPurely(_.toString),
           ),

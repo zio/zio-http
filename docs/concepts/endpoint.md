@@ -26,7 +26,7 @@ val endpoint =
   // typed path parameter "user"
   Endpoint(Method.GET / "hello" / string("user"))
     // reads the two query parameters city and age from the request and validates the age
-    .query(HttpCodec.queryAll[UserParams])
+    .query(HttpCodec.query[UserParams])
     // support for HTML templates included
     .out[Dom]
 
