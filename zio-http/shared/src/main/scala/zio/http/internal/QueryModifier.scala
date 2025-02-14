@@ -18,6 +18,8 @@ package zio.http.internal
 
 import zio.Chunk
 
+import zio.schema.Schema
+
 import zio.http.QueryParams
 
 trait QueryModifier[+A] { self: QueryOps[A] with A =>
@@ -51,6 +53,12 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
         k -> Chunk.fromIterable(v).map(_._2)
       }),
     )
+
+  def addQueryParam[T](key: String, value: T)(implicit schema: Schema[T]): A =
+    self ++ StringSchemaCodec.queryFromSchema(schema, ErrorConstructor.query, key).encode(value, queryParameters)
+
+  def addQueryParam[T](value: T)(implicit schema: Schema[T]): A =
+    self ++ StringSchemaCodec.queryFromSchema(schema, ErrorConstructor.query, null).encode(value, queryParameters)
 
   /**
    * Removes the specified key from the query parameters.

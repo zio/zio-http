@@ -15,38 +15,35 @@
  */
 
 package zio.http.codec
-import zio.Chunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema.Schema
-import zio.schema.codec.DecodeError
-import zio.schema.validation.ValidationError
 
 import zio.http.internal.{ErrorConstructor, StringSchemaCodec}
 
 private[codec] trait QueryCodecs {
 
-  private val errorConstructor = new ErrorConstructor {
-    override def missing(fieldName: String): HttpCodecError =
-      HttpCodecError.MissingQueryParam(fieldName)
-
-    override def missingAll(fieldNames: Chunk[String]): HttpCodecError =
-      HttpCodecError.MissingQueryParams(fieldNames)
-
-    override def invalid(errors: Chunk[ValidationError]): HttpCodecError =
-      HttpCodecError.InvalidEntity.wrap(errors)
-
-    override def malformed(fieldName: String, error: DecodeError): HttpCodecError =
-      HttpCodecError.MalformedQueryParam(fieldName, error)
-
-    override def invalidCount(fieldName: String, expected: Int, actual: Int): HttpCodecError =
-      HttpCodecError.InvalidQueryParamCount(fieldName, expected, actual)
-  }
-
+  /**
+   * Retrieves the query parameter with the specified name as a value of the
+   * specified type. The type must have a schema and can be a primitive type
+   * (e.g. Int, String, UUID, Instant etc.), a case class with a single field or
+   * a collection of either of these.
+   */
   def query[A](name: String)(implicit schema: Schema[A]): QueryCodec[A] =
-    HttpCodec.Query(StringSchemaCodec.queryFromSchema[A](schema, errorConstructor, name))
+    HttpCodec.Query(StringSchemaCodec.queryFromSchema[A](schema, ErrorConstructor.query, name))
 
+  /**
+   * Retrieves query parameters as a value of the specified type. The type must
+   * have a schema and be a case class and all fields must be query parameters.
+   * So fields must be of primitive types (e.g. Int, String, UUID, Instant
+   * etc.), a case class with a single field or a collection of either of these.
+   * Query parameters are selected by field names.
+   */
+  def query[A](implicit schema: Schema[A]): QueryCodec[A] =
+    HttpCodec.Query(StringSchemaCodec.queryFromSchema[A](schema, ErrorConstructor.query, null))
+
+  @deprecated("Use query[A] instead", "3.1.0")
   def queryAll[A](implicit schema: Schema[A]): QueryCodec[A] =
-    HttpCodec.Query(StringSchemaCodec.queryFromSchema[A](schema, errorConstructor, null))
+    query[A]
 
 }
