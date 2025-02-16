@@ -6,7 +6,8 @@ import java.util.{Currency, UUID}
 import scala.annotation.tailrec
 import scala.util.Try
 
-import zio.{Cause, Chunk, Unsafe}
+import zio.prelude.{NonEmptyList, NonEmptySet}
+import zio.{Cause, Chunk, NonEmptyChunk, Unsafe}
 
 import zio.schema.codec.DecodeError
 import zio.schema.validation.{Validation, ValidationError}
@@ -22,6 +23,43 @@ private[http] trait ErrorConstructor {
   def invalid(errors: Chunk[ValidationError]): HttpCodecError
   def malformed(fieldName: String, error: DecodeError): HttpCodecError
   def invalidCount(fieldName: String, expected: Int, actual: Int): HttpCodecError
+}
+
+private[http] object ErrorConstructor {
+  private[http] val query = new ErrorConstructor {
+    override def missing(fieldName: String): HttpCodecError =
+      HttpCodecError.MissingQueryParam(fieldName)
+
+    override def missingAll(fieldNames: Chunk[String]): HttpCodecError =
+      HttpCodecError.MissingQueryParams(fieldNames)
+
+    override def invalid(errors: Chunk[ValidationError]): HttpCodecError =
+      HttpCodecError.InvalidEntity.wrap(errors)
+
+    override def malformed(fieldName: String, error: DecodeError): HttpCodecError =
+      HttpCodecError.MalformedQueryParam(fieldName, error)
+
+    override def invalidCount(fieldName: String, expected: Int, actual: Int): HttpCodecError =
+      HttpCodecError.InvalidQueryParamCount(fieldName, expected, actual)
+  }
+
+  private[http] val header = new ErrorConstructor {
+    override def missing(fieldName: String): HttpCodecError =
+      HttpCodecError.MissingHeader(fieldName)
+
+    override def missingAll(fieldNames: Chunk[String]): HttpCodecError =
+      HttpCodecError.MissingHeaders(fieldNames)
+
+    override def invalid(errors: Chunk[ValidationError]): HttpCodecError =
+      HttpCodecError.InvalidEntity.wrap(errors)
+
+    override def malformed(fieldName: String, error: DecodeError): HttpCodecError =
+      HttpCodecError.DecodingErrorHeader(fieldName, error)
+
+    override def invalidCount(fieldName: String, expected: Int, actual: Int): HttpCodecError =
+      HttpCodecError.InvalidHeaderCount(fieldName, expected, actual)
+  }
+
 }
 
 private[http] trait StringSchemaCodec[A, Target] {
@@ -172,7 +210,7 @@ private[http] trait StringSchemaCodec[A, Target] {
         val (field, codec) = fieldIt.next()
         val name           = field.fieldName
         val value          = fieldValuesIt.next() match {
-          case Some(value) => value
+          case Some(value) => nonEmptyAsIterable(value)
           case None        => field.defaultValue
         }
         value match {
@@ -187,6 +225,12 @@ private[http] trait StringSchemaCodec[A, Target] {
     }
   }
 
+  private def nonEmptyAsIterable(value: Any): Any = value match {
+    case c: NonEmptyChunk[_] => c.toChunk
+    case s: NonEmptySet[_]   => s.toSet
+    case l: NonEmptyList[_]  => l.toList
+    case it                  => it
+  }
   private[http] def optional: StringSchemaCodec[Option[A], Target]
 
 }
@@ -269,38 +313,52 @@ private[http] object StringSchemaCodec {
   object PrimitiveCodec {
 
     private[http] def primitiveSchemaDecoder[A](schema: Schema[A]): String => A = schema match {
-      case Schema.Optional(schema, _)           =>
+      case Schema.Optional(schema, _)                =>
         primitiveSchemaDecoder(schema).andThen(Some(_)).asInstanceOf[String => A]
-      case Schema.Transform(schema, f, _, _, _) =>
+      case Schema.Transform(schema, f, _, _, _)      =>
         primitiveSchemaDecoder(schema).andThen {
           f(_) match {
             case Left(value)  => throw new IllegalArgumentException(value)
             case Right(value) => value
           }
         }.asInstanceOf[String => A]
-      case Schema.Primitive(standardType, _)    =>
+      case Schema.Primitive(standardType, _)         =>
         parsePrimitive(standardType.asInstanceOf[StandardType[Any]]).asInstanceOf[String => A]
-      case Schema.Lazy(schema0)                 =>
+      case Schema.Lazy(schema0)                      =>
         primitiveSchemaDecoder(schema0()).asInstanceOf[String => A]
-      case _                                    => throw new IllegalArgumentException(s"Unsupported schema $schema")
+      case r: Schema.Record[A] if r.fields.size == 1 =>
+        val field   = r.fields.head
+        val codec   = PrimitiveCodec(field.schema).asInstanceOf[PrimitiveCodec[Any]]
+        val decoder = codec.decode.asInstanceOf[String => Any]
+        (s: String) =>
+          r.construct(Chunk(decoder(s)))(Unsafe.unsafe) match {
+            case Left(value)  => throw new IllegalArgumentException(value)
+            case Right(value) => value.asInstanceOf[A]
+          }
+      case _ => throw new IllegalArgumentException(s"Unsupported schema $schema")
     }
 
     private[http] def primitiveSchemaEncoder[A](schema: Schema[A]): A => String = schema match {
-      case Schema.Optional(schema, _)           =>
+      case Schema.Optional(schema, _)                =>
         val innerEncoder: Any => String = primitiveSchemaEncoder(schema.asInstanceOf[Schema[Any]])
         (a: A) => if (a.isInstanceOf[None.type]) null else innerEncoder(a.asInstanceOf[Some[Any]].get)
-      case Schema.Transform(schema, f, _, _, _) =>
+      case Schema.Transform(schema, f, _, _, _)      =>
         val innerEncoder: Any => String = primitiveSchemaEncoder(schema.asInstanceOf[Schema[Any]])
         (a: A) =>
           f.asInstanceOf[Any => Either[String, Any]](a.asInstanceOf[Any]) match {
             case Left(value)  => throw new IllegalArgumentException(value)
             case Right(value) => innerEncoder(value)
           }
-      case Schema.Lazy(schema0)                 =>
+      case Schema.Lazy(schema0)                      =>
         primitiveSchemaEncoder(schema0()).asInstanceOf[A => String]
-      case Schema.Primitive(_, _)               =>
+      case Schema.Primitive(_, _)                    =>
         (a: A) => a.toString
-      case _                                    =>
+      case r: Schema.Record[A] if r.fields.size == 1 =>
+        val field   = r.fields.head
+        val codec   = PrimitiveCodec(field.schema).asInstanceOf[PrimitiveCodec[Any]]
+        val encoder = codec.encode.asInstanceOf[Any => String]
+        (a: A) => encoder(field.get(a))
+      case _                                         =>
         throw new IllegalArgumentException(s"Unsupported schema $schema")
     }
   }
@@ -393,33 +451,35 @@ private[http] object StringSchemaCodec {
           StringSchemaCodec.isOptionalSchema(schema0)
       }
     schema0 match {
-      case s @ Schema.Primitive(_, _)               =>
+      case s @ Schema.Primitive(_, _)                                  =>
         stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
-      case s @ Schema.Optional(schema, _)           =>
+      case s @ Schema.Optional(schema, _)                              =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
             stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
           case s if s.isInstanceOf[Schema.Record[_]] => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
           case _                                     => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
-      case s @ Schema.Transform(schema, _, _, _, _) =>
+      case s @ Schema.Transform(schema, _, _, _, _)                    =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
             stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
           case _: Schema.Record[_]                                 => stringSchemaCodec(s.asInstanceOf[Schema[Any]])
           case _ => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
-      case Schema.Lazy(schema0)                     =>
+      case Schema.Lazy(schema0)                                        =>
         headerFromSchema(
           schema0().asInstanceOf[Schema[A]],
           error0,
           name,
         )
-      case _: Schema.Collection[_, _]               =>
+      case _: Schema.Collection[_, _]                                  =>
         stringSchemaCodec(recordSchema(schema0.asInstanceOf[Schema[Any]], name))
-      case s: Schema.Record[_]                      =>
+      case s: Schema.Record[_] if s.fields.size == 1 && (name ne null) =>
+        stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
+      case s: Schema.Record[_]                                         =>
         stringSchemaCodec(s.asInstanceOf[Schema[Any]])
-      case _                                        =>
+      case _                                                           =>
         throw new IllegalArgumentException(s"Unsupported schema $schema0")
 
     }
@@ -470,33 +530,35 @@ private[http] object StringSchemaCodec {
           StringSchemaCodec.isOptionalSchema(schema0)
       }
     schema0 match {
-      case s @ Schema.Primitive(_, _)               =>
+      case s @ Schema.Primitive(_, _)                                  =>
         stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
-      case s @ Schema.Optional(schema, _)           =>
+      case s @ Schema.Optional(schema, _)                              =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
             stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
           case s if s.isInstanceOf[Schema.Record[_]] => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
           case _                                     => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
-      case s @ Schema.Transform(schema, _, _, _, _) =>
+      case s @ Schema.Transform(schema, _, _, _, _)                    =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
             stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
           case _: Schema.Record[_]                                 => stringSchemaCodec(s.asInstanceOf[Schema[Any]])
           case _ => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
-      case Schema.Lazy(schema0)                     =>
+      case Schema.Lazy(schema0)                                        =>
         queryFromSchema(
           schema0().asInstanceOf[Schema[A]],
           error0,
           name,
         )
-      case _: Schema.Collection[_, _]               =>
+      case _: Schema.Collection[_, _]                                  =>
         stringSchemaCodec(recordSchema(schema0.asInstanceOf[Schema[Any]], name))
-      case s: Schema.Record[_]                      =>
+      case s: Schema.Record[_] if s.fields.size == 1 && (name ne null) =>
+        stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
+      case s: Schema.Record[_]                                         =>
         stringSchemaCodec(s.asInstanceOf[Schema[Any]])
-      case _                                        =>
+      case _                                                           =>
         throw new IllegalArgumentException(s"Unsupported schema $schema0")
 
     }

@@ -183,7 +183,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       },
       test("simple get with query params from case class") {
         val endpoint = Endpoint(GET / "query")
-          .query(HttpCodec.queryAll[Params])
+          .query(HttpCodec.query[Params])
           .out[Params]
         val route    = endpoint.implementPurely(params => params)
 
@@ -246,7 +246,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .query(HttpCodec.query[Int]("id"))
             .query(HttpCodec.query[String]("name").optional)
             .query(HttpCodec.query[String]("details").optional)
-            .query(HttpCodec.queryAll[Age].optional)
+            .query(HttpCodec.query[Age].optional)
             .out[PostWithAge]
 
         val handler =
@@ -269,7 +269,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .query(HttpCodec.query[Int]("id"))
             .query(HttpCodec.query[String]("name").optional)
             .query(HttpCodec.query[String]("details").optional)
-            .query(HttpCodec.queryAll[Age].optional)
+            .query(HttpCodec.query[Age].optional)
             .out[PostWithAge]
 
         val handler =

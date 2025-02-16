@@ -163,7 +163,7 @@ val uuidQueryCodec  : QueryCodec[UUID]           = HttpCodec.query[UUID]("uuid")
 We can combine multiple query codecs with `++`:
 
 
-If we have multiple query parameters we can use `HttpCodec.queryAll`, `HttpCodec.queryAllBool`, `HttpCodec.queryAllInt`, and `HttpCodec.queryAllTo`:
+If we have multiple query parameter values we can use `HttpCodec.query[A]` with a collection for the type parameter.
 
 ```scala mdoc:compile-only
 import zio._
