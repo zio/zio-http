@@ -418,7 +418,7 @@ private[http] object StringSchemaCodec {
         override def schema: Schema[A] = schema1.asInstanceOf[Schema[A]]
 
         override private[http] def add(headers: Headers, key: String, value: String): Headers =
-          headers.addHeader(key, value)
+          headers.addHeaders(Headers.apply(key, value))
 
         override private[http] def addAll(headers: Headers, kvs: Iterable[(String, String)]): Headers =
           headers.addHeaders(kvs)
