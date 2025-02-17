@@ -138,7 +138,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
       port <- Server.install(route)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
-        .service[EndpointExecutor[Any, Unit]]
+        .service[EndpointExecutor[Any, Unit, Scope]]
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
