@@ -1,13 +1,13 @@
 import sbt.*
 
 object Dependencies {
-  val JwtCoreVersion                = "10.0.1"
+  val JwtCoreVersion                = "10.0.4"
   val NettyVersion                  = "4.1.118.Final"
   val NettyIncubatorVersion         = "0.0.26.Final"
   val ScalaCompactCollectionVersion = "2.12.0"
-  val ZioVersion                    = "2.1.11"
+  val ZioVersion                    = "2.1.15"
   val ZioCliVersion                 = "0.5.0"
-  val ZioJsonVersion                = "0.7.12"
+  val ZioJsonVersion                = "0.7.21"
   val ZioParserVersion              = "0.1.10"
   val ZioSchemaVersion              = "1.6.1"
   val SttpVersion                   = "3.3.18"
@@ -29,7 +29,7 @@ object Dependencies {
       "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion,
       "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion classifier "osx-x86_64",
       "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion classifier "osx-aarch_64",
-      "com.aayushatharva.brotli4j" % "brotli4j"                      % "1.16.0" % "provided",
+      "com.aayushatharva.brotli4j" % "brotli4j"                      % "1.18.0" % "provided",
     )
 
   val `netty-incubator` =
