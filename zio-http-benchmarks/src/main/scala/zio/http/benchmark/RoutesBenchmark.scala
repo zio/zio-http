@@ -4,8 +4,6 @@ import java.util.concurrent.TimeUnit
 
 import scala.util.Random
 
-import zio.{Runtime, Unsafe, ZIO}
-
 import zio.http.endpoint.Endpoint
 import zio.http.{Handler, Method, Request, Routes}
 

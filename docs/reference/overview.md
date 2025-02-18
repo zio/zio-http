@@ -31,7 +31,7 @@ object ExampleServer extends ZIOAppDefault {
     Method.GET / "greet" ->
             // The handler is a function that takes a Request and returns a Response
             handler { (req: Request) =>
-              val name = req.queryParamToOrElse("name", "World")
+              val name = req.queryOrElse[String]("name", "World")
               Response.text(s"Hello $name!")
             }
 
