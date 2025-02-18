@@ -198,8 +198,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0",
+      "io.github.cquiroz" %%% "scala-java-time"      % "2.6.0",
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.6.0",
       "org.scala-js"      %%% "scalajs-dom"          % "2.8.0",
       "dev.zio"           %%% "zio-test"             % ZioVersion % "test",
       "dev.zio"           %%% "zio-test-sbt"         % ZioVersion % "test",
