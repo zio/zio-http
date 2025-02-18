@@ -24,6 +24,6 @@ object MimaSettings {
         exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.this"),
         exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.copy"),
       ),
-      mimaFailOnProblem := failOnProblem
+      mimaFailOnProblem := failOnProblem,
     )
 }

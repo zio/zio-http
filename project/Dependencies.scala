@@ -16,7 +16,7 @@ object Dependencies {
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
 
-  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.8.6"
+  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.0"
   val scalametaParsers = "org.scalameta" %% "parsers"          % "4.12.7"
 
   val netty =

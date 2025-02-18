@@ -51,7 +51,7 @@ ThisBuild / githubWorkflowAddedJobs :=
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
 ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
-ThisBuild / githubWorkflowPublish       :=
+ThisBuild / githubWorkflowPublish         :=
   Seq(
     WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
     WorkflowStep.Sbt(
@@ -80,7 +80,7 @@ ThisBuild / githubWorkflowPublish       :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble := Seq(
+ThisBuild / githubWorkflowBuildPreamble   := Seq(
   coursierSetup,
   WorkflowStep.Run(
     name = Some("Check formatting"),
