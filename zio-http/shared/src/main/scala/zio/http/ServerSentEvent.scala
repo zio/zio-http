@@ -57,7 +57,7 @@ final case class ServerSentEvent[T](
       sb.append("id: ").append(i.linesIterator.mkString(" ")).append('\n')
     }
     retry.foreach { r =>
-      sb.append("retry: ").append(r).append('\n')
+      sb.append("retry: ").append(r.toMillis).append('\n')
     }
     sb.append('\n').toString
   }
