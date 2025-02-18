@@ -1,8 +1,9 @@
 package zio.http
 
-import zio.{durationInt, Chunk, Scope, ULayer, URIO, ZIO, ZLayer}
+import zio._
+import zio.test.{Spec, TestEnvironment, TestResult, assertTrue}
+
 import zio.stream.ZStream
-import zio.test.{assertTrue, Spec, TestEnvironment, TestResult}
 
 object ClientServerSentEventSpec extends ZIOHttpSpec {
   val serverLayer: ULayer[Server] =

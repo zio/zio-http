@@ -16,14 +16,18 @@
 
 package zio.http
 
+import java.nio.charset.StandardCharsets
+
+import scala.util.Try
+
 import zio._
-import zio.http.codec._
-import zio.schema.{DeriveSchema, Schema}
-import zio.schema.codec._
+
 import zio.stream.ZPipeline
 
-import java.nio.charset.StandardCharsets
-import scala.util.Try
+import zio.schema.codec._
+import zio.schema.{DeriveSchema, Schema}
+
+import zio.http.codec._
 
 /**
  * Server-Sent Event (SSE) as defined by
