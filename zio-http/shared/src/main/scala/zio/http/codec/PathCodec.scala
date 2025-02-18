@@ -770,19 +770,22 @@ object PathCodec {
   ) {
     self =>
     def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] = {
-      val newLiterals          = mergeMaps(self.literals, that.literals)(_ ++ _)
-      val newOthers            = mergeMaps(self.others, that.others)(_ ++ _)
-      val newLiteralCollisions = mergeLiteralCollisions(
-        self.literalsWithCollisions ++ that.literalsWithCollisions,
-        newLiterals.keySet,
-        newOthers.keys,
-      )
-      SegmentSubtree(
-        Map(newLiterals.toList: _*),
-        ListMap(newOthers.toList: _*),
-        newLiteralCollisions,
-        self.value ++ that.value,
-      )
+      if (that eq null) self
+      else {
+        val newLiterals          = mergeMaps(self.literals, that.literals)(_ ++ _)
+        val newOthers            = mergeMaps(self.others, that.others)(_ ++ _)
+        val newLiteralCollisions = mergeLiteralCollisions(
+          self.literalsWithCollisions ++ that.literalsWithCollisions,
+          newLiterals.keySet,
+          newOthers.keys,
+        )
+        SegmentSubtree(
+          Map(newLiterals.toList: _*),
+          ListMap(newOthers.toList: _*),
+          newLiteralCollisions,
+          self.value ++ that.value,
+        )
+      }
     }
 
     def add[A1 >: A](segments: Iterable[SegmentCodec[_]], value: A1): SegmentSubtree[A1] =
