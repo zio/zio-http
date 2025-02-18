@@ -590,6 +590,44 @@ jobs:
           name: Jmh_Main_HttpRouteTextPerf
           path: Main_HttpRouteTextPerf.txt
 
+  Jmh_MethodLookupBenchmark:
+    name: Jmh MethodLookupBenchmark
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.16]
+        java: [temurin@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
+          cat > Main_MethodLookupBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 MethodLookupBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_MethodLookupBenchmark.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jmh_Main_MethodLookupBenchmark
+          path: Main_MethodLookupBenchmark.txt
+
   Jmh_ProbeContentTypeBenchmark:
     name: Jmh ProbeContentTypeBenchmark
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -820,7 +858,7 @@ jobs:
 
   Jmh_cache:
     name: Cache Jmh benchmarks
-    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_MethodLookupBenchmark, Jmh_ProbeContentTypeBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     strategy:
       matrix:
@@ -884,6 +922,13 @@ jobs:
 
       - name: Format_Main_HttpRouteTextPerf
         run: cat Main_HttpRouteTextPerf.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Jmh_Main_MethodLookupBenchmark
+
+      - name: Format_Main_MethodLookupBenchmark
+        run: cat Main_MethodLookupBenchmark.txt >> Main_benchmarks.txt
 
       - uses: actions/download-artifact@v4
         with:
