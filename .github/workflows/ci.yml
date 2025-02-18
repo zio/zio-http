@@ -77,6 +77,9 @@ jobs:
           java-version: 21
           cache: sbt
 
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
+
       - uses: coursier/setup-action@v1
         with:
           apps: sbt
@@ -165,6 +168,9 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: sbt
+
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
 
       - name: Download target directories (2.12.20)
         uses: actions/download-artifact@v4
@@ -257,7 +263,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -293,7 +299,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -331,7 +337,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -369,7 +375,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -407,7 +413,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -445,7 +451,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -483,7 +489,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -521,7 +527,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -559,7 +565,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -635,7 +641,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -673,7 +679,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -711,7 +717,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -749,7 +755,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -787,7 +793,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -825,7 +831,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -864,7 +870,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.10]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/download-artifact@v4
@@ -998,7 +1004,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Clean up
@@ -1077,7 +1083,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Clean up
