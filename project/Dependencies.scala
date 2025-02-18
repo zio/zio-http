@@ -5,7 +5,7 @@ object Dependencies {
   val NettyVersion                  = "4.1.118.Final"
   val NettyIncubatorVersion         = "0.0.26.Final"
   val ScalaCompactCollectionVersion = "2.12.0"
-  val ZioVersion                    = "2.1.11"
+  val ZioVersion                    = "2.1.15"
   val ZioCliVersion                 = "0.5.0"
   val ZioJsonVersion                = "0.7.12"
   val ZioParserVersion              = "0.1.10"
