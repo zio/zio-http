@@ -26,17 +26,19 @@ object ClientServerSentEventSpec extends ZIOHttpSpec {
     for {
       client <- ZStream.service[Client]
       port   <- ZStream.serviceWithZIO[Server](_.port)
-      // Routes install is taking place on a separate fiber, wait a bit for new route to be ready
-      id     <- ZStream.fromZIO(serve(data) <* zio.test.live(zio.Clock.sleep(10.milliseconds)))
-      events <-
+      id     <- ZStream.fromZIO(serve(data))
+      request =
         client
           .host("localhost")
           .port(port)
           .scheme(Scheme.HTTP)
           .addHeader(Header.Accept(MediaType.text.`event-stream`))
-          .stream(
-            Request(method = Method.GET, url = url"/sse/$id", body = Body.empty),
-          )(_.body.asServerSentEvents[String])
+          .request(Request(method = Method.GET, url = url"/sse/$id", body = Body.empty))
+          // Routes install is taking place on a separate fiber, retry if client requests before it is done
+          .filterOrFail(_.status == Status.Ok)(new RuntimeException("Failed to install test route"))
+          .retry(Schedule.recurs(20).addDelay(_ => 50.milliseconds))
+          .map(_.body.asServerSentEvents[String])
+      events <- ZStream.unwrapScoped(zio.test.live(request))
     } yield events
 
   def assertEvents(
