@@ -23,6 +23,7 @@ import zio.schema.codec._
 import zio.stream.ZPipeline
 
 import java.nio.charset.StandardCharsets
+import scala.util.Try
 
 /**
  * Server-Sent Event (SSE) as defined by
@@ -87,7 +88,7 @@ object ServerSentEvent {
               case ((true, _), "")        => true  -> Chunk.empty
               case ((true, _), line)      => false -> Chunk(line)
               case ((false, lines), "")   => true  -> lines
-              case ((false, lines), line) => false -> lines.appended(line)
+              case ((false, lines), line) => false -> (lines :+ line)
             }
             .filter { case (completed, event) => completed && event.nonEmpty }
             .map { case (_, lines) => processEvent(lines) }
@@ -98,8 +99,8 @@ object ServerSentEvent {
         lines.foldLeft(ServerSentEvent(data = Chunk.empty[String])) { case (event, line) =>
           val fieldType = "(data|event|id|retry)(:|$)".r.findPrefixOf(line)
           fieldType match {
-            case Some("data:")  => event.copy(data = event.data.appended(line.replaceFirst("data: ?", "")))
-            case Some("data")   => event.copy(data = event.data.appended(""))
+            case Some("data:")  => event.copy(data = event.data :+ line.replaceFirst("data: ?", ""))
+            case Some("data")   => event.copy(data = event.data :+ "")
             case Some("event:") =>
               event.copy(eventType = Some(line.replaceFirst("event: ?", "")).filter(_.nonEmpty))
             case Some("event")  => event.copy(eventType = None)
@@ -107,7 +108,7 @@ object ServerSentEvent {
               event.copy(retry =
                 Some(line.replaceFirst("retry: ?", ""))
                   .filter(_.nonEmpty)
-                  .flatMap(_.toIntOption)
+                  .flatMap(retry => Try(retry.toInt).toOption)
                   .map(_.milliseconds),
               )
             case Some("retry")  => event.copy(retry = None)
