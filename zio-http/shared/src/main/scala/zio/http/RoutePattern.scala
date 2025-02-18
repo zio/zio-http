@@ -162,9 +162,33 @@ object RoutePattern                                                       {
   /**
    * A tree of route patterns, indexed by method and path.
    */
-  private[http] final case class Tree[+A](roots: ListMap[Method, SegmentSubtree[A]]) { self =>
+  private[http] final case class Tree[+A](
+    anyRoot: SegmentSubtree[A],
+    connectRoot: SegmentSubtree[A],
+    deleteRoot: SegmentSubtree[A],
+    getRoot: SegmentSubtree[A],
+    headRoot: SegmentSubtree[A],
+    optionsRoot: SegmentSubtree[A],
+    patchRoot: SegmentSubtree[A],
+    postRoot: SegmentSubtree[A],
+    putRoot: SegmentSubtree[A],
+    traceRoot: SegmentSubtree[A],
+    customRoots: Map[Method, SegmentSubtree[A]],
+  ) { self =>
     def ++[A1 >: A](that: Tree[A1]): Tree[A1] =
-      Tree(mergeMaps(self.roots, that.roots)(_ ++ _))
+      Tree(
+        if (self.anyRoot != null) self.anyRoot ++ that.anyRoot else that.anyRoot,
+        if (self.connectRoot != null) self.connectRoot ++ that.connectRoot else that.connectRoot,
+        if (self.deleteRoot != null) self.deleteRoot ++ that.deleteRoot else that.deleteRoot,
+        if (self.getRoot != null) self.getRoot ++ that.getRoot else that.getRoot,
+        if (self.headRoot != null) self.headRoot ++ that.headRoot else that.headRoot,
+        if (self.optionsRoot != null) self.optionsRoot ++ that.optionsRoot else that.optionsRoot,
+        if (self.patchRoot != null) self.patchRoot ++ that.patchRoot else that.patchRoot,
+        if (self.postRoot != null) self.postRoot ++ that.postRoot else that.postRoot,
+        if (self.putRoot != null) self.putRoot ++ that.putRoot else that.putRoot,
+        if (self.traceRoot != null) self.traceRoot ++ that.traceRoot else that.traceRoot,
+        mergeMaps(self.customRoots, that.customRoots)(_ ++ _),
+      )
 
     def add[A1 >: A](routePattern: RoutePattern[_], value: A1): Tree[A1] =
       self ++ Tree(routePattern, value)
@@ -174,15 +198,28 @@ object RoutePattern                                                       {
         tree.add(p, v)
       }
 
-    private val wildcardsTree = roots.getOrElse(Method.ANY, null)
-
     def get(method: Method, path: Path): Chunk[A] = {
-      val forMethod = roots.getOrElse(method, null) match {
-        case null  => Chunk.empty
-        case value => value.get(path)
+      val forMethod = {
+        method match {
+          case Method.GET if getRoot != null               => getRoot.get(path)
+          case Method.POST if postRoot != null             => postRoot.get(path)
+          case Method.PUT if putRoot != null               => putRoot.get(path)
+          case Method.DELETE if deleteRoot != null         => deleteRoot.get(path)
+          case Method.CONNECT if connectRoot != null       => connectRoot.get(path)
+          case Method.HEAD if headRoot != null             => headRoot.get(path)
+          case Method.OPTIONS if optionsRoot != null       => optionsRoot.get(path)
+          case Method.PATCH if patchRoot != null           => patchRoot.get(path)
+          case Method.TRACE if traceRoot != null           => traceRoot.get(path)
+          case Method.ANY if anyRoot != null               => anyRoot.get(path)
+          case m: Method.CUSTOM if customRoots.contains(m) => customRoots(m).get(path)
+          case _                                           => Chunk.empty
+        }
       }
-      if (wildcardsTree eq null) forMethod
-      else forMethod ++ wildcardsTree.get(path)
+
+      if (anyRoot eq null) forMethod
+      else {
+        forMethod ++ anyRoot.get(path)
+      }
     }
 
     private[http] def getAllMethods(path: Path): Set[Method] = {
@@ -192,23 +229,57 @@ object RoutePattern                                                       {
     }
 
     def map[B](f: A => B): Tree[B] =
-      Tree(roots.map { case (k, v) =>
-        k -> v.map(f)
-      })
+      Tree(
+        if (anyRoot != null) anyRoot.map(f) else null,
+        if (connectRoot != null) connectRoot.map(f) else null,
+        if (deleteRoot != null) deleteRoot.map(f) else null,
+        if (getRoot != null) getRoot.map(f) else null,
+        if (headRoot != null) headRoot.map(f) else null,
+        if (optionsRoot != null) optionsRoot.map(f) else null,
+        if (patchRoot != null) patchRoot.map(f) else null,
+        if (postRoot != null) postRoot.map(f) else null,
+        if (putRoot != null) putRoot.map(f) else null,
+        if (traceRoot != null) traceRoot.map(f) else null,
+        customRoots.map { case (k, v) => k -> v.map(f) },
+      )
   }
-  private[http] object Tree                                                          {
+  private[http] object Tree {
     def apply[A](routePattern: RoutePattern[_], value: A): Tree[A] = {
       val segments = routePattern.pathCodec.segments
 
       val subtree = SegmentSubtree.single(segments, value)
 
-      Tree(ListMap(routePattern.method -> subtree))
+      routePattern.method match {
+        case Method.GET       => Tree.empty.copy(getRoot = subtree)
+        case Method.POST      => Tree.empty.copy(postRoot = subtree)
+        case Method.PUT       => Tree.empty.copy(putRoot = subtree)
+        case Method.DELETE    => Tree.empty.copy(deleteRoot = subtree)
+        case Method.CONNECT   => Tree.empty.copy(connectRoot = subtree)
+        case Method.HEAD      => Tree.empty.copy(headRoot = subtree)
+        case Method.OPTIONS   => Tree.empty.copy(optionsRoot = subtree)
+        case Method.PATCH     => Tree.empty.copy(patchRoot = subtree)
+        case Method.TRACE     => Tree.empty.copy(traceRoot = subtree)
+        case Method.ANY       => Tree.empty.copy(anyRoot = subtree)
+        case m: Method.CUSTOM => Tree.empty.copy(customRoots = ListMap(m -> subtree))
+      }
     }
 
-    val empty: Tree[Nothing] = Tree(ListMap.empty)
+    val empty: Tree[Nothing] = Tree(
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      Map.empty,
+    )
   }
 
-  private def mergeMaps[A, B](left: ListMap[A, B], right: ListMap[A, B])(f: (B, B) => B): ListMap[A, B] =
+  private def mergeMaps[A, B](left: Map[A, B], right: Map[A, B])(f: (B, B) => B): Map[A, B] =
     right.foldLeft(left) { case (acc, (k, v)) =>
       val old = acc.get(k)
 

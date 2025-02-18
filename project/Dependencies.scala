@@ -1,23 +1,23 @@
 import sbt.*
 
 object Dependencies {
-  val JwtCoreVersion                = "10.0.1"
-  val NettyVersion                  = "4.1.116.Final"
-  val NettyIncubatorVersion         = "0.0.25.Final"
+  val JwtCoreVersion                = "10.0.4"
+  val NettyVersion                  = "4.1.118.Final"
+  val NettyIncubatorVersion         = "0.0.26.Final"
   val ScalaCompactCollectionVersion = "2.12.0"
-  val ZioVersion                    = "2.1.11"
+  val ZioVersion                    = "2.1.15"
   val ZioCliVersion                 = "0.5.0"
-  val ZioJsonVersion                = "0.7.1"
+  val ZioJsonVersion                = "0.7.21"
   val ZioParserVersion              = "0.1.10"
-  val ZioSchemaVersion              = "1.5.0"
+  val ZioSchemaVersion              = "1.6.1"
   val SttpVersion                   = "3.3.18"
-  val ZioConfigVersion              = "4.0.2"
+  val ZioConfigVersion              = "4.0.3"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
 
-  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.8.1"
-  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.9.9"
+  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.0"
+  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.12.7"
 
   val netty =
     Seq(
@@ -29,7 +29,7 @@ object Dependencies {
       "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion,
       "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion classifier "osx-x86_64",
       "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion classifier "osx-aarch_64",
-      "com.aayushatharva.brotli4j" % "brotli4j"                      % "1.16.0" % "provided",
+      "com.aayushatharva.brotli4j" % "brotli4j"                      % "1.18.0" % "provided",
     )
 
   val `netty-incubator` =

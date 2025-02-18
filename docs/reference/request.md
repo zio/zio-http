@@ -164,24 +164,27 @@ object QueryParamExample extends ZIOAppDefault {
 }
 ```
 
-The typed version of `Request#queryParam` is `Request#queryParamTo` which takes a key and a type parameter of type `T` and finally returns a `Either[QueryParamsError, T]` value:
+The typed version of `Request#queryParam` is `Request#query[T](key: String)` which returns a `Either[QueryParamError, T]`:
 
 ```scala mdoc:compile-only
 // curl -X GET https://localhost:8080/search?age=42 -i
 import zio.http._
+import zio.http.codec._
 object TypedQueryParamExample extends ZIOAppDefault {
   val app =
     Routes(
       Method.GET / "search" -> Handler.fromFunctionHandler { (req: Request) =>
-        val response: ZIO[Any, QueryParamsError, Response] =
-          ZIO.fromEither(req.queryParamTo[Int]("age"))
+        val response: ZIO[Any, HttpCodecError.QueryParamError, Response] =
+          ZIO.fromEither(req.query[Int]("age"))
              .map(value => Response.text(s"The value of age query param is: $value"))
 
         Handler.fromZIO(response).catchAll {
-          case QueryParamsError.Missing(name)                  =>
-            Handler.badRequest(s"The $name query param is missing")
-          case QueryParamsError.Malformed(name, codec, values) =>
-            Handler.badRequest(s"The value of $name query param is malformed")
+          case HttpCodecError.MissingQueryParams(names)                  =>
+            Handler.badRequest(s"The query params ${names.mkString(", ")} are missing")
+          case error: HttpCodecError.MalformedQueryParam =>
+            Handler.badRequest(error.getMessage())
+          case error: HttpCodecError.InvalidQueryParamCount =>
+            Handler.badRequest(error.getMessage())
         }
       },
     )
@@ -191,10 +194,10 @@ object TypedQueryParamExample extends ZIOAppDefault {
 ```
 
 :::info
-In the above example, instead of using `ZIO.fromEither(req.queryParamTo[Int]("age"))` we can use `req.queryParamToZIO[Int]("age")` to get a `ZIO` value directly which encodes the error type in the ZIO effect.
+In the above example, instead of using `ZIO.fromEither(req.query[Int]("age"))` we can use `req.queryZIO[Int]("age")` to get a `ZIO` value directly which encodes the error type in the ZIO effect.
 :::
 
-To retrieve all query parameter values for a key, we can use the `Request#queryParams` method that takes a `String` as the input key and returns a `Chunk[String]`:
+To retrieve all query parameter values for a key, we can use the `req.query[Chunk[Int]]("age")` method:
 
 ```scala mdoc:compile-only
 // curl -X GET https://localhost:8080/search?q=value1&q=value2 -i
@@ -220,21 +223,28 @@ object QueryParamsExample extends ZIOAppDefault {
 }
 ```
 
-The typed version of `Request#queryParams` is `Request#queryParamsTo` which takes a key and a type parameter of type `T` and finally returns a `Either[QueryParamsError, Chunk[T]]` value.
+The typed version of `Request#queryParams` is `Request#query[Chunk[T]](key: String)` which returns a `Either[QueryParamError, Chunk[T]]`.
 
 :::note
-All the above methods also have `OrElse` versions which take a default value as input and return the default value if the query parameter is not found, e.g. `Request#queryParamOrElse`, `Request#queryParamToOrElse`, `Request#queryParamsOrElse`, `Request#queryParamsToOrElse`.
+All the above methods also have `OrElse` versions which take a default value as input and return the default value if the query parameter can not be found or decoded.
 :::
 
-Using the `Request#queryParameters` method, we can access the query parameters of the request which returns a `QueryParams` object.
+To get a `QueryParams` instance for a request use `Request#queryParameters`. 
 
 ### Modifying Query Parameters
 
-When we are working with ZIO HTTP Client, we need to create a new `Request` and may need to set/update/remove query parameters. In such cases, we have the following methods available: `addQueryParam`, `addQueryParams`, `removeQueryParam`, `removeQueryParams`, `setQueryParams`, and `updateQueryParams`.
+When we are working with the ZIO HTTP Client, we need to create a new `Request` and may need to set/update/remove query parameters. In such cases, we have the following methods available: `addQueryParam`, `addQueryParams`, `removeQueryParam`, `removeQueryParams`, `setQueryParams`, and `updateQueryParams`.
 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.schema._
+
+case class AuthorQueryParams(age: Int, name: String)
+
+object AuthorQueryParams {
+  implicit val schema: Schema[AuthorQueryParams] = DeriveSchema.gen[AuthorQueryParams]
+}
 
 object QueryParamClientExample extends ZIOAppDefault {
   def run =
@@ -243,6 +253,7 @@ object QueryParamClientExample extends ZIOAppDefault {
         .get("http://localhost:8080/search")
         .addQueryParam("language", "scala")
         .addQueryParam("q", "How to Write HTTP App")
+        .addQueryParam(AuthorQueryParams(42, "John"))
         .addQueryParams("tag", Chunk("zio", "http", "scala")),
     ).provide(Client.default)
 }

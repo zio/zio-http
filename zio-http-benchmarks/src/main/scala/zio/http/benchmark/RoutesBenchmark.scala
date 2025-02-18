@@ -4,8 +4,6 @@ import java.util.concurrent.TimeUnit
 
 import scala.util.Random
 
-import zio.{Runtime, Unsafe, ZIO}
-
 import zio.http.endpoint.Endpoint
 import zio.http.{Handler, Method, Request, Routes}
 
@@ -26,12 +24,6 @@ class RoutesBenchmark {
 
   def request: Request  = requests(Random.nextInt(requests.size))
   val smallDataRequests = Array.fill(REPEAT_N)(request)
-
-  def unsafeRun[E, A](zio: ZIO[Any, E, A]): Unit = Unsafe.unsafe { implicit unsafe =>
-    Runtime.default.unsafe
-      .run(zio.unit)
-      .getOrThrowFiberFailure()
-  }
 
   val paths2 = ('b' to 'z').inits.map(_.mkString).toList.reverse.tail
 

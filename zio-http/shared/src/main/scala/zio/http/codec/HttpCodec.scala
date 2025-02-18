@@ -18,19 +18,20 @@ package zio.http.codec
 
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
+import scala.util.Try
 
-import zio._
+import zio.{http, _}
 
-import zio.stream.ZStream
+import zio.stream.{ZPipeline, ZStream}
 
 import zio.schema.Schema
-import zio.schema.annotation._
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http.Header.{HeaderTypeBase, SchemaHeaderType}
 import zio.http._
-import zio.http.codec.HttpCodec.Query.QueryType
 import zio.http.codec.HttpCodec.{Annotated, Metadata}
 import zio.http.codec.internal._
+import zio.http.internal.StringSchemaCodec
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -2263,141 +2264,23 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
-  private[http] final case class Query[A, Out](
-    queryType: Query.QueryType[A],
+  private[http] final case class Query[A](
+    codec: StringSchemaCodec[A, QueryParams],
     index: Int = 0,
-  ) extends Atom[HttpCodecType.Query, Out] {
+  ) extends Atom[HttpCodecType.Query, A] {
     self =>
-    def erase: Query[Any, Any] = self.asInstanceOf[Query[Any, Any]]
+    def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 
-    def tag: AtomTag = AtomTag.Query
-
-    def index(index: Int): Query[A, Out] = copy(index = index)
-
-    def isOptional: Boolean =
-      queryType match {
-        case QueryType.Primitive(_, BinaryCodecWithSchema(_, schema)) if schema.isInstanceOf[Schema.Optional[_]] =>
-          true
-        case QueryType.Record(recordSchema)                                                                      =>
-          recordSchema match {
-            case s if s.isInstanceOf[Schema.Optional[_]]                      => true
-            case record: Schema.Record[_] if record.fields.forall(_.optional) => true
-            case _                                                            => false
-          }
-        case _ => false
-      }
+    def index(index: Int): Query[A] = copy(index = index)
 
     /**
      * Returns a new codec, where the value produced by this one is optional.
      */
-    override def optional: HttpCodec[HttpCodecType.Query, Option[Out]] =
-      queryType match {
-        case QueryType.Primitive(name, codec) if codec.schema.isInstanceOf[Schema.Optional[_]] =>
-          throw new IllegalArgumentException(
-            s"Cannot make an optional query parameter optional. Name: $name schema: ${codec.schema}",
-          )
-        case QueryType.Primitive(name, codec)                                                  =>
-          val optionalSchema = codec.schema.optional
-          copy(queryType =
-            QueryType.Primitive(name, BinaryCodecWithSchema(TextBinaryCodec.fromSchema(optionalSchema), optionalSchema)),
-          )
-        case QueryType.Record(recordSchema) if recordSchema.isInstanceOf[Schema.Optional[_]]   =>
-          throw new IllegalArgumentException(s"Cannot make an optional query parameter optional")
-        case QueryType.Record(recordSchema)                                                    =>
-          val optionalSchema = recordSchema.optional
-          copy(queryType = QueryType.Record(optionalSchema))
-        case queryType @ QueryType.Collection(_, _, false)                                     =>
-          copy(queryType = QueryType.Collection(queryType.colSchema, queryType.elements, optional = true))
-        case queryType @ QueryType.Collection(_, _, true)                                      =>
-          throw new IllegalArgumentException(s"Cannot make an optional query parameter optional: $queryType")
+    override def optional: HttpCodec[HttpCodecType.Query, Option[A]] =
+      Annotated(Query(codec.optional, index), Metadata.Optional())
 
-      }
+    def tag: AtomTag = AtomTag.Query
 
-  }
-
-  private[http] object Query {
-    sealed trait QueryType[A]
-    object QueryType {
-      case class Primitive[A](name: String, codec: BinaryCodecWithSchema[A]) extends QueryType[A]
-      case class Collection[A](colSchema: Schema.Collection[_, _], elements: QueryType.Primitive[A], optional: Boolean)
-          extends QueryType[A] {
-        def toCollection(values: Chunk[Any]): A =
-          colSchema match {
-            case Schema.Sequence(_, fromChunk, _, _, _) =>
-              fromChunk.asInstanceOf[Chunk[Any] => Any](values).asInstanceOf[A]
-            case Schema.Set(_, _)                       =>
-              values.toSet.asInstanceOf[A]
-            case _                                      =>
-              throw new IllegalArgumentException(
-                s"Unsupported collection schema for query object field of type: $colSchema",
-              )
-          }
-      }
-      case class Record[A](recordSchema: Schema[A]) extends QueryType[A] {
-        private var namesAndCodecs: Chunk[(Schema.Field[_, _], BinaryCodecWithSchema[Any])]       = _
-        private[http] def fieldAndCodecs: Chunk[(Schema.Field[_, _], BinaryCodecWithSchema[Any])] =
-          if (namesAndCodecs == null) {
-            namesAndCodecs = recordSchema match {
-              case record: Schema.Record[A]                =>
-                record.fields.map { field =>
-                  validateSchema(field.name, field.schema)
-                  val codec = binaryCodecForField(field.annotations.foldLeft(field.schema)(_ annotate _))
-                  (unlazy(field.asInstanceOf[Schema.Field[Any, Any]]), codec)
-                }
-              case s if s.isInstanceOf[Schema.Optional[_]] =>
-                val record = s.asInstanceOf[Schema.Optional[A]].schema.asInstanceOf[Schema.Record[A]]
-                record.fields.map { field =>
-                  validateSchema(field.name, field.annotations.foldLeft(field.schema)(_ annotate _))
-                  val codec = binaryCodecForField(field.schema)
-                  (field, codec)
-                }
-              case s => throw new IllegalArgumentException(s"Unsupported schema for query object field of type: $s")
-            }
-            namesAndCodecs
-          } else {
-            namesAndCodecs
-          }
-      }
-
-      private def unlazy(field: Schema.Field[Any, Any]): Schema.Field[Any, Any] = field.schema match {
-        case Schema.Lazy(schema) =>
-          Schema.Field(
-            field.name,
-            schema(),
-            field.annotations,
-            field.validation,
-            field.get,
-            field.set,
-          )
-        case _                   => field
-      }
-
-      private def binaryCodecForField[A](schema: Schema[A]): BinaryCodecWithSchema[Any] = (schema match {
-        case schema @ Schema.Primitive(_, _)     => BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
-        case Schema.Transform(_, _, _, _, _)     => BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
-        case Schema.Optional(_, _)               => BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
-        case e: Schema.Enum[_] if isSimple(e)    => BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
-        case l @ Schema.Lazy(_)                  => binaryCodecForField(l.schema)
-        case Schema.Set(schema, _)               => binaryCodecForField(schema)
-        case Schema.Sequence(schema, _, _, _, _) => binaryCodecForField(schema)
-        case schema => throw new IllegalArgumentException(s"Unsupported schema for query object field of type: $schema")
-      }).asInstanceOf[BinaryCodecWithSchema[Any]]
-
-      def isSimple(schema: Schema.Enum[_]): Boolean =
-        schema.annotations.exists(_.isInstanceOf[simpleEnum])
-
-      @tailrec
-      private def validateSchema[A](name: String, schema: Schema[A]): Unit = schema match {
-        case _: Schema.Primitive[A]               => ()
-        case Schema.Transform(schema, _, _, _, _) => validateSchema(name, schema)
-        case Schema.Optional(schema, _)           => validateSchema(name, schema)
-        case Schema.Lazy(schema)                  => validateSchema(name, schema())
-        case Schema.Set(schema, _)                => validateSchema(name, schema)
-        case Schema.Sequence(schema, _, _, _, _)  => validateSchema(name, schema)
-        case s => throw new IllegalArgumentException(s"Unsupported schema for query object field of type: $s")
-      }
-
-    }
   }
 
   private[http] final case class Method[A](codec: SimpleCodec[zio.http.Method, A], index: Int = 0)
@@ -2409,7 +2292,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def index(index: Int): Method[A] = copy(index = index)
   }
 
-  private[http] final case class Header[A](name: String, textCodec: TextCodec[A], index: Int = 0)
+  private[http] final case class Header[A](headerType: HeaderTypeBase.Typed[A], index: Int = 0)
       extends Atom[HttpCodecType.Header, A] {
     self =>
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
@@ -2417,6 +2300,18 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def tag: AtomTag = AtomTag.Header
 
     def index(index: Int): Header[A] = copy(index = index)
+
+    override def optional: HttpCodec[HttpCodecType.Header, Option[A]] = {
+      headerType match {
+        case headerType if headerType.isInstanceOf[SchemaHeaderType] =>
+          Annotated(
+            Header(headerType.asInstanceOf[SchemaHeaderType.Typed[A]].optional, index),
+            Metadata.Optional(),
+          )
+        case _                                                       =>
+          super.optional
+      }
+    }
   }
 
   private[http] final case class Annotated[AtomTypes, Value](

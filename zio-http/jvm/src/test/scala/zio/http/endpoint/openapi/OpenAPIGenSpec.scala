@@ -2,7 +2,7 @@ package zio.http.endpoint.openapi
 
 import zio.json.ast.Json
 import zio.test._
-import zio.{Chunk, Scope, ZIO}
+import zio.{Chunk, NonEmptyChunk, Scope, ZIO}
 
 import zio.schema.annotation._
 import zio.schema.validation.Validation
@@ -194,10 +194,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
+  private val queryParamNonEmptyCollectionEndpoint =
+    Endpoint(GET / "withQuery")
+      .in[SimpleInputBody]
+      .query(HttpCodec.query[NonEmptyChunk[String]]("query"))
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+
   private val queryParamValidationEndpoint =
     Endpoint(GET / "withQuery")
       .in[SimpleInputBody]
-      .query(HttpCodec.queryAll[AgeParam])
+      .query(HttpCodec.query[AgeParam])
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
@@ -530,16 +537,120 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    "/withQuery" : {
                              |      "get" : {
                              |        "parameters" : [
+                             |          {
+                             |            "name" : "query",
+                             |            "in" : "query",
+                             |            "schema" : {
+                             |              "type" : "string"
+                             |            },
+                             |            "allowReserved" : false,
+                             |            "style" : "form"
+                             |          }
+                             |        ],
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" : "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("with query parameter with multiple values") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamCollectionEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withQuery" : {
+                             |      "get" : {
+                             |        "parameters" : [
                              |
                              |            {
                              |            "name" : "query",
                              |            "in" : "query",
                              |            "schema" :
                              |              {
-                             |              "type" :[
-                             |                "string",
-                             |                "null"
-                             |                ]
+                             |              "type" :
+                             |                "string"
                              |            },
                              |            "allowReserved" : false,
                              |            "style" : "form"
@@ -645,8 +756,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
-      test("with query parameter with multiple values") {
-        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamCollectionEndpoint)
+      test("with query parameter with multiple values - non empty") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamNonEmptyCollectionEndpoint)
         val json         = toJsonAst(generated)
         val expectedJson = """{
                              |  "openapi" : "3.1.0",
