@@ -48,9 +48,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     new ApplyContextAspect[Env, Err, Env0](self)
 
   /**
-   * Combines this HTTP application with the specified HTTP application. In case
-   * of route conflicts, the routes in this HTTP application take precedence
-   * over the routes in the specified HTTP application.
+   * Combines this Routes with the specified Routes. In case of route conflicts,
+   * the new Routes take precedence over the current Routes.
    */
   def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
     copy(routes = routes ++ that.routes)
@@ -252,18 +251,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
         chunk.length match {
           case 0 => Handler.notFound
           case 1 => chunk(0)
-          case n => // TODO: Support precomputed fallback among all chunk elements
-            var acc = chunk(0)
-            var i   = 1
-            while (i < n) {
-              val h = chunk(i)
-              acc = acc.catchAll { response =>
-                if (response.status == Status.NotFound) h
-                else Handler.fail(response)
-              }
-              i += 1
-            }
-            acc
+          case _ => chunk.last
         }
       }
       .merge

@@ -18,7 +18,7 @@ package zio.http
 
 import zio.test._
 
-import zio.http.codec.PathCodec
+import zio.http.codec.{PathCodec, SegmentCodec}
 
 object RoutesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
@@ -105,6 +105,28 @@ object RoutesSpec extends ZIOHttpSpec {
           extractStatus(bar) == Status.Ok,
           extractStatus(baz) == Status.Ok,
           extractStatus(box) == Status.NotFound,
+        )
+      }
+    },
+    test("overlapping routes with different segment types") {
+      val app = Routes(
+        Method.GET / "foo" / string("id")                                      -> Handler.status(Status.NoContent),
+        Method.GET / "foo" / string("id")                                      -> Handler.ok,
+        Method.GET / "foo" / (SegmentCodec.literal("prefix") ~ string("rest")) -> Handler.ok,
+        Method.GET / "foo" / int("id")                                         -> Handler.ok,
+      )
+
+      for {
+        stringId     <- app.runZIO(Request.get("/foo/123"))
+        stringPrefix <- app.runZIO(Request.get("/foo/prefix123"))
+        intId        <- app.runZIO(Request.get("/foo/123"))
+        notFound     <- app.runZIO(Request.get("/foo/123/456"))
+      } yield {
+        assertTrue(
+          extractStatus(stringId) == Status.Ok,
+          extractStatus(stringPrefix) == Status.Ok,
+          extractStatus(intId) == Status.Ok,
+          extractStatus(notFound) == Status.NotFound,
         )
       }
     },

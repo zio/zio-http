@@ -249,7 +249,7 @@ object RoutePatternSpec extends ZIOHttpSpec {
         tree = tree.add(pattern2, 2)
         tree = tree.add(pattern3, 3)
 
-        assertTrue(tree.get(Method.OPTIONS, Path("/users")) == Chunk(2, 1, 3))
+        assertTrue(tree.get(Method.OPTIONS, Path("/users")) == Chunk(2))
       },
       test("multiple routes") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
