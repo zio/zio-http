@@ -1,9 +1,11 @@
 package example.codecs
 
 import zio._
-import zio.http._
+
 import zio.schema.codec.JsonCodec._
 import zio.schema.{DeriveSchema, Schema}
+
+import zio.http._
 
 case class Book(title: String, authors: List[String])
 
