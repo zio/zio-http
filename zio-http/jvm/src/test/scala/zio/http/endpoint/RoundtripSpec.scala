@@ -551,14 +551,22 @@ object RoundtripSpec extends ZIOHttpSpec {
             assert(r.isFailure)(isTrue) // We expect it to fail but complete
           }
       },
-      test("Override default CodecConfig") {
+      test("default CodecConfig preserves empty collections") {
+        val api = Endpoint(GET / "test").out[Outs]
+        testEndpointCustomRequestZIO(
+          api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes,
+          Request.get("/test"),
+          response => response.body.asString.map(s => assertTrue(s == """{"ints":[]}""")),
+        )
+      },
+      test("override default CodecConfig") {
         val api = Endpoint(GET / "test").out[Outs]
         testEndpointCustomRequestZIO(
           api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes @@ CodecConfig.withConfig(
-            CodecConfig(ignoreEmptyCollections = false),
+            CodecConfig(ignoreEmptyCollections = true),
           ),
           Request.get("/test"),
-          response => response.body.asString.map(s => assertTrue(s == """{"ints":[]}""")),
+          response => response.body.asString.map(s => assertTrue(s == """{}""")),
         )
       },
     ).provide(

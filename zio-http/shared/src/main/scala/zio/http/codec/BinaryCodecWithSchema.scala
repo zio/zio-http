@@ -40,7 +40,7 @@ object BinaryCodecWithSchema {
  */
 
 final case class CodecConfig(
-  ignoreEmptyCollections: Boolean = true,
+  ignoreEmptyCollections: Boolean = false,
 )
 
 object CodecConfig {
