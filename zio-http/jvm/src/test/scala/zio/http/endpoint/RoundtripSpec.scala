@@ -74,9 +74,9 @@ object RoundtripSpec extends ZIOHttpSpec {
     implicit val schema: Schema[PostWithAge] = DeriveSchema.gen[PostWithAge]
   }
 
-  case class Outs(ints: List[Int])
+  case class Ints(ints: List[Int])
 
-  implicit val outsSchema: Schema[Outs] = DeriveSchema.gen[Outs]
+  implicit val intsSchema: Schema[Ints] = DeriveSchema.gen[Ints]
 
   def makeExecutor(client: Client, port: Int) = {
     val locator = EndpointLocator.fromURL(
@@ -551,18 +551,26 @@ object RoundtripSpec extends ZIOHttpSpec {
             assert(r.isFailure)(isTrue) // We expect it to fail but complete
           }
       },
-      test("default CodecConfig preserves empty collections") {
-        val api = Endpoint(GET / "test").out[Outs]
+      test("default CodecConfig preserves empty collections in response") {
+        val api = Endpoint(GET / "test").out[Ints]
         testEndpointCustomRequestZIO(
-          api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes,
+          api.implement(_ => ZIO.succeed(Ints(Nil))).toRoutes,
           Request.get("/test"),
           response => response.body.asString.map(s => assertTrue(s == """{"ints":[]}""")),
         )
       },
-      test("override default CodecConfig") {
-        val api = Endpoint(GET / "test").out[Outs]
+      test("default CodecConfig accepts missing collections in request") {
+        val api = Endpoint(POST / "test").in[Ints].out[Int]
         testEndpointCustomRequestZIO(
-          api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes @@ CodecConfig.withConfig(
+          api.implement(ints => ZIO.succeed(ints.ints.length)).toRoutes,
+          Request.post("/test", Body.fromString("""{}""")),
+          response => response.body.asString.map(s => assertTrue(s == "0")),
+        )
+      },
+      test("override default CodecConfig") {
+        val api = Endpoint(GET / "test").out[Ints]
+        testEndpointCustomRequestZIO(
+          api.implement(_ => ZIO.succeed(Ints(Nil))).toRoutes @@ CodecConfig.withConfig(
             CodecConfig(ignoreEmptyCollections = true),
           ),
           Request.get("/test"),
