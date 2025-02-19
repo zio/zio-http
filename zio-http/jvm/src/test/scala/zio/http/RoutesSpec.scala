@@ -76,18 +76,22 @@ object RoutesSpec extends ZIOHttpSpec {
     test("nest routes") {
       import PathCodec._
       import zio._
-      case object IdFormatError
       val routes = literal("to") / Routes(
-        Method.GET / "other"             -> handler(ZIO.fail(IdFormatError)),
+        Method.GET / "other"             -> Handler.ok,
         Method.GET / "do" / string("id") -> handler { (id: String, _: Request) => Response.text(s"GET /to/do/${id}") },
       )
-      routes.handleError { case IdFormatError =>
-        Response.badRequest
-      }
-        .run(
-          path = Path.root / "to" / "do" / "123",
-        )
-        .map(response => assertTrue(response.status == Status.Ok))
+
+      for {
+        nested1 <- routes.run(path = Path.root / "to" / "do" / "123")
+        nested2 <- routes.run(path = Path.root / "to" / "other")
+        former1 <- routes.run(path = Path.root / "other")
+        former2 <- routes.run(path = Path.root / "do")
+      } yield assertTrue(
+        nested1.status == Status.Ok,
+        nested2.status == Status.Ok,
+        former1.status == Status.NotFound,
+        former2.status == Status.NotFound,
+      )
     },
     test("alternative path segments") {
       val app = Routes(

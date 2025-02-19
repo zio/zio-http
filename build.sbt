@@ -198,8 +198,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0",
+      "io.github.cquiroz" %%% "scala-java-time"      % "2.6.0",
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.6.0",
       "org.scala-js"      %%% "scalajs-dom"          % "2.8.0",
       "dev.zio"           %%% "zio-test"             % ZioVersion % "test",
       "dev.zio"           %%% "zio-test-sbt"         % ZioVersion % "test",
@@ -259,8 +259,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.5.1",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.1",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.5.5",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.5",
       "com.softwaremill.sttp.client3" %% "core"                % "3.9.8",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.16",
