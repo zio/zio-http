@@ -6,45 +6,19 @@ import zio.test.{Spec, TestEnvironment, TestResult, assertTrue}
 import zio.stream.ZStream
 
 object ClientServerSentEventSpec extends ZIOHttpSpec {
-  val serverLayer: ULayer[Server] =
-    Server.defaultWithPort(0).orDie >+> ZLayer.fromZIO(Server.install(Routes(Method.GET / "dummy" -> Handler.ok)))
-
-  def serve(data: String): URIO[Server, String] = {
-    for {
-      uuid <- zio.test.live(zio.Random.nextUUID.map(_.toString))
-      routes: Routes[Any, Response] =
-        Routes(
-          Method.GET / "sse" / uuid -> Handler.fromResponse(
-            Response(headers = Headers(Header.ContentType(MediaType.text.`event-stream`)), body = Body.fromString(data)),
-          ),
-        )
-      _ <- Server.install(routes)
-    } yield uuid
+  def eventStream(data: String): ZStream[Any, Throwable, ServerSentEvent[String]] = {
+    val response = Routes(
+      Method.GET / "sse" -> Handler.fromResponse(
+        Response(headers = Headers(Header.ContentType(MediaType.text.`event-stream`)), body = Body.fromString(data)),
+      ),
+    ).runZIO(Request(method = Method.GET, url = url"/sse", body = Body.empty)).map(_.body.asServerSentEvents[String])
+    ZStream.unwrapScoped(response)
   }
-
-  def eventStream(data: String): ZStream[Client with Server, Throwable, ServerSentEvent[String]] =
-    for {
-      client <- ZStream.service[Client]
-      port   <- ZStream.serviceWithZIO[Server](_.port)
-      id     <- ZStream.fromZIO(serve(data))
-      request =
-        client
-          .host("localhost")
-          .port(port)
-          .scheme(Scheme.HTTP)
-          .addHeader(Header.Accept(MediaType.text.`event-stream`))
-          .request(Request(method = Method.GET, url = url"/sse/$id", body = Body.empty))
-          // Routes install is taking place on a separate fiber, retry if client requests before it is done
-          .filterOrFail(_.status == Status.Ok)(new RuntimeException("Failed to install test route"))
-          .retry(Schedule.recurs(20).addDelay(_ => 50.milliseconds))
-          .map(_.body.asServerSentEvents[String])
-      events <- ZStream.unwrapScoped(zio.test.live(request))
-    } yield events
 
   def assertEvents(
     streamData: String,
     expectedEvents: Chunk[ServerSentEvent[String]],
-  ): ZIO[Client with Server, Throwable, TestResult] =
+  ): Task[TestResult] =
     eventStream(streamData).runCollect.map(actual => assertTrue(actual == expectedEvents))
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -293,5 +267,5 @@ object ClientServerSentEventSpec extends ZIOHttpSpec {
           Chunk.single(ServerSentEvent(data = " data", eventType = Some(" sse"), id = Some(" 1"), retry = None)),
         )
       },
-    ).provideShared(serverLayer, Client.default)
+    )
 }
