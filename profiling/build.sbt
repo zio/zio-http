@@ -2,7 +2,7 @@ name         := "zio-http"
 version      := "1.0.0"
 scalaVersion := "2.13.6"
 lazy val zioHttp = ProjectRef(file("/zio-http/zio-http-src"), "zioHttp")
-lazy val root  = (project in file("."))
+lazy val root    = (project in file("."))
   .settings(
     name                             := "helloExample",
     fork                             := true,

@@ -52,7 +52,7 @@ object HttpCliApp {
     figFont: FigFont = FigFont.Default,
     cliStyle: Boolean = true,
     client: CliClient = DefaultClient(),
-  ): HttpCliApp[Any, Throwable, CliRequest] = {
+  ): HttpCliApp[Any, Throwable, Response] = {
     HttpCliApp {
       CliApp.make(
         name = name,
