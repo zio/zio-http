@@ -29,7 +29,7 @@ import zio.stream.ZStream
 
 import zio.http.Handler.ApplyContextAspect
 import zio.http.Header.HeaderType
-import zio.http.internal.HeaderModifier
+import zio.http.internal.{HeaderGetters, HeaderModifier}
 import zio.http.template._
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
@@ -1139,7 +1139,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
      * Updates the current Headers with new one, using the provided update
      * function passed.
      */
-    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
+    def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
       self.map(_.updateHeaders(update))
   }
 

@@ -76,7 +76,7 @@ object EndpointGen {
       }
 
   lazy val anyHeader: Gen[Any, CliReprOf[Codec[_]]] =
-    Gen.alphaNumericStringBounded(1, 30).zip(anyTextCodec).map { case (name, codec) =>
+    Gen.alphaNumericStringBounded(1, 30).map(_.toLowerCase).zip(anyTextCodec).map { case (name, codec) =>
       CliRepr(
         HttpCodec.Header(Header.Custom(name, "").headerType), // todo use schema bases header
         codec match {

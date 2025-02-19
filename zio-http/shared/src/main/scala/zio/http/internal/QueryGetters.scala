@@ -27,23 +27,6 @@ import zio.http.codec.{HttpCodecError, TextCodec}
 
 trait QueryGetters[+A] { self: QueryOps[A] =>
 
-  private val errorConstructor = new ErrorConstructor {
-    override def missing(fieldName: String): HttpCodecError =
-      HttpCodecError.MissingQueryParam(fieldName)
-
-    override def missingAll(fieldNames: Chunk[String]): HttpCodecError =
-      HttpCodecError.MissingQueryParams(fieldNames)
-
-    override def invalid(errors: Chunk[ValidationError]): HttpCodecError =
-      HttpCodecError.InvalidEntity.wrap(errors)
-
-    override def malformed(fieldName: String, error: DecodeError): HttpCodecError =
-      HttpCodecError.MalformedQueryParam(fieldName, error)
-
-    override def invalidCount(fieldName: String, expected: Int, actual: Int): HttpCodecError =
-      HttpCodecError.InvalidQueryParamCount(fieldName, expected, actual)
-  }
-
   def queryParameters: QueryParams
 
   /**
@@ -84,11 +67,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
     try
       Right(
         StringSchemaCodec
-          .queryFromSchema(
-            schema,
-            errorConstructor,
-            key,
-          )
+          .queryFromSchema(schema, ErrorConstructor.query, key)
           .decode(queryParameters),
       )
     catch {
@@ -106,11 +85,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
     try
       Right(
         StringSchemaCodec
-          .queryFromSchema(
-            schema,
-            errorConstructor,
-            null,
-          )
+          .queryFromSchema(schema, ErrorConstructor.query, null)
           .decode(queryParameters),
       )
     catch {
