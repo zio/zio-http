@@ -198,8 +198,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0",
+      "io.github.cquiroz" %%% "scala-java-time"      % "2.6.0",
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.6.0",
       "org.scala-js"      %%% "scalajs-dom"          % "2.8.0",
       "dev.zio"           %%% "zio-test"             % ZioVersion % "test",
       "dev.zio"           %%% "zio-test-sbt"         % ZioVersion % "test",
@@ -259,9 +259,9 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.5.1",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.1",
-      "com.softwaremill.sttp.client3" %% "core"                % "3.9.8",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.15",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.15",
+      "com.softwaremill.sttp.client3" %% "core"                % "3.10.3",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.16",
       "org.slf4j"                      % "slf4j-simple"        % "2.0.16",
@@ -353,7 +353,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.17",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.26.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.29.3"  % "protobuf",
     ),
   )
   .settings(
@@ -377,7 +377,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.26.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.29.3"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
     ),
     Compile / run / fork := true,
