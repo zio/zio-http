@@ -43,7 +43,7 @@ object EndpointExamples extends ZIOAppDefault {
       val locator =
         EndpointLocator.fromURL(URL.decode("http://localhost:8080").toOption.get)
 
-      val executor: EndpointExecutor[Any, Unit] =
+      val executor: EndpointExecutor[Any, Unit, Scope] =
         EndpointExecutor(client, locator)
 
       val x1: Invocation[Int, Int, ZNothing, Int, None] = getUser(42)

@@ -141,6 +141,9 @@ object Headers {
 
   def apply(tuple2: (CharSequence, CharSequence)): Headers = apply(tuple2._1, tuple2._2)
 
+  def apply(value: (CharSequence, CharSequence), values: (CharSequence, CharSequence)*): Headers =
+    Headers.FromIterable((value +: values).map { case (k, v) => Header.Custom(k, v) })
+
   def apply(headers: Header*): Headers = FromIterable(headers)
 
   def apply(iter: Iterable[Header]): Headers = FromIterable(iter)

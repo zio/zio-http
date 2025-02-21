@@ -28,8 +28,8 @@ import zio.http.endpoint.internal.EndpointClient
  * endpoint invocation, and executing the invocation, returning the final
  * result, or failing with a pre-defined RPC error.
  */
-final case class EndpointExecutor[R, Auth](
-  client: Client,
+final case class EndpointExecutor[R, Auth, ReqEnv](
+  client: ZClient[Any, ReqEnv, Body, Throwable, Response],
   locator: EndpointLocator,
   authProvider: ZIO[R, Nothing, Auth],
 ) {
@@ -63,7 +63,7 @@ final case class EndpointExecutor[R, Auth](
     combiner: Combiner[I, invocation.endpoint.authType.ClientRequirement],
     ev: Auth <:< invocation.endpoint.authType.ClientRequirement,
     trace: Trace,
-  ): ZIO[R with Scope, E, B] = {
+  ): ZIO[R & ReqEnv, E, B] = {
     getClient(invocation.endpoint).orDie.flatMap { endpointClient =>
       endpointClient.execute(
         client,
@@ -80,7 +80,7 @@ final case class EndpointExecutor[R, Auth](
     invocation: Invocation[P, I, E, B, AuthType.None],
   )(implicit
     trace: Trace,
-  ): ZIO[Scope, E, B] = {
+  ): ZIO[ReqEnv, E, B] = {
     getClient(invocation.endpoint).orDie.flatMap { endpointClient =>
       endpointClient.execute(client, invocation, ZIO.unit)(
         Combiner.rightUnit[I].asInstanceOf[Combiner[I, endpointClient.endpoint.authType.ClientRequirement]],
@@ -90,12 +90,19 @@ final case class EndpointExecutor[R, Auth](
   }
 }
 object EndpointExecutor {
-  def apply(client: Client, locator: EndpointLocator): EndpointExecutor[Any, Unit] =
+  def apply[ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
+    locator: EndpointLocator,
+  ): EndpointExecutor[Any, Unit, ReqEnv] =
     EndpointExecutor(client, locator, ZIO.unit)
 
-  def apply[Auth](client: Client, locator: EndpointLocator, auth: Auth)(implicit
+  def apply[Auth, ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
+    locator: EndpointLocator,
+    auth: Auth,
+  )(implicit
     trace: Trace,
-  ): EndpointExecutor[Any, Auth] =
+  ): EndpointExecutor[Any, Auth, ReqEnv] =
     EndpointExecutor(client, locator, ZIO.succeed(auth))
 
   final case class Config(url: URL)
@@ -114,7 +121,7 @@ object EndpointExecutor {
 
   def make[R: Tag, Auth: Tag](serviceName: String, authProvider: URIO[R, Auth])(implicit
     trace: Trace,
-  ): ZLayer[Client, zio.Config.Error, EndpointExecutor[R, Auth]] =
+  ): ZLayer[Client, zio.Config.Error, EndpointExecutor[R, Auth, Scope]] =
     ZLayer {
       for {
         client <- ZIO.service[Client]
@@ -122,7 +129,9 @@ object EndpointExecutor {
       } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url), authProvider)
     }
 
-  def make(serviceName: String)(implicit trace: Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor[Any, Unit]] =
+  def make(
+    serviceName: String,
+  )(implicit trace: Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor[Any, Unit, Scope]] =
     ZLayer {
       for {
         client <- ZIO.service[Client]

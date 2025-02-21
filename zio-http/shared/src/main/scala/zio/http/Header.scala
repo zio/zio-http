@@ -202,7 +202,7 @@ object Header {
     override def headerType: HeaderType.Typed[Custom] = new Header.HeaderType {
       override type HeaderValue = Custom
 
-      override def name: String = self.customName.toString
+      override def name: String = self.customName.toString.toLowerCase
 
       override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
 
@@ -232,14 +232,17 @@ object Header {
     override def equals(that: Any): Boolean = {
       that match {
         case Custom(k, v) =>
-          def eqs(l: CharSequence, r: CharSequence): Boolean = {
+          def eqs(l: CharSequence, r: CharSequence, caseSensitive: Boolean): Boolean = {
             if (l.length() != r.length()) false
             else {
               var i     = 0
               var equal = true
 
               while (i < l.length()) {
-                if (l.charAt(i) != r.charAt(i)) {
+                if (
+                  (caseSensitive && l.charAt(i) != r
+                    .charAt(i)) || (!caseSensitive && l.charAt(i).toLower != r.charAt(i).toLower)
+                ) {
                   equal = false
                   i = l.length()
                 }
@@ -249,7 +252,7 @@ object Header {
             }
           }
 
-          eqs(self.customName, k) && eqs(self.value, v)
+          eqs(self.customName, k, caseSensitive = false) && eqs(self.value, v, caseSensitive = true)
 
         case _ => false
       }
