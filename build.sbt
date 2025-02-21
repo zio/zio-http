@@ -183,6 +183,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
+      `scala-compact-collection` % Test,
     ),
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
