@@ -183,32 +183,26 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
-    ),
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
-        case _                       => Seq.empty
-      }
-    },
-    libraryDependencies ++= netty ++ Seq(`netty-incubator`),
+      `scala-compat-collection`
+    ) ++ netty ++ Seq(`netty-incubator`),
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.6.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.6.0",
-      "org.scala-js"      %%% "scalajs-dom"          % "2.8.0",
-      "dev.zio"           %%% "zio-test"             % ZioVersion % "test",
-      "dev.zio"           %%% "zio-test-sbt"         % ZioVersion % "test",
-      "dev.zio"           %%% "zio"                  % ZioVersion,
-      "dev.zio"           %%% "zio-streams"          % ZioVersion,
-      "dev.zio"           %%% "zio-schema"           % ZioSchemaVersion,
-      "dev.zio"           %%% "zio-schema-json"      % ZioSchemaVersion,
-      "dev.zio"           %%% "zio-schema-protobuf"  % ZioSchemaVersion,
-    ),
+      "org.scala-lang.modules" %%% "scala-collection-compat" % ScalaCompatCollectionVersion,
+      "io.github.cquiroz"      %%% "scala-java-time"         % "2.6.0",
+      "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.6.0",
+      "org.scala-js"           %%% "scalajs-dom"             % "2.8.0",
+      "dev.zio"                %%% "zio-test"                % ZioVersion % "test",
+      "dev.zio"                %%% "zio-test-sbt"            % ZioVersion % "test",
+      "dev.zio"                %%% "zio"                     % ZioVersion,
+      "dev.zio"                %%% "zio-streams"             % ZioVersion,
+      "dev.zio"                %%% "zio-schema"              % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-json"         % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-protobuf"     % ZioSchemaVersion,
+    )
   )
 
 lazy val zioHttpJS = zioHttp.js
@@ -339,7 +333,7 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
+          Seq(`scala-compat-collection`)
         case _                       => Seq.empty
       }
     },
@@ -360,7 +354,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
+          Seq(`scala-compat-collection`)
         case _                       => Seq.empty
       }
     },
