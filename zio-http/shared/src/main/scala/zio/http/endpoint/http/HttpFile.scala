@@ -69,7 +69,17 @@ final case class HttpEndpoint(
 
   private def renderHeaders =
     if (headers.isEmpty) ""
-    else headers.map(h => s"${h.capitalize}: {{${h.capitalize}}}").mkString("\n", "\n", "")
+    else
+      headers
+        .map(h =>
+          h.toLowerCase() match {
+            case "basicauth" | "bearerauth" | "digestauth" =>
+              s"Authorization: {{${h.capitalize}}}"
+            case _                                         =>
+              s"${h.capitalize}: {{${h.capitalize}}}"
+          },
+        )
+        .mkString("\n", "\n", "")
 
   private def renderPath = {
     if (method == Method.ANY) {
@@ -82,7 +92,12 @@ final case class HttpEndpoint(
 
 final case class HttpVariable(name: String, value: Option[String], docString: Option[String] = None) {
   def render = {
-    val variable = s"@$name=${value.getOrElse("<no value>")}"
+    val variable = name.toLowerCase() match {
+      case "basicauth" | "bearerauth" | "digestauth" =>
+        s"@Authorization=${value.getOrElse("<no value>")}"
+      case _                                         =>
+        s"@$name=${value.getOrElse("<no value>")}"
+    }
     if (docString.isDefined) {
       docString.get.split("\n").map(line => s"# $line").mkString("", "\n", "\n") + variable
     } else variable
