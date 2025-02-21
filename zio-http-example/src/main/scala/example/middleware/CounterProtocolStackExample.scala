@@ -28,5 +28,5 @@ object CounterProtocolStackExample extends ZIOAppDefault {
     _ <- handler("What is ZIO?").debug
   } yield ()
 
-  def run = app.provide(ZLayer.fromZIO(Ref.make(0L)))
+  def run = app.provide(Scope.default, ZLayer.fromZIO(Ref.make(0L)))
 }

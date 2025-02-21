@@ -233,22 +233,22 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def implementEither(f: Input => Either[Err, Output])(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
-    implementHandler[Any](Handler.fromFunctionHandler[Input](in => Handler.fromEither(f(in))))
+    implementHandler[Any](Handler.fromFunctionEither[Input](f))
 
   def implementPurely(f: Input => Output)(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
-    implementHandler[Any](Handler.fromFunctionHandler[Input](in => Handler.succeed(f(in))))
+    implementHandler[Any](Handler.fromFunctionExit[Input](in => Exit.succeed(f(in))))
 
   def implementAs(output: Output)(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
     implementHandler[Any](Handler.succeed(output))
 
-  def implementAsZIO(output: ZIO[Any, Err, Output])(implicit
+  def implementAsZIO[Env](output: ZIO[Env, Err, Output])(implicit
     trace: Trace,
-  ): Route[Any, Nothing] =
-    implementHandler[Any](Handler.fromZIO(output))
+  ): Route[Env, Nothing] =
+    implementHandler(Handler.fromZIO(output))
 
   def implementAsError(err: Err)(implicit
     trace: Trace,
@@ -302,10 +302,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               .nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
 
           (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
-            original(value).foldZIO(
-              success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
-              failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
-            )
+            original(value)
+              .asInstanceOf[ZIO[Env, Err, Output]]
+              .foldZIO(
+                success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
+                failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
+              )
           }
         } -> condition
       }

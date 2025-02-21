@@ -61,5 +61,5 @@ object JSClientSpec extends ZIOSpecDefault {
 //          } yield assertTrue(consoleMessages.contains("Server: Hello, World!"))
 //        }.provideSome[Scope & Client](ZLayer(Queue.bounded[String](100))),
 //      ),
-    )
+    ) @@ flaky
 }

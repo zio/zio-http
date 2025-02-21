@@ -181,9 +181,11 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
-          handler { (req: Request) =>
-            if (req.headers.contains(header.name)) h(req)
-            else h(req.addHeader(make))
+          Handler.scoped[Env1] {
+            handler { (req: Request) =>
+              if (req.headers.contains(header.name)) h(req)
+              else h(req.addHeader(make))
+            }
           }
         }
     }
@@ -192,9 +194,11 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
-          handler { (req: Request) =>
-            if (req.headers.contains(headerName)) h(req)
-            else h(req.addHeader[String](headerName, make))
+          Handler.scoped[Env1] {
+            handler { (req: Request) =>
+              if (req.headers.contains(headerName)) h(req)
+              else h(req.addHeader[String](headerName, make))
+            }
           }
         }
     }
@@ -208,23 +212,25 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
-          handler { (req: Request) =>
-            val headerValues = ChunkBuilder.make[Header]()
-            headerValues.sizeHint(allHeaders.length)
-            var i            = 0
-            while (i < allHeaders.length) {
-              val name = allHeaders(i)
-              req.headers.get(name).foreach { value =>
-                headerValues += value
+          Handler.scoped[Env1] {
+            handler { (req: Request) =>
+              val headerValues = ChunkBuilder.make[Header]()
+              headerValues.sizeHint(allHeaders.length)
+              var i            = 0
+              while (i < allHeaders.length) {
+                val name = allHeaders(i)
+                req.headers.get(name).foreach { value =>
+                  headerValues += value
+                }
+                i += 1
               }
-              i += 1
+              RequestStore.update[ForwardedHeaders] { old =>
+                ForwardedHeaders {
+                  old.map(_.headers).getOrElse(Headers.empty) ++
+                    Headers.fromIterable(headerValues.result())
+                }
+              } *> h(req)
             }
-            RequestStore.update[ForwardedHeaders] { old =>
-              ForwardedHeaders {
-                old.map(_.headers).getOrElse(Headers.empty) ++
-                  Headers.fromIterable(headerValues.result())
-              }
-            } *> h(req)
           }
         }
     }
@@ -235,23 +241,25 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
-          handler { (req: Request) =>
-            val headerValues = ChunkBuilder.make[Header]()
-            headerValues.sizeHint(allHeaders.length)
-            var i            = 0
-            while (i < allHeaders.length) {
-              val name = allHeaders(i)
-              req.headers.get(name).foreach { value =>
-                headerValues += Header.Custom(name, value)
+          Handler.scoped[Env1] {
+            handler { (req: Request) =>
+              val headerValues = ChunkBuilder.make[Header]()
+              headerValues.sizeHint(allHeaders.length)
+              var i            = 0
+              while (i < allHeaders.length) {
+                val name = allHeaders(i)
+                req.headers.get(name).foreach { value =>
+                  headerValues += Header.Custom(name, value)
+                }
+                i += 1
               }
-              i += 1
+              RequestStore.update[ForwardedHeaders] { old =>
+                ForwardedHeaders {
+                  old.map(_.headers).getOrElse(Headers.empty) ++
+                    Headers.fromIterable(headerValues.result())
+                }
+              } *> h(req)
             }
-            RequestStore.update[ForwardedHeaders] { old =>
-              ForwardedHeaders {
-                old.map(_.headers).getOrElse(Headers.empty) ++
-                  Headers.fromIterable(headerValues.result())
-              }
-            } *> h(req)
           }
         }
     }
@@ -269,7 +277,8 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
-          handler((req: Request) => ZIO.logAnnotate(logAnnotations)(h(req)))
+          Handler.scoped[Env1](handler((req: Request) => ZIO.logAnnotate(logAnnotations)(h(req))))
+
         }
     }
 
@@ -281,7 +290,7 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
-          handler((req: Request) => ZIO.logAnnotate(fromRequest(req))(h(req)))
+          Handler.scoped[Env1](handler((req: Request) => ZIO.logAnnotate(fromRequest(req))(h(req))))
         }
     }
 
@@ -295,17 +304,19 @@ object Middleware extends HandlerAspects {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] = {
         val headers = headerName +: headerNames
         routes.transform[Env1] { h =>
-          handler((req: Request) => {
-            val annotations = Set.newBuilder[LogAnnotation]
-            annotations.sizeHint(headers.length)
-            var i           = 0
-            while (i < headers.length) {
-              val name = headers(i)
-              annotations += LogAnnotation(name, req.headers.get(name).mkString)
-              i += 1
-            }
-            ZIO.logAnnotate(annotations.result())(h(req))
-          })
+          Handler.scoped[Env1] {
+            handler((req: Request) => {
+              val annotations = Set.newBuilder[LogAnnotation]
+              annotations.sizeHint(headers.length)
+              var i           = 0
+              while (i < headers.length) {
+                val name = headers(i)
+                annotations += LogAnnotation(name, req.headers.get(name).mkString)
+                i += 1
+              }
+              ZIO.logAnnotate(annotations.result())(h(req))
+            })
+          }
         }
       }
     }
