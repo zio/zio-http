@@ -65,7 +65,7 @@ Routes(
 ```
 
 :::note
-Please be aware that this page primarily concentrates on the `Handler` data type and its constructors. However, to provide a more comprehensive understanding within the context of routes, we also integrate examples with the `Routes` and `Method` data types. Detailed exploration of the `Routes` and `Method` data types will be discussed in a separate section.
+Please be aware that this page primarily concentrates on the `Handler` data type and its constructors. However, to provide a more comprehensive understanding within the context of routes, we also integrate examples with the `Routes` and `Method` data types. Detailed exploration of the `Routes` and `Method` data types is discussed in a [separate section](./routing/routes.md).
 :::
 
 As we can see, the `handler` constructor is quite versatile and can be used to create handlers for different use cases. It automatically infers proper handler constructors based on the input we pass to it.
