@@ -125,8 +125,6 @@ object Handler {
 }
 ```
 
-Sometimes it becomes necessary to integrate non-ZIO code into a Handler. The external code might be prone to throwing exceptions, so we need to seamlessly incorporate it into Handler while capturing all non-fatal exceptions. By utilizing this constructor, we can encapsulate a thunk of type `Out`, resulting in a `Handler` where the error type is `Throwable`, while maintaining the original `Out` as the result type.
-
 ### From `Either` and `Exit`
 
 If we have an `Either` or `Exit` which are the result of some computation, we can convert them to a `Handler` using the corresponding constructors:
