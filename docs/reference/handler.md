@@ -716,7 +716,7 @@ If you're unfamiliar with these operators, it's recommended to explore the [core
 
 Like `ZIO` data type, the `Handler` has various operators for handling errors, such as `orDie*`, `refineOrDie`, `catchAll*`, `unrefine*`.
 
-The are similar to the `ZIO` ones, but they are specialized for the `Handler` type. If you're unfamiliar with these operators, it's recommended to explore the [Error Management](https://zio.dev/reference/error-management/) section in the core ZIO documentation.
+These are similar to the `ZIO` ones, but they are specialized for the `Handler` type. If you're unfamiliar with these operators, it's recommended to explore the [Error Management](https://zio.dev/reference/error-management/) section in the core ZIO documentation.
 
 ### Working with Environment and Layers
 
@@ -732,7 +732,7 @@ If you are not familiar with the concept of environment and layers in ZIO, it is
 
 ### Adding Delays
 
-When we have andler of type `In => Out`, we can delay the consumption of the input by using the `Handler#delayBefore` and delay the production of the output by using the `Handler#delayAfter`.
+When we have a `Handler` of type `In => Out`, we can delay the consumption of the input by using the `Handler#delayBefore` and delay the production of the output by using the `Handler#delayAfter`.
 
 ### Converting to Constant Values/Types
 
