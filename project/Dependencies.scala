@@ -17,7 +17,7 @@ object Dependencies {
   val `scala-compat-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompatCollectionVersion
 
   val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.0"
-  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.13.1.1"
+  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.13.2"
 
   val netty =
     Seq(
