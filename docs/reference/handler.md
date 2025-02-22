@@ -564,7 +564,7 @@ A better practice is to log the stack trace on the server side for debugging pur
 
 ## Handler Operators
 
-Like`ZIO` data type, the `Handler` has various operators for various operators for handling errors, timing out, combining handlers, maping 
+Like`ZIO` data type, the `Handler` has various operators for handling errors, timing out, combining handlers, mapping etc.
 
 ### Handler Aspect
 
