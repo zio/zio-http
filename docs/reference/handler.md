@@ -584,7 +584,7 @@ This will log every request coming to these handlers. ZIO HTTP supports various 
 
 ### Sandboxing Errors
 
-The `Handler#sandbox` operator described is a potentially time-saving solution for managing errors within an HTTP application. Its primary function is the elimination of errors by translating them into an error of type `Response`, allowing developers to transition into a controlled environment where errors are effectively mitigated:
+The `Handler#sandbox` operator is a potentially time-saving solution for managing errors within an HTTP application. Its primary function is the elimination of errors by translating them into an error of type `Response`, allowing developers to transition into a controlled environment where errors are effectively mitigated:
 
 ```scala
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
