@@ -216,10 +216,7 @@ object RoutePattern                                                       {
         }
       }
 
-      if (anyRoot eq null) forMethod
-      else {
-        forMethod ++ anyRoot.get(path)
-      }
+      if (forMethod.isEmpty && anyRoot != null) anyRoot.get(path) else forMethod
     }
 
     def map[B](f: A => B): Tree[B] =

@@ -72,6 +72,7 @@ final case class TestClient(
       r <- ZIO.environment[R]
       provided = route.provideEnvironment(r)
       _ <- behavior.update(_ :+ provided)
+      _ <- behavior.get.debug("Added route")
     } yield ()
 
   /**
@@ -121,7 +122,7 @@ final case class TestClient(
     proxy: Option[Proxy],
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
     for {
-      currentBehavior <- behavior.get.map(_ :+ Method.ANY / trailing -> handler(Response.notFound))
+      currentBehavior <- behavior.get
       request = Request(
         body = body,
         headers = headers,
