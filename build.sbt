@@ -183,7 +183,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
-      `scala-compat-collection`
+      `scala-compat-collection`,
     ) ++ netty ++ Seq(`netty-incubator`),
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
@@ -202,7 +202,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       "dev.zio"                %%% "zio-schema"              % ZioSchemaVersion,
       "dev.zio"                %%% "zio-schema-json"         % ZioSchemaVersion,
       "dev.zio"                %%% "zio-schema-protobuf"     % ZioSchemaVersion,
-    )
+    ),
   )
 
 lazy val zioHttpJS = zioHttp.js
