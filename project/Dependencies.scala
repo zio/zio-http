@@ -7,7 +7,7 @@ object Dependencies {
   val ScalaCompatCollectionVersion = "2.13.0"
   val ZioVersion                   = "2.1.15"
   val ZioCliVersion                = "0.7.0"
-  val ZioJsonVersion               = "0.7.26"
+  val ZioJsonVersion               = "0.7.28"
   val ZioParserVersion             = "0.1.10"
   val ZioSchemaVersion             = "1.6.3"
   val SttpVersion                  = "3.3.18"
