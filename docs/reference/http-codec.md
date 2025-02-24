@@ -163,7 +163,7 @@ val uuidQueryCodec  : QueryCodec[UUID]           = HttpCodec.query[UUID]("uuid")
 We can combine multiple query codecs with `++`:
 
 
-If we have multiple query parameters we can use `HttpCodec.queryAll`, `HttpCodec.queryAllBool`, `HttpCodec.queryAllInt`, and `HttpCodec.queryAllTo`:
+If we have multiple query parameter values we can use `HttpCodec.query[A]` with a collection for the type parameter.
 
 ```scala mdoc:compile-only
 import zio._
@@ -213,7 +213,7 @@ There is also a `|` operator that allows us to create a codec that can decode ei
 ```scala mdoc:silent
 import zio.http.codec._
 
-val eitherQueryCodec: QueryCodec[String] = HttpCodec.query[String]("q") | HttpCodec.query[String]("query")
+val eitherQueryCodec: QueryCodec[Either[Boolean, String]] = HttpCodec.query[Boolean]("q") | HttpCodec.query[String]("query")
 ```
 
 Assume we have a request
@@ -229,7 +229,16 @@ We can decode the query parameter using the `decodeRequest` method:
 ```scala mdoc:silent
 import zio._
 
-val result: Task[String] = eitherQueryCodec.decodeRequest(request)
+val result: Task[Either[Boolean, String]] = eitherQueryCodec.decodeRequest(request)
+```
+
+#### Scala 3 Union Type Syntax
+For Scala 3 the `||` operator is available will return a union type instead of an `Either`.
+
+```scala
+import zio.http.codec._
+
+val unionQueryCodec: QueryCodec[Boolean | String] = HttpCodec.query[Boolean]("q") || HttpCodec.query[String]("query")
 ```
 
 ```scala mdoc:invisible:reset

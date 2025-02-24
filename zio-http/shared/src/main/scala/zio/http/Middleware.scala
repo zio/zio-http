@@ -49,6 +49,9 @@ trait Middleware[-UpperEnv] { self =>
 @nowarn("msg=shadows type")
 object Middleware extends HandlerAspects {
 
+  final protected override def addHeader(name: CharSequence, value: CharSequence): HandlerAspect[Any, Unit] =
+    HandlerAspect.addHeader[String](name.toString, value.toString)
+
   /**
    * Configuration for the CORS aspect.
    */
@@ -191,7 +194,7 @@ object Middleware extends HandlerAspects {
         routes.transform[Env1] { h =>
           handler { (req: Request) =>
             if (req.headers.contains(headerName)) h(req)
-            else h(req.addHeader(headerName, make))
+            else h(req.addHeader[String](headerName, make))
           }
         }
     }

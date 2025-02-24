@@ -170,7 +170,7 @@ object NettyBody extends BodyEncoding {
       lazy val loop: ZChannel[Any, Any, Any, Any, E, Chunk[A], Unit] =
         ZChannel.unwrap(
           queue.take
-            .flatMap(_.done)
+            .flatMap(_.exit)
             .fold(
               maybeError =>
                 ZChannel.fromZIO(queue.shutdown) *>

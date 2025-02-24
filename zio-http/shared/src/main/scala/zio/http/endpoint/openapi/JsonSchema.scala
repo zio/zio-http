@@ -253,114 +253,6 @@ object JsonSchema {
       .toOption
       .get
 
-  private[openapi] def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
-    val additionalProperties = schema.additionalProperties match {
-      case Some(BoolOrSchema.BooleanWrapper(bool))  => Left(bool)
-      case Some(BoolOrSchema.SchemaWrapper(schema)) =>
-        val valuesSchema = fromSerializableSchema(schema)
-        Right(
-          schema.optionalKeySchema.fold(valuesSchema)(keySchema =>
-            valuesSchema.annotate(
-              MetaData.KeySchema(
-                fromSerializableSchema(keySchema),
-              ),
-            ),
-          ),
-        )
-      case None                                     => Left(true)
-    }
-
-    var jsonSchema: JsonSchema = schema match {
-      case schema if schema.ref.isDefined                                                                =>
-        RefSchema(schema.ref.get)
-      case schema if schema.schemaType.contains(TypeOrTypes.Type("number"))                              =>
-        JsonSchema.Number(
-          NumberFormat.fromString(schema.format.getOrElse("double")),
-          schema.minimum.map(_.fold(identity, _.toDouble)),
-          schema.exclusiveMinimum.map(_.map(_.fold(identity, _.toDouble))),
-          schema.maximum.map(_.fold(identity, _.toDouble)),
-          schema.exclusiveMaximum.map(_.map(_.fold(identity, _.toDouble))),
-        )
-      case schema if schema.schemaType.contains(TypeOrTypes.Type("integer"))                             =>
-        JsonSchema.Integer(
-          IntegerFormat.fromString(schema.format.getOrElse("int64")),
-          schema.minimum.map(_.fold(_.toLong, identity)),
-          schema.exclusiveMinimum.map(_.map(_.fold(_.toLong, identity))),
-          schema.maximum.map(_.fold(_.toLong, identity)),
-          schema.exclusiveMaximum.map(_.map(_.fold(_.toLong, identity))),
-        )
-      case schema if schema.schemaType.contains(TypeOrTypes.Type("string")) && schema.enumValues.isEmpty =>
-        JsonSchema.String(
-          schema.format.map(StringFormat.fromString),
-          schema.pattern.map(Pattern.apply),
-          schema.minLength,
-          schema.maxLength,
-        )
-      case schema if schema.schemaType.contains(TypeOrTypes.Type("boolean"))                             =>
-        JsonSchema.Boolean
-      case schema if schema.schemaType.contains(TypeOrTypes.Type("array"))                               =>
-        JsonSchema.ArrayType(
-          schema.items.map(fromSerializableSchema),
-          schema.minItems,
-          schema.uniqueItems.contains(true),
-        )
-      case schema if schema.enumValues.isDefined                                                         =>
-        JsonSchema.Enum(schema.enumValues.get.map(EnumValue.fromJson))
-      case schema if schema.oneOf.isDefined                                                              =>
-        OneOfSchema(schema.oneOf.get.map(fromSerializableSchema))
-      case schema if schema.allOf.isDefined                                                              =>
-        AllOfSchema(schema.allOf.get.map(fromSerializableSchema))
-      case schema if schema.anyOf.isDefined                                                              =>
-        AnyOfSchema(schema.anyOf.get.map(fromSerializableSchema))
-      case schema if schema.schemaType.contains(TypeOrTypes.Type("null"))                                =>
-        JsonSchema.Null
-      case schema if schema.schemaType.contains(TypeOrTypes.Type("object")) || schema.schemaType.isEmpty =>
-        JsonSchema.Object(
-          schema.properties
-            .map(_.map { case (name, schema) => name -> fromSerializableSchema(schema) })
-            .getOrElse(Map.empty),
-          additionalProperties,
-          schema.required.getOrElse(Chunk.empty),
-        )
-      case _                                                                                             =>
-        throw new IllegalArgumentException(s"Can't convert $schema")
-    }
-
-    val examples = Chunk.fromIterable(schema.example) ++ schema.examples.getOrElse(Chunk.empty)
-    if (examples.nonEmpty) jsonSchema = jsonSchema.examples(examples)
-
-    schema.description match {
-      case Some(value) => jsonSchema = jsonSchema.description(value)
-      case None        => ()
-    }
-
-    schema.nullable match {
-      case Some(value) => jsonSchema = jsonSchema.nullable(value)
-      case None        => ()
-    }
-
-    schema.discriminator match {
-      case Some(value) => jsonSchema = jsonSchema.discriminator(value)
-      case None        => ()
-    }
-
-    schema.contentEncoding.flatMap(ContentEncoding.fromString) match {
-      case Some(value) => jsonSchema = jsonSchema.contentEncoding(value)
-      case None        => ()
-    }
-
-    schema.contentMediaType match {
-      case Some(value) => jsonSchema = jsonSchema.contentMediaType(value)
-      case None        => ()
-    }
-
-    jsonSchema = jsonSchema.default(schema.default)
-
-    jsonSchema = jsonSchema.deprecated(schema.deprecated.getOrElse(false))
-
-    jsonSchema
-  }
-
   def fromTextCodec(codec: TextCodec[_]): JsonSchema =
     codec match {
       case TextCodec.Constant(string) => JsonSchema.Enum(Chunk(EnumValue.Str(string)))
@@ -370,6 +262,142 @@ object JsonSchema {
       case TextCodec.BooleanCodec     => JsonSchema.Boolean
       case TextCodec.UUIDCodec        => JsonSchema.String(JsonSchema.StringFormat.UUID)
     }
+
+  private[openapi] def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchema = {
+
+    val definedAttributesCount = schema.productIterator.count(_.asInstanceOf[Option[_]].isDefined)
+
+    // if type: object with additionalProperties defined,
+    // but nothing else, we should assume a free form object
+    // if type is not defined, but additionalProperties is,
+    // and nothing else, object is assumed again.
+    // if both type: object and additionalProperties are defined,
+    // and nothing else, object is assumed.
+    def anyObject: Boolean = {
+      val isObject = schema.schemaType.contains(TypeOrTypes.Type("object"))
+      val hasAttrs = schema.additionalProperties.collect { case BoolOrSchema.BooleanWrapper(b) =>
+        b
+      }.exists(identity)
+
+      // if definedAttributesCount == 0, this also yields true,
+      // but we check for it before calling this function,
+      // thus no need to check it here.
+      val isAnyObj = List(isObject, hasAttrs).count(identity) == definedAttributesCount
+
+      isAnyObj
+    }
+
+    if (definedAttributesCount == 0) JsonSchema.AnyJson
+    else if (anyObject) JsonSchema.Object(Map.empty, Right(JsonSchema.AnyJson), Chunk.empty)
+    else {
+
+      val additionalProperties = schema.additionalProperties match {
+        case Some(BoolOrSchema.BooleanWrapper(bool))  => Left(bool)
+        case Some(BoolOrSchema.SchemaWrapper(schema)) =>
+          val valuesSchema = fromSerializableSchema(schema)
+          Right(
+            schema.optionalKeySchema.fold(valuesSchema)(keySchema =>
+              valuesSchema.annotate(
+                MetaData.KeySchema(
+                  fromSerializableSchema(keySchema),
+                ),
+              ),
+            ),
+          )
+        case None                                     => Left(true)
+      }
+
+      var jsonSchema: JsonSchema = schema match {
+        case schema if schema.ref.isDefined                                                                =>
+          RefSchema(schema.ref.get)
+        case schema if schema.schemaType.contains(TypeOrTypes.Type("number"))                              =>
+          JsonSchema.Number(
+            NumberFormat.fromString(schema.format.getOrElse("double")),
+            schema.minimum.map(_.fold(identity, _.toDouble)),
+            schema.exclusiveMinimum.map(_.map(_.fold(identity, _.toDouble))),
+            schema.maximum.map(_.fold(identity, _.toDouble)),
+            schema.exclusiveMaximum.map(_.map(_.fold(identity, _.toDouble))),
+          )
+        case schema if schema.schemaType.contains(TypeOrTypes.Type("integer"))                             =>
+          JsonSchema.Integer(
+            IntegerFormat.fromString(schema.format.getOrElse("int64")),
+            schema.minimum.map(_.fold(_.toLong, identity)),
+            schema.exclusiveMinimum.map(_.map(_.fold(_.toLong, identity))),
+            schema.maximum.map(_.fold(_.toLong, identity)),
+            schema.exclusiveMaximum.map(_.map(_.fold(_.toLong, identity))),
+          )
+        case schema if schema.schemaType.contains(TypeOrTypes.Type("string")) && schema.enumValues.isEmpty =>
+          JsonSchema.String(
+            schema.format.map(StringFormat.fromString),
+            schema.pattern.map(Pattern.apply),
+            schema.maxLength,
+            schema.minLength,
+          )
+        case schema if schema.schemaType.contains(TypeOrTypes.Type("boolean"))                             =>
+          JsonSchema.Boolean
+        case schema if schema.schemaType.contains(TypeOrTypes.Type("array"))                               =>
+          JsonSchema.ArrayType(
+            schema.items.map(fromSerializableSchema),
+            schema.minItems,
+            schema.uniqueItems.contains(true),
+          )
+        case schema if schema.enumValues.isDefined                                                         =>
+          JsonSchema.Enum(schema.enumValues.get.map(EnumValue.fromJson))
+        case schema if schema.oneOf.isDefined                                                              =>
+          OneOfSchema(schema.oneOf.get.map(fromSerializableSchema))
+        case schema if schema.allOf.isDefined                                                              =>
+          AllOfSchema(schema.allOf.get.map(fromSerializableSchema))
+        case schema if schema.anyOf.isDefined                                                              =>
+          AnyOfSchema(schema.anyOf.get.map(fromSerializableSchema))
+        case schema if schema.schemaType.contains(TypeOrTypes.Type("null"))                                =>
+          JsonSchema.Null
+        case schema if schema.schemaType.contains(TypeOrTypes.Type("object")) || schema.schemaType.isEmpty =>
+          JsonSchema.Object(
+            schema.properties
+              .map(_.map { case (name, schema) => name -> fromSerializableSchema(schema) })
+              .getOrElse(Map.empty),
+            additionalProperties,
+            schema.required.getOrElse(Chunk.empty),
+          )
+        case _                                                                                             =>
+          throw new IllegalArgumentException(s"Can't convert $schema")
+      }
+
+      val examples = Chunk.fromIterable(schema.example) ++ schema.examples.getOrElse(Chunk.empty)
+      if (examples.nonEmpty) jsonSchema = jsonSchema.examples(examples)
+
+      schema.description match {
+        case Some(value) => jsonSchema = jsonSchema.description(value)
+        case None        => ()
+      }
+
+      schema.nullable match {
+        case Some(value) => jsonSchema = jsonSchema.nullable(value)
+        case None        => ()
+      }
+
+      schema.discriminator match {
+        case Some(value) => jsonSchema = jsonSchema.discriminator(value)
+        case None        => ()
+      }
+
+      schema.contentEncoding.flatMap(ContentEncoding.fromString) match {
+        case Some(value) => jsonSchema = jsonSchema.contentEncoding(value)
+        case None        => ()
+      }
+
+      schema.contentMediaType match {
+        case Some(value) => jsonSchema = jsonSchema.contentMediaType(value)
+        case None        => ()
+      }
+
+      jsonSchema = jsonSchema.default(schema.default)
+
+      jsonSchema = jsonSchema.deprecated(schema.deprecated.getOrElse(false))
+
+      jsonSchema
+    }
+  }
 
   def fromSegmentCodec(codec: SegmentCodec[_]): JsonSchema =
     codec match {

@@ -32,12 +32,11 @@ import zio.http.gen.openapi.{Config, EndpointGen}
 object CodeGenSpec extends ZIOSpecDefault {
 
   case class ValidatedData(
-    @validate(Validation.maxLength(10))
-    name: String,
-    @validate(Validation.greaterThan(0) && Validation.lessThan(100))
-    age: Int,
+    @validate(Validation.maxLength(10)) name: String,
+    @validate(Validation.greaterThan(0) && Validation.lessThan(100)) age: Int,
   )
-  implicit val validatedDataSchema: Schema[ValidatedData] = DeriveSchema.gen[ValidatedData]
+  implicit val validatedDataSchema: Schema[ValidatedData] =
+    DeriveSchema.gen[ValidatedData]
 
   private def fileShouldBe(dir: java.nio.file.Path, subPath: String, expectedFile: String): TestResult = {
     val filePath  = dir.resolve(Paths.get(subPath))
@@ -155,8 +154,9 @@ object CodeGenSpec extends ZIOSpecDefault {
           Endpoint(Method.GET / "api" / "v1" / "users")
             .header(HeaderCodec.accept)
             .header(HeaderCodec.contentType)
-            .header(HeaderCodec.name[String]("Token"))
-        val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
+            .header(HeaderCodec.headerAs[String]("Token"))
+
+        val openAPI = OpenAPIGen.fromEndpoints(endpoint)
 
         codeGenFromOpenAPI(openAPI) { testDir =>
           fileShouldBe(testDir, "api/v1/Users.scala", "/EndpointWithHeaders.scala")
@@ -198,6 +198,16 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      test("OpenAPI spec with inline schema request and response body with minLength and maxLength") {
+        val openAPIString = stringFromResource("/inline_schema_minmaxlength.json")
+
+        openApiFromJsonString(openAPIString) { openAPI =>
+          codeGenFromOpenAPI(openAPI) { testDir =>
+            fileShouldBe(testDir, "api/v1/Entries.scala", "/EndpointWithRequestResponseBodyInlineMinMaxLength.scala")
+          }
+        }
+      } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+
       test("OpenAPI spec with inline schema request and response body, with nested object schema") {
         val openAPIString = stringFromResource("/inline_schema_nested.json")
 
@@ -595,6 +605,7 @@ object CodeGenSpec extends ZIOSpecDefault {
           }
         }
       } @@ TestAspect.exceptScala3, // for some reason, the temp dir is empty in Scala 3
+      //format: off
       test("Endpoint with array field in input") {
         val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
         val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)
@@ -998,6 +1009,30 @@ object CodeGenSpec extends ZIOSpecDefault {
               testDir,
               "component/Key.scala",
               "/ComponentAliasKey.scala",
+            )
+          }
+        }
+      } @@ TestAspect.exceptScala3,
+      test("Schema with any and any object") {
+        val openAPIString = stringFromResource("/inline_schema_any_and_any_object.yaml")
+
+        openApiFromYamlString(openAPIString) { oapi =>
+          codeGenFromOpenAPI(
+            oapi,
+            Config.default.copy(
+              fieldNamesNormalization = Config.default.fieldNamesNormalization.copy(enableAutomatic = true),
+            ),
+          ) { testDir =>
+            allFilesShouldBe(
+              testDir.toFile,
+              List(
+                "api/v1/zoo/Animal.scala",
+                "component/Animal.scala",
+              ),
+            ) && fileShouldBe(
+              testDir,
+              "component/Animal.scala",
+              "/AnimalWithAny.scala",
             )
           }
         }

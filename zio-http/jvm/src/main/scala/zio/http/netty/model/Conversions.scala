@@ -18,11 +18,12 @@ package zio.http.netty.model
 
 import scala.collection.AbstractIterator
 
+import zio.Chunk
+
 import zio.http.Server.Config.CompressionOptions
 import zio.http._
 
-import com.aayushatharva.brotli4j.encoder.Encoder
-import io.netty.handler.codec.compression.StandardCompressionOptions
+import io.netty.handler.codec.compression.{BrotliMode, StandardCompressionOptions}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 
@@ -58,10 +59,10 @@ private[netty] object Conversions {
 
   def headersToNetty(headers: Headers): HttpHeaders =
     headers match {
-      case Headers.FromIterable(_)        => encodeHeaderListToNetty(headers)
-      case Headers.Native(value, _, _, _) => value.asInstanceOf[HttpHeaders]
-      case Headers.Concat(_, _)           => encodeHeaderListToNetty(headers)
-      case Headers.Empty                  => new DefaultHttpHeaders()
+      case Headers.FromIterable(_)           => encodeHeaderListToNetty(headers)
+      case Headers.Native(value, _, _, _, _) => value.asInstanceOf[HttpHeaders]
+      case Headers.Concat(_, _)              => encodeHeaderListToNetty(headers)
+      case Headers.Empty                     => new DefaultHttpHeaders()
     }
 
   def urlToNetty(url: URL): String = {
@@ -89,6 +90,7 @@ private[netty] object Conversions {
       (headers: HttpHeaders) => nettyHeadersIterator(headers),
       // NOTE: Netty's headers.get is case-insensitive
       (headers: HttpHeaders, key: CharSequence) => headers.get(key),
+      (headers: HttpHeaders, key: CharSequence) => Chunk.fromJavaIterable(headers.getAll(key)),
       (headers: HttpHeaders, key: CharSequence) => headers.contains(key),
     )
 
@@ -150,15 +152,13 @@ private[netty] object Conversions {
       case CompressionOptions.Deflate(cfg) =>
         StandardCompressionOptions.deflate(cfg.level, cfg.bits, cfg.mem)
       case CompressionOptions.Brotli(cfg)  =>
-        StandardCompressionOptions.brotli(
-          new Encoder.Parameters().setQuality(cfg.quality).setWindow(cfg.lgwin).setMode(brotliModeToJava(cfg.mode)),
-        )
+        StandardCompressionOptions.brotli(cfg.quality, cfg.lgwin, brotliModeToJava(cfg.mode))
     }
 
-  def brotliModeToJava(brotli: CompressionOptions.Mode): Encoder.Mode = brotli match {
-    case CompressionOptions.Mode.Font    => Encoder.Mode.FONT
-    case CompressionOptions.Mode.Text    => Encoder.Mode.TEXT
-    case CompressionOptions.Mode.Generic => Encoder.Mode.GENERIC
+  def brotliModeToJava(brotli: CompressionOptions.Mode): BrotliMode = brotli match {
+    case CompressionOptions.Mode.Font    => BrotliMode.FONT
+    case CompressionOptions.Mode.Text    => BrotliMode.TEXT
+    case CompressionOptions.Mode.Generic => BrotliMode.GENERIC
   }
 
   def versionToNetty(version: Version): HttpVersion = version match {

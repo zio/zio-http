@@ -7,10 +7,10 @@ object JmhBenchmarkWorkflow {
 
   val jmhPlugin                = s"""addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "$JmhVersion")"""
   val scalaSources: PathFilter = ** / "*.scala"
-  val files = FileTreeView.default.list(Seq(
-    Glob("zio-http-benchmarks/src/main/scala-2.13/**"),
-    Glob("zio-http-benchmarks/src/main/scala/**")),scalaSources
-    )
+  val files                    = FileTreeView.default.list(
+    Seq(Glob("zio-http-benchmarks/src/main/scala-2.13/**"), Glob("zio-http-benchmarks/src/main/scala/**")),
+    scalaSources,
+  )
 
   /**
    * Get zioHttpBenchmark file names
@@ -42,7 +42,7 @@ object JmhBenchmarkWorkflow {
   /**
    * Download Artifacts and parse result
    */
- def downloadArtifacts(branch: String, batchSize: Int) = groupedBenchmarks(batchSize).flatMap(l => {
+  def downloadArtifacts(branch: String, batchSize: Int) = groupedBenchmarks(batchSize).flatMap(l => {
     Seq(
       WorkflowStep.Use(
         ref = UseRef.Public("actions", "download-artifact", "v4"),
@@ -51,24 +51,24 @@ object JmhBenchmarkWorkflow {
         ),
       ),
       WorkflowStep.Run(
-          commands = List(
-            s"""cat ${branch}_${l.head}.txt >> ${branch}_benchmarks.txt""".stripMargin,
-          ),
-          name = Some(s"Format_${branch}_${l.head}"),
+        commands = List(
+          s"""cat ${branch}_${l.head}.txt >> ${branch}_benchmarks.txt""".stripMargin,
+        ),
+        name = Some(s"Format_${branch}_${l.head}"),
       ),
     )
   })
 
   def parse_results(branch: String) = WorkflowStep.Run(
-        commands = List(s"""while IFS= read -r line; do
-                           |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
-                           |   echo $${PARSED_RESULT[1]} >> parsed_$branch.txt
-                           |   B_VALUE=$$(echo $${PARSED_RESULT[1]}": "$${PARSED_RESULT[4]}" ops/sec")
-                           |   echo $$B_VALUE >> $branch.txt
-                           | done < ${branch}_benchmarks.txt""".stripMargin),
-        id = Some(s"${branch}_Result"),
-        name = Some(s"$branch Result"),
-      )
+    commands = List(s"""while IFS= read -r line; do
+                       |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
+                       |   echo $${PARSED_RESULT[1]} >> parsed_$branch.txt
+                       |   B_VALUE=$$(echo $${PARSED_RESULT[1]}": "$${PARSED_RESULT[4]}" ops/sec")
+                       |   echo $$B_VALUE >> $branch.txt
+                       | done < ${branch}_benchmarks.txt""".stripMargin),
+    id = Some(s"${branch}_Result"),
+    name = Some(s"$branch Result"),
+  )
 
   /**
    * Workflow Job to cache benchmark results
@@ -81,22 +81,22 @@ object JmhBenchmarkWorkflow {
         "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}",
       ),
       needs = dependencies(batchSize),
-      steps =  downloadArtifacts("Main", batchSize) ++
+      steps = downloadArtifacts("Main", batchSize) ++
         Seq(
-        WorkflowStep.Use(
-          UseRef.Public("actions", "checkout", "v4"),
-          Map(
-            "path" -> "zio-http"
-          )
-        ),
+          WorkflowStep.Use(
+            UseRef.Public("actions", "checkout", "v4"),
+            Map(
+              "path" -> "zio-http",
+            ),
+          ),
           parse_results("Main"),
           WorkflowStep.Use(
-          UseRef.Public("actions", "cache", "v4"),
-          Map(
-            "path" -> "Main.txt",
-            "key" -> "jmh_benchmarks_${{ github.sha }}"
+            UseRef.Public("actions", "cache", "v4"),
+            Map(
+              "path" -> "Main.txt",
+              "key"  -> "jmh_benchmarks_${{ github.sha }}",
+            ),
           ),
-        ),
         ),
     ),
   )
@@ -113,7 +113,7 @@ object JmhBenchmarkWorkflow {
       ),
       scalas = List(Scala213),
       steps = List(
-        WorkflowStep.Use(UseRef.Public("coursier", "setup-action","v1"), Map("apps" -> "sbt")),
+        WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v4"),
           Map(
@@ -148,5 +148,5 @@ object JmhBenchmarkWorkflow {
     )
   })
 
-  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize)  ++ cache(batchSize) // ++ jmh_compare(batchSize)
+  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize) ++ cache(batchSize) // ++ jmh_compare(batchSize)
 }

@@ -25,7 +25,7 @@ import zio.http.codec._
 private[http] final case class AtomizedCodecs(
   method: Chunk[SimpleCodec[zio.http.Method, _]],
   path: Chunk[PathCodec[_]],
-  query: Chunk[Query[_, _]],
+  query: Chunk[Query[_]],
   header: Chunk[Header[_]],
   content: Chunk[BodyCodec[_]],
   status: Chunk[SimpleCodec[zio.http.Status, _]],
@@ -33,39 +33,47 @@ private[http] final case class AtomizedCodecs(
   def append(atom: Atom[_, _]): AtomizedCodecs = atom match {
     case path0: Path[_]            => self.copy(path = path :+ path0.pathCodec)
     case method0: Method[_]        => self.copy(method = method :+ method0.codec)
-    case query0: Query[_, _]       => self.copy(query = query :+ query0)
+    case query0: Query[_]          => self.copy(query = query :+ query0)
     case header0: Header[_]        => self.copy(header = header :+ header0)
+    case status0: Status[_]        => self.copy(status = status :+ status0.codec)
     case content0: Content[_]      =>
       self.copy(content = content :+ BodyCodec.Single(content0.codec, content0.name))
-    case status0: Status[_]        => self.copy(status = status :+ status0.codec)
     case stream0: ContentStream[_] =>
       self.copy(content = content :+ BodyCodec.Multiple(stream0.codec, stream0.name))
   }
 
   def makeInputsBuilder(): Mechanic.InputsBuilder = {
     Atomized(
-      Array.ofDim(method.length),
-      Array.ofDim(status.length),
-      Array.ofDim(path.length),
-      Array.ofDim(query.length),
-      Array.ofDim(header.length),
-      Array.ofDim(content.length),
+      method = Array.ofDim(method.length),
+      path = Array.ofDim(path.length),
+      query = Array.ofDim(query.length),
+      header = Array.ofDim(header.length),
+      content = Array.ofDim(content.length),
+      status = Array.ofDim(status.length),
     )
   }
 
   def optimize: AtomizedCodecs =
     AtomizedCodecs(
-      method.materialize,
-      path.materialize,
-      query.materialize,
-      header.materialize,
-      content.materialize,
-      status.materialize,
+      method = method.materialize,
+      path = path.materialize,
+      query = query.materialize,
+      header = header.materialize,
+      content = content.materialize,
+      status = status.materialize,
     )
 }
 
 private[http] object AtomizedCodecs {
-  val empty = AtomizedCodecs(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
+  val empty: AtomizedCodecs =
+    AtomizedCodecs(
+      method = Chunk.empty,
+      path = Chunk.empty,
+      query = Chunk.empty,
+      header = Chunk.empty,
+      content = Chunk.empty,
+      status = Chunk.empty,
+    )
 
   def flatten[R, A](in: HttpCodec[R, A]): AtomizedCodecs = {
     val atoms = flattenedAtoms(in)
@@ -80,7 +88,7 @@ private[http] object AtomizedCodecs {
   private def flattenedAtoms[R, A](in: HttpCodec[R, A]): Chunk[Atom[_, _]] =
     in match {
       case Combine(left, right, _)       => flattenedAtoms(left) ++ flattenedAtoms(right)
-      case atom: Atom[_, _]              => Chunk(atom)
+      case atom: Atom[_, _]              => Chunk.single(atom)
       case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
       case Annotated(api, _)             => flattenedAtoms(api)
       case Empty                         => Chunk.empty

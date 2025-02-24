@@ -61,7 +61,7 @@ final case class Response(
     }
 
   def contentType(mediaType: MediaType): Response =
-    self.addHeader("content-type", mediaType.fullType)
+    self.addHeader[String]("content-type", mediaType.fullType)
 
   /**
    * Consumes the streaming body fully and then discards it while also ignoring
@@ -213,7 +213,7 @@ object Response {
     Response(
       Status.Ok,
       contentTypeEventStream,
-      Body.fromCharSequenceStreamChunked(data.map(codec.encode).map(_.asString)),
+      Body.fromCharSequenceStreamChunked(data.map(codec.encode(_).asString)),
     )
   }
 

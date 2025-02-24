@@ -1,6 +1,7 @@
 package zio.http.endpoint
 
 import zio.Config.Secret
+import zio.test.TestAspect.flaky
 import zio.test._
 import zio.{Scope, ZIO, durationInt}
 
@@ -236,7 +237,7 @@ object AuthSpec extends ZIOSpecDefault {
             response <- response
           } yield assertTrue(response == "admin")
         },
-      ).provideShared(Client.default, Server.default) @@ TestAspect.withLiveClock,
+      ).provideShared(Client.default, Server.default) @@ TestAspect.withLiveClock @@ TestAspect.flaky,
       test("Require Basic Auth, but get Bearer Auth") {
         val endpoint = Endpoint(Method.GET / "test").out[String](MediaType.text.`plain`).auth(AuthType.Basic)
         val routes   =

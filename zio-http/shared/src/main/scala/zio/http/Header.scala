@@ -31,8 +31,14 @@ import scala.util.{Either, Failure, Success, Try}
 import zio.Config.Secret
 import zio._
 
-import zio.http.codec.RichTextCodec
-import zio.http.internal.DateEncoding
+import zio.schema.Schema
+import zio.schema.codec.DecodeError
+import zio.schema.codec.DecodeError.ReadError
+import zio.schema.validation.ValidationError
+
+import zio.http.Header.HeaderTypeBase.Typed
+import zio.http.codec.{HttpCodecError, RichTextCodec}
+import zio.http.internal.{DateEncoding, ErrorConstructor, StringSchemaCodec}
 
 sealed trait Header {
   type Self <: Header
@@ -50,14 +56,135 @@ sealed trait Header {
 
 object Header {
 
-  sealed trait HeaderType {
+  sealed trait HeaderTypeBase {
+    type HeaderValue
+
+    def names: Chunk[String]
+
+    def fromHeaders(headers: Headers): Either[String, HeaderValue]
+
+    private[http] def fromHeadersUnsafe(headers: Headers): HeaderValue
+
+    def toHeaders(value: HeaderValue): Headers =
+      value match {
+        case h: Header => Headers.fromIterable(h :: Nil)
+        case _         => Headers.empty
+      }
+  }
+
+  object HeaderTypeBase {
+    type Typed[HV] = HeaderTypeBase { type HeaderValue = HV }
+  }
+
+  sealed trait SchemaHeaderType extends HeaderTypeBase {
+    def schema: Schema[HeaderValue]
+
+    def optional: HeaderTypeBase.Typed[Option[HeaderValue]]
+  }
+
+  object SchemaHeaderType {
+    type Typed[H] = SchemaHeaderType { type HeaderValue = H }
+
+    private val errorConstructor =
+      new ErrorConstructor {
+        override def missing(fieldName: String): HttpCodecError =
+          HttpCodecError.MissingHeader(fieldName)
+
+        override def missingAll(fieldNames: Chunk[String]): HttpCodecError =
+          HttpCodecError.MissingHeaders(fieldNames)
+
+        override def invalid(errors: Chunk[ValidationError]): HttpCodecError =
+          HttpCodecError.InvalidEntity.wrap(errors)
+
+        override def malformed(fieldName: String, error: DecodeError): HttpCodecError =
+          HttpCodecError.DecodingErrorHeader(fieldName, error)
+
+        override def invalidCount(fieldName: String, expected: Int, actual: Int): HttpCodecError =
+          HttpCodecError.InvalidHeaderCount(fieldName, expected, actual)
+      }
+
+    def apply[H](implicit schema0: Schema[H]): SchemaHeaderType.Typed[H] = {
+      new SchemaHeaderType {
+        type HeaderValue = H
+        val schema: Schema[H]                    =
+          schema0
+        val codec: StringSchemaCodec[H, Headers] =
+          StringSchemaCodec.headerFromSchema(schema0, errorConstructor, null)
+
+        override def names: Chunk[String] =
+          codec.recordFields.map(_._1.fieldName)
+
+        override def optional: SchemaHeaderType.Typed[Option[H]] =
+          apply(schema.optional)
+
+        override def fromHeaders(headers: Headers): Either[String, H] =
+          try Right(codec.decode(headers))
+          catch {
+            case NonFatal(e) => Left(e.getMessage)
+          }
+
+        private[http] override def fromHeadersUnsafe(headers: Headers): H =
+          codec.decode(headers)
+
+        override def toHeaders(value: H): Headers =
+          codec.encode(value, Headers.empty)
+      }
+    }
+
+    def apply[H](name: String)(implicit schema0: Schema[H]): SchemaHeaderType.Typed[H] = {
+      new SchemaHeaderType {
+        type HeaderValue = H
+        val schema: Schema[H]                    = schema0
+        val codec: StringSchemaCodec[H, Headers] =
+          StringSchemaCodec.headerFromSchema(schema, errorConstructor, name)
+
+        override def names: Chunk[String] =
+          codec.recordFields.map(_._1.fieldName)
+
+        override def optional: SchemaHeaderType.Typed[Option[H]] =
+          apply(name)(schema.optional)
+
+        override def fromHeaders(headers: Headers): Either[String, H] =
+          try Right(codec.decode(headers))
+          catch {
+            case NonFatal(e) => Left(e.getMessage)
+          }
+
+        private[http] override def fromHeadersUnsafe(headers: Headers): H =
+          codec.decode(headers)
+
+        override def toHeaders(value: H): Headers =
+          codec.encode(value, Headers.empty)
+      }
+    }
+  }
+
+  sealed trait HeaderType extends HeaderTypeBase {
     type HeaderValue <: Header
+
+    def names: Chunk[String] = Chunk.single(name)
 
     def name: String
 
     def parse(value: String): Either[String, HeaderValue]
 
     def render(value: HeaderValue): String
+
+    def fromHeaders(headers: Headers): Either[String, HeaderValue] =
+      headers.getUnsafe(name) match {
+        case null  => Left(s"Header $name not found")
+        case value => parse(value)
+      }
+
+    def fromHeadersUnsafe(headers: Headers): HeaderValue =
+      fromHeaders(headers).fold(
+        e => throw HttpCodecError.DecodingErrorHeader(name, ReadError(Cause.empty, e)),
+        identity,
+      )
+
+    override def toHeaders(value: HeaderValue): Headers =
+      Headers.FromIterable(Iterable(value))
+
   }
 
   object HeaderType {
@@ -71,7 +198,7 @@ object Header {
     override def headerType: HeaderType.Typed[Custom] = new Header.HeaderType {
       override type HeaderValue = Custom
 
-      override def name: String = self.customName.toString
+      override def name: String = self.customName.toString.toLowerCase
 
       override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
 
@@ -101,14 +228,17 @@ object Header {
     override def equals(that: Any): Boolean = {
       that match {
         case Custom(k, v) =>
-          def eqs(l: CharSequence, r: CharSequence): Boolean = {
+          def eqs(l: CharSequence, r: CharSequence, caseSensitive: Boolean): Boolean = {
             if (l.length() != r.length()) false
             else {
               var i     = 0
               var equal = true
 
               while (i < l.length()) {
-                if (l.charAt(i) != r.charAt(i)) {
+                if (
+                  (caseSensitive && l.charAt(i) != r
+                    .charAt(i)) || (!caseSensitive && l.charAt(i).toLower != r.charAt(i).toLower)
+                ) {
                   equal = false
                   i = l.length()
                 }
@@ -118,7 +248,7 @@ object Header {
             }
           }
 
-          eqs(self.customName, k) && eqs(self.value, v)
+          eqs(self.customName, k, caseSensitive = false) && eqs(self.value, v, caseSensitive = true)
 
         case _ => false
       }
@@ -1088,9 +1218,14 @@ object Header {
 
     private def parseBasic(value: String): Either[String, Authorization] = {
       try {
-        val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(":")
-        if (partsOfBasic.length == 2) {
-          Right(Basic(partsOfBasic(0), Secret(partsOfBasic(1))))
+        val decoded      = new String(Base64.getDecoder.decode(value))
+        val indexOfColon = decoded.indexOf(":")
+
+        if (indexOfColon > 0) {
+          // Extract username as everything before the first ":", and password as everything after
+          val username = decoded.substring(0, indexOfColon)
+          val password = decoded.substring(indexOfColon + 1)
+          Right(Basic(username, Secret(password)))
         } else {
           Left("Basic Authorization header value is not in the format username:password")
         }

@@ -112,9 +112,9 @@ object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
         Client.default,
       )
 
-  def clientExample: URIO[EndpointExecutor[Any, Unit], Unit] =
+  def clientExample: URIO[EndpointExecutor[Any, Unit, Scope], Unit] =
     for {
-      executor <- ZIO.service[EndpointExecutor[Any, Unit]]
+      executor <- ZIO.service[EndpointExecutor[Any, Unit, Scope]]
       _        <- ZIO.scoped(executor(getUser(42, Location.parse("some-location").toOption.get))).debug("result1")
       _        <- ZIO.scoped(executor(getUserPosts(42, 200, "adam")).debug("result2"))
       _        <- ZIO.scoped(executor(createUser(User(2, "john", Some("john@test.com"))))).debug("result3")

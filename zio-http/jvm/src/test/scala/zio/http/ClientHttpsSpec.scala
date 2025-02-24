@@ -18,19 +18,18 @@ package zio.http
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.nonFlaky
-import zio.test.{TestAspect, assertZIO}
+import zio.test.TestAspect.{ignore, nonFlaky}
+import zio.test.{Spec, TestAspect, TestEnvironment, assertZIO}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
-  val sslConfig: ClientSSLConfig
 
-  val zioDev =
+  private val zioDev =
     URL.decode("https://zio.dev").toOption.get
 
-  val badRequest =
+  private val badRequest =
     URL
       .decode(
         "https://httpbin.org/status/400",
@@ -38,10 +37,10 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
       .toOption
       .get
 
-  val untrusted =
+  private val untrusted =
     URL.decode("https://untrusted-root.badssl.com/").toOption.get
 
-  override def spec = suite("Https Client request")(
+  def tests(sslConfig: ClientSSLConfig) = suite("Client")(
     test("respond Ok") {
       val actual = Client.batched(Request.get(zioDev))
       assertZIO(actual)(anything)
@@ -53,7 +52,16 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
     test("should respond as Bad Request") {
       val actual = Client.batched(Request.get(badRequest)).map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
-    },
+    } @@ ignore /* started getting 503 consistently,
+    flaky does not help, nor exponential retries.
+    Either we're being throttled, or the service is under high load.
+    Regardless, we should not depend on an external service like that.
+    Luckily, httpbin is available via docker.
+    So once we make sure to:
+
+    $ docker run -p 80:80 kennethreitz/httpbin
+
+    before invoking tests, we can un-ignore this test. */,
     test("should throw DecoderException for handshake failure") {
       val actual = Client.batched(Request.get(untrusted)).exit
       assertZIO(actual)(
@@ -65,7 +73,7 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
           ),
         ),
       )
-    } @@ nonFlaky(20),
+    },
   )
     .provideShared(
       ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
@@ -82,17 +90,27 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
 
 object ClientHttpsSpec extends ClientHttpsSpecBase {
 
-  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
+  private val sslConfig = ClientSSLConfig.FromTrustStoreResource(
     trustStorePath = "truststore.jks",
     trustStorePassword = "changeit",
   )
+
+  override def spec: Spec[TestEnvironment & Scope, Throwable] =
+    suite("Https Client request - From Trust Store")(
+      tests(sslConfig),
+    )
 }
 
 object ClientHttpsFromJavaxNetSslSpec extends ClientHttpsSpecBase {
 
-  val sslConfig =
+  private val sslConfig =
     ClientSSLConfig.FromJavaxNetSsl
       .builderWithTrustManagerResource("trustStore.jks")
       .trustManagerPassword("changeit")
       .build()
+
+  override def spec: Spec[TestEnvironment & Scope, Throwable] =
+    suite("Https Client request - From Javax Net Ssl")(
+      tests(sslConfig),
+    )
 }

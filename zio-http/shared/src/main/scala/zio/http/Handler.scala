@@ -29,7 +29,7 @@ import zio.stream.ZStream
 
 import zio.http.Handler.ApplyContextAspect
 import zio.http.Header.HeaderType
-import zio.http.internal.HeaderModifier
+import zio.http.internal.{HeaderGetters, HeaderModifier}
 import zio.http.template._
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
@@ -854,6 +854,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   def fromFunctionHandler[In]: FromFunctionHandler[In] = new FromFunctionHandler[In](())
 
   /**
+   * Creates a Handler from an pure function from A to Either[E,B]
+   */
+  def fromFunctionEither[In]: FromFunctionEither[In] = new FromFunctionEither[In](())
+
+  /**
    * Creates a Handler from an pure function from A to HExit[R,E,B]
    */
   def fromFunctionExit[In]: FromFunctionExit[In] = new FromFunctionExit[In](())
@@ -1134,7 +1139,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
      * Updates the current Headers with new one, using the provided update
      * function passed.
      */
-    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
+    def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
       self.map(_.updateHeaders(update))
   }
 
@@ -1219,6 +1224,18 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
           f(in)(in)
+      }
+  }
+
+  final class FromFunctionEither[In](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](f: In => Either[Err, Out]): Handler[Any, Err, In, Out] =
+      new Handler[Any, Err, In, Out] {
+        override def apply(in: In): ZIO[Any, Err, Out] =
+          try {
+            Exit.fromEither(f(in))
+          } catch {
+            case error: Throwable => Exit.die(error)
+          }
       }
   }
 

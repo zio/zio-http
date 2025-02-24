@@ -129,7 +129,7 @@ object MultipartMixed {
             FormAST.Header
               .fromBytes(h.toArray, StandardCharsets.UTF_8)
               .map { case FormAST.Header(name, value) =>
-                parseHeaders(rest, res.addHeader(name, value))
+                parseHeaders(rest, res.addHeader[String](name, value))
               }
               .getOrElse(parseHeaders(rest, res))
           }
