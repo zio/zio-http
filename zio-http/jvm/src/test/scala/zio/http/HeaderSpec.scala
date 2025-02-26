@@ -16,11 +16,21 @@
 
 package zio.http
 
-import zio.NonEmptyChunk
+import java.time.Instant
+import java.util.UUID
+
+import zio._
 import zio.test.Assertion._
-import zio.test.assert
+import zio.test._
+
+import zio.schema._
 
 object HeaderSpec extends ZIOHttpSpec {
+
+  case class SimpleWrapper(a: String)
+  implicit val simpleWrapperSchema: Schema[SimpleWrapper] = DeriveSchema.gen[SimpleWrapper]
+  case class Foo(a: Int, b: SimpleWrapper, c: NonEmptyChunk[String], chunk: Chunk[String])
+  implicit val fooSchema: Schema[Foo]                     = DeriveSchema.gen[Foo]
 
   def spec = suite("Header")(
     suite("getHeader")(
@@ -83,6 +93,117 @@ object HeaderSpec extends ZIOHttpSpec {
         assert(actual)(isFalse)
       },
     ),
+    suite("add typed")(
+      test("primitives") {
+        val uuid = "123e4567-e89b-12d3-a456-426614174000"
+        assertTrue(
+          Headers.empty.addHeader("a", 1).rawHeader("a").get == "1",
+          Headers.empty.addHeader("a", 1.0d).rawHeader("a").get == "1.0",
+          Headers.empty.addHeader("a", 1.0f).rawHeader("a").get == "1.0",
+          Headers.empty.addHeader("a", 1L).rawHeader("a").get == "1",
+          Headers.empty.addHeader("a", 1.toShort).rawHeader("a").get == "1",
+          Headers.empty.addHeader("a", true).rawHeader("a").get == "true",
+          Headers.empty.addHeader("a", 'a').rawHeader("a").get == "a",
+          Headers.empty.addHeader("a", Instant.EPOCH).rawHeader("a").get == "1970-01-01T00:00:00Z",
+          Headers.empty
+            .addHeader("a", UUID.fromString(uuid))
+            .rawHeader("a")
+            .get == uuid,
+        )
+
+      },
+      test("collections") {
+        assertTrue(
+          // Chunk
+          Headers.empty.addHeader("a", Chunk.empty[Int]).rawHeader("a").isEmpty,
+          Headers.empty.addHeader("a", Chunk(1)).rawHeaders("a") == Chunk("1"),
+          Headers.empty.addHeader("a", Chunk(1, 2)).rawHeaders("a") == Chunk("1", "2"),
+          Headers.empty.addHeader("a", Chunk(1.0, 2.0)).rawHeaders("a") == Chunk("1.0", "2.0"),
+          // List
+          Headers.empty.addHeader("a", List.empty[Int]).rawHeader("a").isEmpty,
+          Headers.empty.addHeader("a", List(1)).rawHeaders("a") == Chunk("1"),
+          // NonEmptyChunk
+          Headers.empty.addHeader("a", NonEmptyChunk(1)).rawHeaders("a") == Chunk("1"),
+          Headers.empty.addHeader("a", NonEmptyChunk(1, 2)).rawHeaders("a") == Chunk("1", "2"),
+        )
+      },
+      test("case class") {
+        val foo      = Foo(1, SimpleWrapper("foo"), NonEmptyChunk("1", "2"), Chunk("foo", "bar"))
+        val fooEmpty = Foo(0, SimpleWrapper(""), NonEmptyChunk("1"), Chunk.empty)
+        assertTrue(
+          Headers.empty.addHeader(foo).rawHeader("a").get == "1",
+          Headers.empty.addHeader(foo).rawHeader("b").get == "foo",
+          Headers.empty.addHeader(foo).rawHeaders("c") == Chunk("1", "2"),
+          Headers.empty.addHeader(foo).rawHeaders("chunk") == Chunk("foo", "bar"),
+          Headers.empty.addHeader(fooEmpty).rawHeader("a").get == "0",
+          Headers.empty.addHeader(fooEmpty).rawHeader("b").get == "",
+          Headers.empty.addHeader(fooEmpty).rawHeaders("c") == Chunk("1"),
+          Headers.empty.addHeader(fooEmpty).rawHeaders("chunk").isEmpty,
+        )
+      },
+    ),
+    suite("schema based getters")(
+      test("pure") {
+        val typed        = "typed"
+        val default      = 3
+        val invalidTyped = "invalidTyped"
+        val unknown      = "non-existent"
+        val headers      = Headers(typed -> "1", typed -> "2", "invalid-typed" -> "str")
+        val single       = Headers(typed -> "1")
+        val headersFoo   = Headers("a" -> "1", "b" -> "foo", "c" -> "2", "chunk" -> "foo", "chunk" -> "bar")
+        assertTrue(
+          single.header[Int](typed) == Right(1),
+          headers.header[Int](invalidTyped).isLeft,
+          headers.header[Int](unknown).isLeft,
+          single.headerOrElse[Int](typed, default) == 1,
+          headers.headerOrElse[Int](invalidTyped, default) == default,
+          headers.headerOrElse[Int](unknown, default) == default,
+          headers.header[Chunk[Int]](typed) == Right(Chunk(1, 2)),
+          headers.header[Chunk[Int]](invalidTyped).isLeft,
+          headers.header[Chunk[Int]](unknown) == Right(Chunk.empty),
+          headers.header[NonEmptyChunk[Int]](unknown).isLeft,
+          headers.headerOrElse[Chunk[Int]](typed, Chunk(default)) == Chunk(1, 2),
+          headers.headerOrElse[Chunk[Int]](invalidTyped, Chunk(default)) == Chunk(default),
+          headers.headerOrElse[Chunk[Int]](unknown, Chunk(default)) == Chunk.empty,
+          headers.headerOrElse[NonEmptyChunk[Int]](unknown, NonEmptyChunk(default)) == NonEmptyChunk(default),
+          // case class
+          headersFoo.header[Foo] == Right(Foo(1, SimpleWrapper("foo"), NonEmptyChunk("2"), Chunk("foo", "bar"))),
+          headersFoo.header[SimpleWrapper] == Right(SimpleWrapper("1")),
+          headersFoo.header[SimpleWrapper]("b") == Right(SimpleWrapper("foo")),
+          headers.header[Foo].isLeft,
+          headersFoo.headerOrElse[Foo](Foo(0, SimpleWrapper(""), NonEmptyChunk("1"), Chunk.empty)) == Foo(
+            1,
+            SimpleWrapper("foo"),
+            NonEmptyChunk("2"),
+            Chunk("foo", "bar"),
+          ),
+          headers.headerOrElse[Foo](Foo(0, SimpleWrapper(""), NonEmptyChunk("1"), Chunk.empty)) == Foo(
+            0,
+            SimpleWrapper(""),
+            NonEmptyChunk("1"),
+            Chunk.empty,
+          ),
+        )
+      },
+      test("as ZIO") {
+        val typed        = "typed"
+        val invalidTyped = "invalidTyped"
+        val unknown      = "non-existent"
+        val headers      = Headers(typed -> "1", typed -> "2", "invalid-typed" -> "str")
+        val single       = Headers(typed -> "1")
+        assertZIO(single.headerZIO[Int](typed))(equalTo(1)) &&
+        assertZIO(single.headerZIO[Int](unknown).exit)(fails(anything)) &&
+        assertZIO(single.headerZIO[Chunk[Int]](typed))(hasSize(equalTo(1))) &&
+        assertZIO(single.headerZIO[Chunk[Int]](unknown).exit)(succeeds(equalTo(Chunk.empty[Int]))) &&
+        assertZIO(single.headerZIO[NonEmptyChunk[Int]](unknown).exit)(fails(anything)) &&
+        assertZIO(headers.headerZIO[Int](invalidTyped).exit)(fails(anything)) &&
+        assertZIO(headers.headerZIO[Int](unknown).exit)(fails(anything)) &&
+        assertZIO(headers.headerZIO[Chunk[Int]](typed))(hasSize(equalTo(2))) &&
+        assertZIO(headers.headerZIO[Chunk[Int]](invalidTyped).exit)(fails(anything)) &&
+        assertZIO(headers.headerZIO[Chunk[Int]](unknown).exit)(succeeds(equalTo(Chunk.empty[Int]))) &&
+        assertZIO(headers.headerZIO[NonEmptyChunk[Int]](unknown).exit)(fails(anything))
+      },
+    ),
     suite("cookie")(
       test("should be able to extract more than one header with the same name") {
         val firstCookie  = Cookie.Response("first", "value")
@@ -97,7 +218,7 @@ object HeaderSpec extends ZIOHttpSpec {
         )
       },
       test("should return an empty sequence if no headers in the response") {
-        val headers = Headers()
+        val headers = Headers.empty
         assert(headers.getAll(Header.SetCookie))(hasSameElements(Seq.empty))
       },
     ),

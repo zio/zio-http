@@ -184,6 +184,9 @@ final case class HandlerAspect[-Env, +CtxOut](
 }
 object HandlerAspect extends HandlerAspects {
 
+  final protected override def addHeader(name: CharSequence, value: CharSequence): HandlerAspect[Any, Unit] =
+    HandlerAspect.addHeader[String](name.toString, value.toString)
+
   final class InterceptPatch[State](val fromRequest: Request => State) extends AnyVal {
     def apply(result: (Response, State) => Response.Patch): HandlerAspect[Any, Unit] =
       HandlerAspect.interceptHandlerStateful(

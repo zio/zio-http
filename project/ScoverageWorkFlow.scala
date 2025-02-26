@@ -16,7 +16,7 @@ object ScoverageWorkFlow {
         scalas = List(Scala213),
         steps = List(
           WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
-          WorkflowStep.Use(UseRef.Public("coursier", "setup-action","v1"), Map("apps" -> "sbt")),
+          WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
           WorkflowStep.Run(
             commands = List(s"sed -i -e '$$a${scoveragePlugin}' project/plugins.sbt"),
             id = Some("add_plugin"),

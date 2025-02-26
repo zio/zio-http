@@ -76,12 +76,11 @@ object EndpointGen {
       }
 
   lazy val anyHeader: Gen[Any, CliReprOf[Codec[_]]] =
-    Gen.alphaNumericStringBounded(1, 30).zip(anyTextCodec).map { case (name, codec) =>
+    Gen.alphaNumericStringBounded(1, 30).map(_.toLowerCase).zip(anyTextCodec).map { case (name, codec) =>
       CliRepr(
-        HttpCodec.Header(name, codec),
+        HttpCodec.Header(Header.Custom(name, "").headerType), // todo use schema bases header
         codec match {
-          case TextCodec.Constant(value) => CliEndpoint(headers = HttpOptions.HeaderConstant(name, value) :: Nil)
-          case _                         => CliEndpoint(headers = HttpOptions.Header(name, codec) :: Nil)
+          case _ => CliEndpoint(headers = HttpOptions.Header(name, codec) :: Nil)
         },
       )
     }
@@ -102,10 +101,10 @@ object EndpointGen {
   lazy val anyQuery: Gen[Any, CliReprOf[Codec[_]]] =
     Gen.alphaNumericStringBounded(1, 30).zip(anyStandardType).map { case (name, schema0) =>
       val schema = schema0.asInstanceOf[Schema[Any]]
-      val codec  = BinaryCodecWithSchema(TextBinaryCodec.fromSchema(schema), schema)
+      val codec  = QueryCodec.query(name)(schema).asInstanceOf[HttpCodec.Query[Any]]
       CliRepr(
-        HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec)),
-        CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
+        codec,
+        CliEndpoint(url = HttpOptions.Query(codec.codec.recordFields.head._2, name) :: Nil),
       )
     }
 

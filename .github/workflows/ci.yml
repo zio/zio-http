@@ -26,7 +26,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.20, 2.13.16, 3.3.4]
+        scala: [2.12.20, 2.13.16, 3.3.5]
         java:
           - graal_graalvm@17
           - graal_graalvm@21
@@ -76,6 +76,9 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: sbt
+
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
 
       - uses: coursier/setup-action@v1
         with:
@@ -166,6 +169,9 @@ jobs:
           java-version: 21
           cache: sbt
 
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
+
       - name: Download target directories (2.12.20)
         uses: actions/download-artifact@v4
         with:
@@ -186,15 +192,19 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.3.4)
+      - name: Download target directories (3.3.5)
         uses: actions/download-artifact@v4
         with:
-          name: target-${{ matrix.os }}-3.3.4-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.3.5-${{ matrix.java }}
 
-      - name: Inflate target directories (3.3.4)
+      - name: Inflate target directories (3.3.5)
         run: |
           tar xf targets.tar
           rm targets.tar
+
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
 
       - uses: coursier/setup-action@v1
         with:
@@ -218,18 +228,6 @@ jobs:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
         run: sbt ci-release
-
-  update_release_draft:
-    name: Release Drafter
-    if: ${{ github.base_ref == 'main' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.10]
-        java: [temurin@8]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: release-drafter/release-drafter@v5
 
   mima_check:
     name: Mima Check
@@ -265,7 +263,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -301,7 +299,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -339,7 +337,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -377,7 +375,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -415,7 +413,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -453,7 +451,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -491,7 +489,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -529,7 +527,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -567,7 +565,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -598,6 +596,44 @@ jobs:
           name: Jmh_Main_HttpRouteTextPerf
           path: Main_HttpRouteTextPerf.txt
 
+  Jmh_MethodLookupBenchmark:
+    name: Jmh MethodLookupBenchmark
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.16]
+        java: [zulu@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
+          cat > Main_MethodLookupBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 MethodLookupBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_MethodLookupBenchmark.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jmh_Main_MethodLookupBenchmark
+          path: Main_MethodLookupBenchmark.txt
+
   Jmh_ProbeContentTypeBenchmark:
     name: Jmh ProbeContentTypeBenchmark
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -605,7 +641,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -636,6 +672,44 @@ jobs:
           name: Jmh_Main_ProbeContentTypeBenchmark
           path: Main_ProbeContentTypeBenchmark.txt
 
+  Jmh_RoundtripBenchmark:
+    name: Jmh RoundtripBenchmark
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.16]
+        java: [zulu@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
+          cat > Main_RoundtripBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 RoundtripBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_RoundtripBenchmark.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jmh_Main_RoundtripBenchmark
+          path: Main_RoundtripBenchmark.txt
+
   Jmh_RoutesBenchmark:
     name: Jmh RoutesBenchmark
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -643,7 +717,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -681,7 +755,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -719,7 +793,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -757,7 +831,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -790,13 +864,13 @@ jobs:
 
   Jmh_cache:
     name: Cache Jmh benchmarks
-    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_MethodLookupBenchmark, Jmh_ProbeContentTypeBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.10]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/download-artifact@v4
@@ -857,10 +931,24 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          name: Jmh_Main_MethodLookupBenchmark
+
+      - name: Format_Main_MethodLookupBenchmark
+        run: cat Main_MethodLookupBenchmark.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v4
+        with:
           name: Jmh_Main_ProbeContentTypeBenchmark
 
       - name: Format_Main_ProbeContentTypeBenchmark
         run: cat Main_ProbeContentTypeBenchmark.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Jmh_Main_RoundtripBenchmark
+
+      - name: Format_Main_RoundtripBenchmark
+        run: cat Main_RoundtripBenchmark.txt >> Main_benchmarks.txt
 
       - uses: actions/download-artifact@v4
         with:
@@ -916,7 +1004,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Clean up
@@ -931,7 +1019,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: khajavi/FrameworkBenchmarks
+          repository: zio/FrameworkBenchmarks
           path: FrameworkBenchMarks
 
       - id: result
@@ -995,7 +1083,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [temurin@8]
+        java: [zulu@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Clean up
@@ -1010,7 +1098,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: khajavi/FrameworkBenchmarks
+          repository: zio/FrameworkBenchmarks
           path: FrameworkBenchMarks
 
       - id: result

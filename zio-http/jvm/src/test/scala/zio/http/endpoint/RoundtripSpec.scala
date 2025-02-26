@@ -78,7 +78,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
   implicit val outsSchema: Schema[Outs] = DeriveSchema.gen[Outs]
 
-  def makeExecutor(client: Client, port: Int) = {
+  def makeExecutor(client: ZClient[Any, Any, Body, Throwable, Response], port: Int) = {
     val locator = EndpointLocator.fromURL(
       URL.decode(s"http://localhost:$port").toOption.get,
     )
@@ -91,7 +91,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: In,
     out: Out,
-  ): ZIO[Client with Server with Scope, Err, TestResult] =
+  ): ZIO[ZClient[Any, Any, Body, Throwable, Response] with Server with Scope, Err, TestResult] =
     testEndpointZIO(endpoint, route, in, outF = { (value: Out) => assert(out)(equalTo(value)) })
 
   def testEndpointZIO[P, In, Err, Out](
@@ -99,10 +99,10 @@ object RoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: In,
     outF: Out => ZIO[Any, Err, TestResult],
-  ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
+  ): zio.ZIO[Server with ZClient[Any, Any, Body, Throwable, Response] with Scope, Err, TestResult] =
     for {
       port   <- Server.install(route @@ Middleware.requestLogging())
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient[Any, Any, Body, Throwable, Response]]
       executor = makeExecutor(client, port)
       out    <- executor(endpoint.apply(in))
       result <- outF(out)
@@ -112,11 +112,11 @@ object RoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: Request,
     outF: Response => ZIO[Any, Err, TestResult],
-  ): zio.ZIO[Server with Client with Scope, Err, TestResult] = {
+  ): zio.ZIO[Server with ZClient[Any, Any, Body, Throwable, Response] with Scope, Err, TestResult] = {
     for {
       port   <- Server.install(route @@ Middleware.requestLogging())
-      client <- ZIO.service[Client]
-      out    <- client.batched(in.updateURL(_.host("localhost").port(port))).orDie
+      client <- ZIO.service[ZClient[Any, Any, Body, Throwable, Response]]
+      out    <- client(in.updateURL(_.host("localhost").port(port))).orDie
       result <- outF(out)
     } yield result
   }
@@ -126,7 +126,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: In,
     err: Err,
-  ): ZIO[Client with Server with Scope, Out, TestResult] =
+  ): ZIO[ZClient[Any, Any, Body, Throwable, Response] with Server with Scope, Out, TestResult] =
     testEndpointErrorZIO(endpoint, route, in, errorF = { (value: Err) => assert(err)(equalTo(value)) })
 
   def testEndpointErrorZIO[P, In, Err, Out](
@@ -134,16 +134,16 @@ object RoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: In,
     errorF: Err => ZIO[Any, Nothing, TestResult],
-  ): ZIO[Client with Server with Scope, Out, TestResult] =
+  ): ZIO[ZClient[Any, Any, Body, Throwable, Response] with Server with Scope, Out, TestResult] =
     for {
       port <- Server.install(route)
-      executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
+      executorLayer = ZLayer(ZIO.service[ZClient[Any, Any, Body, Throwable, Response]].map(makeExecutor(_, port)))
       out    <- ZIO
-        .service[EndpointExecutor[Any, Unit]]
+        .service[EndpointExecutor[Any, Unit, Any]]
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
-        .provideSome[Client with Scope](executorLayer)
+        .provideSome[ZClient[Any, Any, Body, Throwable, Response] with Scope](executorLayer)
         .flip
       result <- errorF(out)
     } yield result
@@ -154,7 +154,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     string: String,
     strings: Chunk[String] = Chunk("defaultString"),
   )
-  implicit val paramsSchema: Schema[Params]   = DeriveSchema.gen[Params]
+  implicit val paramsSchema: Schema[Params]                                         = DeriveSchema.gen[Params]
 
   def spec: Spec[Any, Any] =
     suite("RoundtripSpec")(
@@ -183,7 +183,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       },
       test("simple get with query params from case class") {
         val endpoint = Endpoint(GET / "query")
-          .query(HttpCodec.queryAll[Params])
+          .query(HttpCodec.query[Params])
           .out[Params]
         val route    = endpoint.implementPurely(params => params)
 
@@ -246,7 +246,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .query(HttpCodec.query[Int]("id"))
             .query(HttpCodec.query[String]("name").optional)
             .query(HttpCodec.query[String]("details").optional)
-            .query(HttpCodec.queryAll[Age].optional)
+            .query(HttpCodec.query[Age].optional)
             .out[PostWithAge]
 
         val handler =
@@ -269,7 +269,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .query(HttpCodec.query[Int]("id"))
             .query(HttpCodec.query[String]("name").optional)
             .query(HttpCodec.query[String]("details").optional)
-            .query(HttpCodec.queryAll[Age].optional)
+            .query(HttpCodec.query[Age].optional)
             .out[PostWithAge]
 
         val handler =
@@ -315,7 +315,7 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         for {
           port     <- Server.install(handler.toRoutes)
-          client   <- ZIO.service[Client]
+          client   <- ZIO.service[ZClient[Any, Any, Body, Throwable, Response]]
           response <- client(
             Request.post(
               url = URL.decode(s"http://localhost:$port/123/xyz/456/abc?details=789").toOption.get,
@@ -462,13 +462,13 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         for {
           port <- Server.install(routes)
-          executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port)))
+          executorLayer = ZLayer(ZIO.serviceWith[ZClient[Any, Any, Body, Throwable, Response]](makeExecutor(_, port)))
 
           cause <- ZIO
-            .serviceWithZIO[EndpointExecutor[Any, Unit]] { executor =>
+            .serviceWithZIO[EndpointExecutor[Any, Unit, Any]] { executor =>
               executor.apply(endpointWithAnotherSignature.apply(42))
             }
-            .provideSome[Client with Scope](executorLayer)
+            .provideSome[ZClient[Any, Any, Body, Throwable, Response] with Scope](executorLayer)
             .cause
         } yield assertTrue(
           cause.prettyPrint.contains(
@@ -564,7 +564,8 @@ object RoundtripSpec extends ZIOHttpSpec {
     ).provide(
       Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)),
+      Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)) >>>
+        ZLayer(ZIO.serviceWith[Client](_.batched)),
       ClientDriver.shared,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
