@@ -3931,6 +3931,16 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           json == toJsonAst(expectedJson),
         )
       },
+      test("components are generated for abstract big model") {
+        val endpoint     = Endpoint(Method.GET / "api" / "v1" / "users").out[AbstractBigModel]
+        val generated    = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(generated)
+        // todo: fix the expected json
+        val expectedJson = """""".stripMargin
+        assertTrue(
+          json == toJsonAst(expectedJson),
+        )
+      },
     )
 
 }
