@@ -2,12 +2,12 @@ import sbt.*
 
 object Dependencies {
   val JwtCoreVersion               = "10.0.4"
-  val NettyVersion                 = "4.1.118.Final"
+  val NettyVersion                 = "4.1.119.Final"
   val NettyIncubatorVersion        = "0.0.26.Final"
   val ScalaCompatCollectionVersion = "2.13.0"
-  val ZioVersion                   = "2.1.15"
+  val ZioVersion                   = "2.1.16"
   val ZioCliVersion                = "0.7.0"
-  val ZioJsonVersion               = "0.7.26"
+  val ZioJsonVersion               = "0.7.35"
   val ZioParserVersion             = "0.1.10"
   val ZioSchemaVersion             = "1.6.3"
   val SttpVersion                  = "3.3.18"
@@ -16,8 +16,8 @@ object Dependencies {
   val `jwt-core`                = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `scala-compat-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompatCollectionVersion
 
-  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.0"
-  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.13.1.1"
+  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.1"
+  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.13.2"
 
   val netty =
     Seq(
