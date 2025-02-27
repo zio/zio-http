@@ -21,6 +21,9 @@ object CookieBasedAuthentication extends ZIOAppDefault {
             domain = Some("localhost"),
             path = Some(Path.root),
             maxAge = Some(30.second),
+            isSecure = true,
+            isHttpOnly = true,
+            sameSite = Some(Cookie.SameSite.Strict),
           ),
         )
       } @@ Middleware.basicAuth("admin", "admin"),
@@ -38,10 +41,11 @@ object CookieBasedAuthentication extends ZIOAppDefault {
     )
 
   def run =
-    Server.serve(route)
+    Server
+      .serve(route)
       .provide(
         Server.default,
-        ZLayer.fromZIO(Ref.make(Map.empty[String, String]))
+        ZLayer.fromZIO(Ref.make(Map.empty[String, String])),
       )
 
 }
