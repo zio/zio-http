@@ -1,7 +1,10 @@
 package zio.http.docs
 
-import zio.config.generateDocs
+import scala.language.reflectiveCalls
+
 import zio._
+
+import zio.config.generateDocs
 
 object ConfigReference {
   private type ObjectWithConfig = Object { def config: Config[Any] }
