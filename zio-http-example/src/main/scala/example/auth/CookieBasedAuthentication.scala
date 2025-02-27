@@ -28,7 +28,7 @@ object CookieBasedAuthentication extends ZIOAppDefault {
         )
       } @@ Middleware.basicAuth("admin", "admin"),
       Method.GET / "logout"         -> handler {
-        ZIO.succeed(Response.ok.addCookie(Cookie.clear("session_id")))
+        Response.ok.addCookie(Cookie.clear("session_id"))
       },
       Method.GET / "profile" / "me" -> handler { (req: Request) =>
         {
