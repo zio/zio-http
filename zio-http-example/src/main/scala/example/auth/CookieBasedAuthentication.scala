@@ -5,7 +5,7 @@ import zio._
 import zio.http._
 
 object CookieBasedAuthentication extends ZIOAppDefault {
-  val route =
+  val route: Routes[Ref[Map[String, String]], Nothing] =
     Routes(
       Method.GET / "login"          -> handler {
         for {
@@ -47,5 +47,4 @@ object CookieBasedAuthentication extends ZIOAppDefault {
         Server.default,
         ZLayer.fromZIO(Ref.make(Map.empty[String, String])),
       )
-
 }
