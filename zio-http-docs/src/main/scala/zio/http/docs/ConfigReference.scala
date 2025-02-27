@@ -4,7 +4,7 @@ import zio.config.generateDocs
 import zio._
 
 object ConfigReference {
-  private type ObjectWithConfig = Object{def config: Config[Any]}
+  private type ObjectWithConfig = Object { def config: Config[Any] }
 
   private val configs =
     Seq[ObjectWithConfig](
@@ -19,17 +19,21 @@ object ConfigReference {
       http.URL,
       // http.ZClient.Config, // TODO: causes stack overflow
       // http.gen.openapi.Config, // TODO
-    ).map { obj => (
-      obj.getClass.getName.stripSuffix("$").replace("$", "."),
-      obj.config
-    ) }
+    ).map { obj =>
+      (
+        obj.getClass.getName.stripSuffix("$").replace("$", "."),
+        obj.config,
+      )
+    }
 
   def build(): String = {
-    configs.map(item => {
-      val (name, config) = item
+    configs
+      .map(item => {
+        val (name, config) = item
 
-      s"# ${name}.config\n" +
-        generateDocs(config).toTable.toGithubFlavouredMarkdown
-    }).mkString("\n")
+        s"# ${name}.config\n" +
+          generateDocs(config).toTable.toGithubFlavouredMarkdown
+      })
+      .mkString("\n")
   }
 }
