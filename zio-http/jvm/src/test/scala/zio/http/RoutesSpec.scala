@@ -121,8 +121,11 @@ object RoutesSpec extends ZIOHttpSpec {
         stringPrefix <- app.runZIO(Request.get("/foo/prefix123"))
         intId        <- app.runZIO(Request.get("/foo/123"))
         notFound     <- app.runZIO(Request.get("/foo/123/456"))
+        logs         <- ZTestLogger.logOutput.map { logs => logs.map(_.message()) }
       } yield {
+        println(logs)
         assertTrue(
+          logs.contains("Duplicate routes detected:\nGET /foo/{id}\nThe last route of each path will be used."),
           extractStatus(stringId) == Status.Ok,
           extractStatus(stringPrefix) == Status.Ok,
           extractStatus(intId) == Status.Ok,

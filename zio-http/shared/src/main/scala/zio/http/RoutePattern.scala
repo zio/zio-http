@@ -20,6 +20,7 @@ import scala.language.implicitConversions
 
 import zio._
 
+import zio.http.codec.PathCodec.Opt
 import zio.http.codec._
 
 /**
@@ -125,6 +126,17 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    */
   def render: String =
     s"${method.render} ${pathCodec.render}"
+
+  private[http] def structureEquals(that: RoutePattern[_]): Boolean = {
+    def map: PartialFunction[PathCodec.Opt, Iterable[Opt]] = {
+      case _: Opt.Combine           => Nil
+      case Opt.SubSegmentOpts(segs) => segs.toList.flatMap(map)
+      case _: Opt.MapOrFail         => Nil
+      case other                    => List(other)
+    }
+    def opts(codec: PathCodec[_]): Array[Opt]              = codec.optimize.flatMap(map)
+    method == that.method && opts(self.pathCodec).sameElements(opts(that.pathCodec))
+  }
 
   /**
    * Converts the route pattern into an HttpCodec that produces the same value.
