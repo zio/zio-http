@@ -12,11 +12,8 @@ object ConfigReference {
   private val configs =
     Seq[ObjectWithConfig](
       http.netty.NettyConfig,
-      http.netty.NettyConfig.LeakDetectionLevel,
       http.ConnectionPoolConfig,
-      http.Decompression,
       http.DnsResolver.Config,
-      http.DnsResolver.ExpireAction,
       http.Proxy,
       http.Server.Config,
       http.URL,
