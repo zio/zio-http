@@ -22,21 +22,16 @@ object ConfigReference {
       http.URL,
       // http.ZClient.Config, // TODO: causes stack overflow
       // http.gen.openapi.Config, // TODO
-    ).map { obj =>
-      (
-        obj.getClass.getName.stripSuffix("$").replace("$", "."),
-        obj.config,
-      )
-    }
+    )
 
   def build(): String = {
     configs
-      .map(item => {
-        val (name, config) = item
+      .map { obj =>
+        val name = obj.getClass.getName.stripSuffix("$").replace("$", ".")
 
         s"# ${name}.config\n" +
-          generateDocs(config).toTable.toGithubFlavouredMarkdown
-      })
+          generateDocs(obj.config).toTable.toGithubFlavouredMarkdown
+      }
       .mkString("\n")
   }
 }
