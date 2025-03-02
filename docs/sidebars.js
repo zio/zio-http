@@ -113,11 +113,11 @@ const sidebars = {
               type: "category",
               label: "Configs",
               items: [
-                "reference/configs/connection-pool-config",
-                "reference/configs/dns-resolver-config",
+                "reference/configs/connectionpoolconfig",
+                "reference/configs/dnsresolver-config",
                 "reference/configs/server-config",
-                "reference/configs/openapi-config",
-                "reference/configs/netty-config",
+                "reference/configs/gen-openapi-config",
+                "reference/configs/netty-nettyconfig",
               ]
             }
           ],
