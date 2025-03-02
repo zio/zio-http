@@ -107,6 +107,19 @@ const sidebars = {
                 "reference/socket/websocketframe",
               ],
             },
+
+            // Configs subsection
+            {
+              type: "category",
+              label: "Configs",
+              items: [
+                "reference/configs/connection-pool-config",
+                "reference/configs/dns-resolver-config",
+                "reference/configs/server-config",
+                "reference/configs/openapi-config",
+                "reference/configs/netty-config",
+              ]
+            }
           ],
         },
         {
