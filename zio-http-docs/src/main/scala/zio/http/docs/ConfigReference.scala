@@ -18,7 +18,7 @@ object ConfigReference {
       http.Server.Config,
       http.URL,
       // http.ZClient.Config, // TODO: causes stack overflow
-      // http.gen.openapi.Config, // TODO
+      http.gen.openapi.Config,
     )
 
   def build(): String = {
