@@ -11,11 +11,9 @@ object ConfigReference {
 
   def referencePageFor(obj: ObjectWithConfig): String = {
     val name            = obj.getClass.getName.stripSuffix("$").replace("$", ".")
-    val pageId          =
-      name.toLowerCase
-        .replace("zio.http.", "")
-        .replaceAll("[ .]", "-")
-    val yamlFrontMatter = s"---\nid: $pageId\ntitle: ${name}\n---\n"
+    val shortName       = name.replace("zio.http.", "")
+    val pageId          = shortName.toLowerCase.replaceAll("[ .]", "-")
+    val yamlFrontMatter = s"---\nid: $pageId\ntitle: $name\nsidebar_label: $shortName\n---\n"
 
     yamlFrontMatter +
       generateDocs(obj.config).toTable.toGithubFlavouredMarkdown
