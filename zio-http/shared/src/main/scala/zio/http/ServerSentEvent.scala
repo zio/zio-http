@@ -40,7 +40,7 @@ import zio.http.codec._
  * @param id
  *   optional id, must not contain \n or \r
  * @param retry
- *   optional reconnection delay in milliseconds
+ *   optional reconnection delay
  */
 final case class ServerSentEvent[T](
   data: T,
