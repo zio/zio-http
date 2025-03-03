@@ -16,8 +16,6 @@
 
 package zio.http
 
-import java.nio.charset.StandardCharsets
-
 import scala.util.Try
 
 import zio._
@@ -51,7 +49,7 @@ final case class ServerSentEvent[T](
 
   def encode(implicit binaryCodec: BinaryCodec[T]): String = {
     val sb = new StringBuilder
-    binaryCodec.encode(data).asString(StandardCharsets.UTF_8).linesIterator.foreach { line =>
+    binaryCodec.encode(data).asString(Charsets.Utf8).linesIterator.foreach { line =>
       sb.append("data: ").append(line).append('\n')
     }
     eventType.foreach { et =>
@@ -77,7 +75,7 @@ object ServerSentEvent {
   implicit def binaryCodec[T](implicit binaryCodec: BinaryCodec[T]): BinaryCodec[ServerSentEvent[T]] =
     new BinaryCodec[ServerSentEvent[T]] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, ServerSentEvent[T]] = {
-        val event = processEvent(Chunk.fromArray(whole.asString(StandardCharsets.UTF_8).split("\n")))
+        val event = processEvent(Chunk.fromArray(whole.asString(Charsets.Utf8).split("\n")))
         if (event.data.isEmpty && event.retry.isEmpty)
           Left(DecodeError.EmptyContent("Neither 'data' nor 'retry' fields specified"))
         else
@@ -125,14 +123,14 @@ object ServerSentEvent {
 
       private def decodeDataField(event: ServerSentEvent[Chunk[String]]): Either[DecodeError, ServerSentEvent[T]] =
         binaryCodec
-          .decode(Chunk.fromArray(event.data.mkString("\n").getBytes(StandardCharsets.UTF_8)))
+          .decode(Chunk.fromArray(event.data.mkString("\n").getBytes(Charsets.Utf8)))
           .map(data => event.copy(data = data))
 
       override def encode(value: ServerSentEvent[T]): Chunk[Byte] =
-        Chunk.fromArray(value.encode.getBytes(StandardCharsets.UTF_8))
+        Chunk.fromArray(value.encode.getBytes(Charsets.Utf8))
 
       override def streamEncoder: ZPipeline[Any, Nothing, ServerSentEvent[T], Byte] =
-        ZPipeline.mapChunks(value => value.flatMap(c => c.encode.getBytes(StandardCharsets.UTF_8)))
+        ZPipeline.mapChunks(value => value.flatMap(c => c.encode.getBytes(Charsets.Utf8)))
     }
 
   implicit def contentCodec[T](implicit
