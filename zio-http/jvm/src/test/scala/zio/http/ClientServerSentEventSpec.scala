@@ -199,6 +199,20 @@ object ClientServerSentEventSpec extends ZIOHttpSpec {
              |""".stripMargin
         assertEvents(events, Chunk.empty)
       },
+      test("Event retry with negative value is not emitted") {
+        val events =
+          """|retry: -1
+             |
+             |""".stripMargin
+        assertEvents(events, Chunk.empty)
+      },
+      test("Event retry can be set to immediate retry") {
+        val events =
+          """|retry: 0
+             |
+             |""".stripMargin
+        assertEvents(events, Chunk.single(ServerSentEvent(data = "", retry = Some(0.millisecond))))
+      },
       test("Event field order is not important") {
         val events = Chunk("data: data", "event: sse", "id: 1", "retry: 1").permutations
           .map(_.mkString("\n"))

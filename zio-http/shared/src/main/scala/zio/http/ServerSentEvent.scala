@@ -113,6 +113,7 @@ object ServerSentEvent {
                 Some(line.replaceFirst("retry: ?", ""))
                   .filter(_.nonEmpty)
                   .flatMap(retry => Try(retry.toInt).toOption)
+                  .filter(_ >= 0)
                   .map(_.milliseconds),
               )
             case Some("retry")  => event.copy(retry = None)
