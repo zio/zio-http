@@ -460,6 +460,6 @@ object QueryParameterSpec extends ZIOHttpSpec {
         assertTrue(response.status == Status.Ok)
       }
     },
-  ).provide(ErrorResponseConfig.debugLayer)
+  ).provide(Scope.default, ErrorResponseConfig.debugLayer)
 
 }
