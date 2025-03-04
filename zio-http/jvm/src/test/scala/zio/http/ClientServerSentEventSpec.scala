@@ -278,7 +278,9 @@ object ClientServerSentEventSpec extends ZIOHttpSpec {
              |""".stripMargin
         assertEvents(
           events,
-          Chunk.single(ServerSentEvent(data = " data", eventType = Some(" sse"), id = Some(" 1"), retry = None)),
+          Chunk.single(
+            ServerSentEvent(data = " data", eventType = Some(" sse"), id = Some(" 1"), retry = Option.empty[Duration]),
+          ),
         )
       },
     )

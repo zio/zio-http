@@ -67,6 +67,24 @@ final case class ServerSentEvent[T](
 
 object ServerSentEvent {
 
+  /**
+   * Server-Sent Event (SSE) as defined by
+   * https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events
+   *
+   * @param data
+   *   data, may span multiple lines
+   * @param eventType
+   *   type, must not contain \n or \r
+   * @param id
+   *   id, must not contain \n or \r
+   * @param retry
+   *   reconnection delay in milliseconds, must be >= 0
+   */
+  def apply[T](data: T, eventType: Option[String], id: Option[String], retry: Option[Int])(implicit
+    di: DummyImplicit,
+  ): ServerSentEvent[T] =
+    ServerSentEvent(data, eventType, id, retry.filter(_ >= 0).map(_.milliseconds))
+
   implicit def schema[T](implicit schema: Schema[T]): Schema[ServerSentEvent[T]] = DeriveSchema.gen[ServerSentEvent[T]]
 
   implicit def defaultBinaryCodec[T](implicit schema: Schema[T]): BinaryCodec[ServerSentEvent[T]] =
