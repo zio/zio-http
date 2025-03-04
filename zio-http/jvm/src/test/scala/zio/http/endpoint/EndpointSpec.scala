@@ -53,14 +53,14 @@ object EndpointSpec extends ZIOHttpSpec {
   def testEndpoint[R](service: Routes[R, Nothing])(
     url: String,
     expected: String,
-  ): ZIO[R, Response, TestResult] =
+  ): ZIO[Scope & R, Response, TestResult] =
     testEndpointWithHeaders(service)(url, headers = List.empty, expected)
 
   def testEndpointWithHeaders[R](service: Routes[R, Nothing])(
     url: String,
     headers: List[(String, String)],
     expected: String,
-  ): ZIO[R, Response, TestResult] = {
+  ): ZIO[Scope & R, Response, TestResult] = {
     val request = Request
       .get(url = URL.decode(url).toOption.get)
       .addHeaders(headers.foldLeft(Headers.empty) { case (hs, (k, v)) => hs ++ Headers(k, v) })
