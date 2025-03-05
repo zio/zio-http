@@ -16,20 +16,19 @@
 
 package zio.http.netty.client
 
+import scala.annotation.unroll
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
 import zio.http.internal.ChannelState
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-
-import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, EventLoopGroup}
-import io.netty.handler.codec.PrematureChannelClosureException
+import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, ChannelHandlerContext, ChannelInboundHandlerAdapter, EventLoopGroup}
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import io.netty.handler.logging.{LoggingHandler, LogLevel => NettyLogLevel}
 import io.netty.util.concurrent.GenericFutureListener
 
 final case class NettyClientDriver private[netty] (
@@ -49,11 +48,20 @@ final case class NettyClientDriver private[netty] (
     enableKeepAlive: Boolean,
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
+    @unroll enableInternalLogging: Boolean = false,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] =
-    if (location.scheme.isWebSocket)
-      requestWebsocket(channel, req, onResponse, onComplete, createSocketApp, webSocketConfig)
-    else
-      requestHttp(channel, req, onResponse, onComplete, enableKeepAlive)
+      if (location.scheme.isWebSocket) {
+        requestWebsocket(
+          channel,
+          req,
+          onResponse,
+          onComplete,
+          createSocketApp,
+          webSocketConfig,
+          enableInternalLogging,
+        )
+      } else
+        requestHttp(channel, req, onResponse, onComplete, enableKeepAlive, enableInternalLogging)
 
   private def requestHttp(
     channel: Channel,
@@ -61,6 +69,7 @@ final case class NettyClientDriver private[netty] (
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
+    enableInternalLogging: Boolean,
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] =
     ZIO
       .succeed(NettyRequestEncoder.encode(req))
@@ -73,45 +82,32 @@ final case class NettyClientDriver private[netty] (
         }
       }
       .map { jReq =>
-        val closeListener: GenericFutureListener[ChannelFuture] = { (_: ChannelFuture) =>
-          // If onComplete was already set, it means another fiber is already in the process of fulfilling the promises
-          // so we don't need to fulfill `onResponse`
-          nettyRuntime.unsafeRunSync {
-            onComplete.interrupt && onResponse.fail(NettyClientDriver.PrematureChannelClosure)
-          }(Unsafe.unsafe, trace): Unit
-        }
-
         val pipeline = channel.pipeline()
+
+        if (enableInternalLogging) pipeline.addLast(makeLogHandler)
 
         pipeline.addLast(
           Names.ClientInboundHandler,
           new ClientInboundHandler(nettyRuntime, req, jReq, onResponse, onComplete, enableKeepAlive),
         )
 
-        pipeline.addLast(
-          Names.ClientFailureHandler,
-          new ClientFailureHandler(onResponse, onComplete),
-        )
-
         pipeline
           .fireChannelRegistered()
           .fireUserEventTriggered(ClientInboundHandler.SendRequest)
 
-        channel.closeFuture().addListener(closeListener)
         new ChannelInterface {
           override def resetChannel: ZIO[Any, Throwable, ChannelState] = {
             ZIO.attempt {
-              channel.closeFuture().removeListener(closeListener)
               pipeline.remove(Names.ClientInboundHandler)
-              pipeline.remove(Names.ClientFailureHandler)
               ChannelState.Reusable // channel can be reused
             }
           }
 
           override def interrupt: ZIO[Any, Throwable, Unit] =
             ZIO.suspendSucceed {
-              channel.closeFuture().removeListener(closeListener)
-              NettyFutureExecutor.executed(channel.disconnect())
+              val error = new InterruptedException("Netty channel operation interrupted by ZIO Http.")
+              pipeline.remove(Names.ClientInboundHandler)
+              onResponse.fail(error) *> NettyFutureExecutor.executed(channel.disconnect())
             }
         }
       }
@@ -123,6 +119,7 @@ final case class NettyClientDriver private[netty] (
     onComplete: Promise[Throwable, ChannelState],
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
+    enableInternalLogging: Boolean,
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] = {
     for {
       queue              <- Queue.unbounded[WebSocketChannelEvent]
@@ -147,10 +144,11 @@ final case class NettyClientDriver private[netty] (
         .webSocketUri(req.url.encode)
         .build()
 
-      // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
+      if (enableInternalLogging) pipeline.addLast(makeLogHandler)
 
+      // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
       val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-      val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, handshakeCompleted, Some(onComplete))
+      val webSocket = new WebSocketAppHandler(nettyRuntime, queue, handshakeCompleted, Some(onComplete))
 
       pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
       pipeline.addLast(Names.WebSocketHandler, webSocket)
@@ -175,6 +173,8 @@ final case class NettyClientDriver private[netty] (
     NettyConnectionPool
       .fromConfig(config)
       .provideSomeEnvironment[Scope](_ ++ ZEnvironment[NettyClientDriver, DnsResolver](this, dnsResolver))
+
+  private def makeLogHandler = new LoggingHandler("zio.http.netty.InternalLogging", NettyLogLevel.DEBUG)
 }
 
 object NettyClientDriver {
@@ -189,9 +189,5 @@ object NettyClientDriver {
           nettyRuntime   <- ZIO.service[NettyRuntime]
         } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime)
       }
-
-  private val PrematureChannelClosure = new PrematureChannelClosureException(
-    "Channel closed while executing the request. This is likely caused due to a client connection misconfiguration",
-  )
 
 }

@@ -19,6 +19,8 @@ object Dependencies {
   val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.2"
   val scalametaParsers = "org.scalameta" %% "parsers"          % "4.13.2"
 
+  val unroll = Seq("com.lihaoyi" %% "unroll-annotation" % "0.1.12","com.lihaoyi" %% "unroll-plugin" % "0.1.12" )
+
   val netty =
     Seq(
       "io.netty"                   % "netty-codec-http"              % NettyVersion,
