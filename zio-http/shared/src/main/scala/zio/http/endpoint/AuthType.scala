@@ -31,18 +31,18 @@ object AuthType {
   case object Basic  extends AuthType {
     type ClientRequirement = Header.Authorization.Basic
     override val codec: HeaderCodec[Header.Authorization.Basic] =
-      HeaderCodec.authorization.asInstanceOf[HeaderCodec[Header.Authorization.Basic]]
+      HeaderCodec.basicAuth
   }
   case object Bearer extends AuthType {
     type ClientRequirement = Header.Authorization.Bearer
     override val codec: HeaderCodec[Header.Authorization.Bearer] =
-      HeaderCodec.authorization.asInstanceOf[HeaderCodec[Header.Authorization.Bearer]]
+      HeaderCodec.bearerAuth
   }
 
   case object Digest extends AuthType {
     type ClientRequirement = Header.Authorization.Digest
     override val codec: HeaderCodec[Header.Authorization.Digest] =
-      HeaderCodec.authorization.asInstanceOf[HeaderCodec[Header.Authorization.Digest]]
+      HeaderCodec.digestAuth
   }
 
   final case class Custom[ClientReq](override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq])
