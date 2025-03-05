@@ -31,7 +31,9 @@ import zio.http.codec.PathCodec
  * capable of using them to serve requests.
  */
 final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
-  private var _tree: Routes.Tree[_] = null.asInstanceOf[Routes.Tree[_]]
+  private var _tree: Routes.Tree[_]                              = null.asInstanceOf[Routes.Tree[_]]
+  private var _handler: Handler[Any, Nothing, Request, Response] =
+    null.asInstanceOf[Handler[Any, Nothing, Request, Response]]
 
   def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)
@@ -48,9 +50,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     new ApplyContextAspect[Env, Err, Env0](self)
 
   /**
-   * Combines this HTTP application with the specified HTTP application. In case
-   * of route conflicts, the routes in this HTTP application take precedence
-   * over the routes in the specified HTTP application.
+   * Combines this Routes with the specified Routes. In case of route conflicts,
+   * the new Routes take precedence over the current Routes.
    */
   def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
     copy(routes = routes ++ that.routes)
@@ -256,29 +257,45 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * Converts the HTTP application into a request handler.
    */
   def toHandler(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] = {
-    implicit val trace: Trace = Trace.empty
-    val tree                  = self.tree
-    Handler
-      .fromFunctionHandler[Request] { req =>
-        val chunk = tree.get(req.method, req.path)
-        chunk.length match {
-          case 0 => Handler.notFound
-          case 1 => chunk(0)
-          case n => // TODO: Support precomputed fallback among all chunk elements
-            var acc = chunk(0)
-            var i   = 1
-            while (i < n) {
-              val h = chunk(i)
-              acc = acc.catchAll { response =>
-                if (response.status == Status.NotFound) h
-                else Handler.fail(response)
-              }
-              i += 1
+    if (_handler eq null) {
+      _handler = {
+        implicit val trace: Trace = Trace.empty
+        val (unique, duplicates)  = uniqueRoutes
+        val tree                  = Routes(unique).tree
+        val h                     = Handler
+          .fromFunctionHandler[Request] { req =>
+            val chunk = tree.get(req.method, req.path)
+            chunk.length match {
+              case 0 => Handler.notFound
+              case 1 => chunk(0)
+              case _ => throw new IllegalStateException("Multiple routes found for the same path")
             }
-            acc
+          }
+          .merge
+          .asInstanceOf[Handler[Any, Nothing, Request, Response]]
+        if (duplicates.nonEmpty) {
+          val duplicateRoutes       = duplicates.map(_.routePattern)
+          val duplicateRoutesString = duplicateRoutes.mkString("\n")
+          var message               =
+            s"Duplicate routes detected:\n$duplicateRoutesString\nThe last route of each path will be used."
+          Handler
+            .fromZIO(
+              if (message != null)
+                Exit.succeed {
+                  val msg = message
+                  message = null
+                  msg
+                }.tap(ZIO.logWarning(_)).as(h)
+              else Exit.succeed(h),
+            )
+            .flatten
+        } else {
+          h
         }
-      }
-      .merge
+      }.asInstanceOf[Handler[Any, Nothing, Request, Response]]
+    }
+    _handler.asInstanceOf[Handler[Env, Nothing, Request, Response]]
+
   }
 
   /**
@@ -298,6 +315,15 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
       _tree = Routes.Tree.fromRoutes(routes.asInstanceOf[Chunk[Route[Env, Response]]])
     }
     _tree.asInstanceOf[Routes.Tree[Env]]
+  }
+
+  private[http] def uniqueRoutes: (Chunk[Route[Env, Err]], Chunk[Route[Env, Err]]) = {
+    val (unique, duplicates) = routes.reverse.foldLeft((Chunk.empty[Route[Env, Err]], Chunk.empty[Route[Env, Err]])) {
+      case ((unique, duplicates), route) =>
+        if (unique.exists(_.routePattern.structureEquals(route.routePattern))) (unique, duplicates :+ route)
+        else (unique :+ route, duplicates)
+    }
+    (unique, duplicates)
   }
 }
 
