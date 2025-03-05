@@ -472,7 +472,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .cause
         } yield assertTrue(
           cause.prettyPrint.contains(
-            """zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected '"' got '4')""",
+            """zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected string)""",
           ),
         )
       },
