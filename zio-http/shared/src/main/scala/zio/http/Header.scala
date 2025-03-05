@@ -36,7 +36,6 @@ import zio.schema.codec.DecodeError
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.validation.ValidationError
 
-import zio.http.Header.HeaderTypeBase.Typed
 import zio.http.codec.{HttpCodecError, RichTextCodec}
 import zio.http.internal.{DateEncoding, ErrorConstructor, StringSchemaCodec}
 
@@ -178,7 +177,12 @@ object Header {
 
     def fromHeadersUnsafe(headers: Headers): HeaderValue =
       fromHeaders(headers).fold(
-        e => throw HttpCodecError.DecodingErrorHeader(name, ReadError(Cause.empty, e)),
+        e => {
+          if (name == Header.Authorization.name)
+            throw HttpCodecError.MissingAuthorizationHeader
+          else
+            throw HttpCodecError.DecodingErrorHeader(name, ReadError(Cause.empty, e))
+        },
         identity,
       )
 
