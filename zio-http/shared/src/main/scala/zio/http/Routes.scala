@@ -71,7 +71,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * Executes the HTTP application with the specified request input, returning
    * an effect that will either succeed or fail with a Response.
    */
-  def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response] =
+  def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Scope & Env, Response, Response] =
     runZIO(request)
 
   /**
@@ -183,7 +183,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def provideEnvironment(env: ZEnvironment[Env]): Routes[Any, Err] =
     copy(routes = routes.map(_.provideEnvironment(env)))
 
-  def run(request: Request)(implicit trace: Trace): ZIO[Env, Either[Err, Response], Response] = {
+  def run(request: Request)(implicit trace: Trace): ZIO[Scope & Env, Either[Err, Response], Response] = {
 
     class RouteFailure[+Err0](val err: Cause[Err0]) extends Throwable(null, null, true, false) {
       override def getMessage: String = err.unified.headOption.fold("<unknown>")(_.message)
@@ -228,13 +228,13 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     path: Path = Path.root,
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
-  )(implicit ev: Err <:< Response): ZIO[Env, Nothing, Response] =
+  )(implicit ev: Err <:< Response): ZIO[Scope & Env, Nothing, Response] =
     runZIO(Request(method = method, url = URL.root.path(path), headers = headers, body = body))
 
   /**
    * An alias for `apply`.
    */
-  def runZIO(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Nothing, Response] =
+  def runZIO(request: Request)(implicit ev: Err <:< Response): ZIO[Scope & Env, Nothing, Response] =
     toHandler(ev)(request)
 
   /**

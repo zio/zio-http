@@ -88,7 +88,7 @@ The behavior of the `handler` remains the same. Let's test it:
 ```scala mdoc
 Unsafe.unsafe{ implicit unsafe =>
   Runtime.default.unsafe.run(
-    handler("Hello World!")
+    ZIO.scoped(handler("Hello World!"))
   )
 }
 ```
@@ -112,7 +112,7 @@ val newHandler: Handler[Any, (Response, Int), Request, (Response, Int)] =
 
 Unsafe.unsafe { implicit unsafe =>
   Runtime.default.unsafe.run(
-    newHandler("Hello World! "),
+    ZIO.scoped(newHandler("Hello World! ")),
   )
 }
 ```
@@ -141,7 +141,7 @@ Now, let's apply the `uppercase` handler to the `anotherTrimAndLength` stack:
 ```scala mdoc
 Unsafe.unsafe { implicit unsafe =>
   Runtime.default.unsafe.run(
-    anotherTrimAndLength(uppercase).apply("Hello World!"),
+    ZIO.scoped(anotherTrimAndLength(uppercase).apply("Hello World!")),
   )
 }
 ```
@@ -210,7 +210,7 @@ Now, we are ready to test the `responseTime` protocol stack by applying the `han
 ```scala mdoc
 Unsafe.unsafe { implicit unsafe =>
   Runtime.default.unsafe.run(
-    responseTime(handler).apply("Hello, World!").debug("Response along with its latency"),
+    ZIO.scoped(responseTime(handler).apply("Hello, World!").debug("Response along with its latency")),
   )
 }
 ```
