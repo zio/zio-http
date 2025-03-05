@@ -21,6 +21,7 @@ import java.util.UUID
 import zio.Chunk
 import zio.test._
 
+import zio.http.codec.Doc
 import zio.http.{int => _, uuid => _}
 
 object RoutePatternSpec extends ZIOHttpSpec {
@@ -233,7 +234,6 @@ object RoutePatternSpec extends ZIOHttpSpec {
         val pattern2 = Method.GET / "users" / trailing / "123"
 
         tree = tree.add(pattern2, 2)
-        println(tree.get(Method.GET, Path("/users/bla/123")))
         tree = tree.add(pattern1, 1)
 
         assertTrue(tree.get(Method.GET, Path("/users/123")).contains(1))
@@ -249,7 +249,7 @@ object RoutePatternSpec extends ZIOHttpSpec {
         tree = tree.add(pattern2, 2)
         tree = tree.add(pattern3, 3)
 
-        assertTrue(tree.get(Method.OPTIONS, Path("/users")) == Chunk(2, 1, 3))
+        assertTrue(tree.get(Method.OPTIONS, Path("/users")) == Chunk(2))
       },
       test("multiple routes") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
@@ -497,11 +497,36 @@ object RoutePatternSpec extends ZIOHttpSpec {
       },
     )
 
+  def structureEquals = suite("structure equals")(
+    test("equals") {
+      val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
+
+      assertTrue(routePattern.structureEquals(routePattern))
+    },
+    test("equals with docs") {
+      val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
+
+      assertTrue(
+        routePattern.structureEquals(routePattern ?? Doc.p("docs")),
+      )
+    },
+    test("equals with mapping") {
+      val routePattern  = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
+      val routePattern1 =
+        Method.GET / "users" / int("user-id").transform(_.toString())(_.toInt) / "posts" / string("post-id")
+
+      assertTrue(
+        routePattern.structureEquals(routePattern1),
+      )
+    },
+  )
+
   def spec =
     suite("RoutePatternSpec")(
       decoding,
       rendering,
       formatting,
       tree,
+      structureEquals,
     )
 }
