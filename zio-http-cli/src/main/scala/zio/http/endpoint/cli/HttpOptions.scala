@@ -257,10 +257,9 @@ private[cli] object HttpOptions {
     override val tag = "/" + name
 
     override def transform(request: Options[CliRequest]): Options[CliRequest] =
-      options.foldRight(request) { case (opts, req) =>
+      options.foldLeft(request) { case (req, opts) =>
         (req ++ opts).map { case (cliRequest, value) =>
-          if (true) cliRequest.addPathParam(value)
-          else cliRequest
+          cliRequest.addPathParam(value)
         }
       }
 
