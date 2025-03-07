@@ -231,6 +231,12 @@ object RoutePattern                                                       {
       if (forMethod.isEmpty && anyRoot != null) anyRoot.get(path) else forMethod
     }
 
+    private[http] def getAllMethods(path: Path): Set[Method] = {
+      roots.collect {
+        case (method, subtree) if subtree.get(path).nonEmpty => method
+      }.toSet
+    }
+
     def map[B](f: A => B): Tree[B] =
       Tree(
         if (anyRoot != null) anyRoot.map(f) else null,
