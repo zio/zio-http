@@ -72,7 +72,9 @@ private[netty] final class ClientInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    ctx.fireExceptionCaught(error)
+    val exit = Exit.fail(error)
+    onResponse.unsafe.done(exit)
+    onComplete.unsafe.done(exit)
     ()
   }
 }
