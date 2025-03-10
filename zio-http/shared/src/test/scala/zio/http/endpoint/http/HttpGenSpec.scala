@@ -1,5 +1,7 @@
 package zio.http.endpoint.http
 
+import java.net.URI
+
 import zio.test._
 
 import zio.schema._
@@ -103,7 +105,7 @@ object HttpGenSpec extends ZIOSpecDefault {
       val renderedWithExample     = httpEndpointWithExample.render
       val expectedWithExample     =
         """
-          |@Authorization=Basic YWRtaW46Q2h1bmsoYSxkLG0saSxuKQ==
+          |@Authorization=Basic YWRtaW46YWRtaW4=
           |
           |GET /api/foo
           |Authorization: {{BasicAuth}}""".stripMargin
@@ -120,6 +122,18 @@ object HttpGenSpec extends ZIOSpecDefault {
           |GET /api/foo
           |Authorization: {{BearerAuth}}""".stripMargin
       assertTrue(rendered == expected)
+
+      val endpointWithExample     = Endpoint(Method.GET / "api" / "foo")
+        .header(HeaderCodec.bearerAuth.examples("default" -> Header.Authorization.Bearer("token")))
+      val httpEndpointWithExample = HttpGen.fromEndpoint(endpointWithExample)
+      val renderedWithExample     = httpEndpointWithExample.render
+      val expectedWithExample     =
+        """
+          |@Authorization=Bearer token
+          |
+          |GET /api/foo
+          |Authorization: {{BearerAuth}}""".stripMargin
+      assertTrue(renderedWithExample == expectedWithExample)
     },
     test("Digest Auth Header Codec") {
       val endpoint     = Endpoint(Method.GET / "api" / "foo").header(HeaderCodec.digestAuth)
@@ -132,6 +146,35 @@ object HttpGenSpec extends ZIOSpecDefault {
           |GET /api/foo
           |Authorization: {{DigestAuth}}""".stripMargin
       assertTrue(rendered == expected)
+
+      val testURI                 = new URI("http://example.com/foo/")
+      val endpointWithExample     = Endpoint(Method.GET / "api" / "foo")
+        .header(
+          HeaderCodec.digestAuth.examples(
+            "default" -> Header.Authorization.Digest(
+              "200",
+              "admin",
+              "example.com",
+              testURI,
+              "5ccc069c403ebaf9f0171e9517f40e41",
+              "MD5",
+              "auth",
+              "0a4f113b",
+              "dcd98b7102dd2f0e8b11d0f600bfb0c093",
+              11111111,
+              false,
+            ),
+          ),
+        )
+      val httpEndpointWithExample = HttpGen.fromEndpoint(endpointWithExample)
+      val renderedWithExample     = httpEndpointWithExample.render
+      val expectedWithExample     =
+        """
+          |@Authorization=Digest response="200",username="admin",realm="example.com",uri=http://example.com/foo/,opaque="5ccc069c403ebaf9f0171e9517f40e41",algorithm=MD5,qop=auth,cnonce="0a4f113b",nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",nc=11111111,userhash=false
+          |
+          |GET /api/foo
+          |Authorization: {{DigestAuth}}""".stripMargin
+      assertTrue(renderedWithExample == expectedWithExample)
     },
     test("Header with example") {
       val endpoint     = Endpoint(Method.GET / "api" / "foo")
