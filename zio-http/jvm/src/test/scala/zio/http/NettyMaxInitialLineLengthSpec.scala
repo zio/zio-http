@@ -43,7 +43,7 @@ object NettyMaxInitialLineLength extends ZIOHttpSpec {
         .toRoutes
 
       for {
-        port <- Server.install(routes)
+        port <- Server.installRoutes(routes)
         url     = URL
           .decode(s"http://localhost:$port/a%20looooooooooooooooooooooooooooong%20query%20parameter")
           .toOption
