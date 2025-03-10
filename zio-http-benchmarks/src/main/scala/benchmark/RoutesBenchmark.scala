@@ -1,4 +1,4 @@
-package zio.http.benchmark
+package benchmark
 
 import java.util.concurrent.TimeUnit
 
