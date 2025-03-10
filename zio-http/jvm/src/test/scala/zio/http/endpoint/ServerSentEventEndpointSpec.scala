@@ -33,7 +33,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
       sseRoute.toRoutes @@ Middleware.requestLogging(logRequestBody = true) @@ Middleware.debug
 
     val server: ZIO[Server, Throwable, Nothing] =
-      Server.serve(routes)
+      Server.serveRoutes(routes)
 
     def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
 
@@ -71,7 +71,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     val routes: Routes[Any, Response] = sseRoute.toRoutes
 
     val server: URIO[Server, Nothing] =
-      Server.serve(routes)
+      Server.serveRoutes(routes)
 
     def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
 

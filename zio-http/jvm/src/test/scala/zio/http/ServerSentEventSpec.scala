@@ -25,7 +25,7 @@ object ServerSentEventSpec extends ZIOHttpSpec {
     )
 
   val server =
-    Server.install(routes)
+    Server.installRoutes(routes)
 
   def eventStream(port: Int): ZStream[Client, Throwable, ServerSentEvent[String]] =
     for {

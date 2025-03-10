@@ -70,7 +70,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
       } yield info
 
     for {
-      port <- Server.install(routes)
+      port <- Server.installRoutes(routes)
       mkRequest = mkRequest0(port)
       out1 <- loop(0, maxSize, fstContent, mkRequest, Status.Ok)
       (info1, c) = out1

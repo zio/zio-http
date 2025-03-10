@@ -221,7 +221,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     trace: Trace,
     tag: EnvironmentTag[Env1],
   ): URIO[Env1 with Server, Nothing] = {
-    Server.serve[Env1](self.handleError(_.asInstanceOf[Response]))
+    Server.serveRoutes[Env1](self.handleError(_.asInstanceOf[Response]))
   }
 
   def run(

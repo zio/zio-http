@@ -39,7 +39,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
     suite("ZClientAspect")(
       test("debug") {
         for {
-          port       <- Server.install(routes)
+          port       <- Server.installRoutes(routes)
           baseClient <- ZIO.service[Client]
           client = baseClient.url(
             URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -55,7 +55,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       },
       test("requestLogging")(
         for {
-          port       <- Server.install(routes)
+          port       <- Server.installRoutes(routes)
           baseClient <- ZIO.service[Client]
           client = baseClient
             .url(
@@ -88,7 +88,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       ),
       test("followRedirects")(
         for {
-          port       <- Server.install(redir ++ routes)
+          port       <- Server.installRoutes(redir ++ routes)
           baseClient <- ZIO.service[Client]
           client = baseClient
             .url(

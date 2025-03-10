@@ -33,7 +33,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
     for {
       portPromise <- Promise.make[Throwable, Int]
       _           <- Server
-        .install(app(streams, bodyLength))
+        .installRoutes(app(streams, bodyLength))
         .intoPromise(portPromise)
         .zipRight(ZIO.never)
         .provide(
@@ -132,7 +132,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
           for {
             portPromise <- Promise.make[Throwable, Int]
             _           <- Server
-              .install(app)
+              .installRoutes(app)
               .intoPromise(portPromise)
               .zipRight(ZIO.never)
               .provide(
