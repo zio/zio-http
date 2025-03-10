@@ -48,7 +48,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
       Scope.default,
-      )
+    )
 
   def extractStatus(response: Response): Status = response.status
 
@@ -80,7 +80,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
   def makeExecutor(client: Client, port: Int) = {
     val locator = EndpointLocator.fromURL(
       URL.decode(s"http://localhost:$port").toOption.get,
-      )
+    )
 
     EndpointExecutor(client, locator)
   }
@@ -138,7 +138,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
       port <- Server.install(route)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
-        .service[EndpointExecutor[Any, Unit]]
+        .service[EndpointExecutor[Any, Unit, Scope]]
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
@@ -173,7 +173,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(usersPostHandler),
           (10, 20),
           Post(20, "title", "body", 10),
-          )
+        )
       },
       test("simple get with left Unit union") {
         val usersPostAPI =
@@ -191,7 +191,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(usersPostHandler),
           (10, 20),
           Post(20, "title", "body", 10),
-          )
+        )
       },
       test("simple get with right String union") {
         val usersPostAPI =
@@ -209,7 +209,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(usersPostHandler),
           (10, 20),
           Post(20, "title", "body", 10),
-          )
+        )
       },
       test("simple get with left String union") {
         val usersPostAPI =
@@ -227,7 +227,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(usersPostHandler),
           (10, 20),
           Post(20, "title", "body", 10),
-          )
+        )
       },
       test("simple get with same type union") {
         val usersPostAPI =
@@ -245,11 +245,12 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(usersPostHandler),
           (10, 20),
           Post(20, "title", "body", 10),
-          )
+        )
       },
       test("endpoint error with right Unit union returned") {
         val api = Endpoint(POST / "test-1")
-          .outError[String](Status.Custom(999)).orOutError[Unit](Status.BadRequest)
+          .outError[String](Status.Custom(999))
+          .orOutError[Unit](Status.BadRequest)
 
         val route = api.implementHandler(Handler.fail("42"))
 
@@ -258,11 +259,12 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(route),
           (),
           "42",
-          )
+        )
       },
       test("endpoint error with left Unit union returned") {
         val api = Endpoint(POST / "test-2")
-          .outError[Unit](Status.BadRequest).orOutError[String](Status.Custom(999))
+          .outError[Unit](Status.BadRequest)
+          .orOutError[String](Status.Custom(999))
 
         val route = api.implementHandler(Handler.fail("42"))
 
@@ -271,11 +273,12 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(route),
           (),
           "42",
-          )
+        )
       },
       test("endpoint error with right Int union returned") {
         val api = Endpoint(POST / "test-3")
-          .outError[String](Status.Custom(999)).orOutError[Int](Status.BadRequest)
+          .outError[String](Status.Custom(999))
+          .orOutError[Int](Status.BadRequest)
 
         val route = api.implementHandler(Handler.fail("42"))
 
@@ -284,11 +287,12 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(route),
           (),
           "42",
-          )
+        )
       },
       test("endpoint error with left Int union returned") {
         val api = Endpoint(POST / "test-4")
-          .outError[Int](Status.BadRequest).orOutError[String](Status.Custom(999))
+          .outError[Int](Status.BadRequest)
+          .orOutError[String](Status.Custom(999))
 
         val route = api.implementHandler(Handler.fail("42"))
 
@@ -297,11 +301,12 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(route),
           (),
           "42",
-          )
+        )
       },
       test("endpoint error with same type union returned") {
         val api = Endpoint(POST / "test-5")
-          .outError[String](Status.Custom(999)).orOutError[String](Status.BadRequest)
+          .outError[String](Status.Custom(999))
+          .orOutError[String](Status.BadRequest)
 
         val route = api.implementHandler(Handler.fail("42"))
 
@@ -310,9 +315,9 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
           Routes(route),
           (),
           "42",
-          )
+        )
       },
-      ).provide(
+    ).provide(
       Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)),
@@ -322,7 +327,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
       Scope.default,
-      ) @@ withLiveClock @@ sequential
+    ) @@ withLiveClock @@ sequential
 
   private def extraLogging: PartialFunction[Response, String] = { case r =>
     r.headers.get(Header.ContentType).map(_.renderedValue).mkString("ContentType: ", "", "")

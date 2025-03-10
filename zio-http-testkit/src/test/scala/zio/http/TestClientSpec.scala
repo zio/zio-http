@@ -22,12 +22,12 @@ object TestClientSpec extends ZIOHttpSpec {
             _             <- TestClient.addRequestResponse(request2, Response.ok)
             goodResponse2 <- client(request)
             badResponse2  <- client(request2)
-          } yield assertTrue(extractStatus(goodResponse) == Status.Ok) && assertTrue(
+          } yield assertTrue(
+            extractStatus(goodResponse) == Status.Ok,
             extractStatus(badResponse) == Status.NotFound,
-          ) &&
-            assertTrue(extractStatus(goodResponse2) == Status.Ok) && assertTrue(
-              extractStatus(badResponse2) == Status.Ok,
-            )
+            extractStatus(goodResponse2) == Status.Ok,
+            extractStatus(badResponse2) == Status.Ok,
+          )
         },
       ),
       suite("addHandler")(

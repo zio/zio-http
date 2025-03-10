@@ -16,24 +16,48 @@
 
 package zio.http.codec
 
+import java.util.UUID
+
 import scala.util.Try
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.Header.HeaderType
+import zio.schema._
+
+import zio.http.Header.{HeaderType, SchemaHeaderType}
 import zio.http._
 
 private[codec] trait HeaderCodecs {
-  private[http] def headerCodec[A](name: String, value: TextCodec[A]): HeaderCodec[A] =
-    HttpCodec.Header(name, value)
+  private[http] def headerCodec[A](name: String, value: TextCodec[A]): HeaderCodec[A] = {
+    val schema = value match {
+      case TextCodec.Constant(string) =>
+        Schema[String].transformOrFail[Unit](
+          s => if (s == string) Right(()) else Left(s"Header $name was not $string"),
+          (_: Unit) => Right(string),
+        )
+      case TextCodec.StringCodec      => Schema[String]
+      case TextCodec.IntCodec         => Schema[Int]
+      case TextCodec.LongCodec        => Schema[Long]
+      case TextCodec.BooleanCodec     => Schema[Boolean]
+      case TextCodec.UUIDCodec        => Schema[UUID]
+    }
+    HttpCodec.Header(SchemaHeaderType(name)(schema.asInstanceOf[Schema[A]]))
+  }
 
   def header(headerType: HeaderType): HeaderCodec[headerType.HeaderValue] =
-    headerCodec(headerType.name, TextCodec.string)
-      .transformOrFailLeft(headerType.parse(_))(headerType.render(_))
+    HttpCodec.Header(headerType)
 
+  def headerAs[A](name: String)(implicit schema: Schema[A]): HeaderCodec[A] =
+    HttpCodec.Header(SchemaHeaderType(name))
+
+  def headers[A](implicit schema: Schema[A]): HeaderCodec[A] =
+    HttpCodec.Header(SchemaHeaderType("headers"))
+
+  @deprecated("Use Schema based headerAs instead", "3.1.0")
   def name[A](name: String)(implicit codec: TextCodec[A]): HeaderCodec[A] =
     headerCodec(name, codec)
 
+  @deprecated("Use Schema based API instead", "3.1.0")
   def nameTransform[A, B](
     name: String,
     parse: B => A,
@@ -43,11 +67,13 @@ private[codec] trait HeaderCodecs {
       Try(parse(s)).toEither.left.map(e => s"Failed to parse header $name: ${e.getMessage}"),
     )(render)
 
+  @deprecated("Use Schema based API instead", "3.1.0")
   def nameTransformOption[A, B](name: String, parse: B => Option[A], render: A => B)(implicit
     codec: TextCodec[B],
   ): HeaderCodec[A] =
     headerCodec(name, codec).transformOrFailLeft(parse(_).toRight(s"Failed to parse header $name"))(render)
 
+  @deprecated("Use Schema based API instead", "3.1.0")
   def nameTransformOrFail[A, B](name: String, parse: B => Either[String, A], render: A => B)(implicit
     codec: TextCodec[B],
   ): HeaderCodec[A] =

@@ -18,6 +18,8 @@ package zio.http.internal
 
 import zio.Trace
 
+import zio.schema.Schema
+
 import zio.http.Header.HeaderType
 import zio.http._
 
@@ -34,17 +36,39 @@ trait HeaderModifier[+A] { self =>
   final def addHeader(header: Header): A =
     addHeaders(Headers(header))
 
-  final def addHeader(name: CharSequence, value: CharSequence): A =
+  protected def addHeader(name: CharSequence, value: CharSequence): A =
     addHeaders(Headers.apply(name, value))
 
   final def addHeaders(headers: Headers): A = updateHeaders(_ ++ headers)
+
+  final def addHeaders(headers: Iterable[(CharSequence, CharSequence)]): A =
+    addHeaders(Headers.fromIterable(headers.map { case (k, v) => Header.Custom(k, v) }))
+
+  /**
+   * Adds a header / headers with the specified name and based on the given
+   * value. The value type must have a schema and can be a primitive type (e.g.
+   * Int, String, UUID, Instant etc.), a case class with a single field or a
+   * collection of either of these.
+   */
+  final def addHeader[T](name: String, value: T)(implicit schema: Schema[T]): A =
+    updateHeaders(StringSchemaCodec.headerFromSchema(schema, ErrorConstructor.header, name).encode(value, _))
+
+  /**
+   * Adds headers based on the given value. The type of the value must have a
+   * schema and be a case class and all fields will be added as headers. So
+   * fields must be of primitive types (e.g. Int, String, UUID, Instant etc.), a
+   * case class with a single field or a collection of either of these. The
+   * header names are the field names.
+   */
+  final def addHeader[T](value: T)(implicit schema: Schema[T]): A =
+    updateHeaders(StringSchemaCodec.headerFromSchema(schema, ErrorConstructor.header, null).encode(value, _))
 
   final def removeHeader(headerType: HeaderType): A = removeHeader(headerType.name)
 
   final def removeHeader(name: String): A = removeHeaders(Set(name))
 
   final def removeHeaders(headers: Set[String]): A =
-    updateHeaders(orig => Headers(orig.filterNot(h => headers.contains(h.headerName))))
+    updateHeaders(orig => Headers(orig.filterNot(h => headers.exists(h.headerName.equalsIgnoreCase))))
 
   final def setHeaders(headers: Headers): A = self.updateHeaders(_ => headers)
 

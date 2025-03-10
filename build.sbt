@@ -37,12 +37,6 @@ val coursierSetup =
 ThisBuild / githubWorkflowAddedJobs :=
   Seq(
     WorkflowJob(
-      id = "update_release_draft",
-      name = "Release Drafter",
-      steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
-      cond = Option("${{ github.base_ref == 'main' }}"),
-    ),
-    WorkflowJob(
       id = "mima_check",
       name = "Mima Check",
       steps = List(
@@ -56,8 +50,10 @@ ThisBuild / githubWorkflowAddedJobs :=
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish       :=
+ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
+ThisBuild / githubWorkflowPublish         :=
   Seq(
+    WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
     WorkflowStep.Sbt(
       List("ci-release"),
       name = Some("Release"),
@@ -84,7 +80,7 @@ ThisBuild / githubWorkflowPublish       :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble := Seq(
+ThisBuild / githubWorkflowBuildPreamble   := Seq(
   coursierSetup,
   WorkflowStep.Run(
     name = Some("Check formatting"),
@@ -92,22 +88,6 @@ ThisBuild / githubWorkflowBuildPreamble := Seq(
     cond = Some(s"matrix.scala == '${Scala213}'"),
   ),
 )
-
-ThisBuild / githubWorkflowBuild := {
-  (ThisBuild / githubWorkflowBuild).value ++ WorkflowJob(
-    "testSbtPlugin",
-    "Test sbt plugin",
-    List(
-      WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1")),
-      WorkflowStep.Run(
-        name = Some(s"Test sbt plugin"),
-        commands = List(s"sbt ++${Scala212} zioHttpGenSbt/scripted"),
-        cond = Some(s"$${{ github.event_name == 'pull_request' }} && matrix.scala == '$Scala212'"),
-      ),
-    ),
-    scalas = List(Scala212),
-  ).steps
-}
 
 ThisBuild / githubWorkflowBuildPostamble :=
   WorkflowJob(
@@ -203,31 +183,25 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
-    ),
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
-        case _                       => Seq.empty
-      }
-    },
-    libraryDependencies ++= netty ++ Seq(`netty-incubator`),
+      `scala-compat-collection`,
+    ) ++ netty ++ Seq(`netty-incubator`),
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0",
-      "org.scala-js"      %%% "scalajs-dom"          % "2.8.0",
-      "dev.zio"           %%% "zio-test"             % ZioVersion % "test",
-      "dev.zio"           %%% "zio-test-sbt"         % ZioVersion % "test",
-      "dev.zio"           %%% "zio"                  % ZioVersion,
-      "dev.zio"           %%% "zio-streams"          % ZioVersion,
-      "dev.zio"           %%% "zio-schema"           % ZioSchemaVersion,
-      "dev.zio"           %%% "zio-schema-json"      % ZioSchemaVersion,
-      "dev.zio"           %%% "zio-schema-protobuf"  % ZioSchemaVersion,
+      "org.scala-lang.modules" %%% "scala-collection-compat" % ScalaCompatCollectionVersion,
+      "io.github.cquiroz"      %%% "scala-java-time"         % "2.6.0",
+      "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.6.0",
+      "org.scala-js"           %%% "scalajs-dom"             % "2.8.0",
+      "dev.zio"                %%% "zio-test"                % ZioVersion % "test",
+      "dev.zio"                %%% "zio-test-sbt"            % ZioVersion % "test",
+      "dev.zio"                %%% "zio"                     % ZioVersion,
+      "dev.zio"                %%% "zio-streams"             % ZioVersion,
+      "dev.zio"                %%% "zio-schema"              % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-json"         % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-protobuf"     % ZioSchemaVersion,
     ),
   )
 
@@ -279,12 +253,12 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.5.1",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.1",
-      "com.softwaremill.sttp.client3" %% "core"                % "3.9.5",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.17",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.17",
+      "com.softwaremill.sttp.client3" %% "core"                % "3.10.3",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
-      "org.slf4j"                      % "slf4j-api"           % "2.0.13",
-      "org.slf4j"                      % "slf4j-simple"        % "2.0.13",
+      "org.slf4j"                      % "slf4j-api"           % "2.0.17",
+      "org.slf4j"                      % "slf4j-simple"        % "2.0.17",
     ),
   )
   .dependsOn(zioHttpJVM)
@@ -359,48 +333,28 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
+          Seq(`scala-compat-collection`)
         case _                       => Seq.empty
       }
     },
   )
   .dependsOn(zioHttpJVM)
 
-lazy val zioHttpGenSbt = (project in file("zio-http-gen-sbt-plugin"))
-  .enablePlugins(SbtPlugin)
-  .settings(publishSetting(true))
-  .settings(
-    name := "zio-http-sbt-codegen",
-    sbtPlugin    := true,
-    scalaVersion := Scala212,
-    semanticdbEnabled := true,
-    semanticdbVersion := scalafixSemanticdb.revision,
-    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
-    sbtTestDirectory := sourceDirectory.value / "sbt-test",
-    scriptedLaunchOpts += ("-Dplugin.version=" + version.value),
-    scriptedBufferLog := false,
-    libraryDependencies ++= Seq(
-      `zio-json-yaml`,
-      `zio-test`,
-      `zio-test-sbt`,
-    )
-  ).dependsOn(LocalProject("zioHttpGen"))
-
 lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
   .settings(stdSettings("sbt-zio-http-grpc"))
   .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.15",
-      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.15" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.26.1"  % "protobuf",
+      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.17",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.30.0"  % "protobuf",
     ),
   )
   .settings(
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
+          Seq(`scala-compat-collection`)
         case _                       => Seq.empty
       }
     },
@@ -417,8 +371,8 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.26.1"  % "protobuf",
-      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.15" % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.30.0"  % "protobuf",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
     ),
     Compile / run / fork := true,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),

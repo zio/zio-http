@@ -16,16 +16,18 @@ import zio.schema.{Schema, TypeId}
 
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
+import zio.http.codec.HttpCodecType.Content
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
 import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
+import zio.http.internal.StringSchemaCodec
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
 
   private[openapi] def groupMap[A, K, B](chunk: Chunk[A])(key: A => K)(f: A => B): immutable.Map[K, Chunk[B]] = {
-    val m = mutable.Map.empty[K, mutable.Builder[B, Chunk[B]]]
+    val m      = mutable.Map.empty[K, mutable.Builder[B, Chunk[B]]]
     for (elem <- chunk) {
       val k    = key(elem)
       val bldr = m.getOrElseUpdate(k, Chunk.newBuilder[B])
@@ -68,7 +70,10 @@ object OpenAPIGen {
     }
 
     def examples(schema: Schema[_]): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
-      examples.map { case (k, v) =>
+      examples(schema, generate = false)
+
+    def examples(schema: Schema[_], generate: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
+      (if (generate && examples.isEmpty) generateExamples(schema) else examples).map { case (k, v) =>
         k -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(toJsonAst(schema, v)))
       }
 
@@ -97,20 +102,21 @@ object OpenAPIGen {
   final case class AtomizedMetaCodecs(
     method: Chunk[MetaCodec[SimpleCodec[Method, _]]],
     path: Chunk[MetaCodec[SegmentCodec[_]]],
-    query: Chunk[MetaCodec[HttpCodec.Query[_, _]]],
+    query: Chunk[MetaCodec[HttpCodec.Query[_]]],
     header: Chunk[MetaCodec[HttpCodec.Header[_]]],
-    content: Chunk[MetaCodec[HttpCodec.Atom[HttpCodecType.Content, _]]],
+    content: Chunk[MetaCodec[HttpCodec.Atom[Content, _]]],
     status: Chunk[MetaCodec[HttpCodec.Status[_]]],
   ) {
     def append(metaCodec: MetaCodec[_]): AtomizedMetaCodecs = metaCodec match {
       case MetaCodec(codec: HttpCodec.Method[_], annotations) =>
-        copy(method =
-          (method :+ MetaCodec(codec.codec, annotations)).asInstanceOf[Chunk[MetaCodec[SimpleCodec[Method, _]]]],
+        copy(
+          method =
+            (method :+ MetaCodec(codec.codec, annotations)).asInstanceOf[Chunk[MetaCodec[SimpleCodec[Method, _]]]],
         )
       case MetaCodec(_: SegmentCodec[_], _)                   =>
         copy(path = path :+ metaCodec.asInstanceOf[MetaCodec[SegmentCodec[_]]])
-      case MetaCodec(_: HttpCodec.Query[_, _], _)             =>
-        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_, _]]])
+      case MetaCodec(_: HttpCodec.Query[_], _)                =>
+        copy(query = query :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Query[_]]])
       case MetaCodec(_: HttpCodec.Header[_], _)               =>
         copy(header = header :+ metaCodec.asInstanceOf[MetaCodec[HttpCodec.Header[_]]])
       case MetaCodec(_: HttpCodec.Status[_], _)               =>
@@ -133,12 +139,15 @@ object OpenAPIGen {
       )
 
     def contentExamples: Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
+      contentExamples(genExamples = false)
+
+    def contentExamples(genExamples: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       content.flatMap {
         case mc @ MetaCodec(HttpCodec.Content(codec, _, _), _) if codec.lookup(MediaType.application.json).isDefined =>
-          mc.examples(codec.lookup(MediaType.application.json).get._2.schema)
+          mc.examples(codec.lookup(MediaType.application.json).get._2.schema, genExamples)
         case mc @ MetaCodec(HttpCodec.ContentStream(codec, _, _), _)
             if codec.lookup(MediaType.application.json).isDefined =>
-          mc.examples(codec.lookup(MediaType.application.json).get._2.schema)
+          mc.examples(codec.lookup(MediaType.application.json).get._2.schema, genExamples)
         case _                                                                                                       =>
           Map.empty[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]]
       }.toMap
@@ -223,6 +232,57 @@ object OpenAPIGen {
           flattenedAtoms(api, annotations :+ annotation.asInstanceOf[HttpCodec.Metadata[Any]])
       }
   }
+
+  private def generateExamples(schema: Schema[_], name: String = "generated"): Map[String, Any] =
+    schema match {
+      case collection: Schema.Collection[_, _] =>
+        collection match {
+          case Schema.Sequence(elementSchema, fromChunk, _, _, _)               =>
+            elementSchema.defaultValue.map(v => Map(name -> fromChunk(Chunk.single(v)))).getOrElse(Map.empty)
+          case map @ Schema.Map(_, _, _)                                        =>
+            val example = for {
+              k <- map.keySchema.defaultValue
+              v <- map.valueSchema.defaultValue
+            } yield map.fromChunk(Chunk.single(k -> v))
+            example.map(v => Map(name -> v)).getOrElse(Map.empty)
+          case map @ Schema.NonEmptyMap(_, _, _)                                =>
+            val example = for {
+              k <- map.keySchema.defaultValue
+              v <- map.valueSchema.defaultValue
+            } yield map.fromChunk(Chunk.single(k -> v))
+            example.map(v => Map(name -> v)).getOrElse(Map.empty)
+          case Schema.NonEmptySequence(elementSchema, fromChunkOption, _, _, _) =>
+            elementSchema.defaultValue.map(v => Map(name -> fromChunkOption(Chunk.single(v)))).getOrElse(Map.empty)
+          case set @ Schema.Set(elementSchema, _)                               =>
+            elementSchema.defaultValue
+              .map(v => set.fromChunk(Chunk.single(v)))
+              .map(v => Map(name -> v))
+              .getOrElse(Map.empty)
+
+        }
+      case Transform(schema, _, _, _, _)       =>
+        generateExamples(schema, name)
+      case Schema.Optional(schema, _)          =>
+        generateExamples(schema, name).map { case (k, v) => k -> Some(v) }
+      case Schema.Fail(_, _)                   =>
+        Map.empty
+      case Schema.Either(left, right, _)       =>
+        generateExamples(left, "generatedLeft") ++ generateExamples(right, "generatedRight")
+      case Schema.Fallback(left, right, _, _)  =>
+        generateExamples(left, "generatedLeft") ++ generateExamples(right, "generatedRight")
+      case Schema.Lazy(schema0)                =>
+        generateExamples(schema0())
+      case Schema.Dynamic(_)                   =>
+        Map.empty
+      case s @ Schema.Primitive(_, _)          =>
+        s.defaultValue.map(v => Map(name -> v)).getOrElse(Map.empty)
+      case enumSchema: Schema.Enum[_]          =>
+        enumSchema.defaultValue.map(v => Map(name -> v)).getOrElse(Map.empty)
+      case record: Record[_]                   =>
+        record.defaultValue.map(v => Map(name -> v)).getOrElse(Map.empty)
+      case t: Schema.Tuple2[_, _]              =>
+        t.defaultValue.map(v => Map(name -> v)).getOrElse(Map.empty)
+    }
 
   def method(in: Chunk[MetaCodec[SimpleCodec[Method, _]]]): Method = {
     if (in.size > 1) throw new Exception("Multiple methods not supported")
@@ -484,11 +544,25 @@ object OpenAPIGen {
   ): OpenAPI = fromEndpoints(endpoint1 +: endpoints)
 
   def fromEndpoints(
+    genExamples: Boolean,
+    endpoint1: Endpoint[_, _, _, _, _],
+    endpoints: Endpoint[_, _, _, _, _]*,
+  ): OpenAPI = fromEndpoints(genExamples, endpoint1 +: endpoints)
+
+  def fromEndpoints(
     title: String,
     version: String,
     endpoint1: Endpoint[_, _, _, _, _],
     endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(title, version, endpoint1 +: endpoints)
+
+  def fromEndpoints(
+    title: String,
+    version: String,
+    genExamples: Boolean,
+    endpoint1: Endpoint[_, _, _, _, _],
+    endpoints: Endpoint[_, _, _, _, _]*,
+  ): OpenAPI = fromEndpoints(title, version, genExamples, endpoint1 +: endpoints)
 
   def fromEndpoints(
     title: String,
@@ -499,13 +573,35 @@ object OpenAPIGen {
   ): OpenAPI = fromEndpoints(title, version, referenceType, endpoint1 +: endpoints)
 
   def fromEndpoints(
+    title: String,
+    version: String,
+    referenceType: SchemaStyle,
+    genExamples: Boolean,
+    endpoint1: Endpoint[_, _, _, _, _],
+    endpoints: Endpoint[_, _, _, _, _]*,
+  ): OpenAPI = fromEndpoints(title, version, referenceType, genExamples, endpoint1 +: endpoints)
+
+  def fromEndpoints(
     referenceType: SchemaStyle,
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, referenceType)).reduce(_ ++ _)
 
   def fromEndpoints(
+    referenceType: SchemaStyle,
+    genExamples: Boolean,
+    endpoints: Iterable[Endpoint[_, _, _, _, _]],
+  ): OpenAPI =
+    if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, referenceType, genExamples)).reduce(_ ++ _)
+
+  def fromEndpoints(
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, SchemaStyle.Compact)).reduce(_ ++ _)
+
+  def fromEndpoints(
+    genExamples: Boolean,
+    endpoints: Iterable[Endpoint[_, _, _, _, _]],
+  ): OpenAPI =
+    if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, SchemaStyle.Compact, genExamples)).reduce(_ ++ _)
 
   def fromEndpoints(
     title: String,
@@ -516,13 +612,38 @@ object OpenAPIGen {
   def fromEndpoints(
     title: String,
     version: String,
+    genExamples: Boolean,
+    endpoints: Iterable[Endpoint[_, _, _, _, _]],
+  ): OpenAPI = fromEndpoints(genExamples, endpoints).title(title).version(version)
+
+  def fromEndpoints(
+    title: String,
+    version: String,
     referenceType: SchemaStyle,
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = fromEndpoints(referenceType, endpoints).title(title).version(version)
 
+  def fromEndpoints(
+    title: String,
+    version: String,
+    referenceType: SchemaStyle,
+    genExamples: Boolean,
+    endpoints: Iterable[Endpoint[_, _, _, _, _]],
+  ): OpenAPI = fromEndpoints(referenceType, genExamples, endpoints).title(title).version(version)
+
+  def gen(
+    endpoint: Endpoint[_, _, _, _, _],
+  ): OpenAPI = gen(endpoint, SchemaStyle.Compact)
+
+  def gen(
+    endpoint: Endpoint[_, _, _, _, _],
+    referenceType: SchemaStyle,
+  ): OpenAPI = gen(endpoint, referenceType, genExamples = false)
+
   def gen(
     endpoint: Endpoint[_, _, _, _, _],
     referenceType: SchemaStyle = SchemaStyle.Compact,
+    genExamples: Boolean,
   ): OpenAPI = {
     val inAtoms = AtomizedMetaCodecs.flatten(endpoint.input)
     val outs: Map[OpenAPI.StatusOrDefault, Map[MediaType, (JsonSchema, AtomizedMetaCodecs)]] =
@@ -538,7 +659,8 @@ object OpenAPIGen {
       val path           = buildPath(endpoint.input)
       val method0        = method(inAtoms.method)
       // Endpoint has only one doc. But open api has a summery and a description
-      val pathItem       = OpenAPI.PathItem.empty.copy(description = Some(endpoint.documentation).filter(!_.isEmpty))
+      val pathItem       = OpenAPI.PathItem.empty
+        .copy(description = Some(endpoint.documentation + endpoint.input.doc.getOrElse(Doc.empty)).filter(!_.isEmpty))
       val pathItemWithOp = method0 match {
         case Method.OPTIONS => pathItem.addOptions(operation(endpoint))
         case Method.GET     => pathItem.addGet(operation(endpoint))
@@ -580,7 +702,7 @@ object OpenAPIGen {
     }
 
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
-      val maybeDoc = Some(pathDoc).filter(!_.isEmpty)
+      val maybeDoc = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
         tags = endpoint.tags,
         summary = None,
@@ -610,7 +732,7 @@ object OpenAPIGen {
         val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
           mediaType.fullType -> OpenAPI.MediaType(
             schema = OpenAPI.ReferenceOr.Or(schema),
-            examples = atomized.contentExamples,
+            examples = atomized.contentExamples(genExamples),
             encoding = Map.empty,
           )
         }
@@ -627,92 +749,46 @@ object OpenAPIGen {
       })
 
     def responses: OpenAPI.Responses =
-      responsesForAlternatives(outs)
+      responsesForAlternatives(outs, genExamples)
 
     def parameters: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
       queryParams ++ pathParams ++ headerParams
 
-    def queryParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] = {
-      inAtoms.query.collect {
-        case mc @ MetaCodec(q @ HttpCodec.Query(HttpCodec.Query.QueryType.Primitive(name, codec), _), _) =>
+    def queryParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
+      inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(codec, _), _) =>
+        val recordSchema = (codec.schema match {
+          case schema if schema.isInstanceOf[Schema.Optional[_]] => schema.asInstanceOf[Schema.Optional[_]].schema
+          case _                                                 => codec.schema
+        }).asInstanceOf[Schema.Record[Any]]
+        val examples     = mc.examples.map { case (exName, ex) =>
+          exName -> recordSchema.deconstruct(ex)(Unsafe.unsafe)
+        }
+        codec.recordFields.zipWithIndex.map { case ((field, codec), index) =>
           OpenAPI.ReferenceOr.Or(
             OpenAPI.Parameter.queryParameter(
-              name = name,
+              name = field.name,
               description = mc.docsOpt,
               schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
               deprecated = mc.deprecated,
               style = OpenAPI.Parameter.Style.Form,
               explode = false,
               allowReserved = false,
-              examples = mc.examples.map { case (name, value) =>
-                name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
-              },
-              required = mc.required && !q.isOptional,
-            ),
-          ) :: Nil
-        case mc @ MetaCodec(HttpCodec.Query(record @ HttpCodec.Query.QueryType.Record(schema), _), _)    =>
-          val recordSchema = (schema match {
-            case schema if schema.isInstanceOf[Schema.Optional[_]] => schema.asInstanceOf[Schema.Optional[_]].schema
-            case _                                                 => schema
-          }).asInstanceOf[Schema.Record[Any]]
-          val examples     = mc.examples.map { case (exName, ex) =>
-            exName -> recordSchema.deconstruct(ex)(Unsafe.unsafe)
-          }
-          record.fieldAndCodecs.zipWithIndex.map { case ((field, codec), index) =>
-            OpenAPI.ReferenceOr.Or(
-              OpenAPI.Parameter.queryParameter(
-                name = field.name,
-                description = mc.docsOpt,
-                schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
-                deprecated = mc.deprecated,
-                style = OpenAPI.Parameter.Style.Form,
-                explode = false,
-                allowReserved = false,
-                examples = examples.map { case (exName, values) =>
-                  val fieldValue = values(index)
-                    .orElse(field.defaultValue)
-                    .getOrElse(
-                      throw new Exception(s"No value or default value found for field ${exName}_${field.name}"),
-                    )
-                  s"${exName}_${field.name}" -> OpenAPI.ReferenceOr.Or(
-                    OpenAPI.Example(value =
-                      Json.Str(codec.codec(CodecConfig.defaultConfig).encode(fieldValue).asString),
-                    ),
+              examples = examples.map { case (exName, values) =>
+                val fieldValue = values(index)
+                  .orElse(field.defaultValue)
+                  .getOrElse(
+                    throw new Exception(s"No value or default value found for field ${exName}_${field.name}"),
                   )
-                },
-                required = mc.required,
-              ),
-            )
-
-          }
-        case mc @ MetaCodec(
-              HttpCodec.Query(
-                HttpCodec.Query.QueryType.Collection(
-                  _,
-                  HttpCodec.Query.QueryType.Primitive(name, codec),
-                  optional,
-                ),
-                _,
-              ),
-              _,
-            ) =>
-          OpenAPI.ReferenceOr.Or(
-            OpenAPI.Parameter.queryParameter(
-              name = name,
-              description = mc.docsOpt,
-              schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
-              deprecated = mc.deprecated,
-              style = OpenAPI.Parameter.Style.Form,
-              explode = false,
-              allowReserved = false,
-              examples = mc.examples.map { case (exName, value) =>
-                exName -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(value = Json.Str(value.toString)))
+                s"${exName}_${field.name}" -> OpenAPI.ReferenceOr.Or(
+                  OpenAPI.Example(value = Json.Str(codec.encode(fieldValue))),
+                )
               },
-              required = mc.required && !optional,
+              required = mc.required && !StringSchemaCodec.isOptional(field.schema),
             ),
-          ) :: Nil
-      }
-    }.flatten.toSet
+          )
+
+        }
+      }.flatten.toSet
 
     def pathParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
       inAtoms.path.collect {
@@ -737,14 +813,14 @@ object OpenAPIGen {
         .map { case mc @ MetaCodec(codec, _) =>
           OpenAPI.ReferenceOr.Or(
             OpenAPI.Parameter.headerParameter(
-              name = mc.name.getOrElse(codec.name),
+              name = mc.name.getOrElse(codec.headerType.names.head),
               description = mc.docsOpt,
-              definition =
-                Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromTextCodec(codec.textCodec).nullable(!mc.required))),
+              definition = Some(OpenAPI.ReferenceOr.Or(JsonSchema.String().nullable(!mc.required))),
               deprecated = mc.deprecated,
-              examples = mc.examples.map { case (name, value) =>
-                name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(codec.textCodec.encode(value).toJsonAST.toOption.get))
-              },
+              examples = Map.empty,
+//                mc.examples.map { case (name, value) =>
+//                name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(codec.headerType.render(value).toJsonAST.toOption.get))
+//              },
               required = mc.required,
             ),
           )
@@ -992,13 +1068,14 @@ object OpenAPIGen {
 
   private def responsesForAlternatives(
     codecs: Map[OpenAPI.StatusOrDefault, Map[MediaType, (JsonSchema, AtomizedMetaCodecs)]],
+    genExamples: Boolean,
   ): Map[OpenAPI.StatusOrDefault, OpenAPI.ReferenceOr[OpenAPI.Response]] =
     codecs.map { case (status, mediaTypes) =>
       val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }.reduce(_ ++ _)
       val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
         mediaType.fullType -> OpenAPI.MediaType(
           schema = OpenAPI.ReferenceOr.Or(schema),
-          examples = atomized.contentExamples,
+          examples = atomized.contentExamples(genExamples),
           encoding = Map.empty,
         )
       }
@@ -1014,13 +1091,14 @@ object OpenAPIGen {
 
   private def headersFrom(codec: AtomizedMetaCodecs)                                           = {
     codec.header.map { case mc @ MetaCodec(codec, _) =>
-      codec.name -> OpenAPI.ReferenceOr.Or(
+      // todo use all headers
+      codec.headerType.names.head -> OpenAPI.ReferenceOr.Or(
         OpenAPI.Header(
           description = mc.docsOpt,
           required = true,
           deprecated = mc.deprecated,
           allowEmptyValue = false,
-          schema = Some(JsonSchema.fromTextCodec(codec.textCodec)),
+          schema = Some(JsonSchema.String().nullable(!mc.required)),
         ),
       )
     }.toMap

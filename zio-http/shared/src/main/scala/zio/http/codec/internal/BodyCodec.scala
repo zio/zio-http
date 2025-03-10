@@ -117,9 +117,10 @@ private[http] object BodyCodec {
         .lookup(field.contentType)
         .toRight(HttpCodecError.CustomError("UnsupportedMediaType", s"MediaType: ${field.contentType}"))
       codec0 match {
-        case Left(error)                                                            => ZIO.fail(error)
+        case Left(error)                                                            =>
+          Exit.fail(error)
         case Right((_, BinaryCodecWithSchema(_, schema))) if schema == Schema[Unit] =>
-          ZIO.unit.asInstanceOf[IO[Throwable, A]]
+          Exit.unit.asInstanceOf[IO[Throwable, A]]
         case Right((_, bc @ BinaryCodecWithSchema(_, schema)))                      =>
           field.asChunk.flatMap { chunk => ZIO.fromEither(bc.codec(config).decode(chunk)) }.flatMap(validateZIO(schema))
       }
@@ -128,9 +129,11 @@ private[http] object BodyCodec {
     override def decodeFromBody(body: Body, config: CodecConfig)(implicit trace: Trace): IO[Throwable, A] = {
       val codec0 = codecForBody(codec, body)
       codec0 match {
-        case Left(error)                                                            => ZIO.fail(error)
+        case Left(error)                                                            =>
+          Exit.fail(error)
         case Right((_, BinaryCodecWithSchema(_, schema))) if schema == Schema[Unit] =>
-          ZIO.unit.asInstanceOf[IO[Throwable, A]]
+          if (body.isEmpty) Exit.unit.asInstanceOf[IO[Throwable, A]]
+          else ZIO.fail(HttpCodecError.CustomError("InvalidBody", "Non-empty body cannot be decoded as Unit"))
         case Right((_, bc @ BinaryCodecWithSchema(_, schema)))                      =>
           body.asChunk.flatMap { chunk => ZIO.fromEither(bc.codec(config).decode(chunk)) }.flatMap(validateZIO(schema))
       }
@@ -139,7 +142,9 @@ private[http] object BodyCodec {
     def encodeToField(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], name: String, config: CodecConfig)(implicit
       trace: Trace,
     ): FormField = {
-      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
+      val selected  = codec.chooseFirstOrDefault(mediaTypes)
+      val mediaType = selected._1
+      val bc        = selected._2
       if (mediaType.binary) {
         FormField.binaryField(
           name,
@@ -158,8 +163,11 @@ private[http] object BodyCodec {
     def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
     ): Body = {
-      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
-      Body.fromChunk(bc.codec(config).encode(value), mediaType)
+      val selected  = codec.chooseFirstOrDefault(mediaTypes)
+      val mediaType = selected._1
+      val bc        = selected._2
+      if (bc.schema == Schema[Unit]) Body.empty.contentType(mediaType)
+      else Body.fromChunk(bc.codec(config).encode(value), mediaType)
     }
 
     type Element = A
@@ -200,7 +208,9 @@ private[http] object BodyCodec {
     )(implicit
       trace: Trace,
     ): FormField = {
-      val (mediaType, bc) = codec.chooseFirstOrDefault(mediaTypes)
+      val selected  = codec.chooseFirstOrDefault(mediaTypes)
+      val mediaType = selected._1
+      val bc        = selected._2
       FormField.streamingBinaryField(
         name,
         value >>> bc.codec(config).streamEncoder,
@@ -215,7 +225,9 @@ private[http] object BodyCodec {
     )(implicit
       trace: Trace,
     ): Body = {
-      val (mediaType, bc @ BinaryCodecWithSchema(_, _)) = codec.chooseFirstOrDefault(mediaTypes)
+      val selected  = codec.chooseFirstOrDefault(mediaTypes)
+      val mediaType = selected._1
+      val bc        = selected._2
       Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType)
     }
 
@@ -232,8 +244,8 @@ private[http] object BodyCodec {
 
   private[internal] def validateZIO[A](schema: Schema[A])(e: A)(implicit trace: Trace): ZIO[Any, HttpCodecError, A] = {
     val errors = Schema.validate(e)(schema)
-    if (errors.isEmpty) ZIO.succeed(e)
-    else ZIO.fail(HttpCodecError.InvalidEntity.wrap(errors))
+    if (errors.isEmpty) Exit.succeed(e)
+    else Exit.fail(HttpCodecError.InvalidEntity.wrap(errors))
   }
 
   private[internal] def validateStream[E](schema: Schema[E])(implicit

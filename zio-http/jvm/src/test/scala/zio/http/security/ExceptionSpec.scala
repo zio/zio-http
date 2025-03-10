@@ -23,16 +23,18 @@ object ExceptionSpec extends ZIOSpecDefault {
   val queryRoutes =
     Routes(
       Method.GET / "search" -> Handler.fromFunctionHandler { (req: Request) =>
-        val response: ZIO[Any, QueryParamsError, Response] =
+        val response: ZIO[Any, HttpCodecError.QueryParamError, Response] =
           ZIO
-            .fromEither(req.queryParamTo[Int]("age"))
+            .fromEither(req.query[Int]("age"))
             .map(value => Response.text(s"The value of age query param is: $value"))
 
         Handler.fromZIO(response).catchAll {
-          case QueryParamsError.Missing(name)         =>
-            Handler.badRequest(s"The $name query param is missing")
-          case QueryParamsError.Malformed(name, _, _) =>
-            Handler.badRequest(s"The value of $name query param is malformed")
+          case HttpCodecError.MissingQueryParams(names) =>
+            Handler.badRequest(s"The ${names.head} query param is missing")
+          case e: HttpCodecError.MalformedQueryParam    =>
+            Handler.badRequest(e.getMessage())
+          case e                                        =>
+            Handler.badRequest(e.getMessage())
         }
       },
     )
@@ -82,6 +84,7 @@ object ExceptionSpec extends ZIOSpecDefault {
       } yield assertTrue(!response.contains("Exception in thread"))
     },
   ).provide(
+    Scope.default,
     Server.customized,
     ZLayer.succeed(
       Server.Config.default,

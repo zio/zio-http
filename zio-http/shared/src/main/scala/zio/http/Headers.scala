@@ -99,6 +99,7 @@ object Headers {
     value: T,
     iterate: T => Iterator[Header],
     unsafeGet: (T, CharSequence) => String,
+    getAll: (T, CharSequence) => Chunk[String],
     contains: (T, CharSequence) => Boolean,
   ) extends Headers {
     override def contains(key: CharSequence): Boolean = contains(value, key)
@@ -106,6 +107,9 @@ object Headers {
     override def iterator: Iterator[Header] = iterate(value)
 
     override private[http] def getUnsafe(key: CharSequence): String = unsafeGet(value, key)
+
+    override def rawHeaders(name: CharSequence): Chunk[String] = getAll(value, name)
+
   }
 
   private[zio] final case class Concat(first: Headers, second: Headers) extends Headers {
@@ -136,6 +140,9 @@ object Headers {
   def apply(name: CharSequence, value: CharSequence): Headers = Headers.FromIterable(Chunk(Header.Custom(name, value)))
 
   def apply(tuple2: (CharSequence, CharSequence)): Headers = apply(tuple2._1, tuple2._2)
+
+  def apply(value: (CharSequence, CharSequence), values: (CharSequence, CharSequence)*): Headers =
+    Headers.FromIterable((value +: values).map { case (k, v) => Header.Custom(k, v) })
 
   def apply(headers: Header*): Headers = FromIterable(headers)
 

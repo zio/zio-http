@@ -119,8 +119,8 @@ object ClientSSLConfig {
     def isInvalidBuild: Boolean  = !isValidBuild
     def build(): FromJavaxNetSsl = this
 
-    def keyManagerKeyStoreType(tpe: String): FromJavaxNetSsl = self.copy(keyManagerKeyStoreType = tpe)
-    def keyManagerFile(file: String): FromJavaxNetSsl        =
+    def keyManagerKeyStoreType(tpe: String): FromJavaxNetSsl  = self.copy(keyManagerKeyStoreType = tpe)
+    def keyManagerFile(file: String): FromJavaxNetSsl         =
       keyManagerSource match {
         case FromJavaxNetSsl.Resource(_) => this
         case _                           => self.copy(keyManagerSource = FromJavaxNetSsl.File(file))

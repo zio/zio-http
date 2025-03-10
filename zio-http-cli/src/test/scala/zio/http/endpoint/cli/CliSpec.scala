@@ -27,7 +27,7 @@ object CliSpec extends ZIOSpecDefault {
 
   val bodyStream = ContentCodec.contentStream[BigInt]("bodyStream")
 
-  val headerCodec = HttpCodec.Header("header", TextCodec.string)
+  val headerCodec = HttpCodec.headerAs[String]("header")
 
   val path1 = PathCodec.bool("path1")
 
@@ -41,7 +41,10 @@ object CliSpec extends ZIOSpecDefault {
 
   val streamEndpoint = Endpoint(Method.PUT / path3).inCodec(bodyStream)
 
-  val endpoints = Chunk(simpleEndpoint, multiformEndpoint, streamEndpoint)
+  val pathParamEndpoint =
+    Endpoint(Method.DELETE / path1 / int("param1") / path2 / string("param2")).inCodec(bodyCodec1).inCodec(headerCodec)
+
+  val endpoints = Chunk(simpleEndpoint, multiformEndpoint, streamEndpoint, pathParamEndpoint)
 
   val testClient: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
@@ -93,13 +96,21 @@ object CliSpec extends ZIOSpecDefault {
                   else ZIO.succeed(text)
               } yield Response.text(response)
             },
+            Method.DELETE / "true" / int("param1") / "sampleText" / string("param2") -> handler {
+              (param1: Int, param2: String, _: Request) =>
+                for {
+                  response <-
+                    if (param1 == 1 && param2 == "param2value") ZIO.succeed("received 4")
+                    else ZIO.succeed(s"$param1 $param2")
+                } yield Response.text(response)
+            },
             Method.ANY / trailing  -> handler(Response.text("not received")),
           )
         }
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
     }
 
-  val cliApp: CliApp[Any, Throwable, CliRequest] =
+  val cliApp: CliApp[Any, Throwable, Response] =
     HttpCliApp
       .fromEndpoints(
         "simple",
@@ -143,8 +154,8 @@ object CliSpec extends ZIOSpecDefault {
           for {
             response <- cliApp.run(List("get", "--path1", "--body1", "342.76", "--header", "header"))
             result   <- response match {
-              case r: Response => r.body.asString
-              case _           => ZIO.succeed("wrong type")
+              case Some(r: Response) => r.body.asString
+              case _                 => ZIO.succeed("wrong type")
             }
           } yield assertTrue(result == "received 1")
         },
@@ -152,8 +163,8 @@ object CliSpec extends ZIOSpecDefault {
           for {
             response <- cliApp.run(List("create", "--path2", "sampleText", "--body1", "342.76", "--body2", "sample"))
             result   <- response match {
-              case r: Response => r.body.asString
-              case _           => ZIO.succeed("wrong type")
+              case Some(r: Response) => r.body.asString
+              case _                 => ZIO.succeed("wrong type")
             }
           } yield assertTrue(result == "received 2")
         },
@@ -161,17 +172,41 @@ object CliSpec extends ZIOSpecDefault {
           for {
             response <- cliApp.run(List("update", "--path2", "sampleText", "--path1", "--bodyStream", "342"))
             result   <- response match {
-              case r: Response => r.body.asString
-              case _           => ZIO.succeed("wrong type")
+              case Some(r: Response) => r.body.asString
+              case _                 => ZIO.succeed("wrong type")
             }
           } yield assertTrue(result == "received 3")
+        },
+        test("Path param endpoint") {
+          for {
+            response <- cliApp.run(
+              List(
+                "delete",
+                "--path1",
+                "--path2",
+                "sampleText",
+                "--param1",
+                "1",
+                "--param2",
+                "param2value",
+                "--body1",
+                "342.76",
+                "--header",
+                "header",
+              ),
+            )
+            result   <- response match {
+              case Some(r: Response) => r.body.asString
+              case _                 => ZIO.succeed("wrong type")
+            }
+          } yield assertTrue(result == "received 4")
         },
         test("From URL") {
           for {
             response <- cliApp.run(List("get", "--header", "fromURL", "--u-body1", "/fromURL"))
             result   <- response match {
-              case r: Response => ZIO.succeed(r)
-              case _           => ZIO.succeed(Response.text("wrong type"))
+              case Some(r: Response) => ZIO.succeed(r)
+              case _                 => ZIO.succeed(Response.text("wrong type"))
             }
             text     <- result.body.asString
           } yield assertTrue(text.contains("342.76"))

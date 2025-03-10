@@ -27,14 +27,14 @@ private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
   endpointRoot: URL,
   endpoint: Endpoint[P, I, E, O, A],
 ) {
-  def execute[R](
-    client: Client,
+  def execute[R, ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
     invocation: Invocation[P, I, E, O, A],
     authProvider: URIO[R, endpoint.authType.ClientRequirement],
   )(implicit
     combiner: Combiner[I, endpoint.authType.ClientRequirement],
     trace: Trace,
-  ): ZIO[R with Scope, E, O] = {
+  ): ZIO[R & ReqEnv, E, O] = {
     def request0(config: CodecConfig, authInput: endpoint.authType.ClientRequirement) = {
       val input = if (authInput.isInstanceOf[Unit]) invocation.input else combiner.combine(invocation.input, authInput)
       endpoint

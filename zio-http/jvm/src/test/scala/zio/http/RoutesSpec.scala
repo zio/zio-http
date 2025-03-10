@@ -18,7 +18,7 @@ package zio.http
 
 import zio.test._
 
-import zio.http.codec.PathCodec
+import zio.http.codec.{PathCodec, SegmentCodec}
 
 object RoutesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
@@ -76,18 +76,22 @@ object RoutesSpec extends ZIOHttpSpec {
     test("nest routes") {
       import PathCodec._
       import zio._
-      case object IdFormatError
       val routes = literal("to") / Routes(
-        Method.GET / "other"             -> handler(ZIO.fail(IdFormatError)),
+        Method.GET / "other"             -> Handler.ok,
         Method.GET / "do" / string("id") -> handler { (id: String, _: Request) => Response.text(s"GET /to/do/${id}") },
       )
-      routes.handleError { case IdFormatError =>
-        Response.badRequest
-      }
-        .run(
-          path = Path.root / "to" / "do" / "123",
-        )
-        .map(response => assertTrue(response.status == Status.Ok))
+
+      for {
+        nested1 <- routes.run(path = Path.root / "to" / "do" / "123")
+        nested2 <- routes.run(path = Path.root / "to" / "other")
+        former1 <- routes.run(path = Path.root / "other")
+        former2 <- routes.run(path = Path.root / "do")
+      } yield assertTrue(
+        nested1.status == Status.Ok,
+        nested2.status == Status.Ok,
+        former1.status == Status.NotFound,
+        former2.status == Status.NotFound,
+      )
     },
     test("alternative path segments") {
       val app = Routes(
@@ -105,6 +109,31 @@ object RoutesSpec extends ZIOHttpSpec {
           extractStatus(bar) == Status.Ok,
           extractStatus(baz) == Status.Ok,
           extractStatus(box) == Status.NotFound,
+        )
+      }
+    },
+    test("overlapping routes with different segment types") {
+      val app = Routes(
+        Method.GET / "foo" / string("id")                                      -> Handler.status(Status.NoContent),
+        Method.GET / "foo" / string("id")                                      -> Handler.ok,
+        Method.GET / "foo" / (SegmentCodec.literal("prefix") ~ string("rest")) -> Handler.ok,
+        Method.GET / "foo" / int("id")                                         -> Handler.ok,
+      )
+
+      for {
+        stringId     <- app.runZIO(Request.get("/foo/123"))
+        stringPrefix <- app.runZIO(Request.get("/foo/prefix123"))
+        intId        <- app.runZIO(Request.get("/foo/123"))
+        notFound     <- app.runZIO(Request.get("/foo/123/456"))
+        logs         <- ZTestLogger.logOutput.map { logs => logs.map(_.message()) }
+      } yield {
+        println(logs)
+        assertTrue(
+          logs.contains("Duplicate routes detected:\nGET /foo/{id}\nThe last route of each path will be used."),
+          extractStatus(stringId) == Status.Ok,
+          extractStatus(stringPrefix) == Status.Ok,
+          extractStatus(intId) == Status.Ok,
+          extractStatus(notFound) == Status.NotFound,
         )
       }
     },

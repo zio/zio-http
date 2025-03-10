@@ -31,7 +31,7 @@ object ExampleServer extends ZIOAppDefault {
     Method.GET / "greet" ->
             // The handler is a function that takes a Request and returns a Response
             handler { (req: Request) =>
-              val name = req.queryParamToOrElse("name", "World")
+              val name = req.queryOrElse[String]("name", "World")
               Response.text(s"Hello $name!")
             }
 
@@ -119,7 +119,7 @@ val randomGeneratorHandler =
   }
 ```
 
-There are several ways to create a `Handler`, to learn more about handlers, see the [Handlers](reference/handler.md) page.
+There are several ways to create a `Handler`, to learn more about handlers, see the [Handlers](handler.md) page.
 
 ## Accessing the Request
 
