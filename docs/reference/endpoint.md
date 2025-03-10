@@ -150,6 +150,13 @@ val endpoint: Endpoint[String, (String, Header.Authorization), ZNothing, ZNothin
     .header(HeaderCodec.authorization)
 ```
 
+The authorization type can also be encoded into the endpoint via the respective `HeaderCodec`:
+
+```scala mdoc:compile-only
+val userEndpoint = Endpoint(RoutePattern.GET / "users" / "me")
+    .header(HeaderCodec.bearerAuth)
+```
+
 ### Request Body
 
 The request body can be described using the `Endpoint#in` method:
