@@ -30,12 +30,6 @@ object AuthType {
   type Basic  = Basic.type
   type Bearer = Bearer.type
 
-  // private var authScopes: Option[List[String]] = scala.None
-  // def addScopes(scopes: List[String]): Unit = {
-  //   authScopes = Some(scopes)
-  // }
-  // def getScopes: Option[List[String]] = authScopes
-
   case object None extends AuthType {
     type ClientRequirement = Unit
     override val codec: HeaderCodec[Unit] = HttpCodec.empty.asInstanceOf[HeaderCodec[Unit]]
