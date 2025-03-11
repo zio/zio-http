@@ -15,6 +15,13 @@ sealed trait AuthType { self =>
       .asInstanceOf[
         AuthType { type ClientRequirement = ClientReq },
       ]
+
+  private var authScopes: Option[List[String]]  = scala.None
+  def addScopes(scopes: List[String]): AuthType = {
+    authScopes = Some(scopes)
+    self
+  }
+  def getScopes: Option[List[String]]           = authScopes
 }
 
 object AuthType {
@@ -22,6 +29,12 @@ object AuthType {
   type None   = None.type
   type Basic  = Basic.type
   type Bearer = Bearer.type
+
+  // private var authScopes: Option[List[String]] = scala.None
+  // def addScopes(scopes: List[String]): Unit = {
+  //   authScopes = Some(scopes)
+  // }
+  // def getScopes: Option[List[String]] = authScopes
 
   case object None extends AuthType {
     type ClientRequirement = Unit

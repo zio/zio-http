@@ -198,6 +198,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def auth[Auth0 <: AuthType](auth: Auth0): Endpoint[PathInput, Input, Err, Output, Auth0] =
     copy(authType = auth)
 
+  def authScopes: Option[List[String]] = authType.asInstanceOf[AuthType].getScopes
+
   /**
    * Hides any details of codec errors from the user.
    */
