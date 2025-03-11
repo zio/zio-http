@@ -29,7 +29,10 @@ object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   val routes: Routes[Any, Response] =
-    Route.handled(Method.GET / "hello")(Handler.fromResponse(Response.text("hello"))).toRoutes
+    Route.handled(Method.GET / "hello")(Handler.fromResponse(Response.text("hello"))).toRoutes ++
+      Route
+        .handled(Method.POST / "hello")(Handler.fromFunctionZIO[Request](_.body.asString.map(Response.text(_)).orDie))
+        .toRoutes
 
   val redir: Routes[Any, Response] =
     Route.handled(Method.GET / "redirect")(Handler.fromResponse(Response.redirect(URL.empty / "hello"))).toRoutes
@@ -100,29 +103,57 @@ object ZClientAspectSpec extends ZIOHttpSpec {
           extractStatus(response) == Status.Ok,
         ),
       ),
-      test("curl request logger") {
+      suite("curl request logger")(
+        test("with GET request") {
 
-        for {
-          port       <- Server.install(routes)
-          baseClient <- ZIO.service[Client]
-          client = baseClient
-            .url(
-              URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
+          for {
+            port       <- Server.installRoutes(routes)
+            baseClient <- ZIO.service[Client]
+            client = baseClient
+              .url(
+                URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
+              )
+              .batched @@ ZClientAspect.curlLogger(logEffect = m => Console.printLine(m).orDie)
+            response <- client.request(Request.get(URL.empty / "hello"))
+            output   <- TestConsole.output
+          } yield {
+            assertTrue(
+              output.mkString("") ==
+                s"""curl \\
+                   |  --verbose \\
+                   |  --request GET \\
+                   |  --header 'user-agent:${Client.defaultUAHeader.renderedValue}' \\
+                   |  'http://localhost:${port}/hello'
+                   |""".stripMargin,
+              extractStatus(response) == Status.Ok,
             )
-            .batched @@ ZClientAspect.curlLogger(logEffect = m => Console.printLine(m).orDie)
-          response <- client.request(Request.get(URL.empty / "hello"))
-          output   <- TestConsole.output
-        } yield assertTrue(
-          output.mkString("") ==
-            s"""curl \\
-               |  --verbose \\
-               |  --request GET \\
-               |  --header 'user-agent:${Client.defaultUAHeader.renderedValue}' \\
-               |  'http://localhost:${port}/hello'
-               |""".stripMargin,
-          extractStatus(response) == Status.Ok,
-        )
-      },
+          }
+        },
+        test("with POST request") {
+
+          for {
+            port       <- Server.installRoutes(routes)
+            baseClient <- ZIO.service[Client]
+            client = baseClient
+              .url(
+                URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
+              )
+              .batched @@ ZClientAspect.curlLogger(logEffect = m => Console.printLine(m).orDie)
+            response <- client.request(Request.post(URL.empty / "hello", Body.fromString("world")))
+            output   <- TestConsole.output
+          } yield assertTrue(
+            output.mkString("") ==
+              s"""curl \\
+                 |  --verbose \\
+                 |  --request POST \\
+                 |  --header 'user-agent:${Client.defaultUAHeader.renderedValue}' \\
+                 |  --data 'world' \\
+                 |  'http://localhost:${port}/hello'
+                 |""".stripMargin,
+            extractStatus(response) == Status.Ok,
+          )
+        },
+      ),
     ).provide(
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.customized,

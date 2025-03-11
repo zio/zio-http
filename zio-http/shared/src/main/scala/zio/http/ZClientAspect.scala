@@ -499,69 +499,17 @@ object ZClientAspect {
   final def curlLogger(
     verbose: Boolean = true,
     logEffect: String => UIO[Unit] = (m: String) => ZIO.log(m),
-  )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
-    new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
+  ): ZClientAspect[Nothing, Any, Nothing, Body, Throwable, Throwable, Nothing, Response] =
+    new ZClientAspect[Nothing, Any, Nothing, Body, Throwable, Throwable, Nothing, Response] {
 
-      def formatCurlCommand(
-        version: Version,
-        method: Method,
-        url: URL,
-        headers: Headers,
-        body: Body,
-        proxy: Option[Proxy],
-      ): String = {
-        val versionOpt = version match {
-          case Version.Default  => Chunk.empty
-          case Version.Http_1_0 => Chunk("--http1.0")
-          case Version.Http_1_1 => Chunk("--http1.1")
-        }
-        val verboseOpt = if (verbose) Chunk("--verbose") else Chunk.empty
-        val requestOpt = method match {
-          case Method.GET          => Chunk("--request GET")
-          case Method.POST         => Chunk("--request POST")
-          case Method.PUT          => Chunk("--request PUT")
-          case Method.DELETE       => Chunk("--request DELETE")
-          case Method.PATCH        => Chunk("--request PATCH")
-          case Method.HEAD         => Chunk("--request HEAD")
-          case Method.OPTIONS      => Chunk("--request OPTIONS")
-          case Method.CONNECT      => Chunk("--request CONNECT")
-          case Method.TRACE        => Chunk("--request TRACE")
-          case Method.CUSTOM(name) => Chunk(s"--request $name")
-          case Method.ANY          => Chunk("--request GET")
-        }
-        val headerOpt  = Chunk.fromIterable(headers.map(h => s"--header '${h.headerName}:${h.renderedValue}'"))
-        val bodyOpt    = body match {
-          case Body.empty => Chunk.empty
-          case body       => {
-            Chunk(s"--data '${body.asString.map(_.replace("'", "'\\''"))}'")
-          }
-        }
-        val proxyOpt   = proxy match {
-          case Some(proxy) =>
-            Chunk(
-              s"--proxy '${proxy.url}'" +
-                proxy.credentials.map(c => s" --proxy-user  '${c.uname}:${c.upassword}'") +
-                proxy.headers.map(h => s" --proxy-header '${h.headerName}:${h.renderedValue}'").mkString(" "),
-            )
-          case None        => Chunk.empty
-        }
-        (
-          Chunk("curl") ++
-            verboseOpt ++
-            requestOpt ++
-            headerOpt ++
-            versionOpt ++
-            proxyOpt ++
-            bodyOpt ++
-            Chunk.single("'" + url.encode + "'")
-        ).mkString(" \\\n  ")
-      }
-
+      /**
+       * Applies this aspect to modify the execution of the specified client.
+       */
       override def apply[
         ReqEnv,
         Env >: Nothing <: Any,
         In >: Nothing <: Body,
-        Err >: Nothing <: Any,
+        Err >: Throwable <: Throwable,
         Out >: Nothing <: Response,
       ](
         client: ZClient[Env, ReqEnv, In, Err, Out],
@@ -578,18 +526,87 @@ object ZClientAspect {
             sslConfig: Option[ClientSSLConfig],
             proxy: Option[Proxy],
           )(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] =
-              logEffect(formatCurlCommand(version, method, url, headers, body, proxy)) *>
+            CurlLogger.formatCurlCommand(version, method, url, headers, body, proxy, verbose).flatMap { curlCommand =>
+              logEffect(curlCommand) *>
                 oldDriver.request(version, method, url, headers, body, sslConfig, proxy)
+            }
 
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
             implicit
             trace: Trace,
             ev: ReqEnv =:= Scope,
-          ): ZIO[Env1 & ReqEnv, Err, Response] =
+          ): ZIO[Env1 & ReqEnv, Throwable, Response] =
             client.driver.socket(version, url, headers, app)
         }
 
         client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)
       }
     }
+
+  object CurlLogger {
+
+    def formatCurlCommand(
+      version: Version,
+      method: Method,
+      url: URL,
+      headers: Headers,
+      body: Body,
+      proxy: Option[Proxy],
+      verbose: Boolean,
+    ): Task[String] = {
+      val versionOpt = version match {
+        case Version.Default  => Chunk.empty
+        case Version.Http_1_0 => Chunk("--http1.0")
+        case Version.Http_1_1 => Chunk("--http1.1")
+      }
+      val verboseOpt = if (verbose) Chunk("--verbose") else Chunk.empty
+      val requestOpt = Chunk(s"--request ${method.name}")
+      val headerOpt  = Chunk.fromIterable(headers.map(h => s"--header '${h.headerName}:${h.renderedValue}'"))
+      val bodyOpt    = if (body.isComplete) {
+        body match {
+          case Body.empty => ZIO.succeed(Chunk.empty[String])
+          case body       => {
+            body.asString.map { bodyAsString =>
+              Chunk(s"--data '${bodyAsString.replace("'", "'\\''")}'")
+            }
+          }
+        }
+      } else {
+        ZIO.succeed(Chunk.empty[String])
+      }
+      val proxyOpt   = proxy match {
+        case Some(proxy) =>
+          Chunk(
+            s"--proxy '${proxy.url}'" +
+              proxy.credentials.map(c => s" --proxy-user  '${c.uname}:${c.upassword}'") +
+              proxy.headers.map(h => s" --proxy-header '${h.headerName}:${h.renderedValue}'").mkString(" "),
+          )
+        case None        => Chunk.empty
+      }
+      bodyOpt.map { bodyAsString =>
+        (
+          Chunk("curl") ++
+            verboseOpt ++
+            requestOpt ++
+            headerOpt ++
+            versionOpt ++
+            proxyOpt ++
+            bodyAsString ++
+            Chunk.single("'" + url.encode + "'")
+        ).mkString(" \\\n  ")
+      }
+    }
+
+    def formatCurlCommand(request: Request, verbose: Boolean = true, proxy: Option[Proxy] = None): Task[String] = {
+      formatCurlCommand(
+        request.version,
+        request.method,
+        request.url,
+        request.headers,
+        request.body,
+        proxy,
+        verbose,
+      )
+    }
+  }
 }
