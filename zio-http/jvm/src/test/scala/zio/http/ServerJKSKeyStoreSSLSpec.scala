@@ -18,11 +18,12 @@ package zio.http
 
 import zio.Config.Secret
 import zio.ZLayer
-import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.withLiveClock
 import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
+
+import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClientDriver
 
 object ServerJKSKeyStoreSSLSpec extends ZIOHttpSpec {
   val serverKeyStoreJKSWithPass = "jks_keystore_truststore/server_keystore_with_pass.jks"

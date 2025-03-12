@@ -17,9 +17,13 @@
 package zio.http.netty.server
 
 import java.io.{FileInputStream, InputStream}
+import java.security.KeyStore
 import java.util
+import javax.net.ssl.{KeyManagerFactory, TrustManagerFactory}
 
 import scala.util.Using
+
+import zio.Config.Secret
 
 import zio.http.SSLConfig.{HttpBehaviour, Provider}
 import zio.http.netty.Names
@@ -36,10 +40,6 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 import io.netty.handler.ssl._
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{ClientAuth => NettyClientAuth}
-
-import zio.Config.Secret
-import java.security.KeyStore
-import javax.net.ssl.{KeyManagerFactory, TrustManagerFactory}
 private[netty] object SSLUtil {
 
   def getClientAuth(clientAuth: ClientAuth): NettyClientAuth = clientAuth match {

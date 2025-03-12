@@ -18,11 +18,12 @@ package zio.http
 
 import zio.Config.Secret
 import zio.ZLayer
+import zio.test.Assertion.equalTo
+import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
+
 import zio.http.SSLConfig.Data.TrustManagerKeyStore
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
-import zio.test.Assertion.equalTo
-import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 
 object ServerClientJKSMutualSSLSpec extends ZIOHttpSpec {
 
