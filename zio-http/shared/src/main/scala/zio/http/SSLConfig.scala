@@ -17,6 +17,7 @@
 package zio.http
 
 import zio.Config
+import zio.Config.Secret
 
 import zio.http.SSLConfig._
 
@@ -98,6 +99,69 @@ object SSLConfig {
       includeClientCert,
     )
 
+  def fromJavaxNetSslKeyStoreFile(
+    behaviour: HttpBehaviour,
+    keyManagerFile: String,
+    keyManagerPassword: Option[Secret] = None,
+    keyManagerKeyStoreType: String = "JKS",
+    trustManagerKeyStore: Option[Data.TrustManagerKeyStore] = None,
+    clientAuth: Option[ClientAuth] = None,
+    includeClientCert: Boolean = false,
+  ): SSLConfig =
+    new SSLConfig(
+      behaviour,
+      Data.FromJavaxNetSsl(
+        keyManagerKeyStoreType,
+        Data.FromJavaxNetSsl.File(keyManagerFile),
+        keyManagerPassword,
+        trustManagerKeyStore,
+      ),
+      Provider.JDK,
+      clientAuth,
+      includeClientCert,
+    )
+
+  def fromJavaxNetSslKeyStoreFile(keyManagerSourceFile: String, keyManagerSourceFilePassword: Secret): SSLConfig =
+    fromJavaxNetSslKeyStoreFile(HttpBehaviour.Redirect, keyManagerSourceFile, Some(keyManagerSourceFilePassword))
+
+  def fromJavaxNetSslKeyStoreResource(
+    keyManagerResource: String,
+    keyManagerPassword: Option[Secret] = None,
+    keyManagerKeyStoreType: String = "JKS",
+    trustManagerKeyStore: Option[Data.TrustManagerKeyStore] = None,
+    clientAuth: Option[ClientAuth] = None,
+    includeClientCert: Boolean = false,
+  ): SSLConfig = {
+    fromJavaxNetSsl(
+      Data.FromJavaxNetSsl(
+        keyManagerKeyStoreType,
+        Data.FromJavaxNetSsl.Resource(keyManagerResource),
+        keyManagerPassword,
+        trustManagerKeyStore,
+      ),
+      HttpBehaviour.Redirect,
+      clientAuth,
+      includeClientCert,
+    )
+  }
+
+  def fromJavaxNetSsl(
+    data: Data.FromJavaxNetSsl,
+    behaviour: HttpBehaviour = HttpBehaviour.Redirect,
+    clientAuth: Option[ClientAuth] = None,
+    includeClientCert: Boolean = false,
+  ): SSLConfig =
+    new SSLConfig(
+      behaviour,
+      data,
+      Provider.JDK,
+      clientAuth,
+      includeClientCert,
+    )
+
+  def fromJavaxNetSslKeyStoreResource(keyManagerResource: String, keyManagerPassword: Secret): SSLConfig =
+    fromJavaxNetSslKeyStoreResource(keyManagerResource, Some(keyManagerPassword))
+
   def generate: SSLConfig =
     generate(HttpBehaviour.Redirect, None)
 
@@ -136,6 +200,77 @@ object SSLConfig {
     final case class FromResource(certPath: String, keyPath: String, trustCertCollectionPath: Option[String])
         extends Data
 
+    final case class TrustManagerKeyStore(
+      trustManagerKeyStoreType: String = "JKS",
+      trustManagerSource: FromJavaxNetSsl.Source,
+      trustManagerPassword: Option[Secret] = None,
+    ) { self =>
+      def build(): TrustManagerKeyStore = this
+
+      def trustManagerKeyStoreType(tpe: String): TrustManagerKeyStore = self.copy(trustManagerKeyStoreType = tpe)
+
+      def trustManagerFile(file: String): TrustManagerKeyStore =
+        trustManagerSource match {
+          case FromJavaxNetSsl.Resource(_) => this
+          case _                           => self.copy(trustManagerSource = FromJavaxNetSsl.File(file))
+        }
+
+      def trustManagerResource(path: String): TrustManagerKeyStore =
+        self.copy(trustManagerSource = FromJavaxNetSsl.Resource(path))
+
+      def trustManagerPassword(password: Secret): TrustManagerKeyStore =
+        self.copy(trustManagerPassword = Some(password))
+
+      def trustManagerPassword(password: String): TrustManagerKeyStore = trustManagerPassword(Secret(password))
+    }
+
+    object TrustManagerKeyStore {
+      def fromFile(
+        file: String,
+        trustManagerPassword: Option[Secret] = None,
+        trustManagerKeyStoreType: String = "JKS",
+      ): TrustManagerKeyStore =
+        TrustManagerKeyStore(trustManagerKeyStoreType, FromJavaxNetSsl.File(file), trustManagerPassword)
+
+      def fromResource(
+        resource: String,
+        trustManagerPassword: Option[Secret] = None,
+        trustManagerKeyStoreType: String = "JKS",
+      ): TrustManagerKeyStore =
+        TrustManagerKeyStore(trustManagerKeyStoreType, FromJavaxNetSsl.Resource(resource), trustManagerPassword)
+
+    }
+
+    final case class FromJavaxNetSsl(
+      keyManagerKeyStoreType: String = "JKS",
+      keyManagerSource: FromJavaxNetSsl.Source,
+      keyManagerPassword: Option[Secret] = None,
+      trustManagerKeyStore: Option[TrustManagerKeyStore] = None,
+    ) extends Data { self =>
+      def build(): FromJavaxNetSsl                             = this
+      def keyManagerKeyStoreType(tpe: String): FromJavaxNetSsl = self.copy(keyManagerKeyStoreType = tpe)
+
+      def keyManagerFile(file: String): FromJavaxNetSsl         =
+        keyManagerSource match {
+          case FromJavaxNetSsl.Resource(_) => this
+          case _                           => self.copy(keyManagerSource = FromJavaxNetSsl.File(file))
+        }
+      def keyManagerResource(path: String): FromJavaxNetSsl     =
+        self.copy(keyManagerSource = FromJavaxNetSsl.Resource(path))
+      def keyManagerPassword(password: Secret): FromJavaxNetSsl = self.copy(keyManagerPassword = Some(password))
+      def keyManagerPassword(password: String): FromJavaxNetSsl = keyManagerPassword(Secret(password))
+      def trustManagerKeyStore(trustManagerKeyStore: TrustManagerKeyStore): FromJavaxNetSsl =
+        self.copy(trustManagerKeyStore = Some(trustManagerKeyStore))
+
+    }
+
+    object FromJavaxNetSsl {
+
+      sealed trait Source                         extends Product with Serializable
+      final case class File(file: String)         extends Source
+      final case class Resource(resource: String) extends Source
+    }
+
     val config: Config[Data] = {
       val generate     = Config.string.mapOrFail {
         case "generate" => Right(Generate)
@@ -153,6 +288,56 @@ object SSLConfig {
         )).map { case (certPath, keyPath, trustCertCollectionPath) =>
           FromResource(certPath, keyPath, trustCertCollectionPath)
         }
+
+      val keyManagerKeyStoreType = Config.string("keyManagerKeyStoreType").optional
+      val keyManagerPassword     = Config.secret("keyManagerPassword").optional
+
+      val keyManagerFileConfig = {
+        val keyManagerFile = Config.string("keyManagerFile")
+        keyManagerKeyStoreType ++ keyManagerFile ++ keyManagerPassword
+      }
+
+      val trustManagerKeyStoreType = Config.string("trustManagerKeyStoreType").optional
+      val trustManagerPassword     = Config.secret("trustManagerPassword").optional
+
+      val trustManagerFileConfig = {
+        val trustManagerFile = Config.string("trustManagerFile")
+        trustManagerKeyStoreType ++ trustManagerFile ++ trustManagerPassword
+      }.optional
+
+      val keyManagerResourceConfig = {
+        val keyManagerResource = Config.string("keyManagerResource")
+        keyManagerKeyStoreType ++ keyManagerResource ++ keyManagerPassword
+
+      }
+
+      val trustManagerResourceConfig = {
+        val trustManagerResource = Config.string("trustManagerResource")
+        trustManagerKeyStoreType ++ trustManagerResource ++ trustManagerPassword
+      }.optional
+
+      val keyStoreTrustStoreFileConfig = keyManagerFileConfig ++ trustManagerFileConfig
+
+      val keyStoreTrustStoreResourceConfig = keyManagerResourceConfig ++ trustManagerResourceConfig
+
+      val fromJavaxNetSslFile = {
+        keyStoreTrustStoreFileConfig.map { case (kmkst, kmf, kmpass, trustStoreInfo) =>
+          val trustManagerKeyStore = trustStoreInfo.map { case (tmkst, tmf, tmpass) =>
+            TrustManagerKeyStore(tmkst.getOrElse("JKS"), FromJavaxNetSsl.File(tmf), tmpass)
+          }
+          FromJavaxNetSsl(kmkst.getOrElse("JKS"), FromJavaxNetSsl.File(kmf), kmpass, trustManagerKeyStore)
+        }
+      }
+
+      val fromJavaxNetSslResource = {
+        keyStoreTrustStoreResourceConfig.map { case (kmkst, kmf, kmpass, trustStoreInfo) =>
+          val trustManagerKeyStore = trustStoreInfo.map { case (tmkst, tmf, tmpass) =>
+            TrustManagerKeyStore(tmkst.getOrElse("JKS"), FromJavaxNetSsl.Resource(tmf), tmpass)
+          }
+          FromJavaxNetSsl(kmkst.getOrElse("JKS"), FromJavaxNetSsl.Resource(kmf), kmpass, trustManagerKeyStore)
+        }
+      }
+      generate orElse fromFile orElse fromResource orElse fromJavaxNetSslFile orElse fromJavaxNetSslResource
       generate orElse fromFile orElse fromResource
     }
   }

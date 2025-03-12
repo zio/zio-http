@@ -36,6 +36,10 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 import io.netty.handler.ssl._
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{ClientAuth => NettyClientAuth}
+
+import zio.Config.Secret
+import java.security.KeyStore
+import javax.net.ssl.{KeyManagerFactory, TrustManagerFactory}
 private[netty] object SSLUtil {
 
   def getClientAuth(clientAuth: ClientAuth): NettyClientAuth = clientAuth match {
@@ -83,6 +87,38 @@ private[netty] object SSLUtil {
     sslServerContext.buildWithDefaultOptions(sslConfig)
   }
 
+  private def keyManagerTrustManagerToSslContext(
+    keyManagerInfo: (String, InputStream, Option[Secret]),
+    trustManagerInfo: Option[(String, InputStream, Option[Secret])],
+  ): SslContextBuilder = {
+    val mkeyManagerFactory =
+      keyManagerInfo match {
+        case (keyStoreType, inputStream, maybePassword) =>
+          val keyStore          = KeyStore.getInstance(keyStoreType)
+          val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
+          val password          = maybePassword.map(_.value.toArray).orNull
+
+          keyStore.load(inputStream, password)
+          keyManagerFactory.init(keyStore, password)
+          keyManagerFactory
+      }
+
+    val mtrustManagerFactory =
+      trustManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
+        val keyStore            = KeyStore.getInstance(keyStoreType)
+        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+        val password            = maybePassword.map(_.value.toArray).orNull
+
+        keyStore.load(inputStream, password)
+        trustManagerFactory.init(keyStore)
+        trustManagerFactory
+      }
+
+    var bldr = SslContextBuilder.forServer(mkeyManagerFactory)
+    mtrustManagerFactory.foreach(tmf => bldr = bldr.trustManager(tmf))
+    bldr
+  }
+
   def sslConfigToSslContext(sslConfig: SSLConfig): SslContext = sslConfig.data match {
     case SSLConfig.Data.Generate =>
       val selfSigned = new SelfSignedCertificate()
@@ -119,8 +155,38 @@ private[netty] object SSLUtil {
           trustCertInputStream,
         )
       }.get
-  }
 
+    case SSLConfig.Data.FromJavaxNetSsl(
+          keyManagerKeyStoreType,
+          keyManagerSource,
+          keyManagerPassword,
+          trustManager,
+        ) =>
+      val keyManagerInfo =
+        keyManagerSource match {
+          case SSLConfig.Data.FromJavaxNetSsl.File(path) =>
+            val inputStream = new FileInputStream(path)
+            (keyManagerKeyStoreType, inputStream, keyManagerPassword)
+
+          case SSLConfig.Data.FromJavaxNetSsl.Resource(path) =>
+            val inputStream = getClass.getClassLoader.getResourceAsStream(path)
+            (keyManagerKeyStoreType, inputStream, keyManagerPassword)
+        }
+
+      val trustManagerInfo =
+        trustManager map { trustManager =>
+          val inputStream =
+            trustManager.trustManagerSource match {
+              case SSLConfig.Data.FromJavaxNetSsl.File(path) =>
+                new FileInputStream(path)
+
+              case SSLConfig.Data.FromJavaxNetSsl.Resource(path) =>
+                getClass.getClassLoader.getResourceAsStream(path)
+            }
+          (trustManager.trustManagerKeyStoreType, inputStream, trustManager.trustManagerPassword)
+        }
+      keyManagerTrustManagerToSslContext(keyManagerInfo, trustManagerInfo).buildWithDefaultOptions(sslConfig)
+  }
 }
 
 private[zio] class ServerSSLDecoder(sslConfig: SSLConfig, cfg: Server.Config) extends ByteToMessageDecoder {
