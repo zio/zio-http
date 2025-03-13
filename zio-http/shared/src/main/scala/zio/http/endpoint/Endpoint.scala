@@ -198,10 +198,17 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def auth[Auth0 <: AuthType](auth: Auth0): Endpoint[PathInput, Input, Err, Output, Auth0] =
     copy(authType = auth)
 
-  def authScopes: List[String] = authType match {
-    case AuthType.ScopedAuth(_, scopes) => scopes
-    case _                              => Nil
+  def authScopes(authType: AuthType): List[String] = authType match {
+    case AuthType.ScopedAuth(nestedAuth, scopes) =>
+      scopes ++ authScopes(nestedAuth)
+    case AuthType.Or(auth1, auth2, _)            =>
+      authScopes(auth1) ++ authScopes(auth2)
+    case _                                       =>
+      Nil
   }
+
+  def scopes(scopes: String*): Endpoint[PathInput, Input, Err, Output, AuthType] =
+    copy(authType = AuthType.ScopedAuth(authType, scopes.toList))
 
   /**
    * Hides any details of codec errors from the user.

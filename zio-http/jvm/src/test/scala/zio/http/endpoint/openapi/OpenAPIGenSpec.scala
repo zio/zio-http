@@ -231,7 +231,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       .outError[NotFoundError](Status.NotFound)
 
   private val endpointWithAuthScopes =
-    Endpoint(GET / "withAuthScopes").auth(AuthType.ScopedAuth(AuthType.Bearer, List("read", "write")))
+    Endpoint(GET / "withAuthScopes").auth(AuthType.Bearer).scopes("read", "write")
 
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get

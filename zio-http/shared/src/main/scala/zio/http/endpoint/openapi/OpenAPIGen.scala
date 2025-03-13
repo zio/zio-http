@@ -947,7 +947,11 @@ object OpenAPIGen {
 
     val securityObj: List[SecurityRequirement] = endpoint.authType match {
       case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-        List(SecurityRequirement(Map(endpoint.authType.toString() -> endpoint.authScopes)))
+        List(
+          SecurityRequirement(
+            Map(endpoint.authType.toString() -> endpoint.authScopes(endpoint.authType.asInstanceOf[AuthType])),
+          ),
+        )
       case AuthType.ScopedAuth(auth, scopes)                  =>
         List(SecurityRequirement(Map(auth.toString() -> scopes)))
       case _                                                  => Nil
