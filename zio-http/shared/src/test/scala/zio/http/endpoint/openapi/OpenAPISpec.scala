@@ -1,17 +1,20 @@
 package zio.http.endpoint.openapi
 
+import zio.http.{MdInterpolatorHelper, RoutePattern}
+import zio.http.codec.PathCodec
+import zio.http.endpoint.Endpoint
+
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
 import zio.json.ast.Json
 import zio.test._
-
 import zio.schema.Schema
-
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
-import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
+import zio.http.endpoint.openapi.OpenAPI.{Parameter, ReferenceOr}
+import zio.http.endpoint.openapi.OpenAPI.ReferenceOr.Or
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme._
+
+import scala.annotation.nowarn
 
 object OpenAPISpec extends ZIOSpecDefault {
 
@@ -117,5 +120,14 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |}""".stripMargin
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
+    test("PathCodec has documentation") {
+        val segment = PathCodec.long("id") ?? md"Id of the user"
+        val post = Endpoint(RoutePattern.POST / "user" / segment).in[String].out[String]
+        val parameter = OpenAPIGen.gen(post, SchemaStyle.Compact).paths.toList.head._2.post.get.parameters.head
+        @nowarn
+        val Or(p: Parameter) = parameter
+        assertTrue(p.name == "id")
+        assertTrue(p.description.get.toCommonMark == "Id of the user")
+    }
   )
 }
