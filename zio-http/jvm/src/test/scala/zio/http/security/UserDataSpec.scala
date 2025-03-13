@@ -141,7 +141,7 @@ object UserDataSpec extends ZIOSpecDefault {
         req.body.asString.orDie.map(msg => Response.error(Status.InternalServerError, msg))
       })
       for {
-        port   <- Server.install(routes)
+        port   <- Server.installRoutes(routes)
         result <- check(tuples.zip(functions)) { case (mediaType, msg, expectedResponse, _) =>
 
           val body    = Body.fromString(msg)

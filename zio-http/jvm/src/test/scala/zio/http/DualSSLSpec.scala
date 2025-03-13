@@ -70,7 +70,7 @@ object DualSSLSpec extends ZIOHttpSpec {
 
   override def spec = suite("SSL")(
     Server
-      .install(routes)
+      .installRoutes(routes)
       .as(
         List(
           test("succeed when client has the server certificate and client certificate is configured") {
