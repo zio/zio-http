@@ -121,13 +121,13 @@ object OpenAPISpec extends ZIOSpecDefault {
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
     test("PathCodec has documentation") {
-        val segment = PathCodec.long("id") ?? md"Id of the user"
-        val post = Endpoint(RoutePattern.POST / "user" / segment).in[String].out[String]
-        val parameter = OpenAPIGen.gen(post, SchemaStyle.Compact).paths.toList.head._2.post.get.parameters.head
-        @nowarn
-        val Or(p: Parameter) = parameter
-        assertTrue(p.name == "id")
-        assertTrue(p.description.get.toCommonMark == "Id of the user")
-    }
+      val segment          = PathCodec.long("id") ?? md"Id of the user"
+      val post             = Endpoint(RoutePattern.POST / "user" / segment).in[String].out[String]
+      val parameter        = OpenAPIGen.gen(post, SchemaStyle.Compact).paths.toList.head._2.post.get.parameters.head
+      @nowarn
+      val Or(p: Parameter) = parameter
+      assertTrue(p.name == "id")
+      assertTrue(p.description.get.toCommonMark == "Id of the user")
+    },
   )
 }
