@@ -96,7 +96,7 @@ object HttpGenSpec extends ZIOSpecDefault {
           |@Authorization=<no value>
           |
           |GET /api/foo
-          |Authorization: {{BasicAuth}}""".stripMargin
+          |Authorization: {{Authorization}}""".stripMargin
       assertTrue(rendered == expected)
 
       val endpointWithExample     = Endpoint(Method.GET / "api" / "foo")
@@ -108,7 +108,7 @@ object HttpGenSpec extends ZIOSpecDefault {
           |@Authorization=Basic YWRtaW46YWRtaW4=
           |
           |GET /api/foo
-          |Authorization: {{BasicAuth}}""".stripMargin
+          |Authorization: {{Authorization}}""".stripMargin
       assertTrue(renderedWithExample == expectedWithExample)
     },
     test("Bearer Auth Header Codec") {
@@ -120,7 +120,7 @@ object HttpGenSpec extends ZIOSpecDefault {
           |@Authorization=<no value>
           |
           |GET /api/foo
-          |Authorization: {{BearerAuth}}""".stripMargin
+          |Authorization: {{Authorization}}""".stripMargin
       assertTrue(rendered == expected)
 
       val endpointWithExample     = Endpoint(Method.GET / "api" / "foo")
@@ -132,7 +132,7 @@ object HttpGenSpec extends ZIOSpecDefault {
           |@Authorization=Bearer token
           |
           |GET /api/foo
-          |Authorization: {{BearerAuth}}""".stripMargin
+          |Authorization: {{Authorization}}""".stripMargin
       assertTrue(renderedWithExample == expectedWithExample)
     },
     test("Digest Auth Header Codec") {
@@ -144,7 +144,7 @@ object HttpGenSpec extends ZIOSpecDefault {
           |@Authorization=<no value>
           |
           |GET /api/foo
-          |Authorization: {{DigestAuth}}""".stripMargin
+          |Authorization: {{Authorization}}""".stripMargin
       assertTrue(rendered == expected)
 
       val testURI                 = new URI("http://example.com/foo/")
@@ -173,7 +173,7 @@ object HttpGenSpec extends ZIOSpecDefault {
           |@Authorization=Digest response="200",username="admin",realm="example.com",uri=http://example.com/foo/,opaque="5ccc069c403ebaf9f0171e9517f40e41",algorithm=MD5,qop=auth,cnonce="0a4f113b",nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",nc=11111111,userhash=false
           |
           |GET /api/foo
-          |Authorization: {{DigestAuth}}""".stripMargin
+          |Authorization: {{Authorization}}""".stripMargin
       assertTrue(renderedWithExample == expectedWithExample)
     },
     test("Header with example") {

@@ -198,7 +198,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def auth[Auth0 <: AuthType](auth: Auth0): Endpoint[PathInput, Input, Err, Output, Auth0] =
     copy(authType = auth)
 
-  def authScopes: Option[List[String]] = authType.asInstanceOf[AuthType].getScopes
+  def authScopes: List[String] = authType match {
+    case AuthType.ScopedAuth(_, scopes) => scopes
+    case _                              => Nil
+  }
 
   /**
    * Hides any details of codec errors from the user.
@@ -287,6 +290,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
       case AuthType.Or(auth1, auth2, _) =>
         authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
+      case AuthType.ScopedAuth(auth, _) =>
+        authCodec(auth)
     }
 
     val maybeUnauthedResponse = authType.asInstanceOf[AuthType] match {

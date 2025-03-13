@@ -16,12 +16,6 @@ sealed trait AuthType { self =>
         AuthType { type ClientRequirement = ClientReq },
       ]
 
-  private var authScopes: Option[List[String]]  = scala.None
-  def addScopes(scopes: List[String]): AuthType = {
-    authScopes = Some(scopes)
-    self
-  }
-  def getScopes: Option[List[String]]           = authScopes
 }
 
 object AuthType {
@@ -65,5 +59,13 @@ object AuthType {
     type ClientRequirement = ClientReq
     override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] =
       auth1.codec.orElseEither(auth2.codec)(alternator)
+  }
+
+  final case class ScopedAuth[ClientReq](
+    authType: AuthType { type ClientRequirement = ClientReq },
+    scopes: List[String],
+  ) extends AuthType {
+    type ClientRequirement = ClientReq
+    override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] = authType.codec
   }
 }

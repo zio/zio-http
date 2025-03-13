@@ -1163,7 +1163,7 @@ object Header {
     object Basic extends HeaderType {
       def apply(username: String, password: String): Basic = new Basic(username, Secret(password))
 
-      override def name: String = "basicAuth"
+      override def name: String = "authorization"
 
       override type HeaderValue = Authorization.Basic
 
@@ -1192,7 +1192,7 @@ object Header {
     ) extends Authorization
 
     object Digest extends HeaderType {
-      override def name: String = "digestAuth"
+      override def name: String = "authorization"
 
       override type HeaderValue = Authorization.Digest
 
@@ -1211,7 +1211,7 @@ object Header {
     object Bearer extends HeaderType {
       def apply(token: String): Bearer = Bearer(Secret(token))
 
-      override def name: String = "bearerAuth"
+      override def name: String = "authorization"
 
       override type HeaderValue = Authorization.Bearer
 

@@ -705,10 +705,9 @@ object OpenAPIGen {
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
       val maybeDoc                               = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
       val securityObj: List[SecurityRequirement] = endpoint.authType match {
-        case AuthType.None                                      => Nil
-        case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-          List(SecurityRequirement(Map(endpoint.authType.toString() -> endpoint.authScopes.getOrElse(List.empty))))
-        case _                                                  => Nil
+        case AuthType.ScopedAuth(auth, scopes) =>
+          List(SecurityRequirement(Map(auth.toString() -> scopes)))
+        case _                                 => Nil
       }
       OpenAPI.Operation(
         tags = endpoint.tags,
@@ -947,20 +946,31 @@ object OpenAPIGen {
       }.flatten.toMap
 
     val securityObj: List[SecurityRequirement] = endpoint.authType match {
-      case AuthType.None                                      => Nil
       case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-        List(SecurityRequirement(Map(endpoint.authType.toString() -> endpoint.authScopes.getOrElse(List.empty))))
+        List(SecurityRequirement(Map(endpoint.authType.toString() -> endpoint.authScopes)))
+      case AuthType.ScopedAuth(auth, scopes)                  =>
+        List(SecurityRequirement(Map(auth.toString() -> scopes)))
       case _                                                  => Nil
     }
 
     val securitySchemesObj: ListMap[Key, ReferenceOr[SecurityScheme]] = endpoint.authType match {
-      case AuthType.None                                      => ListMap.empty
       case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
         ListMap(
           OpenAPI.Key.fromString(endpoint.authType.toString()).get ->
             ReferenceOr.Or[SecurityScheme.Http](
               SecurityScheme.Http(
                 scheme = endpoint.authType.toString(),
+                bearerFormat = None,
+                description = None,
+              ),
+            ),
+        )
+      case AuthType.ScopedAuth(auth, scopes)                  =>
+        ListMap(
+          OpenAPI.Key.fromString(auth.toString()).get ->
+            ReferenceOr.Or[SecurityScheme.Http](
+              SecurityScheme.Http(
+                scheme = auth.toString(),
                 bearerFormat = None,
                 description = None,
               ),
