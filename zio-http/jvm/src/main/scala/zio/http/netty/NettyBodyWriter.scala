@@ -60,7 +60,7 @@ private[netty] object NettyBodyWriter {
         val stream = ZStream.fromFile(body.file)
         val s      = StreamBody(stream, None, contentType = body.contentType)
         NettyBodyWriter.writeAndFlush(s, None, ctx)
-      case AsyncBody(async, _, _)          =>
+      case AsyncBody(async, _, _, _)       =>
         async(
           new UnsafeAsync {
             override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
