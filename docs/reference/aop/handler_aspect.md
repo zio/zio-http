@@ -426,7 +426,7 @@ We notice in the response that first `basicAuth` handler aspect responded `HTTP/
 We can abort the requests by specific response using `HandlerAspect.fail` and `HandlerAspect.failWith` aspects, so the downstream handlers will not be executed:
 
 ```scala mdoc:invisible
-val myHandler = Handler.identity
+val myHandler = Handler.ok
 ```
 
 ```scala mdoc:compile-only

@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test._
 
@@ -298,5 +300,24 @@ object RouteSpec extends ZIOHttpSpec {
         } yield assertTrue(bodyString == expected)
       },
     ),
+    test("Apply context middleware to route with path parameter") {
+      case class WebSession(id: Int)
+
+      def maybeWebSession: HandlerAspect[Any, Option[WebSession]] =
+        HandlerAspect.interceptIncomingHandler(
+          Handler.fromFunctionZIO[Request] { req =>
+            ZIO.succeed((req, None))
+          },
+        )
+
+      val route = (Method.GET / "base" / string("1") -> handler((_: String, _: Request) => {
+        withContext((_: Option[WebSession]) => {
+          ZIO.logInfo("Hello").as(Response.ok)
+        })
+      })) @@ maybeWebSession
+      route(Request.get(url"/base/1")).map { response =>
+        assertTrue(extractStatus(response) == Status.Ok)
+      }
+    },
   )
 }
