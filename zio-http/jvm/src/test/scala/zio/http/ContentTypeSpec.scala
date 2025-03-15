@@ -76,6 +76,6 @@ object ContentTypeSpec extends RoutesRunnableSpec {
   override def spec = {
     suite("Content-type") {
       serve.as(List(contentSpec))
-    }.provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
+    }.provideShared(Scope.default, DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
   }
 }

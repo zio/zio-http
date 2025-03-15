@@ -53,7 +53,7 @@ object ExceptionSpec extends ZIOSpecDefault {
     },
     test("Throw inside handle doesn't leak stacktrace") {
       for {
-        port     <- Server.install(routesError)
+        port     <- Server.installRoutes(routesError)
         response <- ZIO.scoped {
           Client.streaming(Request.get(s"http://localhost:$port/error")).flatMap(_.ignoreBody).map(_.headers.toString)
         }
@@ -61,7 +61,7 @@ object ExceptionSpec extends ZIOSpecDefault {
     },
     test("Die handle doesn't leak stacktrace") {
       for {
-        port     <- Server.install(routesDie)
+        port     <- Server.installRoutes(routesDie)
         response <- ZIO.scoped {
           Client.streaming(Request.get(s"http://localhost:$port/die")).flatMap(_.ignoreBody).map(_.headers.toString)
         }
@@ -69,7 +69,7 @@ object ExceptionSpec extends ZIOSpecDefault {
     },
     test("Failing handle doesn't leak stacktrace") {
       for {
-        port     <- Server.install(routesFail)
+        port     <- Server.installRoutes(routesFail)
         response <- ZIO.scoped {
           Client.streaming(Request.get(s"http://localhost:$port/fail")).flatMap(_.ignoreBody).map(_.headers.toString)
         }
@@ -77,13 +77,14 @@ object ExceptionSpec extends ZIOSpecDefault {
     },
     test("FromZIO doesn't leak stacktrace") {
       for {
-        port     <- Server.install(queryRoutes)
+        port     <- Server.installRoutes(queryRoutes)
         response <- ZIO.scoped {
           Client.streaming(Request.get(s"http://localhost:$port/search")).flatMap(_.ignoreBody).map(_.headers.toString)
         }
       } yield assertTrue(!response.contains("Exception in thread"))
     },
   ).provide(
+    Scope.default,
     Server.customized,
     ZLayer.succeed(
       Server.Config.default,

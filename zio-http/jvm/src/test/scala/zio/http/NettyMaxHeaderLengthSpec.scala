@@ -42,7 +42,7 @@ object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
         .toRoutes
 
       for {
-        port <- Server.install(routes)
+        port <- Server.installRoutes(routes)
         url     = URL.decode(s"http://localhost:$port").toOption.get
         headers = Headers(
           UserAgent(ProductOrComment.Product("a looooooooooooooooooooooooooooong header", None)),

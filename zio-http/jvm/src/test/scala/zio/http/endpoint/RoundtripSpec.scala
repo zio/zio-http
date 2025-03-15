@@ -101,7 +101,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     outF: Out => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with ZClient[Any, Any, Body, Throwable, Response] with Scope, Err, TestResult] =
     for {
-      port   <- Server.install(route @@ Middleware.requestLogging())
+      port   <- Server.installRoutes(route @@ Middleware.requestLogging())
       client <- ZIO.service[ZClient[Any, Any, Body, Throwable, Response]]
       executor = makeExecutor(client, port)
       out    <- executor(endpoint.apply(in))
@@ -114,7 +114,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     outF: Response => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with ZClient[Any, Any, Body, Throwable, Response] with Scope, Err, TestResult] = {
     for {
-      port   <- Server.install(route @@ Middleware.requestLogging())
+      port   <- Server.installRoutes(route @@ Middleware.requestLogging())
       client <- ZIO.service[ZClient[Any, Any, Body, Throwable, Response]]
       out    <- client(in.updateURL(_.host("localhost").port(port))).orDie
       result <- outF(out)
@@ -136,7 +136,7 @@ object RoundtripSpec extends ZIOHttpSpec {
     errorF: Err => ZIO[Any, Nothing, TestResult],
   ): ZIO[ZClient[Any, Any, Body, Throwable, Response] with Server with Scope, Out, TestResult] =
     for {
-      port <- Server.install(route)
+      port <- Server.installRoutes(route)
       executorLayer = ZLayer(ZIO.service[ZClient[Any, Any, Body, Throwable, Response]].map(makeExecutor(_, port)))
       out    <- ZIO
         .service[EndpointExecutor[Any, Unit, Any]]
@@ -314,7 +314,7 @@ object RoundtripSpec extends ZIOHttpSpec {
         }
 
         for {
-          port     <- Server.install(handler.toRoutes)
+          port     <- Server.installRoutes(handler.toRoutes)
           client   <- ZIO.service[ZClient[Any, Any, Body, Throwable, Response]]
           response <- client(
             Request.post(
@@ -461,7 +461,7 @@ object RoundtripSpec extends ZIOHttpSpec {
         val routes = endpointRoute.toRoutes
 
         for {
-          port <- Server.install(routes)
+          port <- Server.installRoutes(routes)
           executorLayer = ZLayer(ZIO.serviceWith[ZClient[Any, Any, Body, Throwable, Response]](makeExecutor(_, port)))
 
           cause <- ZIO
@@ -472,7 +472,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             .cause
         } yield assertTrue(
           cause.prettyPrint.contains(
-            """zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected '"' got '4')""",
+            """zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected string)""",
           ),
         )
       },

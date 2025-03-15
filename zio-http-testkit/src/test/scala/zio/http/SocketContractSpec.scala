@@ -129,7 +129,7 @@ object SocketContractSpec extends ZIOHttpSpec {
     ZIO.serviceWithZIO[Server](server =>
       for {
         p    <- Promise.make[Throwable, Unit]
-        _    <- server.install(serverApp(p).toRoutes)
+        _    <- server.installInternal(serverApp(p).toRoutes)
         port <- server.port
       } yield (port, p),
     )
