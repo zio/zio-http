@@ -432,7 +432,7 @@ lazy val docs = project
       "ZIO_CONFIG_VERSION" -> ZioConfigVersion,
     ),
   )
-  .dependsOn(zioHttpJVM)
+  .dependsOn(zioHttpJVM, zioHttpGen)
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioHttpTestkit)
 
