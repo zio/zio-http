@@ -161,8 +161,8 @@ final case class Form(formData: Chunk[FormField]) {
 
   def toQueryParams: QueryParams =
     QueryParams(formData.collect {
-      case FormField.Text(k, v, _, _) => (k, Chunk(v))
-      case FormField.Simple(k, v)     => (k, Chunk(v))
+      case t: FormField.Text   => (t.name, Chunk(t.value))
+      case s: FormField.Simple => (s.name, Chunk(s.value))
     }: _*)
 
   /**
