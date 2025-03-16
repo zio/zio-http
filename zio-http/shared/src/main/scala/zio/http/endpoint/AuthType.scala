@@ -67,5 +67,9 @@ object AuthType {
   ) extends AuthType {
     type ClientRequirement = ClientReq
     override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] = authType.codec
+
+    def getScopes: List[String] = scopes
+
+    def setScopes(newScopes: List[String]) = copy(scopes = newScopes)
   }
 }

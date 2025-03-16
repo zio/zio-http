@@ -949,7 +949,7 @@ object OpenAPIGen {
       case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
         List(
           SecurityRequirement(
-            Map(endpoint.authType.toString() -> endpoint.authScopes(endpoint.authType.asInstanceOf[AuthType])),
+            Map(endpoint.authType.toString() -> endpoint.scopes),
           ),
         )
       case AuthType.ScopedAuth(auth, scopes)                  =>
