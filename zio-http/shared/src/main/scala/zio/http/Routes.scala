@@ -31,9 +31,13 @@ import zio.http.codec.PathCodec
  * capable of using them to serve requests.
  */
 final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
-  private var _tree: Routes.Tree[_]                              = null.asInstanceOf[Routes.Tree[_]]
+  private var _tree: Routes.Tree[_] =
+    null.asInstanceOf[Routes.Tree[_]]
+
   private var _handler: Handler[Any, Nothing, Request, Response] =
     null.asInstanceOf[Handler[Any, Nothing, Request, Response]]
+
+  var notFound: Handler[Any, Nothing, Request, Response] = Handler.notFound
 
   def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)
@@ -54,19 +58,19 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * the new Routes take precedence over the current Routes.
    */
   def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
-    copy(routes = routes ++ that.routes)
+    withRoutes(routes = routes ++ that.routes)
 
   /**
    * Prepend the specified route.
    */
   def +:[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
-    copy(routes = route +: routes)
+    withRoutes(routes = route +: routes)
 
   /**
    * Appends the specified route.
    */
   def :+[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
-    copy(routes = routes :+ route)
+    withRoutes(routes = routes :+ route)
 
   /**
    * Executes the HTTP application with the specified request input, returning
@@ -81,12 +85,12 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * into ones that do handle their errors.
    */
   def handleError(f: Err => Response)(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleError(f)))
+    withRoutes(routes.map(_.handleError(f)))
 
   def handleErrorZIO[Env1 <: Env](f: Err => ZIO[Env1, Nothing, Response])(implicit
     trace: Trace,
   ): Routes[Env1, Nothing] =
-    new Routes(routes.map(_.handleErrorZIO(f)))
+    withRoutes(routes.map(_.handleErrorZIO(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -94,7 +98,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * that do not handle their errors into ones that do handle their errors.
    */
   def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorCause(f)))
+    withRoutes(routes.map(_.handleErrorCause(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -103,36 +107,36 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * that do handle their errors.
    */
   def handleErrorCauseZIO(f: Cause[Err] => ZIO[Any, Nothing, Response])(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorCauseZIO(f)))
+    withRoutes(routes.map(_.handleErrorCauseZIO(f)))
 
   /**
    * Effectfully peeks at the unhandled failure of this Routes.
    */
   def tapErrorZIO[Err1 >: Err](f: Err => ZIO[Any, Err1, Any])(implicit trace: Trace): Routes[Env, Err1] =
-    new Routes(routes.map(_.tapErrorZIO(f)))
+    withRoutes(routes.map(_.tapErrorZIO(f)))
 
   /**
    * Effectfully peeks at the unhandled failure cause of this Routes.
    */
   def tapErrorCauseZIO[Err1 >: Err](f: Cause[Err] => ZIO[Any, Err1, Any])(implicit trace: Trace): Routes[Env, Err1] =
-    new Routes(routes.map(_.tapErrorCauseZIO(f)))
+    withRoutes(routes.map(_.tapErrorCauseZIO(f)))
 
   /**
    * Allows the transformation of the Err type through an Effectful program
    * allowing one to build up Routes in Stages delegates to the Route.
    */
   def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Routes[Env, Err1] =
-    new Routes(routes.map(_.mapErrorZIO(fxn)))
+    withRoutes(routes.map(_.mapErrorZIO(fxn)))
 
   /**
    * Allows the transformation of the Err type through a function allowing one
    * to build up Routes in Stages delegates to the Route.
    */
   def mapError[Err1](fxn: Err => Err1): Routes[Env, Err1] =
-    new Routes(routes.map(_.mapError(fxn)))
+    withRoutes(routes.map(_.mapError(fxn)))
 
   def nest(prefix: PathCodec[Unit])(implicit trace: Trace): Routes[Env, Err] =
-    new Routes(self.routes.map(_.nest(prefix)))
+    withRoutes(self.routes.map(_.nest(prefix)))
 
   /**
    * Handles all typed errors in the routes by converting them into responses,
@@ -141,7 +145,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * handle their errors.
    */
   def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorRequest(f)))
+    withRoutes(routes.map(_.handleErrorRequest(f)))
 
   /**
    * Handles all typed errors in the routes by converting them into responses,
@@ -150,7 +154,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * handle their errors.
    */
   def handleErrorRequestCause(f: (Request, Cause[Err]) => Response)(implicit trace: Trace): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorRequestCause(f)))
+    withRoutes(routes.map(_.handleErrorRequestCause(f)))
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by
@@ -162,7 +166,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def handleErrorRequestCauseZIO(f: (Request, Cause[Err]) => ZIO[Any, Nothing, Response])(implicit
     trace: Trace,
   ): Routes[Env, Nothing] =
-    new Routes(routes.map(_.handleErrorRequestCauseZIO(f)))
+    withRoutes(routes.map(_.handleErrorRequestCauseZIO(f)))
 
   /**
    * Checks to see if the HTTP application may be defined at the specified
@@ -182,7 +186,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * HTTP application that has no environmental requirements.
    */
   def provideEnvironment(env: ZEnvironment[Env]): Routes[Any, Err] =
-    copy(routes = routes.map(_.provideEnvironment(env)))
+    withRoutes(routes = routes.map(_.provideEnvironment(env)))
 
   def run(request: Request)(implicit trace: Trace): ZIO[Scope & Env, Either[Err, Response], Response] = {
 
@@ -244,7 +248,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * status code, and attaching error details using the HTTP header `Warning`.
    */
   def sandbox(implicit trace: Trace): Routes[Env, Nothing] =
-    Routes(routes.map(_.sandbox))
+    withRoutes(routes.map(_.sandbox))
 
   /**
    * Returns a new HTTP application whose requests will be timed out after the
@@ -266,7 +270,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
           .fromFunctionHandler[Request] { req =>
             val chunk = tree.get(req.method, req.path)
             chunk.length match {
-              case 0 => Handler.notFound
+              case 0 => notFound
               case 1 => chunk(0)
               case _ => throw new IllegalStateException("Multiple routes found for the same path")
             }
@@ -304,8 +308,11 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    */
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
-  ): Routes[Env1, Err] =
-    new Routes(routes.map(_.transform(f)))
+  ): Routes[Env1, Err] = {
+    val routes0 = new Routes(routes.map(_.transform(f)))
+    routes0.notFound = f(notFound).asInstanceOf[Handler[Any, Nothing, Request, Response]]
+    routes0
+  }
 
   /**
    * Accesses the underlying tree that provides fast dispatch to handlers.
@@ -324,6 +331,12 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
         else (unique :+ route, duplicates)
     }
     (unique, duplicates)
+  }
+
+  private[http] def withRoutes[Env1, Err1](routes: Chunk[Route[Env1, Err1]]): Routes[Env1, Err1] = {
+    val routes0 = copy(routes = routes)
+    routes0.notFound = notFound
+    routes0
   }
 }
 
