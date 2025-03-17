@@ -100,9 +100,9 @@ object SSLConfig {
     )
 
   def fromJavaxNetSslKeyStoreFile(
-    behaviour: HttpBehaviour,
     keyManagerFile: String,
     keyManagerPassword: Option[Secret] = None,
+    behaviour: HttpBehaviour = HttpBehaviour.Redirect,
     keyManagerKeyStoreType: String = "JKS",
     trustManagerKeyStore: Option[Data.TrustManagerKeyStore] = None,
     clientAuth: Option[ClientAuth] = None,
@@ -121,8 +121,8 @@ object SSLConfig {
       includeClientCert,
     )
 
-  def fromJavaxNetSslKeyStoreFile(keyManagerSourceFile: String, keyManagerSourceFilePassword: Secret): SSLConfig =
-    fromJavaxNetSslKeyStoreFile(HttpBehaviour.Redirect, keyManagerSourceFile, Some(keyManagerSourceFilePassword))
+  def fromJavaxNetSslKeyStoreFile(keyManagerFile: String, keyManagerPassword: Secret): SSLConfig =
+    fromJavaxNetSslKeyStoreFile(keyManagerFile, Some(keyManagerPassword))
 
   def fromJavaxNetSslKeyStoreResource(
     keyManagerResource: String,

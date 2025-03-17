@@ -148,7 +148,7 @@ import zio.Config.Secret
 
 val serverKeyStoreJKSWithPass = "jks_keystore_truststore/server_keystore_with_pass.jks"
 val password                  = Secret("123456")
-val sslConfig                 = SSLConfig.fromJavaxNetSslKeyStoreFile(serverKeyStoreJKSWithPass, password)(serverKeyStoreJKSWithPass, password)
+val sslConfig                 = SSLConfig.fromJavaxNetSslKeyStoreFile(serverKeyStoreJKSWithPass, password)
 val config                    = Server.Config.default.port(8073).ssl(sslConfig)
 ```
 
@@ -159,6 +159,7 @@ You can configure a truststore to achieve mutual SSL where a server trusts stric
 ```scala mdoc:compile-only
 import zio.http._
 import zio.Config.Secret
+import zio.http.SSLConfig.Data.TrustManagerKeyStore
 
 val serverJKSKeyStoreWithPass   = "jks_keystore_truststore/server_keystore_with_pass.jks"
 val serverJKSTrustStoreWithPass = "jks_keystore_truststore/server_truststore_with_pass.jks"
@@ -184,13 +185,13 @@ Similarly, methods are provided for file paths not in the `resources` path:
 ```scala mdoc:compile-only
 import zio.http._
 import zio.Config.Secret
+import zio.http.SSLConfig.Data.TrustManagerKeyStore
 
 val serverJKSKeyStoreWithPass   = "jks_keystore_truststore/server_keystore_with_pass.jks"
 val serverJKSTrustStoreWithPass = "jks_keystore_truststore/server_truststore_with_pass.jks"
 val password                    = Secret("123456")
 
 val serverSSLNettyConfig = SSLConfig.fromJavaxNetSslKeyStoreFile(
-  behaviour = HttpBehaviour.Redirect,
   keyManagerFile = serverJKSKeyStoreWithPass,
   keyManagerPassword = Some(password),
   trustManagerKeyStore = Some(
