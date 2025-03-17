@@ -118,6 +118,95 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/HttpsHelloWorld.scala")
 ```
 
+## Configuring SSL via JKS
+
+Server SSL can be configured to with a JKS Keystore for standard SSL or, additionally, with an `jks` truststore.
+Java Keystores and Truststores can have a password, this is also supported by the configuration.
+
+### Configuring Server SSL Keystore
+
+For example if your keystore is stored in the `resources` folder in the path
+`jks_keystore_truststore/server_keystore_with_pass.jks` and password `123456` you would load it as follows.
+
+(This goes without saying that passwords should be obtained safely and not hardcoded):
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.Config.Secret
+
+val serverKeyStoreJKSWithPass = "jks_keystore_truststore/server_keystore_with_pass.jks"
+val password                  = Secret("123456")
+val sslConfig                 = SSLConfig.fromJavaxNetSslKeyStoreResource(serverKeyStoreJKSWithPass, password)
+val config                    = Server.Config.default.port(8073).ssl(sslConfig)
+```
+
+Similarly, you would create a keystore from any file path using the method `SSLConfig.fromJavaxNetSslKeyStoreFile`:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.Config.Secret
+
+val serverKeyStoreJKSWithPass = "jks_keystore_truststore/server_keystore_with_pass.jks"
+val password                  = Secret("123456")
+val sslConfig                 = SSLConfig.fromJavaxNetSslKeyStoreFile(serverKeyStoreJKSWithPass, password)(serverKeyStoreJKSWithPass, password)
+val config                    = Server.Config.default.port(8073).ssl(sslConfig)
+```
+
+### Configuring Server SSL JKS Truststore
+
+You can configure a truststore to achieve mutual SSL where a server trusts strictly specific clients:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.Config.Secret
+
+val serverJKSKeyStoreWithPass   = "jks_keystore_truststore/server_keystore_with_pass.jks"
+val serverJKSTrustStoreWithPass = "jks_keystore_truststore/server_truststore_with_pass.jks"
+val password                    = Secret("123456")
+
+val serverSSLNettyConfig = SSLConfig.fromJavaxNetSslKeyStoreResource(
+  keyManagerResource = serverJKSKeyStoreWithPass,
+  keyManagerPassword = Some(password),
+  trustManagerKeyStore = Some(
+    TrustManagerKeyStore
+      .fromResource(serverJKSTrustStoreWithPass)
+      .build()
+      .trustManagerPassword(password),
+  ),
+  // strict mutual tls -- server accepts only client certificates in its truststore
+  clientAuth = Some(ClientAuth.Required),
+)
+val config               = Server.Config.default.port(8073).ssl(serverSSLNettyConfig)
+```
+
+Similarly, methods are provided for file paths not in the `resources` path:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.Config.Secret
+
+val serverJKSKeyStoreWithPass   = "jks_keystore_truststore/server_keystore_with_pass.jks"
+val serverJKSTrustStoreWithPass = "jks_keystore_truststore/server_truststore_with_pass.jks"
+val password                    = Secret("123456")
+
+val serverSSLNettyConfig = SSLConfig.fromJavaxNetSslKeyStoreFile(
+  behaviour = HttpBehaviour.Redirect,
+  keyManagerFile = serverJKSKeyStoreWithPass,
+  keyManagerPassword = Some(password),
+  trustManagerKeyStore = Some(
+    TrustManagerKeyStore
+      .fromFile(serverJKSTrustStoreWithPass)
+      .build()
+      .trustManagerPassword(password),
+  ),
+  // strict mutual tls -- server accepts only client certificates in its truststore
+  clientAuth = Some(ClientAuth.Required),
+)
+```
+
+For full examples that create testing JKS secrets for simple and mutual TLS, look at the tests:
+`ServerJKSKeyStoreSSLSpec.scala` and `ServerClientJKSMutualSSLSpec.scala`.
+
 ## Binding to Specific Host and Port
 
 By default, the server binds to the `0.0.0.0` address and listens on port `8080`. We can customize the address and port using the `Server.Config#binding` methods, for example:
