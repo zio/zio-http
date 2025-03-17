@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.runtime.AbstractFunction11
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 import scala.util.{Either, Failure, Success, Try}
@@ -1191,7 +1192,22 @@ object Header {
       userhash: Boolean,
     ) extends Authorization
 
-    object Digest extends HeaderType {
+    object Digest
+        extends AbstractFunction11[
+          String,
+          String,
+          String,
+          URI,
+          String,
+          String,
+          String,
+          String,
+          String,
+          Int,
+          Boolean,
+          Digest,
+        ]
+        with HeaderType {
       def apply(
         response: String,
         username: String,
