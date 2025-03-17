@@ -201,11 +201,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def scopes: List[String] = authScopesRecursive(authType)
 
   private def authScopesRecursive(authType: AuthType): List[String] = authType match {
-    case AuthType.ScopedAuth(nestedAuth, scopes) =>
-      authType.asInstanceOf[AuthType.ScopedAuth[_]].getScopes ++ authScopesRecursive(nestedAuth)
-    case AuthType.Or(auth1, auth2, _)            =>
+    case AuthType.ScopedAuth(nestedAuth, _) =>
+      authType.asInstanceOf[AuthType.ScopedAuth[_]].scopes ++ authScopesRecursive(nestedAuth)
+    case AuthType.Or(auth1, auth2, _)       =>
       authScopesRecursive(auth1) ++ authScopesRecursive(auth2)
-    case _                                       =>
+    case _                                  =>
       Nil
   }
 
@@ -215,7 +215,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     } else {
       authType match {
         case AuthType.ScopedAuth(_, _) =>
-          copy(authType = authType.asInstanceOf[AuthType.ScopedAuth[_]].setScopes(scopes.toList))
+          copy(authType = authType.asInstanceOf[AuthType.ScopedAuth[_]].scopes(scopes.toList))
         case _                         =>
           copy(authType = AuthType.ScopedAuth(authType, scopes.toList))
       }

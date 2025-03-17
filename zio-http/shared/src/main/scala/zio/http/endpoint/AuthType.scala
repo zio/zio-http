@@ -63,13 +63,13 @@ object AuthType {
 
   final case class ScopedAuth[ClientReq](
     authType: AuthType { type ClientRequirement = ClientReq },
-    scopes: List[String],
+    _scopes: List[String],
   ) extends AuthType {
     type ClientRequirement = ClientReq
     override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] = authType.codec
 
-    def getScopes: List[String] = scopes
+    def scopes: List[String] = _scopes
 
-    def setScopes(newScopes: List[String]) = copy(scopes = newScopes)
+    def scopes(newScopes: List[String]) = copy(_scopes = newScopes)
   }
 }

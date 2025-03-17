@@ -1192,6 +1192,21 @@ object Header {
     ) extends Authorization
 
     object Digest extends HeaderType {
+      def apply(
+        response: String,
+        username: String,
+        realm: String,
+        uri: URI,
+        opaque: String,
+        algorithm: String,
+        qop: String,
+        cnonce: String,
+        nonce: String,
+        nc: Int,
+        userhash: Boolean,
+      ): Digest =
+        new Digest(response, username, realm, uri, opaque, algorithm, qop, cnonce, nonce, nc, userhash)
+
       override def name: String = "authorization"
 
       override type HeaderValue = Authorization.Digest

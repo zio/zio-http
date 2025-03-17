@@ -969,7 +969,7 @@ object OpenAPIGen {
               ),
             ),
         )
-      case AuthType.ScopedAuth(auth, scopes)                  =>
+      case AuthType.ScopedAuth(auth, _)                       =>
         ListMap(
           OpenAPI.Key.fromString(auth.toString()).get ->
             ReferenceOr.Or[SecurityScheme.Http](
