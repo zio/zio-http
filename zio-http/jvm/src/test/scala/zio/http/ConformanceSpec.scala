@@ -1205,7 +1205,7 @@ object ConformanceSpec extends ZIOSpecDefault {
               case h if h.headerName == Header.SetCookie.name => h.renderedValue
             }
             val invalidCookieAttributes = responseInvalid.headers.toList.collect {
-              case h if h.headerName == "Set-Cookie" => h.renderedValue
+              case h if h.headerName == Header.SetCookie.name => h.renderedValue
             }
             assertTrue(
               validCookieAttributes.nonEmpty,
@@ -1213,8 +1213,8 @@ object ConformanceSpec extends ZIOSpecDefault {
               !validCookieAttributes.exists(_.toLowerCase.contains("path=/abc")),
             ) &&
             assertTrue(
-              invalidCookieAttributes.exists(_.contains("path=/")),
-              invalidCookieAttributes.exists(_.contains("path=/abc")),
+              invalidCookieAttributes.nonEmpty,
+              invalidCookieAttributes.forall(_.contains("path=/")),
             )
           }
         },
