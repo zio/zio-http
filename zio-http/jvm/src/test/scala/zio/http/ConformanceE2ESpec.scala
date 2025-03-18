@@ -41,6 +41,7 @@ object ConformanceE2ESpec extends RoutesRunnableSpec {
       val spec = conformanceSpec
       suite("app without request streaming") { app.as(List(spec)) }
     }.provideShared(
+      Scope.default,
       DynamicServer.live,
       ZLayer.succeed(configApp),
       Server.customized,
