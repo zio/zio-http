@@ -100,7 +100,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     outF: Out => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
     for {
-      port   <- Server.install(route @@ Middleware.requestLogging())
+      port   <- Server.installRoutes(route @@ Middleware.requestLogging())
       client <- ZIO.service[Client]
       executor = makeExecutor(client, port)
       out    <- executor(endpoint.apply(in))
@@ -113,7 +113,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     outF: Response => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with Client with Scope, Err, TestResult] = {
     for {
-      port   <- Server.install(route @@ Middleware.requestLogging())
+      port   <- Server.installRoutes(route @@ Middleware.requestLogging())
       client <- ZIO.service[Client]
       out    <- client.batched(in.updateURL(_.host("localhost").port(port))).orDie
       result <- outF(out)
@@ -135,10 +135,10 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     errorF: Err => ZIO[Any, Nothing, TestResult],
   ): ZIO[Client with Server with Scope, Out, TestResult] =
     for {
-      port <- Server.install(route)
+      port <- Server.installRoutes(route)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
-        .service[EndpointExecutor[Any, Unit]]
+        .service[EndpointExecutor[Any, Unit, Scope]]
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }

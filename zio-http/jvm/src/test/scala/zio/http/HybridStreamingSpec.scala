@@ -73,6 +73,7 @@ object HybridRequestStreamingServerSpec extends RoutesRunnableSpec {
         appWithHybridReqStreaming.as(List(requestBodySpec, hybridStreamingServerSpec))
       }
     }.provideShared(
+      Scope.default,
       DynamicServer.live,
       ZLayer.succeed(configAppWithHybridRequestStreaming),
       Server.customized,

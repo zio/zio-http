@@ -23,6 +23,11 @@ object MimaSettings {
         exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.apply"),
         exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.this"),
         exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.copy"),
+        exclude[IncompatibleMethTypeProblem]("zio.http.Middleware.addHeader"),
+        exclude[IncompatibleMethTypeProblem]("zio.http.HandlerAspect.addHeader"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.http.Server.installInternal"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.Server.serve"),
+        ProblemFilters.exclude[IncompatibleMethTypeProblem]("zio.http.Server.serve"),
       ),
       mimaFailOnProblem := failOnProblem,
     )

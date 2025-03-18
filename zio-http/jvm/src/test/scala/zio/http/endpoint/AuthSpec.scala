@@ -1,12 +1,11 @@
 package zio.http.endpoint
 
 import zio.Config.Secret
-import zio.test.TestAspect.flaky
 import zio.test._
 import zio.{Scope, ZIO, durationInt}
 
 import zio.http._
-import zio.http.codec.{CodecConfig, HttpCodec}
+import zio.http.codec.HttpCodec
 import zio.http.internal.middlewares.AuthSpec.AuthContext
 
 object AuthSpec extends ZIOSpecDefault {
@@ -147,7 +146,7 @@ object AuthSpec extends ZIOSpecDefault {
 
           for {
             _        <- Server
-              .serve(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
+              .serveRoutes(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
               .forkDaemon
               .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
             response <- response
@@ -181,7 +180,7 @@ object AuthSpec extends ZIOSpecDefault {
 
           for {
             _              <- Server
-              .serve(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
+              .serveRoutes(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
               .forkDaemon
               .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
             responseBasic  <- responseBasic
@@ -207,7 +206,7 @@ object AuthSpec extends ZIOSpecDefault {
 
           for {
             _        <- Server
-              .serve(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
+              .serveRoutes(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
               .forkDaemon
               .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
             response <- response
@@ -231,7 +230,7 @@ object AuthSpec extends ZIOSpecDefault {
 
           for {
             _        <- Server
-              .serve(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
+              .serveRoutes(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
               .forkDaemon
               .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
             response <- response

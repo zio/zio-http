@@ -19,7 +19,7 @@ object ForwardHeaderSpec extends ZIOSpecDefault {
         ).sandbox @@ Middleware.forwardHeaders(Header.Accept)
 
         for {
-          _        <- Server.install(routes)
+          _        <- Server.installRoutes(routes)
           response <- Client.batched(
             Request.get(url"http://localhost:8080/get").addHeader(Header.Accept(MediaType.application.json)),
           )

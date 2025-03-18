@@ -29,7 +29,7 @@ import zio.stream.ZStream
 
 import zio.http.Handler.ApplyContextAspect
 import zio.http.Header.HeaderType
-import zio.http.internal.HeaderModifier
+import zio.http.internal.{HeaderGetters, HeaderModifier}
 import zio.http.template._
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
@@ -53,9 +53,13 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     tag: Tag[Ctx],
   ): Handler[Env0, Response, Request, Response] =
     aspect.applyHandlerContext {
-      handler { (ctx: Ctx, req: Request) =>
-        val handler: ZIO[Ctx, Response, Response] = self.asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-        handler.provideSomeEnvironment[Env0](_.add[Ctx](ctx))
+      Handler.scoped[Env0] {
+        handler { (ctx: Ctx, req: Request) =>
+          val handler: ZIO[Scope & Ctx, Response, Response] =
+            self
+              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
+          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+        }
       }
     }
 
@@ -137,14 +141,14 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In, Out1] =
     new Handler[R1, Err1, In, Out1] {
-      override def apply(in: In): ZIO[R1, Err1, Out1] =
+      override def apply(in: In): ZIO[Scope & R1, Err1, Out1] =
         self(in).flatMap(that(_))
     }
 
   /**
    * Consumes the input and executes the Handler.
    */
-  def apply(in: In): ZIO[R, Err, Out]
+  def apply(in: In): ZIO[Scope & R, Err, Out]
 
   /**
    * Makes the handler resolve with a constant value
@@ -235,7 +239,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    */
   final def contramap[In1](f: In1 => In): Handler[R, Err, In1, Out] =
     new Handler[R, Err, In1, Out] {
-      override def apply(in: In1): ZIO[R, Err, Out] =
+      override def apply(in: In1): ZIO[Scope & R, Err, Out] =
         self(f(in))
     }
 
@@ -246,7 +250,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R1, Err1, In1, Out] =
     new Handler[R1, Err1, In1, Out] {
-      override def apply(in: In1): ZIO[R1, Err1, Out] =
+      override def apply(in: In1): ZIO[Scope & R1, Err1, Out] =
         f(in).flatMap(self(_))
     }
 
@@ -308,7 +312,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     onSuccess: Out => Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
-      override def apply(in: In1): ZIO[R1, Err1, Out1] =
+      override def apply(in: In1): ZIO[Scope & R1, Err1, Out1] =
         self(in).foldCauseZIO(
           cause => onFailure(cause)(in),
           out => onSuccess(out)(in),
@@ -445,7 +449,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
-      override def apply(in: In1): ZIO[R1, Err1, Out1] =
+      override def apply(in: In1): ZIO[Scope & R1, Err1, Out1] =
         (self(in), that(in)) match {
           case (s @ Exit.Success(_), _)                        =>
             s
@@ -463,8 +467,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    */
   final def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): Handler[Any, Err, In, Out] =
     new Handler[Any, Err, In, Out] {
-      override def apply(in: In): ZIO[Any, Err, Out] =
-        self(in).provideEnvironment(r)
+      override def apply(in: In): ZIO[Scope, Err, Out] =
+        self(in).asInstanceOf[ZIO[R, Err, Out]].provideEnvironment(r)
     }
 
   /**
@@ -474,8 +478,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R0, Err1, In, Out] =
     new Handler[R0, Err1, In, Out] {
-      override def apply(in: In): ZIO[R0, Err1, Out] =
-        self(in).provideLayer(layer)
+      override def apply(in: In): ZIO[Scope & R0, Err1, Out] =
+        self(in).asInstanceOf[ZIO[R, Err, Out]].provideLayer(layer).asInstanceOf[ZIO[Scope & R0, Err1, Out]]
     }
 
   /**
@@ -485,8 +489,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R1, Err, In, Out] =
     new Handler[R1, Err, In, Out] {
-      override def apply(in: In): ZIO[R1, Err, Out] =
-        self(in).provideSomeEnvironment(f)
+      override def apply(in: In): ZIO[Scope & R1, Err, Out] =
+        self(in).asInstanceOf[ZIO[R, Err, Out]].provideSomeEnvironment(f)
     }
 
   /**
@@ -496,8 +500,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     layer: ZLayer[R0, Err1, R1],
   )(implicit ev: R0 with R1 <:< R, trace: Trace): Handler[R0, Err1, In, Out] =
     new Handler[R0, Err1, In, Out] {
-      override def apply(in: In): ZIO[R0, Err1, Out] =
-        self(in).provideSomeLayer(layer)
+      override def apply(in: In): ZIO[Scope & R0, Err1, Out] =
+        self(in).asInstanceOf[ZIO[R, Err, Out]].provideSomeLayer(layer)
     }
 
   /**
@@ -507,7 +511,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
-      override def apply(in: In1): ZIO[R1, Err1, Out1] =
+      override def apply(in: In1): ZIO[Scope & R1, Err1, Out1] =
         (self(in), that(in)) match {
           case (self: Exit[Err, Out], _)    => self
           case (_, other: Exit[Err1, Out1]) => other
@@ -540,10 +544,10 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     path: Path = Path.root,
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
-  )(implicit ev: Request <:< In): ZIO[R, Err, Out] =
+  )(implicit ev: Request <:< In): ZIO[Scope & R, Err, Out] =
     self(ev(Request(method = method, url = URL.root.path(path), headers = headers, body = body)))
 
-  final def runZIO(in: In): ZIO[R, Err, Out] =
+  final def runZIO(in: In): ZIO[Scope & R, Err, Out] =
     self(in)
 
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
@@ -561,7 +565,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     onSuccess: Out => ZIO[R1, Err1, Any],
   )(implicit trace: Trace): Handler[R1, Err1, In, Out] =
     new Handler[R1, Err1, In, Out] {
-      override def apply(in: In): ZIO[R1, Err1, Out] =
+      override def apply(in: In): ZIO[Scope & R1, Err1, Out] =
         self(in) match {
           case Exit.Success(a)     => onSuccess(a).as(a)
           case Exit.Failure(cause) => onFailure(cause) *> ZIO.failCause(cause)
@@ -591,13 +595,20 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.tapAllZIO(_ => ZIO.unit, f)
 
   def timeout(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Option[Out]] =
-    Handler.fromFunctionZIO[In] { request =>
-      self(request).timeout(duration)
+    Handler.scoped[R] {
+      Handler
+        .fromFunctionZIO[In] { request =>
+          self(request).timeout(duration)
+        }
     }
 
   def timeoutFail[Out1 >: Out](out: Out1)(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Out1] =
-    Handler.fromFunctionZIO[In] { request =>
-      self(request).timeout(duration).map(_.getOrElse(out))
+    Handler.scoped[R] {
+      Handler
+        .fromFunctionZIO[In] { request =>
+          self(request).timeout(duration).map(_.getOrElse(out))
+        }
+        .asInstanceOf[Handler[R, Err, In, Out1]]
     }
 
   /**
@@ -976,7 +987,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    */
   def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out]): Handler[R, Err, Any, Out] =
     new Handler[R, Err, Any, Out] {
-      override def apply(in: Any): ZIO[R, Err, Out] = zio
+      override def apply(in: Any): ZIO[Scope & R, Err, Out] = zio
     }
 
   /**
@@ -1062,6 +1073,9 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    */
   def fromResponseZIO[R, Err](getResponse: ZIO[R, Err, Response]): Handler[R, Err, Any, Response] =
     fromZIO(getResponse)
+
+  def scoped[R]: ScopedPartiallyApplied[R] =
+    scopedPartiallyApplied.asInstanceOf[ScopedPartiallyApplied[R]]
 
   def stackTrace(implicit trace: Trace): Handler[Any, Nothing, Any, StackTrace] =
     fromZIO(ZIO.stackTrace)
@@ -1151,7 +1165,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
      * Updates the current Headers with new one, using the provided update
      * function passed.
      */
-    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
+    def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
       self.map(_.updateHeaders(update))
   }
 
@@ -1234,7 +1248,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   final class FromFunctionHandler[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => Handler[R, Err, In, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
-        override def apply(in: In): ZIO[R, Err, Out] =
+        override def apply(in: In): ZIO[Scope & R, Err, Out] =
           f(in)(in)
       }
   }
@@ -1275,4 +1289,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     def apply[B](project: A => B): Handler[Any, Nothing, A, B] =
       Handler.identity[B].contramap[A](project)
   }
+
+  final class ScopedPartiallyApplied[R](private val dummy: Boolean = true) extends AnyVal {
+    def apply[Err, In, Out](handler: Handler[Scope with R, Err, In, Out])(implicit
+      trace: Trace,
+    ): Handler[R, Err, In, Out] =
+      handler.asInstanceOf[Handler[R, Err, In, Out]]
+  }
+
+  private val scopedPartiallyApplied: ScopedPartiallyApplied[Any] = new ScopedPartiallyApplied[Any]()
 }
