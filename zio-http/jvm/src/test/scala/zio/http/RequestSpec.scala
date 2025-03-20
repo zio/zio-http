@@ -144,6 +144,18 @@ object RequestSpec extends ZIOHttpSpec {
         } yield assertTrue(body.isComplete, body.isInstanceOf[Body.ErrorBody], bytes == Left(err))
       },
     ),
+    suiteAll("query")(
+      test("add multiple query parmas") {
+        val request        = Request
+          .get("https://example.com")
+          .addQueryParam("a", 1)
+          .addQueryParam("b", 2)
+          .addQueryParam("c", 3)
+          .addQueryParam("d", 4)
+        val expectedParams = QueryParams("a" -> "1", "b" -> "2", "c" -> "3", "d" -> "4")
+        assertTrue(request.url.queryParams == expectedParams)
+      },
+    ),
   )
 
 }
