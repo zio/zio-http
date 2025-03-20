@@ -796,7 +796,7 @@ object OpenAPIGen {
           OpenAPI.ReferenceOr.Or(
             OpenAPI.Parameter.pathParameter(
               name = mc.name.getOrElse(throw new Exception("Path parameter must have a name")),
-              description = mc.docsOpt.flatMap(_.flattened.filterNot(_ == pathDoc).reduceOption(_ + _)),
+              description = mc.docsOpt,
               definition = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromSegmentCodec(codec))),
               deprecated = mc.deprecated,
               style = OpenAPI.Parameter.Style.Simple,
