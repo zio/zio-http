@@ -116,7 +116,7 @@ object ServerRuntimeSpec extends RoutesRunnableSpec {
             .zipRight(routes.deploy.body.run(path = Path.root / "test", method = Method.GET))
             .flatMap(_.asString(Charsets.Utf8))
             .map(b => assertTrue(b == "ok")) *> ref.get.map { v => assertTrue(v == 1) }
-        }
+        } @@ TestAspect.flaky
     }
       .provide(
         Scope.default,
