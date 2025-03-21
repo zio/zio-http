@@ -383,10 +383,13 @@ private[http] object StringSchemaCodec {
   @tailrec
   private def emptyStringIsValue(schema: Schema[_]): Boolean                                        = {
     schema match {
-      case value: Schema.Optional[_] =>
+      case value: Schema.Optional[_]        =>
         val innerSchema = value.schema
         emptyStringIsValue(innerSchema)
-      case _                         =>
+      case value: Schema.Transform[_, _, _] =>
+        val innerSchema = value.schema
+        emptyStringIsValue(innerSchema)
+      case _                                =>
         schema.asInstanceOf[Schema.Primitive[_]].standardType match {
           case StandardType.UnitType   => true
           case StandardType.StringType => true

@@ -41,6 +41,9 @@ final case class Response(
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
+  def addCookies(cookie: Cookie.Response, cookies: Cookie.Response*) =
+    updateHeaders(_.addHeaders(Headers.fromIterable((cookie +: cookies).map(Header.SetCookie(_)))))
+
   /**
    * Adds flash values to the cookie-based flash-scope.
    */

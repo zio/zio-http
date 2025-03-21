@@ -55,10 +55,10 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
     )
 
   def addQueryParam[T](key: String, value: T)(implicit schema: Schema[T]): A =
-    self ++ StringSchemaCodec.queryFromSchema(schema, ErrorConstructor.query, key).encode(value, queryParameters)
+    updateQueryParams(StringSchemaCodec.queryFromSchema(schema, ErrorConstructor.query, key).encode(value, _))
 
   def addQueryParam[T](value: T)(implicit schema: Schema[T]): A =
-    self ++ StringSchemaCodec.queryFromSchema(schema, ErrorConstructor.query, null).encode(value, queryParameters)
+    updateQueryParams(StringSchemaCodec.queryFromSchema(schema, ErrorConstructor.query, null).encode(value, _))
 
   /**
    * Removes the specified key from the query parameters.

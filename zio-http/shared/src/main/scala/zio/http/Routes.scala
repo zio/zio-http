@@ -281,11 +281,12 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
           Handler
             .fromZIO(
               if (message != null)
-                Exit.succeed {
+                ZIO.suspendSucceed {
                   val msg = message
                   message = null
-                  msg
-                }.tap(ZIO.logWarning(_)).as(h)
+
+                  ZIO.logWarning(msg).as(h)
+                }
               else Exit.succeed(h),
             )
             .flatten
