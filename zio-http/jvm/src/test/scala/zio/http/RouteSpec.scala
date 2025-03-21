@@ -75,6 +75,16 @@ object RouteSpec extends ZIOHttpSpec {
         } yield assertTrue(cnt == 2)
       },
     ),
+    test("Middleware is applied to not found handler") {
+      val routes = Routes(Method.GET / "foo" -> handler(Response.ok))
+
+      for {
+        ref <- Ref.make(0)
+        middleware = Middleware.runBefore(ref.update(_ + 1)) ++ Middleware.runAfter(ref.update(_ + 1))
+        response <- (routes @@ middleware).run(Request.get(url"/bar"))
+        cnt      <- ref.get
+      } yield assertTrue(response.status == Status.NotFound, cnt == 2)
+    },
     suite("error handle")(
       test("handleErrorCauseZIO should execute a ZIO effect") {
         val route = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hmm...")) }
