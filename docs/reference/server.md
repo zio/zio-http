@@ -741,7 +741,7 @@ The companion object of `NettyConfig` class provides a default configuration tha
 ```scala mdoc:compile-only
 import zio.http.netty._
 
-val nettyConfig = NettyConfig.default.channelType(ChannelType.URING)
+val nettyConfig = NettyConfig.default.channelType(ChannelType.EPOLL)
 ```
 
 Let's try an example server with a custom Netty configuration:
