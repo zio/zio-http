@@ -49,7 +49,7 @@ object RequestSpec extends ZIOHttpSpec {
                   }
                 },
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-                .header(HeaderCodec.headerAs[java.util.UUID]("X-Correlation-ID"))
+                .header[java.util.UUID]("X-Correlation-ID")
                 .out[String]
                 .implementHandler {
                   Handler.fromFunction { case (userId, postId, correlationId) =>
