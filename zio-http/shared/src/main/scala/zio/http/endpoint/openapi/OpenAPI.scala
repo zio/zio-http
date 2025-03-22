@@ -1509,8 +1509,9 @@ object OpenAPI {
      * @param securitySchemes
      *   If the security scheme is of type "oauth2" or "openIdConnect", then the
      *   value is a list of scope names required for the execution, and the list
-     *   MAY be empty if authorization does not require a specified scope. For
-     *   other security scheme types, the List MUST be empty.
+     *   MAY be empty if authorization does not require a specified scope.
+     *   OpenAPI 3.1 supports the use of scopes even on Non-OAuth2 security
+     *   schemes.
      */
     final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
   }

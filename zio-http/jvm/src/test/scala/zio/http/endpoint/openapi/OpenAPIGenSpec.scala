@@ -230,6 +230,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
+  private val endpointWithAuthScopes =
+    Endpoint(GET / "withAuthScopes").auth(AuthType.Bearer).scopes("read", "write")
+
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
 
@@ -255,6 +258,42 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |  },
                               |  "components" : {}
                               |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("auth scopes to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth", "1.0", endpointWithAuthScopes)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Endpoint with Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withAuthScopes": {
+                             |      "get": {
+                             |        "security": [
+                             |          {
+                             |            "Bearer": ["read", "write"]
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "Bearer": {
+                             |        "type": "http",
+                             |        "scheme": "Bearer"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "Bearer": ["read", "write"]
+                             |    }
+                             |  ]
+                             |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
       test("endpoint documentation") {

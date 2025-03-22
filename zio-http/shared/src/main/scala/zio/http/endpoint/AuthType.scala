@@ -15,6 +15,7 @@ sealed trait AuthType { self =>
       .asInstanceOf[
         AuthType { type ClientRequirement = ClientReq },
       ]
+
 }
 
 object AuthType {
@@ -31,18 +32,18 @@ object AuthType {
   case object Basic  extends AuthType {
     type ClientRequirement = Header.Authorization.Basic
     override val codec: HeaderCodec[Header.Authorization.Basic] =
-      HeaderCodec.authorization.asInstanceOf[HeaderCodec[Header.Authorization.Basic]]
+      HeaderCodec.basicAuth
   }
   case object Bearer extends AuthType {
     type ClientRequirement = Header.Authorization.Bearer
     override val codec: HeaderCodec[Header.Authorization.Bearer] =
-      HeaderCodec.authorization.asInstanceOf[HeaderCodec[Header.Authorization.Bearer]]
+      HeaderCodec.bearerAuth
   }
 
   case object Digest extends AuthType {
     type ClientRequirement = Header.Authorization.Digest
     override val codec: HeaderCodec[Header.Authorization.Digest] =
-      HeaderCodec.authorization.asInstanceOf[HeaderCodec[Header.Authorization.Digest]]
+      HeaderCodec.digestAuth
   }
 
   final case class Custom[ClientReq](override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq])
@@ -58,5 +59,17 @@ object AuthType {
     type ClientRequirement = ClientReq
     override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] =
       auth1.codec.orElseEither(auth2.codec)(alternator)
+  }
+
+  final case class ScopedAuth[ClientReq](
+    authType: AuthType { type ClientRequirement = ClientReq },
+    _scopes: List[String],
+  ) extends AuthType {
+    type ClientRequirement = ClientReq
+    override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] = authType.codec
+
+    def scopes: List[String] = _scopes
+
+    def scopes(newScopes: List[String]) = copy(_scopes = newScopes)
   }
 }
