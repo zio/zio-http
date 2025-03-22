@@ -22,11 +22,16 @@ import zio.test._
 
 import zio.stream.ZStream
 
+import zio.schema.codec.JsonCodec._
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http.ErrorResponseConfig.ErrorFormat
 
 object ResponseSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
   private val location: URL                     = URL.decode("www.google.com").toOption.get
+  case class Person(name: String, age: Int)
+  implicit val schema: Schema[Person]           = DeriveSchema.gen[Person]
 
   def spec = suite("Response")(
     suite("fromCause")(
@@ -237,11 +242,19 @@ object ResponseSpec extends ZIOHttpSpec {
         assertTrue(x.header(Header.ContentType).contains(Header.ContentType(MediaType.application.json)))
       },
     ),
-    suite("toHttp")(
-      test("should convert response to Http") {
+    suite("toHandler")(
+      test("should convert response to handler") {
         val ok   = Response.ok
         val http = ok.toHandler
         assertZIO(http.runZIO(()))(equalTo(ok))
+      },
+    ),
+    suiteAll("bodyAs")(
+      test("Read a json body") {
+        val person   = Person("John", 42)
+        val body     = Body.fromString("""{"name":"John","age":42}""")
+        val response = Response(body = body)
+        response.bodyAs[Person].map(p => assertTrue(p == person))
       },
     ),
     suite("ignore")(
