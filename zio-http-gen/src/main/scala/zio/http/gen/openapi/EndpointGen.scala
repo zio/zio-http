@@ -312,7 +312,7 @@ final case class EndpointGen(config: Config) {
     Code.Files {
       val componentsCode = extractComponents(openAPI)
       val files          = openAPI.paths.map { case (path, pathItem) =>
-        val pathSegments = path.name.tail.replace('-', '_').split('/').toList
+        val pathSegments = path.name.tail.split('/').toList
         val packageName  = pathSegments.init.mkString(".").replace("{", "").replace("}", "")
         val className    = pathSegments.last.replace("{", "").replace("}", "").capitalize
         val params       = List(
