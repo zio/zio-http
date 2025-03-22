@@ -20,7 +20,7 @@ import java.net.{MalformedURLException, URI}
 
 import scala.util.control.NonFatal
 
-import zio.Config
+import zio.{Config, ZIO, durationInt}
 
 import zio.http.URL.{Fragment, Location}
 import zio.http.internal._

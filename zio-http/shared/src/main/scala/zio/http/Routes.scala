@@ -172,7 +172,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * method and path of the specified request.
    */
   def isDefinedAt(request: Request)(implicit ev: Err <:< Response): Boolean =
-    tree(Trace.empty, ev).get(request.method, request.path).nonEmpty
+    tree(Trace.empty, ev).get(request.method, request.path) != null
 
   def provide[Env1 <: Env](env: Env1)(implicit tag: Tag[Env1]): Routes[Any, Err] =
     provideEnvironment(ZEnvironment(env))
@@ -261,15 +261,11 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
       _handler = {
         implicit val trace: Trace = Trace.empty
         val (unique, duplicates)  = uniqueRoutes
-        val tree                  = Routes(unique).tree
+        val tree                  = Routes(unique).tree[Env]
         val h                     = Handler
           .fromFunctionHandler[Request] { req =>
-            val chunk = tree.get(req.method, req.path)
-            chunk.length match {
-              case 0 => Handler.notFound
-              case 1 => chunk(0)
-              case _ => throw new IllegalStateException("Multiple routes found for the same path")
-            }
+            val handler = tree.get(req.method, req.path)
+            if (handler eq null) Handler.notFound else handler
           }
           .merge
           .asInstanceOf[Handler[Any, Nothing, Request, Response]]
@@ -311,11 +307,11 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   /**
    * Accesses the underlying tree that provides fast dispatch to handlers.
    */
-  def tree(implicit trace: Trace, ev: Err <:< Response): Routes.Tree[Env] = {
+  def tree[Env1 <: Env](implicit trace: Trace, ev: Err <:< Response): Routes.Tree[Env1] = {
     if (_tree eq null) {
-      _tree = Routes.Tree.fromRoutes(routes.asInstanceOf[Chunk[Route[Env, Response]]])
+      _tree = Routes.Tree.fromRoutes(routes.asInstanceOf[Chunk[Route[Env1, Response]]])
     }
-    _tree.asInstanceOf[Routes.Tree[Env]]
+    _tree.asInstanceOf[Routes.Tree[Env1]]
   }
 
   private[http] def uniqueRoutes: (Chunk[Route[Env, Err]], Chunk[Route[Env, Err]]) = {
@@ -382,21 +378,29 @@ object Routes extends RoutesCompanionVersionSpecific {
   def serveResources(path: Path, resourcePrefix: String = "public")(implicit trace: Trace): Routes[Any, Nothing] =
     empty @@ Middleware.serveResources(path, resourcePrefix)
 
-  private[http] final case class Tree[-Env](tree: RoutePattern.Tree[RequestHandler[Env, Response]]) { self =>
+  private[http] final case class Tree[Env](tree: RoutePattern.Tree[Env]) { self =>
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
-      Tree(self.tree ++ that.tree)
+      Tree(self.tree.asInstanceOf[RoutePattern.Tree[Env1]] ++ that.tree)
 
     final def add[Env1 <: Env](route: Route[Env1, Response])(implicit trace: Trace): Tree[Env1] =
-      Tree(self.tree.addAll(route.routePattern.alternatives.map(alt => (alt, route.toHandler))))
+      Tree(
+        self.tree
+          .asInstanceOf[RoutePattern.Tree[Env1]]
+          .addAll(route.routePattern.alternatives.map(alt => (alt, route.toHandler))),
+      )
 
     final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit trace: Trace): Tree[Env1] =
       // only change to flatMap when Scala 2.12 is dropped
-      Tree(self.tree.addAll(routes.map(r => r.routePattern.alternatives.map(alt => (alt, r.toHandler))).flatten))
+      Tree(
+        self.tree
+          .asInstanceOf[RoutePattern.Tree[Env1]]
+          .addAll(routes.map(r => r.routePattern.alternatives.map(alt => (alt, r.toHandler))).flatten),
+      )
 
-    final def get(method: Method, path: Path): Chunk[RequestHandler[Env, Response]] =
+    final def get(method: Method, path: Path): RequestHandler[Env, Response] =
       tree.get(method, path)
   }
-  private[http] object Tree                                                                         {
+  private[http] object Tree                                              {
     val empty: Tree[Any] = Tree(RoutePattern.Tree.empty)
 
     def fromRoutes[Env](routes: Chunk[zio.http.Route[Env, Response]])(implicit trace: Trace): Tree[Env] =

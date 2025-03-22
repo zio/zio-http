@@ -630,15 +630,15 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
-    loggedRequestHeaders: Set[Header.HeaderType] = Set.empty,
-    loggedResponseHeaders: Set[Header.HeaderType] = Set.empty,
+    loggedRequestHeaders: Set[Header.HeaderTypeBase] = Set.empty,
+    loggedResponseHeaders: Set[Header.HeaderTypeBase] = Set.empty,
     logRequestBody: Boolean = false,
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
   )(implicit trace: Trace): HandlerAspect[Any, Unit] = {
-    val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
-    val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
+    val loggedRequestHeaderNames  = loggedRequestHeaders.flatMap(_.names.map(_.toLowerCase))
+    val loggedResponseHeaderNames = loggedResponseHeaders.flatMap(_.names.map(_.toLowerCase))
 
     HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { request =>
       zio.Clock.instant.map(now => ((now, request), (request, ())))
