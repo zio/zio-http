@@ -54,7 +54,7 @@ trait Body { self =>
    * case class Person(name: String, age: Int)
    * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
    * val person = Person("John", 42)
-   * val body = Body.from(person)
+   * val body = ???
    * val decodedPerson = body.to[Person]
    * }}}
    */

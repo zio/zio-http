@@ -25,6 +25,7 @@ import zio._
 import zio.stream.ZStream
 
 import zio.schema.Schema
+import zio.schema.codec.BinaryCodec
 
 import zio.http.internal.{HeaderOps, OutputEncoder}
 import zio.http.template._
@@ -84,6 +85,22 @@ final case class Response(
    */
   def status(status: Status): Response =
     copy(status = status)
+
+  /**
+   * Decodes the content of the body as a value based on a zio-schema
+   * [[zio.schema.codec.BinaryCodec]].<br>
+   *
+   * Example for json:
+   * {{{
+   * import zio.schema.json.codec._
+   * case class Person(name: String, age: Int)
+   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * val response = ???
+   * val decodedPerson = response.to[Person]
+   * }}}
+   */
+  def bodyAs[A](implicit codec: BinaryCodec[A], trace: Trace): Task[A] =
+    body.to[A]
 
   /**
    * Creates an Http from a Response
