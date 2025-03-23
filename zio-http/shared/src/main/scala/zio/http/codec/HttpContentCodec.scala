@@ -118,14 +118,31 @@ sealed trait HttpContentCodec[A] { self =>
     } else {
       var i                                             = 0
       var result: (MediaType, BinaryCodecWithSchema[A]) = null
+      var lastError: Option[String]                     = None
+      
       while (i < mediaTypes.size && result == null) {
         val mediaType    = mediaTypes(i)
         val lookupResult = lookup(mediaType.mediaType)
-        if (lookupResult.isDefined) result = lookupResult.get
+        if (lookupResult.isDefined) {
+          result = lookupResult.get
+        } else {
+          lastError = Some(s"Media type ${mediaType.mediaType} is not supported")
+        }
         i += 1
       }
-      if (result == null) (defaultMediaType, defaultBinaryCodecWithSchema)
-      else result
+      
+      if (result == null) {
+        // If no supported media type found, try to use JSON as fallback
+        if (lookup(MediaType.application.`json`).isDefined) {
+          lookup(MediaType.application.`json`).get
+        } else {
+          throw new IllegalArgumentException(
+            s"None of the requested media types are supported. Last error: ${lastError.getOrElse("Unknown error")}"
+          )
+        }
+      } else {
+        result
+      }
     }
 
   def lookup(mediaType: MediaType): Option[(MediaType, BinaryCodecWithSchema[A])]
@@ -178,6 +195,13 @@ sealed trait HttpContentCodec[A] { self =>
       ZPipeline.identity[Option[A]].map(_.fold(Chunk.empty[Byte])(bc.encode)).flattenChunks
   }
 
+  def isMediaTypeSupported(mediaType: MediaType): Boolean = {
+    lookup(mediaType).isDefined
+  }
+
+  def supportedMediaTypes: Set[MediaType] = {
+    choices.keySet
+  }
 }
 
 object HttpContentCodec {
@@ -274,15 +298,22 @@ object HttpContentCodec {
 
   private val defaultHttpContentCodec: HttpContentCodec[HttpCodecError] =
     HttpContentCodec.from(
-      MediaType.text.`html`      -> BinaryCodecWithSchema(TextBinaryCodec.fromSchema(domBasedSchema), domBasedSchema),
+      MediaType.text.`html`      -> BinaryCodecWithSchema(
+        TextBinaryCodec.fromSchema(domBasedSchema),
+        domBasedSchema,
+      ),
       MediaType.application.json -> BinaryCodecWithSchema(
         JsonCodec.schemaBasedBinaryCodec(defaultCodecErrorSchema),
+        defaultCodecErrorSchema,
+      ),
+      MediaType.text.`plain`     -> BinaryCodecWithSchema(
+        TextBinaryCodec.fromSchema(defaultCodecErrorSchema),
         defaultCodecErrorSchema,
       ),
     )
 
   val responseErrorCodec: HttpCodec[HttpCodecType.ResponseType, HttpCodecError] =
-    ContentCodec.content(defaultHttpContentCodec) ++ StatusCodec.BadRequest
+    ContentCodec.content(defaultHttpContentCodec) ++ StatusCodec.UnsupportedMediaType
 
   private var fromSchemaCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
 
@@ -361,10 +392,31 @@ object HttpContentCodec {
       } else {
         val codec = HttpContentCodec.Choices(
           ListMap(
-            MediaType.text.`plain`               ->
-              BinaryCodecWithSchema(http.codec.TextBinaryCodec.fromSchema[A](schema), schema),
-            MediaType.application.`octet-stream` ->
-              BinaryCodecWithSchema(http.codec.TextBinaryCodec.fromSchema[A](schema), schema),
+            MediaType.text.`plain` -> BinaryCodecWithSchema(
+              new BinaryCodec[A] {
+                override def encode(value: A): Chunk[Byte] = {
+                  try {
+                    TextBinaryCodec.fromSchema(schema).encode(value)
+                  } catch {
+                    case e: Exception =>
+                      throw new IllegalArgumentException(
+                        "The requested content type is not supported for this data structure. " +
+                        "Please use application/json or another appropriate format."
+                      )
+                  }
+                }
+
+                override def decode(bytes: Chunk[Byte]): Either[DecodeError, A] =
+                  TextBinaryCodec.fromSchema(schema).decode(bytes)
+
+                override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+                  TextBinaryCodec.fromSchema(schema).streamDecoder
+
+                override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
+                  TextBinaryCodec.fromSchema(schema).streamEncoder
+              },
+              schema,
+            ),
           ),
         )
         textCodecCache = textCodecCache + (schema -> codec)
@@ -420,4 +472,25 @@ object HttpContentCodec {
       ),
     )
   }
+
+  sealed trait ContentTypeError extends Exception
+  case class UnsupportedContentTypeError(
+    contentType: MediaType,
+    valueType: String,
+    suggestedContentType: MediaType
+  ) extends ContentTypeError {
+    override def getMessage: String = 
+      s"Content type '$contentType' is not supported for values of type '$valueType'. " +
+      s"Please use '$suggestedContentType' instead."
+  }
+
+  def text[A](implicit schema: Schema[A]): HttpContentCodec[A] =
+    HttpContentCodec.Choices(
+      ListMap(
+        MediaType.text.`plain` -> BinaryCodecWithSchema(
+          TextBinaryCodec.fromSchema(schema),
+          schema,
+        ),
+      ),
+    )
 }
