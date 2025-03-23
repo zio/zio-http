@@ -752,7 +752,7 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/HelloWorldAdvanced.scala")
 ```
 
-## Optional Incubator Netty transport types (URING)
+## Optional (incubator) Netty transport types (URING)
 Some optional/experimental netty channel type configurations may require additional libraries on the classpath. These libraries are not provided by default to prevent unintentional discovery and use by other Netty based libraries which are known choose channel types based purely on what's on the classpath. Currently the only such transport type is URING.
 
 On linux-x86_64 platforms if you decide to use URING channel type then you can do as follows:
