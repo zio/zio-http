@@ -198,6 +198,29 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def auth[Auth0 <: AuthType](auth: Auth0): Endpoint[PathInput, Input, Err, Output, Auth0] =
     copy(authType = auth)
 
+  def scopes: List[String] = authScopesRecursive(authType)
+
+  private def authScopesRecursive(authType: AuthType): List[String] = authType match {
+    case AuthType.ScopedAuth(nestedAuth, _) =>
+      authType.asInstanceOf[AuthType.ScopedAuth[_]].scopes ++ authScopesRecursive(nestedAuth)
+    case AuthType.Or(auth1, auth2, _)       =>
+      authScopesRecursive(auth1) ++ authScopesRecursive(auth2)
+    case _                                  =>
+      Nil
+  }
+
+  def scopes(scopes: String*): Endpoint[PathInput, Input, Err, Output, AuthType] =
+    if (scopes.isEmpty || authType == AuthType.None) {
+      throw new IllegalArgumentException("Scopes cannot be empty, and authType must not be AuthType.None")
+    } else {
+      authType match {
+        case AuthType.ScopedAuth(_, _) =>
+          copy(authType = authType.asInstanceOf[AuthType.ScopedAuth[_]].scopes(scopes.toList))
+        case _                         =>
+          copy(authType = AuthType.ScopedAuth(authType, scopes.toList))
+      }
+    }
+
   /**
    * Hides any details of codec errors from the user.
    */
@@ -302,6 +325,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
       case AuthType.Or(auth1, auth2, _) =>
         authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
+      case AuthType.ScopedAuth(auth, _) =>
+        authCodec(auth)
     }
 
     val maybeUnauthedResponse = authType.asInstanceOf[AuthType] match {
