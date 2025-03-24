@@ -75,7 +75,12 @@ object OpenAPIGen {
 
     def examples(schema: Schema[_], generate: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       (if (generate && examples.isEmpty) generateExamples(schema) else examples).map { case (k, v) =>
-        k -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(toJsonAst(schema, v)))
+        val mediaType = codec.asInstanceOf[Any] match {
+          case HttpCodec.Content(codec, _, _) => codec.choices.headOption.map(_._1).getOrElse(MediaType.application.`json`)
+          case HttpCodec.ContentStream(codec, _, _) => codec.choices.headOption.map(_._1).getOrElse(MediaType.application.`json`)
+          case _ => MediaType.application.`json`
+        }
+        k -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(toExampleValue(schema, v, mediaType)))
       }
 
     def name: Option[String] =
@@ -144,12 +149,19 @@ object OpenAPIGen {
 
     def contentExamples(genExamples: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       content.flatMap {
-        case mc @ MetaCodec(HttpCodec.Content(codec, _, _), _) if codec.lookup(MediaType.application.json).isDefined =>
-          mc.examples(codec.lookup(MediaType.application.json).get._2.schema, genExamples)
-        case mc @ MetaCodec(HttpCodec.ContentStream(codec, _, _), _)
-            if codec.lookup(MediaType.application.json).isDefined =>
-          mc.examples(codec.lookup(MediaType.application.json).get._2.schema, genExamples)
-        case _                                                                                                       =>
+        case mc @ MetaCodec(HttpCodec.Content(codec, _, _), _) =>
+          // Get the first supported media type or fallback to JSON
+          val mediaType = codec.choices.headOption.map(_._1).getOrElse(MediaType.application.`json`)
+          codec.lookup(mediaType).map { case (_, codecWithSchema) =>
+            mc.examples(codecWithSchema.schema, genExamples)
+          }.getOrElse(Map.empty)
+        case mc @ MetaCodec(HttpCodec.ContentStream(codec, _, _), _) =>
+          // Get the first supported media type or fallback to JSON
+          val mediaType = codec.choices.headOption.map(_._1).getOrElse(MediaType.application.`json`)
+          codec.lookup(mediaType).map { case (_, codecWithSchema) =>
+            mc.examples(codecWithSchema.schema, genExamples)
+          }.getOrElse(Map.empty)
+        case _ =>
           Map.empty[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]]
       }.toMap
 
@@ -532,12 +544,21 @@ object OpenAPIGen {
       case _                                      => false
     }
 
-  private def toJsonAst(schema: Schema[_], v: Any): Json =
+  private def toJsonAst(schema: Schema[_], value: Any): Json = {
     JsonCodec
       .jsonEncoder(schema.asInstanceOf[Schema[Any]])
-      .toJsonAST(v)
+      .toJsonAST(value)
       .toOption
-      .get
+      .getOrElse(Json.Null)
+  }
+
+  private def toExampleValue(schema: Schema[_], value: Any, mediaType: MediaType): Json = {
+    mediaType match {
+      case MediaType.text.plain => Json.Str(value.toString)
+      case MediaType.application.json => toJsonAst(schema, value)
+      case _ => Json.Str(value.toString)
+    }
+  }
 
   def fromEndpoints(
     endpoint1: Endpoint[_, _, _, _, _],
