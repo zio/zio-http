@@ -150,13 +150,11 @@ object OpenAPIGen {
     def contentExamples(genExamples: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       content.flatMap {
         case mc @ MetaCodec(HttpCodec.Content(codec, _, _), _) =>
-          // Get the first supported media type or fallback to JSON
           val mediaType = codec.choices.headOption.map(_._1).getOrElse(MediaType.application.`json`)
           codec.lookup(mediaType).map { case (_, codecWithSchema) =>
             mc.examples(codecWithSchema.schema, genExamples)
           }.getOrElse(Map.empty)
         case mc @ MetaCodec(HttpCodec.ContentStream(codec, _, _), _) =>
-          // Get the first supported media type or fallback to JSON
           val mediaType = codec.choices.headOption.map(_._1).getOrElse(MediaType.application.`json`)
           codec.lookup(mediaType).map { case (_, codecWithSchema) =>
             mc.examples(codecWithSchema.schema, genExamples)
