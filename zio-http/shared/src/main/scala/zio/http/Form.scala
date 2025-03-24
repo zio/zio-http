@@ -160,11 +160,10 @@ final case class Form(formData: Chunk[FormField]) {
   }
 
   def toQueryParams: QueryParams =
-    formData.foldLeft(QueryParams.empty) {
-      case (acc, FormField.Text(k, v, _, _)) => acc.addQueryParam(k, v)
-      case (acc, FormField.Simple(k, v))     => acc.addQueryParam(k, v)
-      case (acc, _)                          => acc
-    }
+    QueryParams(formData.collect {
+      case t: FormField.Text   => (t.name, Chunk(t.value))
+      case s: FormField.Simple => (s.name, Chunk(s.value))
+    }: _*)
 
   /**
    * Encodes the form using URL encoding, using the default charset.
