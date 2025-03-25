@@ -519,3 +519,25 @@ object Route                   {
     implicit def other[A]: CheckResponse[A]           = otherInstance.asInstanceOf[CheckResponse[A]]
   }
 }
+
+sealed trait Route[-R] {
+  private[http] case class Node[-R](
+    handler: Option[Handler[R]],
+    children: Map[RoutePattern, Route[R]]
+  ) extends Route[R] {
+    def merge(other: Route[R]): Route[R] = other match {
+      case Node(h2, c2) =>
+        Node(
+          handler.orElse(h2),
+          (children.keySet ++ c2.keySet).map { k =>
+            k -> (children.get(k), c2.get(k)) match {
+              case (Some(r1), Some(r2)) => r1.merge(r2)
+              case (Some(r1), None)     => r1
+              case (None, Some(r2))     => r2
+              case (None, None)         => throw new IllegalStateException
+            }
+          }.toMap
+        )
+    }
+  }
+}

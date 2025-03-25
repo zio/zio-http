@@ -41,6 +41,20 @@ import zio.http.codec._
  * However, you can use the convenience constructors in `RoutePattern`, such as
  * `RoutePattern.GET`.
  */
+sealed trait RoutePattern {
+  // ...existing code...
+  
+  def matches(path: Path): Boolean = {
+    // Simplified matching logic
+    (this, path) match {
+      case (Literal(p), path) => p == path
+      case (Variable(_), _)   => true
+      case _                  => false
+    }
+  }
+  // ...existing code...
+}
+
 final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self =>
   type Params = A
 
