@@ -139,7 +139,7 @@ object TestServer {
       } yield TestServer(driver, result.port)
     }
 
-  val default: ZLayer[Any, Nothing, Server with TestServer] = ZLayer.make[Server with TestServer][Nothing](
+  val default: ZLayer[Any, Nothing, TestServer] = ZLayer.make[TestServer][Nothing](
     TestServer.layer.orDie,
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     NettyDriver.customized.orDie,
