@@ -168,7 +168,11 @@ private[netty] object NettyConnectionPool {
 
     override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
       cause match {
-        case _: ReadTimeoutException => nettyRuntime.unsafeRunSync(ZIO.logDebug("ReadTimeoutException caught"))
+        case _: ReadTimeoutException =>
+          nettyRuntime.unsafeRunSync(ZIO.logDebug("ReadTimeoutException caught"))
+          // We need to propagate the exception to the next handler in the pipeline as subsequent error
+          // handlers will need to clean up resources.
+          super.exceptionCaught(ctx, cause)
         case _                       => super.exceptionCaught(ctx, cause)
       }
     }

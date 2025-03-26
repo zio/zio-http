@@ -7,7 +7,12 @@ import zio.http.internal.ChannelState
 
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 
-/** Handles failures happening in ClientInboundHandler */
+/**
+ * Handles failures happening in ClientInboundHandler
+ * @deprecated
+ *   exceptionCaught logic now lives inside
+ *   `ClientInboundHandler.exceptionCaught`.
+ */
 private[netty] final class ClientFailureHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
