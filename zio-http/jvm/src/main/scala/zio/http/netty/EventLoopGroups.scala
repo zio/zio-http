@@ -66,9 +66,32 @@ object EventLoopGroups {
   def epoll(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads, executor)))
 
+  /**
+   * Creates a new instance of `IOUringEventLoopGroup` with the given
+   * configuration. This requires the
+   * `io.netty.incubator:netty-incubator-transport-native-io_uring` dependency.
+   * That experimental dependency is not provided by default and must be added
+   * explicitly to use this transport.
+   *
+   * @param config
+   * @param trace
+   * @return
+   */
   def uring(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads)))
 
+  /**
+   * Creates a new instance of `IOUringEventLoopGroup` with the given
+   * configuration and executor. This requires the
+   * `io.netty.incubator:netty-incubator-transport-native-io_uring` dependency.
+   * That experimental dependency is not provided by default and must be added
+   * explicitly to use this transport.
+   *
+   * @param config
+   * @param executor
+   * @param trace
+   * @return
+   */
   def uring(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads, executor)))
 
