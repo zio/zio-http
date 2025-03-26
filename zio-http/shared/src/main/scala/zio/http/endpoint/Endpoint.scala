@@ -198,6 +198,29 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def auth[Auth0 <: AuthType](auth: Auth0): Endpoint[PathInput, Input, Err, Output, Auth0] =
     copy(authType = auth)
 
+  def scopes: List[String] = authScopesRecursive(authType)
+
+  private def authScopesRecursive(authType: AuthType): List[String] = authType match {
+    case AuthType.ScopedAuth(nestedAuth, _) =>
+      authType.asInstanceOf[AuthType.ScopedAuth[_]].scopes ++ authScopesRecursive(nestedAuth)
+    case AuthType.Or(auth1, auth2, _)       =>
+      authScopesRecursive(auth1) ++ authScopesRecursive(auth2)
+    case _                                  =>
+      Nil
+  }
+
+  def scopes(scopes: String*): Endpoint[PathInput, Input, Err, Output, AuthType] =
+    if (scopes.isEmpty || authType == AuthType.None) {
+      throw new IllegalArgumentException("Scopes cannot be empty, and authType must not be AuthType.None")
+    } else {
+      authType match {
+        case AuthType.ScopedAuth(_, _) =>
+          copy(authType = authType.asInstanceOf[AuthType.ScopedAuth[_]].scopes(scopes.toList))
+        case _                         =>
+          copy(authType = AuthType.ScopedAuth(authType, scopes.toList))
+      }
+    }
+
   /**
    * Hides any details of codec errors from the user.
    */
@@ -224,6 +247,23 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     combiner: Combiner[Input, A],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
     copy(input = self.input ++ codec)
+
+  /**
+   * Returns a new endpoint that requires the specified headers to be present.
+   */
+  def header[A](
+    name: String,
+  )(implicit schema: Schema[A], combiner: Combiner[Input, A]): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    header(HeaderCodec.headerAs[A](name))
+
+  /**
+   * Returns a new endpoint that requires the specified headers to be present.
+   */
+  def header[A](implicit
+    schema: Schema[A],
+    combiner: Combiner[Input, A],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    header(HeaderCodec.headers[A])
 
   def implement[Env](f: Input => ZIO[Env, Err, Output])(implicit
     trace: Trace,
@@ -285,6 +325,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
       case AuthType.Or(auth1, auth2, _) =>
         authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
+      case AuthType.ScopedAuth(auth, _) =>
+        authCodec(auth)
     }
 
     val maybeUnauthedResponse = authType.asInstanceOf[AuthType] match {
@@ -672,6 +714,25 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(output = self.output ++ codec)
 
   /**
+   * Returns a new endpoint that requires the specified headers to be part of
+   * the response.
+   */
+  def outHeader[A](
+    name: String,
+  )(implicit schema: Schema[A], combiner: Combiner[Output, A]): Endpoint[PathInput, Input, Err, combiner.Out, Auth] =
+    outHeader(HeaderCodec.headerAs[A](name))
+
+  /**
+   * Returns a new endpoint that requires the specified headers to be part of
+   * the response.
+   */
+  def outHeader[A](implicit
+    schema: Schema[A],
+    combiner: Combiner[Output, A],
+  ): Endpoint[PathInput, Input, Err, combiner.Out, Auth] =
+    outHeader(HeaderCodec.headers[A])
+
+  /**
    * Returns a new endpoint derived from this one, whose output type is a stream
    * of the specified type for the ok status code.
    */
@@ -804,6 +865,23 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     combiner: Combiner[Input, A],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
     copy(input = self.input ++ codec)
+
+  /**
+   * Returns a new endpoint that requires the specified query.
+   */
+  def query[A](
+    name: String,
+  )(implicit schema: Schema[A], combiner: Combiner[Input, A]): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = self.input ++ QueryCodec.query[A](name))
+
+  /**
+   * Returns a new endpoint that requires the specified query.
+   */
+  def query[A](implicit
+    schema: Schema[A],
+    combiner: Combiner[Input, A],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = self.input ++ QueryCodec.query[A])
 
   /**
    * Adds tags to the endpoint. They are used for documentation generation. For

@@ -61,6 +61,12 @@ final case class Request(
 
   def addLeadingSlash: Request = self.copy(url = url.addLeadingSlash)
 
+  def addCookie(cookie: Cookie.Request) =
+    updateHeaders(_.addHeader(Header.Cookie(NonEmptyChunk(cookie))))
+
+  def addCookies(cookie: Cookie.Request, cookies: Cookie.Request*) =
+    updateHeaders(_.addHeader(Header.Cookie(NonEmptyChunk(cookie, cookies: _*))))
+
   /**
    * Add trailing slash to the path.
    */
