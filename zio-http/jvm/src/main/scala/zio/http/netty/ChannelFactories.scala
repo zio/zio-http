@@ -63,9 +63,17 @@ private[netty] object ChannelFactories {
   }
 
   object Client {
-    def nio(implicit trace: Trace)      = clientChannel(new NioSocketChannel())
-    def epoll(implicit trace: Trace)    = clientChannel(new EpollSocketChannel())
-    def kqueue(implicit trace: Trace)   = clientChannel(new KQueueSocketChannel())
+    def nio(implicit trace: Trace)    = clientChannel(new NioSocketChannel())
+    def epoll(implicit trace: Trace)  = clientChannel(new EpollSocketChannel())
+    def kqueue(implicit trace: Trace) = clientChannel(new KQueueSocketChannel())
+
+    /**
+     * Note using URING is experimental and requires explicit dependency on:
+     * netty-incubator-transport-native-io_uring
+     *
+     * @param trace
+     * @return
+     */
     def uring(implicit trace: Trace)    = clientChannel(new IOUringSocketChannel())
     def embedded(implicit trace: Trace) = clientChannel(new EmbeddedChannel(false, false))
 

@@ -33,7 +33,7 @@ object Dependencies {
     )
 
   val `netty-incubator` =
-    "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
+    "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion % "provided" classifier "linux-x86_64"
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
