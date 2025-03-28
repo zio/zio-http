@@ -20,7 +20,8 @@ import zio.http.codec.HttpCodecType.Content
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
-import zio.http.endpoint.openapi.OpenAPI.{Path, PathItem}
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
+import zio.http.endpoint.openapi.OpenAPI.{Key, Path, PathItem, ReferenceOr, SecurityScheme}
 import zio.http.internal.StringSchemaCodec
 
 object OpenAPIGen {
@@ -659,7 +660,8 @@ object OpenAPIGen {
       val path           = buildPath(endpoint.input)
       val method0        = method(inAtoms.method)
       // Endpoint has only one doc. But open api has a summery and a description
-      val pathItem       = OpenAPI.PathItem.empty.copy(description = Some(endpoint.documentation).filter(!_.isEmpty))
+      val pathItem       = OpenAPI.PathItem.empty
+        .copy(description = Some(endpoint.documentation + endpoint.input.doc.getOrElse(Doc.empty)).filter(!_.isEmpty))
       val pathItemWithOp = method0 match {
         case Method.OPTIONS => pathItem.addOptions(operation(endpoint))
         case Method.GET     => pathItem.addGet(operation(endpoint))
@@ -701,7 +703,12 @@ object OpenAPIGen {
     }
 
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
-      val maybeDoc = Some(pathDoc).filter(!_.isEmpty)
+      val maybeDoc                               = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
+      val securityObj: List[SecurityRequirement] = endpoint.authType match {
+        case AuthType.ScopedAuth(auth, scopes) =>
+          List(SecurityRequirement(Map(auth.toString() -> scopes)))
+        case _                                 => Nil
+      }
       OpenAPI.Operation(
         tags = endpoint.tags,
         summary = None,
@@ -712,7 +719,7 @@ object OpenAPIGen {
         requestBody = requestBody,
         responses = responses,
         callbacks = Map.empty,
-        security = Nil,
+        security = securityObj,
         servers = Nil,
       )
     }
@@ -856,18 +863,6 @@ object OpenAPIGen {
       }
     }
 
-    def components = OpenAPI.Components(
-      schemas = ListMap(componentSchemas.toSeq.sortBy(_._1.name): _*),
-      responses = ListMap.empty,
-      parameters = ListMap.empty,
-      examples = ListMap.empty,
-      requestBodies = ListMap.empty,
-      headers = ListMap.empty,
-      securitySchemes = ListMap.empty,
-      links = ListMap.empty,
-      callbacks = ListMap.empty,
-    )
-
     def segmentToJson(codec: SegmentCodec[_], value: Any): Json = {
       codec match {
         case SegmentCodec.Empty             => throw new Exception("Empty segment not allowed")
@@ -951,6 +946,56 @@ object OpenAPIGen {
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(jsonSchemaFromCodec(codec).get))))
       }.flatten.toMap
 
+    val securityObj: List[SecurityRequirement] = endpoint.authType match {
+      case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+        List(
+          SecurityRequirement(
+            Map(endpoint.authType.toString() -> endpoint.scopes),
+          ),
+        )
+      case AuthType.ScopedAuth(auth, scopes)                  =>
+        List(SecurityRequirement(Map(auth.toString() -> scopes)))
+      case _                                                  => Nil
+    }
+
+    val securitySchemesObj: ListMap[Key, ReferenceOr[SecurityScheme]] = endpoint.authType match {
+      case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+        ListMap(
+          OpenAPI.Key.fromString(endpoint.authType.toString()).get ->
+            ReferenceOr.Or[SecurityScheme.Http](
+              SecurityScheme.Http(
+                scheme = endpoint.authType.toString(),
+                bearerFormat = None,
+                description = None,
+              ),
+            ),
+        )
+      case AuthType.ScopedAuth(auth, _)                       =>
+        ListMap(
+          OpenAPI.Key.fromString(auth.toString()).get ->
+            ReferenceOr.Or[SecurityScheme.Http](
+              SecurityScheme.Http(
+                scheme = auth.toString(),
+                bearerFormat = None,
+                description = None,
+              ),
+            ),
+        )
+      case _                                                  => ListMap.empty
+    }
+
+    def components = OpenAPI.Components(
+      schemas = ListMap(componentSchemas.toSeq.sortBy(_._1.name): _*),
+      responses = ListMap.empty,
+      parameters = ListMap.empty,
+      examples = ListMap.empty,
+      requestBodies = ListMap.empty,
+      headers = ListMap.empty,
+      securitySchemes = securitySchemesObj,
+      links = ListMap.empty,
+      callbacks = ListMap.empty,
+    )
+
     OpenAPI(
       "3.1.0",
       info = OpenAPI.Info(
@@ -964,7 +1009,7 @@ object OpenAPIGen {
       servers = Nil,
       paths = ListMap(path.toSeq.sortBy(_._1.name): _*),
       components = Some(components),
-      security = Nil,
+      security = securityObj,
       tags = Nil,
       externalDocs = None,
     )

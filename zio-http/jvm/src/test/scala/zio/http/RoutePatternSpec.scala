@@ -17,27 +17,29 @@
 package zio.http
 
 import java.util.UUID
+import javax.swing.plaf.metal.MetalIconFactory.TreeLeafIcon
 
-import zio.Chunk
 import zio.test._
 
+import zio.http.codec.Doc
 import zio.http.{int => _, uuid => _}
 
 object RoutePatternSpec extends ZIOHttpSpec {
-  import zio.http.Method
   import zio.http.RoutePattern._
 
   def tree     =
     suite("tree")(
       test("wildcard route") {
-        var tree: RoutePattern.Tree[Int] = RoutePattern.Tree.empty
+        var tree: RoutePattern.Tree[Any] = RoutePattern.Tree.empty
 
         val routePattern = RoutePattern.any
 
-        tree = tree.add(routePattern, 42)
+        val handler = Handler.ok
+
+        tree = tree.add(routePattern, handler)
 
         def check(method: Method, path: Path): TestResult =
-          assertTrue(tree.get(method, path) == Chunk(42))
+          assertTrue(tree.get(method, path) == handler)
 
         check(Method.GET, Path("")) &&
         check(Method.GET, Path("/")) &&
@@ -49,77 +51,51 @@ object RoutePatternSpec extends ZIOHttpSpec {
       test("wildcard method") {
         val routePattern = Method.ANY / "users"
 
-        var tree: RoutePattern.Tree[Unit] = RoutePattern.Tree.empty
+        var tree: RoutePattern.Tree[Any] = RoutePattern.Tree.empty
 
-        tree = tree.add(routePattern, ())
+        val handler = Handler.ok
+
+        tree = tree.add(routePattern, handler)
 
         assertTrue(
-          tree
-            .get(
-              Method.CUSTOM("foo"),
-              Path("/users"),
-            )
-            .nonEmpty,
-        ) &&
-        assertTrue(
-          tree
-            .get(
-              Method.GET,
-              Path("/users"),
-            )
-            .nonEmpty,
-        ) &&
-        assertTrue(
-          tree
-            .get(
-              Method.PUT,
-              Path("/users"),
-            )
-            .nonEmpty,
-        ) &&
-        assertTrue(
-          tree
-            .get(
-              Method.POST,
-              Path("/users"),
-            )
-            .nonEmpty,
-        ) && assertTrue(
-          tree
-            .get(
-              Method.DELETE,
-              Path("/users"),
-            )
-            .nonEmpty,
+          tree.get(Method.CUSTOM("foo"), Path("/users")) == handler,
+          tree.get(Method.GET, Path("/users")) == handler,
+          tree.get(Method.PUT, Path("/users")) == handler,
+          tree.get(Method.POST, Path("/users")) == handler,
+          tree.get(Method.DELETE, Path("/users")) == handler,
         )
       },
       test("empty tree") {
-        val tree = RoutePattern.Tree.empty
+        val tree = RoutePattern.Tree.empty[Any]
 
-        assertTrue(tree.get(Method.GET, Path("/")).isEmpty)
+        assertTrue(tree.get(Method.GET, Path("/")) == null)
       },
       test("xyz GET /users") {
-        var tree: Tree[Unit] = RoutePattern.Tree.empty
+        var tree: Tree[Any] = RoutePattern.Tree.empty
 
         val pattern = Method.GET / "users"
 
-        tree = tree.add(pattern, ())
+        val handler = Handler.ok
+
+        tree = tree.add(pattern, handler)
 
         assertTrue(
-          tree.get(Method.GET, Path("/users")).nonEmpty,
-          tree.get(Method.POST, Path("/users")).isEmpty,
+          tree.get(Method.GET, Path("/users")) == handler,
+          tree.get(Method.POST, Path("/users")) == null,
         )
       },
       test("GET /users/{user-id}/posts/{post-id}") {
-        var tree: Tree[Unit] = RoutePattern.Tree.empty
+        var tree: Tree[Any] = RoutePattern.Tree.empty
 
         val pattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
-        tree = tree.add(pattern, ())
+        val handler = Handler.ok
+
+        tree = tree.add(pattern, handler)
 
         assertTrue(
-          tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty,
-          tree.get(Method.GET, Path("/users/abc/posts/1")).isEmpty,
+          tree.get(Method.GET, Path("/users/1/posts/abc")) == handler,
+          tree.get(Method.GET, Path("/users/abc/posts/1")) == null,
         )
       },
       test("GET /users/{string-param}/{user-id:uuid} issue 3005") {
@@ -127,129 +103,127 @@ object RoutePatternSpec extends ZIOHttpSpec {
         val routePattern2 = Method.GET / "users" / string("param") / uuid("id") / "hello"
 
         val id              = UUID.randomUUID()
-        var tree: Tree[Int] = RoutePattern.Tree.empty
-        tree = tree.add(routePattern1, 1)
-        tree = tree.add(routePattern2, 2)
+        var tree: Tree[Any] = RoutePattern.Tree.empty
+        val handler1        = Handler.ok
+        val handler2        = Handler.notFound
+        tree = tree.add(routePattern1, handler1)
+        tree = tree.add(routePattern2, handler2)
 
         val p1 = Path(s"/users/some_value/abc/$id/hello")
         val p2 = Path(s"/users/some_value/$id/hello")
         assertTrue(
           routePattern1.decode(Method.GET, p1) == Right(("some_value", id)),
           routePattern2.decode(Method.GET, p2) == Right(("some_value", id)),
-          tree.get(Method.GET, p1).contains(1),
-          tree.get(Method.GET, p2).contains(2),
+          tree.get(Method.GET, p1) == handler1,
+          tree.get(Method.GET, p2) == handler2,
         )
       },
       suite("collisions properly resolved")(
         test("simple collision between literal and text segment i3036") {
-          val routes: Chunk[RoutePattern[_]] =
-            Chunk(Method.GET / "users" / "param1" / "fixed", Method.GET / "users" / string("param") / "dynamic")
-
-          var tree: Tree[Int] = RoutePattern.Tree.empty
-          routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
-            tree = tree.add(routePattern, idx)
-          }
+          val tree: Tree[Any] = Tree
+            .empty[Any]
+            .addAll(
+              List(
+                (Method.GET / "users" / "param1" / "fixed", Handler.ok),
+                (Method.GET / "users" / string("param") / "dynamic", Handler.notFound),
+              ),
+            )
 
           assertTrue(
-            tree.get(Method.GET, Path("/users/param1/fixed")).contains(1),
-            tree.get(Method.GET, Path("/users/param1/dynamic")).contains(2),
+            tree.get(Method.GET, Path("/users/param1/fixed")) == Handler.ok,
+            tree.get(Method.GET, Path("/users/param1/dynamic")) == Handler.notFound,
           )
         },
         test("two collisions between literal and text segment") {
-          val routes: Chunk[RoutePattern[_]] = Chunk(
-            Method.GET / "users" / "param1" / "literal1" / "p1" / "tail1",
-            Method.GET / "users" / "param1" / "literal1" / string("p2") / "tail2",
-            Method.GET / "users" / string("param") / "literal1" / "p1" / "tail3",
-            Method.GET / "users" / string("param") / "literal1" / string("p2") / "tail4",
-          )
-
-          var tree: Tree[Int] = RoutePattern.Tree.empty
-          routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
-            tree = tree.add(routePattern, idx)
-          }
+          val tree: Tree[Any] = Tree
+            .empty[Any]
+            .addAll(
+              List(
+                (Method.GET / "users" / "param1" / "literal1" / "p1" / "tail1", Handler.ok),
+                (Method.GET / "users" / "param1" / "literal1" / string("p2") / "tail2", Handler.notFound),
+                (Method.GET / "users" / string("param") / "literal1" / "p1" / "tail3", Handler.badRequest),
+                (Method.GET / "users" / string("param") / "literal1" / string("p2") / "tail4", Handler.tooLarge),
+              ),
+            )
 
           assertTrue(
-            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail1")).contains(1),
-            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail2")).contains(2),
-            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail3")).contains(3),
-            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail4")).contains(4),
+            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail1")) == Handler.ok,
+            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail2")) == Handler.notFound,
+            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail3")) == Handler.badRequest,
+            tree.get(Method.GET, Path("/users/param1/literal1/p1/tail4")) == Handler.tooLarge,
           )
         },
         test("collision where distinguish is by literal and int segment") {
-          val routes: Chunk[RoutePattern[_]] = Chunk(
-            Method.GET / "users" / "param1" / int("id"),
-            Method.GET / "users" / string("param") / "dynamic",
-          )
-
-          var tree: Tree[Int] = RoutePattern.Tree.empty
-          routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
-            tree = tree.add(routePattern, idx)
-          }
+          val tree: Tree[Any] = Tree
+            .empty[Any]
+            .addAll(
+              List(
+                (Method.GET / "users" / "param1" / int("id"), Handler.ok),
+                (Method.GET / "users" / string("param") / "dynamic", Handler.notFound),
+              ),
+            )
 
           val r1 = tree.get(Method.GET, Path("/users/param1/155"))
           val r2 = tree.get(Method.GET, Path("/users/param1/dynamic"))
 
           assertTrue(
-            r1.contains(1),
-            r2.contains(2),
+            r1 == Handler.ok,
+            r2 == Handler.notFound,
           )
         },
         test("collision where distinguish is by two not literal segments") {
-          val uuid1                          = new UUID(10, 10)
-          val routes: Chunk[RoutePattern[_]] = Chunk(
-            Method.GET / "users" / "param1" / int("id"),
-            Method.GET / "users" / string("param") / uuid("dynamic"),
-          )
-
-          var tree: Tree[Int] = RoutePattern.Tree.empty
-          routes.zipWithIndexFrom(1).foreach { case (routePattern, idx) =>
-            tree = tree.add(routePattern, idx)
-          }
-
-          val r2 = tree.get(Method.GET, Path(s"/users/param1/$uuid1"))
-          val r1 = tree.get(Method.GET, Path("/users/param1/155"))
+          val uuid1           = new UUID(10, 10)
+          val tree: Tree[Any] = Tree
+            .empty[Any]
+            .addAll(
+              List(
+                (Method.GET / "users" / "param1" / int("id"), Handler.ok),
+                (Method.GET / "users" / string("param") / uuid("dynamic"), Handler.notFound),
+              ),
+            )
+          val r2              = tree.get(Method.GET, Path(s"/users/param1/$uuid1"))
+          val r1              = tree.get(Method.GET, Path("/users/param1/155"))
 
           assertTrue(
-            r1.contains(1),
-            r2.contains(2),
+            r1 == Handler.ok,
+            r2 == Handler.notFound,
           )
         },
       ),
-      test("on conflict, first one wins") {
-        var tree: Tree[Int] = RoutePattern.Tree.empty
+      test("on conflict, last one wins") {
+        var tree: Tree[Any] = RoutePattern.Tree.empty
 
         val pattern1 = Method.GET / "users"
         val pattern2 = Method.GET / "users"
 
-        tree = tree.add(pattern1, 1)
-        tree = tree.add(pattern2, 2)
+        tree = tree.add(pattern1, Handler.ok)
+        tree = tree.add(pattern2, Handler.notFound)
 
-        assertTrue(tree.get(Method.GET, Path("/users")).contains(1))
+        assertTrue(tree.get(Method.GET, Path("/users")) == Handler.notFound)
       },
       test("on conflict, trailing loses") {
-        var tree: Tree[Int] = RoutePattern.Tree.empty
+        var tree: Tree[Any] = RoutePattern.Tree.empty
 
         val pattern1 = Method.GET / "users" / "123"
         val pattern2 = Method.GET / "users" / trailing / "123"
 
-        tree = tree.add(pattern2, 2)
-        println(tree.get(Method.GET, Path("/users/bla/123")))
-        tree = tree.add(pattern1, 1)
+        tree = tree.add(pattern2, Handler.ok)
+        tree = tree.add(pattern1, Handler.notFound)
 
-        assertTrue(tree.get(Method.GET, Path("/users/123")).contains(1))
+        tree.get(Method.GET, Path("/users/123"))(Request()).map(r => assertTrue(r.status == Status.NotFound))
       },
       test("more specific beats less specific") {
-        var tree: Tree[Int] = RoutePattern.Tree.empty
+        var tree: Tree[Any] = RoutePattern.Tree.empty
 
         val pattern1 = Method.ANY / "users"
         val pattern2 = Method.OPTIONS / "users"
         val pattern3 = Method.ANY / "users"
 
-        tree = tree.add(pattern1, 1)
-        tree = tree.add(pattern2, 2)
-        tree = tree.add(pattern3, 3)
+        tree = tree.add(pattern1, Handler.ok)
+        tree = tree.add(pattern2, Handler.notFound)
+        tree = tree.add(pattern3, Handler.badRequest)
 
-        assertTrue(tree.get(Method.OPTIONS, Path("/users")) == Chunk(2, 1, 3))
+        assertTrue(tree.get(Method.OPTIONS, Path("/users")) == Handler.notFound)
       },
       test("multiple routes") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
@@ -257,53 +231,51 @@ object RoutePatternSpec extends ZIOHttpSpec {
         val pattern1 = Method.GET / "users"
         val pattern2 = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
-        tree = tree.add(pattern1, ())
-        tree = tree.add(pattern2, ())
+        tree = tree.add(pattern1, Handler.ok)
+        tree = tree.add(pattern2, Handler.notFound)
 
-        assertTrue(tree.get(Method.GET, Path("/users")).nonEmpty) &&
-        assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty)
+        assertTrue(
+          tree.get(Method.GET, Path("/users")) == Handler.ok,
+          tree.get(Method.GET, Path("/users/1/posts/abc")) == Handler.notFound,
+        )
       },
       test("overlapping routes") {
-        var tree: Tree[Int] = RoutePattern.Tree.empty
+        var tree: Tree[Any] = RoutePattern.Tree.empty
 
         val pattern1 = Method.GET / "users" / int("user-id")
         val pattern2 = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
-        tree = tree.add(pattern1, 1)
-        tree = tree.add(pattern2, 2)
+        tree = tree.add(pattern1, Handler.ok)
+        tree = tree.add(pattern2, Handler.notFound)
 
-        assertTrue(tree.get(Method.GET, Path("/users/1")).contains(1)) &&
-        assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).contains(2))
+        assertTrue(
+          tree.get(Method.GET, Path("/users/1")) == Handler.ok,
+          tree.get(Method.GET, Path("/users/1/posts/abc")) == Handler.notFound,
+        )
       },
       test("get with prefix") {
-        var tree: Tree[Unit] = RoutePattern.Tree.empty
+        var tree: Tree[Any] = RoutePattern.Tree.empty
 
         val pattern = Method.GET / "users"
 
-        tree = tree.add(pattern, ())
+        tree = tree.add(pattern, Handler.ok)
 
         assertTrue(
-          tree.get(Method.GET, Path("/users/1")).isEmpty,
+          tree.get(Method.GET, Path("/users/1")) == null,
         )
       },
       test("trailing route pattern can handle all paths") {
-        var tree: Tree[Unit] = RoutePattern.Tree.empty
+        var tree: Tree[Any] = RoutePattern.Tree.empty
 
         val pattern = Method.GET / "users" / trailing
 
-        tree = tree.add(pattern, ())
+        tree = tree.add(pattern, Handler.ok)
 
         assertTrue(
-          tree.get(Method.GET, Path("/posts/")).isEmpty,
-        ) &&
-        assertTrue(
-          tree.get(Method.GET, Path("/users/1")).nonEmpty,
-        ) &&
-        assertTrue(
-          tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty,
-        ) &&
-        assertTrue(
-          tree.get(Method.GET, Path("/users/1/posts/abc/def")).nonEmpty,
+          tree.get(Method.GET, Path("/posts/")) == null,
+          tree.get(Method.GET, Path("/users/1")) == Handler.ok,
+          tree.get(Method.GET, Path("/users/1/posts/abc")) == Handler.ok,
+          tree.get(Method.GET, Path("/users/1/posts/abc/def")) == Handler.ok,
         )
       },
     )
@@ -316,8 +288,6 @@ object RoutePatternSpec extends ZIOHttpSpec {
 
           assertTrue(
             variant1.decode(Method.GET, Path("/")) == variant2.decode(Method.GET, Path("/")),
-          ) &&
-          assertTrue(
             variant1.decode(Method.GET, Path("/users")) == variant2.decode(Method.GET, Path("/users")),
           )
         },
@@ -352,27 +322,27 @@ object RoutePatternSpec extends ZIOHttpSpec {
             val routePattern = Method.ANY / "users"
 
             assertTrue(
-              routePattern.decode(
-                Method.GET,
-                Path("/users"),
-              ) == Right(()),
-            ) &&
-            assertTrue(
-              routePattern.decode(
-                Method.PUT,
-                Path("/users"),
-              ) == Right(()),
-            ) &&
-            assertTrue(
-              routePattern.decode(
-                Method.POST,
-                Path("/users"),
-              ) == Right(()),
-            ) && assertTrue(
-              routePattern.decode(
-                Method.DELETE,
-                Path("/users"),
-              ) == Right(()),
+              {
+                routePattern.decode(
+                  Method.GET,
+                  Path("/users"),
+                ) == Right(())
+              }, {
+                routePattern.decode(
+                  Method.PUT,
+                  Path("/users"),
+                ) == Right(())
+              }, {
+                routePattern.decode(
+                  Method.POST,
+                  Path("/users"),
+                ) == Right(())
+              }, {
+                routePattern.decode(
+                  Method.DELETE,
+                  Path("/users"),
+                ) == Right(())
+              },
             )
           },
           test("* ...") {
@@ -474,8 +444,6 @@ object RoutePatternSpec extends ZIOHttpSpec {
   def rendering =
     suite("rendering")(
       test("GET /users") {
-        import zio.http.Method
-
         assertTrue((Method.GET / "users").render == "GET /users")
       },
       test("GET /users/{user-id}/posts/{post-id}") {
@@ -497,11 +465,36 @@ object RoutePatternSpec extends ZIOHttpSpec {
       },
     )
 
+  def structureEquals = suite("structure equals")(
+    test("equals") {
+      val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
+
+      assertTrue(routePattern.structureEquals(routePattern))
+    },
+    test("equals with docs") {
+      val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
+
+      assertTrue(
+        routePattern.structureEquals(routePattern ?? Doc.p("docs")),
+      )
+    },
+    test("equals with mapping") {
+      val routePattern  = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
+      val routePattern1 =
+        Method.GET / "users" / int("user-id").transform(_.toString())(_.toInt) / "posts" / string("post-id")
+
+      assertTrue(
+        routePattern.structureEquals(routePattern1),
+      )
+    },
+  )
+
   def spec =
     suite("RoutePatternSpec")(
       decoding,
       rendering,
       formatting,
       tree,
+      structureEquals,
     )
 }

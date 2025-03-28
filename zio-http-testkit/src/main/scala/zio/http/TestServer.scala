@@ -98,7 +98,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       _ <- driver.addApp(provided, r)
     } yield ()
 
-  override def install[R](routes: Routes[R, Response])(implicit
+  override private[http] def installInternal[R](routes: Routes[R, Response])(implicit
     trace: zio.Trace,
     tag: EnvironmentTag[R],
   ): URIO[R, Unit] =
@@ -139,7 +139,7 @@ object TestServer {
       } yield TestServer(driver, result.port)
     }
 
-  val default: ZLayer[Any, Nothing, Server with TestServer] = ZLayer.make[Server with TestServer][Nothing](
+  val default: ZLayer[Any, Nothing, TestServer] = ZLayer.make[TestServer][Nothing](
     TestServer.layer.orDie,
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     NettyDriver.customized.orDie,

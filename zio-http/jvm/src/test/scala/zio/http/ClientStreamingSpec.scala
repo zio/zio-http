@@ -319,7 +319,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
     for {
       portPromise <- Promise.make[Throwable, Int]
       _           <- Server
-        .install(app)
+        .installRoutes(app)
         .intoPromise(portPromise)
         .zipRight(ZIO.never)
         .provide(

@@ -230,6 +230,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
+  private val endpointWithAuthScopes =
+    Endpoint(GET / "withAuthScopes").auth(AuthType.Bearer).scopes("read", "write")
+
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
 
@@ -257,6 +260,64 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("auth scopes to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth", "1.0", endpointWithAuthScopes)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Endpoint with Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withAuthScopes": {
+                             |      "get": {
+                             |        "security": [
+                             |          {
+                             |            "Bearer": ["read", "write"]
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "Bearer": {
+                             |        "type": "http",
+                             |        "scheme": "Bearer"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "Bearer": ["read", "write"]
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("endpoint documentation") {
+        val genericEndpoint = Endpoint(GET / "users") ?? Doc.p("Get all users")
+        val generated       = OpenAPIGen.fromEndpoints("Generic Endpoint", "1.0", genericEndpoint)
+        val json            = toJsonAst(generated)
+        val expectedJson    = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Generic Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/users" : {
+                             |      "description" : "Get all users\n\n",
+                             |      "get" : {
+                             |        "description" : "Get all users\n\n"
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {}
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
       test("simple endpoint to OpenAPI") {
         val generated    = OpenAPIGen.fromEndpoints(
           "Simple Endpoint",
@@ -278,7 +339,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "simple",
                              |          "endpoint"
                              |        ],
-                             |        "description" : "get path\n\n",
+                             |        "description" : "some extra doc\n\nget path\n\n- simple\n- endpoint\n",
                              |        "parameters" : [
                              |          {
                              |            "name" : "id",

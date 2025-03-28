@@ -107,14 +107,14 @@ abstract class RoutesRunnableSpec extends ZIOHttpSpec { self =>
       server <- ZIO.service[Server]
       ds     <- ZIO.service[DynamicServer]
       handler = DynamicServer.handler(ds)
-      port <- Server.install(handler.toRoutes)
+      port <- Server.installRoutes(handler.toRoutes)
       _    <- DynamicServer.setStart(server)
     } yield port
 
   def serve[R: EnvironmentTag](routes: Routes[R, Response]): ZIO[R with DynamicServer with Server, Nothing, Int] =
     for {
       server <- ZIO.service[Server]
-      port   <- Server.install(routes)
+      port   <- Server.installRoutes(routes)
       _      <- DynamicServer.setStart(server)
     } yield port
 
