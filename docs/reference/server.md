@@ -118,6 +118,96 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/HttpsHelloWorld.scala")
 ```
 
+## Configuring SSL via JKS
+
+Server SSL can be configured to with a JKS Keystore for standard SSL or, additionally, with an `jks` truststore.
+Java Keystores and Truststores can have a password, this is also supported by the configuration.
+
+### Configuring Server SSL Keystore
+
+For example if your keystore is stored in the `resources` folder in the path
+`jks_keystore_truststore/server_keystore_with_pass.jks` and password `123456` you would load it as follows.
+
+(This goes without saying that passwords should be obtained safely and not hardcoded):
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.Config.Secret
+
+val serverKeyStoreJKSWithPass = "jks_keystore_truststore/server_keystore_with_pass.jks"
+val password                  = Secret("123456")
+val sslConfig                 = SSLConfig.fromJavaxNetSslKeyStoreResource(serverKeyStoreJKSWithPass, password)
+val config                    = Server.Config.default.port(8073).ssl(sslConfig)
+```
+
+Similarly, you would create a keystore from any file path using the method `SSLConfig.fromJavaxNetSslKeyStoreFile`:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.Config.Secret
+
+val serverKeyStoreJKSWithPass = "jks_keystore_truststore/server_keystore_with_pass.jks"
+val password                  = Secret("123456")
+val sslConfig                 = SSLConfig.fromJavaxNetSslKeyStoreFile(serverKeyStoreJKSWithPass, password)
+val config                    = Server.Config.default.port(8073).ssl(sslConfig)
+```
+
+### Configuring Server SSL JKS Truststore
+
+You can configure a truststore to achieve mutual SSL where a server trusts strictly specific clients:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.Config.Secret
+import zio.http.SSLConfig.Data.TrustManagerKeyStore
+
+val serverJKSKeyStoreWithPass   = "jks_keystore_truststore/server_keystore_with_pass.jks"
+val serverJKSTrustStoreWithPass = "jks_keystore_truststore/server_truststore_with_pass.jks"
+val password                    = Secret("123456")
+
+val serverSSLNettyConfig = SSLConfig.fromJavaxNetSslKeyStoreResource(
+  keyManagerResource = serverJKSKeyStoreWithPass,
+  keyManagerPassword = Some(password),
+  trustManagerKeyStore = Some(
+    TrustManagerKeyStore
+      .fromResource(serverJKSTrustStoreWithPass)
+      .build()
+      .trustManagerPassword(password),
+  ),
+  // strict mutual tls -- server accepts only client certificates in its truststore
+  clientAuth = Some(ClientAuth.Required),
+)
+val config               = Server.Config.default.port(8073).ssl(serverSSLNettyConfig)
+```
+
+Similarly, methods are provided for file paths not in the `resources` path:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.Config.Secret
+import zio.http.SSLConfig.Data.TrustManagerKeyStore
+
+val serverJKSKeyStoreWithPass   = "jks_keystore_truststore/server_keystore_with_pass.jks"
+val serverJKSTrustStoreWithPass = "jks_keystore_truststore/server_truststore_with_pass.jks"
+val password                    = Secret("123456")
+
+val serverSSLNettyConfig = SSLConfig.fromJavaxNetSslKeyStoreFile(
+  keyManagerFile = serverJKSKeyStoreWithPass,
+  keyManagerPassword = Some(password),
+  trustManagerKeyStore = Some(
+    TrustManagerKeyStore
+      .fromFile(serverJKSTrustStoreWithPass)
+      .build()
+      .trustManagerPassword(password),
+  ),
+  // strict mutual tls -- server accepts only client certificates in its truststore
+  clientAuth = Some(ClientAuth.Required),
+)
+```
+
+For full examples that create testing JKS secrets for simple and mutual TLS, look at the tests:
+`ServerJKSKeyStoreSSLSpec.scala` and `ServerClientJKSMutualSSLSpec.scala`.
+
 ## Binding to Specific Host and Port
 
 By default, the server binds to the `0.0.0.0` address and listens on port `8080`. We can customize the address and port using the `Server.Config#binding` methods, for example:
@@ -651,7 +741,7 @@ The companion object of `NettyConfig` class provides a default configuration tha
 ```scala mdoc:compile-only
 import zio.http.netty._
 
-val nettyConfig = NettyConfig.default.channelType(ChannelType.URING)
+val nettyConfig = NettyConfig.default.channelType(ChannelType.EPOLL)
 ```
 
 Let's try an example server with a custom Netty configuration:
@@ -660,4 +750,22 @@ Let's try an example server with a custom Netty configuration:
 import utils._
 
 printSource("zio-http-example/src/main/scala/example/HelloWorldAdvanced.scala")
+```
+
+## Optional (incubator) Netty transport types (URING)
+Some optional/experimental netty channel type configurations may require additional libraries on the classpath. These libraries are not provided by default to prevent unintentional discovery and use by other Netty based libraries which are known choose channel types based purely on what's on the classpath. Currently the only such transport type is URING.
+
+On linux-x86_64 platforms if you decide to use URING channel type then you can do as follows:
+
+In SBT you will need to explicitly add the [incubator library](https://github.com/netty/netty-incubator-transport-io_uring) to your project's dependencies:
+```
+libraryDependencies += "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % "x.x.x"
+```
+
+Then you can provide this NettyConfig:
+
+```scala mdoc:compile-only
+import zio.http.netty._
+
+val nettyConfig = NettyConfig.default.channelType(ChannelType.URING)
 ```

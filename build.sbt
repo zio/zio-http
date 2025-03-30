@@ -253,8 +253,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.19",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.19",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.20",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.20",
       "com.softwaremill.sttp.client3" %% "core"                % "3.10.3",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -347,7 +347,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.17",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.30.0"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.30.2"  % "protobuf",
     ),
   )
   .settings(
@@ -371,7 +371,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.30.0"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.30.2"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
     ),
     Compile / run / fork := true,
@@ -432,7 +432,7 @@ lazy val docs = project
       "ZIO_CONFIG_VERSION" -> ZioConfigVersion,
     ),
   )
-  .dependsOn(zioHttpJVM)
+  .dependsOn(zioHttpJVM, zioHttpGen)
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioHttpTestkit)
 

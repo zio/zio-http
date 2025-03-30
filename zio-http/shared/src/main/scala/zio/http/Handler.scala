@@ -724,7 +724,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   /**
    * Creates a handler which always responds with a 400 status code.
    */
-  def badRequest: Handler[Any, Nothing, Any, Response] =
+  val badRequest: Handler[Any, Nothing, Any, Response] =
     error(Status.BadRequest)
 
   /**
@@ -1025,7 +1025,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   /**
    * Creates a handler that fails with a NotFound exception.
    */
-  def notFound: Handler[Any, Nothing, Request, Response] =
+  val notFound: Handler[Any, Nothing, Request, Response] =
     Handler
       .fromFunctionHandler[Request] { request =>
         error(Status.NotFound, request.url.path.encode)
@@ -1049,7 +1049,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   /**
    * Creates a handler which always responds with a 200 status code.
    */
-  def ok: Handler[Any, Nothing, Any, Response] =
+  val ok: Handler[Any, Nothing, Any, Response] =
     status(Status.Ok)
 
   /**
@@ -1116,7 +1116,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   /**
    * Creates a handler which always responds with a 413 status code.
    */
-  def tooLarge: Handler[Any, Nothing, Any, Response] =
+  val tooLarge: Handler[Any, Nothing, Any, Response] =
     Handler.status(Status.RequestEntityTooLarge)
 
   val unit: Handler[Any, Nothing, Any, Unit] =

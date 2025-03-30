@@ -7,7 +7,7 @@ object Dependencies {
   val ScalaCompatCollectionVersion = "2.13.0"
   val ZioVersion                   = "2.1.16"
   val ZioCliVersion                = "0.7.1"
-  val ZioJsonVersion               = "0.7.38"
+  val ZioJsonVersion               = "0.7.39"
   val ZioParserVersion             = "0.1.10"
   val ZioSchemaVersion             = "1.6.6"
   val SttpVersion                  = "3.3.18"
@@ -33,7 +33,7 @@ object Dependencies {
     )
 
   val `netty-incubator` =
-    "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
+    "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion % "provided" classifier "linux-x86_64"
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
