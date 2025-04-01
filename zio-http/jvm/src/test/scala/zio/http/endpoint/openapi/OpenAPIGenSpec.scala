@@ -233,6 +233,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   private val endpointWithAuthScopes =
     Endpoint(GET / "withAuthScopes").auth(AuthType.Bearer).scopes("read", "write")
 
+  private val endpointWithAuth = Endpoint(GET / "withAuth").auth(AuthType.Bearer)
+
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
 
@@ -261,7 +263,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
         assertTrue(json == toJsonAst(expectedJson))
       },
       test("auth with no scopes to OpenAPI") {
-        val endpointWithAuth = Endpoint(GET / "withAuth").auth(AuthType.Bearer)
         val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth", "1.0", endpointWithAuth)
         val json         = toJsonAst(generated)
         val expectedJson = """{
