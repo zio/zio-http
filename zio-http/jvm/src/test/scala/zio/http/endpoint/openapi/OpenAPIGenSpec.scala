@@ -260,6 +260,43 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("auth with no scopes to OpenAPI") {
+        val endpointWithAuth = Endpoint(GET / "withAuth").auth(AuthType.Bearer)
+        val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth", "1.0", endpointWithAuth)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Endpoint with Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withAuth": {
+                             |      "get": {
+                             |        "security": [
+                             |          {
+                             |            "Bearer": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "Bearer": {
+                             |        "type": "http",
+                             |        "scheme": "Bearer"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "Bearer": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
       test("auth scopes to OpenAPI") {
         val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth", "1.0", endpointWithAuthScopes)
         val json         = toJsonAst(generated)
