@@ -218,7 +218,7 @@ private[http] trait StringSchemaCodec[A, Target] {
             target0 = addAll(target0, values.map { v => (name, codec.encode(v)) })
           case _                   =>
             val encoded = codec.encode(value)
-            target0 = add(target0, name, encoded)
+            if (encoded != null) target0 = add(target0, name, encoded)
         }
       }
       target0
