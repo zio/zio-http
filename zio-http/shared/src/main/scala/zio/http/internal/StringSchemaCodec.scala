@@ -152,7 +152,7 @@ private[http] trait StringSchemaCodec[A, Target] {
           val count0  = count(target, field.fieldName)
           if (count0 > 1) throw error.invalidCount(field.fieldName, 1, count0)
           val value   = {
-            if (contains(target,field.fieldName))
+            if (contains(target, field.fieldName))
               unsafeGet(target, field.fieldName)
             else
               null

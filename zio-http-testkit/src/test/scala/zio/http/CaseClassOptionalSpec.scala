@@ -1,25 +1,27 @@
 package zio.http
 
+import zio.json._
+import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{&, Scope, ZIO, ZLayer, ZNothing}
+
+import zio.schema.annotation.optionalField
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http.endpoint.{AuthType, Endpoint}
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
-import zio.schema.annotation.optionalField
-import zio.schema.{DeriveSchema, Schema}
-import zio.json._
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
 object CaseClassOptionalSpec extends ZIOSpecDefault {
   final case class Params(
-                          @optionalField
-                          test1: Option[String],
-                          @optionalField
-                          test2: Option[String],
-                          @optionalField
-                          test3: Option[Int]
-                        )
-  implicit val params: Schema[Params] = DeriveSchema.gen[Params]
-  implicit val jsonCodec: JsonCodec[Params] = DeriveJsonCodec.gen[Params]
+    @optionalField
+    test1: Option[String],
+    @optionalField
+    test2: Option[String],
+    @optionalField
+    test3: Option[Int],
+  )
+  implicit val params: Schema[Params]                                   = DeriveSchema.gen[Params]
+  implicit val jsonCodec: JsonCodec[Params]                             = DeriveJsonCodec.gen[Params]
   val endpoint: Endpoint[Unit, Params, ZNothing, Params, AuthType.None] =
     Endpoint(RoutePattern.GET / "api").query[Params].out[Params]
 
@@ -50,7 +52,4 @@ object CaseClassOptionalSpec extends ZIOSpecDefault {
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
     )
 
-
 }
-
-

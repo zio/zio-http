@@ -1,22 +1,25 @@
 package zio.http.endpoint.http
 
 import java.net.URI
+
 import zio.test._
+
 import zio.schema._
+import zio.schema.annotation.{fieldDefaultValue, optionalField}
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.schema.annotation.{fieldDefaultValue, optionalField}
 
 object HttpGenSpec extends ZIOSpecDefault {
   final case class QueryParams(
-                          @optionalField
-                          test1: Option[String],
-                          @optionalField
-                          test2: Option[String],
-                          @optionalField
-                          test3: Option[Int]
-                        )
+    @optionalField
+    test1: Option[String],
+    @optionalField
+    test2: Option[String],
+    @optionalField
+    test3: Option[Int],
+  )
   object QueryParams {
     implicit val schema: Schema[QueryParams] = DeriveSchema.gen[QueryParams]
   }
@@ -62,7 +65,6 @@ object HttpGenSpec extends ZIOSpecDefault {
           |GET /api/foo?userId={{userId}}""".stripMargin
       assertTrue(rendered == expected)
     },
-
     test("Path with optional query parameters using a case class") {
       val endpoint     = Endpoint(Method.GET / "api" / "foo").query[QueryParams]
       val httpEndpoint = HttpGen.fromEndpoint(endpoint)
