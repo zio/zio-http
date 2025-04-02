@@ -151,7 +151,12 @@ private[http] trait StringSchemaCodec[A, Target] {
         case (field, codec)                                                       =>
           val count0  = count(target, field.fieldName)
           if (count0 > 1) throw error.invalidCount(field.fieldName, 1, count0)
-          val value   = unsafeGet(target, field.fieldName)
+          val value   = {
+            if (contains(target,field.fieldName))
+              unsafeGet(target, field.fieldName)
+            else
+              null
+          }
           val decoded = {
             if (value == null || (value == "" && !emptyStringIsValue(codec.schema) && codec.isOptional))
               codec.defaultValue

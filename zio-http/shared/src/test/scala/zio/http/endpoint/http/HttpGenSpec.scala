@@ -1,16 +1,26 @@
 package zio.http.endpoint.http
 
 import java.net.URI
-
 import zio.test._
-
 import zio.schema._
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
+import zio.schema.annotation.{fieldDefaultValue, optionalField}
 
 object HttpGenSpec extends ZIOSpecDefault {
+  final case class QueryParams(
+                          @optionalField
+                          test1: Option[String],
+                          @optionalField
+                          test2: Option[String],
+                          @optionalField
+                          test3: Option[Int]
+                        )
+  object QueryParams {
+    implicit val schema: Schema[QueryParams] = DeriveSchema.gen[QueryParams]
+  }
+
   case class User(name: String, age: Int)
 
   object User {
@@ -52,6 +62,20 @@ object HttpGenSpec extends ZIOSpecDefault {
           |GET /api/foo?userId={{userId}}""".stripMargin
       assertTrue(rendered == expected)
     },
+
+    test("Path with optional query parameters using a case class") {
+      val endpoint     = Endpoint(Method.GET / "api" / "foo").query[QueryParams]
+      val httpEndpoint = HttpGen.fromEndpoint(endpoint)
+      val rendered     = httpEndpoint.render
+      val expected     =
+        """
+          |@test1=<no value>
+          |@test2=<no value>
+          |@test3=<no value>
+          |
+          |GET /api/foo?test1={{test1}}&test2={{test2}}&test3={{test3}}""".stripMargin
+      assertTrue(rendered == expected)
+    },
     test("Path with path and query parameters") {
       val endpoint     = Endpoint(Method.GET / "api" / "foo" / int("pageId")).query[Int](HttpCodec.query[Int]("userId"))
       val httpEndpoint = HttpGen.fromEndpoint(endpoint)
@@ -65,6 +89,17 @@ object HttpGenSpec extends ZIOSpecDefault {
       assertTrue(rendered == expected)
     },
     test("Path with path and query parameter with the same name") {
+      val endpoint     = Endpoint(Method.GET / "api" / "foo" / int("userId")).query[Int](HttpCodec.query[Int]("userId"))
+      val httpEndpoint = HttpGen.fromEndpoint(endpoint)
+      val rendered     = httpEndpoint.render
+      val expected     =
+        """
+          |@userId=<no value>
+          |
+          |GET /api/foo/{{userId}}?userId={{userId}}""".stripMargin
+      assertTrue(rendered == expected)
+    },
+    test("Path with path and query parameters with the same name") {
       val endpoint     = Endpoint(Method.GET / "api" / "foo" / int("userId")).query[Int](HttpCodec.query[Int]("userId"))
       val httpEndpoint = HttpGen.fromEndpoint(endpoint)
       val rendered     = httpEndpoint.render
