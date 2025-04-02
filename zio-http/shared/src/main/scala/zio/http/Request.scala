@@ -18,7 +18,9 @@ package zio.http
 
 import java.net.InetAddress
 import java.security.cert.Certificate
+
 import zio._
+
 import zio.http.internal.{HeaderOps, QueryOps}
 
 final case class Request(
@@ -60,7 +62,7 @@ final case class Request(
   def addLeadingSlash: Request = self.copy(url = url.addLeadingSlash)
 
   def addCookie(cookie: Cookie.Request) = {
-    //self.copy(headers = headers ++ Headers(Header.Cookie(NonEmptyChunk(cookie))))
+    // self.copy(headers = headers ++ Headers(Header.Cookie(NonEmptyChunk(cookie))))
 
     updateHeaders(_.addHeader(Header.Cookie(NonEmptyChunk(cookie))))
   }
