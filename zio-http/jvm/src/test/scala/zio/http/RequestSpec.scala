@@ -17,8 +17,7 @@
 package zio.http
 
 import zio.test._
-import zio.{Chunk, Ref, Scope}
-
+import zio.{Chunk, NonEmptyChunk, Ref, Scope}
 import zio.stream.ZStream
 
 object RequestSpec extends ZIOHttpSpec {
@@ -156,6 +155,35 @@ object RequestSpec extends ZIOHttpSpec {
         assertTrue(request.url.queryParams == expectedParams)
       },
     ),
+    suite("addCookie") (
+      test("add cookie to request") {
+        val c1 = Cookie.Request("n1", "c1")
+        val c2 = Cookie.Request("n2", "c2")
+
+        val request =
+          Request
+            .get(URL.root)
+            .addCookie(c1)
+            .addCookie(c2)
+
+        assertTrue(request.cookies == Chunk(c1, c2))
+      },
+      test("add cookies to request") {
+        val c1 = Cookie.Request("n1", "c1")
+        val c2 = Cookie.Request("n2", "c2")
+        val c3 = Cookie.Request("n3", "c3")
+        val c4 = Cookie.Request("n4", "c4")
+
+        val request =
+          Request
+            .get(URL.root)
+            .addCookie(c1)
+            .addCookie(c2)
+            .addCookies(c3, c4)
+
+        assertTrue(request.cookies == Chunk(c1, c2, c3, c4))
+      },
+    )
   )
 
 }

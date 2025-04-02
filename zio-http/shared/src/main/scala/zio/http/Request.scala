@@ -18,9 +18,7 @@ package zio.http
 
 import java.net.InetAddress
 import java.security.cert.Certificate
-
 import zio._
-
 import zio.http.internal.{HeaderOps, QueryOps}
 
 final case class Request(
@@ -61,8 +59,11 @@ final case class Request(
 
   def addLeadingSlash: Request = self.copy(url = url.addLeadingSlash)
 
-  def addCookie(cookie: Cookie.Request) =
+  def addCookie(cookie: Cookie.Request) = {
+    //self.copy(headers = headers ++ Headers(Header.Cookie(NonEmptyChunk(cookie))))
+
     updateHeaders(_.addHeader(Header.Cookie(NonEmptyChunk(cookie))))
+  }
 
   def addCookies(cookie: Cookie.Request, cookies: Cookie.Request*) =
     updateHeaders(_.addHeader(Header.Cookie(NonEmptyChunk(cookie, cookies: _*))))
@@ -188,7 +189,7 @@ final case class Request(
    * Returns all cookies from the request.
    */
   def cookies: Chunk[Cookie] =
-    header(Header.Cookie).fold(Chunk.empty[Cookie])(_.value.toChunk)
+    headers(Header.Cookie).flatMap(_.value)
 
   /**
    * Returns an `A` if it exists from the cookie-based flash-scope.

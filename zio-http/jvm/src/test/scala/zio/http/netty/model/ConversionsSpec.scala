@@ -31,13 +31,24 @@ object ConversionsSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Netty conversions")(
       suite("headers")(
-        test("should encode multiple cookie headers as two separate headers") {
+        test("should encode multiple set-cookie headers as two separate headers") {
           val cookieHeaders = Headers(Header.SetCookie.name, "x1") ++ Headers(Header.SetCookie.name, "x2")
           val result        = Conversions.headersToNetty(cookieHeaders).entries().size()
           assertTrue(result == 2)
         },
-        test("should encode multiple cookie headers as two separate headers also if other headers are present") {
+        test("should encode multiple set-cookie headers as two separate headers also if other headers are present") {
           val cookieHeaders = Headers(Header.SetCookie.name, "x1") ++ Headers(Header.SetCookie.name, "x2")
+          val otherHeaders  = Headers(Header.ContentType.name, "application/json")
+          val result        = Conversions.headersToNetty(otherHeaders ++ cookieHeaders).entries().size()
+          assertTrue(result == 3)
+        },
+        test("should encode multiple cookie headers as two separate headers") {
+          val cookieHeaders = Headers(Header.Cookie.name, "x1") ++ Headers(Header.Cookie.name, "x2")
+          val result        = Conversions.headersToNetty(cookieHeaders).entries().size()
+          assertTrue(result == 2)
+        },
+        test("should encode multiple cookie headers as two separate headers also if other headers are present") {
+          val cookieHeaders = Headers(Header.Cookie.name, "x1") ++ Headers(Header.Cookie.name, "x2")
           val otherHeaders  = Headers(Header.ContentType.name, "application/json")
           val result        = Conversions.headersToNetty(otherHeaders ++ cookieHeaders).entries().size()
           assertTrue(result == 3)
