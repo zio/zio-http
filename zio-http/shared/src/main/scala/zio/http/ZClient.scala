@@ -16,16 +16,14 @@
 
 package zio.http
 
-import java.net.{InetSocketAddress, URI}
-
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import zio.stream.ZStream
-
 import zio.http.Header.UserAgent
 import zio.http.URL.Location
 import zio.http.internal._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stream.ZStream
+
+import java.net.{InetSocketAddress, URI}
 
 final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   version: Version,
@@ -202,11 +200,6 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       .encode(body)
       .flatMap(body => bodyDecoder.decodeZIO[Env & ReqEnv, Err](requestRaw(method, suffix, body)))
 
-  private def requestRaw(method: Method, suffix: String, body: Body)(implicit
-    trace: Trace,
-  ): ZIO[Env & ReqEnv, Err, Response] =
-    driver.request(version, method, if (suffix.nonEmpty) url.addPath(suffix) else url, headers, body, sslConfig, proxy)
-
   def retry[Env1 <: Env](policy: Schedule[Env1, Err, Any]): ZClient[Env1, ReqEnv, In, Err, Out] =
     transform[Env1, ReqEnv, In, Err, Out](bodyEncoder, bodyDecoder, self.driver.retry(policy))
 
@@ -267,9 +260,22 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   def url(url: URL): ZClient[Env, ReqEnv, In, Err, Out] = copy(url = url)
 
   def updateURL(f: URL => URL): ZClient[Env, ReqEnv, In, Err, Out] = copy(url = f(url))
+
+  private def requestRaw(method: Method, suffix: String, body: Body)(implicit
+    trace: Trace,
+  ): ZIO[Env & ReqEnv, Err, Response] =
+    driver.request(version, method, if (suffix.nonEmpty) url.addPath(suffix) else url, headers, body, sslConfig, proxy)
 }
 
 object ZClient extends ZClientPlatformSpecific {
+
+  lazy val defaultUAHeader: UserAgent = UserAgent(
+    UserAgent.ProductOrComment.Product("Zio-Http-Client", zioHttpVersionNormalized),
+    List(UserAgent.ProductOrComment.Comment(s"Scala $scalaVersion")),
+  )
+  private val zioHttpVersion: String                   = BuildInfo.version
+  private val zioHttpVersionNormalized: Option[String] = Option(zioHttpVersion)
+  private val scalaVersion: String    = BuildInfo.scalaVersion
 
   /**
    * Executes an HTTP request and extracts the response
@@ -364,18 +370,7 @@ object ZClient extends ZClientPlatformSpecific {
     final def widenError[E1](implicit ev: Err <:< E1): BodyDecoder[Env, E1, Out] =
       self.asInstanceOf[BodyDecoder[Env, E1, Out]]
   }
-  object BodyDecoder                  {
-    val identity: BodyDecoder[Any, Nothing, Response] =
-      new BodyDecoder[Any, Nothing, Response] {
-        final def decode(response: Response)(implicit trace: Trace): ZIO[Any, Nothing, Response] =
-          Exit.succeed(response)
 
-        override def decodeZIO[Env1 <: Any, Err1 >: Nothing](
-          zio: ZIO[Env1, Err1, Response],
-        )(implicit trace: Trace): ZIO[Env1, Err1, Response] =
-          zio
-      }
-  }
   trait BodyEncoder[-Env, +Err, -In]  { self =>
     final def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): BodyEncoder[Env1, Err1, In2] =
       new BodyEncoder[Env1, Err1, In2] {
@@ -398,12 +393,6 @@ object ZClient extends ZClientPlatformSpecific {
 
     final def widenError[E1](implicit ev: Err <:< E1): BodyEncoder[Env, E1, In] =
       self.asInstanceOf[BodyEncoder[Env, E1, In]]
-  }
-  object BodyEncoder                  {
-    val identity: BodyEncoder[Any, Nothing, Body] =
-      new BodyEncoder[Any, Nothing, Body] {
-        def encode(body: Body)(implicit trace: Trace): ZIO[Any, Nothing, Body] = Exit.succeed(body)
-      }
   }
 
   trait Driver[-Env, ReqEnv, +Err] { self =>
@@ -582,58 +571,6 @@ object ZClient extends ZClientPlatformSpecific {
       self.copy(webSocketConfig = webSocketConfig)
   }
 
-  object Config {
-    def config: zio.Config[Config] =
-      (
-        ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++
-          zio.http.Proxy.config.nested("proxy").optional.withDefault(Config.default.proxy) ++
-          ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
-          zio.Config.int("max-initial-line-length").withDefault(Config.default.maxInitialLineLength) ++
-          zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
-          Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
-          zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
-          zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
-          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout)
-      ).map {
-        case (
-              ssl,
-              proxy,
-              connectionPool,
-              maxInitialLineLength,
-              maxHeaderSize,
-              requestDecompression,
-              addUserAgentHeader,
-              idleTimeout,
-              connectionTimeout,
-            ) =>
-          default.copy(
-            ssl = ssl,
-            proxy = proxy,
-            connectionPool = connectionPool,
-            maxInitialLineLength = maxInitialLineLength,
-            maxHeaderSize = maxHeaderSize,
-            requestDecompression = requestDecompression,
-            addUserAgentHeader = addUserAgentHeader,
-            idleTimeout = idleTimeout,
-            connectionTimeout = connectionTimeout,
-          )
-      }
-
-    val default: Config = Config(
-      ssl = None,
-      proxy = None,
-      connectionPool = ConnectionPoolConfig.Fixed(10),
-      maxInitialLineLength = 4096,
-      maxHeaderSize = 8192,
-      requestDecompression = Decompression.No,
-      localAddress = None,
-      addUserAgentHeader = true,
-      webSocketConfig = WebSocketConfig.default,
-      idleTimeout = Some(50.seconds),
-      connectionTimeout = None,
-    )
-  }
-
   private[http] final class DriverLive private (
     config: Config,
     driver: ClientDriver,
@@ -658,7 +595,10 @@ object ZClient extends ZClientPlatformSpecific {
       }
 
       val request = Request(version, method, url, requestHeaders, body, None)
-      val cfg     = config.copy(ssl = sslConfig.orElse(config.ssl), proxy = proxy.orElse(config.proxy))
+      val cfg     =
+        if (sslConfig.isDefined || proxy.isDefined)
+          config.copy(ssl = sslConfig.orElse(config.ssl), proxy = proxy.orElse(config.proxy))
+        else config
 
       requestAsync(request, cfg, () => WebSocketApp.unit, None)
     }
@@ -772,12 +712,75 @@ object ZClient extends ZClientPlatformSpecific {
       }
   }
 
-  private val zioHttpVersion: String                   = BuildInfo.version
-  private val zioHttpVersionNormalized: Option[String] = Option(zioHttpVersion)
+  object BodyDecoder                  {
+    val identity: BodyDecoder[Any, Nothing, Response] =
+      new BodyDecoder[Any, Nothing, Response] {
+        final def decode(response: Response)(implicit trace: Trace): ZIO[Any, Nothing, Response] =
+          Exit.succeed(response)
 
-  private val scalaVersion: String    = BuildInfo.scalaVersion
-  lazy val defaultUAHeader: UserAgent = UserAgent(
-    UserAgent.ProductOrComment.Product("Zio-Http-Client", zioHttpVersionNormalized),
-    List(UserAgent.ProductOrComment.Comment(s"Scala $scalaVersion")),
-  )
+        override def decodeZIO[Env1 <: Any, Err1 >: Nothing](
+          zio: ZIO[Env1, Err1, Response],
+        )(implicit trace: Trace): ZIO[Env1, Err1, Response] =
+          zio
+      }
+  }
+
+  object BodyEncoder                  {
+    val identity: BodyEncoder[Any, Nothing, Body] =
+      new BodyEncoder[Any, Nothing, Body] {
+        def encode(body: Body)(implicit trace: Trace): ZIO[Any, Nothing, Body] = Exit.succeed(body)
+      }
+  }
+
+  object Config {
+    val default: Config = Config(
+      ssl = None,
+      proxy = None,
+      connectionPool = ConnectionPoolConfig.Fixed(10),
+      maxInitialLineLength = 4096,
+      maxHeaderSize = 8192,
+      requestDecompression = Decompression.No,
+      localAddress = None,
+      addUserAgentHeader = true,
+      webSocketConfig = WebSocketConfig.default,
+      idleTimeout = Some(50.seconds),
+      connectionTimeout = None,
+    )
+
+    def config: zio.Config[Config] =
+      (
+        ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++
+          zio.http.Proxy.config.nested("proxy").optional.withDefault(Config.default.proxy) ++
+          ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
+          zio.Config.int("max-initial-line-length").withDefault(Config.default.maxInitialLineLength) ++
+          zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
+          Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
+          zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
+          zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
+          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout)
+      ).map {
+        case (
+              ssl,
+              proxy,
+              connectionPool,
+              maxInitialLineLength,
+              maxHeaderSize,
+              requestDecompression,
+              addUserAgentHeader,
+              idleTimeout,
+              connectionTimeout,
+            ) =>
+          default.copy(
+            ssl = ssl,
+            proxy = proxy,
+            connectionPool = connectionPool,
+            maxInitialLineLength = maxInitialLineLength,
+            maxHeaderSize = maxHeaderSize,
+            requestDecompression = requestDecompression,
+            addUserAgentHeader = addUserAgentHeader,
+            idleTimeout = idleTimeout,
+            connectionTimeout = connectionTimeout,
+          )
+      }
+  }
 }
