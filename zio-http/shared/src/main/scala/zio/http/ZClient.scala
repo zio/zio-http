@@ -534,15 +534,18 @@ object ZClient extends ZClientPlatformSpecific {
     maxHeaderSize: Int,
     requestDecompression: Decompression,
     localAddress: Option[InetSocketAddress],
-    addUserAgentHeader: Boolean,
+    defaultUserAgentHeader: Option[UserAgent], // if set to None, no `User-Agent` header will be added to the requests
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
   ) {
     self =>
 
-    def addUserAgentHeader(addUserAgentHeader: Boolean): Config =
-      self.copy(addUserAgentHeader = addUserAgentHeader)
+    def noDefaultUserAgentHeader: Config =
+      self.copy(defaultUserAgentHeader = None)
+
+    def defaultUserAgentHeader(userAgentHeader: UserAgent): Config =
+      self.copy(defaultUserAgentHeader = Some(userAgentHeader))
 
     def connectionTimeout(timeout: Duration): Config =
       self.copy(connectionTimeout = Some(timeout))
@@ -583,6 +586,18 @@ object ZClient extends ZClientPlatformSpecific {
   }
 
   object Config {
+    private def userAgentConfig: zio.Config[UserAgent] = {
+      (
+        zio.Config.string("name")
+          zip zio.Config.string("version").optional
+      ).map { case (name, version) =>
+        UserAgent(
+          product = UserAgent.ProductOrComment.Product(name, version),
+          parts = List.empty,
+        )
+      }
+    }
+
     def config: zio.Config[Config] =
       (
         ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++
@@ -591,7 +606,7 @@ object ZClient extends ZClientPlatformSpecific {
           zio.Config.int("max-initial-line-length").withDefault(Config.default.maxInitialLineLength) ++
           zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
-          zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
+          userAgentConfig.nested("user-agent-header").optional.withDefault(Config.default.defaultUserAgentHeader) ++
           zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
           zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout)
       ).map {
@@ -602,7 +617,7 @@ object ZClient extends ZClientPlatformSpecific {
               maxInitialLineLength,
               maxHeaderSize,
               requestDecompression,
-              addUserAgentHeader,
+              defaultUserAgentHeader,
               idleTimeout,
               connectionTimeout,
             ) =>
@@ -613,7 +628,7 @@ object ZClient extends ZClientPlatformSpecific {
             maxInitialLineLength = maxInitialLineLength,
             maxHeaderSize = maxHeaderSize,
             requestDecompression = requestDecompression,
-            addUserAgentHeader = addUserAgentHeader,
+            defaultUserAgentHeader = defaultUserAgentHeader,
             idleTimeout = idleTimeout,
             connectionTimeout = connectionTimeout,
           )
@@ -627,7 +642,7 @@ object ZClient extends ZClientPlatformSpecific {
       maxHeaderSize = 8192,
       requestDecompression = Decompression.No,
       localAddress = None,
-      addUserAgentHeader = true,
+      defaultUserAgentHeader = Some(defaultUAHeader),
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = Some(50.seconds),
       connectionTimeout = None,

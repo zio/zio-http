@@ -17,11 +17,7 @@ trait ZClientPlatformSpecific {
         dnsResolver    <- ZIO.service[DnsResolver]
         connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
         baseClient = ZClient.fromDriver(new ZClient.DriverLive(driver)(connectionPool)(config))
-      } yield
-        if (config.addUserAgentHeader)
-          baseClient.addHeader(ZClient.defaultUAHeader)
-        else
-          baseClient
+      } yield config.defaultUserAgentHeader.fold(ifEmpty = baseClient)(baseClient.addHeader)
     }
   }
 
