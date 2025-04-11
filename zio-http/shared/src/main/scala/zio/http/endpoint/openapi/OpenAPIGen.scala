@@ -705,9 +705,11 @@ object OpenAPIGen {
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
       val maybeDoc                               = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
       val securityObj: List[SecurityRequirement] = endpoint.authType match {
-        case AuthType.ScopedAuth(auth, scopes) =>
+        case AuthType.ScopedAuth(auth, scopes)                  =>
           List(SecurityRequirement(Map(auth.toString() -> scopes)))
-        case _                                 => Nil
+        case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+          List(SecurityRequirement(Map(endpoint.authType.toString() -> Nil)))
+        case _                                                  => Nil
       }
       OpenAPI.Operation(
         tags = endpoint.tags,
