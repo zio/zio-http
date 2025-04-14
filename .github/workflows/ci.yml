@@ -63,7 +63,7 @@ jobs:
 
       - name: Setup Java (temurin@17)
         if: matrix.java == 'temurin@17'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 17
@@ -71,7 +71,7 @@ jobs:
 
       - name: Setup Java (temurin@21)
         if: matrix.java == 'temurin@21'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 21
@@ -155,7 +155,7 @@ jobs:
 
       - name: Setup Java (temurin@17)
         if: matrix.java == 'temurin@17'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 17
@@ -163,7 +163,7 @@ jobs:
 
       - name: Setup Java (temurin@21)
         if: matrix.java == 'temurin@21'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 21
@@ -249,7 +249,7 @@ jobs:
 
       - name: Setup Java (temurin@21)
         if: matrix.java == 'temurin@21'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 21
@@ -310,7 +310,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -348,7 +348,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -386,7 +386,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -424,7 +424,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -462,7 +462,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -500,7 +500,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -538,7 +538,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -576,7 +576,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -614,7 +614,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -652,7 +652,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -690,7 +690,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -728,7 +728,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -766,7 +766,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -804,7 +804,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -842,7 +842,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11
@@ -880,7 +880,7 @@ jobs:
         with:
           path: zio-http
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4.7.1
         with:
           distribution: temurin
           java-version: 11

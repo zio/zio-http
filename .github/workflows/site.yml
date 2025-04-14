@@ -27,7 +27,7 @@ jobs:
       with:
         apps: 'sbt'
     - name: Setup Scala
-      uses: actions/setup-java@v3.9.0
+      uses: actions/setup-java@v4.7.1
       with:
         distribution: temurin
         java-version: 17
@@ -46,7 +46,7 @@ jobs:
       with:
         fetch-depth: '0'
     - name: Setup Scala
-      uses: actions/setup-java@v3.9.0
+      uses: actions/setup-java@v4.7.1
       with:
         distribution: temurin
         java-version: 17
@@ -79,7 +79,7 @@ jobs:
     - name: Install libuv
       run: sudo apt-get update && sudo apt-get install -y libuv1-dev
     - name: Setup Scala
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v4.7.1
       with:
         distribution: corretto
         java-version: '17'
