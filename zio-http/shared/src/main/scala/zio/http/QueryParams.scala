@@ -133,8 +133,10 @@ object QueryParams {
     override def updateQueryParams(f: QueryParams => QueryParams): QueryParams =
       f(self)
 
-    override private[http] def unsafeQueryParam(key: String): String =
-      underlying.get(key).get(0)
+    override private[http] def unsafeQueryParam(key: String): String = {
+      val value = underlying.get(key)
+      if (value == null || value.isEmpty) null else value.get(0)
+    }
 
     override def valueCount(name: CharSequence): Int =
       if (underlying.containsKey(name)) underlying.get(name.toString).size() else 0
