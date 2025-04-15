@@ -8,27 +8,26 @@ import zio.http.netty.server._
 
 trait ServerPlatformSpecific {
 
-  private[http] val base: ZLayer[Driver & Config, Throwable, Server]
+  private[http] def base: ZLayer[Driver & Config, Throwable, Server]
 
   val customized: ZLayer[Config & NettyConfig, Throwable, Driver with Server] = {
-    implicit val trace: Trace = Trace.empty
+    // tmp val Needed for Scala2
+    val tmp: ZLayer[Driver & Config, Throwable, Server] = ZLayer.suspend(base)
 
-    val baseExtra: ZLayer[Driver & Config, Throwable, Server with Driver]       =
-      ZLayer.suspend(base) >+> ZLayer.environment[Driver]
-    val nettyExtra: ZLayer[Config & NettyConfig, Throwable, Driver with Config] =
-      NettyDriver.customized ++ ZLayer.environment[Config]
-    val composed: ZLayer[Config & NettyConfig, Throwable, Server with Driver]   = nettyExtra >>> baseExtra
-    // NettyDriver.customized >>> base
-    composed
+    ZLayer.makeSome[Config & NettyConfig, Driver with Server](
+      NettyDriver.customized,
+      tmp,
+    )
   }
 
   val live: ZLayer[Config, Throwable, Server with Driver] = {
-    implicit val trace: Trace                                             = Trace.empty
-    val baseExtra: ZLayer[Driver & Config, Throwable, Server with Driver] =
-      ZLayer.suspend(base) >+> ZLayer.environment[Driver]
-    val nettyExtra: ZLayer[Config, Throwable, Driver with Config] = NettyDriver.live ++ ZLayer.environment[Config]
-    val res: ZLayer[Config, Throwable, Server with Driver]        = nettyExtra >>> baseExtra
-    res
+    // tmp val Needed for Scala2
+    val tmp: ZLayer[Driver & Config, Throwable, Server] = ZLayer.suspend(base)
+
+    ZLayer.makeSome[Config, Server with Driver](
+      NettyDriver.live,
+      tmp,
+    )
   }
 
 }
