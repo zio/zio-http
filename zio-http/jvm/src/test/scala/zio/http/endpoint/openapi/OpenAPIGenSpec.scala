@@ -235,6 +235,23 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
 
   private val endpointWithAuth = Endpoint(GET / "withAuth").auth(AuthType.Bearer)
 
+  private val endpointWithApiKeyQuery =
+    Endpoint(GET / "withApiKeyQuery")
+      .query(HttpCodec.query[String]("apiKey").optional)
+
+  private val endpointWithApiKeyHeader =
+    Endpoint(GET / "withAuthHeader")
+      .header[String]("x-api-key")
+
+  // api-key cookie auth when using the cookie codec and api-key header simultaneously
+  private val endpointWithApiKeyCookie =
+    Endpoint(GET / "withAuthCookie")
+      .in[SimpleInputBody]
+      .out[SimpleOutputBody]
+      .header[String]("api-key")
+      .inCodec(HttpCodec.cookie)
+      .outCodec(HttpCodec.cookie)
+
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
 
@@ -332,6 +349,228 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    }
                              |  ]
                              |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("api key query auth") {
+        val generated    = OpenAPIGen.fromEndpoints(
+          "Endpoint with API Key Query",
+          "1.0",
+          endpointWithApiKeyQuery,
+        )
+        val json         = toJsonAst(generated)
+        val expectedJson = """|{
+                              |  "openapi" : "3.1.0",
+                              |  "info" : {
+                              |    "title" : "Endpoint with API Key Query",
+                              |    "version" : "1.0"
+                              |  },
+                              |  "paths" : {
+                              |    "/withApiKeyQuery" : {
+                              |      "get" : {
+                              |        "parameters" : [
+                              |          {
+                              |            "name" : "apiKey",
+                              |            "in" : "query",
+                              |            "schema" : {
+                              |              "type" : "string"
+                              |            },
+                              |            "allowReserved" : false,
+                              |            "style" : "form"
+                              |          }
+                              |        ],
+                              |        "security" : [
+                              |          {
+                              |            "apiKeyAuth" : []
+                              |          }
+                              |        ]
+                              |      }
+                              |    }
+                              |  },
+                              |  "components" : {
+                              |    "securitySchemes" : {
+                              |      "apiKeyAuth" : {
+                              |        "type" : "apiKey",
+                              |        "name" : "Authorization",
+                              |        "in" : "query"
+                              |      }
+                              |    }
+                              |  },
+                              |  "security" : [
+                              |    {
+                              |      "apiKeyAuth" : []
+                              |    }
+                              |  ]
+                              |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("api key header auth") {
+        val generated    = OpenAPIGen.fromEndpoints(
+          "Endpoint with API Key Header",
+          "1.0",
+          endpointWithApiKeyHeader,
+        )
+        val json         = toJsonAst(generated)
+        val expectedJson = """|{
+                              |  "openapi" : "3.1.0",
+                              |  "info" : {
+                              |    "title" : "Endpoint with API Key Header",
+                              |    "version" : "1.0"
+                              |  },
+                              |  "paths" : {
+                              |    "/withAuthHeader" : {
+                              |      "get" : {
+                              |        "parameters" : [
+                              |          {
+                              |            "name" : "x-api-key",
+                              |            "in" : "header",
+                              |            "required" : true,
+                              |            "schema" : {
+                              |              "type" : "string"
+                              |            },
+                              |            "style" : "simple"
+                              |          }
+                              |        ],
+                              |        "security" : [
+                              |          {
+                              |            "apiKeyAuth" : []
+                              |          }
+                              |        ]
+                              |      }
+                              |    }
+                              |  },
+                              |  "components" : {
+                              |    "securitySchemes" : {
+                              |      "apiKeyAuth" : {
+                              |        "type" : "apiKey",
+                              |        "name" : "Authorization",
+                              |        "in" : "header"
+                              |      }
+                              |    }
+                              |  },
+                              |  "security" : [
+                              |    {
+                              |      "apiKeyAuth" : []
+                              |    }
+                              |  ]
+                              |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("api key cookie auth") {
+        val generated    = OpenAPIGen.fromEndpoints(
+          "Endpoint with API Key Cookie",
+          "1.0",
+          endpointWithApiKeyCookie,
+        )
+        val expectedJson = """|{
+                              |  "openapi" : "3.1.0",
+                              |  "info" : {
+                              |    "title" : "Endpoint with API Key Cookie",
+                              |    "version" : "1.0"
+                              |  },
+                              |  "paths" : {
+                              |    "/withAuthCookie" : {
+                              |      "get" : {
+                              |        "parameters" : [
+                              |          {
+                              |            "name" : "cookie",
+                              |            "in" : "header",
+                              |            "required" : true,
+                              |            "schema" : {
+                              |              "type" : "string"
+                              |            },
+                              |            "style" : "simple"
+                              |          }
+                              |        ],
+                              |        "requestBody" : {
+                              |          "content" : {
+                              |            "application/json" : {
+                              |              "schema" : {
+                              |                "$ref" : "#/components/schemas/SimpleInputBody"
+                              |              }
+                              |            }
+                              |          },
+                              |          "required" : true
+                              |        },
+                              |        "responses" : {
+                              |          "200" : {
+                              |            "content" : {
+                              |              "application/json" : {
+                              |                "schema" : {
+                              |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                              |                }
+                              |              }
+                              |            }
+                              |          },
+                              |          "default" : {
+                              |            "headers" : {
+                              |              "cookie" : {
+                              |                "required" : true,
+                              |                "schema" : {
+                              |                  "type" : "string"
+                              |                }
+                              |              }
+                              |            },
+                              |            "content" : {
+                              |              "application/json" : {
+                              |                "schema" : {
+                              |                  "type" : "null"
+                              |                }
+                              |              }
+                              |            }
+                              |          }
+                              |        },
+                              |        "security" : [
+                              |          {
+                              |            "apiKeyAuth" : []
+                              |          }
+                              |        ]
+                              |      }
+                              |    }
+                              |  },
+                              |  "components" : {
+                              |    "schemas" : {
+                              |      "SimpleInputBody" : {
+                              |        "type" : "object",
+                              |        "properties" : {
+                              |          "name" : {
+                              |            "type" : "string"
+                              |          },
+                              |          "age" : {
+                              |            "type" : "integer",
+                              |            "format" : "int32"
+                              |          }
+                              |        },
+                              |        "required" : [ "name", "age" ]
+                              |      },
+                              |      "SimpleOutputBody" : {
+                              |        "type" : "object",
+                              |        "properties" : {
+                              |          "userName" : {
+                              |            "type" : "string"
+                              |          },
+                              |          "score" : {
+                              |            "type" : "integer",
+                              |            "format" : "int32"
+                              |          }
+                              |        },
+                              |        "required" : [ "userName", "score" ]
+                              |      }
+                              |    },
+                              |    "securitySchemes" : {
+                              |      "apiKeyAuth" : {
+                              |        "type" : "apiKey",
+                              |        "name" : "Authorization",
+                              |        "in" : "cookie"
+                              |      }
+                              |    }
+                              |  },
+                              |  "security" : [
+                              |    {
+                              |      "apiKeyAuth" : []
+                              |    }
+                              |  ]
+                              |}""".stripMargin
+        val json         = toJsonAst(generated)
         assertTrue(json == toJsonAst(expectedJson))
       },
       test("endpoint documentation") {
