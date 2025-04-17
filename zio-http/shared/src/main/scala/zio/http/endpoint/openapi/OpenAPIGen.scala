@@ -892,8 +892,9 @@ object OpenAPIGen {
             // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
             val typeId   =
               (case_.schema match {
-                case lzy: Schema.Lazy[_] => lzy.schema
-                case _                   => case_.schema
+                case lzy: Schema.Lazy[_]                  => lzy.schema
+                case transform: Schema.Transform[_, _, _] => transform.schema
+                case _                                    => case_.schema
               })
                 .asInstanceOf[Schema.Record[_]]
                 .id
