@@ -318,10 +318,7 @@ object HttpContentCodec {
             MediaType.application.`json` ->
               BinaryCodecWithSchema(
                 config => {
-                  JsonCodec.schemaBasedBinaryCodec(
-                    JsonCodec
-                      .Config(ignoreEmptyCollections = config.ignoreEmptyCollections, treatStreamsAsArrays = true),
-                  )(schema)
+                  JsonCodec.schemaBasedBinaryCodec(config.schemaConfig)(schema)
                 },
                 schema,
               ),

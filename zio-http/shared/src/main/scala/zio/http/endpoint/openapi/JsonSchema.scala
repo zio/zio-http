@@ -8,6 +8,7 @@ import zio.json.ast.Json
 import zio.schema.Schema.CaseClass0
 import zio.schema._
 import zio.schema.annotation._
+import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
@@ -87,7 +88,12 @@ private[openapi] object SerializableJsonSchema {
   implicit val schema: Schema[SerializableJsonSchema] = DeriveSchema.gen[SerializableJsonSchema]
 
   val binaryCodec: BinaryCodec[SerializableJsonSchema] =
-    JsonCodec.schemaBasedBinaryCodec[SerializableJsonSchema](JsonCodec.Config(ignoreEmptyCollections = true))(
+    JsonCodec.schemaBasedBinaryCodec[SerializableJsonSchema](
+      JsonCodec.Configuration(
+        explicitEmptyCollections = ExplicitConfig(encoding = false),
+        explicitNulls = ExplicitConfig(encoding = false),
+      ),
+    )(
       Schema[SerializableJsonSchema],
     )
 }

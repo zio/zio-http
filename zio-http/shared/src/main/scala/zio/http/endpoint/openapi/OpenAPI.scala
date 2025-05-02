@@ -28,6 +28,7 @@ import zio.json.ast._
 import zio.schema._
 import zio.schema.annotation.{caseName, discriminatorName, fieldName, noDiscriminator}
 import zio.schema.codec.JsonCodec
+import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.codec.json._
 
 import zio.http.Status
@@ -151,13 +152,23 @@ final case class OpenAPI(
 
   def toJson: String =
     JsonCodec
-      .jsonEncoder(JsonCodec.Config(ignoreEmptyCollections = true))(OpenAPI.schema)
+      .jsonEncoder(
+        JsonCodec.Configuration(
+          explicitEmptyCollections = ExplicitConfig(encoding = false),
+          explicitNulls = ExplicitConfig(encoding = false),
+        ),
+      )(OpenAPI.schema)
       .encodeJson(this, None)
       .toString
 
   def toJsonPretty: String =
     JsonCodec
-      .jsonEncoder(JsonCodec.Config(ignoreEmptyCollections = true))(OpenAPI.schema)
+      .jsonEncoder(
+        JsonCodec.Configuration(
+          explicitEmptyCollections = ExplicitConfig(encoding = false),
+          explicitNulls = ExplicitConfig(encoding = false),
+        ),
+      )(OpenAPI.schema)
       .encodeJson(this, Some(0))
       .toString
 
