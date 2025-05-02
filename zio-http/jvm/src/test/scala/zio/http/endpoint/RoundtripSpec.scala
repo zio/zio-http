@@ -27,6 +27,7 @@ import zio.test._
 import zio.stream.ZStream
 
 import zio.schema.annotation.validate
+import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema}
 
@@ -77,6 +78,10 @@ object RoundtripSpec extends ZIOHttpSpec {
   case class Outs(ints: List[Int])
 
   implicit val outsSchema: Schema[Outs] = DeriveSchema.gen[Outs]
+
+  case class OptOut(age: Option[Int], name: Option[String])
+
+  implicit val optOutSchema: Schema[OptOut] = DeriveSchema.gen[OptOut]
 
   def makeExecutor(client: ZClient[Any, Any, Body, Throwable, Response], port: Int) = {
     val locator = EndpointLocator.fromURL(
@@ -157,7 +162,7 @@ object RoundtripSpec extends ZIOHttpSpec {
   implicit val paramsSchema: Schema[Params]                                         = DeriveSchema.gen[Params]
 
   def spec: Spec[Any, Any] =
-    suite("RoundtripSpec")(
+    suiteAll("RoundtripSpec") {
       test("simple get") {
         val usersPostAPI =
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId")).out[Post]
@@ -175,12 +180,12 @@ object RoundtripSpec extends ZIOHttpSpec {
           (10, 20),
           Post(20, "title", "body", 10),
         )
-      },
+      }
       test("simple get without payload") {
         val healthCheckAPI     = Endpoint(GET / "health-check").out[Unit]
         val healthCheckHandler = healthCheckAPI.implementAs(())
         testEndpoint(healthCheckAPI, Routes(healthCheckHandler), (), ())
-      },
+      }
       test("simple get with query params from case class") {
         val endpoint = Endpoint(GET / "query")
           .query(HttpCodec.query[Params])
@@ -198,7 +203,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           Params(1, None, "string", Chunk("")),
           Params(1, None, "string", Chunk("")),
         )
-      },
+      }
       test("simple get with protobuf encoding via explicit media type") {
         val usersPostAPI =
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
@@ -218,10 +223,11 @@ object RoundtripSpec extends ZIOHttpSpec {
           (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
           Post(20, "title", "body", 10),
         ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
-      },
+      }
       test("simple get with only protobuf encoding") {
         implicit def postCodec[T: Schema]: HttpContentCodec[T] = protobuf.only[T]
-        val usersPostAPI                                       =
+
+        val usersPostAPI =
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
             .out[Post]
             .header(HeaderCodec.accept)
@@ -239,7 +245,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
           Post(20, "title", "body", 10),
         ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
-      },
+      }
       test("simple get with optional query params") {
         val api =
           Endpoint(GET / "users" / int("userId"))
@@ -262,7 +268,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           (10, 20, Some("x"), Some("y"), Some(Age(23))),
           PostWithAge(10, "x", "y", 20, Age(23)),
         )
-      },
+      }
       test("simple get with query params that fails validation") {
         val api =
           Endpoint(GET / "users" / int("userId"))
@@ -296,7 +302,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             ),
           ),
         )
-      },
+      }
       test("throwing error in handler") {
         val api = Endpoint(POST / string("id") / "xyz" / string("name") / "abc")
           .query(HttpCodec.query[String]("details"))
@@ -323,7 +329,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             ),
           )
         } yield assert(extractStatus(response))(equalTo(Status.InternalServerError))
-      },
+      }
       test("simple post with json body") {
         val api = Endpoint(POST / "test" / int("userId"))
           .in[Post]
@@ -341,7 +347,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           (11, Post(1, "title", "body", 111)),
           "userId: 11, post: Post(1,title,body,111)",
         )
-      },
+      }
       test("byte stream input") {
         val api   = Endpoint(PUT / "upload").inStream[Byte].out[Long]
         val route = api.implementHandler {
@@ -358,7 +364,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             1024 * 1024L,
           )
         }
-      },
+      }
       test("byte stream output") {
         val api   = Endpoint(GET / "download").query(HttpCodec.query[Int]("count")).outStream[Byte]
         val route = api.implementHandler {
@@ -373,7 +379,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           1024 * 1024,
           (stream: ZStream[Any, Nothing, Byte]) => stream.runCount.map(c => assert(c)(equalTo(1024L * 1024L))),
         )
-      },
+      }
       test("string stream output") {
         val api   = Endpoint(GET / "download").query(HttpCodec.query[Int]("count")).outStream[String]
         val route = api.implementHandler {
@@ -395,7 +401,7 @@ object RoundtripSpec extends ZIOHttpSpec {
                 assertTrue(allOk && c == 1024 * 1024)
               },
         )
-      },
+      }
       test("string output") {
         val api   = Endpoint(GET / "download").query(HttpCodec.query[String]("param")).out[String]
         val route = api.implementHandler {
@@ -410,7 +416,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           "test",
           (str: String) => assertTrue(str == "test"),
         )
-      },
+      }
       test("multi-part input") {
         val api = Endpoint(POST / "test")
           .in[String]("name")
@@ -430,7 +436,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           ("name", 10, Post(1, "title", "body", 111)),
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
-      },
+      }
       test("endpoint error returned") {
         val api = Endpoint(POST / "test")
           .outError[String](Status.Custom(999))
@@ -443,7 +449,7 @@ object RoundtripSpec extends ZIOHttpSpec {
           (),
           "42",
         )
-      },
+      }
       test("Failed endpoint deserialization") {
         val endpoint =
           Endpoint(GET / "users" / int("userId")).out[Int].outError[Int](Status.Custom(999))
@@ -475,7 +481,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             """zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected string)""",
           ),
         )
-      },
+      }
       test("multi-part input with stream field") {
         val api = Endpoint(POST / "test")
           .in[String]("name")
@@ -499,7 +505,7 @@ object RoundtripSpec extends ZIOHttpSpec {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      },
+      }
       test("multi-part input with stream and invalid json field") {
         val api = Endpoint(POST / "test")
           .in[String]("name")
@@ -550,18 +556,41 @@ object RoundtripSpec extends ZIOHttpSpec {
           .map { r =>
             assert(r.isFailure)(isTrue) // We expect it to fail but complete
           }
-      },
-      test("Override default CodecConfig") {
+      }
+      test("Default CodecConfig writes empty collections") {
         val api = Endpoint(GET / "test").out[Outs]
         testEndpointCustomRequestZIO(
-          api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes @@ CodecConfig.withConfig(
-            CodecConfig(ignoreEmptyCollections = false),
-          ),
+          api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes,
           Request.get("/test"),
           response => response.body.asString.map(s => assertTrue(s == """{"ints":[]}""")),
         )
-      },
-    ).provide(
+      }
+      test("Default CodecConfig writes empty options") {
+        val api = Endpoint(GET / "test").out[OptOut]
+        testEndpointCustomRequestZIO(
+          api.implement(_ => ZIO.succeed(OptOut(None, None))).toRoutes,
+          Request.get("/test"),
+          response => response.body.asString.map(s => assertTrue(s == """{"age":null,"name":null}""")),
+        )
+      }
+      test("Change CodecConfig to not encode empty collections") {
+        val api = Endpoint(GET / "test").out[Outs]
+        testEndpointCustomRequestZIO(
+          api.implement(_ => ZIO.succeed(Outs(Nil))).toRoutes @@ CodecConfig.ignoringEmptyFields,
+          Request.get("/test"),
+          response => response.body.asString.map(s => assertTrue(s == """{}""")),
+        )
+      }
+      test("Change CodecConfig to not encode empty Options") {
+        val api = Endpoint(GET / "test").out[OptOut]
+        testEndpointCustomRequestZIO(
+          api.implement(_ => ZIO.succeed(OptOut(None, None))).toRoutes @@ CodecConfig.ignoringEmptyFields,
+          Request.get("/test"),
+          response => response.body.asString.map(s => assertTrue(s == """{}""")),
+        )
+      }
+
+    }.provide(
       Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)) >>>
