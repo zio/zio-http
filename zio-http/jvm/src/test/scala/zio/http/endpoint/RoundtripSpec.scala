@@ -17,7 +17,6 @@
 package zio.http.endpoint
 
 import scala.annotation.nowarn
-import scala.util.chaining.scalaUtilChainingOps
 
 import zio._
 import zio.test.Assertion._
@@ -26,10 +25,9 @@ import zio.test._
 
 import zio.stream.ZStream
 
+import zio.schema._
 import zio.schema.annotation.validate
-import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.validation.Validation
-import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Method._
 import zio.http._
@@ -82,6 +80,10 @@ object RoundtripSpec extends ZIOHttpSpec {
   case class OptOut(age: Option[Int], name: Option[String])
 
   implicit val optOutSchema: Schema[OptOut] = DeriveSchema.gen[OptOut]
+
+  case class Name(firstName: String, lastName: String)
+
+  implicit val nameSchema: Schema[Name] = DeriveSchema.gen[Name]
 
   def makeExecutor(client: ZClient[Any, Any, Body, Throwable, Response], port: Int) = {
     val locator = EndpointLocator.fromURL(
@@ -587,6 +589,53 @@ object RoundtripSpec extends ZIOHttpSpec {
           api.implement(_ => ZIO.succeed(OptOut(None, None))).toRoutes @@ CodecConfig.ignoringEmptyFields,
           Request.get("/test"),
           response => response.body.asString.map(s => assertTrue(s == """{}""")),
+        )
+      }
+      test("Default CodecConfig accepts empty collections") {
+        val api = Endpoint(GET / "test").in[OptOut].out[OptOut]
+        testEndpointCustomRequestZIO(
+          api.implementAs(OptOut(None, None)).toRoutes,
+          Request.get("/test").withBody(Body.fromString("""{}""")),
+          response => response.body.asString.map(s => assertTrue(s == """{"age":null,"name":null}""")),
+        )
+      }
+      test("Default CodecConfig accepts empty collections") {
+        val api = Endpoint(GET / "test").in[OptOut].out[OptOut]
+        testEndpointCustomRequestZIO(
+          api.implementAs(OptOut(None, None)).toRoutes,
+          Request.get("/test").withBody(Body.fromString("""{}""")),
+          response => response.body.asString.map(s => assertTrue(s == """{"age":null,"name":null}""")),
+        )
+      }
+      test("Default CodecConfig does not change casing") {
+        val api = Endpoint(GET / "test").in[Name].out[Name]
+        testEndpointCustomRequestZIO(
+          api.implementAs(Name("hans", "maier")).toRoutes,
+          Request.get("/test").withBody(Body.fromString("""{"firstName": "hans", "lastName": "maier"}""")),
+          response => response.body.asString.map(s => assertTrue(s == """{"firstName":"hans","lastName":"maier"}""")),
+        )
+      }
+      test("SnakeCase via CodecConfig") {
+        val api = Endpoint(GET / "test").in[Name].out[Name]
+        testEndpointCustomRequestZIO(
+          api.implementAs(Name("hans", "maier")).toRoutes @@ CodecConfig.withConfig(
+            CodecConfig(fieldNameFormat = NameFormat.SnakeCase),
+          ),
+          Request.get("/test").withBody(Body.fromString("""{"first_name": "hans", "last_name": "maier"}""")),
+          response => response.body.asString.map(s => assertTrue(s == """{"first_name":"hans","last_name":"maier"}""")),
+        )
+      }
+      test("Reject exra fields via CodecConfig") {
+        val api = Endpoint(GET / "test").in[Name].out[Name]
+        testEndpointCustomRequestZIO(
+          api.implementAs(Name("hans", "maier")).toRoutes @@ CodecConfig.withConfig(
+            CodecConfig(rejectExtraFields = true),
+          ),
+          Request.get("/test").withBody(Body.fromString("""{"firstName": "hans", "lastName": "maier", "age": 42}""")),
+          response =>
+            response.body.asString.map(s =>
+              assertTrue(s.contains("Malformed request body failed to decode: (extra field)")),
+            ),
         )
       }
 
