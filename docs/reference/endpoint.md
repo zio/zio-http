@@ -534,6 +534,63 @@ In the above example, we mapped over the input type of the `endpoint` and transf
 
 The `transformOut` and `transformError` methods work similarly to the `transformIn` method.
 
+## CodecConfig
+The `CodecConfig` is injected when building any `Endpoint` API codecs. You can see this in the definition of `BinaryCodecWithSchema`:
+
+```scala mdoc:compile-only
+import zio.http.codec._
+import zio.schema._
+import zio.schema.codec._
+
+case class BinaryCodecWithSchema[A](codecFn: CodecConfig => BinaryCodec[A], schema: Schema[A])
+```
+
+By default, it effects only the JSON codecs, but you may use it to configure custom codecs as well.
+
+The configuration options can be changed globally or per set of `Routes`.
+
+To change the config globally, we set a config in the bootstrap of the application:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.codec._
+
+object MyApp extends ZIOAppDefault {
+  override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
+    CodecConfig.configLayer(CodecConfig(rejectExtraFields = true))
+
+  override def run: ZIO[Any, Throwable, Unit] = ???
+}
+```
+
+To change the config per set of `Routes`, we can use middleware:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.codec._
+
+object MyApp extends ZIOAppDefault {
+  override def run: ZIO[Any, Throwable, Unit] = {
+    val routes: Routes[Any, Nothing] = ???
+
+    val customConfig = CodecConfig(rejectExtraFields = true)
+    val customRoutes = routes @@ CodecConfig.withConfig(customConfig)
+
+    Server.serve(customRoutes).provide(Server.default)
+  }
+}
+```
+Here is a table of the available options and their default values:
+
+| Config                     | Default Value                                                                                                                                                                                                                                            |
+|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `rejectExtraFields`       | `false`<br/><br/>Rejects requests that contain fields that are not part of the data structure that should be encoded.                                                                                                                                    |
+| `explicitEmptyCollections` | `ExplicitConfig(encoding = true, decoding = false)`<br/><br/>Collecttions will be encoded as `"fieldName": []` and missing fields will be decoded as empty collections                                                                                        |
+| `explicitNulls`         | `ExplicitConfig(encoding = true, decoding = false)`<br/><br/>Null values/Option.None will be encoded as `"fieldName": null` and missing fields will be decoded as `Option.None`                                                                               |
+| `discriminatorSettings` | `DiscriminatorSetting.ClassName(NameFormat.Identity)`<br/><br/>Discriminator will be the class name of the sealed trait or enum case. It will be the field name of a singe field object. The value of this field will be the JSON representation of the case. |
+| `fieldNameFormat`       | `NameFormat.Identity`<br/><br/>The field name will be the same as the case class field name. There are predefined cases for `SnakeCase`, `CamelCase`, `KebabCase`, and `PascalCase`.                                                                          |
+| `treatStreamsAsArrays` | `false`<br/><br/>If set to true, streams will be read into arrays before being encoded.                                                                                                                                                                        |
+
 ## OpenAPI Documentation
 
 Every property of an `Endpoint` API can be annotated with documentation, may be examples using methods like `??` and `example*`. We can use these metadata to generate OpenAPI documentation:
