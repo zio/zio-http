@@ -88,7 +88,7 @@ private[zio] final case class ServerInboundHandler(
             releaseRequest()
           } else {
             val req = makeZioRequest(ctx, jReq)
-            if (!validateHostHeader(req)) {
+            if (config.validateHeaders && !validateHostHeader(req)) {
               attemptFastWrite(ctx, req.method, Response.status(Status.BadRequest))
               releaseRequest()
             } else {
@@ -116,16 +116,35 @@ private[zio] final case class ServerInboundHandler(
   private def validateHostHeader(req: Request): Boolean = {
     val host = req.headers.getUnsafe("Host")
     if (host != null) {
-      val parts       = host.split(":")
-      val isValidHost = parts(0).forall(c => c.isLetterOrDigit || c == '.' || c == '-')
-      if (!isValidHost) {
-        ZIO
-          .logWarning(
-            s"Invalid Host header for request ${req.method} ${req.url}. " +
-              s"Host: $host, isValidHost: $isValidHost",
-          )
+      var i           = 0
+      var isValidHost = true
+
+      while (i < host.length && host.charAt(i) != ':') {
+        val c = host.charAt(i)
+        if (!(c.isLetterOrDigit || c == '.' || c == '-')) {
+          isValidHost = false
+          i = host.length
+        }
+        i += 1
       }
-      isValidHost
+
+      val colonIdx    = host.indexOf(':')
+      val isValidPort =
+        if (colonIdx == -1) true
+        else {
+          var j         = colonIdx + 1
+          var portValid = true
+          while (j < host.length) {
+            if (!host.charAt(j).isDigit) {
+              portValid = false
+              j = host.length
+            }
+            j += 1
+          }
+          portValid
+        }
+
+      isValidHost && isValidPort
     } else {
       false
     }

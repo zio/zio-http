@@ -1037,7 +1037,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   /**
    * Creates a handler which always responds with a 501 status code.
    */
-  def notImplemented: Handler[Any, Nothing, Any, Response] =
+  val notImplemented: Handler[Any, Nothing, Any, Response] =
     error(Status.NotImplemented)
 
   /**
