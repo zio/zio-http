@@ -27,7 +27,7 @@ object ChannelType {
 
   /**
    * Note using URING is experimental and requires explicit dependency on
-   * netty-incubator-transport-native-io_uring
+   * netty-transport-native-io_uring
    */
   case object URING extends ChannelType
 
