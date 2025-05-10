@@ -23,7 +23,6 @@ import zio.{Cause, Chunk}
 import zio.schema.codec.DecodeError
 import zio.schema.validation.ValidationError
 
-import zio.http.Header.HeaderType
 import zio.http.{Path, Status}
 
 sealed trait HttpCodecError extends Exception with NoStackTrace with Product with Serializable {
@@ -36,6 +35,9 @@ object HttpCodecError {
 
   final case class MissingHeader(headerName: String)                                           extends HeaderError     {
     def message = s"Missing header $headerName"
+  }
+  case object MissingAuthorizationHeader                                                       extends HeaderError     {
+    def message = "Missing header Authorization"
   }
   final case class MissingHeaders(headerNames: Chunk[String])                                  extends HeaderError     {
     def message = s"Missing headers ${headerNames.mkString(", ")}"
