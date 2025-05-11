@@ -1,17 +1,21 @@
 package zio.http.endpoint.openapi
 
-import zio.test._
-
-import zio.schema.{Schema, derived}
-
+import zio.test.*
+import zio.schema.{ Schema, derived }
 import zio.schema.DeriveSchema
-import zio.test._
+import zio.test.*
 import zio.http.endpoint.Endpoint
-import zio.http.codec.{Doc, HttpCodec}
+import zio.http.codec.{ Doc, HttpCodec }
 import zio.http.endpoint.Endpoint
-import zio.http.{MediaType, RoutePattern}
-import zio.schema.annotation.{caseName, discriminatorName}
+import zio.http.endpoint.openapi.JsonSchema.StringFormat.Email
+import zio.http.endpoint.openapi.JsonSchema.format
+import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
+import zio.http.endpoint.openapi.OpenAPISpec.{ test, toJsonAst }
+import zio.http.{ MediaType, RoutePattern }
+import zio.schema.annotation.{ caseName, discriminatorName }
 import zio.prelude.Subtype
+
+import scala.collection.immutable.ListMap
 
 object Scala3OpenAPIGenSpec extends ZIOSpecDefault {
 
@@ -103,6 +107,49 @@ object Scala3OpenAPIGenSpec extends ZIOSpecDefault {
               ).toJson
 
           assertTrue(spec.contains(""""description":"This is the Input documentation""""))
+        },
+        test("JsonSchema correctly handles @format annotation for string types") {
+          final case class EmailData(@format(Email) email: String, received: Option[java.time.LocalDate]) derives Schema
+          val js     = JsonSchema.fromZSchema(EmailData.derived$Schema)
+
+          val oapi = OpenAPI.empty.copy(
+            components = Some(
+              OpenAPI.Components(
+                schemas = ListMap(OpenAPI.Key.fromString("EmailData").get -> ReferenceOr.Or(js)),
+              ),
+            ),
+          )
+
+          val json     = oapi.toJsonPretty
+          val expected = """{
+                           |  "openapi" : "3.1.0",
+                           |  "info" : {
+                           |    "title" : "",
+                           |    "version" : ""
+                           |  },
+                           |  "components" : {
+                           |    "schemas" : {
+                           |      "EmailData" : {
+                           |        "type" : "object",
+                           |        "properties" : {
+                           |          "email" : {
+                           |            "type" : "string",
+                           |            "format" : "email"
+                           |          },
+                           |         "received" : {
+                           |            "type" : ["string", "null"],
+                           |            "format" : "date"
+                           |          }
+                           |        },
+                           |        "required" : [
+                           |          "email"
+                           |        ]
+                           |      }
+                           |    }
+                           |  }
+                           |}""".stripMargin
+
+          assertTrue(toJsonAst(json) == toJsonAst(expected))
         }
       )
     )
