@@ -14,7 +14,7 @@ object JSClientSpec extends ZIOSpecDefault {
               response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").batched.get("") }
               string   <- response.body.asString
             } yield (response, string))
-              .provide(ZLayer.succeed(ZClient.Config.default.addUserAgentHeader(false)) >>> ZClient.live)
+              .provide(ZLayer.succeed(ZClient.Config.default.noDefaultUserAgentHeader) >>> ZClient.live)
             (response, string) = res
           } yield assertTrue(response.status.isSuccess, string.startsWith("<!doctype html>"))
         },
