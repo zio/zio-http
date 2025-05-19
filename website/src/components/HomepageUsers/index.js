@@ -29,7 +29,7 @@ export default function HomepageUsers() {
       <div className={styles.wideContainer}>
         <div className="row">
           <div className="col col--12 text--center">
-            <h2>Who's Using ZIO HTTP</h2>
+            <h2  class="sectionHeader">Who are Using ZIO HTTP?</h2>
             <p className={styles.subtitle}>
               Organizations and projects building with ZIO HTTP in production
             </p>

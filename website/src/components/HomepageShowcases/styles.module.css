@@ -22,3 +22,10 @@
     margin-bottom: 2rem;
   }
 }
+
+.sectionHeader {
+  font-size: 3.0rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+}

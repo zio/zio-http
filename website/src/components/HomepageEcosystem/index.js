@@ -126,7 +126,7 @@ export default function HomepageEcosystem() {
       <div className={styles.wideContainer}>
         <div className={clsx('row', styles.ecosystemHeader)}>
           <div className="col col--12 text--center">
-            <h2>ZIO Ecosystem</h2>
+            <h2 class="sectionHeader">Ecosystem</h2>
             <p className={styles.ecosystemSubtitle}>
               A complete toolkit for building scalable, resilient applications
             </p>

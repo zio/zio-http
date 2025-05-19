@@ -8,7 +8,7 @@ export default function HomepageShowcases() {
       <div className="container">
         <div className="row">
           <div className="col col--6">
-            <h1>Server-side Example</h1>
+            <h2>Server-side Example</h2>
             <CodeBlock language="scala">
 {`import zio._
 import zio.http._
@@ -26,7 +26,7 @@ object GreetingServer extends ZIOAppDefault {
             </CodeBlock>
           </div>
           <div className="col col--6">
-            <h1>Client-side Example</h1>
+            <h2>Client-side Example</h2>
             <CodeBlock language="scala">
 {
 `object ClientServerExample extends ZIOAppDefault {
