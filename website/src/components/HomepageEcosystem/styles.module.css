@@ -1,0 +1,206 @@
+.mainProjectHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.0rem;
+  padding: 0rem 0;
+}
+
+.mainProjectLogo {
+  width: 320px;
+  height: 320px;
+  object-fit: contain;
+}
+
+.mainProjectLogoText {
+  font-size: 5rem;
+  line-height: 1;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.mainProjectCol .ecosystemCardDescription {
+  text-align: center;
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+}.ecosystem {
+  display: flex;
+  align-items: center;
+  padding: 4rem 0;
+  width: 100%;
+  background-color: var(--ifm-color-emphasis-0);
+}
+
+.wideContainer {
+  margin: 0 auto;
+  padding: 0 var(--ifm-spacing-horizontal);
+  width: 100%;
+  max-width: 1400px;
+}
+
+.ecosystemHeader {
+  margin-bottom: 3rem;
+}
+
+.ecosystemSubtitle {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+  color: var(--ifm-color-primary);
+}
+
+.ecosystemCards {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.ecosystemCardCol {
+  margin-bottom: 2rem;
+}
+
+/* Make sure all cards have the same height in a row */
+.ecosystemCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mainProjectCol {
+  margin-bottom: 3rem;
+}
+
+.mainProjectCol .ecosystemCard {
+  border-width: 2px;
+  background-color: var(--ifm-color-emphasis-0);
+  border-color: var(--ifm-color-primary-lighter);
+}
+
+.mainProjectCol .ecosystemCardHeader h3 {
+  font-size: 1.8rem;
+}
+
+.mainProjectCol .ecosystemCardIcon {
+  width: 50px;
+  height: 50px;
+}
+
+.mainProjectCol .ecosystemCardIcon img {
+  width: 100%;
+  height: 100%;
+}
+
+.ecosystemCard {
+  height: 100%;
+  padding: 2rem;
+  border-radius: 8px;
+  background-color: var(--ifm-card-background-color);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.ecosystemCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  border-color: var(--ifm-color-primary-lightest);
+}
+
+.ecosystemCardHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.ecosystemCardIcon {
+  font-size: 2rem;
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.ecosystemCardIcon img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.ecosystemCardHeader h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--ifm-color-primary);
+}
+
+.ecosystemCardDescription {
+  margin-bottom: 1.5rem;
+  color: var(--ifm-color-emphasis-700);
+  flex-grow: 0;
+}
+
+.ecosystemCardFeatures {
+  margin-bottom: 1.5rem;
+  padding-left: 1.5rem;
+  flex-grow: 1;
+}
+
+.ecosystemCardFeatures li {
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-emphasis-800);
+}
+
+/* Two-column layout for main project features */
+.mainProjectCol .ecosystemCardFeatures {
+  column-count: 2;
+  column-gap: 2rem;
+}
+
+@media (max-width: 768px) {
+  .mainProjectCol .ecosystemCardFeatures {
+    column-count: 1; /* Revert to single column on mobile */
+  }
+}
+
+.ecosystemCardFooter {
+  margin-top: auto;
+  text-align: right;
+}
+
+.ecosystemCardButton {
+  font-weight: 500;
+}
+
+/* Responsive styles */
+@media (max-width: 996px) {
+  .ecosystemCardCol,
+  .mainProjectCol {
+    width: 100%;
+  }
+
+  .ecosystem {
+    padding: 3rem 0;
+  }
+
+  .ecosystemCard {
+    padding: 1.5rem;
+  }
+
+  .mainProjectCol {
+    margin-left: 0;
+  }
+}

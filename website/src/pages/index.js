@@ -6,6 +6,7 @@ import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import HomepageShowcases from '@site/src/components/HomepageShowcases';
 import HomepageZionomicon from '@site/src/components/HomepageZionomicon';
+import HomepageEcosystem from '@site/src/components/HomepageEcosystem';
 import HomepageUsers from '@site/src/components/HomepageUsers';
 import styles from './index.module.css';
 
@@ -38,6 +39,7 @@ export default function Home() {
       <main>
         <HomepageShowcases />
         <HomepageFeatures />
+        <HomepageEcosystem />
         <HomepageZionomicon />
         <HomepageUsers />
       </main>
