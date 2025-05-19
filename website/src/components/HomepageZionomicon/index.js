@@ -33,9 +33,8 @@ export default function HomepageZionomicon() {
                 <Link
                   className="button button--primary button--lg"
                   to="https://www.zionomicon.com"
-                  target="_blank"
-                  rel="noopener noreferrer">
-                  Get the Book
+                  target="_blank" >
+                  Get the Book for Free
                 </Link>
               </div>
             </div>
