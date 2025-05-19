@@ -126,6 +126,7 @@ object QueryParams {
     override def getAll(key: String): Chunk[String] = {
       val jList = underlying.get(key)
       if (jList eq null) Chunk.empty
+      else if (jList.size() == 1) Chunk.single(jList.get(0))
       else Chunk.fromJavaIterable(jList)
     }
 
