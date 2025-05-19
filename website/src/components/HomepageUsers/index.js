@@ -3,7 +3,7 @@ import styles from './styles.module.css';
 
 const usersList = [
   {
-    name: 'Ziverge',
+    name: 'Brilliant solutions for innovative companies',
     image: 'img/users/ziverge.svg',
     url: 'https://ziverge.com'
   },
