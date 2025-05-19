@@ -4,32 +4,73 @@ import styles from './styles.module.css';
 
 const FeatureList = [
   {
-    title: 'Easy to Use',
+    title: 'High Performance & Non-blocking',
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        ZIO HTTP is powered by Netty and ZIO’s asynchronous runtime, so all I/O is
+        event-driven and non-blocking. This yields extremely high throughput and
+        low latency with minimal resource use.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
+    title: 'Native ZIO Integration and Ecosystem',
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        <p>
+          Built entirely on ZIO's effect system, ZIO HTTP gives you built-in
+          support for lightweight fibers (highly concurrent "threads"),
+          structured error handling, resource safety, and composability.
+          You inherit all the benefits of ZIO in your web applications.
+        </p>
+        <p>
+          You have also the rich ecosystem of ZIO libraries at your disposal,
+          including ZIO Schema, ZIO Config, and ZIO logging.
+        </p>
       </>
     ),
   },
   {
-    title: 'Powered by React',
+    title: 'Cloud-Native Support',
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        <p>
+            Designed for cloud-scale deployments, ZIO HTTP supports massive
+            concurrency and parallelism inherently. It efficiently manages
+            thousands of fibers (lightweight threads) and connections, so your
+             services can scale horizontally under load.
+        </p>
+
+        <p>
+            Because the native support of ZIO, features like structured error
+            handling, built-in retries, automatic resource cleanup mean faults
+            are contained. Also, you have access to observability features like
+            structured logging, metrics, tracing, and monitoring.
+        </p>
+      </>
+    ),
+  },
+  {
+    title: 'Type-driven Endpoints',
+    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    description: (
+      <>
+        <p>
+            ZIO HTTP supports both imperative routing and declarative,
+            schema-driven endpoints. You describe request and response schemas
+            in types and the framework type-checks your handler logic against
+            them at compile time. This catches many errors before you even run
+            the code and eliminates a lot of boilerplate.
+        </p>
+
+        <p>
+            This is a key feature
+            to generate OpenAPI documentation automatically or generate client
+            code from OpenAPI specs which leads to seamless API visibility.
+        </p>
       </>
     ),
   },
@@ -54,9 +95,14 @@ export default function HomepageFeatures() {
     <section className={styles.features}>
       <div className="container">
         <div className="row">
-          {FeatureList.map((props, idx) => (
+          {FeatureList.slice(0, 3).map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}
+        </div>
+        <div className="row">
+          <div className="col col--4"></div>
+          <Feature key={3} {...FeatureList[3]} />
+          <div className="col col--4"></div>
         </div>
       </div>
     </section>

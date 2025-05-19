@@ -1,0 +1,24 @@
+.showcases {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+  background-color: var(--ifm-color-emphasis-100);
+}
+
+.showcases h2 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* Add responsive styling */
+@media screen and (max-width: 996px) {
+  .showcases .row {
+    flex-direction: column;
+  }
+
+  .showcases .col--6 {
+    width: 100%;
+    margin-bottom: 2rem;
+  }
+}
