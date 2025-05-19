@@ -5,6 +5,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import HomepageShowcases from '@site/src/components/HomepageShowcases';
+import HomepageZionomicon from '@site/src/components/HomepageZionomicon';
 import styles from './index.module.css';
 
 function HomepageHeader() {
@@ -36,6 +37,7 @@ export default function Home() {
       <main>
         <HomepageShowcases />
         <HomepageFeatures />
+        <HomepageZionomicon />
       </main>
     </Layout>
   );
