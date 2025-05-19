@@ -8,15 +8,18 @@ const EcosystemProjects = [
     title: 'ZIO',
     description: 'A type-safe, composable library for async and concurrent programming in Scala',
     features: [
-      'Effect tracking at compile time',
-      'Resource-safe, concurrent code',
-      'Powerful error handling',
-      'Built-in dependency injection',
-      'Fiber-based lightweight concurrency',
-      'Superior performance with low overhead',
-      'Structured runtime interruption',
-      'Composable data streaming',
-      'Rich ecosystem integration'
+      'Build scalable applications with minimal overhead.',
+      'Catch bugs at compile time with powerful type safety.',
+      'Write concurrent code without deadlocks or race conditions.',
+      'Seamless code for both sync and async operations.',
+      'Never leak resources, even during failures.',
+      'Build resilient systems that handle errors gracefully.',
+      'Compose complex solutions from simple building blocks.',
+      'Built-in dependency injection.',
+      'Structured concurrency with simplicity and safety.',
+      'Fine-grained interruption for cancelable operations.',
+      'Integrated metrics and observability.',
+      'Seamless interop with Java and Scala libraries.',
     ],
     link: 'https://zio.dev',
     icon: {
@@ -88,10 +91,11 @@ const EcosystemProjects = [
     title: 'ZIO Test',
     description: 'A testing framework built on ZIO for writing comprehensive, concurrent tests',
     features: [
-      'Powerful assertion library',
       'Property-based testing',
+      'First-class support for asynchronous testing',
+      'Compositional test aspects for reusable configurations',
+      'Run test effects in parallel for faster test suites',
       'Integration with JUnit and other test frameworks',
-      'Built-in mocking capabilities'
     ],
     link: 'https://zio.dev/reference/test/',
     icon: {
