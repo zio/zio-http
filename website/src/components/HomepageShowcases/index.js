@@ -7,13 +7,12 @@ export default function HomepageShowcases() {
     <section className={styles.showcases}>
       <div className="container">
         <h2 className="text--center">Imperative API</h2>
-        <div className="row">
+        <div className="row" style={{ alignItems: 'center' }}>
           <div className="col col--6">
             <h3>Server-side Example</h3>
             <CodeBlock language="scala">
               {`import zio._
 import zio.http._
-
 object GreetingServer extends ZIOAppDefault {
   val routes =
     Routes(
@@ -32,7 +31,6 @@ object GreetingServer extends ZIOAppDefault {
               {`import zio._
 import zio.http._
 import zio.http.codec.TextBinaryCodec.fromSchema
-
 object ClientServerExample extends ZIOAppDefault {
   val clientApp: ZIO[Client, Throwable, Unit] =
     for {
@@ -52,7 +50,6 @@ object ClientServerExample extends ZIOAppDefault {
             </CodeBlock>
           </div>
         </div>
-
         <div className="col col--8 col--offset-2">
           <h2 className="text--center">Declarative API</h2>
           <CodeBlock language="scala">
@@ -64,7 +61,6 @@ val endpoint =
       HttpCodec.query[String]("name") ?? Doc.p("Name of the person to greet"),
     )
     .out[String]
-
 // Endpoint Implementation
 val greetRoute: Route[Any, Nothing] =
   endpoint.implementHandler(handler((name: String) => s"Hello, $name!"))
