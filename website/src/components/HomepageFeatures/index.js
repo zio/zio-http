@@ -8,7 +8,7 @@ const FeatureList = [
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        ZIO HTTP is powered by Netty and ZIO’s asynchronous runtime, so all I/O is
+        ZIO HTTP is powered by Netty and ZIO's asynchronous runtime, so all I/O is
         event-driven and non-blocking. This yields extremely high throughput and
         low latency with minimal resource use.
       </>
@@ -19,72 +19,78 @@ const FeatureList = [
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        <p>
-          Built entirely on ZIO's effect system, ZIO HTTP gives you built-in
-          support for lightweight fibers (highly concurrent "threads"),
-          structured error handling, resource safety, and composability.
-          You inherit all the benefits of ZIO in your web applications.
-        </p>
-        <p>
-          You have also the rich ecosystem of ZIO libraries at your disposal,
-          including ZIO Schema, ZIO Config, and ZIO logging.
-        </p>
+        Built entirely on ZIO's effect system, ZIO HTTP gives you built-in
+        support for lightweight fibers (highly concurrent "threads"),
+        structured error handling, resource safety, and composability.
+        You inherit all the benefits of ZIO in your web applications.
       </>
     ),
+    features: [
+      'Seamless ZIO integration',
+      'Built-in fiber support',
+      'Structured error handling',
+      'Resource safety guarantees',
+      'ZIO Schema, Config, and logging integration'
+    ]
   },
   {
     title: 'Cloud-Native Support',
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        <p>
-            Designed for cloud-scale deployments, ZIO HTTP supports massive
-            concurrency and parallelism inherently. It efficiently manages
-            thousands of fibers (lightweight threads) and connections, so your
-             services can scale horizontally under load.
-        </p>
-
-        <p>
-            Because the native support of ZIO, features like structured error
-            handling, built-in retries, automatic resource cleanup mean faults
-            are contained. Also, you have access to observability features like
-            structured logging, metrics, tracing, and monitoring.
-        </p>
+        Designed for cloud-scale deployments, ZIO HTTP supports massive
+        concurrency and parallelism inherently. It efficiently manages
+        thousands of fibers (lightweight threads) and connections, so your
+        services can scale horizontally under load.
       </>
     ),
+    features: [
+      'Massive concurrency support',
+      'Horizontal scaling',
+      'Fault containment',
+      'Automatic resource cleanup',
+      'Structured logging and metrics'
+    ]
   },
   {
     title: 'Type-driven Endpoints',
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        <p>
-            ZIO HTTP supports both imperative routing and declarative,
-            schema-driven endpoints. You describe request and response schemas
-            in types and the framework type-checks your handler logic against
-            them at compile time. This catches many errors before you even run
-            the code and eliminates a lot of boilerplate.
-        </p>
-
-        <p>
-            This is a key feature
-            to generate OpenAPI documentation automatically or generate client
-            code from OpenAPI specs which leads to seamless API visibility.
-        </p>
+        ZIO HTTP supports both imperative routing and declarative,
+        schema-driven endpoints. You describe request and response schemas
+        in types and the framework type-checks your handler logic against
+        them at compile time.
       </>
     ),
+    features: [
+      'Declarative, schema-driven endpoints',
+      'Compile-time type checking',
+      'Automatic OpenAPI documentation',
+      'Client code generation',
+      'Reduced boilerplate code'
+    ]
   },
 ];
 
-function Feature({Svg, title, description}) {
+function Feature({Svg, title, description, features = []}) {
   return (
-    <div className={clsx('col col--4')}>
-      <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
-      </div>
-      <div className="text--center padding-horiz--md">
-        <h3>{title}</h3>
-        <p>{description}</p>
+    <div className={clsx('col col--4', styles.featureCardCol)}>
+      <div className={styles.featureCard}>
+        <div className={styles.featureCardHeader}>
+          <div className={styles.featureCardIcon}>
+            <Svg role="img" />
+          </div>
+          <h3>{title}</h3>
+        </div>
+        <p className={styles.featureCardDescription}>{description}</p>
+        {features.length > 0 && (
+          <ul className={styles.featureCardFeatures}>
+            {features.map((feature, idx) => (
+              <li key={idx}>{feature}</li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -93,17 +99,20 @@ function Feature({Svg, title, description}) {
 export default function HomepageFeatures() {
   return (
     <section className={styles.features}>
-      <div className="container">
-        <h2 class="sectionHeader">Key Features</h2>
-        <div className="row">
-          {FeatureList.slice(0, 3).map((props, idx) => (
+      <div className={styles.wideContainer}>
+        <div className={clsx('row', styles.featuresHeader)}>
+          <div className="col col--12 text--center">
+            <h2 className="sectionHeader">Key Features</h2>
+            <p className={styles.featuresSubtitle}>
+              Build high-performance, scalable web applications with ZIO HTTP
+            </p>
+          </div>
+        </div>
+
+        <div className={clsx('row', styles.featureCards)}>
+          {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}
-        </div>
-        <div className="row">
-          <div className="col col--4"></div>
-          <Feature key={3} {...FeatureList[3]} />
-          <div className="col col--4"></div>
         </div>
       </div>
     </section>

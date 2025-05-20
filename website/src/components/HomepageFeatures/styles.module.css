@@ -1,18 +1,112 @@
 .features {
   display: flex;
   align-items: center;
-  padding: 2rem 0;
+  padding: 4rem 0;
   width: 100%;
+  background-color: var(--ifm-color-emphasis-0);
 }
 
-.featureSvg {
-  height: 200px;
-  width: 200px;
+.wideContainer {
+  margin: 0 auto;
+  padding: 0 var(--ifm-spacing-horizontal);
+  width: 100%;
+  max-width: 1400px;
 }
 
-.sectionHeader {
-  font-size: 3.0rem !important;
-  margin-bottom: 1.5rem !important;
-  text-align: center !important;
-  font-weight: 700 !important;
+.featuresHeader {
+  margin-bottom: 2rem;
+}
+
+.featuresSubtitle {
+  font-size: 1.2rem;
+  color: var(--ifm-color-primary);
+}
+
+.featureCards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.featureCardCol {
+  margin-bottom: 2rem;
+}
+
+/* Make sure all cards have the same height in a row */
+.featureCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  border-radius: 8px;
+  background-color: var(--ifm-card-background-color);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.featureCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  border-color: var(--ifm-color-primary-lightest);
+}
+
+.featureCardHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.featureCardIcon {
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.featureCardIcon svg {
+  width: 40px;
+  height: 40px;
+  color: var(--ifm-color-primary);
+}
+
+.featureCardHeader h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--ifm-color-primary);
+}
+
+.featureCardDescription {
+  margin-bottom: 1.5rem;
+  color: var(--ifm-color-emphasis-700);
+  flex-grow: 0;
+}
+
+.featureCardFeatures {
+  margin-bottom: 1.5rem;
+  padding-left: 1.5rem;
+  flex-grow: 1;
+}
+
+.featureCardFeatures li {
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-emphasis-800);
+}
+
+/* Responsive styles for feature cards */
+@media (max-width: 996px) {
+  .featureCardCol {
+    width: 100%;
+  }
+
+  .features {
+    padding: 3rem 0;
+  }
+
+  .featureCard {
+    padding: 1.5rem;
+  }
 }
