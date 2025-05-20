@@ -9,7 +9,7 @@ sdk install java 24.0.1-tem
 sdk use java 24.0.1-tem
 
 # Install and use SBT
-sdk install sbt 1.0.11
+sdk install sbt 1.10.11
 sdk use sbt 1.10.11
 
 # Run mdoc
