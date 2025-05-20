@@ -850,11 +850,15 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * Lifts an `Either` into a `Handler` alue.
    */
   def fromEither[Err, Out](either: => Either[Err, Out]): Handler[Any, Err, Any, Out] =
-    either.fold(Handler.fail(_), Handler.succeed(_))
+    fromExit(Exit.fromEither(either))
 
   def fromExit[Err, Out](exit: => Exit[Err, Out]): Handler[Any, Err, Any, Out] =
     new Handler[Any, Err, Any, Out] {
-      override def apply(in: Any): ZIO[Any, Err, Out] = exit
+      override def apply(in: Any): ZIO[Any, Err, Out] =
+        try exit
+        catch {
+          case NonFatal(error) => Exit.die(error)
+        }
     }
 
   /**
@@ -987,7 +991,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    */
   def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out]): Handler[R, Err, Any, Out] =
     new Handler[R, Err, Any, Out] {
-      override def apply(in: Any): ZIO[Scope & R, Err, Out] = zio
+      override def apply(in: Any): ZIO[Scope & R, Err, Out] = ZIO.suspendSucceed(zio)
     }
 
   /**
@@ -1228,7 +1232,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             Exit.succeed(f(in))
           } catch {
-            case error: Throwable => Exit.die(error)
+            case NonFatal(error) => Exit.die(error)
           }
       }
   }
@@ -1236,8 +1240,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   final class FromFunctionHandler[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => Handler[R, Err, In, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
-        override def apply(in: In): ZIO[Scope & R, Err, Out] =
-          f(in)(in)
+        override def apply(in: In): ZIO[Scope & R, Err, Out] = ZIO.suspendSucceed(f(in)(in))
       }
   }
 
@@ -1248,7 +1251,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             Exit.fromEither(f(in))
           } catch {
-            case error: Throwable => Exit.die(error)
+            case NonFatal(error) => Exit.die(error)
           }
       }
   }
@@ -1260,7 +1263,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             f(in)
           } catch {
-            case error: Throwable => Exit.die(error)
+            case NonFatal(error) => Exit.die(error)
           }
       }
   }
@@ -1269,7 +1272,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     def apply[R, Err, Out](f: In => ZIO[R, Err, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
-          f(in)
+          ZIO.suspendSucceed(f(in))
       }
   }
 
