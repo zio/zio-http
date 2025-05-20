@@ -95,7 +95,7 @@ const config = {
             label: 'FAQ',
           },
           {
-            href: 'https://github.com/facebook/docusaurus',
+            href: 'https://github.com/zio/zio-http',
             label: 'GitHub',
             position: 'right',
           },
@@ -109,8 +109,20 @@ const config = {
             title: 'Docs',
             items: [
               {
-                label: 'Tutorial',
-                to: '/docs/intro',
+                label: 'Getting Started',
+                to: '/docs/installation',
+              },
+              {
+                label: 'Reference',
+                to: '/docs/reference/overview',
+              },
+              {
+                label: 'Guides',
+                to: '/docs/guides/integration-with-zio-config',
+              },
+              {
+                label: 'Examples',
+                to: '/docs/examples/hello-world',
               },
             ],
           },
