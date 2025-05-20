@@ -25,13 +25,6 @@ const FeatureList = [
         You inherit all the benefits of ZIO in your web applications.
       </>
     ),
-    features: [
-      'Seamless ZIO integration',
-      'Built-in fiber support',
-      'Structured error handling',
-      'Resource safety guarantees',
-      'ZIO Schema, Config, and logging integration'
-    ]
   },
   {
     title: 'Cloud-Native Support',
@@ -44,13 +37,6 @@ const FeatureList = [
         services can scale horizontally under load.
       </>
     ),
-    features: [
-      'Massive concurrency support',
-      'Horizontal scaling',
-      'Fault containment',
-      'Automatic resource cleanup',
-      'Structured logging and metrics'
-    ]
   },
   {
     title: 'Type-driven Endpoints',
@@ -63,13 +49,6 @@ const FeatureList = [
         them at compile time.
       </>
     ),
-    features: [
-      'Declarative, schema-driven endpoints',
-      'Compile-time type checking',
-      'Automatic OpenAPI documentation',
-      'Client code generation',
-      'Reduced boilerplate code'
-    ]
   },
 ];
 
