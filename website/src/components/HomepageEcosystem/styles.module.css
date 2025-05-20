@@ -33,13 +33,14 @@
 .mainProjectCol .ecosystemCardDescription {
   text-align: center;
   font-size: 1.2rem;
-  margin-bottom: 2rem;
-}.ecosystem {
+}
+
+.ecosystem {
   display: flex;
   align-items: center;
   padding: 4rem 0;
   width: 100%;
-  background-color: var(--ifm-color-emphasis-0);
+  background-color: var(--ifm-color-emphasis-100);
 }
 
 .wideContainer {
@@ -55,14 +56,12 @@
 
 .ecosystemSubtitle {
   font-size: 1.2rem;
-  margin-bottom: 2rem;
   color: var(--ifm-color-primary);
 }
 
 .ecosystemCards {
   display: flex;
   flex-wrap: wrap;
-  margin-bottom: 2rem;
 }
 
 .ecosystemCardCol {
@@ -77,7 +76,7 @@
 }
 
 .mainProjectCol {
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .mainProjectCol .ecosystemCard {
