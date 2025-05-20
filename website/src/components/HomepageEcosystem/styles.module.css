@@ -79,12 +79,6 @@
   margin-bottom: 2rem;
 }
 
-.mainProjectCol .ecosystemCard {
-  border-width: 2px;
-  background-color: var(--ifm-color-emphasis-0);
-  border-color: var(--ifm-color-primary-lighter);
-}
-
 .mainProjectCol .ecosystemCardHeader h3 {
   font-size: 1.8rem;
 }
