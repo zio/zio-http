@@ -18,33 +18,6 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: website/yarn.lock
 
-      - name: Set up SDKMAN
-        run: |
-          curl -s "https://get.sdkman.io" | bash
-          source "$HOME/.sdkman/bin/sdkman-init.sh"
-          sdk install java 24.0.1-tem
-          sdk use java 24.0.1-tem
-          sdk install sbt 1.10.11
-          sdk use sbt 1.10.11
+      - name: Run build script
+        run: ./build.sh
         shell: bash
-
-      - name: Cache SBT dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.coursier/cache
-          key: ${{ runner.os }}-sbt-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-sbt-
-
-      - name: Run SBT mdoc
-        run: sbt mdoc
-        shell: bash
-
-      - name: Build website
-        run: |
-          cd website
-          yarn install
-          yarn run build
