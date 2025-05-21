@@ -8,7 +8,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'ZIO HTTP',
   tagline: ' A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers',
-  url: 'https://your-docusaurus-test-site.com',
+  url: 'https://zio-http.netlify.app',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
