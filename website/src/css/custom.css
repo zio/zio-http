@@ -35,8 +35,6 @@
   }
 }
 
-
-
 .heroBanner {
   padding: 4rem 0;
   text-align: center;
@@ -63,3 +61,11 @@
   font-weight: 700;
 }
 
+.hero__title {
+    font-size: 5rem;
+}
+
+.hero__subtitle {
+    font-size: 3.5rem;
+    margin-bottom: 2rem;
+}
