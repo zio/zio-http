@@ -9,6 +9,7 @@ import HomepageZionomicon from '@site/src/components/HomepageZionomicon';
 import HomepageEcosystem from '@site/src/components/HomepageEcosystem';
 import HomepageUsers from '@site/src/components/HomepageUsers';
 import styles from './index.module.css';
+import { FaArrowRight } from 'react-icons/fa6';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -21,7 +22,7 @@ function HomepageHeader() {
           <Link
             className="button button--secondary button--lg"
             to="/docs/installation">
-            Docusaurus Tutorial - 5min ⏱️
+              <span>Get Started</span><span> </span><FaArrowRight className={styles.arrowIcon} />
           </Link>
         </div>
       </div>
