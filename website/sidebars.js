@@ -148,6 +148,7 @@ const sidebars = {
   ],
 
   sidebar: [
+        "index",
         "installation",
         {
             type: "category",
