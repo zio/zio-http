@@ -1,7 +1,7 @@
 ---
 id: index
 title: "Introduction to ZIO HTTP"
-sidebar_label: "ZIO HTTP"
+sidebar_label: "Introduction"
 ---
 
 ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic Scala.
