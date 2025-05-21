@@ -15,14 +15,14 @@ const FeatureList = [
     ),
   },
   {
-    title: 'Native ZIO Integration and Ecosystem',
+    title: 'Unified ZIO Experience',
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Built entirely on ZIO's effect system, ZIO HTTP gives you built-in
-        support for lightweight fibers (highly concurrent "threads"),
-        structured error handling, resource safety, and composability.
-        You inherit all the benefits of ZIO in your web applications.
+        Built on ZIO's effect system, ZIO HTTP provides lightweight fibers,
+        structured error handling, and resource safety for your web applications,
+        with seamless access to ZIO ecosystem libraries, such as ZIO Schema,
+        ZIO Logging, ZIO Config, ZIO Streams, and ZIO Test libraries.
       </>
     ),
   },
