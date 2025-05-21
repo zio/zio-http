@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.util.Try
+
 import zio._
 
 import zio.stream.ZPipeline
@@ -36,18 +38,18 @@ import zio.http.codec._
  * @param id
  *   optional id, must not contain \n or \r
  * @param retry
- *   optional reconnection delay in milliseconds
+ *   optional reconnection delay
  */
 final case class ServerSentEvent[T](
   data: T,
   eventType: Option[String] = None,
   id: Option[String] = None,
-  retry: Option[Int] = None,
+  retry: Option[Duration] = None,
 ) {
 
   def encode(implicit binaryCodec: BinaryCodec[T]): String = {
     val sb = new StringBuilder
-    binaryCodec.encode(data).asString.linesIterator.foreach { line =>
+    binaryCodec.encode(data).asString(Charsets.Utf8).linesIterator.foreach { line =>
       sb.append("data: ").append(line).append('\n')
     }
     eventType.foreach { et =>
@@ -57,7 +59,7 @@ final case class ServerSentEvent[T](
       sb.append("id: ").append(i.linesIterator.mkString(" ")).append('\n')
     }
     retry.foreach { r =>
-      sb.append("retry: ").append(r).append('\n')
+      sb.append("retry: ").append(r.toMillis).append('\n')
     }
     sb.append('\n').toString
   }
@@ -65,44 +67,88 @@ final case class ServerSentEvent[T](
 
 object ServerSentEvent {
 
+  /**
+   * Server-Sent Event (SSE) as defined by
+   * https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events
+   *
+   * @param data
+   *   data, may span multiple lines
+   * @param eventType
+   *   type, must not contain \n or \r
+   * @param id
+   *   id, must not contain \n or \r
+   * @param retry
+   *   reconnection delay in milliseconds, must be >= 0
+   */
+  def apply[T](data: T, eventType: Option[String], id: Option[String], retry: Option[Int])(implicit
+    di: DummyImplicit,
+  ): ServerSentEvent[T] =
+    ServerSentEvent(data, eventType, id, retry.filter(_ >= 0).map(_.milliseconds))
+
   implicit def schema[T](implicit schema: Schema[T]): Schema[ServerSentEvent[T]] = DeriveSchema.gen[ServerSentEvent[T]]
 
   implicit def defaultBinaryCodec[T](implicit schema: Schema[T]): BinaryCodec[ServerSentEvent[T]] =
     defaultContentCodec(schema).defaultCodec
 
-  private def nextOption(lines: Iterator[String]): Option[String] =
-    if (lines.hasNext) Some(lines.next())
-    else None
-
   implicit def binaryCodec[T](implicit binaryCodec: BinaryCodec[T]): BinaryCodec[ServerSentEvent[T]] =
     new BinaryCodec[ServerSentEvent[T]] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, ServerSentEvent[T]] = {
-        val lines     = whole.asString.linesIterator
-        val data      = lines.next().stripPrefix("data: ")
-        val eventType = nextOption(lines).map(_.stripPrefix("event: "))
-        val id        = nextOption(lines).map(_.stripPrefix("id: "))
-        val retry     = nextOption(lines).map(_.stripPrefix("retry: ").toInt)
-        val decoded   = binaryCodec.decode(Chunk.fromArray(data.getBytes))
-        decoded.map(value => ServerSentEvent(value, eventType, id, retry))
+        val event = processEvent(Chunk.fromArray(whole.asString(Charsets.Utf8).split("\n")))
+        if (event.data.isEmpty && event.retry.isEmpty)
+          Left(DecodeError.EmptyContent("Neither 'data' nor 'retry' fields specified"))
+        else
+          decodeDataField(event)
       }
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, ServerSentEvent[T]] =
-        ZPipeline.chunks[Byte].map(_.asString) >>> ZPipeline
-          .splitOn("\n\n")
-          .mapZIO(s => {
-            val lines     = s.linesIterator
-            val data      = lines.next().stripPrefix("data: ")
-            val eventType = nextOption(lines).map(_.stripPrefix("event: "))
-            val id        = nextOption(lines).map(_.stripPrefix("id: "))
-            val retry     = nextOption(lines).map(_.stripPrefix("retry: ").toInt)
-            val decoded   = binaryCodec.decode(Chunk.fromArray(data.getBytes))
-            ZIO.fromEither(decoded.map(value => ServerSentEvent(value, eventType, id, retry)))
-          })
+        ZPipeline.utf8Decode.orDie >>>
+          ZPipeline.splitOn("\n") >>>
+          ZPipeline
+            .scan[String, (Boolean, Chunk[String])](false -> Chunk.empty) {
+              case ((true, _), "")        => true  -> Chunk.empty
+              case ((true, _), line)      => false -> Chunk(line)
+              case ((false, lines), "")   => true  -> lines
+              case ((false, lines), line) => false -> (lines :+ line)
+            }
+            .filter { case (completed, event) => completed && event.nonEmpty }
+            .map { case (_, lines) => processEvent(lines) }
+            .filter(event => event.data.nonEmpty || event.retry.nonEmpty)
+            .mapZIO(event => ZIO.fromEither(decodeDataField(event)))
 
-      override def encode(value: ServerSentEvent[T]): Chunk[Byte] = Chunk.fromArray(value.encode.getBytes)
+      private def processEvent(lines: Chunk[String]): ServerSentEvent[Chunk[String]] =
+        lines.foldLeft(ServerSentEvent(data = Chunk.empty[String])) { case (event, line) =>
+          val fieldType = "(data|event|id|retry)(:|$)".r.findPrefixOf(line)
+          fieldType match {
+            case Some("data:")  => event.copy(data = event.data :+ line.replaceFirst("data: ?", ""))
+            case Some("data")   => event.copy(data = event.data :+ "")
+            case Some("event:") =>
+              event.copy(eventType = Some(line.replaceFirst("event: ?", "")).filter(_.nonEmpty))
+            case Some("event")  => event.copy(eventType = None)
+            case Some("retry:") =>
+              event.copy(retry =
+                Some(line.replaceFirst("retry: ?", ""))
+                  .filter(_.nonEmpty)
+                  .flatMap(retry => Try(retry.toInt).toOption)
+                  .filter(_ >= 0)
+                  .map(_.milliseconds),
+              )
+            case Some("retry")  => event.copy(retry = None)
+            case Some("id:")    => event.copy(id = Some(line.replaceFirst("id: ?", "")).filter(_.nonEmpty))
+            case Some("id")     => event.copy(id = None)
+            case _              => event
+          }
+        }
+
+      private def decodeDataField(event: ServerSentEvent[Chunk[String]]): Either[DecodeError, ServerSentEvent[T]] =
+        binaryCodec
+          .decode(Chunk.fromArray(event.data.mkString("\n").getBytes(Charsets.Utf8)))
+          .map(data => event.copy(data = data))
+
+      override def encode(value: ServerSentEvent[T]): Chunk[Byte] =
+        Chunk.fromArray(value.encode.getBytes(Charsets.Utf8))
 
       override def streamEncoder: ZPipeline[Any, Nothing, ServerSentEvent[T], Byte] =
-        ZPipeline.mapChunks(value => value.flatMap(c => c.encode.getBytes))
+        ZPipeline.mapChunks(value => value.flatMap(c => c.encode.getBytes(Charsets.Utf8)))
     }
 
   implicit def contentCodec[T](implicit

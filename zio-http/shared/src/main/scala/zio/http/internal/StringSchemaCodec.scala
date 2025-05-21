@@ -218,7 +218,7 @@ private[http] trait StringSchemaCodec[A, Target] {
             target0 = addAll(target0, values.map { v => (name, codec.encode(v)) })
           case _                   =>
             val encoded = codec.encode(value)
-            target0 = add(target0, name, encoded)
+            if (encoded != null) target0 = add(target0, name, encoded)
         }
       }
       target0
@@ -383,10 +383,13 @@ private[http] object StringSchemaCodec {
   @tailrec
   private def emptyStringIsValue(schema: Schema[_]): Boolean                                        = {
     schema match {
-      case value: Schema.Optional[_] =>
+      case value: Schema.Optional[_]        =>
         val innerSchema = value.schema
         emptyStringIsValue(innerSchema)
-      case _                         =>
+      case value: Schema.Transform[_, _, _] =>
+        val innerSchema = value.schema
+        emptyStringIsValue(innerSchema)
+      case _                                =>
         schema.asInstanceOf[Schema.Primitive[_]].standardType match {
           case StandardType.UnitType   => true
           case StandardType.StringType => true
@@ -535,7 +538,7 @@ private[http] object StringSchemaCodec {
       case s @ Schema.Optional(schema, _)                              =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
-            stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
+            stringSchemaCodec(recordSchema(schema.asInstanceOf[Schema[Any]], name))
           case s if s.isInstanceOf[Schema.Record[_]] => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
           case _                                     => throw new IllegalArgumentException(s"Unsupported schema $s")
         }

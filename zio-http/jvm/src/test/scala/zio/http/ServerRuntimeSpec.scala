@@ -20,6 +20,9 @@ import zio._
 import zio.test.TestAspect._
 import zio.test._
 
+import zio.stream.ZStream
+
+import zio.http.codec.HttpContentCodec._
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 
@@ -75,10 +78,48 @@ object ServerRuntimeSpec extends RoutesRunnableSpec {
             .scoped(serve[Foo](server))
             .zipRight(server.deploy.body.run(path = Path.root / "test", method = Method.GET))
             .flatMap(_.asString(Charsets.Utf8))
-            .map(b => assertTrue(b == "1"))
-        }
+            .map(b => assertTrue(b == "2")) // one extra for Scope
+        } +
+        test("with scope") {
+          val ref    = Ref.unsafe.make(0)(zio.Unsafe)
+          val routes = Routes(
+            Method.GET / "test" -> handler(
+              ZIO.addFinalizer(ref.set(1)).as(Response.text("ok")),
+            ),
+          )
+          serve(routes)
+            .zipRight(routes.deploy.body.run(path = Path.root / "test", method = Method.GET))
+            .flatMap(_.asString(Charsets.Utf8))
+            .map(b => assertTrue(b == "ok")) *> ref.get.map { v => assertTrue(v == 1) }
+        } +
+        test("with scope streaming") {
+          val ref    = Ref.unsafe.make(0)(zio.Unsafe)
+          val routes = Routes(
+            Method.GET / "test" -> handler(
+              Body
+                .fromStreamEnv(
+                  ZStream.fromZIO(
+                    ZIO.addFinalizer(ref.set(1)) *> ref.get.flatMap(v =>
+                      if (v == 0) Exit.succeed(Chunk.fromArray("ok".getBytes)) else Exit.fail(new Exception("error")),
+                    ),
+                  ),
+                )
+                .map(body =>
+                  Response(
+                    body = body,
+                  ),
+                )
+                .orDie,
+            ),
+          )
+          serve(routes)
+            .zipRight(routes.deploy.body.run(path = Path.root / "test", method = Method.GET))
+            .flatMap(_.asString(Charsets.Utf8))
+            .map(b => assertTrue(b == "ok")) *> ref.get.map { v => assertTrue(v == 1) }
+        } @@ TestAspect.flaky
     }
       .provide(
+        Scope.default,
         DynamicServer.live,
         Server.customized,
         ZLayer.succeed(Server.Config.default),

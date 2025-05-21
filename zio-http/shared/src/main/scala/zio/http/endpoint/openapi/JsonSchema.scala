@@ -8,6 +8,7 @@ import zio.json.ast.Json
 import zio.schema.Schema.CaseClass0
 import zio.schema._
 import zio.schema.annotation._
+import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.codec._
 import zio.schema.codec.json._
 import zio.schema.validation._
@@ -87,7 +88,12 @@ private[openapi] object SerializableJsonSchema {
   implicit val schema: Schema[SerializableJsonSchema] = DeriveSchema.gen[SerializableJsonSchema]
 
   val binaryCodec: BinaryCodec[SerializableJsonSchema] =
-    JsonCodec.schemaBasedBinaryCodec[SerializableJsonSchema](JsonCodec.Config(ignoreEmptyCollections = true))(
+    JsonCodec.schemaBasedBinaryCodec[SerializableJsonSchema](
+      JsonCodec.Configuration(
+        explicitEmptyCollections = ExplicitConfig(encoding = false),
+        explicitNulls = ExplicitConfig(encoding = false),
+      ),
+    )(
       Schema[SerializableJsonSchema],
     )
 }
@@ -478,7 +484,7 @@ object JsonSchema {
               arraySchemaMulti(refType, ref, elementSchema, seenWithCurrent)
           }
         case Schema.Transform(schema, _, _, _, _)                                              =>
-          fromZSchemaMulti(schema, refType, seenWithCurrent)
+          fromZSchemaMulti(schema, refType, seen)
         case Schema.Primitive(_, _)                                                            =>
           JsonSchemas(fromZSchema(schema, SchemaStyle.Inline), ref, Map.empty)
         case Schema.Optional(schema, _)                                                        =>
@@ -844,10 +850,11 @@ object JsonSchema {
   @tailrec
   private def nominal(schema: Schema[_], referenceType: SchemaStyle = SchemaStyle.Reference): Option[java.lang.String] =
     schema match {
-      case enumSchema: Schema.Enum[_] => refForTypeId(enumSchema.id, referenceType)
-      case record: Schema.Record[_]   => refForTypeId(record.id, referenceType)
-      case lazySchema: Schema.Lazy[_] => nominal(lazySchema.schema, referenceType)
-      case _                          => None
+      case enumSchema: Schema.Enum[_]                 => refForTypeId(enumSchema.id, referenceType)
+      case record: Schema.Record[_]                   => refForTypeId(record.id, referenceType)
+      case lazySchema: Schema.Lazy[_]                 => nominal(lazySchema.schema, referenceType)
+      case transformSchema: Schema.Transform[_, _, _] => nominal(transformSchema.schema, referenceType)
+      case _                                          => None
     }
 
   private def refForTypeId(id: TypeId, referenceType: SchemaStyle): Option[java.lang.String] =

@@ -150,6 +150,13 @@ val endpoint: Endpoint[String, (String, Header.Authorization), ZNothing, ZNothin
     .header(HeaderCodec.authorization)
 ```
 
+The authorization type can also be encoded into the endpoint via the respective `HeaderCodec`:
+
+```scala mdoc:compile-only
+val userEndpoint = Endpoint(RoutePattern.GET / "users" / "me")
+    .header(HeaderCodec.bearerAuth)
+```
+
 ### Request Body
 
 The request body can be described using the `Endpoint#in` method:
@@ -526,6 +533,63 @@ val mappedEndpoint: Endpoint[String, BookQuery, ZNothing, ZNothing, AuthType.Non
 In the above example, we mapped over the input type of the `endpoint` and transformed it into a single `BookQuery` object. The `Endpoint#transformIn` method takes two functions, the first one is used to map the input type to the new input type, and the second one is responsible for mapping the new input type back to the original input type.
 
 The `transformOut` and `transformError` methods work similarly to the `transformIn` method.
+
+## CodecConfig
+The `CodecConfig` is injected when building any `Endpoint` API codecs. You can see this in the definition of `BinaryCodecWithSchema`:
+
+```scala mdoc:compile-only
+import zio.http.codec._
+import zio.schema._
+import zio.schema.codec._
+
+case class BinaryCodecWithSchema[A](codecFn: CodecConfig => BinaryCodec[A], schema: Schema[A])
+```
+
+By default, it effects only the JSON codecs, but you may use it to configure custom codecs as well.
+
+The configuration options can be changed globally or per set of `Routes`.
+
+To change the config globally, we set a config in the bootstrap of the application:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.codec._
+
+object MyApp extends ZIOAppDefault {
+  override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
+    CodecConfig.configLayer(CodecConfig(rejectExtraFields = true))
+
+  override def run: ZIO[Any, Throwable, Unit] = ???
+}
+```
+
+To change the config per set of `Routes`, we can use middleware:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.codec._
+
+object MyApp extends ZIOAppDefault {
+  override def run: ZIO[Any, Throwable, Unit] = {
+    val routes: Routes[Any, Nothing] = ???
+
+    val customConfig = CodecConfig(rejectExtraFields = true)
+    val customRoutes = routes @@ CodecConfig.withConfig(customConfig)
+
+    Server.serve(customRoutes).provide(Server.default)
+  }
+}
+```
+Here is a table of the available options and their default values:
+
+| Config                     | Default Value                                                                                                                                                                                                                                            |
+|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `rejectExtraFields`       | `false`<br/><br/>Rejects requests that contain fields that are not part of the data structure that should be encoded.                                                                                                                                    |
+| `explicitEmptyCollections` | `ExplicitConfig(encoding = true, decoding = false)`<br/><br/>Collecttions will be encoded as `"fieldName": []` and missing fields will be decoded as empty collections                                                                                        |
+| `explicitNulls`         | `ExplicitConfig(encoding = true, decoding = false)`<br/><br/>Null values/Option.None will be encoded as `"fieldName": null` and missing fields will be decoded as `Option.None`                                                                               |
+| `discriminatorSettings` | `DiscriminatorSetting.ClassName(NameFormat.Identity)`<br/><br/>Discriminator will be the class name of the sealed trait or enum case. It will be the field name of a singe field object. The value of this field will be the JSON representation of the case. |
+| `fieldNameFormat`       | `NameFormat.Identity`<br/><br/>The field name will be the same as the case class field name. There are predefined cases for `SnakeCase`, `CamelCase`, `KebabCase`, and `PascalCase`.                                                                          |
+| `treatStreamsAsArrays` | `false`<br/><br/>If set to true, streams will be read into arrays before being encoded.                                                                                                                                                                        |
 
 ## OpenAPI Documentation
 

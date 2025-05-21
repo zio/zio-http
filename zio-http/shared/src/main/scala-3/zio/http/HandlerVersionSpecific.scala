@@ -12,9 +12,11 @@ trait HandlerVersionSpecific {
       trace: Trace,
     ): Handler[Env0 with Env1, Response, Request, Response] =
       aspect.applyHandlerContext {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Env, Response, Response] = self.asInstanceOf[Handler[Env, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Env0](_.add(ctx).asInstanceOf[ZEnvironment[Env]])
+        Handler.scoped[Env0] {
+          handler { (ctx: Ctx, req: Request) =>
+            val handler: ZIO[Scope & Env, Response, Response] = self.asInstanceOf[Handler[Env, Response, Request, Response]](req)
+            handler.provideSomeEnvironment[Scope & Env0](_.add(ctx).asInstanceOf[ZEnvironment[Scope & Env]])
+          }
         }
       }
   }

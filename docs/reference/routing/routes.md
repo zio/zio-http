@@ -141,7 +141,7 @@ val routes: Routes[Any, Response] = ???
 
 routes.transform[Any] { handle =>
    handler { (request: Request) => 
-     ZIO.sleep(1.second) *> handle(request)
+     ZIO.sleep(1.second) *> ZIO.scoped(handle(request))
    }
 }
 ```
@@ -164,7 +164,7 @@ import zio.http._
 
 val routes: Routes[Any, Response] = ???
 
-val newRoutes = routes @@ HandlerAspect.dropTrailingSlash
+val newRoutes = routes @@ HandlerAspect.requestLogging()
 ```
 
 To learn more about middlewares, see the [Middleware](../aop/middleware.md) section.

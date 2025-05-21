@@ -25,7 +25,15 @@ object MimaSettings {
         exclude[Problem]("zio.http.endpoint.openapi.OpenAPIGen#AtomizedMetaCodecs.copy"),
         exclude[IncompatibleMethTypeProblem]("zio.http.Middleware.addHeader"),
         exclude[IncompatibleMethTypeProblem]("zio.http.HandlerAspect.addHeader"),
-      ),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.http.Server.installInternal"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.Server.serve"),
+        ProblemFilters.exclude[IncompatibleMethTypeProblem]("zio.http.Server.serve"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.http.codec.CodecConfig.apply$default$1"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.http.codec.CodecConfig.<init>$default$1"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.codec.CodecConfig.this"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.http.codec.CodecConfig.copy$default$1"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.codec.CodecConfig.copy"),
+        ),
       mimaFailOnProblem := failOnProblem,
     )
 }

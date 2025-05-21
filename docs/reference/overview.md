@@ -119,7 +119,7 @@ val randomGeneratorHandler =
   }
 ```
 
-There are several ways to create a `Handler`, to learn more about handlers, see the [Handlers](reference/handler.md) page.
+There are several ways to create a `Handler`, to learn more about handlers, see the [Handlers](handler.md) page.
 
 ## Accessing the Request
 

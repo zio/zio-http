@@ -144,6 +144,39 @@ object RequestSpec extends ZIOHttpSpec {
         } yield assertTrue(body.isComplete, body.isInstanceOf[Body.ErrorBody], bytes == Left(err))
       },
     ),
+    suiteAll("query")(
+      test("add multiple query parmas") {
+        val request        = Request
+          .get("https://example.com")
+          .addQueryParam("a", 1)
+          .addQueryParam("b", 2)
+          .addQueryParam("c", 3)
+          .addQueryParam("d", 4)
+        val expectedParams = QueryParams("a" -> "1", "b" -> "2", "c" -> "3", "d" -> "4")
+        assertTrue(request.url.queryParams == expectedParams)
+      },
+    ),
+    suiteAll("addCookie")(
+      test("adding multiple cookies") {
+        val request  = Request
+          .get("https://whatever.com")
+          .addCookie(Cookie.Request("n1", "c1"))
+          .addCookie(Cookie.Request("n2", "c2"))
+          .addCookies(Cookie.Request("n3", "c3"), Cookie.Request("n4", "c4"))
+        val expected = Request
+          .get("https://whatever.com")
+          .addCookies(
+            Cookie.Request("n1", "c1"),
+            Cookie.Request("n2", "c2"),
+            Cookie.Request("n3", "c3"),
+            Cookie.Request("n4", "c4"),
+          )
+        assertTrue(
+          request.headers.get(Header.Cookie.name)
+            == expected.headers.get(Header.Cookie.name),
+        )
+      },
+    ),
   )
 
 }

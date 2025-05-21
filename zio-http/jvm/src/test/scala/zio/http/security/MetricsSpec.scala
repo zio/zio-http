@@ -44,7 +44,7 @@ object MetricsSpec extends ZIOHttpSpec {
 
     test(name) {
       for {
-        port <- Server.install(routes)
+        port <- Server.installRoutes(routes)
         mkRequest = mkRequest0(port)
         _             <- ZIO.iterate((0, init))(_._1 < maxReq) { case (n, content) =>
           ZIO.scoped {

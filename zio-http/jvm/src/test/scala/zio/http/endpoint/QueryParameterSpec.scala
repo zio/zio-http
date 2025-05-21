@@ -105,13 +105,37 @@ object QueryParameterSpec extends ZIOHttpSpec {
         testRoutes(s"/users/$userId?details=$details", s"path(users, $userId, Some($details))")
       }
     },
-    test("multiple optional query parameters") {
+    test("multiple optional query parameters using optional operator") {
       check(Gen.int, Gen.alphaNumericString, Gen.alphaNumericString) { (userId, key, value) =>
         val testRoutes = testEndpoint(
           Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(HttpCodec.query[String]("key").optional)
               .query(HttpCodec.query[String]("value").optional)
+              .out[String]
+              .implementHandler {
+                Handler.fromFunction { case (userId, key, value) =>
+                  s"path(users, $userId, $key, $value)"
+                }
+              },
+          ),
+        ) _
+        testRoutes(s"/users/$userId", s"path(users, $userId, None, None)") &&
+        testRoutes(s"/users/$userId?key=&value=", s"path(users, $userId, Some(), Some())") &&
+        testRoutes(s"/users/$userId?key=&value=$value", s"path(users, $userId, Some(), ${Some(value)})") &&
+        testRoutes(
+          s"/users/$userId?key=$key&value=$value",
+          s"path(users, $userId, ${Some(key)}, ${Some(value)})",
+        )
+      }
+    },
+    test("multiple optional query parameters by parsing query parameters as Option[T]") {
+      check(Gen.int, Gen.alphaNumericString, Gen.alphaNumericString) { (userId, key, value) =>
+        val testRoutes = testEndpoint(
+          Routes(
+            Endpoint(GET / "users" / int("userId"))
+              .query(HttpCodec.query[Option[String]]("key"))
+              .query(HttpCodec.query[Option[String]]("value"))
               .out[String]
               .implementHandler {
                 Handler.fromFunction { case (userId, key, value) =>
@@ -460,6 +484,6 @@ object QueryParameterSpec extends ZIOHttpSpec {
         assertTrue(response.status == Status.Ok)
       }
     },
-  ).provide(ErrorResponseConfig.debugLayer)
+  ).provide(Scope.default, ErrorResponseConfig.debugLayer)
 
 }
