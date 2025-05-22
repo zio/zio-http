@@ -34,8 +34,10 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
       ),
   )
 
-  private val config = Server.Config.default
-    .port(8080)
+  private val config =
+    Server.Config.default
+      .port(8080)
+      .logWarningOnFatalError(false)
 
   private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)
