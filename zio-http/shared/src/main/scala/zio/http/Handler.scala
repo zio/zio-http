@@ -717,7 +717,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fromExit {
       try Exit.succeed(out)
       catch {
-        case NonFatal(cause) => Exit.fail(cause)
+        case error if NonFatal(error) => Exit.fail(error)
       }
     }
 
@@ -857,7 +857,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       override def apply(in: Any): ZIO[Any, Err, Out] =
         try exit
         catch {
-          case NonFatal(error) => Exit.die(error)
+          case error if NonFatal(error) => Exit.die(error)
         }
     }
 
@@ -1232,7 +1232,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             Exit.succeed(f(in))
           } catch {
-            case NonFatal(error) => Exit.die(error)
+            case error if NonFatal(error) => Exit.die(error)
           }
       }
   }
@@ -1251,7 +1251,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             Exit.fromEither(f(in))
           } catch {
-            case NonFatal(error) => Exit.die(error)
+            case error if NonFatal(error) => Exit.die(error)
           }
       }
   }
@@ -1263,7 +1263,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             f(in)
           } catch {
-            case NonFatal(error) => Exit.die(error)
+            case error if NonFatal(error) => Exit.die(error)
           }
       }
   }
