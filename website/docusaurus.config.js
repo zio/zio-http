@@ -56,6 +56,27 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+
+    algolia: {
+      // The application ID provided by Algolia
+      appId: '85XOOT8048',
+
+      // Public API key: it is safe to commit it
+      apiKey: '84fff34c3416e7232bc33705abd01f6c',
+
+      indexName: 'zio-http',
+
+      // Optional: see doc section below
+      contextualSearch: true,
+
+      // Optional: path for search page that enabled by default (`false` to disable it)
+      searchPagePath: 'search',
+
+      // Optional: whether the insights feature is enabled or not on Docsearch (`false` by default)
+      insights: false,
+
+    },
+
       navbar: {
         title: 'ZIO HTTP',
         logo: {
