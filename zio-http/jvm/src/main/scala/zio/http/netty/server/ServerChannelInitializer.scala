@@ -65,7 +65,7 @@ private[zio] final case class ServerChannelInitializer(
           .setMaxInitialLineLength(cfg.maxInitialLineLength)
           .setMaxHeaderSize(cfg.maxHeaderSize)
           .setMaxChunkSize(DEFAULT_MAX_CHUNK_SIZE)
-          .setValidateHeaders(false),
+          .setValidateHeaders(cfg.validateHeaders),
       ),
     )
     pipeline.addLast(Names.HttpResponseEncoder, new HttpResponseEncoder())
