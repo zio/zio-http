@@ -28,6 +28,9 @@ import zio.test._
 @nowarn("msg=dead code")
 object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
 
+  private def catches[R, E, In, Out](handler: => Handler[R, E, In, Out]): ZIO[R with Scope, E, TestResult] =
+    ZIO.suspendSucceed(handler(null.asInstanceOf[In]).exit).map(exit => assert(exit)(dies(anything)))
+
   def spec = suite("Handler")(
     suite("sandbox")(
       test("response failure is passed through") {
@@ -425,6 +428,41 @@ object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
           status <- handler.merge.status.run()
         } yield assertTrue(status == Status.Ok)
       },
+    ),
+    suite("catches")(
+      test("succeed")(
+        catches(Handler.succeed(???)),
+      ),
+      test("fail")(
+        catches(Handler.fail(???)),
+      ),
+      test("die")(
+        catches(Handler.die(???)),
+      ),
+      test("fromExit")(
+        catches(Handler.fromExit(???)),
+      ),
+      test("fromEither")(
+        catches(Handler.fromEither(???)),
+      ),
+      test("fromZIO")(
+        catches(Handler.fromZIO(???)),
+      ),
+      test("fromFunction")(
+        catches(Handler.fromFunction((_: Any) => ???)),
+      ),
+      test("fromFunctionExit")(
+        catches(Handler.fromFunctionExit((_: Any) => ???)),
+      ),
+      test("fromFunctionEither")(
+        catches(Handler.fromFunctionEither((_: Any) => ???)),
+      ),
+      test("fromFunctionZIO")(
+        catches(Handler.fromFunctionZIO((_: Any) => ???)),
+      ),
+      test("fromFunctionHandler")(
+        catches(Handler.fromFunctionHandler((_: Any) => ???)),
+      ),
     ),
   )
 }
