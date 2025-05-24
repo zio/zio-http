@@ -1,0 +1,18 @@
+.features {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+}
+
+.featureSvg {
+  height: 200px;
+  width: 200px;
+}
+
+.sectionHeader {
+  font-size: 3.0rem !important;
+  margin-bottom: 1.5rem !important;
+  text-align: center !important;
+  font-weight: 700 !important;
+}
