@@ -1,8 +1,10 @@
-name: Build Website
-
+name: Build and Deploy Website
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  release:
+    types: [published]
+  workflow_dispatch:  # Manual trigger for testing
 
 jobs:
   build:
@@ -10,14 +12,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'yarn'
           cache-dependency-path: website/yarn.lock
-
       - name: Run build script
         run: ./build.sh
         shell: bash
+
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    needs: build
+    steps:
+      - name: Trigger Netlify Deploy
+        run: |
+          curl -X POST -d {} "${{ secrets.NETLIFY_DEPLOY_WEBHOOK }}"
+        env:
+          NETLIFY_DEPLOY_WEBHOOK: ${{ secrets.NETLIFY_DEPLOY_WEBHOOK }}
