@@ -21,7 +21,7 @@ function HomepageHeader() {
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
-            to="/docs/installation">
+            to="/installation">
               <span>Get Started</span><span> </span><FaArrowRight className={styles.arrowIcon} />
           </Link>
         </div>
