@@ -37,6 +37,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
         .intoPromise(portPromise)
         .zipRight(ZIO.never)
         .provide(
+          ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
           ZLayer.succeed(NettyConfig.defaultWithFastShutdown.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(Server.Config.default.onAnyOpenPort),
           Server.customized,
@@ -136,6 +137,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
               .intoPromise(portPromise)
               .zipRight(ZIO.never)
               .provide(
+                ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
                 ZLayer.succeed(NettyConfig.defaultWithFastShutdown.leakDetection(LeakDetectionLevel.PARANOID)),
                 ZLayer.succeed(Server.Config.default.onAnyOpenPort),
                 Server.customized,

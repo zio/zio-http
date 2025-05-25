@@ -125,6 +125,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       },
     ).provide(
       ZLayer.succeed(serverConfig),
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Client.default,

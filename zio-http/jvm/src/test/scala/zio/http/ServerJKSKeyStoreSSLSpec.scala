@@ -127,6 +127,7 @@ object ServerJKSKeyStoreSSLSpec extends ZIOHttpSpec {
           ),
         ),
     ).provideShared(
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(config),

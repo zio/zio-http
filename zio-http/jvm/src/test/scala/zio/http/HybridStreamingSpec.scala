@@ -76,6 +76,7 @@ object HybridRequestStreamingServerSpec extends RoutesRunnableSpec {
       Scope.default,
       DynamicServer.live,
       ZLayer.succeed(configAppWithHybridRequestStreaming),
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Client.live,

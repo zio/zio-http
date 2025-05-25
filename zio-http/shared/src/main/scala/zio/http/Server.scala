@@ -72,7 +72,6 @@ object Server extends ServerPlatformSpecific {
     avoidContextSwitching: Boolean,
     soBacklog: Int,
     tcpNoDelay: Boolean,
-    validateHeaders: Boolean,
   ) { self =>
 
     /**
@@ -211,8 +210,8 @@ object Server extends ServerPlatformSpecific {
      * enabled, the server will validate incoming headers such as the Host
      * header.
      */
-    def validateHeaders(value: Boolean): Config =
-      self.copy(validateHeaders = value)
+    def validateHeaders(value: Boolean): ServerRuntimeConfig =
+      ServerRuntimeConfig(self, value)
 
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
@@ -235,8 +234,7 @@ object Server extends ServerPlatformSpecific {
         zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
         zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching) ++
         zio.Config.int("so-backlog").withDefault(Config.default.soBacklog) ++
-        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay) ++
-        zio.Config.boolean("validate-headers").withDefault(Config.default.validateHeaders)
+        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay)
     }.map {
       case (
             sslConfig,
@@ -255,7 +253,6 @@ object Server extends ServerPlatformSpecific {
             avoidCtxSwitch,
             soBacklog,
             tcpNoDelay,
-            validateHeaders,
           ) =>
         default.copy(
           sslConfig = sslConfig,
@@ -273,7 +270,6 @@ object Server extends ServerPlatformSpecific {
           avoidContextSwitching = avoidCtxSwitch,
           soBacklog = soBacklog,
           tcpNoDelay = tcpNoDelay,
-          validateHeaders = validateHeaders,
         )
     }
 
@@ -294,7 +290,6 @@ object Server extends ServerPlatformSpecific {
       avoidContextSwitching = false,
       soBacklog = 100,
       tcpNoDelay = true,
-      validateHeaders = false,
     )
 
     final case class ResponseCompressionConfig(
@@ -589,4 +584,19 @@ object Server extends ServerPlatformSpecific {
     override def port: UIO[Int] = serverStarted.await.orDie
 
   }
+}
+
+final case class ServerRuntimeConfig(
+  config: Server.Config,
+  validateHeaders: Boolean = false,
+)
+
+object ServerRuntimeConfig {
+  def config: zio.Config[ServerRuntimeConfig] =
+    (Server.Config.config ++ zio.Config.boolean("validate-headers").withDefault(false)).map { case (cfg, validate) =>
+      ServerRuntimeConfig(cfg, validate)
+    }
+
+  val layer: ZLayer[Server.Config, Nothing, ServerRuntimeConfig] =
+    ZLayer.fromFunction(cfg => ServerRuntimeConfig(cfg, false))
 }

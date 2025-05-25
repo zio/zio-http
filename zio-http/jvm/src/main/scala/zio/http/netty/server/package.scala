@@ -37,7 +37,8 @@ package object server {
   val live: ZLayer[Server.Config, Throwable, Driver] =
     NettyDriver.live
 
-  val manual
-    : ZLayer[ServerEventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] =
+  val manual: ZLayer[ServerEventLoopGroups & ChannelFactory[
+    ServerChannel,
+  ] & ServerRuntimeConfig & NettyConfig, Nothing, Driver] =
     NettyDriver.manual
 }

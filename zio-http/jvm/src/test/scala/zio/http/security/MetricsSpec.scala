@@ -112,6 +112,7 @@ object MetricsSpec extends ZIOHttpSpec {
       port => form => Request.post(s"http://localhost:$port", Body.fromMultipartForm(form, Boundary("-"))),
     ),
   ).provide(
+    ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
     Server.customized,
     ZLayer.succeed(Server.Config.default),
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

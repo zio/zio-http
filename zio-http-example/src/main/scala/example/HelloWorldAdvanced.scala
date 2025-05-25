@@ -27,16 +27,17 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     // Configure thread count using CLI
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
-    val config           = Server.Config.default
+    val config              = Server.Config.default
       .port(PORT)
-    val nettyConfig      = NettyConfig.default
+    val nettyConfig         = NettyConfig.default
       .leakDetection(LeakDetectionLevel.PARANOID)
       .maxThreads(nThreads)
-    val configLayer      = ZLayer.succeed(config)
-    val nettyConfigLayer = ZLayer.succeed(nettyConfig)
+    val configLayer         = ZLayer.succeed(config)
+    val nettyConfigLayer    = ZLayer.succeed(nettyConfig)
+    val serverRuntimeConfig = configLayer.flatMap(env => ZLayer.succeed(ServerRuntimeConfig(env.get)))
 
     (fooBar ++ app)
       .serve[Any]
-      .provide(configLayer, nettyConfigLayer, Server.customized)
+      .provide(serverRuntimeConfig, nettyConfigLayer, Server.customized)
   }
 }

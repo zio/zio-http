@@ -42,7 +42,7 @@ import io.netty.util.ReferenceCountUtil
 @Sharable
 private[zio] final case class ServerInboundHandler(
   appRef: RoutesRef,
-  config: Server.Config,
+  config: ServerRuntimeConfig,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
@@ -51,9 +51,11 @@ private[zio] final case class ServerInboundHandler(
   private var handler: Handler[Any, Nothing, Request, Response] = _
   private var runtime: NettyRuntime                             = _
 
+  private val cfg = config.config
+
   val inFlightRequests: LongAdder = new LongAdder()
-  private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
-  private val avoidCtxSwitching   = config.avoidContextSwitching
+  private val readClientCert      = cfg.sslConfig.exists(_.includeClientCert)
+  private val avoidCtxSwitching   = cfg.avoidContextSwitching
 
   def refreshApp(): Unit = {
     val pair = appRef.get()
@@ -157,7 +159,7 @@ private[zio] final case class ServerInboundHandler(
             (msg ne null) && msg.contains("Connection reset")
           } =>
       case t =>
-        if ((runtime ne null) && config.logWarningOnFatalError) {
+        if ((runtime ne null) && cfg.logWarningOnFatalError) {
           runtime.unsafeRunSync {
             // We cannot return the generated response from here, but still calling the handler for its side effect
             // for example logging.
@@ -334,7 +336,7 @@ private[zio] final case class ServerInboundHandler(
         .addLast(
           new WebSocketServerProtocolHandler(
             NettySocketProtocol
-              .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
+              .serverBuilder(webSocketApp.customConfig.getOrElse(cfg.webSocketConfig))
               .build(),
           ),
         )
@@ -398,7 +400,7 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
 
   val live: ZLayer[
-    RoutesRef & Server.Config,
+    RoutesRef & ServerRuntimeConfig,
     Nothing,
     ServerInboundHandler,
   ] = {
@@ -406,7 +408,7 @@ object ServerInboundHandler {
     ZLayer.fromZIO {
       for {
         appRef <- ZIO.service[RoutesRef]
-        config <- ZIO.service[Server.Config]
+        config <- ZIO.service[ServerRuntimeConfig]
       } yield ServerInboundHandler(appRef, config)
     }
   }

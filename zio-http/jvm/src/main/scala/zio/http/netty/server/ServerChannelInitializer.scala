@@ -21,10 +21,10 @@ import java.util.concurrent.TimeUnit
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.Server
 import zio.http.Server.RequestStreaming
 import zio.http.netty.model.Conversions
 import zio.http.netty.{HybridContentLengthHandler, Names}
+import zio.http.{Server, ServerRuntimeConfig}
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -38,7 +38,7 @@ import io.netty.handler.timeout.ReadTimeoutHandler
  */
 @Sharable
 private[zio] final case class ServerChannelInitializer(
-  cfg: Server.Config,
+  cfg: ServerRuntimeConfig,
   reqHandler: ChannelInboundHandler,
 ) extends ChannelInitializer[Channel] {
 
@@ -48,11 +48,11 @@ private[zio] final case class ServerChannelInitializer(
     val pipeline = channel.pipeline()
     // SSL
     // Add SSL Handler if CTX is available
-    cfg.sslConfig.foreach { sslCfg =>
-      pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg))
+    cfg.config.sslConfig.foreach { sslCfg =>
+      pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg.config))
     }
 
-    cfg.idleTimeout.foreach { timeout =>
+    cfg.config.idleTimeout.foreach { timeout =>
       pipeline.addLast(Names.ReadTimeoutHandler, new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS))
     }
 
@@ -62,8 +62,8 @@ private[zio] final case class ServerChannelInitializer(
       Names.HttpRequestDecoder,
       new HttpRequestDecoder(
         new HttpDecoderConfig()
-          .setMaxInitialLineLength(cfg.maxInitialLineLength)
-          .setMaxHeaderSize(cfg.maxHeaderSize)
+          .setMaxInitialLineLength(cfg.config.maxInitialLineLength)
+          .setMaxHeaderSize(cfg.config.maxHeaderSize)
           .setMaxChunkSize(DEFAULT_MAX_CHUNK_SIZE)
           .setValidateHeaders(cfg.validateHeaders),
       ),
@@ -71,10 +71,13 @@ private[zio] final case class ServerChannelInitializer(
     pipeline.addLast(Names.HttpResponseEncoder, new HttpResponseEncoder())
 
     // HttpContentDecompressor
-    if (cfg.requestDecompression.enabled)
-      pipeline.addLast(Names.HttpRequestDecompression, new HttpContentDecompressor(cfg.requestDecompression.strict))
+    if (cfg.config.requestDecompression.enabled)
+      pipeline.addLast(
+        Names.HttpRequestDecompression,
+        new HttpContentDecompressor(cfg.config.requestDecompression.strict),
+      )
 
-    cfg.responseCompression.foreach(ops => {
+    cfg.config.responseCompression.foreach(ops => {
       pipeline.addLast(
         Names.HttpResponseCompression,
         new HttpContentCompressor(ops.contentThreshold, ops.options.map(Conversions.compressionOptionsToNetty): _*),
@@ -82,7 +85,7 @@ private[zio] final case class ServerChannelInitializer(
     })
 
     // ObjectAggregator
-    cfg.requestStreaming match {
+    cfg.config.requestStreaming match {
       case RequestStreaming.Enabled                         =>
       case RequestStreaming.Disabled(maximumContentLength)  =>
         pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(maximumContentLength))
@@ -93,11 +96,12 @@ private[zio] final case class ServerChannelInitializer(
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
-    if (cfg.acceptContinue) pipeline.addLast(Names.HttpServerExpectContinue, new HttpServerExpectContinueHandler())
+    if (cfg.config.acceptContinue)
+      pipeline.addLast(Names.HttpServerExpectContinue, new HttpServerExpectContinueHandler())
 
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
-    if (cfg.keepAlive) pipeline.addLast(Names.HttpKeepAliveHandler, new HttpServerKeepAliveHandler)
+    if (cfg.config.keepAlive) pipeline.addLast(Names.HttpKeepAliveHandler, new HttpServerKeepAliveHandler)
 
     pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler())
 
@@ -112,10 +116,11 @@ private[zio] final case class ServerChannelInitializer(
 object ServerChannelInitializer {
   implicit val trace: Trace = Trace.empty
 
-  val layer: ZLayer[SimpleChannelInboundHandler[HttpObject] with Server.Config, Nothing, ServerChannelInitializer] =
+  val layer
+    : ZLayer[SimpleChannelInboundHandler[HttpObject] with ServerRuntimeConfig, Nothing, ServerChannelInitializer] =
     ZLayer.fromZIO {
       for {
-        cfg     <- ZIO.service[Server.Config]
+        cfg     <- ZIO.service[ServerRuntimeConfig]
         handler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
       } yield ServerChannelInitializer(cfg, handler)
     }
