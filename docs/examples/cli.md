@@ -1,7 +1,7 @@
 ---
 id: cli
-title: "CLI Client-Server Examples"
-sidebar_label: "CLI"
+title: "Command-line Interface (CLI)"
+sidebar_label: "Command-line Interface (CLI)"
 ---
 
 ```scala mdoc:passthrough
