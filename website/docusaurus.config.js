@@ -34,13 +34,7 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
-        },
-        blog: {
-          showReadingTime: true,
+          routeBasePath: '/', // Serve the docs at the site's root
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
@@ -131,19 +125,19 @@ const config = {
             items: [
               {
                 label: 'Getting Started',
-                to: '/docs/installation',
+                to: '/installation',
               },
               {
                 label: 'Reference',
-                to: '/docs/reference/overview',
+                to: '/reference/overview',
               },
               {
                 label: 'Guides',
-                to: '/docs/guides/integration-with-zio-config',
+                to: '/guides/integration-with-zio-config',
               },
               {
                 label: 'Examples',
-                to: '/docs/examples/hello-world',
+                to: '/examples/hello-world',
               },
             ],
           },
