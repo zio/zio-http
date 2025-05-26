@@ -5,6 +5,7 @@ import zio.test._
 
 import zio.http._
 import zio.http.codec._
+import zio.http.Method._
 
 object AuthorizationHeaderSpec extends ZIOSpecDefault {
   override def spec =
