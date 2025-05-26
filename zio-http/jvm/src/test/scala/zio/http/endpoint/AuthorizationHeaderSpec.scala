@@ -27,6 +27,6 @@ object AuthorizationHeaderSpec extends ZIOSpecDefault {
       for {
         response <- Routes(route).runZIO(request)
       } yield assertTrue(response.status == Status.Unauthorized)
-    }
+    },
   )
 }
