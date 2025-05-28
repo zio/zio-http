@@ -551,7 +551,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self(in)
 
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
-    self.mapErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCause(c, _)).flip)
+    self.mapErrorCauseZIO(c => ErrorResponseConfig.configRef.getWith(cfg => Exit.fail(Response.fromCause(c, cfg))))
 
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
     self.map(_.status)
@@ -991,7 +991,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    */
   def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out]): Handler[R, Err, Any, Out] =
     new Handler[R, Err, Any, Out] {
-      override def apply(in: Any): ZIO[Scope & R, Err, Out] = ZIO.suspendSucceed(zio)
+      override def apply(in: Any): ZIO[Scope & R, Err, Out] =
+        try zio
+        catch {
+          case error if NonFatal(error) => Exit.die(error)
+        }
     }
 
   /**
@@ -1240,7 +1244,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   final class FromFunctionHandler[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => Handler[R, Err, In, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
-        override def apply(in: In): ZIO[Scope & R, Err, Out] = ZIO.suspendSucceed(f(in)(in))
+        override def apply(in: In): ZIO[Scope & R, Err, Out] =
+          try f(in)(in)
+          catch {
+            case error if NonFatal(error) => ZIO.die(error)
+          }
       }
   }
 
@@ -1272,7 +1280,10 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     def apply[R, Err, Out](f: In => ZIO[R, Err, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
-          ZIO.suspendSucceed(f(in))
+          try f(in)
+          catch {
+            case error if NonFatal(error) => ZIO.die(error)
+          }
       }
   }
 
