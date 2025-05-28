@@ -32,7 +32,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
   )
 
   private val config = Server.Config.default
-      .port(8080)
+    .port(8080)
 
   private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)
