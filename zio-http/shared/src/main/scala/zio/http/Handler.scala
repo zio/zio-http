@@ -994,7 +994,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       override def apply(in: Any): ZIO[Scope & R, Err, Out] =
         try zio
         catch {
-          case error if NonFatal(error) => Exit.die(error)
+          case error if NonFatal(error) => ZIO.die(error)
         }
     }
 

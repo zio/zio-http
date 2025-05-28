@@ -310,9 +310,9 @@ object RouteSpec extends ZIOHttpSpec {
     ),
     test("Handled#toHandler should not suspend") {
       val request = Request(headers = Headers.empty, method = Method.GET)
-      val ok = (Method.GET / "foo" -> handler(Response.ok)).toHandler
+      val ok      = (Method.GET / "foo" -> handler(Response.ok)).toHandler
 
       assertTrue(Exit.succeed(Response.ok) == ok(request))
-    }
+    },
   )
 }
