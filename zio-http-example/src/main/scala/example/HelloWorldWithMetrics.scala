@@ -1,3 +1,6 @@
+//> using dep "dev.zio::zio-http:3.3.1"
+//> using dep "dev.zio::zio-metrics-connectors-prometheus:2.3.1"
+
 package example
 
 import zio._
