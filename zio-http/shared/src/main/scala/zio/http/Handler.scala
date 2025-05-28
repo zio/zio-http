@@ -551,7 +551,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self(in)
 
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
-    self.mapErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCause(c, _)).flip)
+    self.mapErrorCauseZIO(c => ErrorResponseConfig.configRef.getWith(cfg => Exit.fail(Response.fromCause(c, cfg))))
 
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
     self.map(_.status)
@@ -717,7 +717,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fromExit {
       try Exit.succeed(out)
       catch {
-        case NonFatal(cause) => Exit.fail(cause)
+        case error if NonFatal(error) => Exit.fail(error)
       }
     }
 
@@ -850,11 +850,15 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * Lifts an `Either` into a `Handler` alue.
    */
   def fromEither[Err, Out](either: => Either[Err, Out]): Handler[Any, Err, Any, Out] =
-    either.fold(Handler.fail(_), Handler.succeed(_))
+    fromExit(Exit.fromEither(either))
 
   def fromExit[Err, Out](exit: => Exit[Err, Out]): Handler[Any, Err, Any, Out] =
     new Handler[Any, Err, Any, Out] {
-      override def apply(in: Any): ZIO[Any, Err, Out] = exit
+      override def apply(in: Any): ZIO[Any, Err, Out] =
+        try exit
+        catch {
+          case error if NonFatal(error) => Exit.die(error)
+        }
     }
 
   /**
@@ -987,7 +991,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    */
   def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out]): Handler[R, Err, Any, Out] =
     new Handler[R, Err, Any, Out] {
-      override def apply(in: Any): ZIO[Scope & R, Err, Out] = zio
+      override def apply(in: Any): ZIO[Scope & R, Err, Out] =
+        try zio
+        catch {
+          case error if NonFatal(error) => ZIO.die(error)
+        }
     }
 
   /**
@@ -1228,7 +1236,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             Exit.succeed(f(in))
           } catch {
-            case error: Throwable => Exit.die(error)
+            case error if NonFatal(error) => Exit.die(error)
           }
       }
   }
@@ -1237,7 +1245,10 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     def apply[R, Err, Out](f: In => Handler[R, Err, In, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[Scope & R, Err, Out] =
-          f(in)(in)
+          try f(in)(in)
+          catch {
+            case error if NonFatal(error) => ZIO.die(error)
+          }
       }
   }
 
@@ -1248,7 +1259,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             Exit.fromEither(f(in))
           } catch {
-            case error: Throwable => Exit.die(error)
+            case error if NonFatal(error) => Exit.die(error)
           }
       }
   }
@@ -1260,7 +1271,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           try {
             f(in)
           } catch {
-            case error: Throwable => Exit.die(error)
+            case error if NonFatal(error) => Exit.die(error)
           }
       }
   }
@@ -1269,7 +1280,10 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     def apply[R, Err, Out](f: In => ZIO[R, Err, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
-          f(in)
+          try f(in)
+          catch {
+            case error if NonFatal(error) => ZIO.die(error)
+          }
       }
   }
 

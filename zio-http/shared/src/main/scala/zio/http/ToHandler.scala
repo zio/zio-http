@@ -610,6 +610,6 @@ private[http] trait HandlerConstructorLowPriorityImplicits4 {
       type Z   = Try[Out0]
 
       def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromEither(z.toEither)
+        Handler.fromExit(Exit.fromTry(z))
     }
 }
