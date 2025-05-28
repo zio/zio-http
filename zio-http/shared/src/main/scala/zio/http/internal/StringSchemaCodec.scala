@@ -459,7 +459,7 @@ private[http] object StringSchemaCodec {
       case s @ Schema.Optional(schema, _)                              =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
-            stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
+            stringSchemaCodec(recordSchema(schema.asInstanceOf[Schema[Any]], name))
           case s if s.isInstanceOf[Schema.Record[_]] => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
           case _                                     => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
