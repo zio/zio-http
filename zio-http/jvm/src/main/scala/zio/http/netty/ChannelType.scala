@@ -25,10 +25,6 @@ object ChannelType {
 
   case object KQUEUE extends ChannelType
 
-  /**
-   * Note using URING is experimental and requires explicit dependency on
-   * netty-incubator-transport-native-io_uring
-   */
   case object URING extends ChannelType
 
   case object AUTO extends ChannelType
