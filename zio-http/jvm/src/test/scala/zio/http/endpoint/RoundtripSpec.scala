@@ -163,6 +163,10 @@ object RoundtripSpec extends ZIOHttpSpec {
   )
   implicit val paramsSchema: Schema[Params]                                         = DeriveSchema.gen[Params]
 
+  case class HeaderWrapper(value: String)
+
+  implicit val headerWrapperSchema: Schema[HeaderWrapper] = Schema[String].transform(HeaderWrapper.apply, _.value)
+
   def spec: Spec[Any, Any] =
     suiteAll("RoundtripSpec") {
       test("simple get") {
@@ -204,6 +208,32 @@ object RoundtripSpec extends ZIOHttpSpec {
           Routes(route),
           Params(1, None, "string", Chunk("")),
           Params(1, None, "string", Chunk("")),
+        )
+      }
+      test("Optional header") {
+        val endpoint = Endpoint(GET / "query")
+          .header(HeaderCodec.headerAs[String]("x-rd-modified-order-id").optional)
+          .out[Option[String]]
+        val route    = endpoint.implementPurely { header => header }
+
+        testEndpoint(
+          endpoint,
+          Routes(route),
+          Some("hallo"),
+          Some("hallo"),
+        )
+      }
+      test("Transformed schema header") {
+        val endpoint = Endpoint(GET / "query")
+          .header[HeaderWrapper]("x-rd-modified-order-id")
+          .out[HeaderWrapper]
+        val route    = endpoint.implementPurely { header => header }
+
+        testEndpoint(
+          endpoint,
+          Routes(route),
+          HeaderWrapper("hallo"),
+          HeaderWrapper("hallo"),
         )
       }
       test("simple get with protobuf encoding via explicit media type") {

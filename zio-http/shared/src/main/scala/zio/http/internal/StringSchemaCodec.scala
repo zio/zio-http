@@ -63,15 +63,6 @@ private[http] object ErrorConstructor {
 }
 
 private[http] trait StringSchemaCodec[A, Target] {
-  private[http] def schema: Schema[A]
-  private[http] def add(target: Target, key: String, value: String): Target
-  private[http] def addAll(target: Target, headers: Iterable[(String, String)]): Target
-  private[http] def contains(target: Target, key: String): Boolean
-  private[http] def unsafeGet(target: Target, key: String): String
-  private[http] def getAll(target: Target, key: String): Chunk[String]
-  private[http] def count(target: Target, key: String): Int
-  private[http] def error: ErrorConstructor
-  private[http] def kebabCase: Boolean
   private[http] val defaultValue: A
   private[http] val isOptional: Boolean
   private[http] val isOptionalSchema: Boolean
@@ -102,14 +93,31 @@ private[http] trait StringSchemaCodec[A, Target] {
         (StringSchemaCodec.mapFieldName(field, kebabCase), codec)
     }
   }
-
-  private[http] val recordSchema: Schema.Record[Any] = schema match {
+  private[http] val recordSchema: Schema.Record[Any]                               = schema match {
     case record: Schema.Record[_]                                         =>
       record.asInstanceOf[Schema.Record[Any]]
     case s: Schema.Optional[_] if s.schema.isInstanceOf[Schema.Record[_]] =>
       s.schema.asInstanceOf[Schema.Record[Any]]
     case _                                                                => null
   }
+
+  private[http] def schema: Schema[A]
+
+  private[http] def add(target: Target, key: String, value: String): Target
+
+  private[http] def addAll(target: Target, headers: Iterable[(String, String)]): Target
+
+  private[http] def contains(target: Target, key: String): Boolean
+
+  private[http] def unsafeGet(target: Target, key: String): String
+
+  private[http] def getAll(target: Target, key: String): Chunk[String]
+
+  private[http] def count(target: Target, key: String): Int
+
+  private[http] def error: ErrorConstructor
+
+  private[http] def kebabCase: Boolean
 
   private def createAndValidateCollection(schema: Schema.Collection[_, _], decoded: Chunk[Any]) = {
     val collection       = schema.fromChunk.asInstanceOf[Chunk[Any] => Any](decoded)
@@ -289,80 +297,6 @@ private[http] object StringSchemaCodec {
       case _                                                                         => false
     }
 
-  private[http] final case class PrimitiveCodec[A](
-    private[http] val schema: Schema[A],
-  ) {
-
-    val defaultValue: A =
-      StringSchemaCodec.defaultValue(schema)
-
-    private[http] val isOptional: Boolean =
-      StringSchemaCodec.isOptional(schema)
-
-    private[http] val isOptionalSchema: Boolean =
-      StringSchemaCodec.isOptionalSchema(schema)
-
-    private[http] val encode: A => String =
-      PrimitiveCodec.primitiveSchemaEncoder(schema)
-
-    private[http] val decode: String => A =
-      PrimitiveCodec.primitiveSchemaDecoder(schema)
-
-  }
-
-  object PrimitiveCodec {
-
-    private[http] def primitiveSchemaDecoder[A](schema: Schema[A]): String => A = schema match {
-      case Schema.Optional(schema, _)                =>
-        primitiveSchemaDecoder(schema).andThen(Some(_)).asInstanceOf[String => A]
-      case Schema.Transform(schema, f, _, _, _)      =>
-        primitiveSchemaDecoder(schema).andThen {
-          f(_) match {
-            case Left(value)  => throw new IllegalArgumentException(value)
-            case Right(value) => value
-          }
-        }.asInstanceOf[String => A]
-      case Schema.Primitive(standardType, _)         =>
-        parsePrimitive(standardType.asInstanceOf[StandardType[Any]]).asInstanceOf[String => A]
-      case Schema.Lazy(schema0)                      =>
-        primitiveSchemaDecoder(schema0()).asInstanceOf[String => A]
-      case r: Schema.Record[A] if r.fields.size == 1 =>
-        val field   = r.fields.head
-        val codec   = PrimitiveCodec(field.schema).asInstanceOf[PrimitiveCodec[Any]]
-        val decoder = codec.decode.asInstanceOf[String => Any]
-        (s: String) =>
-          r.construct(Chunk(decoder(s)))(Unsafe.unsafe) match {
-            case Left(value)  => throw new IllegalArgumentException(value)
-            case Right(value) => value.asInstanceOf[A]
-          }
-      case _ => throw new IllegalArgumentException(s"Unsupported schema $schema")
-    }
-
-    private[http] def primitiveSchemaEncoder[A](schema: Schema[A]): A => String = schema match {
-      case Schema.Optional(schema, _)                =>
-        val innerEncoder: Any => String = primitiveSchemaEncoder(schema.asInstanceOf[Schema[Any]])
-        (a: A) => if (a.isInstanceOf[None.type]) null else innerEncoder(a.asInstanceOf[Some[Any]].get)
-      case Schema.Transform(schema, f, _, _, _)      =>
-        val innerEncoder: Any => String = primitiveSchemaEncoder(schema.asInstanceOf[Schema[Any]])
-        (a: A) =>
-          f.asInstanceOf[Any => Either[String, Any]](a.asInstanceOf[Any]) match {
-            case Left(value)  => throw new IllegalArgumentException(value)
-            case Right(value) => innerEncoder(value)
-          }
-      case Schema.Lazy(schema0)                      =>
-        primitiveSchemaEncoder(schema0()).asInstanceOf[A => String]
-      case Schema.Primitive(_, _)                    =>
-        (a: A) => a.toString
-      case r: Schema.Record[A] if r.fields.size == 1 =>
-        val field   = r.fields.head
-        val codec   = PrimitiveCodec(field.schema).asInstanceOf[PrimitiveCodec[Any]]
-        val encoder = codec.encode.asInstanceOf[Any => String]
-        (a: A) => encoder(field.get(a))
-      case _                                         =>
-        throw new IllegalArgumentException(s"Unsupported schema $schema")
-    }
-  }
-
   private def decodeAndUnwrap(
     field: Schema.Field[_, _],
     codec: PrimitiveCodec[Any],
@@ -381,7 +315,7 @@ private[http] object StringSchemaCodec {
   }
 
   @tailrec
-  private def emptyStringIsValue(schema: Schema[_]): Boolean                                        = {
+  private def emptyStringIsValue(schema: Schema[_]): Boolean = {
     schema match {
       case value: Schema.Optional[_]        =>
         val innerSchema = value.schema
@@ -399,6 +333,7 @@ private[http] object StringSchemaCodec {
         }
     }
   }
+
   private[http] def mapFieldName(field: Schema.Field[_, _], kebabCase: Boolean): Schema.Field[_, _] = {
     Schema.Field(
       if (!kebabCase) field.fieldName else camelToKebab(field.fieldName),
@@ -459,7 +394,7 @@ private[http] object StringSchemaCodec {
       case s @ Schema.Optional(schema, _)                              =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
-            stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
+            stringSchemaCodec(recordSchema(schema.asInstanceOf[Schema[Any]], name))
           case s if s.isInstanceOf[Schema.Record[_]] => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
           case _                                     => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
@@ -785,4 +720,78 @@ private[http] object StringSchemaCodec {
         if (c.isUpper) acc + "-" + c.toLower
         else acc + c
       }
+
+  private[http] final case class PrimitiveCodec[A](
+    private[http] val schema: Schema[A],
+  ) {
+
+    val defaultValue: A =
+      StringSchemaCodec.defaultValue(schema)
+
+    private[http] val isOptional: Boolean =
+      StringSchemaCodec.isOptional(schema)
+
+    private[http] val isOptionalSchema: Boolean =
+      StringSchemaCodec.isOptionalSchema(schema)
+
+    private[http] val encode: A => String =
+      PrimitiveCodec.primitiveSchemaEncoder(schema)
+
+    private[http] val decode: String => A =
+      PrimitiveCodec.primitiveSchemaDecoder(schema)
+
+  }
+
+  object PrimitiveCodec {
+
+    private[http] def primitiveSchemaDecoder[A](schema: Schema[A]): String => A = schema match {
+      case Schema.Optional(schema, _)                =>
+        primitiveSchemaDecoder(schema).andThen(Some(_)).asInstanceOf[String => A]
+      case Schema.Transform(schema, f, _, _, _)      =>
+        primitiveSchemaDecoder(schema).andThen {
+          f(_) match {
+            case Left(value)  => throw new IllegalArgumentException(value)
+            case Right(value) => value
+          }
+        }.asInstanceOf[String => A]
+      case Schema.Primitive(standardType, _)         =>
+        parsePrimitive(standardType.asInstanceOf[StandardType[Any]]).asInstanceOf[String => A]
+      case Schema.Lazy(schema0)                      =>
+        primitiveSchemaDecoder(schema0()).asInstanceOf[String => A]
+      case r: Schema.Record[A] if r.fields.size == 1 =>
+        val field   = r.fields.head
+        val codec   = PrimitiveCodec(field.schema).asInstanceOf[PrimitiveCodec[Any]]
+        val decoder = codec.decode.asInstanceOf[String => Any]
+        (s: String) =>
+          r.construct(Chunk(decoder(s)))(Unsafe.unsafe) match {
+            case Left(value)  => throw new IllegalArgumentException(value)
+            case Right(value) => value.asInstanceOf[A]
+          }
+      case _ => throw new IllegalArgumentException(s"Unsupported schema $schema")
+    }
+
+    private[http] def primitiveSchemaEncoder[A](schema: Schema[A]): A => String = schema match {
+      case Schema.Optional(schema, _)                =>
+        val innerEncoder: Any => String = primitiveSchemaEncoder(schema.asInstanceOf[Schema[Any]])
+        (a: A) => if (a.isInstanceOf[None.type]) null else innerEncoder(a.asInstanceOf[Some[Any]].get)
+      case Schema.Transform(schema, _, g, _, _)      =>
+        val innerEncoder: Any => String = primitiveSchemaEncoder(schema.asInstanceOf[Schema[Any]])
+        (a: Any) =>
+          g.asInstanceOf[Any => Either[String, Any]](a.asInstanceOf[Any]) match {
+            case Left(value)  => throw new IllegalArgumentException(value)
+            case Right(value) => innerEncoder(value)
+          }
+      case Schema.Lazy(schema0)                      =>
+        primitiveSchemaEncoder(schema0()).asInstanceOf[A => String]
+      case Schema.Primitive(_, _)                    =>
+        (a: A) => a.toString
+      case r: Schema.Record[A] if r.fields.size == 1 =>
+        val field   = r.fields.head
+        val codec   = PrimitiveCodec(field.schema).asInstanceOf[PrimitiveCodec[Any]]
+        val encoder = codec.encode.asInstanceOf[Any => String]
+        (a: A) => encoder(field.get(a))
+      case _                                         =>
+        throw new IllegalArgumentException(s"Unsupported schema $schema")
+    }
+  }
 }
