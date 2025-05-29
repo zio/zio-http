@@ -14,11 +14,7 @@ trait ZClientPlatformSpecific {
         config <- ZIO.service[Config]
         driver <- ZIO.service[ZClient.Driver[Any, Scope, Throwable]]
         baseClient = ZClient.fromDriver(driver)
-      } yield
-        if (config.addUserAgentHeader)
-          baseClient.addHeader(ZClient.defaultUAHeader)
-        else
-          baseClient
+      } yield config.defaultUserAgentHeader.fold(ifEmpty = baseClient)(baseClient.addHeader)
     }
   }
 
