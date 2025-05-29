@@ -37,16 +37,9 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
   SelectedListenerFailureBehavior,
   SelectorFailureBehavior,
 }
-import io.netty.handler.ssl._
-import io.netty.handler.ssl.util.SelfSignedCertificate
-import io.netty.handler.ssl.{ClientAuth => NettyClientAuth}
+import io.netty.handler.ssl.{ClientAuth => NettyClientAuth, _}
+import io.netty.pkitesting.CertificateBuilder
 private[netty] object SSLUtil {
-
-  def getClientAuth(clientAuth: ClientAuth): NettyClientAuth = clientAuth match {
-    case ClientAuth.Required => NettyClientAuth.REQUIRE
-    case ClientAuth.Optional => NettyClientAuth.OPTIONAL
-    case _                   => NettyClientAuth.NONE
-  }
 
   implicit class SslContextBuilderOps(self: SslContextBuilder) {
     def toNettyProvider(sslProvider: Provider): SslProvider = sslProvider match {
@@ -71,6 +64,12 @@ private[netty] object SSLUtil {
     }
   }
 
+  def getClientAuth(clientAuth: ClientAuth): NettyClientAuth = clientAuth match {
+    case ClientAuth.Required => NettyClientAuth.REQUIRE
+    case ClientAuth.Optional => NettyClientAuth.OPTIONAL
+    case _                   => NettyClientAuth.NONE
+  }
+
   def buildSslServerContext(
     sslConfig: SSLConfig,
     certInputStream: InputStream,
@@ -87,43 +86,13 @@ private[netty] object SSLUtil {
     sslServerContext.buildWithDefaultOptions(sslConfig)
   }
 
-  private def keyManagerTrustManagerToSslContext(
-    keyManagerInfo: (String, InputStream, Option[Secret]),
-    trustManagerInfo: Option[(String, InputStream, Option[Secret])],
-  ): SslContextBuilder = {
-    val mkeyManagerFactory =
-      keyManagerInfo match {
-        case (keyStoreType, inputStream, maybePassword) =>
-          val keyStore          = KeyStore.getInstance(keyStoreType)
-          val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
-          val password          = maybePassword.map(_.value.toArray).orNull
-
-          keyStore.load(inputStream, password)
-          keyManagerFactory.init(keyStore, password)
-          keyManagerFactory
-      }
-
-    val mtrustManagerFactory =
-      trustManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
-        val keyStore            = KeyStore.getInstance(keyStoreType)
-        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
-        val password            = maybePassword.map(_.value.toArray).orNull
-
-        keyStore.load(inputStream, password)
-        trustManagerFactory.init(keyStore)
-        trustManagerFactory
-      }
-
-    var bldr = SslContextBuilder.forServer(mkeyManagerFactory)
-    mtrustManagerFactory.foreach(tmf => bldr = bldr.trustManager(tmf))
-    bldr
-  }
-
   def sslConfigToSslContext(sslConfig: SSLConfig): SslContext = sslConfig.data match {
     case SSLConfig.Data.Generate =>
-      val selfSigned = new SelfSignedCertificate()
+      val selfSigned = new CertificateBuilder()
+        .rsa2048()
+        .buildSelfSigned()
       SslContextBuilder
-        .forServer(selfSigned.key, selfSigned.cert)
+        .forServer(selfSigned.getKeyPair.getPrivate, selfSigned.getCertificate)
         .buildWithDefaultOptions(sslConfig)
 
     case SSLConfig.Data.FromFile(certPath, keyPath, trustCertCollectionPath) =>
@@ -186,6 +155,38 @@ private[netty] object SSLUtil {
           (trustManager.trustManagerKeyStoreType, inputStream, trustManager.trustManagerPassword)
         }
       keyManagerTrustManagerToSslContext(keyManagerInfo, trustManagerInfo).buildWithDefaultOptions(sslConfig)
+  }
+
+  private def keyManagerTrustManagerToSslContext(
+    keyManagerInfo: (String, InputStream, Option[Secret]),
+    trustManagerInfo: Option[(String, InputStream, Option[Secret])],
+  ): SslContextBuilder = {
+    val mkeyManagerFactory =
+      keyManagerInfo match {
+        case (keyStoreType, inputStream, maybePassword) =>
+          val keyStore          = KeyStore.getInstance(keyStoreType)
+          val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
+          val password          = maybePassword.map(_.value.toArray).orNull
+
+          keyStore.load(inputStream, password)
+          keyManagerFactory.init(keyStore, password)
+          keyManagerFactory
+      }
+
+    val mtrustManagerFactory =
+      trustManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
+        val keyStore            = KeyStore.getInstance(keyStoreType)
+        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+        val password            = maybePassword.map(_.value.toArray).orNull
+
+        keyStore.load(inputStream, password)
+        trustManagerFactory.init(keyStore)
+        trustManagerFactory
+      }
+
+    var bldr = SslContextBuilder.forServer(mkeyManagerFactory)
+    mtrustManagerFactory.foreach(tmf => bldr = bldr.trustManager(tmf))
+    bldr
   }
 }
 

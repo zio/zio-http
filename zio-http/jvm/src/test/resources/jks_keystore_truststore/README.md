@@ -47,7 +47,7 @@ To create a testing keystore and truststore for both a client and a server for m
    ```
 
 
-#6. **Create a Truststore for the Client and Import the Server's Certificate**:
+# 6. **Create a Truststore for the Client and Import the Server's Certificate**:
 
    ```sh
 keytool -import -alias server-cert -file server.crt -keystore client_truststore_with_pass.jks -storepass 123456 -noprompt
