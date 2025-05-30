@@ -62,6 +62,15 @@ object RoundtripSpec extends ZIOHttpSpec {
     implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
   }
 
+  case class TestGroups(groups: Set[String])
+
+  object TestGroups {
+    implicit val schema: Schema[TestGroups] = Schema[String].transform(
+      (s: String) => TestGroups(s.split(",").toSet),
+      (tg: TestGroups) => tg.groups.mkString(","),
+    )
+  }
+
   case class Age(@validate(Validation.greaterThan(18)) age: Int)
   object Age {
     implicit val schema: Schema[Age] = DeriveSchema.gen[Age]
@@ -277,6 +286,40 @@ object RoundtripSpec extends ZIOHttpSpec {
           (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
           Post(20, "title", "body", 10),
         ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
+      }
+      test("simple get with collection header") {
+        val api = Endpoint(GET / "users")
+          .header[Set[String]]("test-groups")
+          .out[Set[String]]
+
+        val handler =
+          api.implementPurely(Predef.identity)
+
+        testEndpoint(
+          api,
+          Routes(handler),
+          Set("a", "b", "c"),
+          Set("a", "b", "c"),
+        )
+      }
+      test("simple get with transformed collection header") {
+        implicit val testGroupsSchema: Schema[Set[String]] = Schema[String].transform(
+          (s: String) => s.split(",").toSet,
+          (tg: Set[String]) => tg.mkString(","),
+        )
+        val api                                            = Endpoint(GET / "users")
+          .header[Set[String]]("test-groups")
+          .out[Set[String]]
+
+        val handler =
+          api.implementPurely(Predef.identity)
+
+        testEndpoint(
+          api,
+          Routes(handler),
+          Set("a", "b", "c"),
+          Set("a", "b", "c"),
+        )
       }
       test("simple get with optional query params") {
         val api =
