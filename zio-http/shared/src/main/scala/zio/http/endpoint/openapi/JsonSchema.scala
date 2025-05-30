@@ -1,6 +1,6 @@
 package zio.http.endpoint.openapi
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.{StaticAnnotation, nowarn, tailrec}
 
 import zio._
 import zio.json.ast.Json
@@ -712,68 +712,82 @@ object JsonSchema {
         fromZSchema(schema, refType)
       case Schema.Primitive(standardType, annotations)                                            =>
         standardType match {
-          case StandardType.UnitType           => JsonSchema.Null
-          case StandardType.StringType         =>
-            JsonSchema.String.fromValidation(
+          case StandardType.UnitType                               => JsonSchema.Null
+          case StandardType.StringType | StandardType.DayOfWeekType | StandardType.MonthType |
+              StandardType.MonthDayType | StandardType.YearType | StandardType.YearMonthType | StandardType.ZoneIdType |
+              StandardType.ZoneOffsetType | StandardType.LocalDateTimeType | StandardType.LocalTimeType |
+              StandardType.CurrencyType | StandardType.BinaryType | StandardType.CharType =>
+            JsonSchema.String.fromValidationAndFormat(
               annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+              annotations.collect { case format(stringFormat) => stringFormat }.headOption,
             )
-          case StandardType.BoolType           => JsonSchema.Boolean
-          case StandardType.ByteType           => JsonSchema.String()
-          case StandardType.ShortType          =>
+          case StandardType.BoolType                               => JsonSchema.Boolean
+          case StandardType.ByteType                               => JsonSchema.String()
+          case StandardType.ShortType                              =>
             JsonSchema.Integer.fromValidation(
               IntegerFormat.Int32,
               annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
             )
-          case StandardType.IntType            =>
+          case StandardType.IntType                                =>
             JsonSchema.Integer.fromValidation(
               IntegerFormat.Int32,
               annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
             )
-          case StandardType.LongType           =>
+          case StandardType.LongType                               =>
             JsonSchema.Integer.fromValidation(
               IntegerFormat.Int64,
               annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
             )
-          case StandardType.FloatType          =>
+          case StandardType.FloatType                              =>
             JsonSchema.Number.fromValidation(
               NumberFormat.Float,
               annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
             )
-          case StandardType.DoubleType         =>
+          case StandardType.DoubleType                             =>
             JsonSchema.Number.fromValidation(
               NumberFormat.Double,
               annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
             )
-          case StandardType.BinaryType         => JsonSchema.String()
-          case StandardType.CharType           => JsonSchema.String()
-          case StandardType.UUIDType           => JsonSchema.String(StringFormat.UUID)
-          case StandardType.BigDecimalType     => // TODO: Is this correct?
+          case StandardType.UUIDType                               =>
+            JsonSchema.String.fromValidationAndFormat(
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+              annotations.collect { case format(stringFormat) => stringFormat }.headOption
+                .orElse(Some(StringFormat.UUID)),
+            )
+          case StandardType.BigDecimalType                         => // TODO: Is this correct?
             JsonSchema.Number.fromValidation(
               NumberFormat.Double,
               annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
             )
-          case StandardType.BigIntegerType     =>
+          case StandardType.BigIntegerType                         =>
             JsonSchema.Integer.fromValidation(
               IntegerFormat.Int64,
               annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
             )
-          case StandardType.DayOfWeekType      => JsonSchema.String()
-          case StandardType.MonthType          => JsonSchema.String()
-          case StandardType.MonthDayType       => JsonSchema.String()
-          case StandardType.PeriodType         => JsonSchema.String()
-          case StandardType.YearType           => JsonSchema.String()
-          case StandardType.YearMonthType      => JsonSchema.String()
-          case StandardType.ZoneIdType         => JsonSchema.String()
-          case StandardType.ZoneOffsetType     => JsonSchema.String()
-          case StandardType.DurationType       => JsonSchema.String(StringFormat.Duration)
-          case StandardType.InstantType        => JsonSchema.String()
-          case StandardType.LocalDateType      => JsonSchema.String()
-          case StandardType.LocalTimeType      => JsonSchema.String()
-          case StandardType.LocalDateTimeType  => JsonSchema.String()
-          case StandardType.OffsetTimeType     => JsonSchema.String()
-          case StandardType.OffsetDateTimeType => JsonSchema.String()
-          case StandardType.ZonedDateTimeType  => JsonSchema.String()
-          case StandardType.CurrencyType       => JsonSchema.String()
+          case StandardType.PeriodType | StandardType.DurationType =>
+            JsonSchema.String.fromValidationAndFormat(
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+              annotations.collect { case format(stringFormat) => stringFormat }.headOption
+                .orElse(Some(StringFormat.Duration)),
+            )
+          case StandardType.LocalDateType                          =>
+            JsonSchema.String.fromValidationAndFormat(
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+              annotations.collect { case format(stringFormat) => stringFormat }.headOption
+                .orElse(Some(StringFormat.Date)),
+            )
+          case StandardType.OffsetTimeType                         =>
+            JsonSchema.String.fromValidationAndFormat(
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+              annotations.collect { case format(stringFormat) => stringFormat }.headOption
+                .orElse(Some(StringFormat.Time)),
+            )
+          case StandardType.InstantType | StandardType.OffsetDateTimeType | StandardType.ZonedDateTimeType =>
+            JsonSchema.String.fromValidationAndFormat(
+              annotations.collect { case zio.schema.annotation.validate(v) => v }.headOption,
+              annotations.collect { case format(stringFormat) => stringFormat }.headOption
+                .orElse(Some(StringFormat.DateTime)),
+            )
         }
 
       case Schema.Optional(schema, _)    => fromZSchema(schema, refType).nullable(true)
@@ -1220,16 +1234,16 @@ object JsonSchema {
     def apply(pattern: Pattern): String     = String(None, Some(pattern))
     def apply(): String                     = String(None, None)
 
-    def fromValidation(validation: Option[Validation[_]]): JsonSchema =
+    def fromValidationAndFormat(validation: Option[Validation[_]], format: Option[StringFormat]): JsonSchema =
       if (validation.isEmpty) {
-        String(None, None)
+        String(format, None)
       } else {
         val flattened = flatten(validation.get.bool.asInstanceOf[Bool[Predicate[_]]])
         val pattern   =
           flattened.collectFirst { case Predicate.Str.Matches(r) => Regex.toRegexString(r) }
         val maxLength = flattened.collectFirst { case Predicate.Str.MaxLength(l) => l }
         val minLength = flattened.collectFirst { case Predicate.Str.MinLength(l) => l }
-        String(None, pattern.map(Pattern.apply), maxLength, minLength)
+        String(format, pattern.map(Pattern.apply), maxLength, minLength)
       }
   }
 
@@ -1239,26 +1253,26 @@ object JsonSchema {
 
   object StringFormat {
     case class Custom(value: java.lang.String) extends StringFormat
-    case object Date                           extends StringFormat { val value = "date"                  }
-    case object DateTime                       extends StringFormat { val value = "date-time"             }
-    case object Duration                       extends StringFormat { val value = "duration"              }
-    case object Email                          extends StringFormat { val value = "email"                 }
-    case object Hostname                       extends StringFormat { val value = "hostname"              }
-    case object IdnEmail                       extends StringFormat { val value = "idn-email"             }
-    case object IdnHostname                    extends StringFormat { val value = "idn-hostname"          }
-    case object IPv4                           extends StringFormat { val value = "ipv4"                  }
-    case object IPv6                           extends StringFormat { val value = "ipv6"                  }
-    case object IRI                            extends StringFormat { val value = "iri"                   }
-    case object IRIReference                   extends StringFormat { val value = "iri-reference"         }
-    case object JSONPointer                    extends StringFormat { val value = "json-pointer"          }
-    case object Password                       extends StringFormat { val value = "password"              }
-    case object Regex                          extends StringFormat { val value = "regex"                 }
-    case object RelativeJSONPointer            extends StringFormat { val value = "relative-json-pointer" }
-    case object Time                           extends StringFormat { val value = "time"                  }
-    case object URI                            extends StringFormat { val value = "uri"                   }
-    case object URIRef                         extends StringFormat { val value = "uri-reference"         }
-    case object URITemplate                    extends StringFormat { val value = "uri-template"          }
-    case object UUID                           extends StringFormat { val value = "uuid"                  }
+    case object Date                           extends StringFormat { val value = "date"         } // ISO 8601 full-date
+    case object DateTime                       extends StringFormat { val value = "date-time"    } // ISO 8601 date-time
+    case object Duration                       extends StringFormat { val value = "duration"     } // ISO 8601 duration
+    case object Email                          extends StringFormat { val value = "email"        }
+    case object Hostname                       extends StringFormat { val value = "hostname"     }
+    case object IdnEmail                       extends StringFormat { val value = "idn-email"    }
+    case object IdnHostname                    extends StringFormat { val value = "idn-hostname" }
+    case object IPv4                           extends StringFormat { val value = "ipv4"         }
+    case object IPv6                           extends StringFormat { val value = "ipv6"         }
+    case object IRI                            extends StringFormat { val value = "iri"          }
+    case object IRIReference        extends StringFormat { val value = "iri-reference"         }
+    case object JSONPointer         extends StringFormat { val value = "json-pointer"          }
+    case object Password            extends StringFormat { val value = "password"              }
+    case object Regex               extends StringFormat { val value = "regex"                 }
+    case object RelativeJSONPointer extends StringFormat { val value = "relative-json-pointer" }
+    case object Time                extends StringFormat { val value = "time"                  } // ISO 8601 full-time
+    case object URI                 extends StringFormat { val value = "uri"                   }
+    case object URIRef              extends StringFormat { val value = "uri-reference"         }
+    case object URITemplate         extends StringFormat { val value = "uri-template"          }
+    case object UUID                extends StringFormat { val value = "uuid"                  }
 
     def fromString(string: java.lang.String): StringFormat =
       string match {
@@ -1285,6 +1299,8 @@ object JsonSchema {
         case value                   => Custom(value)
       }
   }
+
+  final case class format(stringFormat: StringFormat) extends StaticAnnotation
 
   final case class Pattern(value: java.lang.String) extends Product with Serializable
 
