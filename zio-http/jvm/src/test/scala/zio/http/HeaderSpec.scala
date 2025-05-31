@@ -117,14 +117,14 @@ object HeaderSpec extends ZIOHttpSpec {
           // Chunk
           Headers.empty.addHeader("a", Chunk.empty[Int]).rawHeader("a").isEmpty,
           Headers.empty.addHeader("a", Chunk(1)).rawHeaders("a") == Chunk("1"),
-          Headers.empty.addHeader("a", Chunk(1, 2)).rawHeaders("a") == Chunk("1", "2"),
-          Headers.empty.addHeader("a", Chunk(1.0, 2.0)).rawHeaders("a") == Chunk("1.0", "2.0"),
+          Headers.empty.addHeader("a", Chunk(1, 2)).rawHeaders("a") == Chunk("1,2"),
+          Headers.empty.addHeader("a", Chunk(1.0, 2.0)).rawHeaders("a") == Chunk("1.0,2.0"),
           // List
           Headers.empty.addHeader("a", List.empty[Int]).rawHeader("a").isEmpty,
           Headers.empty.addHeader("a", List(1)).rawHeaders("a") == Chunk("1"),
           // NonEmptyChunk
           Headers.empty.addHeader("a", NonEmptyChunk(1)).rawHeaders("a") == Chunk("1"),
-          Headers.empty.addHeader("a", NonEmptyChunk(1, 2)).rawHeaders("a") == Chunk("1", "2"),
+          Headers.empty.addHeader("a", NonEmptyChunk(1, 2)).rawHeaders("a") == Chunk("1,2"),
         )
       },
       test("case class") {
@@ -133,8 +133,8 @@ object HeaderSpec extends ZIOHttpSpec {
         assertTrue(
           Headers.empty.addHeader(foo).rawHeader("a").get == "1",
           Headers.empty.addHeader(foo).rawHeader("b").get == "foo",
-          Headers.empty.addHeader(foo).rawHeaders("c") == Chunk("1", "2"),
-          Headers.empty.addHeader(foo).rawHeaders("chunk") == Chunk("foo", "bar"),
+          Headers.empty.addHeader(foo).rawHeaders("c") == Chunk("1,2"),
+          Headers.empty.addHeader(foo).rawHeaders("chunk") == Chunk("foo,bar"),
           Headers.empty.addHeader(fooEmpty).rawHeader("a").get == "0",
           Headers.empty.addHeader(fooEmpty).rawHeader("b").get == "",
           Headers.empty.addHeader(fooEmpty).rawHeaders("c") == Chunk("1"),
