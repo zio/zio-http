@@ -33,6 +33,7 @@ object ServerStartSpec extends RoutesRunnableSpec {
       serve(Routes.empty).flatMap { port =>
         assertZIO(ZIO.attempt(port))(equalTo(port))
       }.provide(
+        ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
         ZLayer.succeed(config),
         DynamicServer.live,
         Server.customized,
@@ -45,6 +46,7 @@ object ServerStartSpec extends RoutesRunnableSpec {
       serve(Routes.empty).flatMap { bindPort =>
         assertZIO(ZIO.attempt(bindPort))(not(equalTo(port)))
       }.provide(
+        ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
         ZLayer.succeed(config),
         DynamicServer.live,
         Server.customized,
@@ -56,6 +58,7 @@ object ServerStartSpec extends RoutesRunnableSpec {
         .succeed(assertCompletes)
         .provide(
           Server.customized.unit,
+          ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
           ZLayer.succeed(Server.Config.default.port(8089)),
           ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         )

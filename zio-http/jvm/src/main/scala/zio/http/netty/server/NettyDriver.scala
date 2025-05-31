@@ -22,21 +22,21 @@ import java.net.InetSocketAddress
 import zio._
 
 import zio.http.Driver.StartResult
+import zio.http._
 import zio.http.netty._
 import zio.http.netty.client.NettyClientDriver
-import zio.http.{ClientDriver, Driver, Response, Routes, Server}
 
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel._
+import io.netty.channel.{Channel => NettyChannel, ChannelFactory, ChannelInitializer, ChannelOption, ServerChannel}
 import io.netty.util.ResourceLeakDetector
 
 private[zio] final case class NettyDriver(
   appRef: RoutesRef,
   channelFactory: ChannelFactory[ServerChannel],
-  channelInitializer: ChannelInitializer[Channel],
+  channelInitializer: ChannelInitializer[NettyChannel],
   serverInboundHandler: ServerInboundHandler,
   eventLoopGroups: ServerEventLoopGroups,
-  serverConfig: Server.Config,
+  serverConfig: ServerRuntimeConfig,
   nettyConfig: NettyConfig,
 ) extends Driver { self =>
 
@@ -47,9 +47,9 @@ private[zio] final case class NettyDriver(
           .group(eventLoopGroups.boss, eventLoopGroups.worker)
           .channelFactory(channelFactory)
           .childHandler(channelInitializer)
-          .option[Integer](ChannelOption.SO_BACKLOG, serverConfig.soBacklog)
-          .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.tcpNoDelay)
-          .bind(serverConfig.address)
+          .option[Integer](ChannelOption.SO_BACKLOG, serverConfig.config.soBacklog)
+          .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.config.tcpNoDelay)
+          .bind(serverConfig.config.address)
       }
       _       <- NettyFutureExecutor.scoped(chf)
       _       <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyConfig.leakDetectionLevel.toNetty))
@@ -96,9 +96,9 @@ object NettyDriver {
   val make: ZIO[
     RoutesRef
       & ChannelFactory[ServerChannel]
-      & ChannelInitializer[Channel]
+      & ChannelInitializer[NettyChannel]
       & ServerEventLoopGroups
-      & Server.Config
+      & ServerRuntimeConfig
       & NettyConfig
       & ServerInboundHandler,
     Nothing,
@@ -107,9 +107,9 @@ object NettyDriver {
     for {
       app   <- ZIO.service[RoutesRef]
       cf    <- ZIO.service[ChannelFactory[ServerChannel]]
-      cInit <- ZIO.service[ChannelInitializer[Channel]]
+      cInit <- ZIO.service[ChannelInitializer[NettyChannel]]
       elg   <- ZIO.service[ServerEventLoopGroups]
-      sc    <- ZIO.service[Server.Config]
+      sc    <- ZIO.service[ServerRuntimeConfig]
       nsc   <- ZIO.service[NettyConfig]
       sih   <- ZIO.service[ServerInboundHandler]
     } yield new NettyDriver(
@@ -122,10 +122,11 @@ object NettyDriver {
       nettyConfig = nsc,
     )
 
-  val manual
-    : ZLayer[ServerEventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
+  val manual: ZLayer[ServerEventLoopGroups & ChannelFactory[
+    ServerChannel,
+  ] & ServerRuntimeConfig & NettyConfig, Nothing, Driver] = {
     implicit val trace: Trace = Trace.empty
-    ZLayer.makeSome[ServerEventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
+    ZLayer.makeSome[ServerEventLoopGroups & ChannelFactory[ServerChannel] & ServerRuntimeConfig & NettyConfig, Driver](
       ZLayer(AppRef.empty),
       ServerChannelInitializer.layer,
       ServerInboundHandler.live,
@@ -133,12 +134,12 @@ object NettyDriver {
     )
   }
 
-  val customized: ZLayer[Server.Config & NettyConfig, Throwable, Driver] = {
+  val customized: ZLayer[ServerRuntimeConfig & NettyConfig, Throwable, Driver] = {
     val serverChannelFactory: ZLayer[NettyConfig, Nothing, ChannelFactory[ServerChannel]] =
       ChannelFactories.Server.fromConfig
     val eventLoopGroup: ZLayer[NettyConfig, Nothing, ServerEventLoopGroups]               = ServerEventLoopGroups.live
 
-    ZLayer.makeSome[Server.Config & NettyConfig, Driver](
+    ZLayer.makeSome[ServerRuntimeConfig & NettyConfig, Driver](
       eventLoopGroup,
       serverChannelFactory,
       manual,
@@ -148,6 +149,7 @@ object NettyDriver {
   val live: ZLayer[Server.Config, Throwable, Driver] =
     ZLayer.makeSome[Server.Config, Driver](
       ZLayer.succeed(NettyConfig.default),
+      ServerRuntimeConfig.layer,
       customized,
     )
 }
