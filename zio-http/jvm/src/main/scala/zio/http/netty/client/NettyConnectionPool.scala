@@ -97,7 +97,7 @@ private[netty] object NettyConnectionPool {
         if (decompression.enabled)
           pipeline.addLast(
             Names.HttpRequestDecompression,
-            new HttpContentDecompressor(decompression.strict),
+            new HttpContentDecompressor(decompression.strict, 0),
           )
 
         ()

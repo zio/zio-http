@@ -386,7 +386,7 @@ sealed trait Route[-Env, +Err] { self =>
    * have a body that may include a message and a stack trace.
    */
   final def sandbox(implicit trace: Trace): Route[Env, Nothing] =
-    handleErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCause(c, _)))
+    handleErrorCauseZIO(c => ErrorResponseConfig.configRef.getWith(cfg => Exit.succeed(Response.fromCause(c, cfg))))
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
