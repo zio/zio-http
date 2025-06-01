@@ -36,7 +36,13 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
    * Adds the specified key/value pair to the query parameters.
    */
   def addQueryParam(key: String, value: String): A =
-    addQueryParams(key, Chunk(value))
+    if (value.isEmpty)
+      addQueryParam(key)
+    else
+      addQueryParams(key, Chunk(value))
+
+  def addQueryParam(key: String): A =
+    addQueryParams(key, Chunk.empty)
 
   /**
    * Adds the specified key/value pairs to the query parameters.
