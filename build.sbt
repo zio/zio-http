@@ -184,7 +184,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-test`,
       `zio-test-sbt`,
       `scala-compat-collection`,
-    ) ++ netty ++ Seq(`netty-incubator`),
+    ) ++ netty,
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
@@ -426,6 +426,7 @@ lazy val docs = project
       `zio-config-typesafe`,
     ),
     publish / skip                             := true,
+    mdocOut := file("website/docs"),
     mdocVariables ++= Map(
       "ZIO_VERSION"        -> ZioVersion,
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,

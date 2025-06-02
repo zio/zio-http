@@ -105,7 +105,7 @@ private[http] trait StringSchemaCodec[A, Target] {
 
   private[http] def add(target: Target, key: String, value: String): Target
 
-  private[http] def addAll(target: Target, headers: Iterable[(String, String)]): Target
+  private[http] def addAll(target: Target, key: String, values: Iterable[String]): Target
 
   private[http] def contains(target: Target, key: String): Boolean
 
@@ -222,9 +222,9 @@ private[http] trait StringSchemaCodec[A, Target] {
           case None        => field.defaultValue
         }
         value match {
-          case values: Iterable[_] =>
-            target0 = addAll(target0, values.map { v => (name, codec.encode(v)) })
-          case _                   =>
+          case values: Iterable[_] if field.schema.isInstanceOf[Schema.Collection[_, _]] =>
+            target0 = addAll(target0, name, values.map(codec.encode))
+          case _                                                                         =>
             val encoded = codec.encode(value)
             if (encoded != null) target0 = add(target0, name, encoded)
         }
@@ -358,8 +358,9 @@ private[http] object StringSchemaCodec {
         override private[http] def add(headers: Headers, key: String, value: String): Headers =
           headers.addHeaders(Headers.apply(key, value))
 
-        override private[http] def addAll(headers: Headers, kvs: Iterable[(String, String)]): Headers =
-          headers.addHeaders(kvs)
+        override private[http] def addAll(headers: Headers, key: String, values: Iterable[String]): Headers =
+          if (values.isEmpty) headers
+          else headers.addHeaders(Headers.apply(key, values.mkString(",")))
 
         override private[http] def contains(headers: Headers, key: String): Boolean =
           headers.contains(key)
@@ -368,7 +369,10 @@ private[http] object StringSchemaCodec {
           headers.getUnsafe(key)
 
         override private[http] def getAll(headers: Headers, key: String): Chunk[String] =
-          headers.rawHeaders(key)
+          headers.rawHeaders(key).flatMap { header =>
+            if (header.isEmpty) Chunk.empty
+            else Chunk.fromIterable(header.split(","))
+          }
 
         override private[http] def count(headers: Headers, key: String): Int =
           headers.rawHeaders(key).size
@@ -394,7 +398,7 @@ private[http] object StringSchemaCodec {
       case s @ Schema.Optional(schema, _)                              =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
-            stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
+            stringSchemaCodec(recordSchema(schema.asInstanceOf[Schema[Any]], name))
           case s if s.isInstanceOf[Schema.Record[_]] => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
           case _                                     => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
@@ -437,8 +441,12 @@ private[http] object StringSchemaCodec {
         override private[http] def add(queryParams: QueryParams, key: String, value: String): QueryParams =
           queryParams.addQueryParam(key, value)
 
-        override private[http] def addAll(queryParams: QueryParams, kvs: Iterable[(String, String)]): QueryParams =
-          queryParams.addQueryParams(kvs)
+        override private[http] def addAll(
+          queryParams: QueryParams,
+          key: String,
+          values: Iterable[String],
+        ): QueryParams =
+          queryParams.addQueryParams(key, Chunk.fromIterable(values))
 
         override private[http] def contains(queryParams: QueryParams, key: String): Boolean =
           queryParams.hasQueryParam(key)
