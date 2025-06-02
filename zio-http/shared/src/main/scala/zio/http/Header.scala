@@ -1258,6 +1258,26 @@ object Header {
       def render(header: Authorization.Bearer): String = s"Bearer ${header.token.value}"
     }
 
+    final case class ApiKey(name: String, key: String) extends Authorization
+
+    object ApiKey extends HeaderType {
+      def apply(name: String, key: String): ApiKey = new ApiKey(name, key)
+
+      override type HeaderValue = Authorization.ApiKey
+
+      override def name: String = "authorization"
+
+      def parse(value: String): Either[String, Authorization.ApiKey] = {
+        val parts = value.split("=").filter(_.nonEmpty)
+        if (parts.length == 2) {
+          Right(ApiKey(parts(0), parts(1)))
+        } else {
+          Left("Invalid ApiKey Authorization header value")
+        }
+      }
+      def render(header: Authorization.ApiKey): String               = s"${header.name}=${header.key}"
+    }
+
     final case class Unparsed(authScheme: String, authParameters: Secret) extends Authorization
 
     object Unparsed {
@@ -1287,6 +1307,7 @@ object Header {
         s"""Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
           s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
       case Bearer(token)            => s"Bearer ${token.value.asString}"
+      case ApiKey(name, key)        => s"$name: $key"
       case Unparsed(scheme, params) => s"$scheme ${params.value.asString}".strip()
     }
 

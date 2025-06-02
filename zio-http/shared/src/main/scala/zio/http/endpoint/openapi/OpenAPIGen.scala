@@ -710,9 +710,8 @@ object OpenAPIGen {
 
     def getSecurity(
       endpoint: Endpoint[_, _, _, _, _],
-      params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
     ): List[SecurityRequirement] =
-      endpointSecurity(endpoint) ++ paramSecurity(params)
+      endpointSecurity(endpoint)
 
     def endpointSecurity(endpoint: Endpoint[_, _, _, _, _]): List[SecurityRequirement] = {
       endpoint.authType match {
@@ -720,16 +719,10 @@ object OpenAPIGen {
           List(SecurityRequirement(Map(auth.toString() -> scopes)))
         case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
           List(SecurityRequirement(Map(endpoint.authType.toString() -> Nil)))
+        case AuthType.ApiKey(_, _)                              =>
+          List(SecurityRequirement(Map(apiKeyAuth -> Nil)))
         case _                                                  => Nil
       }
-    }
-
-    def paramSecurity(params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]]): List[SecurityRequirement] = {
-      val securityObj: List[SecurityRequirement] = params.collect {
-        case OpenAPI.ReferenceOr.Or(param) if validateApiKey(param.name) =>
-          SecurityRequirement(Map(apiKeyAuth -> Nil))
-      }.toList
-      securityObj
     }
 
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
@@ -744,7 +737,7 @@ object OpenAPIGen {
         requestBody = requestBody,
         responses = responses,
         callbacks = Map.empty,
-        security = getSecurity(endpoint, headerParams ++ queryParams),
+        security = getSecurity(endpoint),
         servers = Nil,
       )
     }
@@ -992,43 +985,22 @@ object OpenAPIGen {
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(jsonSchemaFromCodec(codec).get))))
       }.flatten.toMap
 
-    def validateApiKeyLocation(input: String, params: Set[ReferenceOr[OpenAPI.Parameter]]) = {
-      val normalizedInput = input.toLowerCase.replaceAll("-", "_")
-
-      val paramNames = params.collect { case OpenAPI.ReferenceOr.Or(param) =>
-        param.name.toLowerCase.replaceAll("-", "_")
-      }
-
-      // check for cookie codec
-      val hasCookie = paramNames.contains("cookie")
-
-      normalizedInput match {
-        // recommended identifiers
-        case "x_api_key" | "x_apikey" => SecurityScheme.ApiKey.In.Header
-        case "apikey" | "api_key"     =>
-          if (!hasCookie) SecurityScheme.ApiKey.In.Query
-          else SecurityScheme.ApiKey.In.Cookie
-        case _                        => throw new IllegalArgumentException(s"Invalid API key parameter name: $input")
+    def validateApiKeyLocation(input: String) = {
+      input.toLowerCase match {
+        case "header" => SecurityScheme.ApiKey.In.Header
+        case "query"  => SecurityScheme.ApiKey.In.Query
+        case "cookie" => SecurityScheme.ApiKey.In.Cookie
+        case _        =>
+          throw new IllegalArgumentException(
+            s"Invalid API key location: $input. Must be one of 'header', 'query', or 'cookie'.",
+          )
       }
     }
 
-    def getApiKeySecuritySchemes(name: String) =
-      OpenAPI.Key.fromString(apiKeyAuth).get -> ReferenceOr.Or[SecurityScheme.ApiKey](
-        SecurityScheme.ApiKey(
-          name = "Authorization",
-          in = validateApiKeyLocation(name, headerParams ++ queryParams),
-          description = None,
-        ),
-      )
-
-    def apiKeySecuritySchemes(params: Set[ReferenceOr[OpenAPI.Parameter]]) = ListMap(
-      params.collect {
-        case OpenAPI.ReferenceOr.Or(param) if validateApiKey(param.name) =>
-          getApiKeySecuritySchemes(param.name)
-      }.toSeq: _*,
-    )
-
-    def httpSecuritySchemes(endpoint: Endpoint[_, _, _, _, _]): ListMap[Key, ReferenceOr[SecurityScheme]] =
+    def httpSecuritySchemes(
+      endpoint: Endpoint[_, _, _, _, _],
+      params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
+    ): ListMap[Key, ReferenceOr[SecurityScheme]] =
       endpoint.authType match {
         case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
           ListMap(
@@ -1052,6 +1024,19 @@ object OpenAPIGen {
                 ),
               ),
           )
+        case AuthType.ApiKey(in, name)                          =>
+          val names      = params.map(p => getName(p))
+          val apiKeyName = names.find(name => validateApiKey(name))
+          ListMap(
+            OpenAPI.Key.fromString(apiKeyAuth).get ->
+              ReferenceOr.Or[SecurityScheme.ApiKey](
+                SecurityScheme.ApiKey(
+                  name = apiKeyName.getOrElse(name),
+                  in = validateApiKeyLocation(in),
+                  description = None,
+                ),
+              ),
+          )
         case _                                                  => ListMap.empty
       }
 
@@ -1059,8 +1044,7 @@ object OpenAPIGen {
       endpoint: Endpoint[_, _, _, _, _],
       params: Set[ReferenceOr[OpenAPI.Parameter]],
     ): ListMap[Key, ReferenceOr[SecurityScheme]] =
-      httpSecuritySchemes(endpoint) ++
-        apiKeySecuritySchemes(params)
+      httpSecuritySchemes(endpoint, params)
 
     def components = OpenAPI.Components(
       schemas = ListMap(componentSchemas.toSeq.sortBy(_._1.name): _*),
@@ -1087,7 +1071,7 @@ object OpenAPIGen {
       servers = Nil,
       paths = ListMap(path.toSeq.sortBy(_._1.name): _*),
       components = Some(components),
-      security = getSecurity(endpoint, headerParams ++ queryParams),
+      security = getSecurity(endpoint),
       tags = Nil,
       externalDocs = None,
     )

@@ -237,20 +237,21 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
 
   private val endpointWithApiKeyQuery =
     Endpoint(GET / "withApiKeyQuery")
-      .query(HttpCodec.query[String]("apiKey").optional)
+      .query(HttpCodec.query[String]("API-KEY").optional)
+      .auth(AuthType.ApiKey("query"))
 
   private val endpointWithApiKeyHeader =
     Endpoint(GET / "withAuthHeader")
       .header[String]("x-api-key")
+      .auth(AuthType.ApiKey("header"))
 
-  // api-key cookie auth when using the cookie codec and api-key header simultaneously
   private val endpointWithApiKeyCookie =
     Endpoint(GET / "withAuthCookie")
       .in[SimpleInputBody]
       .out[SimpleOutputBody]
-      .header[String]("api-key")
       .inCodec(HttpCodec.cookie)
       .outCodec(HttpCodec.cookie)
+      .auth(AuthType.ApiKey("cookie", "api-key"))
 
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
@@ -369,7 +370,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |      "get" : {
                               |        "parameters" : [
                               |          {
-                              |            "name" : "apiKey",
+                              |            "name" : "API-KEY",
                               |            "in" : "query",
                               |            "schema" : {
                               |              "type" : "string"
@@ -390,7 +391,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |    "securitySchemes" : {
                               |      "apiKeyAuth" : {
                               |        "type" : "apiKey",
-                              |        "name" : "Authorization",
+                              |        "name" : "API-KEY",
                               |        "in" : "query"
                               |      }
                               |    }
@@ -442,7 +443,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |    "securitySchemes" : {
                               |      "apiKeyAuth" : {
                               |        "type" : "apiKey",
-                              |        "name" : "Authorization",
+                              |        "name" : "x-api-key",
                               |        "in" : "header"
                               |      }
                               |    }
@@ -559,7 +560,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |    "securitySchemes" : {
                               |      "apiKeyAuth" : {
                               |        "type" : "apiKey",
-                              |        "name" : "Authorization",
+                              |        "name" : "api-key",
                               |        "in" : "cookie"
                               |      }
                               |    }
