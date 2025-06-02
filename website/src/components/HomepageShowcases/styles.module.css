@@ -1,0 +1,53 @@
+.showcases {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+  background-color: var(--ifm-color-emphasis-100);
+}
+
+.showcases h2 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* Add styling for vertical alignment */
+.showcases .row {
+  display: flex;
+  align-items: center; /* This centers the columns vertically */
+}
+
+.showcases .col--6 {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make the left column's content container fill available height */
+.showcases .col--6:first-child > div {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make sure CodeBlock fills the container height */
+.showcases .col--6:first-child pre {
+  flex-grow: 1;
+}
+
+/* Preserve responsive styling */
+@media screen and (max-width: 996px) {
+  .showcases .row {
+    flex-direction: column;
+  }
+  .showcases .col--6 {
+    width: 100%;
+    margin-bottom: 2rem;
+  }
+}
+
+.sectionHeader {
+  font-size: 3.0rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+}
