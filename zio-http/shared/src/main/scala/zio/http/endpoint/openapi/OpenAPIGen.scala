@@ -776,7 +776,7 @@ object OpenAPIGen {
       responsesForAlternatives(outs, genExamples)
 
     def parameters: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
-      queryParams ++ filterParams(pathParams) ++ filterParams(headerParams)
+      queryParams ++ pathParams ++ headerParams
 
     def queryParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
       inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(codec, _), _) =>
@@ -819,21 +819,6 @@ object OpenAPIGen {
         case OpenAPI.ReferenceOr.Or(param) => param.name
         case _                             => throw new Exception("Invalid parameter")
       }
-
-    // Filters out api-key header if cookie codec is present
-    def filterParams(
-      params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
-    ): Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] = {
-      val names = params.map(p => getName(p).toLowerCase.replace("-", "_"))
-      if (names.contains("cookie") && (names.contains("apikey") || names.contains("api_key"))) {
-        params.filterNot { p =>
-          val name = getName(p).toLowerCase.replace("-", "_")
-          name == "apikey" || name == "api_key"
-        }
-      } else {
-        params
-      }
-    }
 
     def pathParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
       inAtoms.path.collect {
