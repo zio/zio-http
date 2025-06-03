@@ -1275,8 +1275,8 @@ object Header {
           Left("Invalid ApiKey Authorization header value")
         }
       }
-      
-      def render(header: Authorization.ApiKey): String               = s"ApiKey ${header.key}"
+
+      def render(header: Authorization.ApiKey): String = s"ApiKey ${header.key}"
     }
 
     final case class Unparsed(authScheme: String, authParameters: Secret) extends Authorization
