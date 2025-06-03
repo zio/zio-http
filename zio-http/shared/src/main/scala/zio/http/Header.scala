@@ -1258,24 +1258,25 @@ object Header {
       def render(header: Authorization.Bearer): String = s"Bearer ${header.token.value}"
     }
 
-    final case class ApiKey(name: String, key: String) extends Authorization
+    final case class ApiKey(key: String) extends Authorization
 
     object ApiKey extends HeaderType {
-      def apply(name: String, key: String): ApiKey = new ApiKey(name, key)
+      def apply(key: String): ApiKey = new ApiKey(key)
 
       override type HeaderValue = Authorization.ApiKey
 
       override def name: String = "authorization"
 
       def parse(value: String): Either[String, Authorization.ApiKey] = {
-        val parts = value.split("=").filter(_.nonEmpty)
+        val parts = value.split(" ").filter(_.nonEmpty)
         if (parts.length == 2) {
-          Right(ApiKey(parts(0), parts(1)))
+          Right(ApiKey(parts(1)))
         } else {
           Left("Invalid ApiKey Authorization header value")
         }
       }
-      def render(header: Authorization.ApiKey): String               = s"${header.name}=${header.key}"
+      
+      def render(header: Authorization.ApiKey): String               = s"ApiKey ${header.key}"
     }
 
     final case class Unparsed(authScheme: String, authParameters: Secret) extends Authorization
@@ -1294,6 +1295,7 @@ object Header {
           case "basic"  => parseBasic(parts(1))
           case "digest" => parseDigest(parts.tail.mkString(" "))
           case "bearer" => Right(Bearer(parts(1)))
+          case "apikey" => Right(ApiKey(parts(1)))
           case _        => Right(Unparsed(parts(0), parts.tail.mkString(" ")))
         }
       } else Left(s"Invalid Authorization header value: $value")
@@ -1307,7 +1309,7 @@ object Header {
         s"""Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
           s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
       case Bearer(token)            => s"Bearer ${token.value.asString}"
-      case ApiKey(name, key)        => s"$name: $key"
+      case ApiKey(key)              => s"ApiKey $key"
       case Unparsed(scheme, params) => s"$scheme ${params.value.asString}".strip()
     }
 

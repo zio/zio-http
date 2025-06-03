@@ -189,12 +189,12 @@ object HttpGenSpec extends ZIOSpecDefault {
       assertTrue(rendered == expected)
 
       val endpointWithExample     = Endpoint(Method.GET / "api" / "foo")
-        .header(HeaderCodec.apiKeyAuth.examples("default" -> Header.Authorization.ApiKey("X-API-KEY", "token")))
+        .header(HeaderCodec.apiKeyAuth.examples("default" -> Header.Authorization.ApiKey("token")))
       val httpEndpointWithExample = HttpGen.fromEndpoint(endpointWithExample)
       val renderedWithExample     = httpEndpointWithExample.render
       val expectedWithExample     =
         """
-          |@Authorization=X-API-KEY: token
+          |@Authorization=ApiKey token
           |
           |GET /api/foo
           |Authorization: {{Authorization}}""".stripMargin
