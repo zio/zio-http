@@ -3,10 +3,11 @@
 package example
 
 import zio._
-import zio.http._
+
 import zio.http.RoutePattern._
-import zio.http.codec._
+import zio.http._
 import zio.http.codec.PathCodec._
+import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi._
 
