@@ -8,17 +8,17 @@ import zio.http.codec.TextBinaryCodec.fromSchema
 object ClientServerExample extends ZIOAppDefault {
   val clientApp: ZIO[Client, Throwable, Unit] =
     for {
-      url <- ZIO.fromEither(URL.decode("http://localhost:8080/greet"))
-      res <- ZClient.batched(
+      url  <- ZIO.fromEither(URL.decode("http://localhost:8080/greet"))
+      res  <- ZClient.batched(
         Request
           .get(url)
           .setQueryParams(
-            Map("name" -> Chunk("ZIO HTTP"))
-          )
+            Map("name" -> Chunk("ZIO HTTP")),
+          ),
       )
       body <- res.bodyAs[String]
-      _ <- ZIO.debug("Received response: " +  body)
-    }  yield ()
+      _    <- ZIO.debug("Received response: " + body)
+    } yield ()
 
   val run = clientApp.provide(Client.default)
 }
@@ -32,7 +32,7 @@ object GreetingServer extends ZIOAppDefault {
       Method.GET / "greet" -> handler { (req: Request) =>
         val name = req.queryOrElse("name", "World")
         Response.text(s"Hello $name!")
-      }
+      },
     )
 
   def run = Server.serve(routes).provide(Server.default)
