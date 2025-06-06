@@ -46,6 +46,12 @@ object AuthType {
       HeaderCodec.digestAuth
   }
 
+  final case class ApiKey(in: String, name: String = "") extends AuthType {
+    type ClientRequirement = Header.Authorization.ApiKey
+    override val codec: HeaderCodec[Header.Authorization.ApiKey] =
+      HeaderCodec.apiKeyAuth
+  }
+
   final case class Custom[ClientReq](override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq])
       extends AuthType {
     type ClientRequirement = ClientReq
