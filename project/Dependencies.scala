@@ -2,7 +2,7 @@ import sbt.*
 
 object Dependencies {
   val JwtCoreVersion               = "10.0.4"
-  val NettyVersion                 = "4.2.1.Final"
+  val NettyVersion                 = "4.2.2.Final"
   val ScalaCompatCollectionVersion = "2.13.0"
   val ZioVersion                   = "2.1.17"
   val ZioCliVersion                = "0.7.2"
@@ -20,17 +20,17 @@ object Dependencies {
 
   val netty =
     Seq(
-      "io.netty"                   % "netty-codec-http"              % NettyVersion,
-      "io.netty"                   % "netty-handler-proxy"           % NettyVersion,
-      "io.netty"                   % "netty-transport-native-epoll"  % NettyVersion,
-      "io.netty"                   % "netty-transport-native-epoll"  % NettyVersion classifier "linux-x86_64",
-      "io.netty"                   % "netty-transport-native-epoll"  % NettyVersion classifier "linux-aarch_64",
-      "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion,
-      "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion classifier "osx-x86_64",
-      "io.netty"                   % "netty-transport-native-kqueue" % NettyVersion classifier "osx-aarch_64",
-      "io.netty"                   % "netty-pkitesting" % NettyVersion,
+      "io.netty" % "netty-codec-http"                % NettyVersion,
+      "io.netty" % "netty-handler-proxy"             % NettyVersion,
+      "io.netty" % "netty-transport-native-epoll"    % NettyVersion,
+      "io.netty" % "netty-transport-native-epoll"    % NettyVersion classifier "linux-x86_64",
+      "io.netty" % "netty-transport-native-epoll"    % NettyVersion classifier "linux-aarch_64",
+      "io.netty" % "netty-transport-native-kqueue"   % NettyVersion,
+      "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-x86_64",
+      "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-aarch_64",
+      "io.netty" % "netty-pkitesting"                % NettyVersion,
       "io.netty" % "netty-transport-native-io_uring" % NettyVersion % "provided" classifier "linux-x86_64",
-      "com.aayushatharva.brotli4j" % "brotli4j"                      % "1.18.0" % "provided",
+      "com.aayushatharva.brotli4j" % "brotli4j" % "1.18.0" % "provided",
     )
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
