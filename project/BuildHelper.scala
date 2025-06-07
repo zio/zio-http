@@ -2,7 +2,6 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{HeaderLicense, heade
 import sbt.*
 import sbt.Keys.*
 import scalafix.sbt.ScalafixPlugin.autoImport.*
-import xerial.sbt.Sonatype.autoImport.*
 import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 
 object BuildHelper extends ScalaSettings {
@@ -43,11 +42,6 @@ object BuildHelper extends ScalaSettings {
       organization           := "dev.zio",
       organizationName       := "zio",
       licenses               := Seq("Apache-2.0" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
-      sonatypeCredentialHost := "oss.sonatype.org",
-      sonatypeRepository     := "https://oss.sonatype.org/service/local",
-      sonatypeProfileName    := "dev.zio",
-      publishTo              := sonatypePublishToBundle.value,
-      sonatypeTimeoutMillis  := 300 * 60 * 1000,
       publishMavenStyle      := true,
       credentials ++=
         (for {
