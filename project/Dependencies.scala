@@ -4,11 +4,11 @@ object Dependencies {
   val JwtCoreVersion               = "10.0.4"
   val NettyVersion                 = "4.2.2.Final"
   val ScalaCompatCollectionVersion = "2.13.0"
-  val ZioVersion                   = "2.1.17"
+  val ZioVersion                   = "2.1.19"
   val ZioCliVersion                = "0.7.2"
   val ZioJsonVersion               = "0.7.43"
   val ZioParserVersion             = "0.1.10"
-  val ZioSchemaVersion             = "1.7.0"
+  val ZioSchemaVersion             = "1.7.2"
   val SttpVersion                  = "3.3.18"
   val ZioConfigVersion             = "4.0.4"
 
