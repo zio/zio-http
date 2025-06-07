@@ -426,7 +426,7 @@ lazy val docs = project
       `zio-config-typesafe`,
     ),
     publish / skip                             := true,
-    mdocOut := file("website/docs"),
+    mdocOut                                    := file("website/docs"),
     mdocVariables ++= Map(
       "ZIO_VERSION"        -> ZioVersion,
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
