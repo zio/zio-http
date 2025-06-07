@@ -69,11 +69,11 @@ object NettyRequestEncoderSpec extends ZIOHttpSpec {
         assertZIO(req)(equalTo(Conversions.methodToNetty(params.method)))
       }
     },
-    suite("uri")(
+    suite("uri test")(
       test("uri") {
-        check(anyClientParam) { params =>
-          val req = ZIO.succeed(encode(params)).map(_.uri())
-          assertZIO(req)(equalTo(params.url.relative.addLeadingSlash.encode))
+        check(anyClientParam) { request =>
+          val req = encode(request).uri()
+          assertTrue(req == request.url.relative.addLeadingSlash.encode)
         }
       },
       test("uri on Body.RandomAccessFile") {
@@ -132,14 +132,14 @@ object NettyRequestEncoderSpec extends ZIOHttpSpec {
     test("leading slash added to path") {
       val url     = URL.decode("https://api.github.com").toOption.get / "something" / "else"
       val req     = Request(url = url)
-      val encoded = ZIO.succeed(encode(req)).map(_.uri)
-      assertZIO(encoded)(equalTo("/something/else"))
+      val encoded = encode(req).uri
+      assertTrue(encoded == "/something/else")
     },
     test("trailing slash") {
       val url     = URL.decode("https://api.github.com").toOption.get / "something" / "else"
       val req     = Request(url = url.addTrailingSlash)
-      val encoded = ZIO.succeed(encode(req)).map(_.uri)
-      assertZIO(encoded)(equalTo("/something/else/"))
+      val encoded = encode(req).uri
+      assertTrue(encoded == "/something/else/")
     },
     test("request fragments not included") {
       val url     = URL.decode("https://api.github.com/path#frag").toOption.get

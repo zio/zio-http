@@ -108,7 +108,8 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
    * Retrieves the first query parameter value having the specified name.
    */
   def queryParam(key: String): Option[String] =
-    if (hasQueryParam(key)) Some(queryParams(key).head) else None
+    if (hasQueryParam(key)) if (queryParams(key).isEmpty) Some("") else Some(queryParams(key).head)
+    else None
 
   /**
    * Retrieves the first typed query parameter value having the specified name.

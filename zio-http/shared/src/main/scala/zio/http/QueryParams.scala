@@ -40,7 +40,7 @@ trait QueryParams extends QueryOps[QueryParams] {
   /**
    * Encodes the query parameters into a string using the specified charset.
    */
-  def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
+  def encode(charset: Charset): String = QueryParamEncoding.encode(new StringBuilder(256), self, charset)
 
   override def equals(that: Any): Boolean = that match {
     case queryParams: QueryParams => normalize.seq == queryParams.normalize.seq
@@ -86,9 +86,7 @@ trait QueryParams extends QueryOps[QueryParams] {
    * Normalizes the query parameters by removing empty keys and values.
    */
   def normalize: QueryParams =
-    QueryParams.fromEntries(seq.filter { entry =>
-      entry.getKey.nonEmpty && entry.getValue.asScala.nonEmpty
-    }: _*)
+    QueryParams.fromEntries(seq.filter { entry => entry.getKey.nonEmpty }: _*)
 
   override def queryParameters: QueryParams =
     self
@@ -184,10 +182,10 @@ object QueryParams {
         case Some(previous) =>
           val combined = new util.ArrayList[String]()
           combined.addAll(previous)
-          combined.addAll(entry.getValue)
+          combined.addAll(entry.getValue.asScala.filterNot(_.isBlank).asJava)
           result.replace(entry.getKey, combined)
         case None           =>
-          result.put(entry.getKey, entry.getValue)
+          result.put(entry.getKey, entry.getValue.asScala.filterNot(_.isBlank).asJava)
       }
     }
     apply(result)
@@ -205,7 +203,7 @@ object QueryParams {
    * Decodes the specified string into a collection of query parameters.
    */
   def decode(queryStringFragment: String, charset: Charset = Charsets.Utf8): QueryParams =
-    QueryParamEncoding.default.decode(queryStringFragment, charset)
+    QueryParamEncoding.decode(queryStringFragment, charset)
 
   /**
    * Empty query parameters.

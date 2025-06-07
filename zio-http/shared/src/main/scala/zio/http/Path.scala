@@ -122,9 +122,19 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
    * Encodes the current path into a valid string.
    */
   def encode: String =
-    if (self == Path.empty) ""
+    if (isEmpty) ""
     else if (self == Path.root) "/"
     else segments.mkString(if (hasLeadingSlash) "/" else "", "/", if (hasTrailingSlash) "/" else "")
+
+  private[http] def encodeBuilder: StringBuilder = {
+    val sb = new StringBuilder(256)
+    if (hasLeadingSlash) sb.append('/')
+    segments.foreach { segment =>
+      sb.append(segment)
+      if (hasTrailingSlash || segment != segments.last) sb.append('/')
+    }
+    sb
+  }
 
   override def equals(that: Any): Boolean =
     that match {
@@ -159,7 +169,7 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   /**
    * Checks if the path is equal to "".
    */
-  def isEmpty: Boolean = segments.isEmpty && (flags == Flags.none)
+  def isEmpty: Boolean = self == Path.empty || segments.isEmpty && (flags == Flags.none)
 
   /**
    * Checks if the path is equal to "/".
@@ -333,7 +343,7 @@ object Path {
         i = i + 1
       }
 
-      Path(flags, chunkBuilder.result())
+      Path(flags, chunkBuilder.result()).removeDotSegments
     }
 
   /**

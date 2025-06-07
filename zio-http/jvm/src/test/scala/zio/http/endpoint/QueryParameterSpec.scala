@@ -399,7 +399,10 @@ object QueryParameterSpec extends ZIOHttpSpec {
 
       routes
         .runZIO(Request.get("/users").addQueryParam("ints", ""))
-        .map(resp => assertTrue(resp.status == Status.BadRequest)) &&
+        .map(resp => assertTrue(resp.status == Status.Ok)) &&
+      routes
+        .runZIO(Request.get("/users").addQueryParam("ints"))
+        .map(resp => assertTrue(resp.status == Status.Ok)) &&
       testRoutes(
         s"/users",
         s"path(users, ${Chunk.empty})",

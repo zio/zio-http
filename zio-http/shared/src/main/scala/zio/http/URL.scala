@@ -344,20 +344,23 @@ object URL {
   }
 
   private def encode(url: URL): String = {
-    def path(relative: Boolean) =
-      QueryParamEncoding.default.encode(
-        if (relative || url.path.isEmpty) url.path.encode else url.path.addLeadingSlash.encode,
-        url.queryParams.normalize,
+    val path =
+      QueryParamEncoding.encode(
+        url.path.encodeBuilder,
+        url.queryParams,
         Charsets.Http,
-      ) + url.fragment.fold("")(f => "#" + f.raw)
+      )
+
+    val fragment = url.fragment.fold("")(f => "#" + f.raw)
 
     url.kind match {
-      case Location.Relative      => path(true)
+      case Location.Relative      => path + fragment
       case abs: Location.Absolute =>
-        val path2 = path(false)
+        val path2 = path + fragment
         abs.portIfNotDefault match {
-          case None             => s"${abs.scheme.encode}://${abs.host}$path2"
-          case Some(customPort) => s"${abs.scheme.encode}://${abs.host}:$customPort$path2"
+          case None       => s"${abs.scheme.encode}://${abs.host}$path2"
+          case customPort =>
+            s"${abs.scheme.encode}://${abs.host}:${customPort.get}${if (path.nonEmpty && path != "/") "/" else ""}$path2"
         }
     }
   }
@@ -367,29 +370,16 @@ object URL {
     // Host and port information should be in the headers.
     // Query params are included while fragments are excluded.
 
-    val pathBuf = new StringBuilder(256)
+    val prefix = if (!url.path.hasLeadingSlash) "/" else ""
 
-    val path = url.path
-
-    path.segments.foreach { segment =>
-      pathBuf.append('/')
-      pathBuf.append(segment)
-    }
-
-    if (pathBuf.isEmpty | path.hasTrailingSlash) {
-      pathBuf.append('/')
-    }
-
-    val qparams = url.queryParams
-
-    if (qparams.isEmpty) {
-      pathBuf.result()
-    } else {
-      // this branch could be more efficient with something like QueryParamEncoding.appendNonEmpty(pathBuf, qparams, Charsets.Http)
-      // that directly filtered the keys/values and appended to the buffer
-      // but for now the underlying Netty encoder requires the base url as a String anyway
-      QueryParamEncoding.default.encode(pathBuf.result(), qparams.normalize, Charsets.Http)
-    }
+    prefix + (if (url.queryParams.isEmpty) {
+                url.path.encode
+              } else {
+                // this branch could be more efficient with something like QueryParamEncoding.appendNonEmpty(pathBuf, qparams, Charsets.Http)
+                // that directly filtered the keys/values and appended to the buffer
+                // but for now the underlying Netty encoder requires the base url as a String anyway
+                QueryParamEncoding.encode(url.path.encodeBuilder, url.queryParams, Charsets.Http)
+              })
   }
 
   private[http] def fromAbsoluteURI(uri: URI): Option[URL] = {
