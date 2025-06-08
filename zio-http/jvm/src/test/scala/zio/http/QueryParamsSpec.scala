@@ -34,6 +34,19 @@ object QueryParamsSpec extends ZIOHttpSpec {
   case class Foo(a: Int, b: SimpleWrapper, c: NonEmptyChunk[String], chunk: Chunk[String])
   implicit val fooSchema: Schema[Foo]                     = DeriveSchema.gen[Foo]
 
+  final case class PhoneNumber(value: String)
+
+  object PhoneNumber {
+    def fromString(s: String): Option[PhoneNumber] =
+      if (s.forall(_.isDigit)) Some(PhoneNumber(s)) else None
+
+    implicit val schema: Schema[PhoneNumber] =
+      Schema[String].transformOrFail(
+        s => fromString(s).toRight(s"Invalid phone number: $s"),
+        p => Right(p.value),
+      )
+  }
+
   def spec =
     suite("QueryParams")(
       suite("-")(
@@ -309,7 +322,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           )
         },
       ),
-      suite("getAs - getAllAs")(
+      suite("query")(
         test("pure") {
           val typed          = "typed"
           val default        = 3
@@ -371,6 +384,12 @@ object QueryParamsSpec extends ZIOHttpSpec {
           assertZIO(queryParams.queryZIO[Chunk[Int]](invalidTyped).exit)(fails(anything)) &&
           assertZIO(queryParams.queryZIO[Chunk[Int]](unknown).exit)(succeeds(equalTo(Chunk.empty[Int]))) &&
           assertZIO(queryParams.queryZIO[NonEmptyChunk[Int]](unknown).exit)(fails(anything))
+        },
+        test("decode optional query param") {
+          val req = Request.get(URL.empty).addQueryParam("phone", "1234567890")
+          assertTrue(
+            req.query[Option[PhoneNumber]]("phone") == Right(Some(PhoneNumber("1234567890"))),
+          )
         },
       ),
       suite("encode - decode")(
