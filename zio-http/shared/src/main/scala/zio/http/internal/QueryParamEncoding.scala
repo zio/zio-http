@@ -31,7 +31,7 @@ private[http] object QueryParamEncoding {
 
       val paramCount = {
         // Estimate number of parameters by counting '&' characters
-        // This is a rough estimate, but avoids allocating a list for every parameter
+        // This is an estimate, but avoids allocating a list for every parameter
         var count = 1 // At least one parameter exists
         var i     = 0
         while (i < length) {
@@ -105,19 +105,19 @@ private[http] object QueryParamEncoding {
       return baseUri.toString
     }
 
-    // Estimate additional capacity needed for query parameters
-    // Initial guess: 1 char for ? + average of 20 chars per param pair
-    val additionalCapacity = 1 + (queryParams.seq.size * 20)
-    baseUri.ensureCapacity(baseUri.length + additionalCapacity)
+    // Estimate initial capacity to avoid resizing
+    val paramCount = queryParams.seq.size
+    baseUri.ensureCapacity(baseUri.length + Math.min(paramCount * 20, 1024))
 
     var isFirst  = true
     val iterator = queryParams.seq.iterator
     while (iterator.hasNext) {
       val entry  = iterator.next()
       val key    = entry.getKey
-      val values = entry.getValue
 
       if (key != "") {
+        val values = entry.getValue
+
         if (values.isEmpty) {
           // Handle key with no value
           if (isFirst) {
@@ -126,12 +126,13 @@ private[http] object QueryParamEncoding {
           } else {
             baseUri.append('&')
           }
-          baseUri.append(encodeComponent(key, charset))
+          encodeComponentInto(key, charset, baseUri)
           baseUri.append('=')
         } else {
-          // Handle key with one or more values
-          import scala.jdk.CollectionConverters._
-          values.asScala.foreach { value =>
+          // Handle key with values - use direct iteration for better performance
+          var j          = 0
+          val valuesSize = values.size()
+          while (j < valuesSize) {
             if (isFirst) {
               baseUri.append('?')
               isFirst = false
@@ -139,12 +140,14 @@ private[http] object QueryParamEncoding {
               baseUri.append('&')
             }
 
-            baseUri.append(encodeComponent(key, charset))
+            encodeComponentInto(key, charset, baseUri)
             baseUri.append('=')
-            baseUri.append(encodeComponent(value, charset))
+            encodeComponentInto(values.get(j), charset, baseUri)
+            j += 1
           }
         }
       }
+      i += 1
     }
     baseUri.toString
   }
@@ -207,8 +210,8 @@ private[http] object QueryParamEncoding {
    * Encodes a URL component according to HTML/URL encoding rules. Spaces become
    * '+', and special characters become percent-encoded.
    */
-  private def encodeComponent(component: String, charset: Charset): String = {
-    if (component.isEmpty) return component
+  private def encodeComponentInto(component: String, charset: Charset, target: StringBuilder): Unit = {
+    if (component.isEmpty) return
 
     // Fast path for strings that don't need encoding
     var needsEncoding = false
@@ -226,26 +229,17 @@ private[http] object QueryParamEncoding {
       i += 1
     }
 
-    if (!needsEncoding) return component
+    if (!needsEncoding) {
+      target.append(component)
+      return
+    }
 
     // Special optimization for UTF-8 (most common case)
     val isUtf8 = charset == java.nio.charset.StandardCharsets.UTF_8 || charset.name().equalsIgnoreCase("UTF-8")
 
-    // Calculate a more accurate capacity based on where encoding becomes necessary
-    val estimatedCapacity =
-      if (i > 1) {
-        // First (i-1) chars don't need encoding + remaining chars might need encoding (worst case: 3x)
-        (i - 1) + ((component.length - i + 1) * 3)
-      } else {
-        // Worst case: all characters need percent encoding
-        component.length * 3
-      }
-
-    val result = new java.lang.StringBuilder(estimatedCapacity)
-
     // Copy the characters that we know don't need encoding
     if (i > 1) {
-      result.append(component, 0, i - 1)
+      target.underlying.append(component, 0, i - 1)
     }
 
     // Process remaining characters
@@ -262,45 +256,49 @@ private[http] object QueryParamEncoding {
           c == '-' || c == '.' || c == '_' || c == '~' || c == '*'
         ) {
           // Unreserved character
-          result.append(c)
+          target.append(c)
+        } else if (c == ' ') {
+          // Space becomes '+'
+          target.append('+')
         } else if (c < 128) {
           // ASCII character that needs encoding
-          result.append('%')
-          result.append(Character.forDigit((c >> 4) & 0xf, 16).toUpper)
-          result.append(Character.forDigit(c & 0xf, 16).toUpper)
+          target.append('%')
+          target.append(Character.forDigit((c >> 4) & 0xf, 16).toUpper)
+          target.append(Character.forDigit(c & 0xf, 16).toUpper)
         } else if (c < 2048) {
           // 2-byte UTF-8 encoding
           val byte1 = 0xc0 | (c >> 6)
           val byte2 = 0x80 | (c & 0x3f)
-          result.append('%')
-          result.append(Character.forDigit((byte1 >> 4) & 0xf, 16).toUpper)
-          result.append(Character.forDigit(byte1 & 0xf, 16).toUpper)
-          result.append('%')
-          result.append(Character.forDigit((byte2 >> 4) & 0xf, 16).toUpper)
-          result.append(Character.forDigit(byte2 & 0xf, 16).toUpper)
+          target.append('%')
+          target.append(Character.forDigit((byte1 >> 4) & 0xf, 16).toUpper)
+          target.append(Character.forDigit(byte1 & 0xf, 16).toUpper)
+          target.append('%')
+          target.append(Character.forDigit((byte2 >> 4) & 0xf, 16).toUpper)
+          target.append(Character.forDigit(byte2 & 0xf, 16).toUpper)
         } else {
           // 3-byte UTF-8 encoding
           val byte1 = 0xe0 | (c >> 12)
           val byte2 = 0x80 | ((c >> 6) & 0x3f)
           val byte3 = 0x80 | (c & 0x3f)
-          result.append('%')
-          result.append(Character.forDigit((byte1 >> 4) & 0xf, 16).toUpper)
-          result.append(Character.forDigit(byte1 & 0xf, 16).toUpper)
-          result.append('%')
-          result.append(Character.forDigit((byte2 >> 4) & 0xf, 16).toUpper)
-          result.append(Character.forDigit(byte2 & 0xf, 16).toUpper)
-          result.append('%')
-          result.append(Character.forDigit((byte3 >> 4) & 0xf, 16).toUpper)
-          result.append(Character.forDigit(byte3 & 0xf, 16).toUpper)
+          target.append('%')
+          target.append(Character.forDigit((byte1 >> 4) & 0xf, 16).toUpper)
+          target.append(Character.forDigit(byte1 & 0xf, 16).toUpper)
+          target.append('%')
+          target.append(Character.forDigit((byte2 >> 4) & 0xf, 16).toUpper)
+          target.append(Character.forDigit(byte2 & 0xf, 16).toUpper)
+          target.append('%')
+          target.append(Character.forDigit((byte3 >> 4) & 0xf, 16).toUpper)
+          target.append(Character.forDigit(byte3 & 0xf, 16).toUpper)
         }
         j += 1
       }
     } else {
-      // Generic path for other charsets
-      val bytes = component.getBytes(charset)
-
-      bytes.foreach { b =>
-        val unsignedByte = b & 0xff
+      // Generic path for other charsets - using avoid byte array allocation when possible
+      val bytes    = component.getBytes(charset)
+      var k        = 0
+      val bytesLen = bytes.length
+      while (k < bytesLen) {
+        val unsignedByte = bytes(k) & 0xff
         if (
           (unsignedByte >= 'a' && unsignedByte <= 'z') ||
           (unsignedByte >= 'A' && unsignedByte <= 'Z') ||
@@ -309,19 +307,18 @@ private[http] object QueryParamEncoding {
           unsignedByte == '_' || unsignedByte == '~' || unsignedByte == '*'
         ) {
           // Unreserved character
-          result.append(unsignedByte.toChar)
+          target.append(unsignedByte.toChar)
         } else if (unsignedByte == ' ') {
           // Space becomes '+'
-          result.append('+')
+          target.append('+')
         } else {
           // Percent encoding
-          result.append('%')
-          result.append(Character.forDigit((unsignedByte >> 4) & 0xf, 16).toUpper)
-          result.append(Character.forDigit(unsignedByte & 0xf, 16).toUpper)
+          target.append('%')
+          target.append(Character.forDigit((unsignedByte >> 4) & 0xf, 16).toUpper)
+          target.append(Character.forDigit(unsignedByte & 0xf, 16).toUpper)
         }
+        k += 1
       }
     }
-
-    result.toString
   }
 }

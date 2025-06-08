@@ -18,6 +18,8 @@ package zio.http
 
 import zio.{Chunk, ChunkBuilder}
 
+import zio.http.internal.ThreadLocals
+
 /**
  * Path is an immutable representation of the path of a URL. Internally it
  * stores each element of a path in a sequence of text, together with flags on
@@ -127,7 +129,7 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
     else segments.mkString(if (hasLeadingSlash) "/" else "", "/", if (hasTrailingSlash) "/" else "")
 
   private[http] def encodeBuilder: StringBuilder = {
-    val sb      = new StringBuilder(256)
+    val sb      = ThreadLocals.stringBuilder
     if (hasLeadingSlash) sb.append('/')
     var idx     = 0
     val lastIdx = segments.length - 1

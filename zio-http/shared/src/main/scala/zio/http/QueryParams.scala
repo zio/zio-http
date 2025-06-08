@@ -41,7 +41,8 @@ trait QueryParams extends QueryOps[QueryParams] {
   /**
    * Encodes the query parameters into a string using the specified charset.
    */
-  def encode(charset: Charset): String = QueryParamEncoding.encode(new StringBuilder(256), self, charset)
+  def encode(charset: Charset): String =
+    QueryParamEncoding.encode(ThreadLocals.stringBuilder, self, charset)
 
   override def equals(that: Any): Boolean = that match {
     case queryParams: QueryParams => normalize.seq == queryParams.normalize.seq
