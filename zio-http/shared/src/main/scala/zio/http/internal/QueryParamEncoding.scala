@@ -147,7 +147,6 @@ private[http] object QueryParamEncoding {
           }
         }
       }
-      i += 1
     }
     baseUri.toString
   }
@@ -220,12 +219,7 @@ private[http] object QueryParamEncoding {
     while (i < len && !needsEncoding) {
       val c = component.charAt(i)
       // RFC 3986 unreserved characters plus '*' (Netty-specific addition)
-      needsEncoding = !(
-        (c >= 'a' && c <= 'z') ||
-          (c >= 'A' && c <= 'Z') ||
-          (c >= '0' && c <= '9') ||
-          c == '-' || c == '.' || c == '_' || c == '~' || c == '*'
-      )
+      needsEncoding = !needsNoEncoding(c)
       i += 1
     }
 
@@ -249,12 +243,7 @@ private[http] object QueryParamEncoding {
       // Optimized UTF-8 path
       while (j < len) {
         val c = component.charAt(j)
-        if (
-          (c >= 'a' && c <= 'z') ||
-          (c >= 'A' && c <= 'Z') ||
-          (c >= '0' && c <= '9') ||
-          c == '-' || c == '.' || c == '_' || c == '~' || c == '*'
-        ) {
+        if (needsNoEncoding(c)) {
           // Unreserved character
           target.append(c)
         } else if (c == ' ') {
@@ -320,5 +309,12 @@ private[http] object QueryParamEncoding {
         k += 1
       }
     }
+  }
+
+  private def needsNoEncoding(c: Char) = {
+    (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '-' || c == '.' || c == '_' || c == '~' || c == '*'
   }
 }

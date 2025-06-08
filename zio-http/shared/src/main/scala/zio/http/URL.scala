@@ -353,18 +353,32 @@ object URL {
       )
 
     def fromAbsURL(abs: Location.Absolute, path: String) = {
-      abs.portIfNotDefault match {
-        case None       => s"${abs.scheme.encode}://${abs.host}$path"
-        case customPort =>
-          s"${abs.scheme.encode}://${abs.host}:${customPort.get}${if (path.nonEmpty && path != "/") "/" else ""}$path"
+      // Do not use `abs.portIfNotDefault` here. Setting a port in the URL that is the default
+      // is an edge case. But checking it allocates an `Option` that is not needed in most cases.
+      abs.originalPort match {
+        case None       =>
+            ThreadLocals.stringBuilder.append(abs.scheme.encode).append("://").append(abs.host)
+        case port =>
+         val sb = ThreadLocals.stringBuilder
+            .append(abs.scheme.encode)
+            .append("://")
+            .append(abs.host)
+            .append(':')
+            .append(port.get)
+           if (path.nonEmpty && path != "/") sb.append('/')
+          sb
       }
     }
 
     url.kind match {
-      case Location.Relative if url.fragment.isEmpty      => path
-      case Relative                                       => s"$path#${url.fragment.get.raw}"
-      case abs: Location.Absolute if url.fragment.isEmpty => fromAbsURL(abs, path)
-      case abs: Location.Absolute                         => fromAbsURL(abs, s"$path#${url.fragment.get.raw}")
+      case Location.Relative if url.fragment.isEmpty      =>
+        path
+      case Relative                                       =>
+        ThreadLocals.stringBuilder.append(path).append('#').append(url.fragment.get.raw).toString
+      case abs: Location.Absolute if url.fragment.isEmpty =>
+        fromAbsURL(abs, path).append(path).toString
+      case abs: Location.Absolute                         =>
+        fromAbsURL(abs, path).append(path).append('#').append(url.fragment.get.raw).toString
 
     }
   }

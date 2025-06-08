@@ -93,13 +93,13 @@ trait QueryParams extends QueryOps[QueryParams] {
       case JavaLinkedHashMapQueryParams(underlying) =>
         var needsNormalization = false
         val it                 = underlying.entrySet().iterator()
-        while (it.hasNext) {
+        while (!needsNormalization && it.hasNext) {
           val entry = it.next()
           if (entry.getKey.isEmpty || entry.getValue == null) {
             needsNormalization = true
           } else {
             var i = 0
-            while (!needsNormalization && i < entry.getValue.size()) {
+            while (i < entry.getValue.size()) {
               if (entry.getValue.get(i).isBlank) {
                 needsNormalization = true
               }
@@ -130,7 +130,7 @@ trait QueryParams extends QueryOps[QueryParams] {
             needsNormalization = true
           } else {
             var i = 0
-            while (!needsNormalization && i < entry.getValue.size()) {
+            while (i < entry.getValue.size()) {
               if (entry.getValue.get(i).isBlank) {
                 needsNormalization = true
               }
