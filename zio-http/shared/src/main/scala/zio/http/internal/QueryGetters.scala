@@ -24,6 +24,7 @@ import zio.schema.validation.ValidationError
 
 import zio.http._
 import zio.http.codec.{HttpCodecError, TextCodec}
+import zio.http.internal.QueryGetters.emptyValue
 
 trait QueryGetters[+A] { self: QueryOps[A] =>
 
@@ -107,9 +108,12 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
   /**
    * Retrieves the first query parameter value having the specified name.
    */
-  def queryParam(key: String): Option[String] =
-    if (hasQueryParam(key)) if (queryParams(key).isEmpty) Some("") else Some(queryParams(key).head)
-    else None
+  def queryParam(key: String): Option[String] = {
+    val queryParam = unsafeQueryParam(key)
+    if (queryParam == null) None
+    else if (queryParam.isBlank) emptyValue
+    else Some(queryParam)
+  }
 
   /**
    * Retrieves the first typed query parameter value having the specified name.
@@ -158,7 +162,13 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
   def queryParamToOrElse[T](key: String, default: => T)(implicit codec: TextCodec[T]): T =
     queryParamTo[T](key).getOrElse(default)
 
-  private[http] def unsafeQueryParam(key: String): String =
-    queryParams(key).head
+  private[http] def unsafeQueryParam(key: String): String = {
+    val params = queryParams(key)
+    if (params.isEmpty) null else params.head
+  }
 
+}
+
+object QueryGetters {
+  private[http] val emptyValue = Some("")
 }

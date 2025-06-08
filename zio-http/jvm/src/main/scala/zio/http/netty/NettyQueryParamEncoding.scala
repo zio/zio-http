@@ -21,7 +21,6 @@ import java.nio.charset.Charset
 import scala.jdk.CollectionConverters._
 
 import zio.http.QueryParams
-import zio.http.internal.QueryParamEncoding
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 

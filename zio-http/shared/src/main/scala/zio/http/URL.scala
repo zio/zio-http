@@ -22,6 +22,7 @@ import scala.util.control.NonFatal
 
 import zio.{Config, ZIO, durationInt}
 
+import zio.http.URL.Location.Relative
 import zio.http.URL.{Fragment, Location}
 import zio.http.internal._
 
@@ -351,17 +352,20 @@ object URL {
         Charsets.Http,
       )
 
-    val fragment = url.fragment.fold("")(f => "#" + f.raw)
+    def fromAbsURL(abs: Location.Absolute, path: String) = {
+      abs.portIfNotDefault match {
+        case None       => s"${abs.scheme.encode}://${abs.host}$path"
+        case customPort =>
+          s"${abs.scheme.encode}://${abs.host}:${customPort.get}${if (path.nonEmpty && path != "/") "/" else ""}$path"
+      }
+    }
 
     url.kind match {
-      case Location.Relative      => path + fragment
-      case abs: Location.Absolute =>
-        val path2 = path + fragment
-        abs.portIfNotDefault match {
-          case None       => s"${abs.scheme.encode}://${abs.host}$path2"
-          case customPort =>
-            s"${abs.scheme.encode}://${abs.host}:${customPort.get}${if (path.nonEmpty && path != "/") "/" else ""}$path2"
-        }
+      case Location.Relative if url.fragment.isEmpty      => path
+      case Relative                                       => s"$path#${url.fragment.get.raw}"
+      case abs: Location.Absolute if url.fragment.isEmpty => fromAbsURL(abs, path)
+      case abs: Location.Absolute                         => fromAbsURL(abs, s"$path#${url.fragment.get.raw}")
+
     }
   }
 

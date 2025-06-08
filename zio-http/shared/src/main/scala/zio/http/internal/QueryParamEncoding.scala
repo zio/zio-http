@@ -29,8 +29,17 @@ private[http] object QueryParamEncoding {
     } else {
       val length = queryStringFragment.length
 
-      // Count & characters more idiomatically using Scala's count function
-      val paramCount = 1 + queryStringFragment.count(_ == '&')
+      val paramCount = {
+        // Estimate number of parameters by counting '&' characters
+        // This is a rough estimate, but avoids allocating a list for every parameter
+        var count = 1 // At least one parameter exists
+        var i     = 0
+        while (i < length) {
+          if (queryStringFragment.charAt(i) == '&') count += 1
+          i += 1
+        }
+        count
+      }
 
       // Initialize with exact capacity to avoid rehashing
       val params     = new util.LinkedHashMap[String, JList[String]](paramCount)
@@ -101,8 +110,10 @@ private[http] object QueryParamEncoding {
     val additionalCapacity = 1 + (queryParams.seq.size * 20)
     baseUri.ensureCapacity(baseUri.length + additionalCapacity)
 
-    var isFirst = true
-    queryParams.seq.foreach { entry =>
+    var isFirst  = true
+    val iterator = queryParams.seq.iterator
+    while (iterator.hasNext) {
+      val entry  = iterator.next()
       val key    = entry.getKey
       val values = entry.getValue
 
@@ -166,25 +177,18 @@ private[http] object QueryParamEncoding {
     while (i < end) {
       val c = component.charAt(i)
       if (c == '%' && i + 2 < end) {
-        try {
-          // Extract hex digits directly without substring
-          val digit1 = Character.digit(component.charAt(i + 1), 16)
-          val digit2 = Character.digit(component.charAt(i + 2), 16)
+        // Extract hex digits directly without substring
+        val digit1 = Character.digit(component.charAt(i + 1), 16)
+        val digit2 = Character.digit(component.charAt(i + 2), 16)
 
-          if (digit1 >= 0 && digit2 >= 0) { // Valid hex digits
-            val decoded = (digit1 << 4) | digit2
-            result.append(decoded.toChar)
-            i += 3
-          } else {
-            // Invalid hex encoding, treat % as literal
-            result.append('%')
-            i += 1
-          }
-        } catch {
-          case _: IndexOutOfBoundsException =>
-            // Incomplete percent encoding
-            result.append('%')
-            i += 1
+        if (digit1 >= 0 && digit2 >= 0) { // Valid hex digits
+          val decoded = (digit1 << 4) | digit2
+          result.append(decoded.toChar)
+          i += 3
+        } else {
+          // Invalid hex encoding, treat % as literal
+          result.append('%')
+          i += 1
         }
       } else if (c == '+') {
         result.append(' ')
