@@ -40,7 +40,7 @@ class QueryEncodingBenchmark {
   def zioHttpEncoding(): Unit =
     queryParams.foreach(_.encode)
 
-    @Benchmark
+  @Benchmark
   def zioHttpDecoding(): Unit =
     encodedParams.foreach(QueryParams.decode(_))
 
@@ -48,7 +48,7 @@ class QueryEncodingBenchmark {
   def nettyEncoding(): Unit =
     queryParams.foreach(NettyQueryParamEncoding.encode("", _, Charsets.Utf8))
 
-    @Benchmark
+  @Benchmark
   def nettyDecoding(): Unit =
     encodedParams.foreach(NettyQueryParamEncoding.decode(_, Charsets.Utf8))
 

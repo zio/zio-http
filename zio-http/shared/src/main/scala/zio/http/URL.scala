@@ -356,16 +356,16 @@ object URL {
       // Do not use `abs.portIfNotDefault` here. Setting a port in the URL that is the default
       // is an edge case. But checking it allocates an `Option` that is not needed in most cases.
       abs.originalPort match {
-        case None       =>
-            ThreadLocals.stringBuilder.append(abs.scheme.encode).append("://").append(abs.host)
+        case None =>
+          ThreadLocals.stringBuilder.append(abs.scheme.encode).append("://").append(abs.host)
         case port =>
-         val sb = ThreadLocals.stringBuilder
+          val sb = ThreadLocals.stringBuilder
             .append(abs.scheme.encode)
             .append("://")
             .append(abs.host)
             .append(':')
             .append(port.get)
-           if (path.nonEmpty && path != "/") sb.append('/')
+          if (path.nonEmpty && path != "/") sb.append('/')
           sb
       }
     }

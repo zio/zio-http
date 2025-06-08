@@ -112,8 +112,8 @@ private[http] object QueryParamEncoding {
     var isFirst  = true
     val iterator = queryParams.seq.iterator
     while (iterator.hasNext) {
-      val entry  = iterator.next()
-      val key    = entry.getKey
+      val entry = iterator.next()
+      val key   = entry.getKey
 
       if (key != "") {
         val values = entry.getValue
@@ -313,8 +313,8 @@ private[http] object QueryParamEncoding {
 
   private def needsNoEncoding(c: Char) = {
     (c >= 'a' && c <= 'z') ||
-      (c >= 'A' && c <= 'Z') ||
-      (c >= '0' && c <= '9') ||
-      c == '-' || c == '.' || c == '_' || c == '~' || c == '*'
+    (c >= 'A' && c <= 'Z') ||
+    (c >= '0' && c <= '9') ||
+    c == '-' || c == '.' || c == '_' || c == '~' || c == '*'
   }
 }
