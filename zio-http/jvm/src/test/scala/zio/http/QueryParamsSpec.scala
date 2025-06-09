@@ -391,6 +391,11 @@ object QueryParamsSpec extends ZIOHttpSpec {
             req.query[Option[PhoneNumber]]("phone") == Right(Some(PhoneNumber("1234567890"))),
           )
         },
+        test("decode invalid query param") {
+          val queryParams   = QueryParams.empty.addQueryParam("phone-number", "INVALID_PHONE")
+          val errorOrNumber = queryParams.query[PhoneNumber]("phone-number")
+          assertTrue(errorOrNumber.isLeft)
+        },
       ),
       suite("encode - decode")(
         test("success") {

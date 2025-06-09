@@ -760,7 +760,7 @@ private[http] object StringSchemaCodec {
       case Schema.Transform(schema, f, _, _, _)      =>
         primitiveSchemaDecoder(schema).andThen {
           f(_) match {
-            case Left(value)  => throw new IllegalArgumentException(value)
+            case Left(value)  => throw DecodeError.ReadError(Cause.empty, value)
             case Right(value) => value
           }
         }.asInstanceOf[String => A]
@@ -774,7 +774,7 @@ private[http] object StringSchemaCodec {
         val decoder = codec.decode.asInstanceOf[String => Any]
         (s: String) =>
           r.construct(Chunk(decoder(s)))(Unsafe.unsafe) match {
-            case Left(value)  => throw new IllegalArgumentException(value)
+            case Left(value)  => throw DecodeError.ReadError(Cause.empty, value)
             case Right(value) => value.asInstanceOf[A]
           }
       case _ => throw new IllegalArgumentException(s"Unsupported schema $schema")
