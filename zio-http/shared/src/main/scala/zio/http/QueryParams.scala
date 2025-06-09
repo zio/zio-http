@@ -273,7 +273,7 @@ object QueryParams {
       values.add(tuple1._2)
     }
     entries.put(tuple1._1, values)
-    if (tuples.isEmpty) {
+    if (tuples.nonEmpty) {
       val it = tuples.iterator
       while (it.hasNext) {
         val (key, value) = it.next()

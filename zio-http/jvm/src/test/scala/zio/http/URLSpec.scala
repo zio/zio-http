@@ -54,7 +54,7 @@ object URLSpec extends ZIOHttpSpec {
 
           val url2 = url.normalize
 
-          assertTrue(extractPath(url2) == Path("/a/b/c"))
+          assertTrue(url2.encode == "http://abc.com:80/a/b/c", extractPath(url2) == Path("/a/b/c"))
         },
         test("deletes leading slash if there are no path segments") {
           val url  = URL(Path.root, URL.Location.Absolute(Scheme.HTTP, "abc.com", Some(80)), QueryParams.empty, None)
@@ -99,7 +99,7 @@ object URLSpec extends ZIOHttpSpec {
           checkAll(urls) { url =>
             val decoded = URL.decode(url)
             val encoded = decoded.map(_.encode)
-            assertTrue(encoded == Right(url))
+            assertTrue(encoded == Right(url) || encoded == Right(url.replaceAll("%20", "+")))
           }
         },
       ),

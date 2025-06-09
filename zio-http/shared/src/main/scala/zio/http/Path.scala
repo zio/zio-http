@@ -128,7 +128,7 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
     else if (self == Path.root) "/"
     else segments.mkString(if (hasLeadingSlash) "/" else "", "/", if (hasTrailingSlash) "/" else "")
 
-  private[http] def encodeBuilder: StringBuilder = {
+  private[http] def encodeBuilder: java.lang.StringBuilder = {
     val sb      = ThreadLocals.stringBuilder
     if (hasLeadingSlash) sb.append('/')
     var idx     = 0

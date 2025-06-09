@@ -365,7 +365,7 @@ object URL {
             .append(abs.host)
             .append(':')
             .append(port.get)
-          if (path.nonEmpty && path != "/") sb.append('/')
+          if (path.nonEmpty && path.head != '/') sb.append('/')
           sb
       }
     }
@@ -405,7 +405,7 @@ object URL {
       scheme <- Scheme.decode(uri.getScheme)
       host   <- Option(uri.getHost)
       path   <- Option(uri.getRawPath)
-      port       = Option(uri.getPort).filter(_ != -1).orElse(scheme.defaultPort) // FIXME REMOVE defaultPort
+      port       = Option(uri.getPort).filter(_ != -1)
       connection = URL.Location.Absolute(scheme, host, port)
       path2      = Path.decode(path)
       path3      = if (path.nonEmpty) path2.addLeadingSlash else path2

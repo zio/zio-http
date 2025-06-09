@@ -100,7 +100,7 @@ private[http] object QueryParamEncoding {
     }
   }
 
-  def encode(baseUri: StringBuilder, queryParams: QueryParams, charset: Charset): String = {
+  def encode(baseUri: java.lang.StringBuilder, queryParams: QueryParams, charset: Charset): String = {
     if (queryParams.isEmpty) {
       return baseUri.toString
     }
@@ -209,7 +209,7 @@ private[http] object QueryParamEncoding {
    * Encodes a URL component according to HTML/URL encoding rules. Spaces become
    * '+', and special characters become percent-encoded.
    */
-  private def encodeComponentInto(component: String, charset: Charset, target: StringBuilder): Unit = {
+  private def encodeComponentInto(component: String, charset: Charset, target: java.lang.StringBuilder): Unit = {
     if (component.isEmpty) return
 
     // Fast path for strings that don't need encoding
@@ -233,7 +233,7 @@ private[http] object QueryParamEncoding {
 
     // Copy the characters that we know don't need encoding
     if (i > 1) {
-      target.underlying.append(component, 0, i - 1)
+      target.append(component, 0, i - 1)
     }
 
     // Process remaining characters

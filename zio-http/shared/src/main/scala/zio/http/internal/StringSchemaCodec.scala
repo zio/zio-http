@@ -132,7 +132,8 @@ private[http] trait StringSchemaCodec[A, Target] {
     val hasDefault   = defaultValue != null && isOptional
     val default      = defaultValue
     val hasAllParams = recordFields.forall { case (field, codec) =>
-      contains(target, field.fieldName) || field.optional || codec.isOptional
+      contains(target, field.fieldName) || field.optional || codec.isOptional || (field.schema
+        .isInstanceOf[Schema.Collection[_, _]] && field.defaultValue.isDefined)
     }
     if (!hasAllParams && hasDefault) default
     else if (!hasAllParams) {
@@ -178,7 +179,9 @@ private[http] trait StringSchemaCodec[A, Target] {
           case Right(value) =>
             recordSchema.validate(value)(recordSchema) match {
               case errors if errors.nonEmpty => throw error.invalid(errors)
-              case _                         => Some(value).asInstanceOf[A]
+              case _ if value.isInstanceOf[Iterable[_]] && value.asInstanceOf[Iterable[_]].isEmpty =>
+                None.asInstanceOf[A]
+              case _ => Some(value).asInstanceOf[A]
             }
         }
       } else {
