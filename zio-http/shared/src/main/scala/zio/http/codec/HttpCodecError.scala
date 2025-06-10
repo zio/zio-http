@@ -23,6 +23,7 @@ import zio.{Cause, Chunk}
 import zio.schema.codec.DecodeError
 import zio.schema.validation.ValidationError
 
+import zio.http.Header.HeaderType
 import zio.http.{Path, Status}
 
 sealed trait HttpCodecError extends Exception with NoStackTrace with Product with Serializable {

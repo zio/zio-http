@@ -16,6 +16,7 @@
 
 package zio.http.codec.internal
 
+import scala.annotation.tailrec
 import scala.util.Try
 
 import zio._
