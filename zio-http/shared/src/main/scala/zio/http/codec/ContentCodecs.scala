@@ -30,8 +30,14 @@ private[codec] trait ContentCodecs {
   def content[A](name: String, mediaType: MediaType)(implicit codec: HttpContentCodec[A]): ContentCodec[A] =
     HttpCodec.Content(codec.only(mediaType), Some(name))
 
+  def content[A](name: String, mediaTypes: List[MediaType])(implicit codec: HttpContentCodec[A]): ContentCodec[A] =
+    HttpCodec.Content(codec.many(mediaTypes), Some(name))
+
   def content[A](mediaType: MediaType)(implicit codec: HttpContentCodec[A]): ContentCodec[A] =
     HttpCodec.Content(codec.only(mediaType), None)
+
+  def content[A](mediaTypes: List[MediaType])(implicit codec: HttpContentCodec[A]): ContentCodec[A] =
+    HttpCodec.Content(codec.many(mediaTypes), None)
 
   def contentStream[A](name: String)(implicit codec: HttpContentCodec[A]): ContentCodec[ZStream[Any, Nothing, A]] =
     HttpCodec.ContentStream(codec, Some(name))

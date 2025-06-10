@@ -81,6 +81,17 @@ sealed trait HttpContentCodec[A] { self =>
       HttpContentCodec.Filtered(self, mediaType)
     }
 
+  def many(mediaTypes: List[MediaType]): HttpContentCodec[A] = {
+    val filteredCodecs: List[HttpContentCodec[A]] = mediaTypes.map { mediaType =>
+      if (lookup(mediaType).isEmpty)
+        throw new IllegalArgumentException(s"MediaType $mediaType is not supported by $self")
+      else
+        HttpContentCodec.Filtered(self, mediaType)
+    }
+
+    filteredCodecs.reduceLeft(_ ++ _)
+  }
+
   def only(mediaType: Option[MediaType]): HttpContentCodec[A] =
     mediaType match {
       case Some(value) => only(value)

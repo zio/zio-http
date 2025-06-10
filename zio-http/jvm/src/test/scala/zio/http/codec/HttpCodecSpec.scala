@@ -21,6 +21,8 @@ import java.util.UUID
 import zio._
 import zio.test._
 
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http._
 
 object HttpCodecSpec extends ZIOHttpSpec {
@@ -40,6 +42,12 @@ object HttpCodecSpec extends ZIOHttpSpec {
   val isAge                           = "isAge"
   val codecBool                       = HttpCodec.query[Boolean](isAge)
   def makeRequest(paramValue: String) = Request.get(googleUrl.setQueryParams(QueryParams(isAge -> paramValue)))
+
+  case class Greeting(name: String)
+
+  object Greeting {
+    implicit val schema: Schema[Greeting] = DeriveSchema.gen
+  }
 
   def spec = suite("HttpCodecSpec")(
     suite("fallback") {
@@ -178,6 +186,26 @@ object HttpCodecSpec extends ZIOHttpSpec {
             userExamples == Map("user" -> "John", "user2" -> "Jane"),
             uuidExamples == Map("userId" -> uuid1, "userId2" -> uuid2),
           )
+        }
+      } +
+      suite("Content Negotiation") {
+        test("selects correct media type based on Accept header") {
+          val codec = HttpCodec.content[Greeting](List(MediaType.text.plain, MediaType.application.json))
+
+          val response = codec.encodeResponse(
+            new Greeting("HelloWorld"),
+            Chunk.single(Header.Accept.MediaTypeWithQFactor(MediaType.application.json, null)),
+            CodecConfig.defaultConfig,
+          )
+
+          val response1 = codec.encodeResponse(
+            new Greeting("HelloWorld"),
+            Chunk.single(Header.Accept.MediaTypeWithQFactor(MediaType.text.plain, null)),
+            CodecConfig.defaultConfig,
+          )
+
+          assertTrue(response.headers.hasJsonContentType) &&
+          assertTrue(response1.headers.hasTextPlainContentType)
         }
       },
   )
