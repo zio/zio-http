@@ -36,9 +36,6 @@ object HttpCodecError {
   final case class MissingHeader(headerName: String)                                           extends HeaderError     {
     def message = s"Missing header $headerName"
   }
-  case object MissingAuthorizationHeader                                                       extends HeaderError     {
-    def message = "Missing header Authorization"
-  }
   final case class MissingHeaders(headerNames: Chunk[String])                                  extends HeaderError     {
     def message = s"Missing headers ${headerNames.mkString(", ")}"
   }

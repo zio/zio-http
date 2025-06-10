@@ -16,19 +16,16 @@
 
 package zio.http.endpoint
 
-import scala.annotation.nowarn
-import scala.reflect.ClassTag
-
 import zio._
-
-import zio.stream.ZStream
-
-import zio.schema.Schema
-
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
+import zio.schema.Schema
+import zio.stream.ZStream
+
+import scala.annotation.nowarn
+import scala.reflect.ClassTag
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -384,7 +381,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
                 maybeUnauthedResponse.get
-              case Some(HttpCodecError.MissingAuthorizationHeader) =>
+              case Some(HttpCodecError.MissingHeaders(headerNames)) if (headerNames.contains(Header.Authorization.name)) =>
+                Handler.succeed(Response.unauthorized)
+              case Some(HttpCodecError.MissingHeader(headerName)) if headerName == Header.Authorization.name =>
                 Handler.succeed(Response.unauthorized)
               case Some(error)                                     =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
