@@ -24,7 +24,7 @@ import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.channel.epoll._
 import io.netty.channel.kqueue._
 import io.netty.channel.socket.nio._
-import io.netty.incubator.channel.uring._
+import io.netty.channel.uring._
 private[netty] object ChannelFactories {
 
   private[zio] def make[A <: Channel](channel: => A)(implicit trace: Trace): UIO[ChannelFactory[A]] =
@@ -40,7 +40,7 @@ private[netty] object ChannelFactories {
   object Server {
     def nio(implicit trace: Trace)    = serverChannel(new NioServerSocketChannel())
     def epoll(implicit trace: Trace)  = serverChannel(new EpollServerSocketChannel())
-    def uring(implicit trace: Trace)  = serverChannel(new IOUringServerSocketChannel())
+    def uring(implicit trace: Trace)  = serverChannel(new IoUringServerSocketChannel())
     def kqueue(implicit trace: Trace) = serverChannel(new KQueueServerSocketChannel())
 
     val fromConfig = {
@@ -63,10 +63,18 @@ private[netty] object ChannelFactories {
   }
 
   object Client {
-    def nio(implicit trace: Trace)      = clientChannel(new NioSocketChannel())
-    def epoll(implicit trace: Trace)    = clientChannel(new EpollSocketChannel())
-    def kqueue(implicit trace: Trace)   = clientChannel(new KQueueSocketChannel())
-    def uring(implicit trace: Trace)    = clientChannel(new IOUringSocketChannel())
+    def nio(implicit trace: Trace)    = clientChannel(new NioSocketChannel())
+    def epoll(implicit trace: Trace)  = clientChannel(new EpollSocketChannel())
+    def kqueue(implicit trace: Trace) = clientChannel(new KQueueSocketChannel())
+
+    /**
+     * Note using URING is experimental and requires explicit dependency on:
+     * netty-incubator-transport-native-io_uring
+     *
+     * @param trace
+     * @return
+     */
+    def uring(implicit trace: Trace)    = clientChannel(new IoUringSocketChannel())
     def embedded(implicit trace: Trace) = clientChannel(new EmbeddedChannel(false, false))
 
     implicit val trace: Trace                                              = Trace.empty

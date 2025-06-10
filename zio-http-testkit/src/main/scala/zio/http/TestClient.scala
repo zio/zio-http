@@ -119,9 +119,9 @@ final case class TestClient(
     body: Body,
     sslConfig: Option[zio.http.ClientSSLConfig],
     proxy: Option[Proxy],
-  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+  )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
     for {
-      currentBehavior <- behavior.get.map(_ :+ Method.ANY / trailing -> handler(Response.notFound))
+      currentBehavior <- behavior.get
       request = Request(
         body = body,
         headers = headers,

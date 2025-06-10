@@ -40,6 +40,9 @@ Yes, ZIO HTTP is designed for performance, leveraging non-blocking I/O and async
 
 Yes, ZIO HTTP provides interoperability with existing libraries, allowing you to leverage functionality from the Scala/Java ecosystem seamlessly by importing blocking and non-blocking operations.
 
+### Can I use the Netty io_uring incubator transport?
+Yes there is a server configuration for this transport - but this transport is experimental so you must explicitly add the library in your project dependencies. Some Netty based libraries use transports like this by default if they are on the classpath - so make sure if you are using Netty elsewhere in your project that the library will not cause unintended channel type selection. An example of such a Netty based library is [lettuce](https://github.com/redis/lettuce/issues/3222) and there may be others like this as well. You can find the uring channel type library [here](https://github.com/netty/netty-incubator-transport-io_uring).   
+
 ### Is ZIO HTTP Suitable for Building Microservices?
 
 Yes, ZIO HTTP along with the ZIO ecosystem is well-suited for building microservices, which provides many aspects that are essential for building cloud-native applications:

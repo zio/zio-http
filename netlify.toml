@@ -1,0 +1,7 @@
+[build]
+  command = "./build.sh"
+  publish = "website/build"
+
+[build.environment]
+  NODE_VERSION = "22.15.1"
+  YARN_VERSION = "1.22.22"

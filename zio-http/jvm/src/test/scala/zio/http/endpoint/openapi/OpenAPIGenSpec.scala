@@ -230,6 +230,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
+  private val endpointWithAuthScopes =
+    Endpoint(GET / "withAuthScopes").auth(AuthType.Bearer).scopes("read", "write")
+
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
 
@@ -257,6 +260,64 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("auth scopes to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth", "1.0", endpointWithAuthScopes)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Endpoint with Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withAuthScopes": {
+                             |      "get": {
+                             |        "security": [
+                             |          {
+                             |            "Bearer": ["read", "write"]
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "Bearer": {
+                             |        "type": "http",
+                             |        "scheme": "Bearer"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "Bearer": ["read", "write"]
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("endpoint documentation") {
+        val genericEndpoint = Endpoint(GET / "users") ?? Doc.p("Get all users")
+        val generated       = OpenAPIGen.fromEndpoints("Generic Endpoint", "1.0", genericEndpoint)
+        val json            = toJsonAst(generated)
+        val expectedJson    = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Generic Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/users" : {
+                             |      "description" : "Get all users\n\n",
+                             |      "get" : {
+                             |        "description" : "Get all users\n\n"
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {}
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
       test("simple endpoint to OpenAPI") {
         val generated    = OpenAPIGen.fromEndpoints(
           "Simple Endpoint",
@@ -278,7 +339,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "simple",
                              |          "endpoint"
                              |        ],
-                             |        "description" : "get path\n\n",
+                             |        "description" : "some extra doc\n\nget path\n\n- simple\n- endpoint\n",
                              |        "parameters" : [
                              |          {
                              |            "name" : "id",
@@ -3927,6 +3988,317 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  }
                              |}
                              |""".stripMargin
+        assertTrue(
+          json == toJsonAst(expectedJson),
+        )
+      },
+      test("components are generated for abstract big model") {
+        val endpoint     = Endpoint(Method.GET / "api" / "v1" / "endpoint").out[AbstractBigModel]
+        val generated    = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |   "openapi":"3.1.0",
+                             |   "info":{
+                             |      "title":"",
+                             |      "version":""
+                             |   },
+                             |   "paths":{
+                             |      "/api/v1/endpoint":{
+                             |         "get":{
+                             |            "responses":{
+                             |               "200":{
+                             |                  "content":{
+                             |                     "application/json":{
+                             |                        "schema":{
+                             |                           "$ref":"#/components/schemas/AbstractBigModel"
+                             |                        }
+                             |                     }
+                             |                  }
+                             |               }
+                             |            }
+                             |         }
+                             |      }
+                             |   },
+                             |   "components":{
+                             |      "schemas":{
+                             |         "AbstractBigModel":{
+                             |            "oneOf":[
+                             |               {
+                             |                  "$ref":"#/components/schemas/ConcreteBigModel"
+                             |               }
+                             |            ],
+                             |            "discriminator":{
+                             |               "propertyName":"type",
+                             |               "mapping":{
+                             |                  "ConcreteBigModel":"#/components/schemas/ConcreteBigModel"
+                             |               }
+                             |            }
+                             |         },
+                             |         "ConcreteBigModel":{
+                             |            "type":"object",
+                             |            "properties":{
+                             |               "f20":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f19":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f7":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f6":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f14":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f18":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f8":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f10":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f5":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f21":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f3":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f9":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f17":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f22":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f15":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f16":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f1":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f13":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f4":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f11":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f23":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f2":{
+                             |                  "type":"boolean"
+                             |               },
+                             |               "f12":{
+                             |                  "type":"boolean"
+                             |               }
+                             |            },
+                             |            "required":[
+                             |               "f1",
+                             |               "f2",
+                             |               "f3",
+                             |               "f4",
+                             |               "f5",
+                             |               "f6",
+                             |               "f7",
+                             |               "f8",
+                             |               "f9",
+                             |               "f10",
+                             |               "f11",
+                             |               "f12",
+                             |               "f13",
+                             |               "f14",
+                             |               "f15",
+                             |               "f16",
+                             |               "f17",
+                             |               "f18",
+                             |               "f19",
+                             |               "f20",
+                             |               "f21",
+                             |               "f22",
+                             |               "f23"
+                             |            ]
+                             |         }
+                             |      }
+                             |   }
+                             |}
+                             |""".stripMargin
+        assertTrue(
+          json == toJsonAst(expectedJson),
+        )
+      },
+      test("components are generated for model with abstract big model field") {
+        val endpoint     = Endpoint(Method.GET / "api" / "v1" / "endpoint").out[WithGenericPayload[AbstractBigModel]]
+        val generated    = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """
+            |{
+            |   "openapi":"3.1.0",
+            |   "info":{
+            |      "title":"",
+            |      "version":""
+            |   },
+            |   "paths":{
+            |      "/api/v1/endpoint":{
+            |         "get":{
+            |            "responses":{
+            |               "200":{
+            |                  "content":{
+            |                     "application/json":{
+            |                        "schema":{
+            |                           "$ref":"#/components/schemas/WithGenericPayload"
+            |                        }
+            |                     }
+            |                  }
+            |               }
+            |            }
+            |         }
+            |      }
+            |   },
+            |   "components":{
+            |      "schemas":{
+            |         "AbstractBigModel":{
+            |            "oneOf":[
+            |               {
+            |                  "$ref":"#/components/schemas/ConcreteBigModel"
+            |               }
+            |            ],
+            |            "discriminator":{
+            |               "propertyName":"type",
+            |               "mapping":{
+            |                  "ConcreteBigModel":"#/components/schemas/ConcreteBigModel"
+            |               }
+            |            }
+            |         },
+            |         "ConcreteBigModel":{
+            |            "type":"object",
+            |            "properties":{
+            |               "f20":{
+            |                  "type":"boolean"
+            |               },
+            |               "f19":{
+            |                  "type":"boolean"
+            |               },
+            |               "f7":{
+            |                  "type":"boolean"
+            |               },
+            |               "f6":{
+            |                  "type":"boolean"
+            |               },
+            |               "f14":{
+            |                  "type":"boolean"
+            |               },
+            |               "f18":{
+            |                  "type":"boolean"
+            |               },
+            |               "f8":{
+            |                  "type":"boolean"
+            |               },
+            |               "f10":{
+            |                  "type":"boolean"
+            |               },
+            |               "f5":{
+            |                  "type":"boolean"
+            |               },
+            |               "f21":{
+            |                  "type":"boolean"
+            |               },
+            |               "f3":{
+            |                  "type":"boolean"
+            |               },
+            |               "f9":{
+            |                  "type":"boolean"
+            |               },
+            |               "f17":{
+            |                  "type":"boolean"
+            |               },
+            |               "f22":{
+            |                  "type":"boolean"
+            |               },
+            |               "f15":{
+            |                  "type":"boolean"
+            |               },
+            |               "f16":{
+            |                  "type":"boolean"
+            |               },
+            |               "f1":{
+            |                  "type":"boolean"
+            |               },
+            |               "f13":{
+            |                  "type":"boolean"
+            |               },
+            |               "f4":{
+            |                  "type":"boolean"
+            |               },
+            |               "f11":{
+            |                  "type":"boolean"
+            |               },
+            |               "f23":{
+            |                  "type":"boolean"
+            |               },
+            |               "f2":{
+            |                  "type":"boolean"
+            |               },
+            |               "f12":{
+            |                  "type":"boolean"
+            |               }
+            |            },
+            |            "required":[
+            |               "f1",
+            |               "f2",
+            |               "f3",
+            |               "f4",
+            |               "f5",
+            |               "f6",
+            |               "f7",
+            |               "f8",
+            |               "f9",
+            |               "f10",
+            |               "f11",
+            |               "f12",
+            |               "f13",
+            |               "f14",
+            |               "f15",
+            |               "f16",
+            |               "f17",
+            |               "f18",
+            |               "f19",
+            |               "f20",
+            |               "f21",
+            |               "f22",
+            |               "f23"
+            |            ]
+            |         },
+            |         "WithGenericPayload":{
+            |            "type":"object",
+            |            "properties":{
+            |               "a":{
+            |                  "$ref":"#/components/schemas/AbstractBigModel"
+            |               }
+            |            },
+            |            "required":[
+            |               "a"
+            |            ]
+            |         }
+            |      }
+            |   }
+            |}
+            |""".stripMargin
         assertTrue(
           json == toJsonAst(expectedJson),
         )

@@ -20,6 +20,7 @@ import scala.language.implicitConversions
 
 import zio._
 
+import zio.http.codec.PathCodec.Opt
 import zio.http.codec._
 
 /**
@@ -126,6 +127,17 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   def render: String =
     s"${method.render} ${pathCodec.render}"
 
+  private[http] def structureEquals(that: RoutePattern[_]): Boolean = {
+    def map: PartialFunction[PathCodec.Opt, Iterable[Opt]] = {
+      case _: Opt.Combine           => Nil
+      case Opt.SubSegmentOpts(segs) => segs.toList.flatMap(map)
+      case _: Opt.MapOrFail         => Nil
+      case other                    => List(other)
+    }
+    def opts(codec: PathCodec[_]): Array[Opt]              = codec.optimize.flatMap(map)
+    method == that.method && opts(self.pathCodec).sameElements(opts(that.pathCodec))
+  }
+
   /**
    * Converts the route pattern into an HttpCodec that produces the same value.
    */
@@ -162,20 +174,20 @@ object RoutePattern                                                       {
   /**
    * A tree of route patterns, indexed by method and path.
    */
-  private[http] final case class Tree[+A](
-    anyRoot: SegmentSubtree[A],
-    connectRoot: SegmentSubtree[A],
-    deleteRoot: SegmentSubtree[A],
-    getRoot: SegmentSubtree[A],
-    headRoot: SegmentSubtree[A],
-    optionsRoot: SegmentSubtree[A],
-    patchRoot: SegmentSubtree[A],
-    postRoot: SegmentSubtree[A],
-    putRoot: SegmentSubtree[A],
-    traceRoot: SegmentSubtree[A],
-    customRoots: Map[Method, SegmentSubtree[A]],
+  private[http] final case class Tree[Env](
+    anyRoot: SegmentSubtree[Env],
+    connectRoot: SegmentSubtree[Env],
+    deleteRoot: SegmentSubtree[Env],
+    getRoot: SegmentSubtree[Env],
+    headRoot: SegmentSubtree[Env],
+    optionsRoot: SegmentSubtree[Env],
+    patchRoot: SegmentSubtree[Env],
+    postRoot: SegmentSubtree[Env],
+    putRoot: SegmentSubtree[Env],
+    traceRoot: SegmentSubtree[Env],
+    customRoots: Map[Method, SegmentSubtree[Env]],
   ) { self =>
-    def ++[A1 >: A](that: Tree[A1]): Tree[A1] =
+    def ++[Env1 >: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(
         if (self.anyRoot != null) self.anyRoot ++ that.anyRoot else that.anyRoot,
         if (self.connectRoot != null) self.connectRoot ++ that.connectRoot else that.connectRoot,
@@ -187,19 +199,19 @@ object RoutePattern                                                       {
         if (self.postRoot != null) self.postRoot ++ that.postRoot else that.postRoot,
         if (self.putRoot != null) self.putRoot ++ that.putRoot else that.putRoot,
         if (self.traceRoot != null) self.traceRoot ++ that.traceRoot else that.traceRoot,
-        mergeMaps(self.customRoots, that.customRoots)(_ ++ _),
+        mergeMaps(self.customRoots.asInstanceOf[Map[Method, SegmentSubtree[Env1]]], that.customRoots),
       )
 
-    def add[A1 >: A](routePattern: RoutePattern[_], value: A1): Tree[A1] =
+    def add[Env1 >: Env](routePattern: RoutePattern[_], value: RequestHandler[Env1, Response]): Tree[Env1] =
       self ++ Tree(routePattern, value)
 
-    def addAll[A1 >: A](pathPatterns: Iterable[(RoutePattern[_], A1)]): Tree[A1] =
-      pathPatterns.foldLeft[Tree[A1]](self) { case (tree, (p, v)) =>
+    def addAll[Env1 >: Env](pathPatterns: Iterable[(RoutePattern[_], RequestHandler[Env1, Response])]): Tree[Env1] =
+      pathPatterns.foldLeft[Tree[Env1]](self.asInstanceOf[Tree[Env1]]) { case (tree, (p, v)) =>
         tree.add(p, v)
       }
 
-    def get(method: Method, path: Path): Chunk[A] = {
-      val forMethod = {
+    def get(method: Method, path: Path): RequestHandler[Env, Response] = {
+      val forMethod: RequestHandler[Env, Response] = {
         method match {
           case Method.GET if getRoot != null               => getRoot.get(path)
           case Method.POST if postRoot != null             => postRoot.get(path)
@@ -212,17 +224,14 @@ object RoutePattern                                                       {
           case Method.TRACE if traceRoot != null           => traceRoot.get(path)
           case Method.ANY if anyRoot != null               => anyRoot.get(path)
           case m: Method.CUSTOM if customRoots.contains(m) => customRoots(m).get(path)
-          case _                                           => Chunk.empty
+          case _                                           => null.asInstanceOf[RequestHandler[Env, Response]]
         }
       }
 
-      if (anyRoot eq null) forMethod
-      else {
-        forMethod ++ anyRoot.get(path)
-      }
+      if (forMethod == null && anyRoot != null) anyRoot.get(path) else forMethod
     }
 
-    def map[B](f: A => B): Tree[B] =
+    def map[Env1](f: RequestHandler[Env, Response] => RequestHandler[Env1, Response]): Tree[Env1] =
       Tree(
         if (anyRoot != null) anyRoot.map(f) else null,
         if (connectRoot != null) connectRoot.map(f) else null,
@@ -238,27 +247,31 @@ object RoutePattern                                                       {
       )
   }
   private[http] object Tree {
-    def apply[A](routePattern: RoutePattern[_], value: A): Tree[A] = {
+    def apply[Env](routePattern: RoutePattern[_], value: RequestHandler[Env, Response]): Tree[Env] = {
       val segments = routePattern.pathCodec.segments
 
       val subtree = SegmentSubtree.single(segments, value)
 
+      val empty = Tree.empty[Env]
+
       routePattern.method match {
-        case Method.GET       => Tree.empty.copy(getRoot = subtree)
-        case Method.POST      => Tree.empty.copy(postRoot = subtree)
-        case Method.PUT       => Tree.empty.copy(putRoot = subtree)
-        case Method.DELETE    => Tree.empty.copy(deleteRoot = subtree)
-        case Method.CONNECT   => Tree.empty.copy(connectRoot = subtree)
-        case Method.HEAD      => Tree.empty.copy(headRoot = subtree)
-        case Method.OPTIONS   => Tree.empty.copy(optionsRoot = subtree)
-        case Method.PATCH     => Tree.empty.copy(patchRoot = subtree)
-        case Method.TRACE     => Tree.empty.copy(traceRoot = subtree)
-        case Method.ANY       => Tree.empty.copy(anyRoot = subtree)
-        case m: Method.CUSTOM => Tree.empty.copy(customRoots = ListMap(m -> subtree))
+        case Method.GET       => empty.copy(getRoot = subtree)
+        case Method.POST      => empty.copy(postRoot = subtree)
+        case Method.PUT       => empty.copy(putRoot = subtree)
+        case Method.DELETE    => empty.copy(deleteRoot = subtree)
+        case Method.CONNECT   => empty.copy(connectRoot = subtree)
+        case Method.HEAD      => empty.copy(headRoot = subtree)
+        case Method.OPTIONS   => empty.copy(optionsRoot = subtree)
+        case Method.PATCH     => empty.copy(patchRoot = subtree)
+        case Method.TRACE     => empty.copy(traceRoot = subtree)
+        case Method.ANY       => empty.copy(anyRoot = subtree)
+        case m: Method.CUSTOM => empty.copy(customRoots = Map(m -> subtree))
       }
     }
 
-    val empty: Tree[Nothing] = Tree(
+    def empty[Env]: Tree[Env] = empty0.asInstanceOf[Tree[Env]]
+
+    private val empty0: Tree[Any] = Tree(
       null,
       null,
       null,
@@ -273,13 +286,16 @@ object RoutePattern                                                       {
     )
   }
 
-  private def mergeMaps[A, B](left: Map[A, B], right: Map[A, B])(f: (B, B) => B): Map[A, B] =
+  private def mergeMaps[B](
+    left: Map[Method, SegmentSubtree[B]],
+    right: Map[Method, SegmentSubtree[B]],
+  ): Map[Method, SegmentSubtree[B]] =
     right.foldLeft(left) { case (acc, (k, v)) =>
       val old = acc.get(k)
 
       old match {
         case None     => acc.updated(k, v)
-        case Some(v0) => acc.updated(k, f(v0, v))
+        case Some(v0) => acc.updated(k, v0 ++ v)
       }
     }
 

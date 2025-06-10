@@ -1,4 +1,4 @@
-package zio.http.benchmark
+package benchmark
 
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.net.{ConnectException, URI}

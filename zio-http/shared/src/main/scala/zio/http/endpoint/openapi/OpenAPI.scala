@@ -28,6 +28,7 @@ import zio.json.ast._
 import zio.schema._
 import zio.schema.annotation.{caseName, discriminatorName, fieldName, noDiscriminator}
 import zio.schema.codec.JsonCodec
+import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.codec.json._
 
 import zio.http.Status
@@ -151,13 +152,23 @@ final case class OpenAPI(
 
   def toJson: String =
     JsonCodec
-      .jsonEncoder(JsonCodec.Config(ignoreEmptyCollections = true))(OpenAPI.schema)
+      .jsonEncoder(
+        JsonCodec.Configuration(
+          explicitEmptyCollections = ExplicitConfig(encoding = false),
+          explicitNulls = ExplicitConfig(encoding = false),
+        ),
+      )(OpenAPI.schema)
       .encodeJson(this, None)
       .toString
 
   def toJsonPretty: String =
     JsonCodec
-      .jsonEncoder(JsonCodec.Config(ignoreEmptyCollections = true))(OpenAPI.schema)
+      .jsonEncoder(
+        JsonCodec.Configuration(
+          explicitEmptyCollections = ExplicitConfig(encoding = false),
+          explicitNulls = ExplicitConfig(encoding = false),
+        ),
+      )(OpenAPI.schema)
       .encodeJson(this, Some(0))
       .toString
 
@@ -1509,8 +1520,9 @@ object OpenAPI {
      * @param securitySchemes
      *   If the security scheme is of type "oauth2" or "openIdConnect", then the
      *   value is a list of scope names required for the execution, and the list
-     *   MAY be empty if authorization does not require a specified scope. For
-     *   other security scheme types, the List MUST be empty.
+     *   MAY be empty if authorization does not require a specified scope.
+     *   OpenAPI 3.1 supports the use of scopes even on Non-OAuth2 security
+     *   schemes.
      */
     final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
   }

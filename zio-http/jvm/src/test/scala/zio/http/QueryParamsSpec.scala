@@ -325,6 +325,8 @@ object QueryParamsSpec extends ZIOHttpSpec {
             single.queryOrElse[Int](typed, default) == 1,
             queryParams.queryOrElse[Int](invalidTyped, default) == default,
             queryParams.queryOrElse[Int](unknown, default) == default,
+            single.query[Option[Int]](typed) == Right(Some(1)),
+            single.query[Option[Int]]("notGiven") == Right(None),
             queryParams.query[Chunk[Int]](typed) == Right(Chunk(1, 2)),
             queryParams.query[Chunk[Int]](invalidTyped).isLeft,
             queryParams.query[Chunk[Int]](unknown) == Right(Chunk.empty),

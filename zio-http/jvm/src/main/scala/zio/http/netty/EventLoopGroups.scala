@@ -24,10 +24,11 @@ import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
-import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
-import io.netty.channel.kqueue.{KQueue, KQueueEventLoopGroup}
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.incubator.channel.uring.IOUringEventLoopGroup
+import io.netty.channel.epoll.{Epoll, EpollIoHandler}
+import io.netty.channel.kqueue.{KQueue, KQueueIoHandler}
+import io.netty.channel.local.LocalIoHandler
+import io.netty.channel.nio.NioIoHandler
+import io.netty.channel.uring.IoUringIoHandler
 
 /**
  * Simple wrapper over NioEventLoopGroup
@@ -42,10 +43,10 @@ object EventLoopGroups {
   }
 
   def nio(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config: Config, ZIO.succeed(new NioEventLoopGroup(config.nThreads)))
+    make(config: Config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, NioIoHandler.newFactory())))
 
   def nio(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new NioEventLoopGroup(config.nThreads, executor)))
+    make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, executor, NioIoHandler.newFactory())))
 
   def make(config: Config, eventLoopGroup: UIO[EventLoopGroup])(implicit
     trace: Trace,
@@ -58,23 +59,46 @@ object EventLoopGroups {
     }
 
   def epoll(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads)))
+    make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, EpollIoHandler.newFactory())))
 
   def kqueue(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new KQueueEventLoopGroup(config.nThreads)))
+    make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, KQueueIoHandler.newFactory())))
 
   def epoll(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new EpollEventLoopGroup(config.nThreads, executor)))
+    make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, executor, EpollIoHandler.newFactory())))
 
+  /**
+   * Creates a new instance of `IOUringEventLoopGroup` with the given
+   * configuration. This requires the
+   * `io.netty.incubator:netty-incubator-transport-native-io_uring` dependency.
+   * That experimental dependency is not provided by default and must be added
+   * explicitly to use this transport.
+   *
+   * @param config
+   * @param trace
+   * @return
+   */
   def uring(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads)))
+    make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, IoUringIoHandler.newFactory())))
 
+  /**
+   * Creates a new instance of `IOUringEventLoopGroup` with the given
+   * configuration and executor. This requires the
+   * `io.netty.incubator:netty-incubator-transport-native-io_uring` dependency.
+   * That experimental dependency is not provided by default and must be added
+   * explicitly to use this transport.
+   *
+   * @param config
+   * @param executor
+   * @param trace
+   * @return
+   */
   def uring(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
-    make(config, ZIO.succeed(new IOUringEventLoopGroup(config.nThreads, executor)))
+    make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, executor, IoUringIoHandler.newFactory())))
 
   def default(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
     config,
-    ZIO.succeed(new DefaultEventLoopGroup()),
+    ZIO.succeed(new MultiThreadIoEventLoopGroup(LocalIoHandler.newFactory())),
   )
 
   implicit val trace: Trace = Trace.empty

@@ -183,31 +183,25 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
-    ),
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
-        case _                       => Seq.empty
-      }
-    },
-    libraryDependencies ++= netty ++ Seq(`netty-incubator`),
+      `scala-compat-collection`,
+    ) ++ netty,
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.6.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.6.0",
-      "org.scala-js"      %%% "scalajs-dom"          % "2.8.0",
-      "dev.zio"           %%% "zio-test"             % ZioVersion % "test",
-      "dev.zio"           %%% "zio-test-sbt"         % ZioVersion % "test",
-      "dev.zio"           %%% "zio"                  % ZioVersion,
-      "dev.zio"           %%% "zio-streams"          % ZioVersion,
-      "dev.zio"           %%% "zio-schema"           % ZioSchemaVersion,
-      "dev.zio"           %%% "zio-schema-json"      % ZioSchemaVersion,
-      "dev.zio"           %%% "zio-schema-protobuf"  % ZioSchemaVersion,
+      "org.scala-lang.modules" %%% "scala-collection-compat" % ScalaCompatCollectionVersion,
+      "io.github.cquiroz"      %%% "scala-java-time"         % "2.6.0",
+      "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.6.0",
+      "org.scala-js"           %%% "scalajs-dom"             % "2.8.0",
+      "dev.zio"                %%% "zio-test"                % ZioVersion % "test",
+      "dev.zio"                %%% "zio-test-sbt"            % ZioVersion % "test",
+      "dev.zio"                %%% "zio"                     % ZioVersion,
+      "dev.zio"                %%% "zio-streams"             % ZioVersion,
+      "dev.zio"                %%% "zio-schema"              % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-json"         % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-protobuf"     % ZioSchemaVersion,
     ),
   )
 
@@ -259,12 +253,12 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.15",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.15",
-      "com.softwaremill.sttp.client3" %% "core"                % "3.10.3",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.33",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.33",
+      "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
-      "org.slf4j"                      % "slf4j-api"           % "2.0.16",
-      "org.slf4j"                      % "slf4j-simple"        % "2.0.16",
+      "org.slf4j"                      % "slf4j-api"           % "2.0.17",
+      "org.slf4j"                      % "slf4j-simple"        % "2.0.17",
     ),
   )
   .dependsOn(zioHttpJVM)
@@ -339,7 +333,7 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
+          Seq(`scala-compat-collection`)
         case _                       => Seq.empty
       }
     },
@@ -351,16 +345,16 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
   .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.17",
-      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.29.3"  % "protobuf",
+      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.18",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.18" % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.31.1"  % "protobuf",
     ),
   )
   .settings(
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compact-collection`)
+          Seq(`scala-compat-collection`)
         case _                       => Seq.empty
       }
     },
@@ -377,8 +371,8 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.29.3"  % "protobuf",
-      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.31.1"  % "protobuf",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.18" % "protobuf",
     ),
     Compile / run / fork := true,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
@@ -432,13 +426,14 @@ lazy val docs = project
       `zio-config-typesafe`,
     ),
     publish / skip                             := true,
+    mdocOut                                    := file("website/docs"),
     mdocVariables ++= Map(
       "ZIO_VERSION"        -> ZioVersion,
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
       "ZIO_CONFIG_VERSION" -> ZioConfigVersion,
     ),
   )
-  .dependsOn(zioHttpJVM)
+  .dependsOn(zioHttpJVM, zioHttpGen)
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioHttpTestkit)
 

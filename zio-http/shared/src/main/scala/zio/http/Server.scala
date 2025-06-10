@@ -32,7 +32,19 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](routes: Routes[R, Response])(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
+  final def install[R](
+    routes: Routes[R, Response],
+  )(implicit trace: Trace, tag: zio.EnvironmentTag[R], noScope: HasNoScope[R]): URIO[R, Unit] =
+    installInternal(routes)
+
+  private[http] final def install[R](
+    routes: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit] =
+    installInternal(routes)
+
+  private[http] def installInternal[R](
+    routes: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
@@ -434,26 +446,55 @@ object Server extends ServerPlatformSpecific {
       }
   }
 
-  def serve[R](
+  private[http] def serveRoutes[R](
     routes: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
     ZIO.logInfo("Starting the server...") *>
-      ZIO.serviceWithZIO[Server](_.install[R](routes)) *>
+      ZIO.serviceWithZIO[Server](_.installInternal[R](routes)) *>
       ZIO.logInfo("Server started") *>
       ZIO.never
   }
 
   def serve[R](
+    routes: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R], hasNoScope: HasNoScope[R]): URIO[R with Server, Nothing] =
+    serveRoutes(routes)
+
+  private[http] def serve[R](
+    routes: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] =
+    serveRoutes(routes)
+
+  def serve[R](
+    route: Route[R, Response],
+    routes: Route[R, Response]*,
+  )(implicit trace: Trace, tag: EnvironmentTag[R], hasNoScope: HasNoScope[R]): URIO[R with Server, Nothing] = {
+    serveRoutes(Routes(route, routes: _*))
+  }
+
+  private[http] def serve[R](
     route: Route[R, Response],
     routes: Route[R, Response]*,
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] = {
-    serve(Routes(route, routes: _*))
+    serveRoutes(Routes(route, routes: _*))
   }
 
   def install[R](
     routes: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R], hasNoScope: HasNoScope[R]): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.installInternal[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
+  }
+
+  private[http] def install[R](
+    routes: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
+    ZIO.serviceWithZIO[Server](_.installInternal[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
+  }
+
+  private[http] def installRoutes[R](
+    routes: Routes[R, Response],
+  )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.installInternal[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
   private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
@@ -523,7 +564,7 @@ object Server extends ServerPlatformSpecific {
     // or a throwable if starting the driver failed for any reason.
     private val serverStarted: Promise[Throwable, Int],
   ) extends Server {
-    override def install[R](routes: Routes[R, Response])(implicit
+    override private[http] def installInternal[R](routes: Routes[R, Response])(implicit
       trace: Trace,
       tag: EnvironmentTag[R],
     ): URIO[R, Unit] =

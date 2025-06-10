@@ -26,7 +26,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.20, 2.13.16, 3.3.5]
+        scala: [2.12.20, 2.13.16, 3.3.6]
         java:
           - graal_graalvm@17
           - graal_graalvm@21
@@ -192,12 +192,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.3.5)
+      - name: Download target directories (3.3.6)
         uses: actions/download-artifact@v4
         with:
-          name: target-${{ matrix.os }}-3.3.5-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.3.6-${{ matrix.java }}
 
-      - name: Inflate target directories (3.3.5)
+      - name: Inflate target directories (3.3.6)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -443,6 +443,44 @@ jobs:
         with:
           name: Jmh_Main_EndpointBenchmark
           path: Main_EndpointBenchmark.txt
+
+  Jmh_FormToQueryBenchmark:
+    name: Jmh FormToQueryBenchmark
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.16]
+        java: [zulu@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
+          cat > Main_FormToQueryBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 FormToQueryBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_FormToQueryBenchmark.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jmh_Main_FormToQueryBenchmark
+          path: Main_FormToQueryBenchmark.txt
 
   Jmh_HttpCollectEval:
     name: Jmh HttpCollectEval
@@ -864,7 +902,7 @@ jobs:
 
   Jmh_cache:
     name: Cache Jmh benchmarks
-    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_MethodLookupBenchmark, Jmh_ProbeContentTypeBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_FormToQueryBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_MethodLookupBenchmark, Jmh_ProbeContentTypeBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     strategy:
       matrix:
@@ -900,6 +938,13 @@ jobs:
 
       - name: Format_Main_EndpointBenchmark
         run: cat Main_EndpointBenchmark.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Jmh_Main_FormToQueryBenchmark
+
+      - name: Format_Main_FormToQueryBenchmark
+        run: cat Main_FormToQueryBenchmark.txt >> Main_benchmarks.txt
 
       - uses: actions/download-artifact@v4
         with:

@@ -69,14 +69,20 @@ final case class HandlerAspect[-Env, +CtxOut](
           Response,
           Response,
         ](
-          Handler.fromFunctionZIO[(Request, CtxOut)] { tuple =>
-            that.protocol.incoming(tuple._1).map { case (state, (request, env)) =>
-              (state, (request, zippable.zip(tuple._2, env)))
-            }
+          Handler.scoped[Env1] {
+            Handler
+              .fromFunctionZIO[(Request, CtxOut)] { tuple =>
+                that.protocol.incoming(tuple._1).map { case (state, (request, env)) =>
+                  (state, (request, zippable.zip(tuple._2, env)))
+                }
+              }
           },
         )(
-          Handler.fromFunctionZIO[(that.protocol.State, Response)] { case (state, either) =>
-            that.protocol.outgoing(state, either)
+          Handler.scoped[Env1] {
+            Handler
+              .fromFunctionZIO[(that.protocol.State, Response)] { case (state, either) =>
+                that.protocol.outgoing(state, either)
+              }
           },
         )
 
@@ -93,13 +99,15 @@ final case class HandlerAspect[-Env, +CtxOut](
     routes.transform[Env1] { handler =>
       if (self == HandlerAspect.identity) handler
       else {
-        for {
-          tuple <- protocol.incomingHandler
-          (state, (request, ctxOut)) = tuple
-          either   <- Handler.fromZIO(handler(request)).either
-          response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
-          response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
-        } yield response
+        Handler.scoped[Env1] {
+          for {
+            tuple <- protocol.incomingHandler
+            (state, (request, ctxOut)) = tuple
+            either   <- Handler.fromZIO(handler(request)).either
+            response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+            response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+          } yield response
+        }
       }
     }
 
@@ -112,26 +120,30 @@ final case class HandlerAspect[-Env, +CtxOut](
   ): Handler[Env1, Response, Request, Response] = {
     if (self == HandlerAspect.identity) handler.contramap[Request](req => (().asInstanceOf[CtxOut], req))
     else {
-      for {
-        tuple <- protocol.incomingHandler
-        (state, (request, ctxOut)) = tuple
-        either   <- Handler.fromZIO(handler((ctxOut, request))).either
-        response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
-        response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
-      } yield response
+      Handler.scoped[Env1] {
+        for {
+          tuple <- protocol.incomingHandler
+          (state, (request, ctxOut)) = tuple
+          either   <- Handler.fromZIO(handler((ctxOut, request))).either
+          response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+          response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+        } yield response
+      }
     }
   }
 
   def applyHandler[Env1 <: Env](handler: RequestHandler[Env1, Response]): RequestHandler[Env1, Response] =
     if (self == HandlerAspect.identity) handler
     else {
-      for {
-        tuple <- protocol.incomingHandler
-        (state, (request, ctxOut)) = tuple
-        either   <- Handler.fromZIO(handler(request)).either
-        response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
-        response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
-      } yield response
+      Handler.scoped[Env1] {
+        for {
+          tuple <- protocol.incomingHandler
+          (state, (request, ctxOut)) = tuple
+          either   <- Handler.fromZIO(handler(request)).either
+          response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+          response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+        } yield response
+      }
     }
 
   /**
@@ -618,15 +630,15 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
-    loggedRequestHeaders: Set[Header.HeaderType] = Set.empty,
-    loggedResponseHeaders: Set[Header.HeaderType] = Set.empty,
+    loggedRequestHeaders: Set[Header.HeaderTypeBase] = Set.empty,
+    loggedResponseHeaders: Set[Header.HeaderTypeBase] = Set.empty,
     logRequestBody: Boolean = false,
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
   )(implicit trace: Trace): HandlerAspect[Any, Unit] = {
-    val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
-    val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
+    val loggedRequestHeaderNames  = loggedRequestHeaders.flatMap(_.names.map(_.toLowerCase))
+    val loggedResponseHeaderNames = loggedResponseHeaders.flatMap(_.names.map(_.toLowerCase))
 
     HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { request =>
       zio.Clock.instant.map(now => ((now, request), (request, ())))

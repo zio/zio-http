@@ -123,9 +123,12 @@ object QueryParams {
      * takes advantage of LinkedHashMap implementation for O(1) lookup and
      * avoids conversion to Chunk.
      */
-    override def getAll(key: String): Chunk[String] =
-      if (underlying.containsKey(key)) Chunk.fromIterable(underlying.get(key).asScala)
-      else Chunk.empty
+    override def getAll(key: String): Chunk[String] = {
+      val jList = underlying.get(key)
+      if (jList eq null) Chunk.empty
+      else if (jList.size() == 1) Chunk.single(jList.get(0))
+      else Chunk.fromJavaIterable(jList)
+    }
 
     override def hasQueryParam(name: CharSequence): Boolean =
       underlying.containsKey(name.toString)
@@ -133,8 +136,10 @@ object QueryParams {
     override def updateQueryParams(f: QueryParams => QueryParams): QueryParams =
       f(self)
 
-    override private[http] def unsafeQueryParam(key: String): String =
-      underlying.get(key).get(0)
+    override private[http] def unsafeQueryParam(key: String): String = {
+      val value = underlying.get(key)
+      if (value == null || value.isEmpty) null else value.get(0)
+    }
 
     override def valueCount(name: CharSequence): Int =
       if (underlying.containsKey(name)) underlying.get(name.toString).size() else 0

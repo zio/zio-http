@@ -51,11 +51,11 @@ object DynamicAppTest extends ZIOHttpSpec {
   def spec = suite("Server")(
     test("Should allow dynamic changes to the installed app") {
       for {
-        port <- Server.install(routes1)
+        port <- Server.installRoutes(routes1)
         good   = URL.decode(s"http://localhost:$port/good").toOption.get
         better = URL.decode(s"http://localhost:$port/better").toOption.get
         okResponse      <- Client.batched(Request.get(good))
-        _               <- Server.install(routes2)
+        _               <- Server.installRoutes(routes2)
         createdResponse <- Client.batched(Request.get(better))
       } yield assertTrue(
         extractStatus(okResponse) == Status.Ok &&
