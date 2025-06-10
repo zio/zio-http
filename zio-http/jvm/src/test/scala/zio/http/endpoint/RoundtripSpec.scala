@@ -154,13 +154,10 @@ object RoundtripSpec extends ZIOHttpSpec {
   ): ZIO[ZClient[Any, Any, Body, Throwable, Response] with Server with Scope, Out, TestResult] =
     for {
       port <- Server.installRoutes(route)
-      executorLayer = ZLayer(ZIO.service[ZClient[Any, Any, Body, Throwable, Response]].map(makeExecutor(_, port)))
+      executorLayer = ZLayer(ZIO.serviceWith[ZClient[Any, Any, Body, Throwable, Response]](makeExecutor(_, port)))
       out    <- ZIO
-        .service[EndpointExecutor[Any, Unit, Any]]
-        .flatMap { executor =>
-          executor.apply(endpoint.apply(in))
-        }
-        .provideSome[ZClient[Any, Any, Body, Throwable, Response] with Scope](executorLayer)
+        .serviceWithZIO[EndpointExecutor[Any, Unit, Any]](_.apply(endpoint.apply(in)))
+        .provideSome[ZClient[Any, Any, Body, Throwable, Response]](executorLayer)
         .flip
       result <- errorF(out)
     } yield result
@@ -547,10 +544,8 @@ object RoundtripSpec extends ZIOHttpSpec {
           executorLayer = ZLayer(ZIO.serviceWith[ZClient[Any, Any, Body, Throwable, Response]](makeExecutor(_, port)))
 
           cause <- ZIO
-            .serviceWithZIO[EndpointExecutor[Any, Unit, Any]] { executor =>
-              executor.apply(endpointWithAnotherSignature.apply(42))
-            }
-            .provideSome[ZClient[Any, Any, Body, Throwable, Response] with Scope](executorLayer)
+            .serviceWithZIO[EndpointExecutor[Any, Unit, Any]](_.apply(endpointWithAnotherSignature.apply(42)))
+            .provideSome[ZClient[Any, Any, Body, Throwable, Response]](executorLayer)
             .cause
         } yield assertTrue(
           cause.prettyPrint.contains(
