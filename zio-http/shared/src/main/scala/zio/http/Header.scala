@@ -16,26 +16,29 @@
 
 package zio.http
 
-import zio.Config.Secret
-import zio._
-import zio.http.codec.{HttpCodecError, RichTextCodec}
-import zio.http.internal.{DateEncoding, ErrorConstructor, StringSchemaCodec}
-import zio.schema.Schema
-import zio.schema.codec.DecodeError
-import zio.schema.codec.DecodeError.ReadError
-import zio.schema.validation.ValidationError
-
 import java.net.URI
 import java.nio.charset.{Charset, UnsupportedCharsetException}
 import java.time.ZonedDateTime
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.runtime.AbstractFunction11
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 import scala.util.{Either, Failure, Success, Try}
+
+import zio.Config.Secret
+import zio._
+
+import zio.schema.Schema
+import zio.schema.codec.DecodeError
+import zio.schema.codec.DecodeError.ReadError
+import zio.schema.validation.ValidationError
+
+import zio.http.codec.{HttpCodecError, RichTextCodec}
+import zio.http.internal.{DateEncoding, ErrorConstructor, StringSchemaCodec}
 
 sealed trait Header {
   type Self <: Header
