@@ -68,6 +68,7 @@ private[netty] object NettyResponse {
         callback => responseHandler.connect(callback),
         knownContentLength,
         contentType,
+        () => ctx.read(): Unit,
       )
       Response(status, headers, data)
     }
