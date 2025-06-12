@@ -54,7 +54,7 @@ object OriginSpec extends ZIOHttpSpec {
               Value(
                 url.scheme.map(_.encode).getOrElse(""),
                 url.host.getOrElse(""),
-                url.portIfNotDefault,
+                url.port,
               ),
             ),
           )

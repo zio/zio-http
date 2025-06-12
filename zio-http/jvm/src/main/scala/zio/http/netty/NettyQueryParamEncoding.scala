@@ -21,12 +21,11 @@ import java.nio.charset.Charset
 import scala.jdk.CollectionConverters._
 
 import zio.http.QueryParams
-import zio.http.internal.QueryParamEncoding
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
-private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
-  override final def decode(queryStringFragment: String, charset: Charset): QueryParams = {
+private[http] object NettyQueryParamEncoding {
+  final def decode(queryStringFragment: String, charset: Charset): QueryParams = {
     if (queryStringFragment == null || queryStringFragment.isEmpty) {
       QueryParams.empty
     } else {
@@ -35,7 +34,7 @@ private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
     }
   }
 
-  override final def encode(baseUri: String, queryParams: QueryParams, charset: Charset): String = {
+  final def encode(baseUri: String, queryParams: QueryParams, charset: Charset): String = {
     val encoder = new QueryStringEncoder(baseUri, charset)
     queryParams.seq.foreach { entry =>
       val key    = entry.getKey

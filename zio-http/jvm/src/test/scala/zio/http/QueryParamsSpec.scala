@@ -195,7 +195,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
             QueryParams.empty.addQueryParam(foo).queryParams("c") == Chunk("1", "2"),
             QueryParams.empty.addQueryParam(foo).queryParams("chunk") == Chunk("foo", "bar"),
             QueryParams.empty.addQueryParam(fooEmpty).queryParam("a").get == "0",
-            QueryParams.empty.addQueryParam(fooEmpty).queryParam("b").get == "",
+            QueryParams.empty.addQueryParam(fooEmpty).queryParam("b").isEmpty,
             QueryParams.empty.addQueryParam(fooEmpty).queryParams("c") == Chunk("1"),
             QueryParams.empty.addQueryParam(fooEmpty).queryParams("chunk").isEmpty,
           )
@@ -275,7 +275,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
               (QueryParams(Map("a" -> Chunk("foo", "fee"))), "?a=foo&a=fee"),
               (
                 QueryParams(Map("a" -> Chunk("scala is awesome!", "fee"), "b" -> Chunk("ZIO is awesome!"))),
-                "?a=scala%20is%20awesome%21&a=fee&b=ZIO%20is%20awesome%21",
+                "?a=scala+is+awesome%21&a=fee&b=ZIO+is+awesome%21",
               ),
               (QueryParams(Map("" -> Chunk(""))), ""),
               (QueryParams(Map("" -> Chunk("a"))), ""),
@@ -318,6 +318,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val queryParams    = QueryParams(typed -> "1", typed -> "2", invalidTyped -> "str")
           val single         = QueryParams(typed -> "1")
           val queryParamsFoo = QueryParams("a" -> "1", "b" -> "foo", "c" -> "2", "chunk" -> "foo", "chunk" -> "bar")
+          val fromFoo = QueryParams.empty.addQueryParam(Foo(0, SimpleWrapper(""), NonEmptyChunk("1"), Chunk.empty))
           assertTrue(
             single.query[Int](typed) == Right(1),
             queryParams.query[Int](invalidTyped).isLeft,
@@ -336,6 +337,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
             queryParams.queryOrElse[Chunk[Int]](unknown, Chunk(default)) == Chunk.empty,
             queryParams.queryOrElse[NonEmptyChunk[Int]](unknown, NonEmptyChunk(default)) == NonEmptyChunk(default),
             // case class
+            fromFoo.query[Foo] == Right(Foo(0, SimpleWrapper(""), NonEmptyChunk("1"), Chunk.empty)),
             queryParamsFoo.query[Foo] == Right(Foo(1, SimpleWrapper("foo"), NonEmptyChunk("2"), Chunk("foo", "bar"))),
             queryParamsFoo.query[SimpleWrapper] == Right(SimpleWrapper("1")),
             queryParamsFoo.query[SimpleWrapper]("b") == Right(SimpleWrapper("foo")),

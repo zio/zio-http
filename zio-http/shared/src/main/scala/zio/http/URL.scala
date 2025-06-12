@@ -22,6 +22,7 @@ import scala.util.control.NonFatal
 
 import zio.{Config, ZIO, durationInt}
 
+import zio.http.URL.Location.Relative
 import zio.http.URL.{Fragment, Location}
 import zio.http.internal._
 
@@ -344,21 +345,41 @@ object URL {
   }
 
   private def encode(url: URL): String = {
-    def path(relative: Boolean) =
-      QueryParamEncoding.default.encode(
-        if (relative || url.path.isEmpty) url.path.encode else url.path.addLeadingSlash.encode,
-        url.queryParams.normalize,
+    val path =
+      QueryParamEncoding.encode(
+        url.path.encodeBuilder,
+        url.queryParams,
         Charsets.Http,
-      ) + url.fragment.fold("")(f => "#" + f.raw)
+      )
+
+    def fromAbsURL(abs: Location.Absolute, path: String) = {
+      // Do not use `abs.portIfNotDefault` here. Setting a port in the URL that is the default
+      // is an edge case. But checking it allocates an `Option` that is not needed in most cases.
+      abs.originalPort match {
+        case None =>
+          ThreadLocals.stringBuilder.append(abs.scheme.encode).append("://").append(abs.host)
+        case port =>
+          val sb = ThreadLocals.stringBuilder
+            .append(abs.scheme.encode)
+            .append("://")
+            .append(abs.host)
+            .append(':')
+            .append(port.get)
+          if (path.nonEmpty && path.head != '/') sb.append('/')
+          sb
+      }
+    }
 
     url.kind match {
-      case Location.Relative      => path(true)
-      case abs: Location.Absolute =>
-        val path2 = path(false)
-        abs.portIfNotDefault match {
-          case None             => s"${abs.scheme.encode}://${abs.host}$path2"
-          case Some(customPort) => s"${abs.scheme.encode}://${abs.host}:$customPort$path2"
-        }
+      case Location.Relative if url.fragment.isEmpty      =>
+        path
+      case Relative                                       =>
+        ThreadLocals.stringBuilder.append(path).append('#').append(url.fragment.get.raw).toString
+      case abs: Location.Absolute if url.fragment.isEmpty =>
+        fromAbsURL(abs, path).append(path).toString
+      case abs: Location.Absolute                         =>
+        fromAbsURL(abs, path).append(path).append('#').append(url.fragment.get.raw).toString
+
     }
   }
 
@@ -367,29 +388,16 @@ object URL {
     // Host and port information should be in the headers.
     // Query params are included while fragments are excluded.
 
-    val pathBuf = new StringBuilder(256)
+    val prefix = if (!url.path.hasLeadingSlash) "/" else ""
 
-    val path = url.path
-
-    path.segments.foreach { segment =>
-      pathBuf.append('/')
-      pathBuf.append(segment)
-    }
-
-    if (pathBuf.isEmpty | path.hasTrailingSlash) {
-      pathBuf.append('/')
-    }
-
-    val qparams = url.queryParams
-
-    if (qparams.isEmpty) {
-      pathBuf.result()
-    } else {
-      // this branch could be more efficient with something like QueryParamEncoding.appendNonEmpty(pathBuf, qparams, Charsets.Http)
-      // that directly filtered the keys/values and appended to the buffer
-      // but for now the underlying Netty encoder requires the base url as a String anyway
-      QueryParamEncoding.default.encode(pathBuf.result(), qparams.normalize, Charsets.Http)
-    }
+    prefix + (if (url.queryParams.isEmpty) {
+                url.path.encode
+              } else {
+                // this branch could be more efficient with something like QueryParamEncoding.appendNonEmpty(pathBuf, qparams, Charsets.Http)
+                // that directly filtered the keys/values and appended to the buffer
+                // but for now the underlying Netty encoder requires the base url as a String anyway
+                QueryParamEncoding.encode(url.path.encodeBuilder, url.queryParams, Charsets.Http)
+              })
   }
 
   private[http] def fromAbsoluteURI(uri: URI): Option[URL] = {
@@ -397,7 +405,7 @@ object URL {
       scheme <- Scheme.decode(uri.getScheme)
       host   <- Option(uri.getHost)
       path   <- Option(uri.getRawPath)
-      port       = Option(uri.getPort).filter(_ != -1).orElse(scheme.defaultPort) // FIXME REMOVE defaultPort
+      port       = Option(uri.getPort).filter(_ != -1)
       connection = URL.Location.Absolute(scheme, host, port)
       path2      = Path.decode(path)
       path3      = if (path.nonEmpty) path2.addLeadingSlash else path2
