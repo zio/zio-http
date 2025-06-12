@@ -1,3 +1,5 @@
+//> using dep "dev.zio::zio-http:3.3.1"
+
 package example
 
 import scala.util.Try

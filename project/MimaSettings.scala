@@ -33,7 +33,7 @@ object MimaSettings {
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.codec.CodecConfig.this"),
         ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.http.codec.CodecConfig.copy$default$1"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.codec.CodecConfig.copy"),
-        ),
+      ),
       mimaFailOnProblem := failOnProblem,
     )
 }
