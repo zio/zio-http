@@ -45,7 +45,7 @@ object RetryAfterEncodingSpec extends ZIOHttpSpec {
     suite("Encoding header value transformation should be symmetrical")(
       test("date format") {
         check(Gen.zonedDateTime(ZonedDateTime.now(), ZonedDateTime.now().plusDays(365))) { date =>
-          val dateAsString = DateEncoding.default.encodeDate(date)
+          val dateAsString = DateEncoding.encodeDate(date)
           assertTrue(
             RetryAfter.render(
               RetryAfter.parse(dateAsString).toOption.get,
