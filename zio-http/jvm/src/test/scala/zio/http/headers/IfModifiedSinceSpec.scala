@@ -40,7 +40,7 @@ object IfModifiedSinceSpec extends ZIOHttpSpec {
       assertTrue(
         IfModifiedSince.render(
           IfModifiedSince(ZonedDateTime.of(1994, 11, 6, 8, 49, 37, 0, ZoneOffset.UTC)),
-        ) == "Sun, 06 Nov 1994 08:49:37 GMT",
+        ) == "Sun, 6 Nov 1994 08:49:37 GMT",
       )
     },
   )
