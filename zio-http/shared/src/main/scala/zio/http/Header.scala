@@ -3427,7 +3427,7 @@ object Header {
         URL.decode(value) match {
           case Left(_)                                              => Left("Invalid Origin header")
           case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Origin header")
-          case Right(url)                                           => Right(Value(url.scheme.get.encode, url.host.get, url.portIfNotDefault))
+          case Right(url)                                           => Right(Value(url.scheme.get.encode, url.host.get, url.port))
         }
 
     def render(origin: Origin): String = {
