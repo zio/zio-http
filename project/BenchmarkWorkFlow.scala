@@ -1,5 +1,5 @@
 import BuildHelper.Scala213
-import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
+import sbtghactions.GenerativePlugin.autoImport.{JavaSpec, UseRef, WorkflowJob, WorkflowStep}
 
 object BenchmarkWorkFlow {
   def apply(): Seq[WorkflowJob] = Seq(
@@ -19,7 +19,6 @@ object BenchmarkWorkFlow {
 
   private def makeBenchmarkPass(id: String, name: String, performanceFloor: Int, server: String) =
     WorkflowJob(
-//      runsOnExtraLabels = List("zio-http"),
       id = id,
       name = name,
       oses = List("ubuntu-latest"),
@@ -27,6 +26,7 @@ object BenchmarkWorkFlow {
         "${{ github.event_name == 'pull_request'}}",
       ),
       scalas = List(Scala213),
+      javas = List(JavaSpec.temurin("17")),
       steps = List(
         WorkflowStep.Run(
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
