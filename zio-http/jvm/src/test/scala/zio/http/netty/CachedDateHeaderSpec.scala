@@ -15,7 +15,7 @@ object CachedDateHeaderSpec extends ZIOHttpSpec {
     suite("CachedDateHeader")(
       test("yields the same date header value as DateEncoding") {
         val f = ZIO.suspendSucceed {
-          val uncached = DateEncoding.default.encodeDate(ZonedDateTime.now())
+          val uncached = DateEncoding.encodeDate(ZonedDateTime.now())
           val cached   = dateHeaderCache.get()
 
           ZIO

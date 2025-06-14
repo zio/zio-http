@@ -16,11 +16,18 @@
 
 package zio.http.internal
 
-import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.{ZoneOffset, ZonedDateTime}
 
-private[http] trait DateEncoding {
-  def encodeDate(date: ZonedDateTime): String
-  def decodeDate(date: String): Option[ZonedDateTime]
+private[http] object DateEncoding {
+  private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
+
+  def encodeDate(date: ZonedDateTime): String = formatter.format(date)
+
+  def decodeDate(date: String): Option[ZonedDateTime] =
+    try {
+      Some(ZonedDateTime.parse(date, formatter))
+    } catch {
+      case _: Exception => None
+    }
 }
-
-private[http] object DateEncoding extends DateEncodingPlatformSpecific
