@@ -402,14 +402,18 @@ private[http] object StringSchemaCodec {
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
             stringSchemaCodec(recordSchema(schema.asInstanceOf[Schema[Any]], name))
-          case s if s.isInstanceOf[Schema.Record[_]] => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
-          case _                                     => throw new IllegalArgumentException(s"Unsupported schema $s")
+          case s if s.isInstanceOf[Schema.Record[_]]          => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
+          case s if s.isInstanceOf[Schema.Transform[_, _, _]] =>
+            stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
+          case _ => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
       case s @ Schema.Transform(schema, _, _, _, _)                    =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
             stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
           case _: Schema.Record[_]                                 => stringSchemaCodec(s.asInstanceOf[Schema[Any]])
+          case s if s.isInstanceOf[Schema.Optional[_]]             =>
+            stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
           case _ => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
       case Schema.Lazy(schema0)                                        =>
@@ -426,7 +430,6 @@ private[http] object StringSchemaCodec {
         stringSchemaCodec(s.asInstanceOf[Schema[Any]])
       case _                                                           =>
         throw new IllegalArgumentException(s"Unsupported schema $schema0")
-
     }
 
   }
@@ -485,14 +488,18 @@ private[http] object StringSchemaCodec {
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
             stringSchemaCodec(recordSchema(schema.asInstanceOf[Schema[Any]], name))
-          case s if s.isInstanceOf[Schema.Record[_]] => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
-          case _                                     => throw new IllegalArgumentException(s"Unsupported schema $s")
+          case s if s.isInstanceOf[Schema.Record[_]]          => stringSchemaCodec(schema.asInstanceOf[Schema[Any]])
+          case s if s.isInstanceOf[Schema.Transform[_, _, _]] =>
+            stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
+          case _ => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
       case s @ Schema.Transform(schema, _, _, _, _)                    =>
         schema match {
           case _: Schema.Collection[_, _] | _: Schema.Primitive[_] =>
             stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
           case _: Schema.Record[_]                                 => stringSchemaCodec(s.asInstanceOf[Schema[Any]])
+          case s if s.isInstanceOf[Schema.Optional[_]]             =>
+            stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
           case _ => throw new IllegalArgumentException(s"Unsupported schema $s")
         }
       case Schema.Lazy(schema0)                                        =>
@@ -509,7 +516,6 @@ private[http] object StringSchemaCodec {
         stringSchemaCodec(s.asInstanceOf[Schema[Any]])
       case _                                                           =>
         throw new IllegalArgumentException(s"Unsupported schema $schema0")
-
     }
   }
 
