@@ -34,6 +34,18 @@ object QueryParamsSpec extends ZIOHttpSpec {
   case class Foo(a: Int, b: SimpleWrapper, c: NonEmptyChunk[String], chunk: Chunk[String])
   implicit val fooSchema: Schema[Foo]                     = DeriveSchema.gen[Foo]
 
+  final case class PhoneNumber(value: String)
+  object PhoneNumber {
+    def fromString(s: String): Option[PhoneNumber] =
+      if (s.forall(_.isDigit)) Some(PhoneNumber(s)) else None
+
+    implicit val schema: Schema[PhoneNumber] =
+      Schema[String].transformOrFail(
+        s => fromString(s).toRight(s"Invalid phone number: $s"),
+        p => Right(p.value),
+      )
+  }
+
   def spec =
     suite("QueryParams")(
       suite("-")(
@@ -457,6 +469,20 @@ object QueryParamsSpec extends ZIOHttpSpec {
         test("success") {
           val queryParams = QueryParams("a" -> Chunk("1", "2"), "b" -> Chunk("3"))
           assertTrue(queryParams.map == Map("a" -> Chunk("1", "2"), "b" -> Chunk("3")))
+        },
+      ),
+      suite("query")(
+        test("decode optional query param with transformed schema") {
+          val req = Request.get(URL.empty).addQueryParam("phone", "1234567890")
+          assertTrue(
+            req.query[Option[PhoneNumber]]("phone") == Right(Some(PhoneNumber("1234567890"))),
+          )
+        },
+        test("decode optional query param with invalid value") {
+          val req = Request.get(URL.empty).addQueryParam("phone", "invalid")
+          assertTrue(
+            req.query[Option[PhoneNumber]]("phone") == Right(None),
+          )
         },
       ),
     )
