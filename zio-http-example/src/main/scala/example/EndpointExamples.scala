@@ -13,7 +13,7 @@ object EndpointExamples extends ZIOAppDefault {
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
-    Endpoint(Method.GET / "users" / int("userId")).out[Int]
+    Endpoint(Method.GET / "users" / int("userId") ?? md"id of the user").out[Int]
 
   val getUserRoute =
     getUser.implement { id => ZIO.succeed(id) }
