@@ -10,11 +10,12 @@ trait ServerPlatformSpecific {
 
   private[http] def base: ZLayer[Driver & Config, Throwable, Server]
 
-  val customized: ZLayer[Config & NettyConfig, Throwable, Driver with Server] = {
+  val customized: ZLayer[ServerRuntimeConfig & NettyConfig, Throwable, Driver with Server] = {
     // tmp val Needed for Scala2
     val tmp: ZLayer[Driver & Config, Throwable, Server] = ZLayer.suspend(base)
 
-    ZLayer.makeSome[Config & NettyConfig, Driver with Server](
+    ZLayer.makeSome[ServerRuntimeConfig & NettyConfig, Driver with Server](
+      ZLayer.fromFunction((runtime: ServerRuntimeConfig) => runtime.config),
       NettyDriver.customized,
       tmp,
     )
