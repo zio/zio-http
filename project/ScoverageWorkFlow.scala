@@ -1,5 +1,5 @@
 import BuildHelper.{Scala213, ScoverageVersion}
-import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
+import sbtghactions.GenerativePlugin.autoImport.{JavaSpec, UseRef, WorkflowJob, WorkflowStep}
 
 object ScoverageWorkFlow {
   // TODO move plugins to plugins.sbt after scoverage's support for Scala 3
@@ -14,6 +14,7 @@ object ScoverageWorkFlow {
         id = "unsafeRunScoverage",
         name = "Unsafe Scoverage",
         scalas = List(Scala213),
+        javas = List(JavaSpec.temurin("17")),
         steps = List(
           WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
           WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),

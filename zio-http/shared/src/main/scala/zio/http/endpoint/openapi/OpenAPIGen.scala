@@ -770,10 +770,13 @@ object OpenAPIGen {
           exName -> recordSchema.deconstruct(ex)(Unsafe.unsafe)
         }
         codec.recordFields.zipWithIndex.map { case ((field, codec), index) =>
+          val docs = codec.schema.annotations.collectFirst { case desc: zio.schema.annotation.description =>
+            mc.docs + Doc.p(desc.text)
+          }.orElse(mc.docsOpt)
           OpenAPI.ReferenceOr.Or(
             OpenAPI.Parameter.queryParameter(
               name = field.name,
-              description = mc.docsOpt,
+              description = docs,
               schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
               deprecated = mc.deprecated,
               style = OpenAPI.Parameter.Style.Form,

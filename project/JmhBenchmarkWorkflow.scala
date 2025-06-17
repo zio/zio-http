@@ -1,7 +1,7 @@
 import BuildHelper.{JmhVersion, Scala213}
 import sbt.nio.file.FileTreeView
 import sbt.{**, Glob, PathFilter}
-import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
+import sbtghactions.GenerativePlugin.autoImport.{JavaSpec, UseRef, WorkflowJob, WorkflowStep}
 
 object JmhBenchmarkWorkflow {
 
@@ -77,6 +77,7 @@ object JmhBenchmarkWorkflow {
     WorkflowJob(
       id = "Jmh_cache",
       name = "Cache Jmh benchmarks",
+      javas = List(JavaSpec.temurin("17")),
       cond = Some(
         "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}",
       ),
@@ -112,6 +113,7 @@ object JmhBenchmarkWorkflow {
         "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}",
       ),
       scalas = List(Scala213),
+      javas = List(JavaSpec.temurin("17")),
       steps = List(
         WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
         WorkflowStep.Use(

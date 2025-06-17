@@ -177,11 +177,15 @@ object Header {
         case value => parse(value)
       }
 
-    def fromHeadersUnsafe(headers: Headers): HeaderValue =
-      fromHeaders(headers).fold(
-        e => throw HttpCodecError.DecodingErrorHeader(name, ReadError(Cause.empty, e)),
-        identity,
-      )
+    private[http] def fromHeadersUnsafe(headers: Headers): HeaderValue =
+      headers.getUnsafe(name) match {
+        case null  => throw HttpCodecError.MissingHeader(name)
+        case value =>
+          parse(value) match {
+            case Left(error) => throw HttpCodecError.DecodingErrorHeader(name, ReadError(Cause.empty, error))
+            case Right(v)    => v
+          }
+      }
 
     override def toHeaders(value: HeaderValue): Headers =
       Headers.FromIterable(Iterable(value))

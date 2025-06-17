@@ -79,6 +79,9 @@ private[netty] object NettyBodyWriter {
       case AsciiStringBody(asciiString, _) =>
         writeArray(asciiString.array(), isLast = true)
         None
+      case sb: StringBody                  =>
+        writeArray(sb.bytes, isLast = true)
+        None
       case StreamBody(stream, _, _)        =>
         Some(
           contentLength.orElse(body.knownContentLength) match {

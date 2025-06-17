@@ -24,13 +24,12 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.stream.{Take, ZChannel, ZStream}
 
 import zio.http.Body.UnsafeBytes
-import zio.http.internal.BodyEncoding
 import zio.http.{Body, Header}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.util.AsciiString
 
-object NettyBody extends BodyEncoding {
+object NettyBody {
 
   /**
    * Helper to create Body from AsciiString
@@ -61,7 +60,7 @@ object NettyBody extends BodyEncoding {
     }
   }
 
-  override def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
+  def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
 
   private[zio] final case class AsciiStringBody(
