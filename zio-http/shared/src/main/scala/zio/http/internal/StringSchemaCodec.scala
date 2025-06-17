@@ -478,7 +478,18 @@ private[http] object StringSchemaCodec {
         override private[http] val isOptionalSchema: Boolean =
           StringSchemaCodec.isOptionalSchema(schema0)
       }
-    schema0 match {
+    // --- Begin patch: recursive support for Optional(Transform(...)) and Transform(Optional(...)) ---
+    def unwrapSchema(s: Schema[_]): Schema[_] = s match {
+      case Schema.Optional(inner, _) =>
+        Schema.Optional(unwrapSchema(inner), Chunk.empty)
+      case Schema.Transform(inner, f, g, annotations, _) =>
+        Schema.Transform(unwrapSchema(inner), f, g, annotations, None)
+      case Schema.Lazy(thunk) =>
+        Schema.Lazy(() => unwrapSchema(thunk()))
+      case other => other
+    }
+    val unwrapped = unwrapSchema(schema0)
+    unwrapped match {
       case s @ Schema.Primitive(_, _)                                  =>
         stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
       case s @ Schema.Optional(schema, _)                              =>
@@ -504,14 +515,13 @@ private[http] object StringSchemaCodec {
           name,
         )
       case _: Schema.Collection[_, _]                                  =>
-        stringSchemaCodec(recordSchema(schema0.asInstanceOf[Schema[Any]], name))
+        stringSchemaCodec(recordSchema(unwrapped.asInstanceOf[Schema[Any]], name))
       case s: Schema.Record[_] if s.fields.size == 1 && (name ne null) =>
         stringSchemaCodec(recordSchema(s.asInstanceOf[Schema[Any]], name))
       case s: Schema.Record[_]                                         =>
         stringSchemaCodec(s.asInstanceOf[Schema[Any]])
       case _                                                           =>
-        throw new IllegalArgumentException(s"Unsupported schema $schema0")
-
+        throw new IllegalArgumentException(s"Unsupported schema $unwrapped")
     }
   }
 
