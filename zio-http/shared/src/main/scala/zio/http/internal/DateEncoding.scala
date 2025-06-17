@@ -24,3 +24,4 @@ private[http] trait DateEncoding {
 }
 
 private[http] object DateEncoding extends DateEncodingPlatformSpecific
+
