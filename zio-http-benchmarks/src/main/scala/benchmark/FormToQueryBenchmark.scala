@@ -1,7 +1,5 @@
 package benchmark
 
-import java.net.http.{HttpClient, HttpRequest, HttpResponse}
-import java.net.{ConnectException, URI}
 import java.util.concurrent.TimeUnit
 
 import zio._

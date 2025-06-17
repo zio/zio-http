@@ -29,7 +29,7 @@ object LastModifiedSpec extends ZIOHttpSpec {
     test("LastModifiedDateTime") {
       val dateTime     = ZonedDateTime.of(1994, 11, 6, 8, 49, 37, 0, ZoneOffset.UTC)
       val lastModified = LastModified(dateTime)
-      assertTrue(LastModified.render(lastModified) == "Sun, 6 Nov 1994 08:49:37 GMT")
+      assertTrue(LastModified.render(lastModified) == "Sun, 06 Nov 1994 08:49:37 GMT")
     },
     test("LastModified  should be parsed correctly with invalid value") {
       val lastModified = LastModified.parse("Mon, 007 Nov 1994 08:49:37")
@@ -39,7 +39,7 @@ object LastModifiedSpec extends ZIOHttpSpec {
       assertTrue(
         LastModified.render(
           LastModified(ZonedDateTime.of(1994, 11, 7, 8, 49, 37, 0, ZoneOffset.UTC)),
-        ) == "Mon, 7 Nov 1994 08:49:37 GMT",
+        ) == "Mon, 07 Nov 1994 08:49:37 GMT",
       )
     },
   )

@@ -23,23 +23,83 @@ private[http] object DateEncoding {
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
   private val `'0'`     = 48 // ASCII code for '0'
 
-  def encodeDate(date: ZonedDateTime): String = formatter.format(date)
+  def encodeDate(date: ZonedDateTime): String =
+    encodeRFC1123(date)
 
   def decodeDate(date: String): Option[ZonedDateTime] = {
     try {
-      if (date.head.isUpper && date.charAt(3) == ',' && date.charAt(4) == ' ')
+      if (date.length != 29 && date.length != 28) return None
+      if (date.charAt(0).isUpper && date.charAt(3) == ',' && date.charAt(4) == ' ')
         decodeRFC1123(date)
-      else
-        Some(ZonedDateTime.parse(date, formatter))
+      else {
+        // Currently we only support RFC 1123 format, so we return None for other formats.
+        // If we want to support, for example, RFC6265, we can add a new method here.
+        None
+      }
     } catch {
       case _: Exception => None
     }
   }
 
+  private def encodeRFC1123(d: ZonedDateTime): String = {
+    val date          = d.withZoneSameInstant(ZoneOffset.UTC)
+    val stringBuilder = new java.lang.StringBuilder(29)
+    date.getDayOfWeek match {
+      case java.time.DayOfWeek.SUNDAY    => stringBuilder.append("Sun, ")
+      case java.time.DayOfWeek.MONDAY    => stringBuilder.append("Mon, ")
+      case java.time.DayOfWeek.TUESDAY   => stringBuilder.append("Tue, ")
+      case java.time.DayOfWeek.WEDNESDAY => stringBuilder.append("Wed, ")
+      case java.time.DayOfWeek.THURSDAY  => stringBuilder.append("Thu, ")
+      case java.time.DayOfWeek.FRIDAY    => stringBuilder.append("Fri, ")
+      case java.time.DayOfWeek.SATURDAY  => stringBuilder.append("Sat, ")
+    }
+
+    date.getDayOfMonth match {
+      case day if day < 10 => stringBuilder.append('0').append(day).append(' ')
+      case day             => stringBuilder.append(day).append(' ')
+    }
+
+    date.getMonthValue match {
+      case 1  => stringBuilder.append("Jan ")
+      case 2  => stringBuilder.append("Feb ")
+      case 3  => stringBuilder.append("Mar ")
+      case 4  => stringBuilder.append("Apr ")
+      case 5  => stringBuilder.append("May ")
+      case 6  => stringBuilder.append("Jun ")
+      case 7  => stringBuilder.append("Jul ")
+      case 8  => stringBuilder.append("Aug ")
+      case 9  => stringBuilder.append("Sep ")
+      case 10 => stringBuilder.append("Oct ")
+      case 11 => stringBuilder.append("Nov ")
+      case 12 => stringBuilder.append("Dec ")
+    }
+    date.getYear match {
+      case year if year < 1000 => stringBuilder.append('0').append(year).append(' ')
+      case year                => stringBuilder.append(year).append(' ')
+    }
+
+    date.getHour match {
+      case hour if hour < 10 => stringBuilder.append('0').append(hour).append(':')
+      case hour              => stringBuilder.append(hour).append(':')
+    }
+
+    date.getMinute match {
+      case minute if minute < 10 => stringBuilder.append('0').append(minute).append(':')
+      case minute                => stringBuilder.append(minute).append(':')
+    }
+
+    date.getSecond match {
+      case second if second < 10 => stringBuilder.append('0').append(second).append(" GMT")
+      case second                => stringBuilder.append(second).append(" GMT")
+    }
+
+    stringBuilder.toString
+  }
+
   private def decodeRFC1123(date: String): Option[ZonedDateTime] = {
     {
       // TODO consider trie-hard approach
-      val c0 = date.head
+      val c0 = date.charAt(0)
       val c1 = date.charAt(1)
       val c2 = date.charAt(2)
       if (
