@@ -717,7 +717,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
