@@ -34,6 +34,19 @@ object QueryParamsSpec extends ZIOHttpSpec {
   case class Foo(a: Int, b: SimpleWrapper, c: NonEmptyChunk[String], chunk: Chunk[String])
   implicit val fooSchema: Schema[Foo]                     = DeriveSchema.gen[Foo]
 
+  final case class PhoneNumber(value: String)
+
+  object PhoneNumber {
+    def fromString(s: String): Option[PhoneNumber] =
+      if (s.forall(_.isDigit)) Some(PhoneNumber(s)) else None
+
+    implicit val schema: Schema[PhoneNumber] =
+      Schema[String].transformOrFail(
+        s => fromString(s).toRight(s"Invalid phone number: $s"),
+        p => Right(p.value),
+      )
+  }
+
   def spec =
     suite("QueryParams")(
       suite("-")(
@@ -195,7 +208,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
             QueryParams.empty.addQueryParam(foo).queryParams("c") == Chunk("1", "2"),
             QueryParams.empty.addQueryParam(foo).queryParams("chunk") == Chunk("foo", "bar"),
             QueryParams.empty.addQueryParam(fooEmpty).queryParam("a").get == "0",
-            QueryParams.empty.addQueryParam(fooEmpty).queryParam("b").get == "",
+            QueryParams.empty.addQueryParam(fooEmpty).queryParam("b").isEmpty,
             QueryParams.empty.addQueryParam(fooEmpty).queryParams("c") == Chunk("1"),
             QueryParams.empty.addQueryParam(fooEmpty).queryParams("chunk").isEmpty,
           )
@@ -275,7 +288,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
               (QueryParams(Map("a" -> Chunk("foo", "fee"))), "?a=foo&a=fee"),
               (
                 QueryParams(Map("a" -> Chunk("scala is awesome!", "fee"), "b" -> Chunk("ZIO is awesome!"))),
-                "?a=scala%20is%20awesome%21&a=fee&b=ZIO%20is%20awesome%21",
+                "?a=scala+is+awesome%21&a=fee&b=ZIO+is+awesome%21",
               ),
               (QueryParams(Map("" -> Chunk(""))), ""),
               (QueryParams(Map("" -> Chunk("a"))), ""),
@@ -309,7 +322,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           )
         },
       ),
-      suite("getAs - getAllAs")(
+      suite("query")(
         test("pure") {
           val typed          = "typed"
           val default        = 3
@@ -318,6 +331,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val queryParams    = QueryParams(typed -> "1", typed -> "2", invalidTyped -> "str")
           val single         = QueryParams(typed -> "1")
           val queryParamsFoo = QueryParams("a" -> "1", "b" -> "foo", "c" -> "2", "chunk" -> "foo", "chunk" -> "bar")
+          val fromFoo = QueryParams.empty.addQueryParam(Foo(0, SimpleWrapper(""), NonEmptyChunk("1"), Chunk.empty))
           assertTrue(
             single.query[Int](typed) == Right(1),
             queryParams.query[Int](invalidTyped).isLeft,
@@ -336,6 +350,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
             queryParams.queryOrElse[Chunk[Int]](unknown, Chunk(default)) == Chunk.empty,
             queryParams.queryOrElse[NonEmptyChunk[Int]](unknown, NonEmptyChunk(default)) == NonEmptyChunk(default),
             // case class
+            fromFoo.query[Foo] == Right(Foo(0, SimpleWrapper(""), NonEmptyChunk("1"), Chunk.empty)),
             queryParamsFoo.query[Foo] == Right(Foo(1, SimpleWrapper("foo"), NonEmptyChunk("2"), Chunk("foo", "bar"))),
             queryParamsFoo.query[SimpleWrapper] == Right(SimpleWrapper("1")),
             queryParamsFoo.query[SimpleWrapper]("b") == Right(SimpleWrapper("foo")),
@@ -371,6 +386,17 @@ object QueryParamsSpec extends ZIOHttpSpec {
           assertZIO(queryParams.queryZIO[Chunk[Int]](invalidTyped).exit)(fails(anything)) &&
           assertZIO(queryParams.queryZIO[Chunk[Int]](unknown).exit)(succeeds(equalTo(Chunk.empty[Int]))) &&
           assertZIO(queryParams.queryZIO[NonEmptyChunk[Int]](unknown).exit)(fails(anything))
+        },
+        test("decode optional query param") {
+          val req = Request.get(URL.empty).addQueryParam("phone", "1234567890")
+          assertTrue(
+            req.query[Option[PhoneNumber]]("phone") == Right(Some(PhoneNumber("1234567890"))),
+          )
+        },
+        test("decode invalid query param") {
+          val queryParams   = QueryParams.empty.addQueryParam("phone-number", "INVALID_PHONE")
+          val errorOrNumber = queryParams.query[PhoneNumber]("phone-number")
+          assertTrue(errorOrNumber.isLeft)
         },
       ),
       suite("encode - decode")(

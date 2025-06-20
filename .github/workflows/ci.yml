@@ -263,7 +263,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -299,7 +299,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -337,7 +337,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -375,7 +375,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -413,7 +413,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -451,7 +451,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -489,7 +489,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -527,7 +527,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -565,7 +565,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -603,7 +603,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -641,7 +641,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -679,7 +679,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -710,6 +710,44 @@ jobs:
           name: Jmh_Main_ProbeContentTypeBenchmark
           path: Main_ProbeContentTypeBenchmark.txt
 
+  Jmh_QueryEncodingBenchmark:
+    name: Jmh QueryEncodingBenchmark
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.16]
+        java: [temurin@17]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
+          cat > Main_QueryEncodingBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 QueryEncodingBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_QueryEncodingBenchmark.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jmh_Main_QueryEncodingBenchmark
+          path: Main_QueryEncodingBenchmark.txt
+
   Jmh_RoundtripBenchmark:
     name: Jmh RoundtripBenchmark
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -717,7 +755,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -755,7 +793,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -793,7 +831,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -831,7 +869,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -869,7 +907,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: coursier/setup-action@v1
@@ -902,13 +940,13 @@ jobs:
 
   Jmh_cache:
     name: Cache Jmh benchmarks
-    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_FormToQueryBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_MethodLookupBenchmark, Jmh_ProbeContentTypeBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_FormToQueryBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_MethodLookupBenchmark, Jmh_ProbeContentTypeBenchmark, Jmh_QueryEncodingBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.10]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/download-artifact@v4
@@ -990,6 +1028,13 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          name: Jmh_Main_QueryEncodingBenchmark
+
+      - name: Format_Main_QueryEncodingBenchmark
+        run: cat Main_QueryEncodingBenchmark.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v4
+        with:
           name: Jmh_Main_RoundtripBenchmark
 
       - name: Format_Main_RoundtripBenchmark
@@ -1049,7 +1094,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Clean up
@@ -1128,7 +1173,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.16]
-        java: [zulu@8]
+        java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Clean up
