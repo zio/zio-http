@@ -1577,7 +1577,7 @@ object JsonSchema {
   }
 
   /**
-   * Builds a fully inlined `JsonSchema`, eliminating all `$ref`s. If a
+   * Builds a fully inlined `JsonSchema`, eliminating all `\$ref` occurrences. If a
    * recursive definition is encountered, the process short-circuits and returns
    * `Left(GenerationError.RecursionDetected)` containing the cycle (in
    * compact-reference form) that made inlining impossible.
