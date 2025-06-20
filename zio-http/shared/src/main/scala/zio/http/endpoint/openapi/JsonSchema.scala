@@ -1611,7 +1611,9 @@ object JsonSchema {
     }
 
     // Helper that recursively replaces RefSchema with their definitions while tracking refs.
-    def inline(js: JsonSchema, path: List[java.lang.String]): Either[GenerationError, JsonSchema] =
+    // NOTE: Method was previously called `inline` but Scala 3 treats `inline` as a soft keyword.
+    // Renaming to avoid the conflict.
+    def inlineRec(js: JsonSchema, path: List[java.lang.String]): Either[GenerationError, JsonSchema] =
       js match {
         case RefSchema(ref0) =>
           val tok     = token(ref0)
@@ -1621,7 +1623,7 @@ object JsonSchema {
             Left(GenerationError.RecursionDetected(nec))
           } else {
             dict.get(ref0).orElse(dict.get(compact)) match {
-              case Some(target) => inline(target, path :+ tok)
+              case Some(target) => inlineRec(target, path :+ tok)
               case None         => Right(js)
             }
           }
@@ -1638,13 +1640,13 @@ object JsonSchema {
             ) { case (accE, (k, v)) =>
               for {
                 acc <- accE
-                inV <- inline(v, path)
+                inV <- inlineRec(v, path)
               } yield acc + (k -> inV)
             }
 
           // additionalProperties may carry a schema, we need to dive into it.
           val inlinedAddPropsE: Either[GenerationError, Either[Boolean, JsonSchema]] = addProps match {
-            case Right(apSchema) => inline(apSchema, path).map(Right(_))
+            case Right(apSchema) => inlineRec(apSchema, path).map(Right(_))
             case Left(b)         => Right(Left(b))
           }
 
@@ -1655,18 +1657,18 @@ object JsonSchema {
 
         case JsonSchema.ArrayType(items, minItems, unique) =>
           items match {
-            case Some(it) => inline(it, path).map(s => JsonSchema.ArrayType(Some(s), minItems, unique))
+            case Some(it) => inlineRec(it, path).map(s => JsonSchema.ArrayType(Some(s), minItems, unique))
             case None     => Right(js)
           }
 
         case JsonSchema.OneOfSchema(schemas) =>
-          recurseCollection(schemas, path).map(JsonSchema.OneOfSchema)
+          recurseCollection(schemas, path).map(JsonSchema.OneOfSchema.apply)
 
         case JsonSchema.AllOfSchema(schemas) =>
-          recurseCollection(schemas, path).map(JsonSchema.AllOfSchema)
+          recurseCollection(schemas, path).map(JsonSchema.AllOfSchema.apply)
 
         case JsonSchema.AnyOfSchema(schemas) =>
-          recurseCollection(schemas, path).map(JsonSchema.AnyOfSchema)
+          recurseCollection(schemas, path).map(JsonSchema.AnyOfSchema.apply)
 
         // Numbers, Strings, Integers already inline.
         case other => Right(other)
@@ -1681,13 +1683,13 @@ object JsonSchema {
         .foldLeft[Either[GenerationError, List[JsonSchema]]](Right(Nil)) { (accE, schema) =>
           for {
             acc <- accE
-            inl <- inline(schema, path)
+            inl <- inlineRec(schema, path)
           } yield inl :: acc
         }
         .map(lst => Chunk.fromIterable(lst.reverse))
     }
 
-    inline(multi.root, Nil)
+    inlineRec(multi.root, Nil)
   }
 
 }
