@@ -666,7 +666,6 @@ object JsonSchema {
           }
         val nonTransientFields   =
           record.fields.filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
-
         JsonSchema
           .Object(
             Map.empty,
@@ -1333,9 +1332,7 @@ object JsonSchema {
     def addAll(value: Chunk[(java.lang.String, JsonSchema)]): Object =
       value.foldLeft(this) { case (obj, (name, schema)) =>
         schema match {
-          case thatObj @ Object(properties, additionalProperties, required)
-              if thatObj.isClosedDictionary && additionalProperties == Left(false) &&
-                !(this.properties == properties && this.additionalProperties == additionalProperties) =>
+          case thatObj @ Object(properties, additionalProperties, required) if thatObj.isClosedDictionary =>
             obj.copy(
               properties = obj.properties ++ properties,
               additionalProperties = combineAdditionalProperties(obj.additionalProperties, additionalProperties),
