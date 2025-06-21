@@ -32,7 +32,7 @@ object IfModifiedSinceSpec extends ZIOHttpSpec {
         ifModifiedSince == Right(IfModifiedSince(ZonedDateTime.of(1994, 11, 6, 8, 49, 37, 0, ZoneOffset.UTC))),
       )
     },
-    test("IfModifiedSince should be parsed correctly with invalid value") {
+    test("IfModifiedSince parsing should fail for invalid value") {
       val ifModifiedSince = IfModifiedSince.parse("Sun, 006 Nov 1994 08:49:37")
       assertTrue(ifModifiedSince.isLeft)
     },
