@@ -1608,8 +1608,6 @@ object JsonSchema {
     }
 
     // Helper that recursively replaces RefSchema with their definitions while tracking refs.
-    // NOTE: Method was previously called `inline` but Scala 3 treats `inline` as a soft keyword.
-    // Renaming to avoid the conflict.
     def inlineRec(js: JsonSchema, path: List[java.lang.String]): Either[GenerationError, JsonSchema] =
       js match {
         case RefSchema(ref0) =>
@@ -1674,17 +1672,15 @@ object JsonSchema {
     def recurseCollection(
       coll: Chunk[JsonSchema],
       path: List[java.lang.String],
-    ): Either[GenerationError, Chunk[JsonSchema]] = {
-      Chunk
-        .fromIterable(coll)
-        .foldLeft[Either[GenerationError, List[JsonSchema]]](Right(Nil)) { (accE, schema) =>
+    ): Either[GenerationError, Chunk[JsonSchema]] =
+      coll
+        .foldRight[Either[GenerationError, List[JsonSchema]]](Right(Nil)) { (schema, accE) =>
           for {
             acc <- accE
             inl <- inlineRec(schema, path)
           } yield inl :: acc
         }
-        .map(lst => Chunk.fromIterable(lst.reverse))
-    }
+        .map(Chunk.fromIterable)
 
     inlineRec(multi.root, Nil)
   }
