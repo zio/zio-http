@@ -1086,7 +1086,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "data").out[Chunk[Data]](status = Status.Ok)
           assertTrue(OpenAPIGen.fromEndpoints("", "", Compact, endpoint).components.get.schemas.size == 4)
         },
-        test("generates case class for response with compact schema without empty request body") {
+        test("generates openapi without empty request body when there are optional query params") {
           val name: HttpCodec[Query, String]     =
             HttpCodec.query[String]("name").annotate(Metadata.Documented(Doc.p("the name"))).examples("name" -> "bla")
           val age: HttpCodec[Query, Option[Int]] =
