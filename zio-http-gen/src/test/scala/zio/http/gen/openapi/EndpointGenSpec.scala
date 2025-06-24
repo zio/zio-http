@@ -5,7 +5,10 @@ import java.nio.file._
 import zio._
 import zio.test._
 
+import zio.http.Method.GET
 import zio.http._
+import zio.http.codec.HttpCodec.Metadata
+import zio.http.codec.HttpCodecType.Query
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
@@ -13,9 +16,6 @@ import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.Collection.Opt
-import zio.http.codec.HttpCodec.Metadata
-import zio.http.codec.HttpCodecType.Query
-import zio.http.Method.GET
 
 object EndpointGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
