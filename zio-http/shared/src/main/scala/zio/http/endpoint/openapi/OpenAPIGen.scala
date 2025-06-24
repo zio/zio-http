@@ -1042,7 +1042,7 @@ object OpenAPIGen {
 
     groupMap(statusAndCodec) { case (status, _) => status } { case (_, atomizedAndSchema) =>
       atomizedAndSchema
-    }.filter(_._2.nonEmpty).map { case (status, values) =>
+    }.map { case (status, values) =>
       val mapped = values.filter { case (atomized, _) => atomized.content.nonEmpty }
         .foldLeft(Chunk.empty[(MediaType, (AtomizedMetaCodecs, JsonSchema))]) { case (acc, (atomized, schema)) =>
           if (atomized.content.size > 1) {
