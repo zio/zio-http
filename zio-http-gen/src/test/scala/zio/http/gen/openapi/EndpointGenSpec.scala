@@ -1095,7 +1095,9 @@ object EndpointGenSpec extends ZIOSpecDefault {
             Endpoint(GET / "example").query(name ++ age).out[Unit](Status.Ok).outError[String](Status.BadRequest) ?? Doc
               .p("Example GET endpoint")
           val result                             = OpenAPIGen.fromEndpoints("", "", Compact, endpoint)
-          assertTrue(result.paths(OpenAPI.Path("/example")).get.get.requestBody.isEmpty)
+          val path                               = OpenAPI.Path.fromString("/example").get
+          val pathItemGetMethod                  = result.paths(path).get.get
+          assertTrue(pathItemGetMethod.requestBody.isEmpty)
         },
         test("generates case class with seq field for request") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
