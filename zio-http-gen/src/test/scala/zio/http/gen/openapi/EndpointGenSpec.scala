@@ -13,6 +13,9 @@ import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
 import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.Collection.Opt
+import zio.http.codec.HttpCodec.Metadata
+import zio.http.codec.HttpCodecType.Query
+import zio.http.Method.GET
 
 object EndpointGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -1082,6 +1085,17 @@ object EndpointGenSpec extends ZIOSpecDefault {
         test("generates case class for response with compact schema") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "data").out[Chunk[Data]](status = Status.Ok)
           assertTrue(OpenAPIGen.fromEndpoints("", "", Compact, endpoint).components.get.schemas.size == 4)
+        },
+        test("generates case class for response with compact schema without empty request body") {
+          val name: HttpCodec[Query, String]     =
+            HttpCodec.query[String]("name").annotate(Metadata.Documented(Doc.p("the name"))).examples("name" -> "bla")
+          val age: HttpCodec[Query, Option[Int]] =
+            HttpCodec.query[Int]("age").annotate(Metadata.Documented(Doc.p("the age"))).examples("age" -> 80).optional
+          val endpoint                           =
+            Endpoint(GET / "example").query(name ++ age).out[Unit](Status.Ok).outError[String](Status.BadRequest) ?? Doc
+              .p("Example GET endpoint")
+          val result                             = OpenAPIGen.fromEndpoints("", "", Compact, endpoint)
+          assertTrue(result.paths(OpenAPI.Path("/example")).get.get.requestBody.isEmpty)
         },
         test("generates case class with seq field for request") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
