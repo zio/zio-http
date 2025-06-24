@@ -1,9 +1,10 @@
 package example
 
 import zio._
+import zio.json._
+
 import zio.http._
 import zio.http.netty.NettyConfig
-import zio.json._
 
 object SecureHttpsClient extends ZIOAppDefault {
 

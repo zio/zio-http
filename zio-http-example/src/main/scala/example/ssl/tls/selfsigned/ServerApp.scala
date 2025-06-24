@@ -2,6 +2,7 @@ package example.ssl.tls.selfsigned
 
 import zio.Config.Secret
 import zio._
+
 import zio.http._
 
 object ServerApp extends ZIOAppDefault {

@@ -1,13 +1,15 @@
 package example.ssl.tls.intermediatecasigned
 
-import zio.Config.Secret
-import zio._
-import zio.http._
-
 import java.io.FileInputStream
 import java.security.KeyStore
 import java.security.cert.X509Certificate
+
 import scala.util.Try
+
+import zio.Config.Secret
+import zio._
+
+import zio.http._
 
 object ServerApp extends ZIOAppDefault {
   val routes: Routes[Any, Response] = Routes(
