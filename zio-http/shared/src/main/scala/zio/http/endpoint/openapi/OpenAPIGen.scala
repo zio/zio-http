@@ -751,12 +751,11 @@ object OpenAPIGen {
             required = combinedAtomizedCodecs.content.exists(_.required),
           ),
         )
-      }
-        .filter(_.value.content.exists {
-          case (_, OpenAPI.MediaType(OpenAPI.ReferenceOr.Or(schema), _, _)) =>
-            schema.withoutAnnotations != JsonSchema.Null
-          case _                                                            => true
-        })
+      }.filter(_.value.content.exists {
+        case (_, OpenAPI.MediaType(OpenAPI.ReferenceOr.Or(schema), _, _)) =>
+          schema.withoutAnnotations != JsonSchema.Null
+        case _                                                            => true
+      })
 
     def responses: OpenAPI.Responses =
       responsesForAlternatives(outs, genExamples)
