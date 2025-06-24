@@ -734,8 +734,11 @@ object OpenAPIGen {
 
     def requestBody: Option[OpenAPI.ReferenceOr[OpenAPI.RequestBody]] =
       ins.map { mediaTypes =>
-        val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }.reduce(_ ++ _)
-        val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
+        val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }
+          .reduceOption(_ ++ _)
+          .getOrElse(AtomizedMetaCodecs.empty)
+
+        val mediaTypeResponses = mediaTypes.map { case (mediaType, (schema, atomized)) =>
           mediaType.fullType -> OpenAPI.MediaType(
             schema = OpenAPI.ReferenceOr.Or(schema),
             examples = atomized.contentExamples(genExamples),
@@ -748,11 +751,12 @@ object OpenAPIGen {
             required = combinedAtomizedCodecs.content.exists(_.required),
           ),
         )
-      }.filter(_.value.content.exists {
-        case (_, OpenAPI.MediaType(OpenAPI.ReferenceOr.Or(schema), _, _)) =>
-          schema.withoutAnnotations != JsonSchema.Null
-        case _                                                            => true
-      })
+      }
+        .filter(_.value.content.exists {
+          case (_, OpenAPI.MediaType(OpenAPI.ReferenceOr.Or(schema), _, _)) =>
+            schema.withoutAnnotations != JsonSchema.Null
+          case _                                                            => true
+        })
 
     def responses: OpenAPI.Responses =
       responsesForAlternatives(outs, genExamples)
@@ -1038,8 +1042,8 @@ object OpenAPIGen {
 
     groupMap(statusAndCodec) { case (status, _) => status } { case (_, atomizedAndSchema) =>
       atomizedAndSchema
-    }.map { case (status, values) =>
-      val mapped = values
+    }.filter(_._2.nonEmpty).map { case (status, values) =>
+      val mapped = values.filter { case (atomized, _) => atomized.content.nonEmpty }
         .foldLeft(Chunk.empty[(MediaType, (AtomizedMetaCodecs, JsonSchema))]) { case (acc, (atomized, schema)) =>
           if (atomized.content.size > 1) {
             acc :+ ((MediaType.multipart.`form-data`, (atomized, schema(MediaType.multipart.`form-data`))))
@@ -1059,10 +1063,13 @@ object OpenAPIGen {
       status -> groupMap(mapped) { case (mediaType, _) => mediaType } { case (_, atomizedAndSchema) =>
         atomizedAndSchema
       }.map {
-        case (mediaType, Chunk((atomized, schema))) if values.size == 1 =>
+        case (mediaType, Chunk((atomized, schema))) if mapped.size == 1 =>
           (mediaType, (schema, atomized))
         case (mediaType, values)                                        =>
-          val combinedAtomized: AtomizedMetaCodecs = values.map(_._1).reduce(_ ++ _)
+          val combinedAtomized: AtomizedMetaCodecs = values
+            .map(_._1)
+            .reduceOption(_ ++ _)
+            .getOrElse(AtomizedMetaCodecs.empty)
           val combinedContentDoc                   = combinedAtomized.contentDocs.toCommonMark
           val vals                                 =
             if (values.forall(v => v._2.isNullable || v._2 == JsonSchema.Null))
