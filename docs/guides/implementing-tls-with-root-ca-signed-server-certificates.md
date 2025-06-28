@@ -9,6 +9,8 @@ Root Certificate Authority (CA) signed certificates form the backbone of trust o
 
 This article demonstrates implementing TLS with CA-signed certificates, using examples in Scala with the ZIO HTTP library.
 
+Please note that this article focuses specifically on implementing CA-signed certificates rather than the administrative aspects of certificate management. While we won't cover the detailed processes of establishing a production certificate authority or purchasing certificates from commercial CAs, we will create a root certificate authority manually to demonstrate the core implementation concepts you would encounter in a production environment.
+
 ## Understanding CA-Signed Certificates
 
 ### What is a CA-Signed Certificate?
@@ -39,99 +41,97 @@ A CA-signed certificate is a digital certificate that has been:
 
 ### Trust Model
 
-The CA trust model works because:
-1. **Pre-installed Trust**: Operating systems and browsers come with pre-installed root CA certificates
-2. **Chain of Trust**: Any certificate signed by these CAs is automatically trusted
-3. **Validation**: CAs verify domain ownership before issuing certificates
-4. **Revocation**: CAs can revoke compromised certificates
-
-## Types of Certificate Validation
-
-### 1. Domain Validation (DV)
-- Verifies domain control only
-- Automated process
-- Fastest and cheapest
-- Example: Let's Encrypt
-
-### 2. Organization Validation (OV)
-- Verifies domain control and organization identity
-- Manual verification process
-- Shows organization name in certificate
-
-### 3. Extended Validation (EV)
-- Extensive verification of legal entity
-- Strictest validation process
-- Historically showed green bar in browsers
+The trust model for CA-signed certificates relies on a hierarchy of trust. Root CAs are pre-installed in operating systems and browsers, or manually added to trust stores. When a server presents a certificate signed by a trusted CA, clients can verify the certificate's authenticity without manual intervention. Any certificate signed by these root CAs is automatically trusted.
 
 ## Creating a Private CA for Development
 
-For this example, we'll create our own CA to simulate the production process:
-
 ### Step 1: Create Root CA
 
+For this example, we'll create our own Root CA to simulate the production process:
+
 ```bash
-# Generate Root CA private key
-openssl genrsa -out rootCA.key 4096
+# Generate Root CA Private Key
+openssl genrsa -out ca-key.pem 4096
 
-# Generate Root CA certificate
-openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 3650 \
-  -out rootCA.crt \
-  -subj "/C=US/ST=State/L=City/O=RootCA/OU=Security/CN=Root CA"
-
-# Convert to PKCS12 for Java (optional)
-openssl pkcs12 -export -out rootCA.p12 -inkey rootCA.key -in rootCA.crt \
-  -name "rootca" -password pass:rootpass
+# Generate Root CA Certificate
+openssl req -new -x509 -days 3650 -key ca-key.pem -out ca-cert.pem \
+    -subj "/C=US/ST=State/L=City/O=Example CA/OU=IT/CN=Example Root CA"
 ```
 
 ### Step 2: Create Server Certificate Signing Request (CSR)
 
-```bash
-# Generate server private key
-openssl genrsa -out server.key 2048
+The next step is to create a server certificate signed by this Root CA. To do this, we have to create a Certificate Signing Request (CSR) for the server, which should be signed by the Root CA.
 
-# Create CSR
-openssl req -new -key server.key -out server.csr \
-  -subj "/C=US/ST=State/L=City/O=MyCompany/OU=IT/CN=localhost"
+To create a CSR, we have to provide the server's private key and specify the subject details. Let's generate a private key for the server:
+
+```bash
+# Generate Server Private Key
+openssl genrsa -out server-key.pem 4096
+```
+
+Now, we are ready to generate the server's CSR:
+
+```bash
+# Generate Server Certificate Signing Request (CSR)
+openssl req -new -key server-key.pem -out server.csr \
+    -subj "/C=US/ST=State/L=City/O=Example Server/OU=IT/CN=localhost"
 ```
 
 ### Step 3: Sign Server Certificate with Root CA
 
+Before signing the server certificate, we need to create an extensions file that specifies the certificate's properties, such as key usage and subject alternative names (SANs):
+
 ```bash
-# Create extensions file for server certificate
-cat > server_ext.cnf <<EOF
-basicConstraints=CA:FALSE
+# Create Extensions File for Server Certificate
+cat > server-ext.cnf << EOF
+subjectAltName = DNS:localhost,IP:127.0.0.1
 keyUsage = digitalSignature, keyEncipherment
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = localhost
-DNS.2 = *.localhost
-IP.1 = 127.0.0.1
+extendedKeyUsage = serverAuth
 EOF
-
-# Sign the server certificate
-openssl x509 -req -in server.csr -CA rootCA.crt -CAkey rootCA.key \
-  -CAcreateserial -out server.crt -days 365 -sha256 \
-  -extfile server_ext.cnf
-
-# Create PKCS12 keystore for server
-openssl pkcs12 -export -out server-keystore.p12 \
-  -inkey server.key -in server.crt \
-  -name "server" -password pass:serverkeypass
 ```
 
-### Step 4: Create Client Trust Store
+Now it is time to sign the server certificate using the Root CA's private key:
 
 ```bash
-# Import Root CA into client truststore
-keytool -import -alias rootca -file rootCA.crt \
-  -keystore client-truststore.p12 -storetype PKCS12 \
-  -storepass clienttrustpass -noprompt
+# Sign Server Certificate With Root CA
+openssl x509 -req -days 365 -in server.csr -CA ca-cert.pem -CAkey ca-key.pem \
+    -CAcreateserial -out server-cert.pem -extfile server-ext.cnf
 ```
+
+### Step 4: Create Server Keystore
+
+When using TLS, the server needs a keystore that contains its private key and certificate. We will create a PKCS12 keystore that includes the server's private key and the signed certificate:
+
+```bash
+# Create server-keystore.p12 (Contains server-cert.pem and server-key.pem)
+openssl pkcs12 -export -in server-cert.pem -inkey server-key.pem \
+    -out server-keystore.p12 -name server -password pass:serverkeypass
+```
+
+### Step 5: Create Client Trust Store
+
+The client needs a trust store that contains the Root CA certificate. This allows the client to verify the server's certificate during the TLS handshake.
+
+```bash
+# Create client-truststore.p12 (Contains ca-cert.pem)
+keytool -importcert -file ca-cert.pem \
+    -keystore client-truststore.p12 \
+    -storetype PKCS12 \
+    -storepass clienttrustpass \
+    -alias ca \
+    -noprompt \
+    -trustcacerts
+```
+
+Please note the difference between the client trust store configuration in this tutorial and the previous one. In the previous tutorial, we used a self-signed certificate for the server, which required importing that specific server certificate into the client trust store. However, in this tutorial, we're using a Root CA-signed certificate for the server, so we only need to import the Root CA certificate into the client trust store. This allows the client to trust any certificate signed by that Root CA, including our server's certificate.
+
+Now all the cryptographic materials are ready for our TLS implementation. Let's move on to the actual implementation of client and server applications.
 
 ## Implementation Example
 
 ### Project Structure
+
+Before we start coding, let's set up the project structure. We will create a ZIO HTTP project with the following directory structure:
 
 ```
 src/main/
@@ -141,16 +141,15 @@ src/main/
 └── resources/certs/tls/root-ca-signed/
     ├── server-keystore.p12    # Server's private key and certificate
     ├── client-truststore.p12  # Client's truststore with Root CA
-    ├── rootCA.crt             # Root CA certificate
-    ├── server.crt             # Server certificate (signed by Root CA)
-    └── server.key             # Server private key
+    ├── ca-cert.pem            # Root CA certificate
+    ├── ca-key.pem             # Root CA private key
+    ├── server-cert.pem        # Server certificate (signed by Root CA)
+    └── server-key.pem         # Server private key
 ```
 
 ### Server Implementation
 
-```scala
-package example.ssl.tls.rootcasigned
-
+```scala mdoc:compile-only
 import zio.Config.Secret
 import zio._
 import zio.http._
@@ -183,15 +182,16 @@ object ServerApp extends ZIOAppDefault {
 ```
 
 **Key Points:**
+
 - Server uses a certificate signed by the Root CA
 - Only needs its own keystore (private key + certificate)
 - No trust store needed for basic TLS (only for mTLS)
 
 ### Client Implementation
 
-```scala
-package example.ssl.tls.rootcasigned
+The client will connect to the server using the Root CA's certificate in its trust store. This allows it to verify the server's certificate without manual configuration.
 
+```scala mdoc:compile-only
 import zio._
 import zio.http._
 import zio.http.netty.NettyConfig
@@ -213,7 +213,7 @@ object ClientApp extends ZIOAppDefault {
       ClientSSLConfig.FromTrustStoreResource(
         "certs/tls/root-ca-signed/client-truststore.p12",
         "clienttrustpass",
-      ),
+      )
     )
 
   override val run =
@@ -228,6 +228,7 @@ object ClientApp extends ZIOAppDefault {
 ```
 
 **Key Points:**
+
 - Client only needs the Root CA in its trust store
 - Automatically trusts any certificate signed by this Root CA
 - No need to import individual server certificates
@@ -235,6 +236,15 @@ object ClientApp extends ZIOAppDefault {
 ## How It Works
 
 ### Certificate Validation Process
+
+When a client receives a CA-signed certificate from the server during the TLS handshake, it performs a comprehensive validation process to establish trust. Here's a simplified overview of the steps involved:
+
+1. **Find the Certificate Authority** - Client looks at who signed the server's certificate and searches its trust store for that CA's certificate
+2. **Verify the Signature** - Uses the CA's public key to verify the server certificate is genuine and was actually signed by the trusted CA
+3. **Check Certificate Validity** - Ensures the certificate hasn't expired and is being used within its valid date range
+4. **Verify the Hostname** - Checks that the certificate was issued for the correct server by matching the server name with what's in the certificate
+
+If all checks pass, the connection proceeds securely. If any check fails, the connection is rejected with an error.
 
 ```
 Client                                          Server
@@ -246,11 +256,10 @@ Client                                          Server
   |<------------- ServerHelloDone ----------------|
   |                                               |
   | [Certificate Validation Process]              |
-  | 1. Extract issuer (Root CA)                   |
-  | 2. Find Root CA in truststore ✓               |
-  | 3. Verify server cert signature with CA key ✓ |
-  | 4. Check validity dates ✓                     |
-  | 5. Verify hostname matches CN/SAN ✓           |
+  | 1. Extract issuer and Find it in truststore ✓ |
+  | 2. Verify the Signature ✓                     |
+  | 4. Check Certificate Validity ✓               |
+  | 5. Verify the Hostname ✓                      |
   |                                               |
   |-------------- ClientKeyExchange ------------->|
   |-------------- ChangeCipherSpec -------------->|
@@ -262,33 +271,29 @@ Client                                          Server
   |========== Encrypted Application Data ======-==|
 ```
 
-### Trust Chain Verification
-
-1. **Server presents certificate**: Signed by Root CA
-2. **Client checks issuer**: Identifies Root CA as issuer
-3. **Client verifies signature**: Uses Root CA's public key from trust store
-4. **Additional checks**: Validity period, hostname verification, key usage
-5. **Connection established**: All checks pass, secure channel created
+The key advantage of CA-signed certificates is that clients already trust the Root CA certificates pre-installed in their system, enabling automatic verification without any manual configuration. This makes the validation process significantly more streamlined compared to self-signed certificates, where each certificate must be manually added to the client's trust store to establish trust.
 
 ## Running the Example
 
 ### 1. Generate Certificates (One-time setup)
 
+Run the certificate generation script
+
 ```bash
-# Run the certificate generation script
-./generate-ca-certificates.sh
+cd src/main/resources/certs/tls/root-ca-signed
+./generate-certificates.sh
 ```
 
 ### 2. Start the Server
 
 ```bash
-sbt "runMain example.ssl.tls.rootcasigned.ServerApp"
+sbt "zioHttpExample/runMain example.ssl.tls.rootcasigned.ServerApp"
 ```
 
 ### 3. Run the Client
 
 ```bash
-sbt "runMain example.ssl.tls.rootcasigned.ClientApp"
+sbt "zioHttpExample/runMain example.ssl.tls.rootcasigned.ClientApp"
 ```
 
 Output:
@@ -297,164 +302,15 @@ Making secure HTTPS requests...
 Text response: Hello from TLS server! Connection secured!
 ```
 
-### 4. Verify Certificate Chain
-
-```bash
-# Check server certificate details
-openssl s_client -connect localhost:8443 -showcerts < /dev/null
-
-# Verify certificate chain
-openssl verify -CAfile rootCA.crt server.crt
-```
-
-## Production Considerations
-
-### Using Commercial CAs
-
-For production, you'll typically:
-
-1. **Generate CSR**: Create a certificate signing request
-```bash
-openssl req -new -key server.key -out server.csr \
-  -subj "/C=US/ST=State/L=City/O=YourCompany/CN=yourdomain.com"
-```
-
-2. **Submit to CA**: Upload CSR to your chosen CA (DigiCert, Sectigo, etc.)
-
-3. **Complete Validation**:
-    - DV: Respond to email or add DNS record
-    - OV/EV: Provide business documentation
-
-4. **Install Certificate**: CA provides signed certificate
-
-### Using Let's Encrypt (Free CA)
-
-```bash
-# Using Certbot
-certbot certonly --standalone -d yourdomain.com
-
-# Using acme.sh
-acme.sh --issue -d yourdomain.com --standalone
-```
-
-### Cloud Provider Solutions
-
-**AWS Certificate Manager:**
-```bash
-aws acm request-certificate --domain-name yourdomain.com \
-  --validation-method DNS
-```
-
-**Azure Key Vault:**
-```bash
-az keyvault certificate create --vault-name MyKeyVault \
-  --name MyServerCert --policy "$(az keyvault certificate get-default-policy)"
-```
-
-## Security Best Practices
-
-### 1. Certificate Security
-
-- **Protect Private Keys**: Use hardware security modules (HSMs) for production
-- **Key Rotation**: Regularly renew certificates (90 days recommended)
-- **Strong Algorithms**: Use RSA 2048+ or ECDSA P-256+
-- **Secure Storage**: Encrypt keystores and use strong passwords
-
-### 2. Certificate Validation
-
-```scala
-// Enhanced client configuration with hostname verification
-private val sslConfig = ZClient.Config.default.ssl(
-  ClientSSLConfig.FromTrustStoreResource(
-    trustStorePath = "client-truststore.p12",
-    trustStorePassword = "trustpass"
-  ).copy(
-    // Additional security settings
-    enableHostnameVerification = true,
-    enableOcspStapling = true
-  )
-)
-```
-
-### 3. Monitor Certificate Expiration
-
-```scala
-// Certificate expiration monitoring
-def checkCertificateExpiration(keystorePath: String): Task[Int] = {
-  ZIO.attempt {
-    val keyStore = KeyStore.getInstance("PKCS12")
-    keyStore.load(new FileInputStream(keystorePath), "password".toCharArray)
-    
-    val cert = keyStore.getCertificate("server").asInstanceOf[X509Certificate]
-    val daysUntilExpiry = 
-      (cert.getNotAfter.getTime - System.currentTimeMillis) / (1000 * 60 * 60 * 24)
-    
-    daysUntilExpiry.toInt
-  }
-}
-```
-
-## Common Issues and Solutions
-
-### Issue 1: Certificate Chain Incomplete
-
-**Error:**
-```
-unable to verify the first certificate
-```
-
-**Solution:**
-Ensure you're sending the complete certificate chain:
-```bash
-# Combine certificates
-cat server.crt intermediate.crt > fullchain.crt
-```
-
-### Issue 2: Hostname Mismatch
-
-**Error:**
-```
-javax.net.ssl.SSLPeerUnverifiedException: Hostname localhost not verified
-```
-
-**Solution:**
-Ensure certificate includes correct Subject Alternative Names:
-```bash
-openssl x509 -in server.crt -text | grep -A1 "Subject Alternative Name"
-```
-
-### Issue 3: Untrusted Root CA
-
-**Error:**
-```
-PKIX path building failed: unable to find valid certification path
-```
-
-**Solution:**
-Add Root CA to Java trust store:
-```bash
-keytool -import -trustcacerts -keystore $JAVA_HOME/lib/security/cacerts \
-  -storepass changeit -alias myca -file rootCA.crt
-```
-
-## Advantages Over Self-Signed Certificates
-
-1. **Automatic Trust**: No manual trust store configuration for clients
-2. **Browser Compatibility**: No security warnings
-3. **Scalability**: Easy to deploy across many clients
-4. **Professional**: Inspires confidence in users
-5. **Revocation Support**: Can revoke compromised certificates
-6. **Validation**: Third-party verification of identity
-
 ## Conclusion
 
 CA-signed certificates provide the foundation for secure communication on the internet. By leveraging the existing trust infrastructure, they enable seamless secure connections without manual configuration.
 
 Key takeaways:
+
 - CA-signed certificates are automatically trusted by clients
 - The trust model relies on pre-installed root certificates
 - Production certificates should come from recognized CAs
 - Private CAs are excellent for development and internal services
-- Certificate management is crucial for maintaining security
 
 In the next article, we'll explore certificate chains with intermediate CAs, which provide additional security and flexibility in certificate management.
