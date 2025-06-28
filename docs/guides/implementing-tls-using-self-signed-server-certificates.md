@@ -1,23 +1,23 @@
 ---
 id: implementing-tls-using-self-signed-server-certificates
-title: Implementing TLS Using Self-Signed Server Certificates
+title: Implementing TLS Using Self-signed Server Certificates
 ---
 
 ## Introduction
 
 Self-signed certificates are TLS/SSL certificates that are signed by the same entity that creates them, rather than by a trusted Certificate Authority (CA). While not suitable for production public-facing applications, they are invaluable for development, testing, and internal services.
 
-This article demonstrates how to implement TLS using ZIO HTTP using self-signed certificates.
+This tutorial demonstrates how to implement TLS using self-signed certificates with ZIO HTTP, covering certificate generation, server configuration, client setup, and security considerations. By the end of this guide, you'll understand how to create a complete TLS-enabled application using self-signed certificates.
 
-## Understanding Self-Signed Certificates
+## Understanding Self-signed Certificates
 
-### What is a Self-Signed Certificate?
+### What is a Self-signed Certificate?
 
-A self-signed certificate is a digital certificate where the organization or person creating it is also the one validating it, rather than having an independent Certificate Authority (CA) like DigiCert or Let's Encrypt verify their identity first.
+A self-signed certificate is a digital certificate that is signed by the same entity that it certifies, rather than by a trusted Certificate Authority. Unlike CA-issued certificates, self-signed certificates create their own chain of trust, making them both the issuer and the subject.
 
 ```
 ┌─────────────────────────┐
-│   Self-Signed Cert      │
+│   Self-signed Cert      │
 ├─────────────────────────┤
 │ Subject: CN=localhost   │
 │ Issuer:  CN=localhost   │ ← The issuer is same as subject!
@@ -29,7 +29,7 @@ This means the certificate's issuer and subject are the same entity - essentiall
 
 To use self-signed certificates properly, administrators must manually add them to each client's trusted certificate store, telling the system to accept and trust that specific certificate. While this manual process can be time-consuming for large organizations, self-signed certificates are popular for internal company networks, testing environments, and situations where the cost and complexity of getting CA-issued certificates isn't justified by the security requirements.
 
-### When to Use Self-Signed Certificates
+### When to Use Self-signed Certificates
 
 Self-signed certificates are well-suited for specific scenarios where public trust isn't required and security can be managed through controlled environments. They work effectively in development and testing environments where developers need SSL/TLS encryption for local servers and applications without the overhead of obtaining CA-issued certificates. 
 
@@ -41,51 +41,49 @@ However, self-signed certificates should never be used for public-facing product
 
 The general rule is that self-signed certificates are appropriate for closed, controlled environments where administrators can manage trust relationships directly, but they're unsuitable for any application where unknown users need to establish trust automatically.
 
-## Generating Self-Signed Certificates
+## Generating Self-signed Certificates
 
-### Using OpenSSL
-
-```bash
-# Generate private key
-openssl genrsa -out server-key.pem 2048
-
-# Generate self-signed certificate
-openssl req -new -x509 -key server-key.pem -out server-cert.pem -days 365 \
-  -subj "/C=US/ST=State/L=City/O=MyCompany/OU=IT/CN=localhost"
-
-# Convert to PKCS12 format for Java/Scala
-openssl pkcs12 -export -out server.p12 -inkey server-key.pem -in server-cert.pem \
-  -name "server" -password pass:changeit
-```
-
-### Using Java Keytool
+The certificate generation process involves creating a private key, generating a self-signed certificate, and preparing keystores for both server and client use:
 
 ```bash
-# Generate self-signed certificate directly in PKCS12 keystore
-keytool -genkeypair -alias server -keyalg RSA -keysize 2048 \
-  -keystore server.p12 -storetype PKCS12 -storepass changeit \
-  -validity 365 -dname "CN=localhost,OU=IT,O=MyCompany,L=City,ST=State,C=US" \
-  -ext "SAN=dns:localhost,ip:127.0.0.1"
+openssl req -x509 -newkey rsa:4096 -keyout server-key.pem \
+    -out server-cert.pem -days 365 -nodes \
+    -subj "/C=Country/ST=State/L=City/O=MyCompany/OU=IT/CN=localhost" \
+    -addext "subjectAltName = DNS:localhost,IP:127.0.0.1"
 ```
+
+With this command, we generate a new RSA private key (`server-key.pem`) and a self-signed certificate valid for 365 days (`server-cert.pem`). The `-subj` option specifies the subject details, and `-addext` adds Subject Alternative Names (SAN) enables certificate validation via both given DNS and IP values.
+
+### Generating the Server Key Store
+
+To create a PKCS12 keystore that combines the private key and certificate into a single file, which is easier to manage in Java applications:
+
+```bash
+openssl pkcs12 -export -in server-cert.pem \
+    -inkey server-key.pem \
+    -out server.p12 -name server -password pass:changeit
+```
+
+The `server.p12` file is a password protected keystore of the private key and certificate. Later we can use this keystore in our ZIO HTTP server configuration.
 
 ### Creating the Client Trust Store
 
-Since the certificate is self-signed, clients need to explicitly trust it:
+Since the certificate is self-signed, clients need to explicitly trust it. So we have to create a truststore that contains the server's certificate:
 
 ```bash
-# Export certificate from keystore
-keytool -export -alias server -keystore server.p12 -storepass changeit \
-  -file server-cert.der
-
-# Import into client truststore
-keytool -import -alias server -file server-cert.der \
-  -keystore truststore.p12 -storetype PKCS12 -storepass trustpass \
-  -noprompt
+keytool -importcert -file server-cert.pem \
+    -keystore truststore.p12 \
+    -storetype PKCS12 \
+    -storepass trustpass \
+    -alias server \
+    -noprompt
 ```
 
-## Implementation Example
+Now we are ready to implement the server and client applications.
 
-### Project Structure
+## Implementation
+
+Before we start coding, let's set up the project structure. We will create a ZIO HTTP project with the following directory structure:
 
 ```
 src/main/
@@ -95,15 +93,37 @@ src/main/
 └── resources/certs/tls/self-signed/
     ├── server.p12          # Server keystore with private key and certificate
     ├── truststore.p12      # Client truststore with server certificate
-    ├── server-cert.pem     # Optional: PEM format certificate
-    └── server-key.pem      # Optional: PEM format private key
+    ├── server-cert.pem     # PEM format certificate
+    └── server-key.pem      # PEM format private key
 ```
 
 ### Server Implementation
 
-```scala
-package example.ssl.tls.selfsigned
+To set up a self-signed TLS server using ZIO HTTP, we need to load the server's private key and certificate. We can either use `SSLConfig.fromJavaxNetSslKeyStoreResource` or `SSLConfig.fromResource`. The first one uses keystores and the second one uses PEM files directly:
 
+```scala mdoc:silent
+import zio.Config.Secret
+import zio.http._
+
+// Option 1: Using PKCS12 keystore
+private val sslConfig =
+  SSLConfig.fromJavaxNetSslKeyStoreResource(
+    keyManagerResource = "certs/tls/self-signed/server.p12",
+    keyManagerPassword = Some(Secret("trustpass")),
+  )
+
+// Option 2: Using PEM files directly
+// Note: This might require the PEM files to be in the correct format
+private val sslConfigPem =
+  SSLConfig.fromResource(
+    certPath = "certs/tls/self-signed/server-cert.pem",
+    keyPath = "certs/tls/self-signed/server-key.pem",
+  )
+```
+
+After loading ssl configuration, we can set up the server to listen on a specific port (e.g., 8443) and serve requests over HTTPS:
+
+```scala mdoc:compile-only
 import zio.Config.Secret
 import zio._
 import zio.http._
@@ -114,21 +134,6 @@ object ServerApp extends ZIOAppDefault {
       handler(Response.text("Hello from self-signed TLS server! Connection secured!")),
   )
 
-  // Option 1: Using PKCS12 keystore (recommended)
-  private val sslConfig =
-    SSLConfig.fromJavaxNetSslKeyStoreResource(
-      keyManagerResource = "certs/tls/self-signed/server.p12",
-      keyManagerPassword = Some(Secret("changeit")),
-    )
-
-  // Option 2: Using PEM files directly
-  // Note: This might require the PEM files to be in the correct format
-  private val sslConfigPem =
-    SSLConfig.fromResource(
-      certPath = "certs/tls/self-signed/server-cert.pem",
-      keyPath = "certs/tls/self-signed/server-key.pem",
-    )
-
   private val serverConfig =
     ZLayer.succeed {
       Server.Config.default
@@ -137,7 +142,7 @@ object ServerApp extends ZIOAppDefault {
     }
 
   val run =
-    Console.printLine("Self-Signed TLS Server starting on https://localhost:8443/") *>
+    Console.printLine("Self-signed TLS Server starting on https://localhost:8443/") *>
       Server.serve(routes).provide(serverConfig, Server.live)
 }
 ```
@@ -146,13 +151,29 @@ object ServerApp extends ZIOAppDefault {
 - The server loads its private key and certificate from a PKCS12 keystore
 - The `SSLConfig` handles all TLS configuration
 - The server listens on port 8443 (standard HTTPS alternative port)
-- Two options shown: PKCS12 (recommended) and PEM files
+
+Now that the server is ready, let's move on to the client implementation.
 
 ### Client Implementation
 
-```scala
-package example.ssl.tls.selfsigned
+Similar to the server, the client needs to be configured with some SSL settings, but this time it will use a truststore that contains the server's self-signed certificate. This allows the client to trust the server's certificate during the TLS handshake:
 
+```scala mdoc:silent:nest
+import zio._
+
+val sslConfig =
+  ZLayer.succeed {
+    ZClient.Config.default.ssl(
+      ClientSSLConfig.FromTrustStoreResource(
+        trustStorePath = "certs/tls/self-signed/truststore.p12",
+        trustStorePassword = "trustpass",
+      )
+    )
+  }
+```
+
+
+```scala mdoc:compile-only
 import zio._
 import zio.http._
 import zio.http.netty.NettyConfig
@@ -170,14 +191,7 @@ object ClientApp extends ZIOAppDefault {
 
   override val run =
     app.provide(
-      ZLayer.succeed {
-        ZClient.Config.default.ssl(
-          ClientSSLConfig.FromTrustStoreResource(
-            trustStorePath = "certs/tls/self-signed/truststore.p12",
-            trustStorePassword = "trustpass",
-          ),
-        )
-      },
+      sslConfig,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
       ZClient.live,
@@ -185,13 +199,19 @@ object ClientApp extends ZIOAppDefault {
 }
 ```
 
-**Key Points:**
-- Client must have the server's certificate in its truststore
-- Without the truststore configuration, the client would reject the self-signed certificate
+Please note that without the truststore configuration, the client would reject the self-signed certificate, leading to an SSL handshake failure. The truststore allows the client to recognize and trust the server's self-signed certificate, enabling secure communication.
 
 ## How It Works
 
-### The TLS Handshake with Self-Signed Certificates
+The TLS handshake process with self-signed certificates follows these steps:
+
+1. **Client Hello**: Client initiates connection and sends supported cipher suites
+2. **Server Hello**: Server responds with chosen cipher suite and sends certificate
+3. **Certificate Verification**: Client validates certificate against truststore
+4. **Key Exchange**: Client and server establish shared encryption keys
+5. **Encrypted Communication**: All subsequent communication is encrypted
+
+Unlike CA-issued certificates, self-signed certificates require explicit trust configuration. The client must have the server's certificate in its truststore to complete validation.
 
 ```
 Client                                          Server
@@ -215,24 +235,17 @@ Client                                          Server
   |========== Encrypted Application Data -========|
 ```
 
-### Trust Validation Process
-
-1. **Server sends certificate**: The self-signed certificate is sent to the client
-2. **Client checks truststore**: The client looks for this exact certificate in its truststore
-3. **Match found**: Since we imported the certificate, validation succeeds
-4. **Connection established**: Encrypted communication begins
-
 ## Running the Example
 
 ### 1. Start the Server
 
 ```bash
-sbt "runMain example.ssl.tls.selfsigned.ServerApp"
+sbt "zioHttpExample/runMain example.ssl.tls.selfsigned.ServerApp"
 ```
 
 Output:
 ```
-Self-Signed TLS Server starting on https://localhost:8443/
+Self-signed TLS Server starting on https://localhost:8443/
 ```
 
 ### 2. Run the Client
@@ -250,95 +263,49 @@ Response body: Hello from self-signed TLS server! Connection secured!
 
 ### 3. Testing with curl
 
-```bash
-# This will fail (certificate not trusted)
-curl https://localhost:8443/hello
+You can test the server using various curl configurations to understand different certificate validation scenarios:
 
-# This will work (skip certificate verification)
+```bash
+curl -v https://localhost:8443/hello
+```
+
+Running this command will show you the certificate verification process. Since the server uses a self-signed certificate, you will see an error about the certificate not being trusted unless you take additional steps to trust it:
+
+```
+*   Trying [::1]:8443...
+* Connected to localhost (::1) port 8443
+* ALPN: curl offers h2,http/1.1
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+  * TLSv1.3 (IN), TLS handshake, Server hello (2):
+  * TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+  * TLSv1.3 (IN), TLS handshake, Certificate (11):
+  * TLSv1.3 (OUT), TLS alert, unknown CA (560):
+  * OpenSSL/3.0.14: error:16000069:STORE routines::unregistered scheme
+* Closing connection
+curl: (35) OpenSSL/3.0.14: error:16000069:STORE routines::unregistered scheme
+```
+
+To successfully connect, you can use the following curl commands. 
+
+```bash
+curl --cacert resources/certs/tls/self-signed/server-cert.pem https://localhost:8443/hello
+```
+
+It will print the following output:
+
+```
+Hello from self-signed TLS server! Connection secured!
+```
+
+You can use `-v` option to see the details of TLS handshake.
+
+Please note that it is the client's duty to perform certificate verification. So, if the client decides to ignore certificate verification, the connection will succeed without any errors, but it will not be secure:
+
+```bash
 curl -k https://localhost:8443/hello
-
-# This will work (specify the certificate)
-curl --cacert server-cert.pem https://localhost:8443/hello
 ```
 
-## Common Issues and Solutions
-
-### Issue 1: Certificate Not Trusted
-
-**Error:**
-```
-javax.net.ssl.SSLHandshakeException: PKIX path building failed
-```
-
-**Solution:**
-Ensure the server certificate is properly imported into the client's truststore:
-```bash
-keytool -list -keystore truststore.p12 -storepass trustpass
-```
-
-### Issue 2: Hostname Verification Failed
-
-**Error:**
-```
-javax.net.ssl.SSLPeerUnverifiedException: Certificate for <localhost> doesn't match
-```
-
-**Solution:**
-Ensure the certificate's CN or SAN includes the hostname you're connecting to:
-```bash
-# Check certificate details
-keytool -printcert -file server-cert.der | grep -E "CN=|Subject Alternative"
-```
-
-### Issue 3: Certificate Expired
-
-**Error:**
-```
-java.security.cert.CertificateExpiredException: NotAfter: ...
-```
-
-**Solution:**
-Generate a new certificate with a longer validity period:
-```bash
-keytool -genkeypair -alias server -validity 3650 ... # 10 years
-```
-
-## Security Considerations
-
-### Advantages of Self-Signed Certificates
-
-1. **Complete Control**: You control the entire certificate lifecycle
-2. **No External Dependencies**: No need for CA infrastructure
-3. **Free**: No costs involved
-4. **Quick Setup**: Fast to generate and deploy
-5. **Privacy**: No information shared with external CAs
-
-### Limitations and Risks
-
-1. **No Third-Party Validation**: Anyone can create a certificate claiming to be your server
-2. **Manual Trust Management**: Each client must be configured to trust the certificate
-3. **No Revocation**: Cannot revoke compromised certificates through standard mechanisms
-4. **Browser Warnings**: Web browsers will show security warnings
-5. **Scalability Issues**: Difficult to manage trust relationships at scale
-
-### Best Practices
-
-1. **Use Only in Development**: Never use self-signed certificates for public production services
-2. **Secure Private Keys**: Protect private keys with appropriate file permissions
-3. **Use Strong Keys**: Minimum 2048-bit RSA or 256-bit ECDSA
-4. **Include Proper Extensions**: Add Subject Alternative Names (SAN) for flexibility
-5. **Document Trust Requirements**: Clearly document which certificates clients need to trust
-6. **Regular Rotation**: Even in development, rotate certificates periodically
-7. **Use Descriptive Names**: Make certificates identifiable through their CN/OU fields
-
-## Transitioning to Production
-
-When moving from development to production, replace self-signed certificates with:
-
-1. **CA-Signed Certificates**: For public-facing services
-2. **Internal CA**: For private networks and microservices
-3. **Let's Encrypt**: For free, automated certificates
-4. **Managed Certificate Services**: Cloud provider solutions (AWS ACM, Azure Key Vault)
+The `-k` option tells curl to skip certificate verification.
 
 ## Conclusion
 
