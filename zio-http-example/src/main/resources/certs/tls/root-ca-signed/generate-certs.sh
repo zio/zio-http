@@ -8,7 +8,7 @@ openssl genrsa -out ca-key.pem 4096
 
 # Generate Root CA Certificate
 openssl req -new -x509 -days 3650 -key ca-key.pem -out ca-cert.pem \
-    -subj "/C=US/ST=State/L=City/O=Example CA/OU=IT/CN=Example CA"
+    -subj "/C=Country/ST=State/L=City/O=Example CA/OU=IT/CN=Example Root CA"
 
 echo "Root CA certificate created."
 
