@@ -258,3 +258,11 @@ There are more formats and file extensions, but for the purpose of this guide, w
 [//]: # (Certificates are public information, and they can be stored in a plain text file without a need for permission or password protection. However, the private key associated with a certificate must be kept secure and is typically stored in a separate file with restricted access.)
 
 Now that we have covered the most basic concepts of SSL/TLS, certificates, and PKI, we can proceed to the implementation articles where we will explore how to set up SSL/TLS in ZIO HTTP applications using different approaches, including self-signed certificates, CA-signed certificates, intermediate CA-signed certificates, and mutual TLS (mTLS).
+
+## Conclusion
+
+SSL/TLS and PKI form the foundation of secure internet communication. The key concepts covered—certificate chains, trust hierarchies, and the distinction between one-way TLS and mutual TLS—provide the knowledge needed to make informed security decisions for your applications.
+
+PKI's hierarchical design allows a small number of trusted root CAs to secure millions of websites through intermediate certificates, creating a scalable trust system that spans from internal applications to global services.
+
+With these fundamentals in place, you're ready to proceed to the implementation guides. Each approach serves specific use cases, and understanding their proper application will help you build more secure applications.
