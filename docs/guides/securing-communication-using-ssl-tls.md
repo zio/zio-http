@@ -3,17 +3,17 @@ id: securing-communication-using-ssl-tls
 title: Securing Communication Using SSL/TLS
 ---
 
-ZIO HTTP supports securing communication between entities (typically clients and servers) using SSL/TLS. This is essential for protecting sensitive data in transit and ensuring the integrity and authenticity of the communication.
+ZIO HTTP supports securing communication between entities—typically clients and servers—using SSL/TLS. This is crucial for protecting sensitive data in transit and ensuring both the integrity and authenticity of the communication.
 
-SSL (Secure Sockets Layer) and TLS (Transport Layer Security) are cryptographic protocols that provide secure communication over a computer network. They are essentially the same thing; TLS is just the successor to SSL and is more secure. SSL was the original protocol created in the 1990s, but it had security flaws, so TLS was developed as its replacement and improvement. However, people still commonly say "SSL" out of habit, even though we're actually using TLS today—it's like how people still say "dial a phone number" even though we don't use rotary dials anymore.
+SSL (Secure Sockets Layer) and TLS (Transport Layer Security) are cryptographic protocols designed to provide secure communication over a network. Although the terms are often used interchangeably, TLS is the modern, more secure successor to SSL. SSL, originally developed in the 1990s, had several vulnerabilities, which led to the development of TLS as an improved replacement. Despite this, the term “SSL” is still commonly used out of habit—much like how people still say “dial a number” even though phones no longer have rotary dials.
 
-SSL/TLS is based on a system of certificates and public key infrastructure (PKI) that allows entities to verify each other's identities and establish secure connections.
+SSL/TLS relies on a system called Public Key Infrastructure (PKI), which uses digital certificates to verify the identities of the communicating parties and to establish secure connections.
 
-So, PKI is the system that checks if a website is who it claims to be (like checking an ID), while SSL/TLS is the protocol that creates the encrypted connection for secure communication. When you visit a secure website, PKI first verifies "this is really the legitimate website" using digital certificates, then SSL/TLS creates an encrypted tunnel so your data travels safely—PKI handles identity verification, and SSL/TLS handles secure communication.
+In simple terms, PKI acts like an identity check—it ensures a website is who it claims to be—while SSL/TLS establishes the encrypted connection. When you visit a secure website, PKI verifies the site's legitimacy through its certificate, and SSL/TLS creates an encrypted tunnel so your data can travel safely. PKI handles identity verification, and SSL/TLS handles secure communication.
 
-We aim to provide a comprehensive guide on this topic through a series of articles. Before proceeding, it's essential to understand fundamental concepts. This article focuses on core concepts, ensuring you build a solid foundational understanding; then we'll dive into detailed implementations of each approach in separate articles.
+We aim to offer a comprehensive guide on this topic through a series of articles. Before diving into the details, it's important to understand the fundamental concepts. This article covers the core principles to help you build a strong foundation. In the following articles, we’ll explore each implementation approach in depth.
 
-If you have a solid understanding of PKI and SSL/TLS, you can skip this article and jump directly to the implementation articles:
+If you're already familiar with PKI and SSL/TLS, feel free to skip this article and move directly to the implementation guides:
 
 - [Implementing TLS Using Self-Signed Server Certificates](./implementing-tls-using-self-signed-server-certificates.md)
 - [Implementing TLS with Root CA-Signed Server Certificate](./implementing-tls-with-ca-signed-server-certificates.md)
@@ -22,37 +22,39 @@ If you have a solid understanding of PKI and SSL/TLS, you can skip this article 
 
 ## Certificates and Public Key Infrastructure (PKI)
 
-SSL/TLS relies on a Public Key Infrastructure (PKI) to establish trust between parties. PKI is a framework that secures communications and verifies identities using digital certificates and public/private key pairs. A certificate is a digital document that binds a public key to an entity, such as a server or client. 
+SSL/TLS relies on a Public Key Infrastructure (PKI) to establish trust between parties. PKI is a framework that secures communication and verifies identities using digital certificates and public/private key pairs. A certificate is a digital document that binds a public key to an entity, such as a server or client.
 
-For instance, an SSL certificate for the website "example.com" contains the site's public key and confirms that the domain name "example.com" is associated with it. When you visit the secured "example.com" website, your browser checks the site's certificate to ensure that it is valid and issued by a trusted Certificate Authority (CA). If the certificate is valid, your browser can establish a secure connection by generating and encrypting a session key using the website's public key (extracted from the certificate) and sending it securely to the server. Only the server can decrypt the session key using its private key. From this point forward, the browser and server use that session key for fast symmetric encryption of all data.
+For example, an SSL certificate for the website "example.com" contains the site's public key and confirms that the domain name "example.com" is associated with it. When you visit the secured "example.com" website, your browser checks the site's certificate to ensure that it is valid and issued by a trusted Certificate Authority (CA). If the certificate is valid, your browser establishes a secure connection by generating a session key, encrypting it with the website's public key (extracted from the certificate), and securely sending it to the server. Only the server can decrypt the session key using its private key. From that point on, the browser and server use the session key to encrypt all data using fast symmetric encryption.
 
-A Certificate Authority (CA) is a trusted third party that issues digital certificates. It verifies the identity of the entity requesting the certificate and signs it with its private key, creating a chain of trust. When your browser encounters a certificate signed by a CA, it checks if the CA that issued the certificate is in its list of trusted CAs. If it is, the browser trusts the certificate and establishes a secure connection.
+A Certificate Authority (CA) is a trusted third party that issues digital certificates. It verifies the identity of the entity requesting the certificate and signs the certificate with its private key, creating a chain of trust. When your browser encounters a certificate signed by a CA, it checks whether the CA is in its list of trusted authorities. If it is, the browser trusts the certificate and establishes a secure connection.
 
-But the browser has a limited number of trusted CAs built in, so what happens if the CA that issued the certificate is not pre-installed in the browser? This is where the concept of a **Certificate Chain** comes into play, allowing the browser to verify the certificate even if it is not directly trusted.
+However, browsers have a limited number of trusted CAs built in. So what happens if the CA that issued a certificate is not pre-installed in the browser? This is where the concept of a **Certificate Chain** comes into play. It allows the browser to verify the certificate even if the issuing CA is not directly trusted.
 
 ### Understanding the Certificate Chain (Chain of Trust)
 
-A Certificate Chain, also known as a Chain of Trust, is a sequence of certificates that links your website's SSL certificate to a trusted root Certificate Authority (CA). So if the browser encounters a certificate that is not directly trusted, it can follow the chain of trust to find a certificate that is trusted.
+A Certificate Chain, also known as a Chain of Trust, is a sequence of certificates that links your website's SSL certificate to a trusted root Certificate Authority (CA). When a browser encounters a certificate that is not directly trusted, it can follow the chain of trust to find a certificate that is trusted.
 
-To understand how this works, we have to learn about the different types of certificates involved in SSL/TLS communication and how they relate to each other in a hierarchical structure. We have three main types of certificates:
+To understand how this works, we have to learn about the different types of certificates involved in SSL/TLS communication and how they relate to each other in a hierarchical structure. There are three main types of certificates:
 
-- **End-entity certificates** are the certificates deployed on servers, applications, or devices to establish secure connections and prove identity. These contain the public key and identity information (like a domain name or email address) for the specific entity they represent. When you visit an HTTPS website, the SSL certificate presented is an end-entity certificate. These certificates sit at the bottom of the trust chain and cannot be used to sign other certificates - they only authenticate the final endpoint.
+- **End-entity certificates** are the certificates deployed on servers, applications, or devices to establish secure connections and prove identity. These contain the public key and identity information (like a domain name or email address) for the specific entity they represent. When you visit an HTTPS website, the SSL certificate presented is an end-entity certificate. These certificates sit at the bottom of the trust chain and cannot be used to sign other certificates; they only authenticate the final endpoint.
+
 - **Intermediate certificates** act as a bridge between root and end-entity certificates, forming the middle layer of the certificate chain. Signed by root CAs or other intermediates, they have authority to issue end-entity certificates or additional intermediate certificates. This delegation allows organizations to keep root certificates secure and offline while still managing day-to-day certificate issuance, creating a hierarchical structure that enables selective revocation without affecting the entire trust chain.
+
 - **Root certificates** are the foundational trust anchors of the PKI system, representing the highest authority level. These self-signed certificates contain the root CA's public key and are embedded directly into operating systems and browsers as pre-trusted entities. Root CAs keep their private keys in highly secure, offline environments and typically only sign intermediate certificates rather than end-entity certificates directly. All certificate validation ultimately traces back to these trusted roots.
 
 At the bottom of a certificate chain sits the **end-entity certificate** (leaf certificate), which contains the public key for a specific entity like a website and is signed by an intermediate CA. Above this are one or more **intermediate certificates** that bridge the gap between the end-entity and root. Each intermediate is signed by the certificate directly above it in the chain. At the top is the **root certificate**, self-signed by the root CA and pre-installed in browsers and operating systems as a trusted authority. This hierarchical structure creates a verifiable trust path from any certificate up to a universally trusted source.
 
 Think of the trust chain like a chain of personal recommendations. You might not know someone directly, but if your trusted friend vouches for their friend, who vouches for another person, you can trace that trust back to someone you know.
 
-Without this chain structure, your browser would need to personally "know" and trust every single website's certificate individually - that would mean storing millions of certificates. Instead, browsers only need to trust a small number of root certificates, and these roots can vouch for intermediates, which can vouch for many websites.
+Without this chain structure, your browser would need to personally "know" and trust every single website's certificate individually—that would mean storing millions of certificates. Instead, browsers only need to trust a small number of root certificates, and these roots can vouch for intermediates, which can vouch for many websites.
 
-This system also provides safety through isolation. If one intermediate certificate gets compromised, only the certificates it signed are affected - not every certificate in existence. It's like having multiple managers in a company instead of the CEO signing every document personally.
+This system also provides safety through isolation. If one intermediate certificate gets compromised, only the certificates it signed are affected—not every certificate in existence. It's like having multiple managers in a company instead of the CEO signing every document personally.
 
 ### How SSL/TLS Works in Practice
 
-Now, let's see how the whole SSL/TLS works in practice when you visit a secure website. Think of certificates like digital ID cards for computers and websites, but with a clever twist involving special key pairs and a chain of trust.
+Now, let's see how SSL/TLS works in practice when you visit a secure website. Think of certificates like digital ID cards for computers and websites, but with a clever twist involving special key pairs and a chain of trust.
 
-Every TLS enabled website has two mathematically connected keys:
+Every TLS-enabled website has two mathematically connected keys:
 
 - **Private Key:** Like a secret signature that only the website knows - kept completely secret
 - **Public Key:** Like a stamp of that signature that can be shared with everyone
@@ -75,9 +77,9 @@ When you visit a website, here's what happens (please note that this is a simpli
     - Browser says: "Prove you're really example.com"
     - The website uses its private key to sign a response
     - Browser uses the public key from the website's certificate to verify that signature
-    - If it matches, connection is secure
+    - If it matches, the connection is secure
 
-The power of the approach is that your browser only needs to trust a few Root CAs, but through the chain of trust, it can verify millions of websites worldwide.
+The power of this approach is that your browser only needs to trust a few Root CAs, but through the chain of trust, it can verify millions of websites worldwide.
 
 ## One-Way TLS vs. Mutual TLS (mTLS)
 
@@ -134,17 +136,17 @@ It's important to understand how mTLS differs from other authentication approach
 
 When working with SSL/TLS, you'll encounter various standards, encodings, and file formats. Understanding these is crucial for effectively managing certificates and secure communication.
 
-In these series of articles, we use X.509 certificates, which are the most common format for SSL/TLS certificates. X.509 is a standard that defines the format of public key certificates, including the structure of the certificate itself and how it should be signed.
+In this series of articles, we use X.509 certificates, which are the most common format for SSL/TLS certificates. X.509 is a standard that defines the format of public key certificates, including the structure of the certificate itself and how it should be signed.
 
 Here are some of the key components of an X.509 certificate:
 
 1. **Version**: Indicates the version of the X.509 standard used (e.g., v1, v2, v3).
 2. **Serial Number**: A unique identifier assigned by the Certificate Authority (CA) to the certificate.
 3. **Signature Algorithm**: Specifies the algorithm used to sign the certificate (e.g., SHA256 with RSA).
-4. **Issuer**: Distinguished Name (DN) of Certificate Authority (CA) that issued the certificate.
+4. **Issuer**: Distinguished Name (DN) of the Certificate Authority (CA) that issued the certificate.
 5. **Validity**: The time period during which the certificate is valid, including start and end dates.
-6. **Subject**: Distinguished Name (DN) of the Certificate Holder (e.g., the server or organization the certificate represents).
-7. **Subject Public Key Info**: Contains the public key and its algorithm used for encryption and signature verification.
+6. **Subject**: Distinguished Name (DN) of the certificate holder (e.g., the server or organization the certificate represents).
+7. **Subject Public Key Info**: Contains the public key of the certificate's subject and the algorithm used with that key.
 
 The following is an example of an X.509 certificate:
 
@@ -237,22 +239,22 @@ Each certificate can be encoded in different formats, with the most common being
 
 - **DER (Distinguished Encoding Rules)**: Binary format that is not human-readable. It is often used in Java applications and some Windows systems.
 
-Certificates are usually stored within files with the following common file extensions:
+Certificates are usually stored in files with the following common file extensions:
 
 - **.crt** - Most common, usually PEM format
 - **.cer** - Can be DER or PEM format
 - **.pem** - Always PEM format
 - **.der** - Always DER (binary) format
 
-Besides the PEM and DER formats, you may also encounter the envelope formats, such as PKCS#12 and PKCS#7:
+Besides the PEM and DER formats, you may also encounter envelope formats, such as PKCS#12 and PKCS#7:
 
-- **PKCS#12 (.p12 or .pfx)**: A binary format that can contain both the certificate and its private key, often used for importing/exporting certificates with their private keys. It is password-protected to secure the private key. They are used when we need to bundle private key and certificate.
-- **PKCS#7 (.p7b or .p7c)**: A format that can contain multiple certificates (like a certificate chain) but does not include the private key. It is often used for distributing certificates and building certificate trust chain.
+- **PKCS#12 (.p12 or .pfx)**: A binary format that can contain both the certificate and its private key, often used for importing/exporting certificates with their private keys. It is password-protected to secure the private key. These are used when we need to bundle the private key and certificate.
+- **PKCS#7 (.p7b or .p7c)**: A format that can contain multiple certificates (like a certificate chain) but does not include the private key. It is often used for distributing certificates and building certificate trust chains.
 
-We may also store public keys inside a file with `.pub` or `.pem` extension and store private keys inside files with `.prv`, `.key` or `.pem` extension.
+We may also store public keys in a file with a `.pub` or `.pem` extension and store private keys in files with `.prv`, `.key` or `.pem` extension.
 
-There are more formats and extension files, but for the purpose of this guide, we will focus on the most commonly used formats: PEM for certificates and private keys and PKCS#12 for bundles containing both certificates and private keys.
+There are more formats and file extensions, but for the purpose of this guide, we will focus on the most commonly used formats: PEM for certificates and private keys and PKCS#12 for bundles containing both certificates and private keys.
 
 [//]: # (Certificates are public information, and they can be stored in a plain text file without a need for permission or password protection. However, the private key associated with a certificate must be kept secure and is typically stored in a separate file with restricted access.)
 
-Now that we have covered the most basic concepts of SSL/TLS, certificates, and PKI, we can proceed to the implementation articles where we will explore how to set up SSL/TLS in ZIO HTTP applications using different approaches, including self-signed certificates, CA-signed certificates, intermediate CA-signed, and mutual TLS (mTLS).
+Now that we have covered the most basic concepts of SSL/TLS, certificates, and PKI, we can proceed to the implementation articles where we will explore how to set up SSL/TLS in ZIO HTTP applications using different approaches, including self-signed certificates, CA-signed certificates, intermediate CA-signed certificates, and mutual TLS (mTLS).
