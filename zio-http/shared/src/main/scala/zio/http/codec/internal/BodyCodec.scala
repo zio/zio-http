@@ -59,7 +59,9 @@ private[http] sealed trait BodyCodec[A] { self =>
   /**
    * Encodes the `A` to a body in the given codec.
    */
-  def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit trace: Trace): Body
+  def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
+    trace: Trace,
+  ): IO[Throwable, Body]
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -93,7 +95,7 @@ private[http] object BodyCodec {
 
     override def encodeToBody(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
-    ): Body = Body.empty
+    ): IO[Throwable, Body] = ZIO.succeed(Body.empty)
 
     override def encodeToField(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], name: String, config: CodecConfig)(
       implicit trace: Trace,
@@ -162,12 +164,12 @@ private[http] object BodyCodec {
 
     def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
-    ): Body = {
+    ): IO[Throwable, Body] = {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
       val mediaType = selected._1
       val bc        = selected._2
-      if (bc.schema == Schema[Unit]) Body.empty.contentType(mediaType)
-      else Body.fromChunk(bc.codec(config).encode(value), mediaType)
+      if (bc.schema == Schema[Unit]) ZIO.succeed(Body.empty.contentType(mediaType))
+      else ZIO.attempt(bc.codec(config).encode(value)).map(chunk => Body.fromChunk(chunk, mediaType))
     }
 
     type Element = A
@@ -224,11 +226,11 @@ private[http] object BodyCodec {
       config: CodecConfig,
     )(implicit
       trace: Trace,
-    ): Body = {
+    ): IO[Throwable, Body] = {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
       val mediaType = selected._1
       val bc        = selected._2
-      Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType)
+      ZIO.succeed(Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType))
     }
 
     type Element = E

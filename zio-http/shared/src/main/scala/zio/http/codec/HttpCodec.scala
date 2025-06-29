@@ -206,13 +206,13 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Uses this codec and [[CodecConfig.defaultConfig]] to encode the Scala value
    * into a request.
    */
-  final def encodeRequest(value: Value): Request =
+  final def encodeRequest(value: Value): IO[Throwable, Request] =
     encodeRequest(value, CodecConfig.defaultConfig)
 
   /**
    * Uses this codec to encode the Scala value into a request.
    */
-  final def encodeRequest(value: Value, config: CodecConfig): Request =
+  final def encodeRequest(value: Value, config: CodecConfig): IO[Throwable, Request] =
     encodeWith(config, value, Chunk.empty)((url, _, method, headers, body) =>
       Request(
         url = url,
@@ -227,14 +227,18 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Uses this codec to encode the Scala value as a response.
    */
-  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig): Response =
+  final def encodeResponse[Z](
+    value: Value,
+    outputTypes: Chunk[MediaTypeWithQFactor],
+    config: CodecConfig,
+  ): IO[Throwable, Response] =
     encodeWith(config, value, outputTypes)((_, status, _, headers, body) =>
       Response(headers = headers, body = body, status = status.getOrElse(Status.Ok)),
     )
 
   private final def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
-  ): Z =
+  ): IO[Throwable, Z] =
     encoderDecoder.encodeWith(config, value, outputTypes.sorted)(f)
 
   def examples(examples: Iterable[(String, Value)]): HttpCodec[AtomTypes, Value] =
