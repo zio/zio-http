@@ -24,8 +24,8 @@ object ServerApp extends ZIOAppDefault {
 
   // SSL configuration using PKCS12 keystore with certificate chain
   private val sslConfig = SSLConfig.fromJavaxNetSslKeyStoreResource(
-    keyManagerResource = "certs/tls/intermediate-ca-signed/server.p12",
-    keyManagerPassword = Some(Secret("changeit")),
+    keyManagerResource = "certs/tls/intermediate-ca-signed/server-keystore.p12",
+    keyManagerPassword = Some(Secret("keystorepass")),
   )
 
   private val serverConfig = ZLayer.succeed {
