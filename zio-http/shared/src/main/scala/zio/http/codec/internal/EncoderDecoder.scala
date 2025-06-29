@@ -81,28 +81,19 @@ private[codec] object EncoderDecoder {
     override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
     ): IO[Throwable, Z] = {
-      var i         = 0
-      var encoded   = null.asInstanceOf[IO[Throwable, Z]]
-      var lastError = null.asInstanceOf[Throwable]
+      def tryNext(i: Int, lastError: Option[Throwable]): IO[Throwable, Z] = {
+        if (i >= singles.length) {
+          ZIO.fail(lastError.asInstanceOf[Throwable])
+        } else {
+          val (current, _) = singles(i)
 
-      while (i < singles.length) {
-        val (current, _) = singles(i)
-
-        try {
-          encoded = current.encodeWith(config, value, outputTypes)(f)
-
-          i = singles.length // break
-        } catch {
-          case error: HttpCodecError =>
-            // TODO: Aggregate all errors in disjunction:
-            lastError = error
+          current.encodeWith(config, value, outputTypes)(f).catchAll { err =>
+            tryNext(i + 1, Some(err))
+          }
         }
-
-        i = i + 1
       }
 
-      if (encoded == null) throw lastError
-      else encoded
+      tryNext(0, None)
     }
   }
 
