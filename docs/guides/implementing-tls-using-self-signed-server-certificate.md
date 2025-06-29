@@ -11,8 +11,6 @@ This tutorial demonstrates how to implement TLS using self-signed certificates w
 
 ## Understanding Self-signed Certificates
 
-### What is a Self-signed Certificate?
-
 A self-signed certificate is a digital certificate that is signed by the same entity that it certifies, rather than by a trusted Certificate Authority. Unlike CA-issued certificates, self-signed certificates create their own chain of trust, making them both the issuer and the subject.
 
 ```
@@ -147,6 +145,7 @@ object ServerApp extends ZIOAppDefault {
 ```
 
 **Key Points:**
+
 - The server loads its private key and certificate from a PKCS12 keystore
 - The `SSLConfig` handles all TLS configuration
 - The server listens on port 8443 (standard HTTPS alternative port)
@@ -313,8 +312,6 @@ Self-signed certificates provide a simple way to enable TLS encryption during de
 Key takeaways:
 - Self-signed certificates are perfect for development and testing
 - Clients must explicitly trust self-signed certificates
-- The encryption is just as strong as CA-signed certificates
 - Never use them for public-facing production services
-- Always have a plan to transition to proper certificates for production
 
-In the next article, we'll explore using CA-signed certificates, which provide third-party validation and are suitable for production use.
+In the [next guide](implementing-tls-with-root-ca-signed-server-certificate.md), we'll explore using CA-signed certificates, which provide third-party validation and are suitable for production use.
