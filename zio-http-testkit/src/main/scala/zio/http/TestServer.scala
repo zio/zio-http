@@ -142,6 +142,7 @@ object TestServer {
   val default: ZLayer[Any, Nothing, TestServer] = ZLayer.make[TestServer][Nothing](
     TestServer.layer.orDie,
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
+    ServerRuntimeConfig.layer,
     NettyDriver.customized.orDie,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
