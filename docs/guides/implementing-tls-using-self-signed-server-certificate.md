@@ -48,11 +48,10 @@ The certificate generation process involves creating a private key, generating a
 ```bash
 openssl req -x509 -newkey rsa:4096 -keyout server-key.pem \
     -out server-cert.pem -days 365 -nodes \
-    -subj "/C=Country/ST=State/L=City/O=MyCompany/OU=IT/CN=localhost" \
-    -addext "subjectAltName = DNS:localhost,IP:127.0.0.1"
+    -subj "/CN=localhost" 
 ```
 
-With this command, we generate a new RSA private key (`server-key.pem`) and a self-signed certificate valid for 365 days (`server-cert.pem`). The `-subj` option specifies the subject details, and `-addext` adds Subject Alternative Names (SAN) that enable certificate validation via both the given DNS and IP values.
+With this command, we generate a new RSA private key (`server-key.pem`) and a self-signed certificate valid for 365 days (`server-cert.pem`). The `-subj` option specifies the subject details, which in this case is set to `CN=localhost`, indicating that the certificate is intended for use with the localhost domain.
 
 ### Generating the Server Key Store
 
@@ -61,10 +60,10 @@ To create a PKCS12 keystore that combines the private key and certificate into a
 ```bash
 openssl pkcs12 -export -in server-cert.pem \
     -inkey server-key.pem \
-    -out server.p12 -name server -password pass:changeit
+    -out server-keystore.p12 -name server -password pass:serverkeypass
 ```
 
-The `server.p12` file is a password-protected keystore containing the private key and certificate. Later, we can use this keystore in our ZIO HTTP server configuration.
+The `server-keystore.p12` file is a password-protected keystore containing the private key and certificate. Later, we can use this keystore in our ZIO HTTP server configuration.
 
 ### Creating the Client Trust Store
 
@@ -72,9 +71,9 @@ Since the certificate is self-signed, clients need to explicitly trust it. There
 
 ```bash
 keytool -importcert -file server-cert.pem \
-    -keystore truststore.p12 \
+    -keystore client-truststore.p12 \
     -storetype PKCS12 \
-    -storepass trustpass \
+    -storepass clienttrustpass \
     -alias server \
     -noprompt
 ```
@@ -91,10 +90,10 @@ src/main/
 │   ├── ServerApp.scala
 │   └── ClientApp.scala
 └── resources/certs/tls/self-signed/
-    ├── server.p12          # Server keystore with private key and certificate
-    ├── truststore.p12      # Client truststore with server certificate
-    ├── server-cert.pem     # PEM format certificate
-    └── server-key.pem      # PEM format private key
+    ├── server-keystore.p12    # Server keystore with private key and certificate
+    ├── client-truststore.p12  # Client truststore with server certificate
+    ├── server-cert.pem        # PEM format certificate
+    └── server-key.pem         # PEM format private key
 ```
 
 ### Server Implementation
@@ -108,8 +107,8 @@ import zio.http._
 // Option 1: Using PKCS12 keystore
 private val sslConfig =
   SSLConfig.fromJavaxNetSslKeyStoreResource(
-    keyManagerResource = "certs/tls/self-signed/server.p12",
-    keyManagerPassword = Some(Secret("trustpass")),
+    keyManagerResource = "certs/tls/self-signed/server-keystore.p12",
+    keyManagerPassword = Some(Secret("keystorepass")),
   )
 
 // Option 2: Using PEM files directly
@@ -165,8 +164,8 @@ val sslConfig =
   ZLayer.succeed {
     ZClient.Config.default.ssl(
       ClientSSLConfig.FromTrustStoreResource(
-        trustStorePath = "certs/tls/self-signed/truststore.p12",
-        trustStorePassword = "trustpass",
+        trustStorePath = "certs/tls/self-signed/client-truststore.p12",
+        trustStorePassword = "clienttrustpass",
       )
     )
   }
@@ -251,7 +250,7 @@ Self-signed TLS Server starting on https://localhost:8443/
 ### 2. Run the Client
 
 ```bash
-sbt "runMain example.ssl.tls.selfsigned.ClientApp"
+sbt "zioHttpExample/runMain example.ssl.tls.selfsigned.ClientApp"
 ```
 
 Output:

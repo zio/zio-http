@@ -21,8 +21,8 @@ object ClientApp extends ZIOAppDefault {
       ZLayer.succeed {
         ZClient.Config.default.ssl(
           ClientSSLConfig.FromTrustStoreResource(
-            trustStorePath = "certs/tls/self-signed/truststore.p12",
-            trustStorePassword = "trustpass",
+            trustStorePath = "certs/tls/self-signed/client-truststore.p12",
+            trustStorePassword = "clienttrustpass",
           ),
         )
       },

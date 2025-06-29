@@ -14,8 +14,8 @@ object ServerApp extends ZIOAppDefault {
   // Option 1: Using PKCS12 keystore (recommended)
   private val sslConfig =
     SSLConfig.fromJavaxNetSslKeyStoreResource(
-      keyManagerResource = "certs/tls/self-signed/server.p12",
-      keyManagerPassword = Some(Secret("changeit")),
+      keyManagerResource = "certs/tls/self-signed/server-keystore.p12",
+      keyManagerPassword = Some(Secret("serverkeypass")),
     )
 
 //  Option 2: Using PEM files directly

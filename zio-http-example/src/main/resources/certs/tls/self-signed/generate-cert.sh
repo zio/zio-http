@@ -6,18 +6,17 @@ echo "Creating self-signed certificate..."
 # Generate private key and self-signed certificate
 openssl req -x509 -newkey rsa:4096 -keyout server-key.pem \
     -out server-cert.pem -days 365 -nodes \
-    -subj "/C=US/ST=State/L=City/O=MyCompany/OU=IT/CN=localhost" \
-    -addext "subjectAltName = DNS:localhost,IP:127.0.0.1"
+    -subj "/CN=localhost" \
 
 echo "Self-signed certificate created."
 
 # Create PKCS12 keystore for server
 echo "Creating server keystore..."
 
-# Create server.p12 (contains server certificate and private key)
+# Create server-keystore.p12 (contains server certificate and private key)
 openssl pkcs12 -export -in server-cert.pem \
     -inkey server-key.pem \
-    -out server.p12 -name server -password pass:changeit
+    -out server-keystore.p12 -name server -password pass:serverkeypass
 
 echo "Server keystore created."
 
@@ -26,9 +25,9 @@ echo "Creating truststore..."
 
 # Import self-signed certificate directly into truststore
 keytool -importcert -file server-cert.pem \
-    -keystore truststore.p12 \
+    -keystore client-truststore.p12 \
     -storetype PKCS12 \
-    -storepass trustpass \
+    -storepass clienttrustpass \
     -alias server \
     -noprompt
 
@@ -45,11 +44,11 @@ echo -e "\nContents of server.p12:"
 keytool -list -keystore server.p12 -storepass changeit -storetype PKCS12
 
 echo -e "\nContents of truststore.p12:"
-keytool -list -keystore truststore.p12 -storepass trustpass -storetype PKCS12
+keytool -list -keystore truststore.p12 -storepass clienttrustpass -storetype PKCS12
 
 echo -e "\nCertificate creation complete!"
 echo "Files created in :"
 echo "  - server-cert.pem   : Self-signed server certificate"
 echo "  - server-key.pem    : Server private key"
-echo "  - server.p12        : Server keystore (for SimpleTlsServer)"
-echo "  - truststore.p12    : Client truststore (for SimpleTlsClient)"
+echo "  - server-keystore.p12        : Server keystore (for SimpleTlsServer)"
+echo "  - client-truststore.p12    : Client truststore (for SimpleTlsClient)"
