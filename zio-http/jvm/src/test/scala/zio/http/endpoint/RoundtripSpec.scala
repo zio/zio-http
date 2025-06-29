@@ -377,7 +377,8 @@ object RoundtripSpec extends ZIOHttpSpec {
       }
       test("simple get with case class in return and header codec accepting media type text plain") {
         val usersPostAPI =
-          Endpoint(GET / "users" / "posts").out[Post]
+          Endpoint(GET / "users" / "posts")
+            .out[Post]
             .header(HeaderCodec.accept)
 
         val usersPostHandler =
@@ -387,11 +388,12 @@ object RoundtripSpec extends ZIOHttpSpec {
 
         testEndpointCustomRequestZIO(
           usersPostHandler.toRoutes,
-          Request(method = GET, url = URL(path = Path("/users/posts")), headers = Headers(Header.Accept(MediaType.text.`plain`))),
-          response =>
-            response.body.asString.map(s =>
-              assertTrue(s.contains("Error while encoding body")),
-            ),
+          Request(
+            method = GET,
+            url = URL(path = Path("/users/posts")),
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
+          ),
+          response => response.body.asString.map(s => assertTrue(s.contains("Error while encoding body"))),
         )
       }
 

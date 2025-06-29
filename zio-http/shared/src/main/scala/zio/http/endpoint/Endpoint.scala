@@ -347,19 +347,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
             original(value)
               .asInstanceOf[ZIO[Env, Err, Output]]
               .foldZIO(
-                success = output =>
-                  endpoint.output
-                    .encodeResponse(output, outputMediaTypes, config),
-                failure = error =>
-                  endpoint.error
-                    .encodeResponse(error, outputMediaTypes, config),
+                success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
+                failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
               )
-              .catchAll { error =>
-                ZIO.logError(error.getMessage) zipRight
-                  ZIO.succeed(
-                    Response.internalServerError(s"Error while encoding body"),
-                  )
-              }
           }
         } -> condition
       }
@@ -396,22 +386,18 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                 maybeUnauthedResponse.get
               case Some(_) =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
-                  val error            = cause.defects.head.asInstanceOf[HttpCodecError]
-                  val outputMediaTypes = (
-                    request.headers
-                      .getAll(Header.Accept)
-                      .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
-                  ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
+                  val error    = cause.defects.head.asInstanceOf[HttpCodecError]
+                  val response = {
+                    val outputMediaTypes =
+                      (
+                        request.headers
+                          .getAll(Header.Accept)
+                          .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
+                      ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
 
-                  codecError
-                    .encodeResponse(error, outputMediaTypes, config)
-                    .catchAll(error =>
-                      ZIO.logError(error.getMessage) zipRight
-                        ZIO.succeed(
-                          Response.internalServerError(s"Error while encoding body"),
-                        ),
-                    )
-
+                    codecError.encodeResponse(error, outputMediaTypes, config)
+                  }
+                  ZIO.succeed(response)
                 }
               case None    =>
                 Handler.failCause(cause)

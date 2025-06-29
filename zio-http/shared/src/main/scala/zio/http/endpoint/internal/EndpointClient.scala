@@ -42,25 +42,27 @@ private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
         .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]]
         .encodeRequest(input, config)
     }
-    def request(config: CodecConfig, authInput: endpoint.authType.ClientRequirement)  =
-      request0(config, authInput).map(req0 => req0.copy(url = endpointRoot ++ req0.url))
+    def request(config: CodecConfig, authInput: endpoint.authType.ClientRequirement)  = {
+      val req0 = request0(config, authInput)
+      req0.copy(url = endpointRoot ++ req0.url)
+    }
 
-    def withDefaultAcceptHeader(config: CodecConfig, authInput: endpoint.authType.ClientRequirement) =
-      request(config, authInput).map(req =>
-        if (req.headers.exists(_.headerName == Header.Accept.name))
-          req
-        else {
-          req.addHeader(
-            Header.Accept(MediaType.application.json, protobufMediaType, MediaType.text.`plain`),
-          )
-        },
-      )
+    def withDefaultAcceptHeader(config: CodecConfig, authInput: endpoint.authType.ClientRequirement) = {
+      val req = request(config, authInput)
+      if (req.headers.exists(_.headerName == Header.Accept.name))
+        req
+      else {
+        req.addHeader(
+          Header.Accept(MediaType.application.json, protobufMediaType, MediaType.text.`plain`),
+        )
+      }
+    }
 
     val requested =
       for {
         authInput <- authProvider
         config    <- CodecConfig.codecRef.get
-        response  <- withDefaultAcceptHeader(config, authInput).flatMap(client.request).orDie
+        response  <- client.request(withDefaultAcceptHeader(config, authInput)).orDie
       } yield response
 
     requested.flatMap { response =>

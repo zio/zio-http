@@ -16,6 +16,8 @@
 
 package zio.http.codec.internal
 
+import scala.util.Try
+
 import zio._
 
 import zio.stream.{ZPipeline, ZStream}
@@ -61,7 +63,7 @@ private[http] sealed trait BodyCodec[A] { self =>
    */
   def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
     trace: Trace,
-  ): IO[Throwable, Body]
+  ): Either[Throwable, Body]
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -95,7 +97,7 @@ private[http] object BodyCodec {
 
     override def encodeToBody(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
-    ): IO[Throwable, Body] = ZIO.succeed(Body.empty)
+    ): Either[Throwable, Body] = Right(Body.empty)
 
     override def encodeToField(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], name: String, config: CodecConfig)(
       implicit trace: Trace,
@@ -164,12 +166,12 @@ private[http] object BodyCodec {
 
     def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
-    ): IO[Throwable, Body] = {
+    ): Either[Throwable, Body] = {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
       val mediaType = selected._1
       val bc        = selected._2
-      if (bc.schema == Schema[Unit]) ZIO.succeed(Body.empty.contentType(mediaType))
-      else ZIO.attempt(bc.codec(config).encode(value)).map(chunk => Body.fromChunk(chunk, mediaType))
+      if (bc.schema == Schema[Unit]) Right(Body.empty.contentType(mediaType))
+      else Try(bc.codec(config).encode(value)).map(chunk => Body.fromChunk(chunk, mediaType)).toEither
     }
 
     type Element = A
@@ -226,11 +228,11 @@ private[http] object BodyCodec {
       config: CodecConfig,
     )(implicit
       trace: Trace,
-    ): IO[Throwable, Body] = {
+    ): Either[Throwable, Body] = {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
       val mediaType = selected._1
       val bc        = selected._2
-      ZIO.succeed(Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType))
+      Right(Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType))
     }
 
     type Element = E

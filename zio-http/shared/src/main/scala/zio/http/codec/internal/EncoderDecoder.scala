@@ -25,16 +25,18 @@ import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec._
 
-private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
+private[codec] trait EncoderDecoder[-AtomTypes, Value] {
+  self =>
   def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value]
 
   def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
-  ): IO[Throwable, Z]
+  ): Z
 
 }
+
 private[codec] object EncoderDecoder {
 
   def apply[AtomTypes, Value](
@@ -80,20 +82,29 @@ private[codec] object EncoderDecoder {
 
     override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
-    ): IO[Throwable, Z] = {
-      def tryNext(i: Int, lastError: Option[Throwable]): IO[Throwable, Z] = {
-        if (i >= singles.length) {
-          ZIO.fail(lastError.asInstanceOf[Throwable])
-        } else {
-          val (current, _) = singles(i)
+    ): Z = {
+      var i         = 0
+      var encoded   = null.asInstanceOf[Z]
+      var lastError = null.asInstanceOf[Throwable]
 
-          current.encodeWith(config, value, outputTypes)(f).catchAll { err =>
-            tryNext(i + 1, Some(err))
-          }
+      while (i < singles.length) {
+        val (current, _) = singles(i)
+
+        try {
+          encoded = current.encodeWith(config, value, outputTypes)(f)
+
+          i = singles.length // break
+        } catch {
+          case error: HttpCodecError =>
+            // TODO: Aggregate all errors in disjunction:
+            lastError = error
         }
+
+        i = i + 1
       }
 
-      tryNext(0, None)
+      if (encoded == null) throw lastError
+      else encoded
     }
   }
 
@@ -117,8 +128,8 @@ private[codec] object EncoderDecoder {
       outputTypes: Chunk[MediaTypeWithQFactor],
     )(
       f: (zio.http.URL, Option[zio.http.Status], Option[zio.http.Method], zio.http.Headers, zio.http.Body) => Z,
-    ): IO[Throwable, Z] = {
-      ZIO.fail(new IllegalStateException(encodeWithErrorMessage))
+    ): Z = {
+      throw new IllegalStateException(encodeWithErrorMessage)
     }
 
     override def decode(
@@ -163,19 +174,21 @@ private[codec] object EncoderDecoder {
 
     override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
-    ): IO[Throwable, Z] = {
+    ): Z = {
       val inputs = deconstructor(value)
 
-      val path               = encodePath(inputs.path)
-      val query              = encodeQuery(config, inputs.query)
-      val status             = encodeStatus(inputs.status)
-      val method             = encodeMethod(inputs.method)
-      val headers            = encodeHeaders(inputs.header)
+      val path    = encodePath(inputs.path)
+      val query   = encodeQuery(config, inputs.query)
+      val status  = encodeStatus(inputs.status)
+      val method  = encodeMethod(inputs.method)
+      val headers = encodeHeaders(inputs.header)
+
       def contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
-      val body               = encodeBody(config, inputs.content, outputTypes)
+
+      val body = encodeBody(config, inputs.content, outputTypes).getOrElse(Body.fromString("Error while encoding body"))
 
       val headers0 = if (headers.contains("content-type")) headers else headers ++ contentTypeHeaders
-      body.map(f(URL(path, queryParams = query), status, method, headers0, _))
+      f(URL(path, queryParams = query), status, method, headers0, body)
     }
 
     private def genericDecode[A, Codec](
@@ -285,7 +298,9 @@ private[codec] object EncoderDecoder {
           val codec  = codecs(i).erase
           for {
             decoded <- codec.decodeFromField(field, config)
-            _       <- ZIO.attempt { inputs(i) = decoded }
+            _       <- ZIO.attempt {
+              inputs(i) = decoded
+            }
           } yield ()
         }
       }
@@ -364,15 +379,15 @@ private[codec] object EncoderDecoder {
       config: CodecConfig,
       inputs: Array[Any],
       outputTypes: Chunk[MediaTypeWithQFactor],
-    ): IO[Throwable, Body] =
+    ): Either[Throwable, Body] =
       inputs.length match {
         case 0 =>
-          ZIO.succeed(Body.empty)
+          Right(Body.empty)
         case 1 =>
           val bodyCodec = flattened.content(0)
           bodyCodec.erase.encodeToBody(inputs(0), outputTypes, config)
         case _ =>
-          ZIO.attempt(Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes, config), formBoundary))
+          Try(Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes, config), formBoundary)).toEither
 
       }
 
