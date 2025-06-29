@@ -340,4 +340,4 @@ Certificate chains with intermediate CAs provide essential security benefits by 
 
 Our ZIO HTTP implementation demonstrated how certificate chains work in practice: servers automatically present the complete chain during TLS handshake, while clients only need to trust the root CA. This delegation of trust creates a scalable and secure architecture. This foundation prepares you to build production-ready applications that meet enterprise security standards in modern distributed systems.
 
-In the next article, we'll explore mutual TLS (mTLS), where both client and server present certificates for bidirectional authentication.
+In the [next article](implementing-mutual-tls.md), we'll explore mutual TLS (mTLS), where both client and server present certificates for bidirectional authentication.
