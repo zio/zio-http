@@ -294,6 +294,12 @@ Client                                          Server
   | 5. Verify hostname                            |
   |                                               |
   |-------------- ClientKeyExchange ------------->|
+  |-------------- ChangeCipherSpec -------------->|
+  |-------------- Finished ---------------------->|
+  |                                               |
+  |<------------- ChangeCipherSpec ---------------|
+  |<------------- Finished -----------------------|
+  |                                               |
   |========== Encrypted Application Data =========|
 ```
 
