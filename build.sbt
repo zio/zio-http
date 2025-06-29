@@ -345,8 +345,8 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
   .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.18",
-      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.18" % "protobuf",
+      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.19",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % "protobuf",
       "com.google.protobuf"   % "protobuf-java"   % "4.31.1"  % "protobuf",
     ),
   )
@@ -372,7 +372,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
       `zio-test-sbt`,
       `zio-test`,
       "com.google.protobuf"   % "protobuf-java"   % "4.31.1"  % "protobuf",
-      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.18" % "protobuf",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % "protobuf",
     ),
     Compile / run / fork := true,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
