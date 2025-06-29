@@ -28,7 +28,7 @@ import zio.http.codec._
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   self =>
   def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-                                                                                                          trace: Trace,
+    trace: Trace,
   ): Task[Value]
 
   def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
@@ -40,8 +40,8 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] {
 private[codec] object EncoderDecoder {
 
   def apply[AtomTypes, Value](
-                               httpCodec: HttpCodec[AtomTypes, Value],
-                             ): EncoderDecoder[AtomTypes, Value] = {
+    httpCodec: HttpCodec[AtomTypes, Value],
+  ): EncoderDecoder[AtomTypes, Value] = {
     val flattened = httpCodec.alternatives
 
     flattened.length match {
@@ -52,8 +52,8 @@ private[codec] object EncoderDecoder {
   }
 
   private final case class Multiple[-AtomTypes, Value](
-                                                        httpCodecs: Chunk[(HttpCodec[AtomTypes, Value], HttpCodec.Fallback.Condition)],
-                                                      ) extends EncoderDecoder[AtomTypes, Value] {
+    httpCodecs: Chunk[(HttpCodec[AtomTypes, Value], HttpCodec.Fallback.Condition)],
+  ) extends EncoderDecoder[AtomTypes, Value] {
     val singles = httpCodecs.map { case (httpCodec, condition) => Single(httpCodec) -> condition }
 
     override def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(
@@ -83,8 +83,8 @@ private[codec] object EncoderDecoder {
     override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
     ): Z = {
-      var i = 0
-      var encoded = null.asInstanceOf[Z]
+      var i         = 0
+      var encoded   = null.asInstanceOf[Z]
       var lastError = null.asInstanceOf[Throwable]
 
       while (i < singles.length) {
@@ -123,39 +123,39 @@ private[codec] object EncoderDecoder {
     """.stripMargin.trim()
 
     override def encodeWith[Z](
-                                config: CodecConfig,
-                                value: Any,
-                                outputTypes: Chunk[MediaTypeWithQFactor],
-                              )(f: (zio.http.URL, Option[zio.http.Status], Option[zio.http.Method], zio.http.Headers, zio.http.Body) => Z): Z = {
+      config: CodecConfig,
+      value: Any,
+      outputTypes: Chunk[MediaTypeWithQFactor],
+    )(f: (zio.http.URL, Option[zio.http.Status], Option[zio.http.Method], zio.http.Headers, zio.http.Body) => Z): Z = {
       throw new IllegalStateException(encodeWithErrorMessage)
     }
 
     override def decode(
-                         config: CodecConfig,
-                         url: zio.http.URL,
-                         status: zio.http.Status,
-                         method: zio.http.Method,
-                         headers: zio.http.Headers,
-                         body: zio.http.Body,
-                       )(implicit trace: zio.Trace): zio.Task[Any] = {
+      config: CodecConfig,
+      url: zio.http.URL,
+      status: zio.http.Status,
+      method: zio.http.Method,
+      headers: zio.http.Headers,
+      body: zio.http.Body,
+    )(implicit trace: zio.Trace): zio.Task[Any] = {
       ZIO.fail(new IllegalStateException(decodeErrorMessage))
     }
   }
 
   private final case class Single[-AtomTypes, Value](
-                                                      httpCodec: HttpCodec[AtomTypes, Value],
-                                                    ) extends EncoderDecoder[AtomTypes, Value] {
-    private val constructor = Mechanic.makeConstructor(httpCodec)
+    httpCodec: HttpCodec[AtomTypes, Value],
+  ) extends EncoderDecoder[AtomTypes, Value] {
+    private val constructor   = Mechanic.makeConstructor(httpCodec)
     private val deconstructor = Mechanic.makeDeconstructor(httpCodec)
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: Trace     = Trace.empty
     private lazy val formBoundary = Boundary("----zio-http-boundary-D4792A5C-93E0-43B5-9A1F-48E38FDE5714")
-    private lazy val indexByName = flattened.content.zipWithIndex.map { case (codec, idx) =>
+    private lazy val indexByName  = flattened.content.zipWithIndex.map { case (codec, idx) =>
       codec.name.getOrElse("field" + idx.toString) -> idx
     }.toMap
-    private lazy val nameByIndex = indexByName.map(_.swap)
+    private lazy val nameByIndex  = indexByName.map(_.swap)
 
     override def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(
       implicit trace: Trace,
@@ -175,10 +175,10 @@ private[codec] object EncoderDecoder {
     ): Z = {
       val inputs = deconstructor(value)
 
-      val path = encodePath(inputs.path)
-      val query = encodeQuery(config, inputs.query)
-      val status = encodeStatus(inputs.status)
-      val method = encodeMethod(inputs.method)
+      val path    = encodePath(inputs.path)
+      val query   = encodeQuery(config, inputs.query)
+      val status  = encodeStatus(inputs.status)
+      val method  = encodeMethod(inputs.method)
       val headers = encodeHeaders(inputs.header)
 
       def contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
@@ -190,11 +190,11 @@ private[codec] object EncoderDecoder {
     }
 
     private def genericDecode[A, Codec](
-                                         a: A,
-                                         codecs: Chunk[Codec],
-                                         inputs: Array[Any],
-                                         decode: (Codec, A) => Any,
-                                       ): Unit = {
+      a: A,
+      codecs: Chunk[Codec],
+      inputs: Array[Any],
+      decode: (Codec, A) => Any,
+    ): Unit = {
       for (i <- 0 until inputs.length) {
         val codec = codecs(i)
         inputs(i) = decode(codec, a)
@@ -208,7 +208,7 @@ private[codec] object EncoderDecoder {
         inputs,
         (codec, path) => {
           codec.erase.decode(path) match {
-            case Left(error) => throw HttpCodecError.MalformedPath(path, codec, error)
+            case Left(error)  => throw HttpCodecError.MalformedPath(path, codec, error)
             case Right(value) => value
           }
         },
@@ -239,8 +239,8 @@ private[codec] object EncoderDecoder {
           codec match {
             case SimpleCodec.Specified(expected) if expected != status =>
               throw HttpCodecError.MalformedStatus(expected, status)
-            case _: SimpleCodec.Unspecified[_] => status
-            case _ => ()
+            case _: SimpleCodec.Unspecified[_]                         => status
+            case _                                                     => ()
           },
       )
 
@@ -253,13 +253,13 @@ private[codec] object EncoderDecoder {
           codec match {
             case SimpleCodec.Specified(expected) if expected != method =>
               throw HttpCodecError.MalformedMethod(expected, method)
-            case _: SimpleCodec.Unspecified[_] => method
-            case _ => ()
+            case _: SimpleCodec.Unspecified[_]                         => method
+            case _                                                     => ()
           },
       )
 
     private def decodeBody(config: CodecConfig, body: Body, inputs: Array[Any])(implicit
-                                                                                trace: Trace,
+      trace: Trace,
     ): Task[Unit] = {
       val isNonMultiPart = inputs.length < 2
       if (isNonMultiPart) {
@@ -283,20 +283,20 @@ private[codec] object EncoderDecoder {
     }
 
     private def decodeForm(
-                            form: Task[StreamingForm],
-                            inputs: Array[Any],
-                            config: CodecConfig,
-                          ): ZIO[Any, Throwable, Unit] =
+      form: Task[StreamingForm],
+      inputs: Array[Any],
+      config: CodecConfig,
+    ): ZIO[Any, Throwable, Unit] =
       form.flatMap(_.collectAll).flatMap { collectedForm =>
         ZIO.foreachDiscard(collectedForm.formData) { field =>
           val codecs = flattened.content
-          val i = indexByName
+          val i      = indexByName
             .get(field.name)
             .getOrElse(throw HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
-          val codec = codecs(i).erase
+          val codec  = codecs(i).erase
           for {
             decoded <- codec.decodeFromField(field, config)
-            _ <- ZIO.attempt {
+            _       <- ZIO.attempt {
               inputs(i) = decoded
             }
           } yield ()
@@ -314,11 +314,11 @@ private[codec] object EncoderDecoder {
       }
 
     private def genericEncode[A, Codec](
-                                         codecs: Chunk[Codec],
-                                         inputs: Array[Any],
-                                         init: A,
-                                         encoding: (Codec, Any, A) => A,
-                                       ): A = {
+      codecs: Chunk[Codec],
+      inputs: Array[Any],
+      init: A,
+      encoding: (Codec, Any, A) => A,
+    ): A = {
       var res = init
       for (i <- 0 until inputs.length) {
         val codec = codecs(i)
@@ -332,7 +332,7 @@ private[codec] object EncoderDecoder {
       codecs.headOption.map { codec =>
         codec match {
           case _: SimpleCodec.Unspecified[_] => inputs(0).asInstanceOf[A]
-          case SimpleCodec.Specified(elem) => elem
+          case SimpleCodec.Specified(elem)   => elem
         }
       }
 
@@ -343,7 +343,7 @@ private[codec] object EncoderDecoder {
         Path.empty,
         (codec, a, acc) => {
           val encoded = codec.erase.encode(a) match {
-            case Left(error) =>
+            case Left(error)  =>
               throw HttpCodecError.MalformedPath(acc, codec, error)
             case Right(value) => value
           }
@@ -373,7 +373,11 @@ private[codec] object EncoderDecoder {
     private def encodeMethod(inputs: Array[Any]): Option[Method] =
       simpleEncode(flattened.method, inputs)
 
-    private def encodeBody(config: CodecConfig, inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Either[Throwable, Body] =
+    private def encodeBody(
+      config: CodecConfig,
+      inputs: Array[Any],
+      outputTypes: Chunk[MediaTypeWithQFactor],
+    ): Either[Throwable, Body] =
       inputs.length match {
         case 0 =>
           Right(Body.empty)
@@ -381,17 +385,19 @@ private[codec] object EncoderDecoder {
           val bodyCodec = flattened.content(0)
           bodyCodec.erase.encodeToBody(inputs(0), outputTypes, config)
         case _ =>
-          Try(encodeMultipartFormData(inputs, outputTypes, config)).map(form => Body.fromMultipartForm(form, formBoundary)).toEither
+          Try(encodeMultipartFormData(inputs, outputTypes, config))
+            .map(form => Body.fromMultipartForm(form, formBoundary))
+            .toEither
       }
 
     private def encodeMultipartFormData(
-                                         inputs: Array[Any],
-                                         outputTypes: Chunk[MediaTypeWithQFactor],
-                                         config: CodecConfig,
-                                       ): Form = {
+      inputs: Array[Any],
+      outputTypes: Chunk[MediaTypeWithQFactor],
+      config: CodecConfig,
+    ): Form = {
       val formFields = flattened.content.zipWithIndex.map { case (bodyCodec, idx) =>
         val input = inputs(idx)
-        val name = nameByIndex(idx)
+        val name  = nameByIndex(idx)
         bodyCodec.erase.encodeToField(input, outputTypes, name, config)
       }
 
