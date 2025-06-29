@@ -80,7 +80,7 @@ private[netty] object NettyBodyWriter {
         writeArray(asciiString.array(), isLast = true)
         None
       case sb: StringBody                  =>
-        writeArray(sb.bytes, isLast = true)
+        writeArray(sb.unsafeAsArray(Unsafe.unsafe), isLast = true)
         None
       case StreamBody(stream, _, _)        =>
         Some(

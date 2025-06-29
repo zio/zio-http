@@ -656,7 +656,7 @@ object Body {
     override val contentType: Option[Body.ContentType] = None,
   ) extends UnsafeBytes {
 
-    var bytes: Array[Byte] = null
+    private var bytes: Array[Byte] = null
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] =
       ZIO.succeed(data.getBytes(charset))

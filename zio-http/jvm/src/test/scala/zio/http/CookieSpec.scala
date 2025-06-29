@@ -76,19 +76,19 @@ object CookieSpec extends ZIOHttpSpec {
         test("response") {
           val cookie = Cookie.Response("name", "content")
 
-          val cookieGen: Gen[Any, (Cookie.Response, Assertion[String])] = Gen.fromIterable(
+          val cookieGen: Gen[Any, (Cookie.Response, String)] = Gen.fromIterable(
             Seq(
-              cookie                                     -> equalTo("name=content"),
-              cookie.copy(domain = Some("abc.com"))      -> equalTo("name=content; Domain=abc.com"),
-              cookie.copy(isHttpOnly = true)             -> equalTo("name=content; HTTPOnly"),
-              cookie.copy(path = Some(Path.root / "a"))  -> equalTo("name=content; Path=/a"),
-              cookie.copy(sameSite = Some(SameSite.Lax)) -> equalTo("name=content; SameSite=Lax"),
-              cookie.copy(isSecure = true)               -> equalTo("name=content; Secure"),
-              cookie.copy(maxAge = Some(1 day))          -> startsWithString("name=content; Max-Age=86400; Expires="),
+              cookie                                     -> "name=content",
+              cookie.copy(domain = Some("abc.com"))      -> "name=content; Domain=abc.com",
+              cookie.copy(isHttpOnly = true)             -> "name=content; HTTPOnly",
+              cookie.copy(path = Some(Path.root / "a"))  -> "name=content; Path=/a",
+              cookie.copy(sameSite = Some(SameSite.Lax)) -> "name=content; SameSite=Lax",
+              cookie.copy(isSecure = true)               -> "name=content; Secure",
+              cookie.copy(maxAge = Some(1 day))          -> "name=content; Max-Age=86400",
             ),
           )
 
-          checkAll(cookieGen) { case (cookie, assertion) => assert(cookie.encode)(isRight(assertion)) }
+          checkAll(cookieGen) { case (cookie, assertion) => assertTrue(cookie.encode == Right(assertion)) }
         },
         test("invalid encode") {
           val cookie = Cookie.Response("1", null)
