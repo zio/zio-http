@@ -1,6 +1,6 @@
 ---
-id: implementing-tls-using-self-signed-server-certificates
-title: Implementing TLS Using Self-signed Server Certificates
+id: implementing-tls-using-self-signed-server-certificate
+title: Implementing TLS Using Self-signed Server Certificate
 ---
 
 ## Introduction

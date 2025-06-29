@@ -1,5 +1,5 @@
 ---
-id: implementing-tls-using-root-ca-signed-server-certificates
+id: implementing-tls-using-root-ca-signed-server-certificate
 title: Implementing TLS with Root CA-Signed Server Certificate
 ---
 
