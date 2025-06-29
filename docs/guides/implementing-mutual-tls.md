@@ -11,8 +11,6 @@ Until now, all the guides in these series were based on standard TLS. This artic
 
 ## Understanding Mutual TLS
 
-### Standard TLS vs. Mutual TLS
-
 In standard TLS (One-way TLS) only the server presents a certificate to the client, allowing the client to verify the server's identity. The client remains anonymous, and there is no verification of the client's identity. 
 
 However, in mutual TLS (mTLS), both the server and client present certificates to each other. This allows both parties to verify each other's identities, providing a higher level of security.
