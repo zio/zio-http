@@ -140,11 +140,7 @@ src/main/
 │   └── ClientApp.scala
 └── resources/certs/tls/root-ca-signed/
     ├── server-keystore.p12    # Server's private key and certificate
-    ├── client-truststore.p12  # Client's truststore with Root CA
-    ├── ca-cert.pem            # Root CA certificate
-    ├── ca-key.pem             # Root CA private key
-    ├── server-cert.pem        # Server certificate (signed by Root CA)
-    └── server-key.pem         # Server private key
+    └── client-truststore.p12  # Client's truststore with Root CA
 ```
 
 ### Server Implementation
@@ -252,7 +248,7 @@ Client                                          Server
   |-------------- ClientHello ------------------->|
   |                                               |
   |<------------- ServerHello --------------------|
-  |<------------- Certificate --------------------|  ← CA-signed cert
+  |<------------- Certificate --------------------|  ← Server Cert
   |<------------- ServerHelloDone ----------------|
   |                                               |
   | [Certificate Validation Process]              |
