@@ -8,7 +8,7 @@ openssl genrsa -out root-ca-key.pem 4096
 
 # Generate Root CA certificate (self-signed, valid for 10 years)
 openssl req -new -x509 -days 3650 -key root-ca-key.pem -out root-ca-cert.pem \
-    -subj "/C=US/ST=State/L=City/O=RootCA/OU=Security/CN=Root CA"
+    -subj "/CN=Root CA"
 
 echo "Root CA certificate created."
 
@@ -20,7 +20,7 @@ openssl genrsa -out intermediate-ca-key.pem 4096
 
 # Generate Intermediate CA certificate signing request
 openssl req -new -key intermediate-ca-key.pem -out intermediate-ca.csr \
-    -subj "/C=US/ST=State/L=City/O=IntermediateCA/OU=Security/CN=Intermediate CA"
+    -subj "/CN=Intermediate CA"
 
 # Create extensions file for Intermediate CA
 cat > intermediate-ca-ext.cnf << EOF
@@ -46,47 +46,25 @@ openssl genrsa -out server-key.pem 4096
 
 # Generate server certificate signing request
 openssl req -new -key server-key.pem -out server.csr \
-    -subj "/C=US/ST=State/L=City/O=MyCompany/OU=IT/CN=localhost"
-
-# Create extensions file for server certificate
-cat > server-ext.cnf << EOF
-subjectAltName = DNS:localhost,DNS:*.localhost,IP:127.0.0.1
-keyUsage = digitalSignature, keyEncipherment
-extendedKeyUsage = serverAuth
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid:always,issuer:always
-EOF
+    -subj "/CN=localhost"
 
 # Sign server certificate with Intermediate CA
 openssl x509 -req -days 365 -in server.csr \
     -CA intermediate-ca-cert.pem -CAkey intermediate-ca-key.pem \
     -CAcreateserial -out server-cert.pem \
-    -extfile server-ext.cnf
 
 echo "Server certificate created."
 
-# Step 4: Create certificate chain file (server + intermediate)
-echo "Creating certificate chain..."
-cat server-cert.pem intermediate-ca-cert.pem > server-chain.pem
-
-# Step 5: Create PKCS12 keystore for server with full chain
+# Step 4: Create PKCS12 keystore for server with full chain (except the root CA)
 echo "Creating server keystore with certificate chain..."
 
-# First create a file with the complete CA chain for PKCS12 creation
-cat intermediate-ca-cert.pem root-ca-cert.pem > ca-bundle.pem
-
-# Create server.p12 with the certificate chain (without -chain option)
+# Create server-keystore.p12 with the certificate chain (without -chain option)
 openssl pkcs12 -export -in server-cert.pem -inkey server-key.pem \
-    -out server.p12 -name server -password pass:changeit \
+    -out server-keystore.p12 -name server -password pass:keystorepass \
     -certfile intermediate-ca-cert.pem \
     -caname intermediate
 
-# Alternative: Create PKCS12 with full chain using keytool (more reliable)
-echo "Creating alternative keystore with keytool..."
-
-# First create a temporary PKCS12 with just the server cert an
-
-# Step 6: Create truststore with ONLY the root CA certificate
+# Step 5: Create truststore with ONLY the root CA certificate
 echo "Creating truststore with root CA only..."
 
 # Remove old truststore if it exists
@@ -94,16 +72,16 @@ rm -f truststore.p12
 
 # Import ONLY the Root CA certificate into truststore
 keytool -importcert -file root-ca-cert.pem \
-    -keystore truststore.p12 \
+    -keystore client-truststore.p12 \
     -storetype PKCS12 \
-    -storepass trustpass \
+    -storepass clienttrustpass \
     -alias rootca \
     -noprompt \
     -trustcacerts
 
 echo "Truststore created with root CA only."
 
-# Step 7: Verify the certificate chain
+# Step 6: Verify the certificate chain
 echo -e "\nVerifying certificate chain..."
 
 # Verify server certificate against the chain
@@ -130,15 +108,15 @@ rm -f *.csr *-ext.cnf *.srl ca-chain.pem
 
 echo -e "\nCertificate chain creation complete!"
 echo "Files created:"
-echo "  - root-ca-cert.pem        : Root CA certificate"
-echo "  - root-ca-key.pem         : Root CA private key"
+echo "  - root-ca-cert.pem         : Root CA certificate"
+echo "  - root-ca-key.pem          : Root CA private key"
 echo "  - intermediate-ca-cert.pem : Intermediate CA certificate"
 echo "  - intermediate-ca-key.pem  : Intermediate CA private key"
-echo "  - server-cert.pem         : Server certificate"
-echo "  - server-key.pem          : Server private key"
-echo "  - server-chain.pem        : Server certificate chain (server + intermediate)"
-echo "  - server.p12              : Server keystore with full chain"
-echo "  - truststore.p12          : Client truststore (contains ONLY root CA)"
+echo "  - server-cert.pem          : Server certificate"
+echo "  - server-key.pem           : Server private key"
+echo "  - server-chain.pem         : Server certificate chain (server + intermediate)"
+echo "  - server-keystore.p12      : Server keystore with full chain (except the root CA)"
+echo "  - client-truststore.p12    : Client truststore (contains ONLY root CA)"
 echo ""
 echo "Certificate chain structure:"
 echo "  Root CA (in client truststore)"
