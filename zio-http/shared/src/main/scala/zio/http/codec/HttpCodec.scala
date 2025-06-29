@@ -227,11 +227,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Uses this codec to encode the Scala value as a response.
    */
-  final def encodeResponse[Z](
-    value: Value,
-    outputTypes: Chunk[MediaTypeWithQFactor],
-    config: CodecConfig,
-  ): Response =
+  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig): Response =
     encodeWith(config, value, outputTypes)((_, status, _, headers, body) =>
       Response(headers = headers, body = body, status = status.getOrElse(Status.Ok)),
     )
