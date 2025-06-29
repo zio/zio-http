@@ -656,8 +656,6 @@ object Body {
     override val contentType: Option[Body.ContentType] = None,
   ) extends UnsafeBytes {
 
-    var bytes: Array[Byte] = null
-
     override def asArray(implicit trace: Trace): Task[Array[Byte]] =
       ZIO.succeed(data.getBytes(charset))
 
@@ -677,19 +675,13 @@ object Body {
     /**
      * Returns the length of the body in bytes, if known.
      */
-    override def knownContentLength: Option[Long] = {
-      if (bytes == null) bytes = data.getBytes(charset)
-      Some(bytes.length.toLong)
-    }
+    override def knownContentLength: Option[Long] =
+      Some(data.getBytes(charset).length.toLong)
 
     override def toString: String = s"StringBody($data)"
 
-    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = {
-      if (bytes == null) {
-        bytes = data.getBytes(charset)
-      }
-      bytes
-    }
+    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
+      data.getBytes(charset)
 
   }
 
