@@ -18,13 +18,13 @@ object ServerApp extends ZIOAppDefault {
       keyManagerPassword = Some(Secret("changeit")),
     )
 
-  // Option 2: Using PEM files directly
-  // Note: This might require the PEM files to be in the correct format
-  private val sslConfigPem =
-    SSLConfig.fromResource(
-      certPath = "certs/tls/self-signed/server-cert.pem",
-      keyPath = "certs/tls/self-signed/server-key.pem",
-    )
+//  Option 2: Using PEM files directly
+//  Note: This might require the PEM files to be in the correct format
+//  private val sslConfigPem =
+//    SSLConfig.fromResource(
+//      certPath = "certs/tls/self-signed/server-cert.pem",
+//      keyPath = "certs/tls/self-signed/server-key.pem",
+//    )
 
   private val serverConfig =
     ZLayer.succeed {
