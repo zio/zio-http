@@ -25,8 +25,7 @@ import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec._
 
-private[codec] trait EncoderDecoder[-AtomTypes, Value] {
-  self =>
+private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
   def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value]
@@ -36,7 +35,6 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   ): Z
 
 }
-
 private[codec] object EncoderDecoder {
 
   def apply[AtomTypes, Value](
@@ -175,14 +173,12 @@ private[codec] object EncoderDecoder {
     ): Z = {
       val inputs = deconstructor(value)
 
-      val path    = encodePath(inputs.path)
-      val query   = encodeQuery(config, inputs.query)
-      val status  = encodeStatus(inputs.status)
-      val method  = encodeMethod(inputs.method)
-      val headers = encodeHeaders(inputs.header)
-
+      val path               = encodePath(inputs.path)
+      val query              = encodeQuery(config, inputs.query)
+      val status             = encodeStatus(inputs.status)
+      val method             = encodeMethod(inputs.method)
+      val headers            = encodeHeaders(inputs.header)
       def contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
-
       val body = encodeBody(config, inputs.content, outputTypes).getOrElse(Body.fromString("Error while encoding body"))
 
       val headers0 = if (headers.contains("content-type")) headers else headers ++ contentTypeHeaders
@@ -296,9 +292,7 @@ private[codec] object EncoderDecoder {
           val codec  = codecs(i).erase
           for {
             decoded <- codec.decodeFromField(field, config)
-            _       <- ZIO.attempt {
-              inputs(i) = decoded
-            }
+            _       <- ZIO.attempt { inputs(i) = decoded }
           } yield ()
         }
       }
@@ -388,6 +382,7 @@ private[codec] object EncoderDecoder {
           Try(encodeMultipartFormData(inputs, outputTypes, config))
             .map(form => Body.fromMultipartForm(form, formBoundary))
             .toEither
+
       }
 
     private def encodeMultipartFormData(
