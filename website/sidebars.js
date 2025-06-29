@@ -131,8 +131,8 @@ const sidebars = {
        label: "SSL/TLS",
        items: [
           "guides/securing-communication-using-ssl-tls",
-          "guides/implementing-tls-using-self-signed-server-certificates",
-          "guides/implementing-tls-using-root-ca-signed-server-certificates",
+          "guides/implementing-tls-using-self-signed-server-certificate",
+          "guides/implementing-tls-using-root-ca-signed-server-certificate",
           "guides/implementing-mutual-tls",
        ],
     }
