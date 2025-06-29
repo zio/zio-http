@@ -11,8 +11,6 @@ This article demonstrates implementing TLS with certificate chains using interme
 
 ## Understanding Certificate Chains
 
-### Why Intermediate CAs?
-
 Root CAs are extremely valuable and must be protected at all costs. If a root CA's private key is compromised, it affects every certificate it has ever signed. To minimize risk:
 
 1. **Root CAs are kept offline**: Private keys stored in secure, air-gapped systems
@@ -42,110 +40,129 @@ Root CAs are extremely valuable and must be protected at all costs. If a root CA
 
 ### Real-World Example
 
-Let's examine a real certificate chain from a major website:
+Let's examine a real certificate chain from a major site, e.g. google.com:
 
 ```bash
 # Check Google's certificate chain
 openssl s_client -connect google.com:443 -showcerts < /dev/null
 
 # You'll see something like:
-# 0: CN=*.google.com (server certificate)
-# 1: CN=GTS CA 1C3, O=Google Trust Services (intermediate)
-# 2: CN=GTS Root R1, O=Google Trust Services (root - not sent)
+
+# 0 s:CN=*.google.com (server certificate)
+# 1 s:C=US, O=Google Trust Services, CN=WR2 (intermediate)
+# 2 s:C=US, O=Google Trust Services LLC, CN=GTS Root R1 (root)
 ```
 
-## Creating a Certificate Chain
+## Creating a Certificate using Intermediate CA
+
+In this tutorial, we will create root and intermediate CAs to simulate the process of signing a server certificate with an intermediate CA. This will help you understand how to set up a secure TLS environment using certificate chains. In real-world scenarios, you can obtain certificates for your servers from well-known Certificate Authorities and no need to create your own CAs, unless you are managing your own PKI (Public Key Infrastructure) in an internal network.
 
 ### Step 1: Create Root CA
 
 ```bash
 # Generate Root CA private key (keep this extremely secure!)
-openssl genrsa -out rootCA.key 4096
+openssl genrsa -out root-ca-key.pem 4096
 
-# Generate Root CA certificate
-openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 7300 \
-  -out rootCA.crt \
-  -subj "/C=US/ST=State/L=City/O=RootCA/OU=Security/CN=Root CA" \
-  -addext "basicConstraints=critical,CA:TRUE" \
-  -addext "keyUsage=critical,keyCertSign,cRLSign"
+# Generate Root CA certificate (self-signed, valid for 10 years)
+openssl req -new -x509 -days 3650 -key root-ca-key.pem -out root-ca-cert.pem \
+    -subj "/C=Country/ST=State/L=City/O=RootCA/OU=Security/CN=Root CA"
 ```
 
 ### Step 2: Create Intermediate CA
 
+Generate intermediate CA private key:
+
 ```bash
-# Generate Intermediate CA private key
-openssl genrsa -out intermediateCA.key 2048
+openssl genrsa -out intermediate-ca-key.pem 4096
+```
 
-# Create Intermediate CA CSR
-openssl req -new -key intermediateCA.key -out intermediateCA.csr \
-  -subj "/C=US/ST=State/L=City/O=IntermediateCA/OU=Security/CN=Intermediate CA"
+Then generate Intermediate CA certificate signing request (CSR):
 
-# Create extensions file for Intermediate CA
-cat > intermediate_ext.cnf <<EOF
-basicConstraints=critical,CA:TRUE,pathlen:0
-keyUsage=critical,keyCertSign,cRLSign
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid:always,issuer
+```bash
+openssl req -new -key intermediate-ca-key.pem -out intermediate-ca.csr \
+    -subj "/C=US/ST=State/L=City/O=IntermediateCA/OU=Security/CN=Intermediate CA"
+```
+
+Create extensions file for Intermediate CA:
+
+```bash
+cat > intermediate-ca-ext.cnf << EOF
+basicConstraints = CA:TRUE, pathlen:0
+keyUsage = digitalSignature, keyCertSign, cRLSign
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer:always
 EOF
+```
 
-# Sign Intermediate CA certificate with Root CA
-openssl x509 -req -in intermediateCA.csr -CA rootCA.crt -CAkey rootCA.key \
-  -CAcreateserial -out intermediateCA.crt -days 1825 -sha256 \
-  -extfile intermediate_ext.cnf
+Explanation of all these fields is beyond the scope of this article, but generally this configuration file defines the extensions that make a certificate function as an intermediate CA.
+
+Now we can sign Intermediate CA certificate with Root CA:
+
+```bash
+openssl x509 -req -days 1825 -in intermediate-ca.csr \
+    -CA root-ca-cert.pem -CAkey root-ca-key.pem \
+    -CAcreateserial -out intermediate-ca-cert.pem \
+    -extfile intermediate-ca-ext.cnf
 ```
 
 ### Step 3: Create Server Certificate
 
+To generate server certificate, first we should generate a private key for the server:
+
 ```bash
-# Generate server private key
-openssl genrsa -out server.key 2048
-
-# Create server CSR
-openssl req -new -key server.key -out server.csr \
-  -subj "/C=US/ST=State/L=City/O=MyCompany/OU=IT/CN=localhost"
-
-# Create extensions file for server certificate
-cat > server_ext.cnf <<EOF
-basicConstraints=CA:FALSE
-keyUsage=critical,digitalSignature,keyEncipherment
-extendedKeyUsage=serverAuth
-subjectAltName=@alt_names
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid,issuer
-
-[alt_names]
-DNS.1=localhost
-DNS.2=*.localhost
-IP.1=127.0.0.1
-EOF
-
-# Sign server certificate with Intermediate CA
-openssl x509 -req -in server.csr -CA intermediateCA.crt -CAkey intermediateCA.key \
-  -CAcreateserial -out server.crt -days 365 -sha256 \
-  -extfile server_ext.cnf
+openssl genrsa -out server-key.pem 4096
 ```
 
-### Step 4: Create Certificate Chain and Keystores
+Then, we have to generate server certificate signing request (CSR):
 
 ```bash
-# Create full certificate chain (server + intermediate)
-cat server.crt intermediateCA.crt > fullchain.crt
+# Generate server certificate signing request
+openssl req -new -key server-key.pem -out server.csr \
+    -subj "/C=Country/ST=State/L=City/O=MyCompany/OU=IT/CN=localhost"
+```
 
-# Create PKCS12 keystore with full chain
-openssl pkcs12 -export -out server.p12 \
-  -inkey server.key -in server.crt \
-  -certfile intermediateCA.crt \
-  -name "server" -password pass:changeit
+Now we can sign server certificate with intermediate CA using the CSR configuration:
 
-# Create client truststore with only Root CA
-keytool -import -alias rootca -file rootCA.crt \
-  -keystore truststore.p12 -storetype PKCS12 \
-  -storepass trustpass -noprompt
+```bash
+openssl x509 -req -days 365 -in server.csr \
+    -CA intermediate-ca-cert.pem -CAkey intermediate-ca-key.pem \
+    -CAcreateserial -out server-cert.pem
+```
+
+### Step 4: Create Server Keystore
+
+Now that we have the server certificate signed by the intermediate CA, we need to create a keystore that contains both the server certificate and the intermediate CA certificate. This is crucial because during the TLS handshake, the server will send its certificate along with the intermediate CA certificate to the client.
+
+During the handshake, the client will receive both the server certificate and the intermediate CA certificate. The client will then verify the server certificate against the intermediate CA certificate, which in turn is signed by the root CA already present in the client's trust store.
+
+Now, let's create the server keystore with the certificate chain:
+
+```bash
+openssl pkcs12 -export -in server-cert.pem -inkey server-key.pem \
+    -out server-keystore.p12 -name server -password pass:keystorepass \
+    -certfile intermediate-ca-cert.pem \
+    -caname intermediate
+```
+
+## Step 5: Create Client Truststore
+
+The client only needs the Root CA certificate, so let's create a trust store containing the Root CA:
+
+```bash
+keytool -importcert -file root-ca-cert.pem \
+    -keystore client-truststore.p12 \
+    -storetype PKCS12 \
+    -storepass clienttrustpass \
+    -alias rootca \
+    -noprompt \
+    -trustcacerts
 ```
 
 ## Implementation Example
 
 ### Project Structure
+
+Before we start coding, let's set up the project structure. We will create a ZIO HTTP project with the following directory structure:
 
 ```
 src/main/
@@ -153,19 +170,13 @@ src/main/
 │   ├── ServerApp.scala
 │   └── ClientApp.scala
 └── resources/certs/tls/intermediate-ca-signed/
-    ├── server.p12          # Server keystore with full chain
-    ├── truststore.p12      # Client truststore with Root CA only
-    ├── rootCA.crt          # Root CA certificate
-    ├── intermediateCA.crt  # Intermediate CA certificate
-    ├── server.crt          # Server certificate
-    └── fullchain.crt       # Complete certificate chain
+    ├── server-keystore.p12    # Server keystore with full chain
+    └── client-truststore.p12  # Client truststore with Root CA only
 ```
 
 ### Server Implementation
 
-```scala
-package example.ssl.tls.intermediatecasigned
-
+```scala mdoc:compile-only
 import zio.Config.Secret
 import zio._
 import zio.http._
@@ -188,8 +199,8 @@ object ServerApp extends ZIOAppDefault {
 
   // SSL configuration using PKCS12 keystore with certificate chain
   private val sslConfig = SSLConfig.fromJavaxNetSslKeyStoreResource(
-    keyManagerResource = "certs/tls/intermediate-ca-signed/server.p12",
-    keyManagerPassword = Some(Secret("changeit")),
+    keyManagerResource = "certs/tls/intermediate-ca-signed/server-keystore.p12",
+    keyManagerPassword = Some(Secret("serverkeystore")),
   )
 
   private val serverConfig = ZLayer.succeed {
@@ -204,7 +215,7 @@ object ServerApp extends ZIOAppDefault {
         _ <- Console.printLine("Certificate Chain TLS Server starting on https://localhost:8443/")
         _ <- Console.printLine("Endpoint:")
         _ <- Console.printLine("  - https://localhost:8443/hello       : Basic hello endpoint")
-        _ <- Console.printLine("\nThe server will send the full certificate chain:")
+        _ <- Console.printLine("\nThe server will send the following certificate chain during the SSL handshake:")
         _ <- Console.printLine("  1. Server Certificate (signed by Intermediate CA)")
         _ <- Console.printLine("  2. Intermediate CA Certificate (signed by Root CA)")
         _ <- Console.printLine("\nPress Ctrl+C to stop...")
@@ -223,9 +234,7 @@ object ServerApp extends ZIOAppDefault {
 
 ### Client Implementation
 
-```scala
-package example.ssl.tls.intermediatecasigned
-
+```scala mdoc:compile-only
 import zio._
 import zio.http._
 import zio.http.netty.NettyConfig
@@ -238,46 +247,14 @@ object ClientApp extends ZIOAppDefault {
     helloBody     <- helloResponse.body.asString
     _             <- Console.printLine(s"Response Status: ${helloResponse.status}")
     _             <- Console.printLine(s"Response: $helloBody")
-    _             <- displayChainVerificationExplanation()
   } yield ()
-
-  def displayChainVerificationExplanation(): Task[Unit] =
-    Console.printLine {
-      """
-Certificate Chain Verification Process:
-=====================================
-1. Server sends its certificate chain:
-   - Server Certificate (CN=localhost)
-   - Intermediate CA Certificate
-
-2. Client verifies the chain:
-   ✓ Server cert is signed by Intermediate CA
-   ✓ Intermediate CA is signed by Root CA
-   ✓ Root CA is in client's truststore (trusted)
-
-Trust Chain Path:
-┌─ Root CA (in client truststore)
-│   CN=Root CA, OU=Security, O=RootCA
-│
-└─> Intermediate CA (received from server)
-    CN=Intermediate CA, OU=Security, O=IntermediateCA
-    │
-    └─> Server Certificate (received from server)
-        CN=localhost, OU=IT, O=MyCompany
-
-Key Points:
-- Client only needs Root CA in truststore
-- Server provides intermediate certificates
-- Full chain is validated automatically
-      """
-    }
 
   override val run = app.provide(
     ZLayer.succeed {
       ZClient.Config.default.ssl(
         ClientSSLConfig.FromTrustStoreResource(
-          trustStorePath = "certs/tls/intermediate-ca-signed/truststore.p12",
-          trustStorePassword = "trustpass",
+          trustStorePath = "certs/tls/intermediate-ca-signed/client-truststore.p12",
+          trustStorePassword = "clienttrustpass",
         ),
       )
     },
@@ -289,8 +266,9 @@ Key Points:
 ```
 
 **Key Points:**
+
 - Client only needs the Root CA in its trust store
-- Intermediate certificate is provided by the server
+- Intermediate certificate is provided by the server during SSL handshake
 - Chain verification happens automatically
 
 ## How Certificate Chains Work
@@ -312,79 +290,21 @@ Client                                          Server
   | 1. Build certificate path                     |
   | 2. Verify each signature in chain             |
   | 3. Check trust anchor (Root CA)               |
-  | 4. Validate constraints and extensions        |
+  | 4. Check Certificate Validity ✓               |
   | 5. Verify hostname                            |
   |                                               |
   |-------------- ClientKeyExchange ------------->|
   |========== Encrypted Application Data =========|
 ```
 
-### Chain Validation Algorithm
-
-```scala
-// Simplified chain validation logic
-def validateCertificateChain(chain: List[X509Certificate], 
-                            trustStore: Set[X509Certificate]): Boolean = {
-  
-  def verifySignature(cert: X509Certificate, issuer: X509Certificate): Boolean = {
-    try {
-      cert.verify(issuer.getPublicKey)
-      true
-    } catch {
-      case _: Exception => false
-    }
-  }
-  
-  def findIssuer(cert: X509Certificate, 
-                 candidates: List[X509Certificate]): Option[X509Certificate] = {
-    candidates.find(c => 
-      c.getSubjectX500Principal.equals(cert.getIssuerX500Principal)
-    )
-  }
-  
-  @annotation.tailrec
-  def validate(current: X509Certificate, 
-               remaining: List[X509Certificate]): Boolean = {
-    // Check if current certificate is trusted (root)
-    if (trustStore.contains(current)) {
-      true
-    } else {
-      // Find issuer in remaining certificates
-      findIssuer(current, remaining) match {
-        case Some(issuer) =>
-          if (verifySignature(current, issuer)) {
-            validate(issuer, remaining.filterNot(_ == issuer))
-          } else {
-            false
-          }
-        case None => false
-      }
-    }
-  }
-  
-  chain.headOption.exists(serverCert => 
-    validate(serverCert, chain.tail)
-  )
-}
-```
-
 ## Running the Example
 
-### 1. Verify Certificate Chain
+### 1. Start the Server
+
+To run the server, open a terminal and execute the following command:
 
 ```bash
-# Examine the certificate chain
-openssl pkcs12 -in server.p12 -nokeys -password pass:changeit | \
-  openssl x509 -text | grep -E "Subject:|Issuer:"
-
-# Verify chain integrity
-openssl verify -CAfile rootCA.crt -untrusted intermediateCA.crt server.crt
-```
-
-### 2. Start the Server
-
-```bash
-sbt "runMain example.ssl.tls.intermediatecasigned.ServerApp"
+sbt "zioHttpExample/runMain example.ssl.tls.intermediatecasigned.ServerApp"
 ```
 
 Output:
@@ -393,220 +313,25 @@ Certificate Chain TLS Server starting on https://localhost:8443/
 Endpoint:
   - https://localhost:8443/hello       : Basic hello endpoint
 
-The server will send the full certificate chain:
+The server will send the following certificate chain during the SSL handshake:
   1. Server Certificate (signed by Intermediate CA)
   2. Intermediate CA Certificate (signed by Root CA)
 
 Press Ctrl+C to stop...
 ```
 
-### 3. Run the Client
+### 2. Run the Client
+
+To run the client, open a new terminal and execute:
 
 ```bash
-sbt "runMain example.ssl.tls.intermediatecasigned.ClientApp"
-```
-
-### 4. Test with OpenSSL
-
-```bash
-# View the certificate chain sent by server
-openssl s_client -connect localhost:8443 -showcerts < /dev/null 2>/dev/null | \
-  openssl x509 -text | grep -E "Subject:|Issuer:"
-```
-
-## Best Practices for Certificate Chains
-
-### 1. Chain Completeness
-
-Always send the complete chain (except root):
-```bash
-# Correct: server cert + intermediate(s)
-cat server.crt intermediate.crt > fullchain.crt
-
-# Incorrect: server cert only
-# This will cause validation failures
-```
-
-### 2. Chain Order
-
-Certificates must be in the correct order:
-```
-1. Server certificate (leaf)
-2. Intermediate CA that signed server cert
-3. Higher intermediate (if any)
-4. DO NOT include root CA
-```
-
-### 3. Path Length Constraints
-
-```bash
-# Check intermediate CA constraints
-openssl x509 -in intermediateCA.crt -text | grep -A1 "Basic Constraints"
-# Should show: CA:TRUE, pathlen:0
-```
-
-`pathlen:0` means this intermediate cannot sign other CAs, only end-entity certificates.
-
-### 4. Certificate Extensions
-
-Ensure proper extensions for each certificate type:
-
-```bash
-# Root CA extensions
-basicConstraints=critical,CA:TRUE
-keyUsage=critical,keyCertSign,cRLSign
-
-# Intermediate CA extensions  
-basicConstraints=critical,CA:TRUE,pathlen:0
-keyUsage=critical,keyCertSign,cRLSign
-
-# Server certificate extensions
-basicConstraints=CA:FALSE
-keyUsage=critical,digitalSignature,keyEncipherment
-extendedKeyUsage=serverAuth
-```
-
-## Production Considerations
-
-### Major CA Certificate Chains
-
-Most commercial CAs use 2-3 level chains:
-
-**Let's Encrypt Example:**
-```
-DST Root CA X3 (or ISRG Root X1)
-  └─> Let's Encrypt Authority X3
-      └─> Your server certificate
-```
-
-**DigiCert Example:**
-```
-DigiCert Global Root CA
-  └─> DigiCert SHA2 Secure Server CA
-      └─> Your server certificate
-```
-
-### Cross-Signed Certificates
-
-Some CAs use cross-signing for compatibility:
-
-```
-Old Root CA ─────────┐
-                     ├─> Intermediate CA
-New Root CA ─────────┘
-```
-
-This allows certificates to be validated through multiple paths.
-
-### Certificate Transparency
-
-Modern certificates include SCT (Signed Certificate Timestamp):
-
-```bash
-# Check for Certificate Transparency
-openssl x509 -in server.crt -text | grep -A5 "CT Precertificate"
-```
-
-## Troubleshooting Common Issues
-
-### Issue 1: Incomplete Certificate Chain
-
-**Error:**
-```
-unable to verify the first certificate
-verify error:num=21:unable to verify the first certificate
-```
-
-**Solution:**
-```bash
-# Check what certificates are being sent
-openssl s_client -connect localhost:8443 -showcerts
-
-# Ensure intermediate is included in server keystore
-keytool -list -v -keystore server.p12 -storepass changeit
-```
-
-### Issue 2: Wrong Chain Order
-
-**Error:**
-```
-certificate verify failed: invalid certificate chain
-```
-
-**Solution:**
-Ensure certificates are concatenated in the correct order:
-```bash
-# Correct order
-cat server.crt intermediate.crt > fullchain.crt
-
-# Verify order
-openssl crl2pkcs7 -nocrl -certfile fullchain.crt | \
-  openssl pkcs7 -print_certs -noout
-```
-
-### Issue 3: Path Length Violation
-
-**Error:**
-```
-path length constraint exceeded
-```
-
-**Solution:**
-Check intermediate CA constraints:
-```bash
-openssl x509 -in intermediate.crt -text | grep pathlen
-```
-
-## Security Benefits
-
-### 1. Isolation of Risk
-- Root CA keys can be kept completely offline
-- Compromise of intermediate CA has limited impact
-- Intermediate CAs can be revoked without affecting root trust
-
-### 2. Operational Flexibility
-- Different intermediates for different purposes
-- Easier certificate lifecycle management
-- Gradual migration between certificate authorities
-
-### 3. Compliance
-- Meets industry standards (CA/Browser Forum)
-- Required for public trust
-- Enables proper audit trails
-
-## Monitoring and Maintenance
-
-### Certificate Chain Health Checks
-
-```scala
-def checkCertificateChainHealth(keystorePath: String): Task[ChainHealth] = {
-  ZIO.attempt {
-    val keyStore = KeyStore.getInstance("PKCS12")
-    keyStore.load(new FileInputStream(keystorePath), "changeit".toCharArray)
-    
-    val certChain = keyStore.getCertificateChain("server")
-      .map(_.asInstanceOf[X509Certificate])
-    
-    ChainHealth(
-      chainLength = certChain.length,
-      expirations = certChain.map(cert => 
-        (cert.getSubjectDN.getName, cert.getNotAfter)
-      ),
-      weakestLink = certChain.minBy(_.getNotAfter.getTime)
-    )
-  }
-}
+sbt "zioHttpExample/runMain example.ssl.tls.intermediatecasigned.ClientApp"
 ```
 
 ## Conclusion
 
-Certificate chains with intermediate CAs represent the standard for production TLS deployments. They provide enhanced security through isolation of root keys while maintaining the flexibility needed for operational certificate management.
+Certificate chains with intermediate CAs provide essential security benefits by isolating risk and keeping root CAs offline. This approach is the industry standard used by major Certificate Authorities worldwide.
 
-Key takeaways:
-- Intermediate CAs protect root CA keys by keeping them offline
-- Servers must send the complete chain (except root)
-- Clients only need root CAs in their trust store
-- Proper chain order and extensions are critical
-- Certificate chains enable better security and operational practices
+Our ZIO HTTP implementation demonstrated how certificate chains work in practice: servers automatically present the complete chain during TLS handshake, while clients only need to trust the root CA. This delegation of trust creates a scalable and secure architecture. This foundation prepares you to build production-ready applications that meet enterprise security standards in modern distributed systems.
 
 In the next article, we'll explore mutual TLS (mTLS), where both client and server present certificates for bidirectional authentication.
