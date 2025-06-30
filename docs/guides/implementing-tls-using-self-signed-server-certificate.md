@@ -170,6 +170,8 @@ val sslConfig =
   }
 ```
 
+Please note that `ClientSSLConfig` provides several constructors for reading the truststore. It also includes a `ClientSSLConfig#Default` instance, which is useful when you want the client to ignore certificate verification. However, in this case, we want to ensure that the client trusts the self-signed certificate, so we use the `FromTrustStoreResource` constructor.
+
 Now we can implement the client application that will connect to the self-signed TLS server and make a secure HTTPS request:
 
 ```scala mdoc:compile-only
