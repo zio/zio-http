@@ -129,10 +129,11 @@ const sidebars = {
        type: "category",
        collapsed: false,
        label: "SSL/TLS",
+       link: { type: 'doc', id: "guides/securing-communication-with-ssl-tls" },
        items: [
-          "guides/securing-communication-using-ssl-tls",
-          "guides/implementing-tls-using-self-signed-server-certificate",
-          "guides/implementing-tls-using-root-ca-signed-server-certificate",
+          "guides/implementing-tls-with-self-signed-server-certificate",
+          "guides/implementing-tls-with-root-ca-signed-server-certificate",
+          "guides/implementing-tls-with-intermediate-ca-signed-server-certificate",
           "guides/implementing-mutual-tls",
        ],
     }

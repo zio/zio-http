@@ -1,6 +1,6 @@
 ---
-id: securing-communication-using-ssl-tls
-title: Securing Communication Using SSL/TLS
+id: securing-communication-with-ssl-tls
+title: Securing Communication with SSL/TLS
 ---
 
 ZIO HTTP supports securing communication between entities—typically clients and servers—using SSL/TLS. This is crucial for protecting sensitive data in transit and ensuring both the integrity and authenticity of the communication.
@@ -15,9 +15,9 @@ We aim to offer a comprehensive guide on this topic through a series of articles
 
 If you're already familiar with PKI and SSL/TLS, feel free to skip this article and move directly to the implementation guides:
 
-- [Implementing TLS Using Self-Signed Server Certificates](./implementing-tls-using-self-signed-server-certificate.md)
-- [Implementing TLS with Root CA-Signed Server Certificate](./implementing-tls-with-root-ca-signed-server-certificate.md)
-- [TLS with Intermediate CA-signed Server Certificates](./implementing-tls-with-intermediate-ca-signed-server-certificate.md)
+- [Implementing TLS Using Self-Signed Server Certificates](./implementing-tls-with-self-signed-server-certificate)
+- [Implementing TLS Using Root CA-Signed Server Certificate](./implementing-tls-with-root-ca-signed-server-certificate.md)
+- [Implementing TLS Using Intermediate CA-signed Server Certificate](./implementing-tls-with-intermediate-ca-signed-server-certificate)
 - [Implementing Mutual TLS (mTLS)](./implementing-mutual-tls.md)
 
 ## Certificates and Public Key Infrastructure (PKI)
