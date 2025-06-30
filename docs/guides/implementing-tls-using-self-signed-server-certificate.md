@@ -170,6 +170,7 @@ val sslConfig =
   }
 ```
 
+Now we can implement the client application that will connect to the self-signed TLS server and make a secure HTTPS request:
 
 ```scala mdoc:compile-only
 import zio._
