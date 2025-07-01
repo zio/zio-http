@@ -24,6 +24,7 @@ import scala.jdk.CollectionConverters._
 
 import zio._
 
+import zio.http.QueryParams.JavaLinkedHashMapQueryParams
 import zio.http.internal._
 
 /**
@@ -40,7 +41,8 @@ trait QueryParams extends QueryOps[QueryParams] {
   /**
    * Encodes the query parameters into a string using the specified charset.
    */
-  def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
+  def encode(charset: Charset): String =
+    QueryParamEncoding.encode(ThreadLocals.stringBuilder, self, charset)
 
   override def equals(that: Any): Boolean = that match {
     case queryParams: QueryParams => normalize.seq == queryParams.normalize.seq
@@ -86,9 +88,71 @@ trait QueryParams extends QueryOps[QueryParams] {
    * Normalizes the query parameters by removing empty keys and values.
    */
   def normalize: QueryParams =
-    QueryParams.fromEntries(seq.filter { entry =>
-      entry.getKey.nonEmpty && entry.getValue.asScala.nonEmpty
-    }: _*)
+    self match {
+      case _ if self.isEmpty                        => self
+      case JavaLinkedHashMapQueryParams(underlying) =>
+        var needsNormalization = false
+        val it                 = underlying.entrySet().iterator()
+        while (!needsNormalization && it.hasNext) {
+          val entry = it.next()
+          if (entry.getKey.isEmpty || entry.getValue == null) {
+            needsNormalization = true
+          } else {
+            var i = 0
+            while (i < entry.getValue.size()) {
+              if (entry.getValue.get(i).isBlank) {
+                needsNormalization = true
+              }
+              i += 1
+            }
+          }
+        }
+        if (!needsNormalization) self
+        else {
+          val normalized = new java.util.LinkedHashMap[String, java.util.List[String]]()
+          var i          = 0
+          while (i < seq.length) {
+            val entry = seq(i)
+            if (entry.getKey.nonEmpty) {
+              normalized.put(entry.getKey, entry.getValue.asScala.filterNot(_.isBlank).asJava)
+            }
+            i += 1
+          }
+          JavaLinkedHashMapQueryParams(normalized)
+        }
+      case _                                        =>
+        val seq                = self.seq
+        val it                 = seq.iterator
+        var needsNormalization = false
+        while (it.hasNext && !needsNormalization) {
+          val entry = it.next()
+          if (entry.getKey.isEmpty || entry.getValue == null || entry.getValue.isEmpty) {
+            needsNormalization = true
+          } else {
+            var i = 0
+            while (i < entry.getValue.size()) {
+              if (entry.getValue.get(i).isBlank) {
+                needsNormalization = true
+              }
+              i += 1
+            }
+          }
+        }
+        if (!needsNormalization) self
+        else {
+          val normalized = new java.util.LinkedHashMap[String, java.util.List[String]]()
+          var i          = 0
+          while (i < seq.length) {
+            val entry = seq(i)
+            if (entry.getKey.nonEmpty) {
+              normalized.put(entry.getKey, entry.getValue.asScala.filterNot(_.isBlank).asJava)
+            }
+            i += 1
+          }
+          JavaLinkedHashMapQueryParams(normalized)
+        }
+
+    }
 
   override def queryParameters: QueryParams =
     self
@@ -178,34 +242,61 @@ object QueryParams {
   }
 
   private[http] def fromEntries(entries: util.Map.Entry[String, util.List[String]]*): QueryParams = {
-    val result = new util.LinkedHashMap[String, util.List[String]]()
-    entries.foreach { entry =>
-      Option(result.get(entry.getKey)) match {
-        case Some(previous) =>
-          val combined = new util.ArrayList[String]()
-          combined.addAll(previous)
-          combined.addAll(entry.getValue)
-          result.replace(entry.getKey, combined)
-        case None           =>
-          result.put(entry.getKey, entry.getValue)
+    if (entries.isEmpty) QueryParams.empty
+    else {
+      val result    = new util.LinkedHashMap[String, util.List[String]]()
+      val entriesIt = entries.iterator
+      while (entriesIt.hasNext) {
+        val entry = entriesIt.next()
+        result.get(entry.getKey) match {
+          case previous if previous != null =>
+            val combined = new util.ArrayList[String](previous.size() + entry.getValue.size())
+            combined.addAll(previous)
+            combined.addAll(entry.getValue)
+            result.replace(entry.getKey, combined)
+          case _                            =>
+            result.put(entry.getKey, entry.getValue)
+        }
       }
+      apply(result)
     }
-    apply(result)
+
   }
 
   /**
    * Construct from tuples of k, v with singular v
    */
-  def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams =
-    apply((tuple1 +: tuples).map { case (k, v) =>
-      (k, Chunk(v))
-    }: _*)
+  def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams = {
+    val entries = new java.util.LinkedHashMap[String, java.util.List[String]]()
+    val values  = new util.ArrayList[String](1)
+    if (!tuple1._2.isBlank) {
+      values.add(tuple1._2)
+    }
+    entries.put(tuple1._1, values)
+    if (tuples.nonEmpty) {
+      val it = tuples.iterator
+      while (it.hasNext) {
+        val (key, value) = it.next()
+        val entry        = entries.get(key)
+        if (entry != null && !value.isBlank) {
+          entry.add(value)
+        } else {
+          val newValues = new util.ArrayList[String](1)
+          if (!value.isBlank) {
+            newValues.add(value)
+          }
+          entries.put(key, newValues)
+        }
+      }
+    }
+    JavaLinkedHashMapQueryParams(entries)
+  }
 
   /**
    * Decodes the specified string into a collection of query parameters.
    */
   def decode(queryStringFragment: String, charset: Charset = Charsets.Utf8): QueryParams =
-    QueryParamEncoding.default.decode(queryStringFragment, charset)
+    QueryParamEncoding.decode(queryStringFragment, charset)
 
   /**
    * Empty query parameters.

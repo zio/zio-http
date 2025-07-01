@@ -24,13 +24,12 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.stream.{Take, ZChannel, ZStream}
 
 import zio.http.Body.UnsafeBytes
-import zio.http.internal.BodyEncoding
 import zio.http.{Body, Header}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.util.AsciiString
 
-object NettyBody extends BodyEncoding {
+object NettyBody {
 
   /**
    * Helper to create Body from AsciiString
@@ -41,11 +40,13 @@ object NettyBody extends BodyEncoding {
     unsafeAsync: UnsafeAsync => Unit,
     knownContentLength: Option[Long],
     contentTypeHeader: Option[Header.ContentType] = None,
+    readMore: () => Unit = () => (),
   ): Body = {
     AsyncBody(
       unsafeAsync,
       knownContentLength,
       contentTypeHeader.map(Body.ContentType.fromHeader),
+      readMore,
     )
   }
 
@@ -59,7 +60,7 @@ object NettyBody extends BodyEncoding {
     }
   }
 
-  override def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
+  def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
 
   private[zio] final case class AsciiStringBody(
@@ -92,6 +93,7 @@ object NettyBody extends BodyEncoding {
     unsafeAsync: UnsafeAsync => Unit,
     knownContentLength: Option[Long],
     override val contentType: Option[Body.ContentType] = None,
+    nettyRead: () => Unit,
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map {
@@ -110,12 +112,14 @@ object NettyBody extends BodyEncoding {
       }
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = {
-      asyncUnboundedStream[Any, Throwable, Byte](emit =>
-        try {
-          unsafeAsync(new UnsafeAsync.Streaming(emit))
-        } catch {
-          case e: Throwable => emit(ZIO.fail(Option(e)))
-        },
+      asyncUnboundedStream[Any, Throwable, Byte](
+        emit =>
+          try {
+            unsafeAsync(new UnsafeAsync.Streaming(emit))
+          } catch {
+            case e: Throwable => emit(ZIO.fail(Option(e)))
+          },
+        ZIO.succeed(nettyRead()),
       )
     }
 
@@ -137,16 +141,20 @@ object NettyBody extends BodyEncoding {
   }
 
   /**
-   * Code ported from zio.stream to use an unbounded queue
+   * Code ported from zio.stream to use an unbounded queue On top of that the
+   * nettyRead() function is added. It is used to call netty ctx.read() when the
+   * queue is empty
    */
   private def asyncUnboundedStream[R, E, A](
     register: ZStream.Emit[R, E, A, Unit] => Unit,
+    nettyRead: UIO[Unit],
   )(implicit trace: Trace): ZStream[R, E, A] =
     ZStream.unwrapScoped[R](for {
       queue   <- ZIO.acquireRelease(Queue.unbounded[Take[E, A]])(_.shutdown)
       runtime <- ZIO.runtime[R]
     } yield {
-      val rtm = runtime.unsafe
+      val maybeRead = ZChannel.fromZIO(nettyRead.whenZIODiscard(queue.isEmpty))
+      val rtm       = runtime.unsafe
       register { k =>
         try {
           rtm
@@ -166,7 +174,7 @@ object NettyBody extends BodyEncoding {
               maybeError =>
                 ZChannel.fromZIO(queue.shutdown) *>
                   maybeError.fold[ZChannel[Any, Any, Any, Any, E, Chunk[A], Unit]](ZChannel.unit)(ZChannel.fail(_)),
-              a => ZChannel.write(a) *> loop,
+              a => ZChannel.write(a) *> maybeRead *> loop,
             ),
         )
 

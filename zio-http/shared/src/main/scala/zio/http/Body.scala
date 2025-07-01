@@ -27,7 +27,6 @@ import zio.stream.ZStream
 import zio.schema.Schema
 import zio.schema.codec.BinaryCodec
 
-import zio.http.internal.BodyEncoding
 import zio.http.multipart.mixed.MultipartMixed
 
 /**
@@ -254,7 +253,8 @@ object Body {
     charSequence: CharSequence,
     charset: Charset = Charsets.Http,
   ): Body =
-    BodyEncoding.default.fromCharSequence(charSequence, charset)
+    if (charset == Charsets.Http && charSequence.isEmpty) EmptyBody
+    else StringBody(charSequence.toString, charset)
 
   /**
    * Constructs a [[zio.http.Body]] from a chunk of bytes.
@@ -649,5 +649,52 @@ object Body {
   private val zioEmptyArray = Exit.succeed(Array.emptyByteArray)
 
   private val zioEmptyChunk = Exit.succeed(Chunk.empty[Byte])
+
+  private[zio] final case class StringBody(
+    data: String,
+    charset: Charset = Charsets.Http,
+    override val contentType: Option[Body.ContentType] = None,
+  ) extends UnsafeBytes {
+
+    var bytes: Array[Byte] = null
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] =
+      ZIO.succeed(data.getBytes(charset))
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
+      Exit.succeed(Chunk.fromArray(data.getBytes(charset)))
+
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+      ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
+
+    override def contentType(newContentType: Body.ContentType): Body =
+      copy(contentType = Some(newContentType))
+
+    override def isComplete: Boolean = true
+
+    override def isEmpty: Boolean = data.isEmpty
+
+    /**
+     * Returns the length of the body in bytes, if known.
+     */
+    override def knownContentLength: Option[Long] = {
+      if (bytes == null) bytes = data.getBytes(charset)
+      Some(bytes.length.toLong)
+    }
+
+    override def toString: String = s"StringBody($data)"
+
+    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = {
+      if (bytes == null) {
+        bytes = data.getBytes(charset)
+      }
+      bytes
+    }
+
+  }
+
+  private[zio] object StringBody {
+    val empty: StringBody = StringBody("", Charsets.Http, None)
+  }
 
 }

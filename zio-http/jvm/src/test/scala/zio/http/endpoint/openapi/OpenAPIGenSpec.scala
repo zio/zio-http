@@ -148,7 +148,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     case class B(i: Int)
   }
 
-  case class AgeParam(@validate(Validation.greaterThan(17)) age: Int)
+  case class AgeParam(
+    @description("The age of the user. Must be greater than 17.")
+    @validate(Validation.greaterThan(17))
+    age: Int,
+  )
 
   object AgeParam {
     implicit val schema: Schema[AgeParam] = DeriveSchema.gen
@@ -957,15 +961,13 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    "/withQuery" : {
                              |      "get" : {
                              |        "parameters" : [
-                             |
-                             |            {
+                             |          {
                              |            "name" : "age",
                              |            "in" : "query",
+                             |            "description" : "The age of the user. Must be greater than 17.\n\n",
                              |            "required" : true,
-                             |            "schema" :
-                             |              {
-                             |              "type" :
-                             |                "integer",
+                             |            "schema" : {
+                             |              "type" : "integer",
                              |              "format" : "int32",
                              |              "exclusiveMinimum" : 17
                              |            },
@@ -973,12 +975,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |            "style" : "form"
                              |          }
                              |        ],
-                             |        "requestBody" :
-                             |          {
+                             |        "requestBody" : {
                              |          "content" : {
                              |            "application/json" : {
-                             |              "schema" :
-                             |                {
+                             |              "schema" : {
                              |                "$ref" : "#/components/schemas/SimpleInputBody"
                              |              }
                              |            }
@@ -986,23 +986,19 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "required" : true
                              |        },
                              |        "responses" : {
-                             |          "200" :
-                             |            {
+                             |          "200" : {
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" :
-                             |                  {
+                             |                "schema" : {
                              |                  "$ref" : "#/components/schemas/SimpleOutputBody"
                              |                }
                              |              }
                              |            }
                              |          },
-                             |          "404" :
-                             |            {
+                             |          "404" : {
                              |            "content" : {
                              |              "application/json" : {
-                             |                "schema" :
-                             |                  {
+                             |                "schema" : {
                              |                  "$ref" : "#/components/schemas/NotFoundError"
                              |                }
                              |              }
@@ -1014,32 +1010,25 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  },
                              |  "components" : {
                              |    "schemas" : {
-                             |      "NotFoundError" :
-                             |        {
-                             |        "type" :
-                             |          "object",
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
                              |        "properties" : {
                              |          "message" : {
-                             |            "type" :
-                             |              "string"
+                             |            "type" : "string"
                              |          }
                              |        },
                              |        "required" : [
                              |          "message"
                              |        ]
                              |      },
-                             |      "SimpleInputBody" :
-                             |        {
-                             |        "type" :
-                             |          "object",
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
                              |        "properties" : {
                              |          "name" : {
-                             |            "type" :
-                             |              "string"
+                             |            "type" : "string"
                              |          },
                              |          "age" : {
-                             |            "type" :
-                             |              "integer",
+                             |            "type" : "integer",
                              |            "format" : "int32"
                              |          }
                              |        },
@@ -1048,18 +1037,14 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |          "age"
                              |        ]
                              |      },
-                             |      "SimpleOutputBody" :
-                             |        {
-                             |        "type" :
-                             |          "object",
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
                              |        "properties" : {
                              |          "userName" : {
-                             |            "type" :
-                             |              "string"
+                             |            "type" : "string"
                              |          },
                              |          "score" : {
-                             |            "type" :
-                             |              "integer",
+                             |            "type" : "integer",
                              |            "format" : "int32"
                              |          }
                              |        },

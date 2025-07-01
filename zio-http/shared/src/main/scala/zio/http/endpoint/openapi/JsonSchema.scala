@@ -1559,4 +1559,130 @@ object JsonSchema {
       SerializableJsonSchema()
   }
 
+  /**
+   * Errors that may arise while attempting to fully inline a schema using
+   * `fromZSchemaInlineDeepOrFail`.
+   */
+  sealed trait GenerationError extends Product with Serializable
+
+  object GenerationError {
+
+    final case class RecursionDetected(cycle: NonEmptyChunk[java.lang.String]) extends GenerationError {
+      override def toString: java.lang.String =
+        s"Recursion detected: ${cycle.mkString(" -> ")}"
+    }
+  }
+
+  /**
+   * Builds a fully inlined `JsonSchema`, eliminating all `\$ref` occurrences.
+   * If a recursive definition is encountered, the process short-circuits and
+   * returns `Left(GenerationError.RecursionDetected)` containing the cycle (in
+   * compact-reference form) that made inlining impossible.
+   */
+  def fromZSchemaInlineDeepOrFail[A](schema: Schema[A]): Either[GenerationError, JsonSchema] = {
+
+    def token(ref: java.lang.String): java.lang.String = {
+      val Prefix = "#/components/schemas/"
+      val simple = if (ref.startsWith(Prefix)) ref.substring(Prefix.length) else ref
+      simple.split("_").last
+    }
+
+    def compactVersion(ref: java.lang.String): java.lang.String = {
+      val Prefix = "#/components/schemas/"
+      if (ref.startsWith(Prefix)) Prefix + token(ref) else ref
+    }
+
+    // Build component dictionary using the reference style – this gives us an
+    // easy mapping from the `$ref` strings produced by `fromZSchema` back to
+    // their definitions.
+    val multi = fromZSchemaMulti(schema, SchemaStyle.Reference)
+
+    // Components map (includes root if it has a ref)
+    val initialDict: Map[java.lang.String, JsonSchema] = multi.rootRef.map(r => r -> multi.root).toMap ++ multi.children
+
+    // Also index components by their compact "#/.../{TypeName}" variant so that
+    // a schema produced with `SchemaStyle.Compact` can be resolved as well.
+    val dict: Map[java.lang.String, JsonSchema] = initialDict ++ initialDict.flatMap { case (ref, schema) =>
+      val c = compactVersion(ref)
+      if (c == ref) None else Some(c -> schema)
+    }
+
+    // Helper that recursively replaces RefSchema with their definitions while tracking refs.
+    def inlineRec(js: JsonSchema, path: List[java.lang.String]): Either[GenerationError, JsonSchema] =
+      js match {
+        case RefSchema(ref0) =>
+          val tok     = token(ref0)
+          val compact = compactVersion(ref0)
+          if (path.contains(tok)) {
+            val nec = NonEmptyChunk(compact)
+            Left(GenerationError.RecursionDetected(nec))
+          } else {
+            dict.get(ref0).orElse(dict.get(compact)) match {
+              case Some(target) => inlineRec(target, path :+ tok)
+              case None         => Right(js)
+            }
+          }
+
+        // Primitive / terminal types – nothing to inline.
+        case primitive if primitive.isPrimitive || primitive == JsonSchema.Null || primitive == JsonSchema.AnyJson =>
+          Right(primitive)
+
+        // Composite types – recurse into children and rebuild if any changed.
+        case JsonSchema.Object(props, addProps, req) =>
+          val inlinedPropsEither =
+            props.foldLeft[Either[GenerationError, Map[java.lang.String, JsonSchema]]](
+              Right(Map.empty[java.lang.String, JsonSchema]),
+            ) { case (accE, (k, v)) =>
+              for {
+                acc <- accE
+                inV <- inlineRec(v, path)
+              } yield acc + (k -> inV)
+            }
+
+          // additionalProperties may carry a schema, we need to dive into it.
+          val inlinedAddPropsE: Either[GenerationError, Either[Boolean, JsonSchema]] = addProps match {
+            case Right(apSchema) => inlineRec(apSchema, path).map(Right(_))
+            case Left(b)         => Right(Left(b))
+          }
+
+          for {
+            inProps <- inlinedPropsEither
+            inAdd   <- inlinedAddPropsE
+          } yield JsonSchema.Object(inProps, inAdd, req)
+
+        case JsonSchema.ArrayType(items, minItems, unique) =>
+          items match {
+            case Some(it) => inlineRec(it, path).map(s => JsonSchema.ArrayType(Some(s), minItems, unique))
+            case None     => Right(js)
+          }
+
+        case JsonSchema.OneOfSchema(schemas) =>
+          recurseCollection(schemas, path).map(JsonSchema.OneOfSchema.apply)
+
+        case JsonSchema.AllOfSchema(schemas) =>
+          recurseCollection(schemas, path).map(JsonSchema.AllOfSchema.apply)
+
+        case JsonSchema.AnyOfSchema(schemas) =>
+          recurseCollection(schemas, path).map(JsonSchema.AnyOfSchema.apply)
+
+        // Numbers, Strings, Integers already inline.
+        case other => Right(other)
+      }
+
+    def recurseCollection(
+      coll: Chunk[JsonSchema],
+      path: List[java.lang.String],
+    ): Either[GenerationError, Chunk[JsonSchema]] =
+      coll
+        .foldRight[Either[GenerationError, List[JsonSchema]]](Right(Nil)) { (schema, accE) =>
+          for {
+            acc <- accE
+            inl <- inlineRec(schema, path)
+          } yield inl :: acc
+        }
+        .map(Chunk.fromIterable)
+
+    inlineRec(multi.root, Nil)
+  }
+
 }
