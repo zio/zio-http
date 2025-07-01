@@ -155,9 +155,9 @@ lazy val root = (project in file("."))
   .settings(publishSetting(false))
   .aggregate(aggregatedProjects *)
 
-lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
-  .in(file("zio-http"))
+lazy val `zio-http` = crossProject(JSPlatform, JVMPlatform)
   .enablePlugins(Shading.plugins() *)
+  .in(file("zio-http"))
   .settings(stdSettings("zio-http"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
@@ -186,6 +186,9 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `scala-compat-collection`,
     ),
   )
+  .jvmSettings(
+    libraryDependencies += "dev.zio" %% "zio-http-netty" % version.value,
+  )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
     ThisProject / fork := false,
@@ -205,10 +208,10 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     ),
   )
 
-lazy val zioHttpJS = zioHttp.js
+lazy val zioHttpJS = `zio-http`.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
-lazy val zioHttpJVM = zioHttp.jvm
+lazy val zioHttpJVM = `zio-http`.jvm
 
 /**
  * Special subproject to sanity test the shaded version of zio-http. Run using
@@ -395,8 +398,10 @@ lazy val zioHttpNetty = (project in file("zio-http-netty"))
   .settings(
     libraryDependencies ++= Seq(
       Dependencies.zio,
+      `zio-streams`,
     ) ++ Dependencies.netty,
   )
+  .dependsOn(`zio-http`.jvm)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .enablePlugins(Shading.plugins() *)
