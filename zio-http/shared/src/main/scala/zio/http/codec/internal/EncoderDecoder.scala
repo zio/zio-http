@@ -179,7 +179,10 @@ private[codec] object EncoderDecoder {
       val method             = encodeMethod(inputs.method)
       val headers            = encodeHeaders(inputs.header)
       def contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
-      val body = encodeBody(config, inputs.content, outputTypes).getOrElse(Body.fromString("Error while encoding body"))
+      val body               = encodeBody(config, inputs.content, outputTypes) match {
+        case Right(r) => r
+        case Left(l)  => throw l
+      }
 
       val headers0 = if (headers.contains("content-type")) headers else headers ++ contentTypeHeaders
       f(URL(path, queryParams = query), status, method, headers0, body)

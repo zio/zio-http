@@ -393,7 +393,8 @@ object RoundtripSpec extends ZIOHttpSpec {
             url = URL(path = Path("/users/posts")),
             headers = Headers(Header.Accept(MediaType.text.`plain`)),
           ),
-          response => response.body.asString.map(s => assertTrue(s.contains("Error while encoding body"))),
+          response =>
+            response.body.asString.map(s => assertTrue(s.contains("Unexpected error happened when encoding response"))),
         )
       }
 

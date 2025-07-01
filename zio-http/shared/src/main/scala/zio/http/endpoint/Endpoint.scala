@@ -27,6 +27,7 @@ import zio.schema.Schema
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
+import zio.http.codec.HttpCodecError.EncodingResponseError
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
@@ -55,7 +56,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   documentation: Doc,
   authType: Auth,
-) { self =>
+) {
+  self =>
 
   val authCombiner: Combiner[Input, authType.ClientRequirement]                   =
     implicitly[Combiner[Input, authType.ClientRequirement]]
@@ -334,7 +336,22 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       case _             => Some(Handler.succeed(Response.unauthorized))
     }
 
-    def handlers(config: CodecConfig): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] =
+    def handlers(
+      config: CodecConfig,
+    ): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] = {
+      def handleEncodingBodyErrorHandling(request: Request) =
+        ZIO.attempt(
+          codecError.encodeResponse(
+            EncodingResponseError,
+            (
+              request.headers
+                .getAll(Header.Accept)
+                .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
+            ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn),
+            config,
+          ),
+        )
+
       self.alternatives.map { case (endpoint, condition) =>
         Handler.fromFunctionZIO { (request: zio.http.Request) =>
           val outputMediaTypes =
@@ -347,12 +364,23 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
             original(value)
               .asInstanceOf[ZIO[Env, Err, Output]]
               .foldZIO(
-                success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
-                failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
+                success = output =>
+                  ZIO
+                    .attempt(endpoint.output.encodeResponse(output, outputMediaTypes, config))
+                    .orElse(handleEncodingBodyErrorHandling(request))
+                    .orDie
+                    .flatMap(Exit.succeed),
+                failure = error =>
+                  ZIO
+                    .attempt(endpoint.error.encodeResponse(error, outputMediaTypes, config))
+                    .orElse(handleEncodingBodyErrorHandling(request))
+                    .orDie
+                    .flatMap(Exit.succeed),
               )
           }
         } -> condition
       }
+    }
 
     // TODO: What to do if there are no endpoints??
     def handlers2(
