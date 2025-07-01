@@ -179,10 +179,7 @@ private[codec] object EncoderDecoder {
       val method             = encodeMethod(inputs.method)
       val headers            = encodeHeaders(inputs.header)
       def contentTypeHeaders = encodeContentType(inputs.content, outputTypes)
-      val body               = encodeBody(config, inputs.content, outputTypes) match {
-        case Right(r) => r
-        case Left(l)  => throw l
-      }
+      val body               = encodeBody(config, inputs.content, outputTypes)
 
       val headers0 = if (headers.contains("content-type")) headers else headers ++ contentTypeHeaders
       f(URL(path, queryParams = query), status, method, headers0, body)
@@ -370,21 +367,15 @@ private[codec] object EncoderDecoder {
     private def encodeMethod(inputs: Array[Any]): Option[Method] =
       simpleEncode(flattened.method, inputs)
 
-    private def encodeBody(
-      config: CodecConfig,
-      inputs: Array[Any],
-      outputTypes: Chunk[MediaTypeWithQFactor],
-    ): Either[Throwable, Body] =
+    private def encodeBody(config: CodecConfig, inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Body =
       inputs.length match {
         case 0 =>
-          Right(Body.empty)
+          Body.empty
         case 1 =>
           val bodyCodec = flattened.content(0)
           bodyCodec.erase.encodeToBody(inputs(0), outputTypes, config)
         case _ =>
-          Try(encodeMultipartFormData(inputs, outputTypes, config))
-            .map(form => Body.fromMultipartForm(form, formBoundary))
-            .toEither
+          Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes, config), formBoundary)
 
       }
 

@@ -16,8 +16,6 @@
 
 package zio.http.codec.internal
 
-import scala.util.Try
-
 import zio._
 
 import zio.stream.{ZPipeline, ZStream}
@@ -61,9 +59,7 @@ private[http] sealed trait BodyCodec[A] { self =>
   /**
    * Encodes the `A` to a body in the given codec.
    */
-  def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
-    trace: Trace,
-  ): Either[Throwable, Body]
+  def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit trace: Trace): Body
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -97,7 +93,7 @@ private[http] object BodyCodec {
 
     override def encodeToBody(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
-    ): Either[Throwable, Body] = Right(Body.empty)
+    ): Body = Body.empty
 
     override def encodeToField(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], name: String, config: CodecConfig)(
       implicit trace: Trace,
@@ -166,12 +162,12 @@ private[http] object BodyCodec {
 
     def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
-    ): Either[Throwable, Body] = {
+    ): Body = {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
       val mediaType = selected._1
       val bc        = selected._2
-      if (bc.schema == Schema[Unit]) Right(Body.empty.contentType(mediaType))
-      else Try(bc.codec(config).encode(value)).map(chunk => Body.fromChunk(chunk, mediaType)).toEither
+      if (bc.schema == Schema[Unit]) Body.empty.contentType(mediaType)
+      else Body.fromChunk(bc.codec(config).encode(value), mediaType)
     }
 
     type Element = A
@@ -228,11 +224,11 @@ private[http] object BodyCodec {
       config: CodecConfig,
     )(implicit
       trace: Trace,
-    ): Either[Throwable, Body] = {
+    ): Body = {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
       val mediaType = selected._1
       val bc        = selected._2
-      Right(Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType))
+      Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType)
     }
 
     type Element = E
