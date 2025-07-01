@@ -184,7 +184,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-test`,
       `zio-test-sbt`,
       `scala-compat-collection`,
-    ) ++ netty,
+    ),
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
@@ -389,6 +389,15 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
   .dependsOn(zioHttpJVM, sbtZioHttpGrpc)
   .disablePlugins(ScalafixPlugin)
 
+lazy val zioHttpNetty = (project in file("zio-http-netty"))
+  .settings(stdSettings("zio-http-netty"))
+  .settings(publishSetting(true))
+  .settings(
+    libraryDependencies ++= Seq(
+      Dependencies.zio,
+    ) ++ Dependencies.netty,
+  )
+
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .enablePlugins(Shading.plugins() *)
   .settings(stdSettings("zio-http-testkit"))
@@ -396,13 +405,13 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .settings(Shading.shadingSettings())
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    libraryDependencies ++= netty ++ Seq(
+    libraryDependencies ++= Seq(
       `zio`,
       `zio-test`,
       `zio-test-sbt`,
     ),
   )
-  .dependsOn(zioHttpJVM)
+  .dependsOn(zioHttpJVM, zioHttpNetty)
 
 lazy val docs = project
   .in(file("zio-http-docs"))
