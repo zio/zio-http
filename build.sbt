@@ -131,12 +131,14 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
     Seq(
       zioHttpJVM,
       zioHttpJS,
+      zioHttpNetty,
       zioHttpTestkit,
     )
   } else {
     Seq(
       zioHttpJVM,
       zioHttpJS,
+      zioHttpNetty,
       zioHttpBenchmarks,
       zioHttpCli,
       zioHttpGen,
@@ -399,7 +401,14 @@ lazy val zioHttpNetty = (project in file("zio-http-netty"))
     libraryDependencies ++= Seq(
       Dependencies.zio,
       `zio-streams`,
+      `zio-schema`,
+      `scala-compat-collection`,
     ) ++ Dependencies.netty,
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
   )
   .dependsOn(`zio-http`.jvm)
 
