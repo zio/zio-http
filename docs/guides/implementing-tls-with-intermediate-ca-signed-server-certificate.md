@@ -1,6 +1,6 @@
 ---
 id: implementing-tls-with-intermediate-ca-signed-server-certificate
-title: Implementing TLS with Intermediate CA-signed Server Certificate
+title: Implementing TLS with an Intermediate CA-signed Server Certificate
 ---
 
 ## Introduction
