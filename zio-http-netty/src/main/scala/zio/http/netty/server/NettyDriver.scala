@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
@@ -17,98 +16,138 @@
 
 package zio.http.netty.server
 
+import java.lang.{Boolean => JBoolean}
+import java.net.InetSocketAddress
+
 import zio._
-import zio.http._
-import zio.http.netty.NettyConfig
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.Driver.StartResult
+import zio.http.netty._
+import zio.http.netty.client.NettyClientDriver
+import zio.http.{ClientDriver, Driver, Response, Routes, Server}
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
-import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel}
-import io.netty.channel.kqueue.{KqueueEventLoopGroup, KqueueServerSocketChannel}
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.channel.socket.nio.NioServerSocketChannel
-import io.netty.handler.logging.{LogLevel, LoggingHandler}
 import io.netty.util.ResourceLeakDetector
 
-final case class NettyDriver(
-  eventLoopGroup: EventLoopGroup,
+private[zio] final case class NettyDriver(
+  appRef: RoutesRef,
   channelFactory: ChannelFactory[ServerChannel],
-  shutdown: UIO[Unit],
-) extends Driver {
+  channelInitializer: ChannelInitializer[Channel],
+  serverInboundHandler: ServerInboundHandler,
+  eventLoopGroups: ServerEventLoopGroups,
+  serverConfig: Server.Config,
+  nettyConfig: NettyConfig,
+) extends Driver { self =>
 
-  override def start(implicit trace: Trace): RIO[Scope, StartResult] = {
-    val serverBootstrap = new ServerBootstrap().group(eventLoopGroup).channelFactory(channelFactory)
-    
-    ZIO.succeed(StartResult.make(serverBootstrap, shutdown))
-  }
+  def start(implicit trace: Trace): RIO[Scope, StartResult] =
+    for {
+      chf     <- ZIO.attempt {
+        new ServerBootstrap()
+          .group(eventLoopGroups.boss, eventLoopGroups.worker)
+          .channelFactory(channelFactory)
+          .childHandler(channelInitializer)
+          .option[Integer](ChannelOption.SO_BACKLOG, serverConfig.soBacklog)
+          .childOption[JBoolean](ChannelOption.TCP_NODELAY, serverConfig.tcpNoDelay)
+          .bind(serverConfig.address)
+      }
+      _       <- NettyFutureExecutor.scoped(chf)
+      _       <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyConfig.leakDetectionLevel.toNetty))
+      channel <- ZIO.attempt(chf.channel())
+      port    <- ZIO.attempt(channel.localAddress().asInstanceOf[InetSocketAddress].getPort)
+
+      _ <- Scope.addFinalizer(
+        NettyFutureExecutor.executed(channel.close()).ignoreLogged,
+      )
+    } yield StartResult(port, serverInboundHandler.inFlightRequests)
+
+  def addApp[R](newApp: Routes[R, Response], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] =
+    ZIO.fiberId.map { fiberId =>
+      var loop = true
+      while (loop) {
+        val oldAppAndRt     = appRef.get()
+        val (oldApp, oldRt) = oldAppAndRt
+        val updatedApp      = (oldApp ++ newApp).asInstanceOf[Routes[Any, Response]]
+        val updatedEnv      = oldRt.environment.unionAll(env)
+        // Update the fiberRefs with the new environment to avoid doing this every time we run / fork a fiber
+        val updatedFibRefs  = oldRt.fiberRefs.updatedAs(fiberId)(FiberRef.currentEnvironment, updatedEnv)
+        val updatedRt       = Runtime(updatedEnv, updatedFibRefs, oldRt.runtimeFlags)
+        val updatedAppAndRt = (updatedApp, updatedRt)
+
+        if (appRef.compareAndSet(oldAppAndRt, updatedAppAndRt)) loop = false
+      }
+      serverInboundHandler.refreshApp()
+    }
+
+  override def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
+    for {
+      channelFactory <- ChannelFactories.Client.live.build
+        .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](nettyConfig))
+      nettyRuntime   <- NettyRuntime.live.build
+    } yield NettyClientDriver(channelFactory.get, eventLoopGroups.worker, nettyRuntime.get)
+
+  override def toString: String = s"NettyDriver($serverConfig)"
 }
 
 object NettyDriver {
 
-  def live: ZLayer[NettyConfig, Throwable, NettyDriver] =
-    ZLayer.scoped {
-      for {
-        config <- ZIO.service[NettyConfig]
-        driver <- make(config)
-      } yield driver
-    }
+  implicit val trace: Trace = Trace.empty
 
-  def make(config: NettyConfig)(implicit trace: Trace): ZIO[Scope, Throwable, NettyDriver] = {
-    ZIO.acquireRelease {
-      ZIO.attempt {
-        // Set leak detection level
-        ResourceLeakDetector.setLevel(convertLeakDetectionLevel(config.leakDetectionLevel))
+  val make: ZIO[
+    RoutesRef
+      & ChannelFactory[ServerChannel]
+      & ChannelInitializer[Channel]
+      & ServerEventLoopGroups
+      & Server.Config
+      & NettyConfig
+      & ServerInboundHandler,
+    Nothing,
+    Driver,
+  ] =
+    for {
+      app   <- ZIO.service[RoutesRef]
+      cf    <- ZIO.service[ChannelFactory[ServerChannel]]
+      cInit <- ZIO.service[ChannelInitializer[Channel]]
+      elg   <- ZIO.service[ServerEventLoopGroups]
+      sc    <- ZIO.service[Server.Config]
+      nsc   <- ZIO.service[NettyConfig]
+      sih   <- ZIO.service[ServerInboundHandler]
+    } yield new NettyDriver(
+      appRef = app,
+      channelFactory = cf,
+      channelInitializer = cInit,
+      serverInboundHandler = sih,
+      eventLoopGroups = elg,
+      serverConfig = sc,
+      nettyConfig = nsc,
+    )
 
-        val (eventLoopGroup, channelClass) = config.channelType match {
-          case ChannelType.EPOLL =>
-            val group = new EpollEventLoopGroup(config.nThreads)
-            (group, () => new EpollServerSocketChannel())
-
-          case ChannelType.KQUEUE =>
-            val group = new KqueueEventLoopGroup(config.nThreads)
-            (group, () => new KqueueServerSocketChannel())
-
-          case ChannelType.NIO | ChannelType.AUTO =>
-            val group = new NioEventLoopGroup(config.nThreads)
-            (group, () => new NioServerSocketChannel())
-
-          case ChannelType.IO_URING =>
-            throw new UnsupportedOperationException("IO_URING not yet supported")
-        }
-
-        val channelFactory = new ChannelFactory[ServerChannel] {
-          override def newChannel(): ServerChannel = channelClass()
-        }
-
-        val shutdown = ZIO.attempt {
-          val future = eventLoopGroup.shutdownGracefully(
-            config.shutdownQuietPeriodDuration.toNanos,
-            config.shutdownTimeoutDuration.toNanos,
-            java.util.concurrent.TimeUnit.NANOSECONDS,
-          )
-          future.sync()
-        }.ignore
-
-        NettyDriver(eventLoopGroup, channelFactory, shutdown)
-      }
-    } { driver =>
-      driver.shutdown
-    }
+  val manual
+    : ZLayer[ServerEventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.makeSome[ServerEventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
+      ZLayer(AppRef.empty),
+      ServerChannelInitializer.layer,
+      ServerInboundHandler.live,
+      ZLayer(make),
+    )
   }
 
-  private def convertLeakDetectionLevel(level: LeakDetectionLevel): ResourceLeakDetector.Level =
-    level match {
-      case LeakDetectionLevel.DISABLED => ResourceLeakDetector.Level.DISABLED
-      case LeakDetectionLevel.SIMPLE   => ResourceLeakDetector.Level.SIMPLE
-      case LeakDetectionLevel.ADVANCED => ResourceLeakDetector.Level.ADVANCED
-      case LeakDetectionLevel.PARANOID => ResourceLeakDetector.Level.PARANOID
-    }
-}
+  val customized: ZLayer[Server.Config & NettyConfig, Throwable, Driver] = {
+    val serverChannelFactory: ZLayer[NettyConfig, Nothing, ChannelFactory[ServerChannel]] =
+      ChannelFactories.Server.fromConfig
+    val eventLoopGroup: ZLayer[NettyConfig, Nothing, ServerEventLoopGroups]               = ServerEventLoopGroups.live
 
-case class StartResult(bootstrap: ServerBootstrap, shutdown: UIO[Unit])
+    ZLayer.makeSome[Server.Config & NettyConfig, Driver](
+      eventLoopGroup,
+      serverChannelFactory,
+      manual,
+    )
+  }
 
-object StartResult {
-  def make(bootstrap: ServerBootstrap, shutdown: UIO[Unit]): StartResult =
-    StartResult(bootstrap, shutdown)
+  val live: ZLayer[Server.Config, Throwable, Driver] =
+    ZLayer.makeSome[Server.Config, Driver](
+      ZLayer.succeed(NettyConfig.default),
+      customized,
+    )
 }

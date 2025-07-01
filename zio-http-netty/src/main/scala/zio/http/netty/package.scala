@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
@@ -22,9 +21,38 @@ import zio.{Trace, ZIO}
 
 import io.netty.util.AsciiString
 package object netty {
-  private[zio] implicit class AsciiStringExtensions(val charSequence: CharSequence) {
-    def asciiString: AsciiString = AsciiString.of(charSequence)
+
+  private[zio] object Names {
+    val HttpObjectAggregator           = "HTTP_OBJECT_AGGREGATOR"
+    val HttpRequestHandler             = "HTTP_REQUEST"
+    val HttpKeepAliveHandler           = "HTTP_KEEPALIVE"
+    val FlowControlHandler             = "FLOW_CONTROL_HANDLER"
+    val WebSocketHandler               = "WEB_SOCKET_HANDLER"
+    val SSLHandler                     = "SSL_HANDLER"
+    val HttpClientCodec                = "HTTP_CLIENT_CODEC"
+    val HttpServerExpectContinue       = "HTTP_SERVER_EXPECT_CONTINUE"
+    val HttpServerFlushConsolidation   = "HTTP_SERVER_FLUSH_CONSOLIDATION"
+    val ClientInboundHandler           = "CLIENT_INBOUND_HANDLER"
+    val ClientFailureHandler           = "CLIENT_FAILURE_HANDLER"
+    val ClientReadTimeoutErrorHandler  = "CLIENT_READ_TIMEOUT_ERROR_HANDLER"
+    val ClientStreamingBodyHandler     = "CLIENT_STREAMING_BODY_HANDLER"
+    val WebSocketClientProtocolHandler = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
+    val HttpRequestDecompression       = "HTTP_REQUEST_DECOMPRESSION"
+    val HttpResponseCompression        = "HTTP_RESPONSE_COMPRESSION"
+    val HttpContentHandler             = "HTTP_CONTENT_HANDLER"
+    val HttpRequestDecoder             = "HTTP_REQUEST_DECODER"
+    val HttpResponseEncoder            = "HTTP_RESPONSE_ENCODER"
+    val ProxyHandler                   = "PROXY_HANDLER"
+    val ReadTimeoutHandler             = "READ_TIMEOUT_HANDLER"
+    var HybridContentLengthHandler     = "HYBRID_CONTENT_LENGTH_HANDLER"
+    var ChunkedWriteHandler            = "CHUNKED_WRITE_HANDLER"
   }
 
-  private[zio] def exitZIO(implicit trace: Trace): ZIO[Any, Nothing, Unit] = ZIO.unit
+  implicit class BodyExtensions(val body: Body) extends AnyVal {
+
+    final def asCharSeq(implicit trace: Trace): ZIO[Any, Throwable, CharSequence] =
+      body match {
+        case _ => body.asArray.map { buf => new AsciiString(buf, false) }
+      }
+  }
 }

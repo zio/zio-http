@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
@@ -18,20 +17,67 @@
 package zio.http.netty
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-/**
- * Runs ZIO programs from Netty handlers
- */
-final class NettyRuntime(val runtime: Runtime[Any]) {
-  def run(zio: ZIO[Any, Throwable, Any])(ensuring: () => Unit): Unit =
-    Unsafe.unsafe { implicit u =>
-      runtime.unsafe.fork(zio.ensuring(ZIO.succeed(ensuring())))
+import io.netty.channel._
+import io.netty.util.concurrent.{Future, GenericFutureListener}
+
+private[zio] final class NettyRuntime(zioRuntime: Runtime[Any]) {
+  private[this] val rtm = zioRuntime.unsafe
+
+  def getRef[A](ref: FiberRef[A]): A = zioRuntime.fiberRefs.getOrDefault(ref)
+
+  def run(
+    ctx: ChannelHandlerContext,
+    ensured: () => Unit,
+    preferOnCurrentThread: Boolean,
+  )(
+    program: ZIO[Any, Throwable, Any],
+  )(implicit unsafe: Unsafe, trace: Trace): Unit = {
+
+    def onExit(exit: Exit[Throwable, Any]): Unit = {
+      ensured()
+      exit match {
+        case Exit.Success(_)     =>
+        case Exit.Failure(cause) =>
+          cause.failureOption.orElse(cause.dieOption) match {
+            case None        => ()
+            case Some(error) => ctx.fireExceptionCaught(error)
+          }
+          if (ctx.channel().isOpen) ctx.close(): Unit
+      }
     }
 
-  def runUninterruptible(zio: ZIO[Any, Throwable, Any])(ensuring: () => Unit): Unit =
-    Unsafe.unsafe { implicit u =>
-      runtime.unsafe.fork(zio.uninterruptible.ensuring(ZIO.succeed(ensuring())))
+    def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit =
+      ctx.channel().closeFuture().removeListener(close): Unit
+
+    val forkOrExit = if (preferOnCurrentThread) rtm.runOrFork(program) else Left(rtm.fork(program))
+
+    forkOrExit match {
+      case Left(fiber) =>
+        // Close the connection if the program fails
+        // When connection closes, interrupt the program
+        val close = closeListener(fiber)
+        ctx.channel().closeFuture.addListener(close)
+        fiber.unsafe.addObserver { exit =>
+          removeListener(close)
+          onExit(exit)
+        }
+      case Right(exit) =>
+        onExit(exit)
     }
+  }
+
+  @throws[Throwable]("Any errors that occur during the execution of the ZIO effect")
+  def unsafeRunSync[A](program: ZIO[Any, Throwable, A])(implicit unsafe: Unsafe, trace: Trace): A =
+    rtm.run(program).getOrThrowFiberFailure()
+
+  private def closeListener(fiber: Fiber.Runtime[_, _])(implicit
+    unsafe: Unsafe,
+    trace: Trace,
+  ): GenericFutureListener[Future[_ >: Void]] =
+    (_: Future[_ >: Void]) => unsafeRunSync(ZIO.fiberIdWith(fiber.interruptAsFork))
+
 }
 
 private[zio] object NettyRuntime {
