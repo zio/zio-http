@@ -367,13 +367,16 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                 success = output =>
                   ZIO
                     .attempt(endpoint.output.encodeResponse(output, outputMediaTypes, config))
+                    .logError
                     .orElse(handleEncodingBodyErrorHandling(request))
                     .orDie
                     .flatMap(Exit.succeed),
                 failure = error =>
                   ZIO
                     .attempt(endpoint.error.encodeResponse(error, outputMediaTypes, config))
+                    .logError
                     .orElse(handleEncodingBodyErrorHandling(request))
+                    .logError
                     .orDie
                     .flatMap(Exit.succeed),
               )
