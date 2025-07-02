@@ -103,6 +103,7 @@ object SocketContractSpec extends ZIOHttpSpec {
           _        <- promise.await.timeout(10.seconds)
         } yield assert(response.status)(equalTo(Status.SwitchingProtocols))
       }.provideSome[Client](
+        ServerRuntimeConfig.layer,
         TestServer.layer,
         NettyDriver.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
