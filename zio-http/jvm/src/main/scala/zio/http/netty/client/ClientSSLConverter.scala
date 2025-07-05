@@ -32,18 +32,19 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 private[netty] object ClientSSLConverter {
   private def keyManagerTrustManagerToSslContext(
-    keyManagerInfo: Option[(String, InputStream, Option[Secret])],
+    keyManagerInfo: Option[(String, InputStream, Option[Secret], Option[Secret])],
     trustManagerInfo: Option[(String, InputStream, Option[Secret])],
     sslContextBuilder: SslContextBuilder,
   ): SslContextBuilder = {
     val mkeyManagerFactory =
-      keyManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
+      keyManagerInfo.map { case (keyStoreType, inputStream, maybeKeyStorePassword, maybeKeyPassword) =>
         val keyStore          = KeyStore.getInstance(keyStoreType)
         val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
-        val password          = maybePassword.map(_.value.toArray).orNull
+        val keyStorePassword  = maybeKeyStorePassword.map(_.value.toArray)
+        val keyPairsPassword  = maybeKeyPassword.map(_.value.toArray) orElse keyStorePassword
 
-        keyStore.load(inputStream, password)
-        keyManagerFactory.init(keyStore, password)
+        keyStore.load(inputStream, keyStorePassword.orNull)
+        keyManagerFactory.init(keyStore, keyPairsPassword.orNull)
         keyManagerFactory
       }
 
@@ -115,6 +116,7 @@ private[netty] object ClientSSLConverter {
           keyManagerKeyStoreType,
           keyManagerSource,
           keyManagerPassword,
+          keyPairsPassword,
           trustManagerKeyStoreType,
           trustManagerSource,
           trustManagerPassword,
@@ -123,11 +125,11 @@ private[netty] object ClientSSLConverter {
         keyManagerSource match {
           case ClientSSLConfig.FromJavaxNetSsl.File(path)     =>
             Option(new FileInputStream(path)).map(inputStream =>
-              (keyManagerKeyStoreType, inputStream, keyManagerPassword),
+              (keyManagerKeyStoreType, inputStream, keyManagerPassword, keyPairsPassword),
             )
           case ClientSSLConfig.FromJavaxNetSsl.Resource(path) =>
             Option(getClass.getClassLoader.getResourceAsStream(path)).map(inputStream =>
-              (keyManagerKeyStoreType, inputStream, keyManagerPassword),
+              (keyManagerKeyStoreType, inputStream, keyManagerPassword, keyPairsPassword),
             )
           case ClientSSLConfig.FromJavaxNetSsl.Empty          => None
         }

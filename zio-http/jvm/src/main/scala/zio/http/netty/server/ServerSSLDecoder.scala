@@ -129,17 +129,18 @@ private[netty] object SSLUtil {
           keyManagerKeyStoreType,
           keyManagerSource,
           keyManagerPassword,
+          keyPairsPassword,
           trustManager,
         ) =>
       val keyManagerInfo =
         keyManagerSource match {
           case SSLConfig.Data.FromJavaxNetSsl.File(path) =>
             val inputStream = new FileInputStream(path)
-            (keyManagerKeyStoreType, inputStream, keyManagerPassword)
+            (keyManagerKeyStoreType, inputStream, keyManagerPassword, keyPairsPassword)
 
           case SSLConfig.Data.FromJavaxNetSsl.Resource(path) =>
             val inputStream = getClass.getClassLoader.getResourceAsStream(path)
-            (keyManagerKeyStoreType, inputStream, keyManagerPassword)
+            (keyManagerKeyStoreType, inputStream, keyManagerPassword, keyPairsPassword)
         }
 
       val trustManagerInfo =
@@ -158,18 +159,19 @@ private[netty] object SSLUtil {
   }
 
   private def keyManagerTrustManagerToSslContext(
-    keyManagerInfo: (String, InputStream, Option[Secret]),
+    keyManagerInfo: (String, InputStream, Option[Secret], Option[Secret]),
     trustManagerInfo: Option[(String, InputStream, Option[Secret])],
   ): SslContextBuilder = {
     val mkeyManagerFactory =
       keyManagerInfo match {
-        case (keyStoreType, inputStream, maybePassword) =>
+        case (keyStoreType, inputStream, maybeKeyStorePassword, maybeKeyPassword) =>
           val keyStore          = KeyStore.getInstance(keyStoreType)
           val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
-          val password          = maybePassword.map(_.value.toArray).orNull
+          val keyStorePassword  = maybeKeyStorePassword.map(_.value.toArray)
+          val keyPairsPassword  = maybeKeyPassword.map(_.value.toArray) orElse keyStorePassword
 
-          keyStore.load(inputStream, password)
-          keyManagerFactory.init(keyStore, password)
+          keyStore.load(inputStream, keyStorePassword.orNull)
+          keyManagerFactory.init(keyStore, keyPairsPassword.orNull)
           keyManagerFactory
       }
 

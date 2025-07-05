@@ -32,6 +32,7 @@ object ClientSSLConfig {
     val keyManagerFile           = Config.string("keyManagerFile")
     val keyManagerResource       = Config.string("keyManagerResource")
     val keyManagerPassword       = Config.secret("keyManagerPassword")
+    val keyPairsPassword         = Config.secret("keyPairsPassword")
     val trustManagerKeyStoreType = Config.string("trustManagerKeyStoreType")
     val trustManagerFile         = Config.string("trustManagerFile")
     val trustManagerResource     = Config.string("trustManagerResource")
@@ -53,6 +54,7 @@ object ClientSSLConfig {
         .zip(keyManagerFile.optional)
         .zip(keyManagerResource.optional)
         .zip(keyManagerPassword.optional)
+        .zip(keyPairsPassword.optional)
         .zip(trustManagerKeyStoreType.optional)
         .zip(
           trustManagerFile.optional
@@ -62,7 +64,7 @@ object ClientSSLConfig {
             ),
         )
         .zip(trustManagerPassword.optional)
-        .map { case (kmkst, kmf, kmr, kmpass, tmkst, (tmf, tmr), tmpass) =>
+        .map { case (kmkst, kmf, kmr, kmpass, kpass, tmkst, (tmf, tmr), tmpass) =>
           val bldr0 =
             List[(Option[String], FromJavaxNetSsl => String => FromJavaxNetSsl)](
               (kmkst, b => b.keyManagerKeyStoreType(_)),
@@ -78,6 +80,7 @@ object ClientSSLConfig {
 
           List[(Option[Secret], FromJavaxNetSsl => Secret => FromJavaxNetSsl)](
             (kmpass, b => b.keyManagerPassword(_)),
+            (kpass,  b => b.keyPairsPassword(_)),
             (tmpass, b => b.trustManagerPassword(_)),
           )
             .foldLeft(bldr0) { case (bldr, (maybe, lens)) =>
@@ -94,6 +97,7 @@ object ClientSSLConfig {
       "FromTrustStoreFile"      -> fromTrustStoreFile,
       "FromTrustStoreResource"  -> fromTrustStoreResource,
       "FromClientAndServerCert" -> fromClientAndServerCert,
+      "FromJavaxNetSsl"         -> fromJavaxNetSsl,
     )
   }
 
@@ -110,6 +114,7 @@ object ClientSSLConfig {
     keyManagerKeyStoreType: String = "JKS",
     keyManagerSource: FromJavaxNetSsl.Source = FromJavaxNetSsl.Empty,
     keyManagerPassword: Option[Secret] = None,
+    keyPairsPassword: Option[Secret] = None,
     trustManagerKeyStoreType: String = "JKS",
     trustManagerSource: FromJavaxNetSsl.Source = FromJavaxNetSsl.Empty,
     trustManagerPassword: Option[Secret] = None,
@@ -127,6 +132,7 @@ object ClientSSLConfig {
       }
     def keyManagerResource(path: String): FromJavaxNetSsl = self.copy(keyManagerSource = FromJavaxNetSsl.Resource(path))
     def keyManagerPassword(password: Secret): FromJavaxNetSsl = self.copy(keyManagerPassword = Some(password))
+    def keyPairsPassword(password: Secret): FromJavaxNetSsl = self.copy(keyPairsPassword = Some(password))
     def keyManagerPassword(password: String): FromJavaxNetSsl = keyManagerPassword(Secret(password))
 
     def trustManagerKeyStoreType(tpe: String): FromJavaxNetSsl  = self.copy(trustManagerKeyStoreType = tpe)
