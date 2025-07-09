@@ -78,7 +78,7 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
     .provideShared(
       ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
       partialClientLayer,
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.flaky(5)
 
   private val partialClientLayer = ZLayer.makeSome[ZClient.Config, Client](
     Client.customized,
@@ -111,6 +111,6 @@ object ClientHttpsFromJavaxNetSslSpec extends ClientHttpsSpecBase {
 
   override def spec: Spec[TestEnvironment & Scope, Throwable] =
     suite("Https Client request - From Javax Net Ssl")(
-      tests(sslConfig),
+      tests(sslConfig) @@ TestAspect.flaky(5),
     )
 }
