@@ -506,23 +506,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |              }
                               |            }
                               |          },
-                              |          "default" : {
-                              |            "headers" : {
-                              |              "cookie" : {
-                              |                "required" : true,
-                              |                "schema" : {
-                              |                  "type" : "string"
-                              |                }
-                              |              }
-                              |            },
-                              |            "content" : {
-                              |              "application/json" : {
-                              |                "schema" : {
-                              |                  "type" : "null"
-                              |                }
-                              |              }
-                              |            }
-                              |          }
+                              |          "default" : {}
                               |        },
                               |        "security" : [
                               |          {
