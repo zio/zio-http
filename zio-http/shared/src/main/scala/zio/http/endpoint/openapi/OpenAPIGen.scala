@@ -26,7 +26,6 @@ import zio.http.internal.StringSchemaCodec
 
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
-  private val apiKeyAuth   = "apiKeyAuth"
 
   private[openapi] def groupMap[A, K, B](chunk: Chunk[A])(key: A => K)(f: A => B): immutable.Map[K, Chunk[B]] = {
     val m      = mutable.Map.empty[K, mutable.Builder[B, Chunk[B]]]
@@ -703,11 +702,6 @@ object OpenAPIGen {
       OpenAPI.Path.fromString(pathString).getOrElse(throw new Exception(s"Invalid path: $pathString"))
     }
 
-    def validateApiKey(name: String): Boolean = {
-      val pattern = "(?i)api[-]?key".r
-      pattern.findFirstIn(name).isDefined
-    }
-
     def getSecurity(
       endpoint: Endpoint[_, _, _, _, _],
     ): List[SecurityRequirement] =
@@ -719,8 +713,6 @@ object OpenAPIGen {
           List(SecurityRequirement(Map(auth.toString() -> scopes)))
         case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
           List(SecurityRequirement(Map(endpoint.authType.toString() -> Nil)))
-        case AuthType.ApiKey(_, _)                              =>
-          List(SecurityRequirement(Map(apiKeyAuth -> Nil)))
         case _                                                  => Nil
       }
     }
@@ -819,12 +811,6 @@ object OpenAPIGen {
 
         }
       }.flatten.toSet
-
-    def getName(param: OpenAPI.ReferenceOr[OpenAPI.Parameter]): String =
-      param match {
-        case OpenAPI.ReferenceOr.Or(param) => param.name
-        case _                             => throw new Exception("Invalid parameter")
-      }
 
     def pathParams: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]] =
       inAtoms.path.collect {
@@ -976,18 +962,6 @@ object OpenAPIGen {
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(jsonSchemaFromCodec(codec).get))))
       }.flatten.toMap
 
-    def validateApiKeyLocation(input: String) = {
-      input.toLowerCase match {
-        case "header" => SecurityScheme.ApiKey.In.Header
-        case "query"  => SecurityScheme.ApiKey.In.Query
-        case "cookie" => SecurityScheme.ApiKey.In.Cookie
-        case _        =>
-          throw new IllegalArgumentException(
-            s"Invalid API key location: $input. Must be one of 'header', 'query', or 'cookie'.",
-          )
-      }
-    }
-
     def httpSecuritySchemes(
       endpoint: Endpoint[_, _, _, _, _],
       params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
@@ -1011,19 +985,6 @@ object OpenAPIGen {
                 SecurityScheme.Http(
                   scheme = auth.toString(),
                   bearerFormat = None,
-                  description = None,
-                ),
-              ),
-          )
-        case AuthType.ApiKey(in, name)                          =>
-          val names      = params.map(p => getName(p))
-          val apiKeyName = names.find(name => validateApiKey(name))
-          ListMap(
-            OpenAPI.Key.fromString(apiKeyAuth).get ->
-              ReferenceOr.Or[SecurityScheme.ApiKey](
-                SecurityScheme.ApiKey(
-                  name = apiKeyName.getOrElse(name),
-                  in = validateApiKeyLocation(in),
                   description = None,
                 ),
               ),
@@ -1172,9 +1133,7 @@ object OpenAPIGen {
     genExamples: Boolean,
   ): Map[OpenAPI.StatusOrDefault, OpenAPI.ReferenceOr[OpenAPI.Response]] =
     codecs.map { case (status, mediaTypes) =>
-      val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }
-        .reduceOption(_ ++ _)
-        .getOrElse(AtomizedMetaCodecs.empty)
+      val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }.reduce(_ ++ _)
       val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
         mediaType.fullType -> OpenAPI.MediaType(
           schema = OpenAPI.ReferenceOr.Or(schema),

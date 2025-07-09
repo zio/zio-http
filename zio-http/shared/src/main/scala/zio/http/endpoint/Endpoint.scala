@@ -321,13 +321,6 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         } { case () =>
           Left("Unsupported")
         }
-      case AuthType.ApiKey(_, _)        =>
-        HeaderCodec.authorization.transformOrFail {
-          case _: Header.Authorization.ApiKey => Right(())
-          case _                              => Left("API Key auth required")
-        } { case () =>
-          Left("Unsupported")
-        }
       case AuthType.Custom(codec)       =>
         codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
       case AuthType.Or(auth1, auth2, _) =>

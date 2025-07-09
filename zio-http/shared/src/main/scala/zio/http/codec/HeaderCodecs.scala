@@ -112,7 +112,6 @@ private[codec] trait HeaderCodecs {
   final val basicAuth: HeaderCodec[Header.Authorization.Basic]                   = header(Header.Authorization.Basic)
   final val bearerAuth: HeaderCodec[Header.Authorization.Bearer]                 = header(Header.Authorization.Bearer)
   final val digestAuth: HeaderCodec[Header.Authorization.Digest]                 = header(Header.Authorization.Digest)
-  final val apiKeyAuth: HeaderCodec[Header.Authorization.ApiKey]                 = header(Header.Authorization.ApiKey)
   final val cacheControl: HeaderCodec[Header.CacheControl]                       = header(Header.CacheControl)
   final val clearSiteData: HeaderCodec[Header.ClearSiteData]                     = header(Header.ClearSiteData)
   final val connection: HeaderCodec[Header.Connection]                           = header(Header.Connection)
