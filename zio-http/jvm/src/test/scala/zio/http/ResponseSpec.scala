@@ -68,7 +68,7 @@ object ResponseSpec extends ZIOHttpSpec {
 
         val responseWithBody = Response.fromCause(cause, ErrorResponseConfig(withErrorBody = true))
         val responseNoBody   = Response.fromCause(cause, ErrorResponseConfig(withErrorBody = false))
-        val expectedErrorMsg = "Exception in thread \"zio-fiber-\" java.lang.String: error"
+        val expectedErrorMsg = "java.lang.String: error\n"
         val expectedBody     = Body.fromString(expectedErrorMsg).contentType(MediaType.text.plain)
 
         assertTrue(

@@ -37,7 +37,6 @@ import zio.schema.codec.DecodeError
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.validation.ValidationError
 
-import zio.http.Header.HeaderTypeBase.Typed
 import zio.http.codec.{HttpCodecError, RichTextCodec}
 import zio.http.internal.{DateEncoding, ErrorConstructor, StringSchemaCodec}
 
@@ -177,11 +176,15 @@ object Header {
         case value => parse(value)
       }
 
-    def fromHeadersUnsafe(headers: Headers): HeaderValue =
-      fromHeaders(headers).fold(
-        e => throw HttpCodecError.DecodingErrorHeader(name, ReadError(Cause.empty, e)),
-        identity,
-      )
+    private[http] def fromHeadersUnsafe(headers: Headers): HeaderValue =
+      headers.getUnsafe(name) match {
+        case null  => throw HttpCodecError.MissingHeader(name)
+        case value =>
+          parse(value) match {
+            case Left(error) => throw HttpCodecError.DecodingErrorHeader(name, ReadError(Cause.empty, error))
+            case Right(v)    => v
+          }
+      }
 
     override def toHeaders(value: HeaderValue): Headers =
       Headers.FromIterable(Iterable(value))
@@ -2932,10 +2935,10 @@ object Header {
     override def name: String = "date"
 
     def parse(value: String): Either[String, Date] =
-      DateEncoding.default.decodeDate(value).toRight("Invalid Date header").map(Date(_))
+      DateEncoding.decodeDate(value).toRight("Invalid Date header").map(Date(_))
 
     def render(date: Date): String =
-      DateEncoding.default.encodeDate(date.value)
+      DateEncoding.encodeDate(date.value)
   }
 
   sealed trait DNT extends Header {
@@ -3062,10 +3065,10 @@ object Header {
     override def name: String = "expires"
 
     def parse(date: String): Either[String, Expires] =
-      DateEncoding.default.decodeDate(date).toRight("Invalid Expires header").map(Expires(_))
+      DateEncoding.decodeDate(date).toRight("Invalid Expires header").map(Expires(_))
 
     def render(expires: Expires): String =
-      DateEncoding.default.encodeDate(expires.value)
+      DateEncoding.encodeDate(expires.value)
   }
 
   final case class Forwarded(by: Option[String] = None, forValues: List[String] = Nil, host: Option[String] = None, proto: Option[String] = None) extends Header {
@@ -3200,10 +3203,10 @@ object Header {
     override def name: String = "if-modified-since"
 
     def parse(value: String): Either[String, IfModifiedSince] =
-      DateEncoding.default.decodeDate(value).toRight("Invalid If-Modified-Since header").map(IfModifiedSince(_))
+      DateEncoding.decodeDate(value).toRight("Invalid If-Modified-Since header").map(IfModifiedSince(_))
 
     def render(ifModifiedSince: IfModifiedSince): String =
-      DateEncoding.default.encodeDate(ifModifiedSince.value)
+      DateEncoding.encodeDate(ifModifiedSince.value)
   }
 
   sealed trait IfNoneMatch extends Header {
@@ -3267,12 +3270,12 @@ object Header {
         case value if value.startsWith("\"") && value.endsWith("\"") =>
           Right(ETag(value.drop(1).dropRight(1)))
         case dateTime                                                =>
-          DateEncoding.default.decodeDate(dateTime).toRight("Invalid If-Range header").map(DateTime(_))
+          DateEncoding.decodeDate(dateTime).toRight("Invalid If-Range header").map(DateTime(_))
       }
 
     def render(ifRange: IfRange): String =
       ifRange match {
-        case DateTime(value) => DateEncoding.default.encodeDate(value)
+        case DateTime(value) => DateEncoding.encodeDate(value)
         case ETag(value)     => s""""$value""""
       }
   }
@@ -3295,10 +3298,10 @@ object Header {
     override def name: String = "if-unmodified-since"
 
     def parse(value: String): Either[String, IfUnmodifiedSince] =
-      DateEncoding.default.decodeDate(value).toRight("Invalid If-Unmodified-Since header").map(IfUnmodifiedSince(_))
+      DateEncoding.decodeDate(value).toRight("Invalid If-Unmodified-Since header").map(IfUnmodifiedSince(_))
 
     def render(ifModifiedSince: IfUnmodifiedSince): String =
-      DateEncoding.default.encodeDate(ifModifiedSince.value)
+      DateEncoding.encodeDate(ifModifiedSince.value)
 
   }
 
@@ -3314,10 +3317,10 @@ object Header {
     override def name: String = "last-modified"
 
     def parse(value: String): Either[String, LastModified] =
-      DateEncoding.default.decodeDate(value).toRight("Invalid Last-Modified header").map(LastModified(_))
+      DateEncoding.decodeDate(value).toRight("Invalid Last-Modified header").map(LastModified(_))
 
     def render(lastModified: LastModified): String =
-      DateEncoding.default.encodeDate(lastModified.value)
+      DateEncoding.encodeDate(lastModified.value)
   }
 
   final case class Link(uri: URL, params: Map[String, String]) extends Header {
@@ -3450,7 +3453,7 @@ object Header {
         URL.decode(value) match {
           case Left(_)                                              => Left("Invalid Origin header")
           case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Origin header")
-          case Right(url)                                           => Right(Value(url.scheme.get.encode, url.host.get, url.portIfNotDefault))
+          case Right(url)                                           => Right(Value(url.scheme.get.encode, url.host.get, url.port))
         }
 
     def render(origin: Origin): String = {
@@ -3766,7 +3769,7 @@ object Header {
     def parse(dateOrSeconds: String): Either[String, RetryAfter] =
       Try(dateOrSeconds.toLong) match {
         case Failure(_)     =>
-          DateEncoding.default.decodeDate(dateOrSeconds) match {
+          DateEncoding.decodeDate(dateOrSeconds) match {
             case Some(value) => Right(ByDate(value))
             case None        => Left("Invalid RetryAfter")
           }
@@ -3779,7 +3782,7 @@ object Header {
 
     def render(retryAfter: RetryAfter): String =
       retryAfter match {
-        case ByDate(date)         => DateEncoding.default.encodeDate(date)
+        case ByDate(date)         => DateEncoding.encodeDate(date)
         case ByDuration(duration) =>
           duration.getSeconds.toString
       }

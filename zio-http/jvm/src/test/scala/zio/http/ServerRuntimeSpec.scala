@@ -31,7 +31,6 @@ object ServerRuntimeSpec extends RoutesRunnableSpec {
   override val bootstrap: ZLayer[Any, Any, TestEnvironment] =
     ZLayer.make[TestEnvironment](
       testEnvironment,
-      Runtime.enableWorkStealing,
       Runtime.setUnhandledErrorLogLevel(LogLevel.Warning),
     )
 
