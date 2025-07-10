@@ -702,13 +702,23 @@ object OpenAPIGen {
       OpenAPI.Path.fromString(pathString).getOrElse(throw new Exception(s"Invalid path: $pathString"))
     }
 
-    def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
-      val maybeDoc                               = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
-      val securityObj: List[SecurityRequirement] = endpoint.authType match {
-        case AuthType.ScopedAuth(auth, scopes) =>
+    def getSecurity(
+      endpoint: Endpoint[_, _, _, _, _],
+    ): List[SecurityRequirement] =
+      endpointSecurity(endpoint)
+
+    def endpointSecurity(endpoint: Endpoint[_, _, _, _, _]): List[SecurityRequirement] = {
+      endpoint.authType match {
+        case AuthType.ScopedAuth(auth, scopes)                  =>
           List(SecurityRequirement(Map(auth.toString() -> scopes)))
-        case _                                 => Nil
+        case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+          List(SecurityRequirement(Map(endpoint.authType.toString() -> Nil)))
+        case _                                                  => Nil
       }
+    }
+
+    def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
+      val maybeDoc = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
         tags = endpoint.tags,
         summary = None,
@@ -719,7 +729,7 @@ object OpenAPIGen {
         requestBody = requestBody,
         responses = responses,
         callbacks = Map.empty,
-        security = securityObj,
+        security = getSecurity(endpoint),
         servers = Nil,
       )
     }
@@ -952,43 +962,41 @@ object OpenAPIGen {
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(jsonSchemaFromCodec(codec).get))))
       }.flatten.toMap
 
-    val securityObj: List[SecurityRequirement] = endpoint.authType match {
-      case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-        List(
-          SecurityRequirement(
-            Map(endpoint.authType.toString() -> endpoint.scopes),
-          ),
-        )
-      case AuthType.ScopedAuth(auth, scopes)                  =>
-        List(SecurityRequirement(Map(auth.toString() -> scopes)))
-      case _                                                  => Nil
-    }
+    def httpSecuritySchemes(
+      endpoint: Endpoint[_, _, _, _, _],
+      params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
+    ): ListMap[Key, ReferenceOr[SecurityScheme]] =
+      endpoint.authType match {
+        case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+          ListMap(
+            OpenAPI.Key.fromString(endpoint.authType.toString()).get ->
+              ReferenceOr.Or[SecurityScheme.Http](
+                SecurityScheme.Http(
+                  scheme = endpoint.authType.toString(),
+                  bearerFormat = None,
+                  description = None,
+                ),
+              ),
+          )
+        case AuthType.ScopedAuth(auth, _)                       =>
+          ListMap(
+            OpenAPI.Key.fromString(auth.toString()).get ->
+              ReferenceOr.Or[SecurityScheme.Http](
+                SecurityScheme.Http(
+                  scheme = auth.toString(),
+                  bearerFormat = None,
+                  description = None,
+                ),
+              ),
+          )
+        case _                                                  => ListMap.empty
+      }
 
-    val securitySchemesObj: ListMap[Key, ReferenceOr[SecurityScheme]] = endpoint.authType match {
-      case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-        ListMap(
-          OpenAPI.Key.fromString(endpoint.authType.toString()).get ->
-            ReferenceOr.Or[SecurityScheme.Http](
-              SecurityScheme.Http(
-                scheme = endpoint.authType.toString(),
-                bearerFormat = None,
-                description = None,
-              ),
-            ),
-        )
-      case AuthType.ScopedAuth(auth, _)                       =>
-        ListMap(
-          OpenAPI.Key.fromString(auth.toString()).get ->
-            ReferenceOr.Or[SecurityScheme.Http](
-              SecurityScheme.Http(
-                scheme = auth.toString(),
-                bearerFormat = None,
-                description = None,
-              ),
-            ),
-        )
-      case _                                                  => ListMap.empty
-    }
+    def getSecuritySchemes(
+      endpoint: Endpoint[_, _, _, _, _],
+      params: Set[ReferenceOr[OpenAPI.Parameter]],
+    ): ListMap[Key, ReferenceOr[SecurityScheme]] =
+      httpSecuritySchemes(endpoint, params)
 
     def components = OpenAPI.Components(
       schemas = ListMap(componentSchemas.toSeq.sortBy(_._1.name): _*),
@@ -997,7 +1005,7 @@ object OpenAPIGen {
       examples = ListMap.empty,
       requestBodies = ListMap.empty,
       headers = ListMap.empty,
-      securitySchemes = securitySchemesObj,
+      securitySchemes = getSecuritySchemes(endpoint, headerParams ++ queryParams),
       links = ListMap.empty,
       callbacks = ListMap.empty,
     )
@@ -1015,7 +1023,7 @@ object OpenAPIGen {
       servers = Nil,
       paths = ListMap(path.toSeq.sortBy(_._1.name): _*),
       components = Some(components),
-      security = securityObj,
+      security = getSecurity(endpoint),
       tags = Nil,
       externalDocs = None,
     )
