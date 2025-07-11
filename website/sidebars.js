@@ -122,7 +122,23 @@ const sidebars = {
     "examples/multipart-form-data",
     "examples/server-sent-events-in-endpoints",
   ],
-  guides: ["guides/integration-with-zio-config", "guides/testing-http-apps"],
+  guides: [
+    "guides/integration-with-zio-config",
+    "guides/testing-http-apps",
+    {
+       type: "category",
+       collapsed: false,
+       label: "SSL/TLS",
+       link: { type: 'doc', id: "guides/securing-communication-with-ssl-tls" },
+       items: [
+          "guides/implementing-tls-with-self-signed-server-certificate",
+          "guides/implementing-tls-with-root-ca-signed-server-certificate",
+          "guides/implementing-tls-with-intermediate-ca-signed-server-certificate",
+          "guides/implementing-mutual-tls",
+       ],
+    }
+
+   ],
 
   sidebar: [
     "index",

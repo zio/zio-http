@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #ffeaa7, #fdcb6e);
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(253, 203, 110, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #fd79a8, #e84393);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(232, 67, 147, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .response {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #e1e5e9;
+            background: rgba(248, 249, 250, 0.9);
+        }
+
+        .response.success {
+            border-color: #27ae60;
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+        }
+
+        .response.error {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status.logged-in {
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+            border: 2px solid #27ae60;
+        }
+
+        .status.logged-out {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+            border: 2px solid #e74c3c;
+        }
+
+        .hint {
+            background: rgba(52, 152, 219, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #2980b9;
+            font-size: 14px;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .loading button {
+            position: relative;
+            color: transparent;
+        }
+
+        .loading button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            color: white;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .server-info {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+            border: 1px solid #27ae60;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔐 Auth Client</h1>
+
+    <div class="server-info">
+        ✅ ZIO HTTP Cookie Authentication
+    </div>
+
+    <div id="status" class="status logged-out">
+        Not Authenticated
+    </div>
+
+    <div class="hint">
+        💡 <strong>Hint:</strong> The password should be the reverse of the username. For example, if username is "John", password should be "nhoJ".
+    </div>
+
+    <form id="loginForm">
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required placeholder="Enter your username">
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required placeholder="Enter your password">
+        </div>
+        <div class="button-group">
+            <button type="submit" class="btn-primary">Login</button>
+            <button type="button" id="profileBtn" class="btn-secondary">Get Profile</button>
+            <button type="button" id="logoutBtn" class="btn-danger">Logout</button>
+        </div>
+    </form>
+
+    <div id="response" class="response" style="display: none;"></div>
+</div>
+
+<script>
+    // Since we're served from the same server, we can use relative URLs
+    const API_BASE = '';
+    let isLoggedIn = false;
+
+    // DOM elements
+    const loginForm = document.getElementById('loginForm');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const profileBtn = document.getElementById('profileBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const responseDiv = document.getElementById('response');
+    const statusDiv = document.getElementById('status');
+    const container = document.querySelector('.container');
+
+    // Check authentication status on load
+    checkAuthStatus();
+
+    // Auto-fill password when username changes
+    usernameInput.addEventListener('input', function() {
+        const username = this.value;
+        const reversedPassword = username.split('').reverse().join('');
+        passwordInput.value = reversedPassword;
+    });
+
+    // Login form submission
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (!username || !password) {
+            showResponse('Please enter both username and password.', 'error');
+            return;
+        }
+
+        await login(username, password);
+    });
+
+    // Profile button click
+    profileBtn.addEventListener('click', getProfile);
+
+    // Logout button click
+    logoutBtn.addEventListener('click', logout);
+
+    async function checkAuthStatus() {
+        try {
+            const response = await fetch(API_BASE + '/profile/me', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                updateAuthStatus(true);
+            } else {
+                updateAuthStatus(false);
+            }
+        } catch (error) {
+            updateAuthStatus(false);
+        }
+    }
+
+    async function login(username, password) {
+        setLoading(true);
+
+        try {
+            // Use URL-encoded form data instead of FormData
+            const params = new URLSearchParams();
+            params.append('username', username);
+            params.append('password', password);
+
+            const response = await fetch(API_BASE + '/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params,
+                credentials: 'include'
+            });
+
+            const text = await response.text();
+
+            if (response.ok) {
+                showResponse(`✅ ${text}`, 'success');
+                updateAuthStatus(true);
+                usernameInput.value = '';
+                passwordInput.value = '';
+            } else {
+                showResponse(`❌ Login failed: ${text}`, 'error');
+                updateAuthStatus(false);
+            }
+        } catch (error) {
+            showResponse(`❌ Network error: ${error.message}`, 'error');
+            updateAuthStatus(false);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function getProfile() {
+        setLoading(true);
+
+        try {
+            const response = await fetch(API_BASE + '/profile/me', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            const text = await response.text();
+
+            if (response.ok) {
+                showResponse(`👤 ${text}`, 'success');
+                updateAuthStatus(true);
+            } else {
+                showResponse(`❌ Access denied: ${text}`, 'error');
+                updateAuthStatus(false);
+            }
+        } catch (error) {
+            showResponse(`❌ Network error: ${error.message}`, 'error');
+            updateAuthStatus(false);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function logout() {
+        setLoading(true);
+
+        try {
+            const response = await fetch(API_BASE + '/logout', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            const text = await response.text();
+
+            if (response.ok) {
+                showResponse(`👋 ${text}`, 'success');
+                updateAuthStatus(false);
+            } else {
+                showResponse(`❌ Logout failed: ${text}`, 'error');
+            }
+        } catch (error) {
+            showResponse(`❌ Network error: ${error.message}`, 'error');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function showResponse(message, type) {
+        responseDiv.textContent = message;
+        responseDiv.className = `response ${type}`;
+        responseDiv.style.display = 'block';
+
+        // Auto-hide after 5 seconds if it's a success message
+        if (type === 'success') {
+            setTimeout(() => {
+                responseDiv.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    function updateAuthStatus(loggedIn) {
+        isLoggedIn = loggedIn;
+
+        if (loggedIn) {
+            statusDiv.textContent = '✅ Authenticated';
+            statusDiv.className = 'status logged-in';
+            profileBtn.disabled = false;
+            logoutBtn.disabled = false;
+        } else {
+            statusDiv.textContent = '❌ Not Authenticated';
+            statusDiv.className = 'status logged-out';
+            profileBtn.disabled = true;
+            logoutBtn.disabled = true;
+        }
+    }
+
+    function setLoading(loading) {
+        if (loading) {
+            container.classList.add('loading');
+        } else {
+            container.classList.remove('loading');
+        }
+    }
+
+    // Initialize button states
+    updateAuthStatus(false);
+</script>
+</body>
+</html>
