@@ -1,4 +1,4 @@
-package example.auth.bearer
+package example.auth.bearer.opaque
 
 import zio._
 import zio.http._
