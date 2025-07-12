@@ -12,8 +12,8 @@ object AuthenticationClient extends ZIOAppDefault {
    */
   val url = "http://localhost:8080"
 
-  val loginUrl = URL.decode(s"${url}/login").toOption.get
-  val profileUrl = URL.decode(s"${url}/profile/me").toOption.get
+  val loginUrl = URL.decode(s"$url/login").toOption.get
+  val profileUrl = URL.decode(s"$url/profile/me").toOption.get
 
   val program = for {
     client   <- ZIO.service[Client]

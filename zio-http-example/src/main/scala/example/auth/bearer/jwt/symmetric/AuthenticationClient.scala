@@ -12,8 +12,8 @@ object AuthenticationClient extends ZIOAppDefault {
    */
   val url = "http://localhost:8080"
 
-  val loginUrl = URL.decode(s"${url}/login").toOption.get
-  val greetUrl = URL.decode(s"${url}/profile/me").toOption.get
+  val loginUrl = URL.decode(s"$url/login").toOption.get
+  val greetUrl = URL.decode(s"$url/profile/me").toOption.get
 
   val program = for {
     // Making a login request to obtain the jwt token. In this example the password should be the reverse string of username.
