@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT Authentication Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .login-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .access-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .access-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .access-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .response-section {
+            margin-top: 30px;
+        }
+
+        .response-box {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 50px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .token-box {
+            background: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            color: #2e7d32;
+        }
+
+        .success-box {
+            background: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            color: #2e7d32;
+        }
+
+        .error-box {
+            background: #ffebee;
+            border: 1px solid #ffcdd2;
+            color: #c62828;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-connected {
+            background: #4CAF50;
+        }
+
+        .status-disconnected {
+            background: #f44336;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #fff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔐 JWT Auth Client</h1>
+
+    <div class="info-box">
+        <strong>💡 How it works:</strong><br>
+        1. Enter username and password (password should be the reverse of username)<br>
+        2. Click "Login" to get a JWT token<br>
+        3. Use "Access Protected Route" to test authentication<br>
+        <br>
+        <strong>Example:</strong> Username: "John", Password: "nhoJ"
+    </div>
+
+    <form id="loginForm">
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" value="John" required>
+            <div class="hint">Enter any username</div>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" value="nhoJ" required>
+            <div class="hint">Password should be the reverse of username</div>
+        </div>
+
+        <div class="button-group">
+            <button type="submit" class="login-btn">🔑 Login</button>
+            <button type="button" id="accessBtn" class="access-btn" disabled>🛡️ Access Protected Route</button>
+        </div>
+    </form>
+
+    <div class="response-section">
+        <label>
+            <span class="status-indicator status-disconnected"></span>
+            JWT Token:
+        </label>
+        <div id="tokenResponse" class="response-box">No token received yet...</div>
+    </div>
+
+    <div class="response-section">
+        <label>Protected Route Response:</label>
+        <div id="protectedResponse" class="response-box">Click "Access Protected Route" after login...</div>
+    </div>
+</div>
+
+<script>
+    let currentToken = null;
+
+    const loginForm = document.getElementById('loginForm');
+    const accessBtn = document.getElementById('accessBtn');
+    const tokenResponse = document.getElementById('tokenResponse');
+    const protectedResponse = document.getElementById('protectedResponse');
+    const statusIndicator = document.querySelector('.status-indicator');
+
+    function updateTokenDisplay(token, isError = false) {
+        tokenResponse.textContent = token;
+        tokenResponse.className = `response-box ${isError ? 'error-box' : 'token-box'}`;
+
+        if (!isError && token !== 'No token received yet...') {
+            currentToken = token;
+            accessBtn.disabled = false;
+            statusIndicator.className = 'status-indicator status-connected';
+        } else {
+            currentToken = null;
+            accessBtn.disabled = true;
+            statusIndicator.className = 'status-indicator status-disconnected';
+        }
+    }
+
+    function updateProtectedDisplay(response, isError = false) {
+        protectedResponse.textContent = response;
+        protectedResponse.className = `response-box ${isError ? 'error-box' : 'success-box'}`;
+    }
+
+    function setLoading(element, isLoading) {
+        if (isLoading) {
+            element.classList.add('loading');
+        } else {
+            element.classList.remove('loading');
+        }
+    }
+
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        setLoading(loginForm, true);
+        updateTokenDisplay('Logging in...');
+
+        try {
+            const params = new URLSearchParams();
+            params.append('username', username);
+            params.append('password', password);
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString()
+            });
+
+            const responseText = await response.text();
+
+            if (response.ok) {
+                updateTokenDisplay(responseText);
+                updateProtectedDisplay('Ready to access protected route!');
+            } else {
+                updateTokenDisplay(`Login failed: ${responseText}`, true);
+                updateProtectedDisplay('Login required to access protected route.', true);
+            }
+        } catch (error) {
+            updateTokenDisplay(`Network error: ${error.message}`, true);
+            updateProtectedDisplay('Login required to access protected route.', true);
+        } finally {
+            setLoading(loginForm, false);
+        }
+    });
+
+    accessBtn.addEventListener('click', async () => {
+        if (!currentToken) {
+            updateProtectedDisplay('No token available. Please login first.', true);
+            return;
+        }
+
+        setLoading(accessBtn, true);
+        updateProtectedDisplay('Accessing protected route...');
+
+        try {
+            const response = await fetch('/profile/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${currentToken}`
+                }
+            });
+
+            const responseText = await response.text();
+
+            if (response.ok) {
+                updateProtectedDisplay(`✅ Success!\n\nResponse: ${responseText}`);
+            } else {
+                updateProtectedDisplay(`❌ Access denied!\n\nError: ${responseText}`, true);
+            }
+        } catch (error) {
+            updateProtectedDisplay(`❌ Network error!\n\nError: ${error.message}`, true);
+        } finally {
+            setLoading(accessBtn, false);
+        }
+    });
+
+    // Auto-reverse password as user types username
+    document.getElementById('username').addEventListener('input', (e) => {
+        const username = e.target.value;
+        const passwordField = document.getElementById('password');
+        if (username) {
+            passwordField.value = username.split('').reverse().join('');
+        }
+    });
+</script>
+</body>
+</html>

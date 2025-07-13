@@ -5,15 +5,17 @@ import zio._
 import zio.http._
 import zio.json._
 
+import java.nio.charset.StandardCharsets
 import java.time.Clock
 import java.util.UUID
+import scala.io.Source
 import scala.util.Try
 
 /**
  * This is an example to demonstrate bearer Authentication middleware with refresh token support.
  * The Server has 3 routes:
- * 1. Login route - returns both access and refresh tokens
- * 2. Refresh route - exchanges refresh token for new access token
+ * 1. Login route - accepts form-encoded data and returns both access and refresh tokens
+ * 2. Refresh route - accepts form-encoded data and exchanges refresh token for new access token
  * 3. Protected route - requires valid access token
  */
 object AuthenticationServer extends ZIOAppDefault {
@@ -25,12 +27,8 @@ object AuthenticationServer extends ZIOAppDefault {
   // Token response case class
   case class TokenResponse(accessToken: String, refreshToken: String, tokenType: String = "Bearer", expiresIn: Int = 300)
 
-  // Refresh token request case class
-  case class RefreshTokenRequest(refreshToken: String)
-
   // JSON codecs
   implicit val tokenResponseEncoder: JsonEncoder[TokenResponse] = DeriveJsonEncoder.gen[TokenResponse]
-  implicit val refreshTokenRequestDecoder: JsonDecoder[RefreshTokenRequest] = DeriveJsonDecoder.gen[RefreshTokenRequest]
 
   // In-memory storage for refresh tokens (in production, use a proper database)
   private val refreshTokenStore: Ref[Map[String, String]] = Unsafe.unsafe { implicit unsafe =>
@@ -61,19 +59,30 @@ object AuthenticationServer extends ZIOAppDefault {
 
   def routes: Routes[Any, Response] =
     Routes(
+
+      // Serve the web client interface from resources
+      Method.GET / Root -> handler { (_: Request) =>
+        for {
+          html <- loadHtmlFromResources("/jwt-client-with-refresh-token.html").orDie
+        } yield Response(
+          status = Status.Ok,
+          headers = Headers(Header.ContentType(MediaType.text.html)),
+          body = Body.fromString(html),
+        )
+      },
+
       // A route that is accessible only via a jwt token
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
         ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
       } @@ bearerAuthWithContext,
 
-      // A login route that returns both access and refresh tokens
+      // A login route that accepts form-encoded data and returns both access and refresh tokens
       Method.POST / "login" ->
         handler { (request: Request) =>
           for {
-            body <- request.body.asString.orDie
-            loginData <- ZIO.fromEither(body.fromJson[Map[String, String]]).orElseFail(Response.badRequest("Invalid JSON"))
-            username <- ZIO.fromOption(loginData.get("username")).orElseFail(Response.badRequest("Missing username"))
-            password <- ZIO.fromOption(loginData.get("password")).orElseFail(Response.badRequest("Missing password"))
+            form <- request.body.asURLEncodedForm.orElseFail(Response.badRequest("Expected form-encoded data"))
+            username <- ZIO.fromOption(form.get("username").flatMap(_.stringValue)).orElseFail(Response.badRequest("Missing username"))
+            password <- ZIO.fromOption(form.get("password").flatMap(_.stringValue)).orElseFail(Response.badRequest("Missing password"))
             response <-
               if (password.reverse.hashCode == username.hashCode) {
                 val accessToken = jwtEncode(username, SECRET_KEY, 300) // 5 minutes
@@ -88,41 +97,41 @@ object AuthenticationServer extends ZIOAppDefault {
           } yield response
         },
 
-      // Refresh token route
+      // Refresh token route (now accepts form-encoded data)
       Method.POST / "refresh" ->
         handler { (request: Request) =>
           for {
-            body <- request.body.asString.orDie
-            refreshRequest <- ZIO.fromEither(body.fromJson[RefreshTokenRequest]).orElseFail(Response.badRequest("Invalid JSON"))
+            form <- request.body.asURLEncodedForm.orElseFail(Response.badRequest("Expected form-encoded data"))
+            refreshToken <- ZIO.fromOption(form.get("refreshToken").flatMap(_.stringValue)).orElseFail(Response.badRequest("Missing refreshToken"))
             tokenStore <- refreshTokenStore.get
-            username <- ZIO.fromOption(tokenStore.get(refreshRequest.refreshToken)).orElseFail(Response.unauthorized("Invalid refresh token"))
+            username <- ZIO.fromOption(tokenStore.get(refreshToken)).orElseFail(Response.unauthorized("Invalid refresh token"))
             newAccessToken = jwtEncode(username, SECRET_KEY, 300)
             newRefreshToken = generateRefreshToken()
-            _ <- refreshTokenStore.update(store => store.removed(refreshRequest.refreshToken).updated(newRefreshToken, username))
+            _ <- refreshTokenStore.update(store => store.removed(refreshToken).updated(newRefreshToken, username))
             tokenResponse = TokenResponse(newAccessToken, newRefreshToken)
           } yield Response.json(tokenResponse.toJson)
         },
 
-      // Legacy GET login route for backward compatibility
-      Method.GET / "login" ->
-        handler { (request: Request) =>
-          val form = request.body.asMultipartForm.orElseFail(Response.badRequest)
-          for {
-            username <- form
-              .map(_.get("username"))
-              .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing username field!")))
-              .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing username value!")))
-            password <- form
-              .map(_.get("password"))
-              .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing password field!")))
-              .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing password value!")))
-          } yield
-            if (password.reverse.hashCode == username.hashCode)
-              Response.text(jwtEncode(username, SECRET_KEY))
-            else
-              Response.unauthorized("Invalid username or password.")
-        },
     ) @@ Middleware.debug
 
   override val run = Server.serve(routes).provide(Server.default)
+
+
+  /**
+   * Loads HTML content from the resources directory
+   */
+  def loadHtmlFromResources(resourcePath: String): ZIO[Any, Throwable, String] = {
+    ZIO.attempt {
+      val inputStream = getClass.getResourceAsStream(resourcePath)
+      if (inputStream == null) throw new RuntimeException(s"Resource not found: $resourcePath")
+
+      val source = Source.fromInputStream(inputStream, StandardCharsets.UTF_8.name())
+      try source.mkString
+      finally {
+        source.close()
+        inputStream.close()
+      }
+    }
+  }
+
 }

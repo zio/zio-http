@@ -21,24 +21,24 @@ object AuthenticationClient extends ZIOAppDefault {
   // Token response case class
   case class TokenResponse(accessToken: String, refreshToken: String, tokenType: String, expiresIn: Int)
 
-  // Refresh token request case class
-  case class RefreshTokenRequest(refreshToken: String)
-
   // JSON codecs
-  implicit val tokenResponseDecoder: JsonDecoder[TokenResponse]             = DeriveJsonDecoder.gen[TokenResponse]
-  implicit val refreshTokenRequestEncoder: JsonEncoder[RefreshTokenRequest] = DeriveJsonEncoder.gen[RefreshTokenRequest]
+  implicit val tokenResponseDecoder: JsonDecoder[TokenResponse] = DeriveJsonDecoder.gen[TokenResponse]
 
   // Token storage
   case class TokenStore(accessToken: String, refreshToken: String)
 
   def login(client: Client, username: String, password: String): IO[Response, TokenResponse] = {
-    val loginData = Map("username" -> username, "password" -> password)
+    // Create form data
+    val formData = Form(
+      FormField.textField("username", username),
+      FormField.textField("password", password)
+    )
 
     client
       .batched(
         Request
-          .post(loginUrl, Body.fromString(loginData.toJson))
-          .addHeader(Header.ContentType(MediaType.application.json)),
+          .post(loginUrl, Body.fromURLEncodedForm(formData))
+          .addHeader(Header.ContentType(MediaType.application.`x-www-form-urlencoded`)),
       )
       .orDie
       .flatMap { response =>
@@ -54,13 +54,16 @@ object AuthenticationClient extends ZIOAppDefault {
   }
 
   def refreshToken(client: Client, refreshToken: String): IO[Response, TokenResponse] = {
-    val refreshRequest = RefreshTokenRequest(refreshToken)
+    // Create form data for refresh token
+    val formData = Form(
+      FormField.textField("refreshToken", refreshToken)
+    )
 
     client
       .batched(
         Request
-          .post(refreshUrl, Body.fromString(refreshRequest.toJson))
-          .addHeader(Header.ContentType(MediaType.application.json)),
+          .post(refreshUrl, Body.fromURLEncodedForm(formData))
+          .addHeader(Header.ContentType(MediaType.application.`x-www-form-urlencoded`)),
       )
       .orDie
       .flatMap { response =>
@@ -76,10 +79,10 @@ object AuthenticationClient extends ZIOAppDefault {
   }
 
   def makeAuthenticatedRequest(
-    client: Client,
-    request: Request,
-    tokenStore: Ref[Option[TokenStore]],
-  ): IO[Response, Response] = {
+                                client: Client,
+                                request: Request,
+                                tokenStore: Ref[Option[TokenStore]],
+                              ): IO[Response, Response] = {
     def attemptRequest(accessToken: String): IO[Response, Response] = {
       client.batched(request.addHeader(Header.Authorization.Bearer(accessToken)))
     }.orDie

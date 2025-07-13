@@ -1,10 +1,13 @@
 package example.auth.bearer.jwt.symmetric
 
+import example.auth.bearer.jwt.asymmetric.AuthenticationServer.getClass
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zio._
 import zio.http._
 
+import java.nio.charset.StandardCharsets
 import java.time.Clock
+import scala.io.Source
 import scala.util.Try
 
 /**
@@ -42,15 +45,26 @@ object AuthenticationServer extends ZIOAppDefault {
 
   def routes: Routes[Any, Response] =
     Routes(
+      // Serve the web client interface from resources
+      Method.GET / Root -> handler { (_: Request) =>
+        for {
+          html <- loadHtmlFromResources("/symmetric-jwt-client.html").orDie
+        } yield Response(
+          status = Status.Ok,
+          headers = Headers(Header.ContentType(MediaType.text.html)),
+          body = Body.fromString(html),
+        )
+      },
+
       // A route that is accessible only via a jwt token
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
         ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
       } @@ bearerAuthWithContext,
 
       // A login route that is successful only if the password is the reverse of the username
-      Method.GET / "login" ->
+      Method.POST / "login" ->
         handler { (request: Request) =>
-          val form = request.body.asMultipartForm.orElseFail(Response.badRequest)
+          val form = request.body.asURLEncodedForm.orElseFail(Response.badRequest)
           for {
             username <- form
               .map(_.get("username"))
@@ -69,4 +83,23 @@ object AuthenticationServer extends ZIOAppDefault {
     ) @@ Middleware.debug
 
   override val run = Server.serve(routes).provide(Server.default)
+
+
+
+  /**
+   * Loads HTML content from the resources directory
+   */
+  def loadHtmlFromResources(resourcePath: String): ZIO[Any, Throwable, String] = {
+    ZIO.attempt {
+      val inputStream = getClass.getResourceAsStream(resourcePath)
+      if (inputStream == null) throw new RuntimeException(s"Resource not found: $resourcePath")
+
+      val source = Source.fromInputStream(inputStream, StandardCharsets.UTF_8.name())
+      try source.mkString
+      finally {
+        source.close()
+        inputStream.close()
+      }
+    }
+  }
 }

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .response {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .credentials {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔐 Authentication Demo</h1>
+
+    <div class="credentials">
+        <strong>Available Credentials:</strong><br>
+        👤 john / secret123 (user)<br>
+        👤 jane / password456 (user)<br>
+        👨‍💼 admin / admin123 (admin)
+    </div>
+
+    <div class="section">
+        <h2>1. Public Endpoint</h2>
+        <p>This endpoint doesn't require authentication.</p>
+        <button onclick="fetchPublic()">Access Public Endpoint</button>
+        <div id="publicResponse"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. User Profile</h2>
+        <p>This endpoint requires authentication and shows user information.</p>
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" placeholder="Enter username (john, jane, or admin)">
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" placeholder="Enter password">
+        </div>
+        <button onclick="fetchProfile()">Get My Profile</button>
+        <div id="profileResponse"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Admin Users</h2>
+        <p>This endpoint requires admin authentication to view all users.</p>
+        <button onclick="fetchAdminUsers()">Get All Users (Admin Only)</button>
+        <div id="adminResponse"></div>
+    </div>
+</div>
+
+<script>
+    function displayResponse(elementId, response, isError = false) {
+        const element = document.getElementById(elementId);
+        element.innerHTML = '';
+
+        const responseDiv = document.createElement('div');
+        responseDiv.className = `response ${isError ? 'error' : 'success'}`;
+        responseDiv.textContent = response;
+        element.appendChild(responseDiv);
+    }
+
+    function displayInfo(elementId, message) {
+        const element = document.getElementById(elementId);
+        element.innerHTML = '';
+
+        const responseDiv = document.createElement('div');
+        responseDiv.className = 'response info';
+        responseDiv.textContent = message;
+        element.appendChild(responseDiv);
+    }
+
+    async function fetchPublic() {
+        displayInfo('publicResponse', 'Loading...');
+        try {
+            const response = await fetch('/public');
+            const text = await response.text();
+
+            if (response.ok) {
+                displayResponse('publicResponse', `Status: ${response.status}\n${text}`);
+            } else {
+                displayResponse('publicResponse', `Error ${response.status}: ${text}`, true);
+            }
+        } catch (error) {
+            displayResponse('publicResponse', `Network error: ${error.message}`, true);
+        }
+    }
+
+    async function fetchProfile() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            displayResponse('profileResponse', 'Please enter both username and password', true);
+            return;
+        }
+
+        displayInfo('profileResponse', 'Loading...');
+        try {
+            const credentials = btoa(`${username}:${password}`);
+            const response = await fetch('/profile/me', {
+                headers: {
+                    'Authorization': `Basic ${credentials}`
+                }
+            });
+            const text = await response.text();
+
+            if (response.ok) {
+                displayResponse('profileResponse', `Status: ${response.status}\n${text}`);
+            } else {
+                displayResponse('profileResponse', `Error ${response.status}: ${text}`, true);
+            }
+        } catch (error) {
+            displayResponse('profileResponse', `Network error: ${error.message}`, true);
+        }
+    }
+
+    async function fetchAdminUsers() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            displayResponse('adminResponse', 'Please enter credentials in the User Profile section first', true);
+            return;
+        }
+
+        displayInfo('adminResponse', 'Loading...');
+        try {
+            const credentials = btoa(`${username}:${password}`);
+            const response = await fetch('/admin/users', {
+                headers: {
+                    'Authorization': `Basic ${credentials}`
+                }
+            });
+            const text = await response.text();
+
+            if (response.ok) {
+                displayResponse('adminResponse', `Status: ${response.status}\n${text}`);
+            } else {
+                displayResponse('adminResponse', `Error ${response.status}: ${text}`, true);
+            }
+        } catch (error) {
+            displayResponse('adminResponse', `Network error: ${error.message}`, true);
+        }
+    }
+
+    // Auto-load public endpoint on page load
+    window.onload = function() {
+        fetchPublic();
+    };
+</script>
+</body>
+</html>
