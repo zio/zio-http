@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opaque Token Authentication Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .section h2 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .token-display {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            color: #495057;
+            margin-top: 15px;
+        }
+
+        .status {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .hint {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .http-details {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+
+        .http-details-header {
+            background: #e9ecef;
+            padding: 10px 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .http-details-header:hover {
+            background: #d1ecf1;
+        }
+
+        .http-details-content {
+            padding: 15px;
+            display: none;
+        }
+
+        .http-details-content.show {
+            display: block;
+        }
+
+        .http-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin-bottom: 15px;
+            overflow-x: auto;
+        }
+
+        .http-block .method {
+            color: #4fd1c7;
+            font-weight: bold;
+        }
+
+        .http-block .url {
+            color: #f6e05e;
+        }
+
+        .http-block .header {
+            color: #9f7aea;
+        }
+
+        .http-block .status-ok {
+            color: #68d391;
+        }
+
+        .http-block .status-error {
+            color: #fc8181;
+        }
+
+        .http-block .body {
+            color: #fbb6ce;
+        }
+
+        .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔐 Authentication Demo</h1>
+
+    <!-- Info Section -->
+    <div class="http-details">
+        <div class="http-details-header" onclick="toggleHttpDetails('infoHttp')">
+            <span>ℹ️ Authentication Flow & Token Information</span>
+            <span class="toggle-icon" id="infoHttpIcon">▼</span>
+        </div>
+        <div class="http-details-content" id="infoHttp">
+            <div style="color: #495057; line-height: 1.6;">
+                <strong>🔄 Authentication Flow:</strong><br>
+                1. <strong>Login:</strong> POST /login with username/password → Receive opaque token<br>
+                2. <strong>Access Protected Route:</strong> GET /profile/me with Bearer token → Get user info<br>
+                3. <strong>Logout:</strong> POST /logout with Bearer token → Revoke all user tokens<br><br>
+
+                <strong>🎫 Token Details:</strong><br>
+                • <strong>Format:</strong> 32-character UUID without dashes<br>
+                • <strong>Validity:</strong> 300 seconds (5 minutes)<br>
+                • <strong>Storage:</strong> In-memory Map (server-side)<br>
+                • <strong>Revocation:</strong> Logout revokes ALL tokens for the user<br>
+                • <strong>Cleanup:</strong> Expired tokens auto-removed on login<br><br>
+
+                <strong>🔐 Security Notes:</strong><br>
+                • Password must be reverse of username (e.g., "John" → "nhoJ")<br>
+                • Token automatically expires after 5 minutes<br>
+                • Bearer token required in Authorization header<br>
+                • 401 Unauthorized returned for invalid/expired tokens<br>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Section -->
+    <div class="section">
+        <h2>Login</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter password" required>
+            </div>
+            <button type="submit" id="loginBtn">Login</button>
+        </form>
+        <div class="hint">
+            💡 Hint: The password should be the reverse of the username (e.g., username: "John", password: "nhoJ")
+        </div>
+        <div id="loginStatus"></div>
+
+        <div class="http-details">
+            <div class="http-details-header" onclick="toggleHttpDetails('loginHttp')">
+                <span>📡 HTTP Request/Response Details</span>
+                <span class="toggle-icon" id="loginHttpIcon">▼</span>
+            </div>
+            <div class="http-details-content" id="loginHttp">
+                <div id="loginHttpContent">
+                    <div style="color: #666; font-style: italic; text-align: center; padding: 20px;">
+                        No login request made yet. Click "Login" to see real HTTP traffic.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Token Section -->
+    <div class="section" id="tokenSection">
+        <h2>Token</h2>
+        <div id="tokenDisplay" class="token-display">No token received yet</div>
+    </div>
+
+    <!-- Protected Route Section -->
+    <div class="section" id="protectedSection">
+        <h2>Protected Profile</h2>
+        <button id="profileBtn" disabled>Access Profile</button>
+        <div id="profileStatus"></div>
+
+        <div class="http-details">
+            <div class="http-details-header" onclick="toggleHttpDetails('profileHttp')">
+                <span>📡 HTTP Request/Response Details</span>
+                <span class="toggle-icon" id="profileHttpIcon">▼</span>
+            </div>
+            <div class="http-details-content" id="profileHttp">
+                <div id="profileHttpContent">
+                    <div style="color: #666; font-style: italic; text-align: center; padding: 20px;">
+                        No profile request made yet. Click "Access Profile" to see real HTTP traffic.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Section -->
+    <div class="section" id="logoutSection">
+        <h2>Logout</h2>
+        <button id="logoutBtn" disabled>Logout</button>
+        <div id="logoutStatus"></div>
+
+        <div class="http-details">
+            <div class="http-details-header" onclick="toggleHttpDetails('logoutHttp')">
+                <span>📡 HTTP Request/Response Details</span>
+                <span class="toggle-icon" id="logoutHttpIcon">▼</span>
+            </div>
+            <div class="http-details-content" id="logoutHttp">
+                <div id="logoutHttpContent">
+                    <div style="color: #666; font-style: italic; text-align: center; padding: 20px;">
+                        No logout request made yet. Click "Logout" to see real HTTP traffic.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentToken = null;
+
+    // DOM Elements
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginStatus = document.getElementById('loginStatus');
+    const tokenDisplay = document.getElementById('tokenDisplay');
+    const profileBtn = document.getElementById('profileBtn');
+    const profileStatus = document.getElementById('profileStatus');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const logoutStatus = document.getElementById('logoutStatus');
+
+    // Utility functions
+    function showStatus(element, message, type = 'info') {
+        element.innerHTML = `<div class="status ${type}">${message}</div>`;
+    }
+
+    function showLoading(button, text = 'Processing...') {
+        button.disabled = true;
+        button.innerHTML = `<span class="loading"></span>${text}`;
+    }
+
+    function hideLoading(button, text) {
+        button.disabled = false;
+        button.innerHTML = text;
+    }
+
+    function updateTokenDisplay(token) {
+        if (token) {
+            tokenDisplay.textContent = token;
+            tokenDisplay.style.background = '#d4edda';
+            tokenDisplay.style.color = '#155724';
+            tokenDisplay.style.border = '2px solid #c3e6cb';
+        } else {
+            tokenDisplay.textContent = 'No token received yet';
+            tokenDisplay.style.background = '#f8f9fa';
+            tokenDisplay.style.color = '#495057';
+            tokenDisplay.style.border = '2px solid #e9ecef';
+        }
+    }
+
+    function updateButtonStates() {
+        const hasToken = currentToken !== null;
+        profileBtn.disabled = !hasToken;
+        logoutBtn.disabled = !hasToken;
+    }
+
+    function toggleHttpDetails(id) {
+        const content = document.getElementById(id);
+        const icon = document.getElementById(id + 'Icon');
+
+        if (content.classList.contains('show')) {
+            content.classList.remove('show');
+            icon.classList.remove('rotated');
+            icon.textContent = '▼';
+        } else {
+            content.classList.add('show');
+            icon.classList.add('rotated');
+            icon.textContent = '▲';
+        }
+    }
+
+    function displayHttpTransaction(contentId, requestData, responseData) {
+        const content = document.getElementById(contentId);
+        const timestamp = new Date().toLocaleTimeString();
+
+        let html = `<div style="margin-bottom: 20px; color: #666; font-size: 12px;">📅 ${timestamp}</div>`;
+
+        // Request
+        html += `<strong>📤 Request:</strong>`;
+        html += `<div class="http-block">`;
+        html += `<span class="method">${requestData.method}</span> <span class="url">${requestData.url}</span> HTTP/1.1\n`;
+        html += `<span class="header">Host:</span> ${requestData.host}\n`;
+
+        if (requestData.headers) {
+            Object.entries(requestData.headers).forEach(([key, value]) => {
+                html += `<span class="header">${key}:</span> ${value}\n`;
+            });
+        }
+
+        if (requestData.body) {
+            html += `\n<span class="body">${requestData.body}</span>`;
+        }
+        html += `</div>`;
+
+        // Response
+        html += `<strong>📥 Response:</strong>`;
+        html += `<div class="http-block">`;
+        const statusClass = responseData.status >= 200 && responseData.status < 300 ? 'status-ok' : 'status-error';
+        html += `<span class="${statusClass}">HTTP/1.1 ${responseData.status} ${responseData.statusText}</span>\n`;
+
+        if (responseData.headers) {
+            Object.entries(responseData.headers).forEach(([key, value]) => {
+                html += `<span class="header">${key}:</span> ${value}\n`;
+            });
+        }
+
+        if (responseData.body) {
+            html += `\n<span class="body">${responseData.body}</span>`;
+        }
+        html += `</div>`;
+
+        content.innerHTML = html;
+    }
+
+    function extractResponseHeaders(response) {
+        const headers = {};
+        for (let [key, value] of response.headers.entries()) {
+            headers[key] = value;
+        }
+        return headers;
+    }
+
+    // Login functionality
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(loginForm);
+        const username = formData.get('username');
+        const password = formData.get('password');
+        const requestBody = new URLSearchParams({ username, password }).toString();
+
+        showLoading(loginBtn);
+        showStatus(loginStatus, 'Logging in...', 'info');
+
+        const requestData = {
+            method: 'POST',
+            url: '/login',
+            host: window.location.host,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Length': requestBody.length
+            },
+            body: requestBody
+        };
+
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: requestBody
+            });
+
+            const responseText = await response.text();
+
+            const responseData = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: extractResponseHeaders(response),
+                body: responseText
+            };
+
+            displayHttpTransaction('loginHttpContent', requestData, responseData);
+
+            if (response.ok) {
+                currentToken = responseText;
+                updateTokenDisplay(currentToken);
+                showStatus(loginStatus, '✅ Login successful!', 'success');
+                updateButtonStates();
+            } else {
+                currentToken = null;
+                updateTokenDisplay(null);
+                showStatus(loginStatus, `❌ Login failed: ${responseText}`, 'error');
+                updateButtonStates();
+            }
+        } catch (error) {
+            currentToken = null;
+            updateTokenDisplay(null);
+            showStatus(loginStatus, `❌ Network error: ${error.message}`, 'error');
+            updateButtonStates();
+
+            // Show error in HTTP details
+            const responseData = {
+                status: 'N/A',
+                statusText: 'Network Error',
+                headers: {},
+                body: error.message
+            };
+            displayHttpTransaction('loginHttpContent', requestData, responseData);
+        }
+
+        hideLoading(loginBtn, 'Login');
+    });
+
+    // Profile access functionality
+    profileBtn.addEventListener('click', async () => {
+        if (!currentToken) {
+            showStatus(profileStatus, '❌ No token available', 'error');
+            return;
+        }
+
+        showLoading(profileBtn, 'Accessing...');
+        showStatus(profileStatus, 'Accessing protected profile...', 'info');
+
+        const requestData = {
+            method: 'GET',
+            url: '/profile/me',
+            host: window.location.host,
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        };
+
+        try {
+            const response = await fetch('/profile/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${currentToken}`
+                }
+            });
+
+            const responseText = await response.text();
+
+            const responseData = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: extractResponseHeaders(response),
+                body: responseText
+            };
+
+            displayHttpTransaction('profileHttpContent', requestData, responseData);
+
+            if (response.ok) {
+                showStatus(profileStatus, `✅ ${responseText}`, 'success');
+            } else {
+                showStatus(profileStatus, `❌ Access denied: ${responseText}`, 'error');
+                if (response.status === 401) {
+                    // Token might be expired
+                    currentToken = null;
+                    updateTokenDisplay(null);
+                    updateButtonStates();
+                }
+            }
+        } catch (error) {
+            showStatus(profileStatus, `❌ Network error: ${error.message}`, 'error');
+
+            // Show error in HTTP details
+            const responseData = {
+                status: 'N/A',
+                statusText: 'Network Error',
+                headers: {},
+                body: error.message
+            };
+            displayHttpTransaction('profileHttpContent', requestData, responseData);
+        }
+
+        hideLoading(profileBtn, 'Access Profile');
+    });
+
+    // Logout functionality
+    logoutBtn.addEventListener('click', async () => {
+        if (!currentToken) {
+            showStatus(logoutStatus, '❌ No token available', 'error');
+            return;
+        }
+
+        showLoading(logoutBtn, 'Logging out...');
+        showStatus(logoutStatus, 'Logging out...', 'info');
+
+        const requestData = {
+            method: 'POST',
+            url: '/logout',
+            host: window.location.host,
+            headers: {
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Length': '0'
+            }
+        };
+
+        try {
+            const response = await fetch('/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${currentToken}`
+                }
+            });
+
+            const responseText = await response.text();
+
+            const responseData = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: extractResponseHeaders(response),
+                body: responseText
+            };
+
+            displayHttpTransaction('logoutHttpContent', requestData, responseData);
+
+            if (response.ok) {
+                showStatus(logoutStatus, `✅ Logged out successfully: ${responseText}`, 'success');
+                currentToken = null;
+                updateTokenDisplay(null);
+                updateButtonStates();
+
+                // Clear other status messages
+                loginStatus.innerHTML = '';
+                profileStatus.innerHTML = '';
+            } else {
+                showStatus(logoutStatus, `❌ Logout failed: ${responseText}`, 'error');
+            }
+        } catch (error) {
+            showStatus(logoutStatus, `❌ Network error: ${error.message}`, 'error');
+
+            // Show error in HTTP details
+            const responseData = {
+                status: 'N/A',
+                statusText: 'Network Error',
+                headers: {},
+                body: error.message
+            };
+            displayHttpTransaction('logoutHttpContent', requestData, responseData);
+        }
+
+        hideLoading(logoutBtn, 'Logout');
+    });
+
+    // Initialize button states
+    updateButtonStates();
+</script>
+</body>
+</html>

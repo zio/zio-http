@@ -3,7 +3,9 @@ package example.auth.bearer.opaque
 import zio._
 import zio.http._
 
+import java.nio.charset.StandardCharsets
 import java.time.Instant
+import scala.io.Source
 
 /**
  * Service responsible for managing token lifecycle including creation, storage,
@@ -92,15 +94,26 @@ object AuthenticationServer extends ZIOAppDefault {
 
   def routes: Routes[TokenService, Response] =
     Routes(
+
+      Method.GET / Root -> handler { (_: Request) =>
+        for {
+          html <- loadHtmlFromResources("/opaque-token-client.html").orDie
+        } yield Response(
+          status = Status.Ok,
+          headers = Headers(Header.ContentType(MediaType.text.html)),
+          body = Body.fromString(html),
+        )
+      },
+
       // A route that is accessible only via a valid token
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
         ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
       } @@ authenticate,
 
       // A login route that is successful only if the password is the reverse of the username
-      Method.GET / "login"   ->
+      Method.POST / "login"   ->
         handler { (request: Request) =>
-          val form = request.body.asMultipartForm.orElseFail(Response.badRequest)
+          val form = request.body.asURLEncodedForm.orElseFail(Response.badRequest)
           for {
             username     <- form
               .map(_.get("username"))
@@ -144,4 +157,23 @@ object AuthenticationServer extends ZIOAppDefault {
         Server.default,
         TokenService.inmemory,
       )
+
+
+  /**
+   * Loads HTML content from the resources directory
+   */
+  def loadHtmlFromResources(resourcePath: String): ZIO[Any, Throwable, String] = {
+    ZIO.attempt {
+      val inputStream = getClass.getResourceAsStream(resourcePath)
+      if (inputStream == null) throw new RuntimeException(s"Resource not found: $resourcePath")
+
+      val source = Source.fromInputStream(inputStream, StandardCharsets.UTF_8.name())
+      try source.mkString
+      finally {
+        source.close()
+        inputStream.close()
+      }
+    }
+  }
+
 }

@@ -13,9 +13,9 @@ object AuthenticationClient extends ZIOAppDefault {
    */
   val url = "http://localhost:8080"
 
-  val loginUrl  = URL.decode(s"$url/login").toOption.get
-  val profileUrl  = URL.decode(s"$url/profile/me").toOption.get
-  val logoutUrl = URL.decode(s"$url/logout").toOption.get
+  val loginUrl   = URL.decode(s"$url/login").toOption.get
+  val profileUrl = URL.decode(s"$url/profile/me").toOption.get
+  val logoutUrl  = URL.decode(s"$url/logout").toOption.get
 
   val program = for {
     client <- ZIO.service[Client]
@@ -23,14 +23,13 @@ object AuthenticationClient extends ZIOAppDefault {
     token  <- client
       .batched(
         Request
-          .get(loginUrl)
-          .withBody(
-            Body.fromMultipartForm(
+          .post(
+            loginUrl,
+            Body.fromURLEncodedForm(
               Form(
                 FormField.simpleField("username", "John"),
                 FormField.simpleField("password", "nhoJ"),
               ),
-              Boundary("boundary123"),
             ),
           ),
       )
