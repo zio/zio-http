@@ -8,7 +8,9 @@ import zio.json._
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import java.time.Clock
+import scala.io.Source
 import scala.util.Try
 
 /**
@@ -62,8 +64,8 @@ class AuthService private (
   private val GITHUB_TOKEN_URL     = "https://github.com/login/oauth/access_token"
   private val GITHUB_USER_API      = "https://api.github.com/user"
 
-  private val GH_CLIENT_ID     = "Ov23lifH6xxgP5e6CVWz"                     // "<github-client-id>"
-  private val GH_CLIENT_SECRET = "e303c8d63908ecd0d13ebede87f8b545629cd76b" // "<github-client-secret>"
+  private val GH_CLIENT_ID     = "<github-client-id>"
+  private val GH_CLIENT_SECRET = "<github-client-secret>"
 
   private val JWT_SECRET_KEY = "secretKey"
   private val EXPIRES_IN     = 3600L
@@ -141,6 +143,17 @@ class AuthService private (
 
   def routes: UIO[Routes[Client, Response]] = ZIO.succeed {
     Routes(
+
+      Method.GET / Root -> handler { (_: Request) =>
+        for {
+          html <- loadHtmlFromResources("/oauth-client.html").orDie
+        } yield Response(
+          status = Status.Ok,
+          headers = Headers(Header.ContentType(MediaType.text.html)),
+          body = Body.fromString(html),
+        )
+      },
+
       // Protected route - requires valid JWT token
       Method.GET / "profile" / "me" -> handler { (request: Request) =>
         ZIO.service[String].flatMap { userId =>
@@ -283,6 +296,25 @@ class AuthService private (
       },
     ) @@ Middleware.debug
   }
+
+
+  /**
+   * Loads HTML content from the resources directory
+   */
+  def loadHtmlFromResources(resourcePath: String): ZIO[Any, Throwable, String] = {
+    ZIO.attempt {
+      val inputStream = getClass.getResourceAsStream(resourcePath)
+      if (inputStream == null) throw new RuntimeException(s"Resource not found: $resourcePath")
+
+      val source = Source.fromInputStream(inputStream, StandardCharsets.UTF_8.name())
+      try source.mkString
+      finally {
+        source.close()
+        inputStream.close()
+      }
+    }
+  }
+
 }
 
 object AuthService {
