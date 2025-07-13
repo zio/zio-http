@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digest Authentication Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .auth-form {
+            display: grid;
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 30px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 15px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .form-group {
+            display: grid;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .endpoints {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .endpoint-section {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .endpoint-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .endpoint-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        button:hover:before {
+            left: 100%;
+        }
+
+        .btn-profile {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-admin {
+            background: linear-gradient(45deg, #FF6B6B, #ee5a52);
+            color: white;
+        }
+
+        .btn-public {
+            background: linear-gradient(45deg, #4ECDC4, #44a08d);
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .response-area {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            position: relative;
+        }
+
+        .response-area:before {
+            content: 'Response Console';
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .status-error {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        .status-info {
+            color: #2196F3;
+            font-weight: bold;
+        }
+
+        .clear-btn {
+            background: linear-gradient(45deg, #666, #555);
+            color: white;
+            margin-top: 15px;
+        }
+
+        .user-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-card.active {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .user-card h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-card p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .user-info {
+                grid-template-columns: 1fr;
+            }
+
+            .endpoint-buttons {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔐 Digest Authentication Client</h1>
+    <div class="user-info">
+        <div class="user-card active" onclick="selectUser('john', 'password123')">
+            <h4>John</h4>
+            <p>Regular User</p>
+        </div>
+        <div class="user-card" onclick="selectUser('jane', 'secret456')">
+            <h4>Jane</h4>
+            <p>Regular User</p>
+        </div>
+        <div class="user-card" onclick="selectUser('admin', 'admin123')">
+            <h4>Admin</h4>
+            <p>Administrator</p>
+        </div>
+    </div>
+
+    <div class="auth-form">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" value="john" placeholder="Enter username">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" value="password123" placeholder="Enter password">
+        </div>
+    </div>
+
+    <div class="endpoints">
+        <div class="endpoint-section">
+            <h3>🔒 Protected Endpoints</h3>
+            <div class="endpoint-buttons">
+                <button class="btn-profile" onclick="testEndpoint('/profile/me')">
+                    Profile (/profile/me)
+                </button>
+                <button class="btn-admin" onclick="testEndpoint('/admin')">
+                    Admin (/admin)
+                </button>
+            </div>
+        </div>
+
+        <div class="endpoint-section">
+            <h3>🌐 Public Endpoints</h3>
+            <div class="endpoint-buttons">
+                <button class="btn-public" onclick="testEndpoint('/public')">
+                    Public (/public)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="response-area" id="responseArea">
+        <div class="status-success">Digest Authentication Client ready!</div>
+        <div>Click on any endpoint button to test authentication.</div>
+    </div>
+
+    <button class="clear-btn" onclick="clearResponse()">Clear Response</button>
+</div>
+
+<!-- CryptoJS library from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
+<script>
+    // MD5 hash function using CryptoJS
+    function md5(str) {
+        return CryptoJS.MD5(str).toString();
+    }
+
+    // Generate random nonce
+    function generateNonce() {
+        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
+
+    // Parse WWW-Authenticate header
+    function parseWWWAuthenticate(headerValue) {
+        const result = {};
+        const regex = /(\w+)=("([^"]+)"|([^,\s]+))/g;
+        let match;
+
+        while ((match = regex.exec(headerValue)) !== null) {
+            const key = match[1];
+            const value = match[3] || match[4];
+            result[key] = value;
+        }
+
+        return result;
+    }
+
+    // Log response
+    function logResponse(message, type = 'info') {
+        const responseArea = document.getElementById('responseArea');
+        const timestamp = new Date().toLocaleTimeString();
+        const className = type === 'error' ? 'status-error' : type === 'success' ? 'status-success' : 'status-info';
+
+        responseArea.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+        responseArea.scrollTop = responseArea.scrollHeight;
+    }
+
+    // Select user
+    function selectUser(username, password) {
+        document.getElementById('username').value = username;
+        document.getElementById('password').value = password;
+
+        // Update active user card
+        document.querySelectorAll('.user-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        event.target.closest('.user-card').classList.add('active');
+
+        logResponse(`Selected user: ${username}`, 'info');
+    }
+
+    // Test endpoint
+    async function testEndpoint(endpoint) {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            logResponse('Please enter username and password', 'error');
+            return;
+        }
+
+        const url = `http://localhost:8080${endpoint}`;
+
+        logResponse(`Testing ${endpoint}...`, 'info');
+        logResponse(`Request: GET ${url}`, 'info');
+
+        try {
+            // First request - expect 401 for protected endpoints
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'omit'
+            });
+
+            logResponse(`Response Status: ${response.status} ${response.statusText}`,
+                response.status === 200 ? 'success' : 'info');
+
+            if (response.status === 401) {
+                const wwwAuth = response.headers.get('WWW-Authenticate');
+                logResponse(`WWW-Authenticate: ${wwwAuth}`, 'info');
+
+                if (wwwAuth && wwwAuth.startsWith('Digest')) {
+                    const authParams = parseWWWAuthenticate(wwwAuth);
+                    logResponse(`Parsed auth params: ${JSON.stringify(authParams, null, 2)}`, 'info');
+
+                    const cnonce = generateNonce();
+                    const qop = authParams.qop || 'auth';
+                    const algorithm = authParams.algorithm || 'MD5';
+
+                    // Use the working format: nc="00000001" in both hash and header
+                    const ncForHash = "00000001";
+                    const ncForHeader = "00000001";
+
+                    // Compute digest with the correct format
+                    const hashInput1 = `${username}:${authParams.realm}:${password}`;
+                    const hashInput2 = `GET:${endpoint}`;
+                    const hash1 = md5(hashInput1);
+                    const hash2 = md5(hashInput2);
+                    const finalInput = `${hash1}:${authParams.nonce}:${ncForHash}:${cnonce}:${qop}:${hash2}`;
+                    const digestResponse = md5(finalInput);
+
+                    logResponse(`Digest computation:`, 'info');
+                    logResponse(`  HA1 = MD5("${hashInput1}") = ${hash1}`, 'info');
+                    logResponse(`  HA2 = MD5("${hashInput2}") = ${hash2}`, 'info');
+                    logResponse(`  Response = MD5("${finalInput}") = ${digestResponse}`, 'info');
+
+                    // Use the working authorization header format
+                    const authHeader = `Digest username="${username}", realm="${authParams.realm}", nonce="${authParams.nonce}", uri="${endpoint}", algorithm="${algorithm}", qop="${qop}", nc="${ncForHeader}", cnonce="${cnonce}", response="${digestResponse}", userhash=false, opaque=""`;
+
+                    logResponse(`Authorization: ${authHeader}`, 'info');
+
+                    // Make the authenticated request
+                    const authResponse = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': authHeader
+                        },
+                        credentials: 'omit'
+                    });
+
+                    logResponse(`Response: ${authResponse.status} ${authResponse.statusText}`,
+                        authResponse.status === 200 ? 'success' : 'error');
+
+                    if (authResponse.status === 200) {
+                        const responseText = await authResponse.text();
+                        logResponse(`Success! Response Body: ${responseText}`, 'success');
+                    } else {
+                        const responseText = await authResponse.text();
+                        if (responseText) {
+                            logResponse(`Failed. Response Body: ${responseText}`, 'error');
+                        } else {
+                            logResponse(`Failed. Empty response body`, 'error');
+                        }
+
+                        if (authResponse.status === 401) {
+                            const newChallenge = authResponse.headers.get('WWW-Authenticate');
+                            if (newChallenge) {
+                                logResponse(`New challenge: ${newChallenge}`, 'error');
+                            }
+                        }
+                    }
+                } else {
+                    logResponse('No valid WWW-Authenticate header found', 'error');
+                }
+            } else {
+                // Public endpoint or already authenticated
+                const responseText = await response.text();
+                logResponse(`Response Body: ${responseText}`, 'success');
+            }
+
+        } catch (error) {
+            logResponse(`Error: ${error.message}`, 'error');
+        }
+
+        logResponse('---', 'info');
+    }
+
+    // Clear response
+    function clearResponse() {
+        document.getElementById('responseArea').innerHTML =
+            '<div class="status-success">Digest Authentication Client ready!</div>' +
+            '<div>Click on any endpoint button to test authentication.</div>';
+    }
+
+    // Initialize
+    logResponse('Digest Authentication Client ready!', 'success');
+    logResponse('Server should be running on http://localhost:8080', 'info');
+    logResponse('Available users: john/password123, jane/secret456, admin/admin123', 'info');
+    logResponse('Using CryptoJS library for secure MD5 hashing', 'info');
+    logResponse('Authentication format: RFC 2617 compliant with ZIO HTTP', 'info');
+
+    // Verify CryptoJS is working
+    if (typeof CryptoJS !== 'undefined') {
+        logResponse('CryptoJS library loaded successfully', 'success');
+
+        // Test MD5 implementation
+        const testMD5_1 = md5('');
+        const testMD5_2 = md5('abc');
+
+        if (testMD5_1 === 'd41d8cd98f00b204e9800998ecf8427e' && testMD5_2 === '900150983cd24fb0d6963f7d28e17f72') {
+            logResponse('MD5 implementation verified successfully', 'success');
+        } else {
+            logResponse('MD5 implementation verification failed', 'error');
+        }
+    } else {
+        logResponse('Error: CryptoJS library failed to load', 'error');
+    }
+</script>
+</body>
+</html>

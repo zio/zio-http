@@ -4,6 +4,9 @@ import DigestAuthentication.{generateNonce, validateDigest}
 import zio._
 import zio.http._
 
+import java.nio.charset.StandardCharsets
+import scala.io.Source
+
 object DigestAuthenticationServer extends ZIOAppDefault {
 
   // Simple in-memory user store (username -> password)
@@ -70,6 +73,17 @@ object DigestAuthenticationServer extends ZIOAppDefault {
 
   def routes: Routes[Any, Response] =
     Routes(
+
+      Method.GET / Root -> handler { (_: Request) =>
+        for {
+          html <- loadHtmlFromResources("/digest-auth-client.html").orDie
+        } yield Response(
+          status = Status.Ok,
+          headers = Headers(Header.ContentType(MediaType.text.html)),
+          body = Body.fromString(html),
+        )
+      },
+
       // Protected profile route
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
         ZIO.serviceWith[String] { username =>
@@ -95,4 +109,23 @@ object DigestAuthenticationServer extends ZIOAppDefault {
 
   override val run =
     Server.serve(routes).provide(Server.default)
+
+
+  /**
+   * Loads HTML content from the resources directory
+   */
+  def loadHtmlFromResources(resourcePath: String): ZIO[Any, Throwable, String] = {
+    ZIO.attempt {
+      val inputStream = getClass.getResourceAsStream(resourcePath)
+      if (inputStream == null) throw new RuntimeException(s"Resource not found: $resourcePath")
+
+      val source = Source.fromInputStream(inputStream, StandardCharsets.UTF_8.name())
+      try source.mkString
+      finally {
+        source.close()
+        inputStream.close()
+      }
+    }
+  }
+
 }
