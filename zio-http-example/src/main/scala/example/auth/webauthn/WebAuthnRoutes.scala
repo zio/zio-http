@@ -2,6 +2,7 @@ package example.auth.webauthn
 import zio._
 import zio.http._
 import zio.json._
+import zio.schema.codec.JsonCodec.{schemaBasedBinaryCodec, zioJsonBinaryCodec}
 
 import java.nio.charset.StandardCharsets
 import scala.io.Source
@@ -46,10 +47,7 @@ object WebAuthnRoutes {
       Method.POST / "api" / "webauthn" / "registration" / "start"    -> handler { (req: Request) =>
         for {
           service  <- ZIO.service[WebAuthnService]
-          body     <- req.body.asString.orDie
-          request  <- ZIO
-            .fromEither(body.fromJson[StartRegistrationRequest])
-            .mapError(e => Response.badRequest(s"Invalid JSON: $e"))
+          request  <- req.body.to[StartRegistrationRequest].orDie
           response <- service
             .startRegistration(request)
             .mapError(e => Response.internalServerError(e))
@@ -58,10 +56,7 @@ object WebAuthnRoutes {
       Method.POST / "api" / "webauthn" / "registration" / "finish"   -> handler { (req: Request) =>
         for {
           service  <- ZIO.service[WebAuthnService]
-          body     <- req.body.asString.orDie
-          request  <- ZIO
-            .fromEither(body.fromJson[FinishRegistrationRequest])
-            .mapError(e => Response.badRequest(s"Invalid JSON: $e"))
+          request  <- req.body.to[FinishRegistrationRequest].orDie
           response <- service
             .finishRegistration(request)
             .mapError(e => Response.internalServerError(e))
@@ -70,11 +65,7 @@ object WebAuthnRoutes {
       Method.POST / "api" / "webauthn" / "authentication" / "start"  -> handler { (req: Request) =>
         for {
           service  <- ZIO.service[WebAuthnService]
-          body     <- req.body.asString.orDie
-          request  <- ZIO
-            .fromEither(body.fromJson[StartAuthenticationRequest])
-            .mapError(e => Response.badRequest(s"Invalid JSON: $e"))
-          _ <- ZIO.debug(s"request: =================== ${request}")
+          request  <- req.body.to[StartAuthenticationRequest].orDie
           response <- service
             .startAuthentication(request)
             .mapError(e => Response.internalServerError(e))
@@ -83,14 +74,11 @@ object WebAuthnRoutes {
       Method.POST / "api" / "webauthn" / "authentication" / "finish" -> handler { (req: Request) =>
         for {
           service  <- ZIO.service[WebAuthnService]
-          body     <- req.body.asString.orDie
-          request  <- ZIO
-            .fromEither(body.fromJson[FinishAuthenticationRequest])
-            .mapError(e => Response.badRequest(s"Invalid JSON: $e"))
+          request  <- req.body.to[FinishAuthenticationRequest].orDie
           response <- service
             .finishAuthentication(request)
             .mapError(e => Response.internalServerError(e))
-        } yield Response.json(response.toJson)
+        } yield Response(body = Body.from[FinishAuthenticationResponse](response))
       },
     ) @@ Middleware.cors
 

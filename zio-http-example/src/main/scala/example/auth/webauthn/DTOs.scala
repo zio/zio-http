@@ -2,6 +2,7 @@ package example.auth.webauthn
 
 import zio.json._
 import zio.json.ast.Json
+import zio.schema.{DeriveSchema, Schema}
 
 // Request/Response DTOs
 case class StartRegistrationRequest(
@@ -15,6 +16,7 @@ case class StartRegistrationRequest(
 object StartRegistrationRequest {
   implicit val encoder: JsonEncoder[StartRegistrationRequest] = DeriveJsonEncoder.gen
   implicit val decoder: JsonDecoder[StartRegistrationRequest] = DeriveJsonDecoder.gen
+  implicit val schema: Schema[StartRegistrationRequest] = DeriveSchema.gen
 }
 
 case class StartRegistrationResponse(
@@ -35,6 +37,7 @@ case class FinishRegistrationRequest(
 object FinishRegistrationRequest {
   implicit val encoder: JsonEncoder[FinishRegistrationRequest] = DeriveJsonEncoder.gen
   implicit val decoder: JsonDecoder[FinishRegistrationRequest] = DeriveJsonDecoder.gen
+  implicit val schema: Schema[FinishRegistrationRequest] = DeriveSchema.gen[FinishRegistrationRequest]
 }
 
 case class FinishRegistrationResponse(
@@ -56,6 +59,7 @@ case class StartAuthenticationRequest(
 object StartAuthenticationRequest {
   implicit val encoder: JsonEncoder[StartAuthenticationRequest] = DeriveJsonEncoder.gen
   implicit val decoder: JsonDecoder[StartAuthenticationRequest] = DeriveJsonDecoder.gen
+  implicit val codec: Schema[StartAuthenticationRequest] = zio.schema.DeriveSchema.gen[StartAuthenticationRequest]
 }
 
 case class StartAuthenticationResponse(
@@ -76,6 +80,7 @@ case class FinishAuthenticationRequest(
 object FinishAuthenticationRequest {
   implicit val encoder: JsonEncoder[FinishAuthenticationRequest] = DeriveJsonEncoder.gen
   implicit val decoder: JsonDecoder[FinishAuthenticationRequest] = DeriveJsonDecoder.gen
+  implicit val schema: Schema[FinishAuthenticationRequest] = DeriveSchema.gen
 }
 
 case class FinishAuthenticationResponse(
@@ -87,6 +92,7 @@ case class FinishAuthenticationResponse(
 object FinishAuthenticationResponse {
   implicit val encoder: JsonEncoder[FinishAuthenticationResponse] = DeriveJsonEncoder.gen
   implicit val decoder: JsonDecoder[FinishAuthenticationResponse] = DeriveJsonDecoder.gen
+  implicit val schema: Schema[FinishAuthenticationResponse] = DeriveSchema.gen
 }
 
 case class MobileDeviceInfo(
@@ -216,7 +222,7 @@ case class PublicKeyCredentialDTO(
   rawId: String, // Base64URL encoded
   response: AuthenticatorResponseDTO,
   authenticatorAttachment: Option[String],
-  clientExtensionResults: Option[Map[String, Json]],
+  clientExtensionResults: Option[Map[String, String]],
 )
 
 object PublicKeyCredentialDTO {
