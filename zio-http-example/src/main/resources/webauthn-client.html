@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAuthn Demo with Mobile Support</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #555;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .device-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+
+        .device-item h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .device-item p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        #devices-list:empty::before {
+            content: "Loading devices...";
+            color: #666;
+            font-style: italic;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            input[type="text"],
+            select,
+            button {
+                font-size: 16px; /* Prevent zoom on iOS */
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>WebAuthn Demo with Mobile Device Support</h1>
+
+    <div class="section">
+        <h2>Connected Mobile Devices</h2>
+        <div id="devices-list"></div>
+        <button id="refresh-devices">Refresh Devices</button>
+    </div>
+
+    <div class="section">
+        <h2>User Registration</h2>
+        <div class="form-group">
+            <label for="reg-username">Username:</label>
+            <input type="text" id="reg-username" placeholder="Enter username">
+        </div>
+        <div class="form-group">
+            <label for="reg-displayname">Display Name:</label>
+            <input type="text" id="reg-displayname" placeholder="Enter display name">
+        </div>
+        <div class="form-group">
+            <label for="reg-userverification">User Verification:</label>
+            <select id="reg-userverification">
+                <option value="preferred">Preferred</option>
+                <option value="required">Required</option>
+                <option value="discouraged">Discouraged</option>
+            </select>
+        </div>
+        <button id="register-btn">Register</button>
+    </div>
+
+    <div class="section">
+        <h2>User Authentication</h2>
+        <div class="form-group">
+            <label for="auth-username">Username (optional):</label>
+            <input type="text" id="auth-username" placeholder="Enter username">
+        </div>
+        <div class="form-group">
+            <label for="auth-userverification">User Verification:</label>
+            <select id="auth-userverification">
+                <option value="preferred">Preferred</option>
+                <option value="required">Required</option>
+                <option value="discouraged">Discouraged</option>
+            </select>
+        </div>
+        <button id="authenticate-btn">Authenticate</button>
+    </div>
+
+    <div class="section">
+        <h2>Mobile Key Exchange</h2>
+        <div class="form-group">
+            <label for="device-select">Select Device:</label>
+            <select id="device-select">
+                <option value="">Select a device</option>
+            </select>
+        </div>
+        <button id="key-exchange-btn">Initiate Key Exchange</button>
+    </div>
+
+    <div class="section">
+        <h2>Status</h2>
+        <div id="status"></div>
+    </div>
+</div>
+
+<script>
+    class WebAuthnClient {
+        constructor() {
+            this.baseUrl = window.location.origin;
+            this.init();
+        }
+
+        init() {
+            document.getElementById('register-btn').addEventListener('click', () => this.register());
+            document.getElementById('authenticate-btn').addEventListener('click', () => this.authenticate());
+            document.getElementById('refresh-devices').addEventListener('click', () => this.refreshDevices());
+            document.getElementById('key-exchange-btn').addEventListener('click', () => this.initiateKeyExchange());
+
+            this.refreshDevices();
+            this.setStatus('Ready');
+        }
+
+        async register() {
+            try {
+                this.setStatus('Starting registration...');
+
+                const username = document.getElementById('reg-username').value;
+                const displayName = document.getElementById('reg-displayname').value;
+                const userVerification = document.getElementById('reg-userverification').value;
+
+                if (!username || !displayName) {
+                    this.setStatus('Please fill in username and display name', 'error');
+                    return;
+                }
+
+                // Start registration
+                const startResponse = await fetch(`${this.baseUrl}/api/webauthn/registration/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username,
+                        displayName,
+                        userVerification
+                    })
+                });
+
+                if (!startResponse.ok) {
+                    throw new Error(`Registration start failed: ${startResponse.statusText}`);
+                }
+
+                const startData = await startResponse.json();
+                this.setStatus('Creating credential...');
+
+                // Convert options for WebAuthn API
+                const credentialCreationOptions = this.convertRegistrationOptions(startData.options);
+
+                // Create credential
+                const credential = await navigator.credentials.create({
+                    publicKey: credentialCreationOptions
+                });
+
+                this.setStatus('Finishing registration...');
+
+                // Convert credential for server
+                const credentialData = this.convertCredentialToJSON(credential);
+
+                // Finish registration
+                const finishResponse = await fetch(`${this.baseUrl}/api/webauthn/registration/finish`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: startData.sessionId,
+                        credential: credentialData
+                    })
+                });
+
+                if (!finishResponse.ok) {
+                    throw new Error(`Registration finish failed: ${finishResponse.statusText}`);
+                }
+
+                const finishData = await finishResponse.json();
+
+                if (finishData.success) {
+                    this.setStatus(`Registration successful! Credential ID: ${finishData.credentialId}`, 'success');
+                } else {
+                    this.setStatus(`Registration failed: ${finishData.message}`, 'error');
+                }
+
+            } catch (error) {
+                this.setStatus(`Registration error: ${error.message}`, 'error');
+            }
+        }
+
+        async authenticate() {
+            try {
+                this.setStatus('Starting authentication...');
+
+                const username = document.getElementById('auth-username').value;
+                const userVerification = document.getElementById('auth-userverification').value;
+
+                // Start authentication
+                const startResponse = await fetch(`${this.baseUrl}/api/webauthn/authentication/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username || undefined,
+                        userVerification
+                    })
+                });
+
+                if (!startResponse.ok) {
+                    throw new Error(`Authentication start failed: ${startResponse.statusText}`);
+                }
+
+                const startData = await startResponse.json();
+                this.setStatus('Getting credential...');
+
+                // Convert options for WebAuthn API
+                const credentialRequestOptions = this.convertAuthenticationOptions(startData.options);
+
+                // Get credential
+                const credential = await navigator.credentials.get({
+                    publicKey: credentialRequestOptions
+                });
+
+                this.setStatus('Finishing authentication...');
+
+                // Convert credential for server
+                const credentialData = this.convertCredentialToJSON(credential);
+
+                // Finish authentication
+                const finishResponse = await fetch(`${this.baseUrl}/api/webauthn/authentication/finish`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: startData.sessionId,
+                        credential: credentialData
+                    })
+                });
+
+                if (!finishResponse.ok) {
+                    throw new Error(`Authentication finish failed: ${finishResponse.statusText}`);
+                }
+
+                const finishData = await finishResponse.json();
+
+                if (finishData.success) {
+                    this.setStatus(`Authentication successful! Welcome ${finishData.username}`, 'success');
+                } else {
+                    this.setStatus(`Authentication failed: ${finishData.message}`, 'error');
+                }
+
+            } catch (error) {
+                this.setStatus(`Authentication error: ${error.message}`, 'error');
+            }
+        }
+
+        async refreshDevices() {
+            try {
+                const response = await fetch(`${this.baseUrl}/api/devices`);
+                const devices = await response.json();
+
+                this.updateDevicesList(devices);
+                this.updateDeviceSelect(devices);
+
+            } catch (error) {
+                this.setStatus(`Error refreshing devices: ${error.message}`, 'error');
+            }
+        }
+
+        async initiateKeyExchange() {
+            try {
+                const deviceId = document.getElementById('device-select').value;
+                if (!deviceId) {
+                    this.setStatus('Please select a device', 'error');
+                    return;
+                }
+
+                this.setStatus('Initiating key exchange...');
+
+                const response = await fetch(`${this.baseUrl}/api/keyexchange/initiate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deviceId })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Key exchange initiation failed: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                this.setStatus(`Key exchange initiated. Challenge: ${data.challenge}`, 'success');
+
+            } catch (error) {
+                this.setStatus(`Key exchange error: ${error.message}`, 'error');
+            }
+        }
+
+        convertRegistrationOptions(options) {
+            return {
+                challenge: this.base64urlDecode(options.challenge),
+                rp: options.rp,
+                user: {
+                    ...options.user,
+                    id: this.base64urlDecode(options.user.id)
+                },
+                pubKeyCredParams: options.pubKeyCredParams,
+                timeout: options.timeout,
+                excludeCredentials: options.excludeCredentials?.map(cred => ({
+                    ...cred,
+                    id: this.base64urlDecode(cred.id)
+                })) || [],
+                authenticatorSelection: options.authenticatorSelection,
+                attestation: options.attestation
+            };
+        }
+
+        convertAuthenticationOptions(options) {
+            return {
+                challenge: this.base64urlDecode(options.challenge),
+                timeout: options.timeout,
+                rpId: options.rpId,
+                allowCredentials: options.allowCredentials?.map(cred => ({
+                    ...cred,
+                    id: this.base64urlDecode(cred.id)
+                })) || [],
+                userVerification: options.userVerification
+            };
+        }
+
+        convertCredentialToJSON(credential) {
+            const response = credential.response;
+            const clientExtensionResults = credential.getClientExtensionResults();
+
+            return {
+                id: credential.id,
+                rawId: this.base64urlEncode(credential.rawId),
+                response: {
+                    clientDataJSON: this.base64urlEncode(response.clientDataJSON),
+                    attestationObject: response.attestationObject ?
+                        this.base64urlEncode(response.attestationObject) : undefined,
+                    authenticatorData: response.authenticatorData ?
+                        this.base64urlEncode(response.authenticatorData) : undefined,
+                    signature: response.signature ?
+                        this.base64urlEncode(response.signature) : undefined,
+                    userHandle: response.userHandle ?
+                        this.base64urlEncode(response.userHandle) : undefined
+                },
+                authenticatorAttachment: credential.authenticatorAttachment,
+                clientExtensionResults: Object.keys(clientExtensionResults).length > 0 ?
+                    clientExtensionResults : undefined
+            };
+        }
+
+        updateDevicesList(devices) {
+            const devicesList = document.getElementById('devices-list');
+
+            if (devices.length === 0) {
+                devicesList.innerHTML = '<p>No devices connected</p>';
+                return;
+            }
+
+            devicesList.innerHTML = devices.map(device => `
+                <div class="device-item">
+                    <h4>${device.deviceName}</h4>
+                    <p>ID: ${device.deviceId}</p>
+                    <p>Platform: ${device.platform}</p>
+                    <p>Capabilities: ${device.capabilities.join(', ')}</p>
+                    <p>Last seen: ${new Date(device.lastSeen).toLocaleString()}</p>
+                </div>
+            `).join('');
+        }
+
+        updateDeviceSelect(devices) {
+            const deviceSelect = document.getElementById('device-select');
+            deviceSelect.innerHTML = '<option value="">Select a device</option>';
+
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = `${device.deviceName} (${device.platform})`;
+                deviceSelect.appendChild(option);
+            });
+        }
+
+        setStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        base64urlDecode(str) {
+            return new Uint8Array(
+                atob(str.replace(/-/g, '+').replace(/_/g, '/'))
+                    .split('')
+                    .map(c => c.charCodeAt(0))
+            );
+        }
+
+        base64urlEncode(buffer) {
+            return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=/g, '');
+        }
+    }
+
+    // Initialize the client when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        new WebAuthnClient();
+    });
+</script>
+</body>
+</html>
