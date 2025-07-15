@@ -1,8 +1,8 @@
 import sbt.*
 
 object Dependencies {
-  val JwtCoreVersion               = "11.0.0"
-  val NettyVersion                 = "4.2.2.Final"
+  val JwtCoreVersion               = "11.0.2"
+  val NettyVersion                 = "4.2.3.Final"
   val ScalaCompatCollectionVersion = "2.13.0"
   val ZioVersion                   = "2.1.19"
   val ZioCliVersion                = "0.7.2"
@@ -15,7 +15,7 @@ object Dependencies {
   val `jwt-core`                = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `scala-compat-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompatCollectionVersion
 
-  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.7"
+  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.8"
   val scalametaParsers = "org.scalameta" %% "parsers"          % "4.13.8"
 
   val netty =

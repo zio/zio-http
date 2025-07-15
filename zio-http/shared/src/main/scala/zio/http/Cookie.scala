@@ -131,7 +131,7 @@ object Cookie {
   ) extends Cookie { self =>
     override def encodeValidate(validate: Boolean): Either[Exception, String] =
       try {
-        Right(CookieEncoding.default.encodeResponseCookie(self, validate))
+        Right(CookieEncoding.encodeResponseCookie(self, validate))
       } catch {
         case e: Exception => Left(e)
       }
@@ -159,7 +159,7 @@ object Cookie {
      */
     def decode(header: String, validate: Boolean = false): Either[Exception, Cookie.Response] = {
       try {
-        Right(CookieEncoding.default.decodeResponseCookie(header, validate))
+        Right(CookieEncoding.decodeResponseCookie(header, validate))
       } catch {
         case e: Exception =>
           Left(e)
@@ -170,7 +170,7 @@ object Cookie {
   final case class Request(name: String, content: String) extends Cookie { self =>
     override def encodeValidate(validate: Boolean): Either[Exception, String] =
       try {
-        Right(CookieEncoding.default.encodeRequestCookie(self, validate))
+        Right(CookieEncoding.encodeRequestCookie(self, validate))
       } catch {
         case e: Exception => Left(e)
       }
@@ -197,7 +197,7 @@ object Cookie {
      */
     def decode(header: String, validate: Boolean = false): Either[Exception, Chunk[Cookie.Request]] = {
       try {
-        Right(CookieEncoding.default.decodeRequestCookie(header, validate))
+        Right(CookieEncoding.decodeRequestCookie(header, validate))
       } catch {
         case e: Exception =>
           Left(e)
