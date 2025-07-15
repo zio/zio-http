@@ -1,7 +1,6 @@
 package example.auth.webauthn
 
 import zio.json._
-import zio.json.ast.Json
 import zio.schema.{DeriveSchema, Schema}
 
 // Request/Response DTOs
@@ -141,7 +140,7 @@ case class PublicKeyCredentialCreationOptionsDTO(
   excludeCredentials: Seq[PublicKeyCredentialDescriptorDTO],
   authenticatorSelection: Option[AuthenticatorSelectionCriteriaDTO],
   attestation: String,
-  extensions: Option[Map[String, Json]],
+  extensions: Option[Map[String, String]],
 )
 
 object PublicKeyCredentialCreationOptionsDTO {
@@ -209,7 +208,7 @@ case class PublicKeyCredentialRequestOptionsDTO(
   rpId: Option[String],
   allowCredentials: Seq[PublicKeyCredentialDescriptorDTO],
   userVerification: String,
-  extensions: Option[Map[String, Json]],
+  extensions: Option[Map[String, String]],
 )
 
 object PublicKeyCredentialRequestOptionsDTO {
