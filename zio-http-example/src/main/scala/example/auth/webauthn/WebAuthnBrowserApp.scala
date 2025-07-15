@@ -15,7 +15,6 @@ object WebAuthnBrowserApp extends ZIOAppDefault {
       .provide(
         Server.defaultWithPort(8080),
         WebAuthnService.live,
-        MobileDeviceManager.live,
       )
       .orDie
 

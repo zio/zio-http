@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAuthn Demo with Mobile Support</title>
+    <title>WebAuthn Demo!</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -78,25 +78,6 @@
             cursor: not-allowed;
         }
 
-        .device-item {
-            background: #f8f9fa;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 5px;
-            border-left: 4px solid #007bff;
-        }
-
-        .device-item h4 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-
-        .device-item p {
-            margin: 5px 0;
-            color: #666;
-            font-size: 14px;
-        }
-
         .status {
             padding: 15px;
             border-radius: 5px;
@@ -122,12 +103,6 @@
             border: 1px solid #f5c6cb;
         }
 
-        #devices-list:empty::before {
-            content: "Loading devices...";
-            color: #666;
-            font-style: italic;
-        }
-
         @media (max-width: 600px) {
             .container {
                 padding: 20px;
@@ -144,13 +119,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>WebAuthn Demo with Mobile Device Support</h1>
-
-    <div class="section">
-        <h2>Connected Mobile Devices</h2>
-        <div id="devices-list"></div>
-        <button id="refresh-devices">Refresh Devices</button>
-    </div>
+    <h1>WebAuthn Demo</h1>
 
     <div class="section">
         <h2>User Registration</h2>
@@ -191,17 +160,6 @@
     </div>
 
     <div class="section">
-        <h2>Mobile Key Exchange</h2>
-        <div class="form-group">
-            <label for="device-select">Select Device:</label>
-            <select id="device-select">
-                <option value="">Select a device</option>
-            </select>
-        </div>
-        <button id="key-exchange-btn">Initiate Key Exchange</button>
-    </div>
-
-    <div class="section">
         <h2>Status</h2>
         <div id="status"></div>
     </div>
@@ -217,10 +175,7 @@
         init() {
             document.getElementById('register-btn').addEventListener('click', () => this.register());
             document.getElementById('authenticate-btn').addEventListener('click', () => this.authenticate());
-            document.getElementById('refresh-devices').addEventListener('click', () => this.refreshDevices());
-            document.getElementById('key-exchange-btn').addEventListener('click', () => this.initiateKeyExchange());
 
-            this.refreshDevices();
             this.setStatus('Ready');
         }
 
@@ -359,47 +314,6 @@
             }
         }
 
-        async refreshDevices() {
-            try {
-                const response = await fetch(`${this.baseUrl}/api/devices`);
-                const devices = await response.json();
-
-                this.updateDevicesList(devices);
-                this.updateDeviceSelect(devices);
-
-            } catch (error) {
-                this.setStatus(`Error refreshing devices: ${error.message}`, 'error');
-            }
-        }
-
-        async initiateKeyExchange() {
-            try {
-                const deviceId = document.getElementById('device-select').value;
-                if (!deviceId) {
-                    this.setStatus('Please select a device', 'error');
-                    return;
-                }
-
-                this.setStatus('Initiating key exchange...');
-
-                const response = await fetch(`${this.baseUrl}/api/keyexchange/initiate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ deviceId })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Key exchange initiation failed: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                this.setStatus(`Key exchange initiated. Challenge: ${data.challenge}`, 'success');
-
-            } catch (error) {
-                this.setStatus(`Key exchange error: ${error.message}`, 'error');
-            }
-        }
-
         convertRegistrationOptions(options) {
             return {
                 challenge: this.base64urlDecode(options.challenge),
@@ -456,36 +370,6 @@
             };
         }
 
-        updateDevicesList(devices) {
-            const devicesList = document.getElementById('devices-list');
-
-            if (devices.length === 0) {
-                devicesList.innerHTML = '<p>No devices connected</p>';
-                return;
-            }
-
-            devicesList.innerHTML = devices.map(device => `
-                <div class="device-item">
-                    <h4>${device.deviceName}</h4>
-                    <p>ID: ${device.deviceId}</p>
-                    <p>Platform: ${device.platform}</p>
-                    <p>Capabilities: ${device.capabilities.join(', ')}</p>
-                    <p>Last seen: ${new Date(device.lastSeen).toLocaleString()}</p>
-                </div>
-            `).join('');
-        }
-
-        updateDeviceSelect(devices) {
-            const deviceSelect = document.getElementById('device-select');
-            deviceSelect.innerHTML = '<option value="">Select a device</option>';
-
-            devices.forEach(device => {
-                const option = document.createElement('option');
-                option.value = device.deviceId;
-                option.textContent = `${device.deviceName} (${device.platform})`;
-                deviceSelect.appendChild(option);
-            });
-        }
 
         setStatus(message, type = 'info') {
             const statusDiv = document.getElementById('status');

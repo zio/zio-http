@@ -6,7 +6,6 @@ import zio.json._
 import java.nio.charset.StandardCharsets
 import scala.io.Source
 
-
 // ============================================================================
 // HTTP Routes
 // ============================================================================
@@ -91,60 +90,6 @@ object WebAuthnRoutes {
             .finishAuthentication(request)
             .mapError(e => Response.internalServerError(e))
         } yield Response.json(response.toJson)
-      },
-
-      // Mobile device endpoints
-      Method.GET / "api" / "devices"                   -> handler {
-        for {
-          deviceManager <- ZIO.service[MobileDeviceManager]
-          devices       <- deviceManager.getConnectedDevices()
-        } yield Response.json(devices.toJson)
-      },
-      Method.POST / "api" / "devices" / "register"     -> handler { (req: Request) =>
-        for {
-          deviceManager <- ZIO.service[MobileDeviceManager]
-          body          <- req.body.asString.orDie
-          deviceInfo    <- ZIO
-            .fromEither(body.fromJson[MobileDeviceInfo])
-            .mapError(e => Response.badRequest(s"Invalid JSON: $e"))
-          _             <- deviceManager.registerDevice(deviceInfo)
-        } yield Response.json("""{"success": true}""")
-      },
-      Method.POST / "api" / "keyexchange" / "initiate" -> handler { (req: Request) =>
-        for {
-          deviceManager <- ZIO.service[MobileDeviceManager]
-          body          <- req.body.asString.orDie
-          json          <- ZIO
-            .fromEither(body.fromJson[Map[String, String]])
-            .mapError(e => Response.badRequest(s"Invalid JSON: $e"))
-          deviceId      <- ZIO
-            .fromOption(json.get("deviceId"))
-            .orElseFail(Response.badRequest("Missing deviceId"))
-          challenge = java.util.UUID.randomUUID().toString
-          _ <- deviceManager
-            .initiateKeyExchange(deviceId, challenge)
-            .mapError(e => Response.badRequest(e))
-        } yield Response.json(s"""{"challenge": "$challenge"}""")
-      },
-      Method.POST / "api" / "keyexchange" / "verify"   -> handler { (req: Request) =>
-        for {
-          deviceManager <- ZIO.service[MobileDeviceManager]
-          body          <- req.body.asString.orDie
-          request       <- ZIO
-            .fromEither(body.fromJson[MobileKeyExchangeRequest])
-            .mapError(e => Response.badRequest(s"Invalid JSON: $e"))
-          response      <- deviceManager
-            .verifyKeyExchange(request)
-            .mapError(e => Response.badRequest(e))
-        } yield Response.json(response.toJson)
-      },
-
-      // WebSocket endpoint for mobile devices
-      Method.GET / "ws" / "mobile" -> handler { (_: Request) =>
-        for {
-          deviceManager <- ZIO.service[MobileDeviceManager]
-          r             <- Response.fromSocketApp(WebSocketHandler.mobileDeviceHandler(deviceManager))
-        } yield r
       },
     ) @@ Middleware.cors
 
