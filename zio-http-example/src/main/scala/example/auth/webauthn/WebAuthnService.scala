@@ -190,9 +190,9 @@ case class WebAuthnServiceLive(
         options.user.displayName,
       ),
       challenge = Base64Url.encode(options.challenge),
-      pubKeyCredParams = options.pubKeyCredParams.map(p => PublicKeyCredentialParametersDTO("public-key", p.alg)),
+      pubKeyCredParams = Chunk.fromIterable(options.pubKeyCredParams.map(p => PublicKeyCredentialParametersDTO("public-key", p.alg))),
       timeout = options.timeout,
-      excludeCredentials = options.excludeCredentials.map(convertToDescriptorDTO),
+      excludeCredentials = Chunk.fromIterable(options.excludeCredentials.map(convertToDescriptorDTO)),
       authenticatorSelection = options.authenticatorSelection.map(convertToAuthSelectionDTO),
       attestation = "none",
       extensions = None,
@@ -205,7 +205,7 @@ case class WebAuthnServiceLive(
       challenge = Base64Url.encode(options.challenge),
       timeout = options.timeout,
       rpId = options.rpId,
-      allowCredentials = options.allowCredentials.map(convertToDescriptorDTO),
+      allowCredentials = Chunk.fromIterable(options.allowCredentials.map(convertToDescriptorDTO)),
       userVerification = options.userVerification match {
         case UserVerificationRequirement.Required => "required"
         case UserVerificationRequirement.Preferred => "preferred"
@@ -218,7 +218,7 @@ case class WebAuthnServiceLive(
     PublicKeyCredentialDescriptorDTO(
       `type` = "public-key",
       id = Base64Url.encode(descriptor.id),
-      transports = descriptor.transports.map(_.map(_.toString)),
+      transports = descriptor.transports.map(_.map(_.toString)).map(Chunk.fromIterable(_)),
     )
 
   private def convertToAuthSelectionDTO(selection: AuthenticatorSelectionCriteria): AuthenticatorSelectionCriteriaDTO =

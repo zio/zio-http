@@ -2,28 +2,23 @@ package example.auth.webauthn
 import example.auth.webauthn.Types._
 import zio._
 
-// ============================================================================
-// WebAuthn Server
-// ============================================================================
-
 case class WebAuthnServer(
-                           rpId: String,
-                           rpName: String,
-                           rpOrigin: String,
-                           credentialStorage: CredentialStorage = new InMemoryCredentialStorage,
-                         ) {
+  rpId: String,
+  rpName: String,
+  rpOrigin: String,
+  credentialStorage: CredentialStorage = new InMemoryCredentialStorage,
+) {
 
   private var pendingChallenges: Map[String, (BufferSource, Long)] = Map.empty
 
   def startRegistration(
-                         userName: String,
-                         userDisplayName: String,
-                         userHandle: BufferSource,
-                         authenticatorSelection: Option[AuthenticatorSelectionCriteria] = None,
-                         attestation: AttestationConveyancePreference = AttestationConveyancePreference.None,
-                       ): Task[PublicKeyCredentialCreationOptions] = {
+    userName: String,
+    userDisplayName: String,
+    userHandle: BufferSource,
+    authenticatorSelection: Option[AuthenticatorSelectionCriteria] = None,
+    attestation: AttestationConveyancePreference = AttestationConveyancePreference.None,
+  ): Task[PublicKeyCredentialCreationOptions] = {
 
-    println("-------------------" + attestation)
     val challenge = generateChallenge()
     val sessionId = generateSessionId()
 
@@ -62,10 +57,10 @@ case class WebAuthnServer(
   }
 
   def finishRegistration(
-                          sessionId: String,
-                          credential: PublicKeyCredential,
-                          userHandle: BufferSource,
-                        ): Task[RelyingPartyOperations.RegistrationResult] = {
+    sessionId: String,
+    credential: PublicKeyCredential,
+    userHandle: BufferSource,
+  ): Task[RelyingPartyOperations.RegistrationResult] = {
 
     for {
       // Verify challenge
@@ -100,9 +95,9 @@ case class WebAuthnServer(
   }
 
   def startAuthentication(
-                           userHandle: Option[BufferSource] = None,
-                           userVerification: UserVerificationRequirement = UserVerificationRequirement.Preferred,
-                         ): Task[(String, PublicKeyCredentialRequestOptions)] = {
+    userHandle: Option[BufferSource] = None,
+    userVerification: UserVerificationRequirement = UserVerificationRequirement.Preferred,
+  ): Task[(String, PublicKeyCredentialRequestOptions)] = {
 
     val challenge = generateChallenge()
     val sessionId = generateSessionId()
@@ -131,7 +126,7 @@ case class WebAuthnServer(
     } yield {
       val options = PublicKeyCredentialRequestOptions(
         challenge = challenge,
-        timeout = Some(300000), // 5 minutes
+        timeout = Some(300000),             // 5 minutes
         rpId = Some(rpId),
         allowCredentials = allowCredentials,
         userVerification = userVerification, // Use the provided userVerification
@@ -142,9 +137,9 @@ case class WebAuthnServer(
   }
 
   def finishAuthentication(
-                            sessionId: String,
-                            credential: PublicKeyCredential,
-                          ): Task[RelyingPartyOperations.AuthenticationResult] = {
+    sessionId: String,
+    credential: PublicKeyCredential,
+  ): Task[RelyingPartyOperations.AuthenticationResult] = {
 
     for {
       // Verify challenge
@@ -220,9 +215,9 @@ case class WebAuthnServer(
   }
 
   private def createOptionsForChallenge(
-                                         challenge: BufferSource,
-                                         userHandle: BufferSource,
-                                       ): PublicKeyCredentialCreationOptions = {
+    challenge: BufferSource,
+    userHandle: BufferSource,
+  ): PublicKeyCredentialCreationOptions = {
     PublicKeyCredentialCreationOptions(
       rp = PublicKeyCredentialRpEntity(name = rpName, id = Some(rpId)),
       user = PublicKeyCredentialUserEntity(
@@ -237,4 +232,3 @@ case class WebAuthnServer(
     )
   }
 }
-

@@ -2,20 +2,13 @@ package example.auth.webauthn
 import zio._
 import zio.http._
 import zio.json._
-import zio.schema.codec.JsonCodec.{schemaBasedBinaryCodec, zioJsonBinaryCodec}
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
 import java.nio.charset.StandardCharsets
 import scala.io.Source
 
-// ============================================================================
-// HTTP Routes
-// ============================================================================
-
 object WebAuthnRoutes {
 
-  /**
-   * Loads HTML content from the resources directory
-   */
   def loadHtmlFromResources(resourcePath: String): ZIO[Any, Throwable, String] = {
     ZIO.attempt {
       val inputStream = getClass.getResourceAsStream(resourcePath)
@@ -51,7 +44,7 @@ object WebAuthnRoutes {
           response <- service
             .startRegistration(request)
             .mapError(e => Response.internalServerError(e))
-        } yield Response.json(response.toJson)
+        } yield Response(body = Body.from[StartRegistrationResponse](response))
       },
       Method.POST / "api" / "webauthn" / "registration" / "finish"   -> handler { (req: Request) =>
         for {
@@ -60,7 +53,7 @@ object WebAuthnRoutes {
           response <- service
             .finishRegistration(request)
             .mapError(e => Response.internalServerError(e))
-        } yield Response.json(response.toJson)
+        } yield Response(body = Body.from[FinishRegistrationResponse](response))
       },
       Method.POST / "api" / "webauthn" / "authentication" / "start"  -> handler { (req: Request) =>
         for {
@@ -69,7 +62,7 @@ object WebAuthnRoutes {
           response <- service
             .startAuthentication(request)
             .mapError(e => Response.internalServerError(e))
-        } yield Response.json(response.toJson)
+        } yield Response(body = Body.from[StartAuthenticationResponse](response))
       },
       Method.POST / "api" / "webauthn" / "authentication" / "finish" -> handler { (req: Request) =>
         for {
