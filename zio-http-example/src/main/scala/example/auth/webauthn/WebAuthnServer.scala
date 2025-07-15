@@ -1,5 +1,5 @@
 package example.auth.webauthn
-import Types._
+import example.auth.webauthn.Types._
 import zio._
 
 // ============================================================================
@@ -23,6 +23,7 @@ case class WebAuthnServer(
                          attestation: AttestationConveyancePreference = AttestationConveyancePreference.None,
                        ): Task[PublicKeyCredentialCreationOptions] = {
 
+    println("-------------------" + attestation)
     val challenge = generateChallenge()
     val sessionId = generateSessionId()
 
@@ -100,6 +101,7 @@ case class WebAuthnServer(
 
   def startAuthentication(
                            userHandle: Option[BufferSource] = None,
+                           userVerification: UserVerificationRequirement = UserVerificationRequirement.Preferred,
                          ): Task[(String, PublicKeyCredentialRequestOptions)] = {
 
     val challenge = generateChallenge()
@@ -132,7 +134,7 @@ case class WebAuthnServer(
         timeout = Some(300000), // 5 minutes
         rpId = Some(rpId),
         allowCredentials = allowCredentials,
-        userVerification = UserVerificationRequirement.Preferred,
+        userVerification = userVerification, // Use the provided userVerification
       )
 
       (sessionId, options)

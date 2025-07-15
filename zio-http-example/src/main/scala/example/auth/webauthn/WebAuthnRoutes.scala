@@ -74,6 +74,7 @@ object WebAuthnRoutes {
           request  <- ZIO
             .fromEither(body.fromJson[StartAuthenticationRequest])
             .mapError(e => Response.badRequest(s"Invalid JSON: $e"))
+          _ <- ZIO.debug(s"request: =================== ${request}")
           response <- service
             .startAuthentication(request)
             .mapError(e => Response.internalServerError(e))

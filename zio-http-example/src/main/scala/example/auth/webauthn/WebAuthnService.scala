@@ -23,9 +23,11 @@ case class WebAuthnServiceLive(
 
   def startRegistration(request: StartRegistrationRequest): IO[String, StartRegistrationResponse] =
     for {
+      _ <- ZIO.debug("Starting registration process... 00000000000000000000000000000000000000000000000000")
       userHandle <- ZIO.succeed(generateUserHandle())
       sessionId = java.util.UUID.randomUUID().toString
 
+      _ <- ZIO.debug("-----------------------" + request)
       // Debug logging
       _ <- ZIO.logInfo(s"Starting registration for user: ${request.username}, sessionId: $sessionId")
 
@@ -37,6 +39,7 @@ case class WebAuthnServiceLive(
 
       // Convert request parameters
       authenticatorSelection = createAuthenticatorSelection(request)
+      _ <- ZIO.debug("*************" + authenticatorSelection)
       attestation            = parseAttestationPreference(request.userVerification)
 
       // Start registration with WebAuthn server
@@ -102,10 +105,17 @@ case class WebAuthnServiceLive(
       sessionId = java.util.UUID.randomUUID().toString
       _ <- sessions.update(_ + (sessionId -> (request.username.getOrElse(""), java.lang.System.currentTimeMillis())))
 
+      // Parse userVerification from request
+      userVerification = UserVerificationRequirement
+        .fromString(request.userVerification.getOrElse("preferred"))
+        .getOrElse(UserVerificationRequirement.Preferred)
+
       // Start authentication with WebAuthn server
       tuple <-
-        webAuthnServer.startAuthentication(request.username.map(_ => generateUserHandle()))
-          .mapError(e => s"WebAuthn server error: ${e.getMessage}")
+        webAuthnServer.startAuthentication(
+          request.username.map(_ => generateUserHandle()),
+          userVerification
+        ).mapError(e => s"WebAuthn server error: ${e.getMessage}")
 
       (_, options) = tuple
       optionsDTO   = convertToRequestOptionsDTO(options)
@@ -196,7 +206,11 @@ case class WebAuthnServiceLive(
       timeout = options.timeout,
       rpId = options.rpId,
       allowCredentials = options.allowCredentials.map(convertToDescriptorDTO),
-      userVerification = "preferred",
+      userVerification = options.userVerification match {
+        case UserVerificationRequirement.Required => "required"
+        case UserVerificationRequirement.Preferred => "preferred"
+        case UserVerificationRequirement.Discouraged => "discouraged"
+      },
       extensions = None,
     )
 

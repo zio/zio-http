@@ -131,14 +131,6 @@
             <label for="reg-displayname">Display Name:</label>
             <input type="text" id="reg-displayname" placeholder="Enter display name">
         </div>
-        <div class="form-group">
-            <label for="reg-userverification">User Verification:</label>
-            <select id="reg-userverification">
-                <option value="preferred">Preferred</option>
-                <option value="required">Required</option>
-                <option value="discouraged">Discouraged</option>
-            </select>
-        </div>
         <button id="register-btn">Register</button>
     </div>
 
@@ -147,14 +139,6 @@
         <div class="form-group">
             <label for="auth-username">Username (optional):</label>
             <input type="text" id="auth-username" placeholder="Enter username">
-        </div>
-        <div class="form-group">
-            <label for="auth-userverification">User Verification:</label>
-            <select id="auth-userverification">
-                <option value="preferred">Preferred</option>
-                <option value="required">Required</option>
-                <option value="discouraged">Discouraged</option>
-            </select>
         </div>
         <button id="authenticate-btn">Authenticate</button>
     </div>
@@ -185,7 +169,6 @@
 
                 const username = document.getElementById('reg-username').value;
                 const displayName = document.getElementById('reg-displayname').value;
-                const userVerification = document.getElementById('reg-userverification').value;
 
                 if (!username || !displayName) {
                     this.setStatus('Please fill in username and display name', 'error');
@@ -199,7 +182,6 @@
                     body: JSON.stringify({
                         username,
                         displayName,
-                        userVerification
                     })
                 });
 
@@ -240,7 +222,7 @@
                 const finishData = await finishResponse.json();
 
                 if (finishData.success) {
-                    this.setStatus(`Registration successful! Credential ID: ${finishData.credentialId}`, 'success');
+                    this.setStatus(`Registration successful!`, 'success');
                 } else {
                     this.setStatus(`Registration failed: ${finishData.message}`, 'error');
                 }
@@ -255,7 +237,6 @@
                 this.setStatus('Starting authentication...');
 
                 const username = document.getElementById('auth-username').value;
-                const userVerification = document.getElementById('auth-userverification').value;
 
                 // Start authentication
                 const startResponse = await fetch(`${this.baseUrl}/api/webauthn/authentication/start`, {
@@ -263,7 +244,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         username: username || undefined,
-                        userVerification
                     })
                 });
 
@@ -274,7 +254,6 @@
                 const startData = await startResponse.json();
                 this.setStatus('Getting credential...');
 
-                // Convert options for WebAuthn API
                 const credentialRequestOptions = this.convertAuthenticationOptions(startData.options);
 
                 // Get credential
@@ -342,7 +321,6 @@
                     ...cred,
                     id: this.base64urlDecode(cred.id)
                 })) || [],
-                userVerification: options.userVerification
             };
         }
 
