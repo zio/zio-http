@@ -12,38 +12,115 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
+            max-width: 650px;
             width: 100%;
-            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
         }
 
-        .container:hover {
-            transform: translateY(-5px);
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
         }
 
         h1 {
-            text-align: center;
             color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
             margin-bottom: 30px;
-            font-size: 2.5em;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .credentials {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .credentials strong {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .credential-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .credential-item:last-child {
+            margin-bottom: 0;
         }
 
         .form-group {
@@ -53,8 +130,9 @@
         label {
             display: block;
             margin-bottom: 8px;
-            color: #555;
-            font-weight: 600;
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
         }
 
         input[type="text"], input[type="password"] {
@@ -64,7 +142,7 @@
             border-radius: 10px;
             font-size: 16px;
             transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.9);
+            background: white;
         }
 
         input[type="text"]:focus, input[type="password"]:focus {
@@ -73,133 +151,106 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        .button-group {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        button {
-            flex: 1;
-            padding: 14px 24px;
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
             border: none;
             border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            text-decoration: none;
+            margin-top: 20px;
+            margin-right: 10px;
+            margin-bottom: 20px;
         }
 
-        .login-btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
 
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-        }
-
-        .access-btn {
-            background: linear-gradient(45deg, #4CAF50, #45a049);
+        .btn-secondary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
         }
 
-        .access-btn:hover {
+        .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
 
-        .access-btn:disabled {
-            background: #ccc;
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
             cursor: not-allowed;
             transform: none;
-            box-shadow: none;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .response.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .response.success {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #155724;
+        }
+
+        .response.error {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: #721c24;
         }
 
         .response-section {
             margin-top: 30px;
         }
 
-        .response-box {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            min-height: 50px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .token-box {
-            background: #e8f5e8;
-            border: 1px solid #c3e6c3;
-            color: #2e7d32;
-        }
-
-        .success-box {
-            background: #e8f5e8;
-            border: 1px solid #c3e6c3;
-            color: #2e7d32;
-        }
-
-        .error-box {
-            background: #ffebee;
-            border: 1px solid #ffcdd2;
-            color: #c62828;
-        }
-
-        .info-box {
-            background: #e3f2fd;
-            border: 1px solid #bbdefb;
-            color: #1565c0;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-
-        .status-connected {
-            background: #4CAF50;
-        }
-
-        .status-disconnected {
-            background: #f44336;
-        }
-
         .loading {
-            opacity: 0.6;
-            pointer-events: none;
+            display: none;
+            text-align: center;
+            margin: 20px 0;
         }
 
-        .loading::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 20px;
-            height: 20px;
-            margin: -10px 0 0 -10px;
-            border: 2px solid #fff;
-            border-top: 2px solid transparent;
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
             border-radius: 50%;
+            width: 30px;
+            height: 30px;
             animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
         }
 
         @keyframes spin {
@@ -207,57 +258,83 @@
             100% { transform: rotate(360deg); }
         }
 
-        .hint {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-            font-style: italic;
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .section {
+                padding: 20px;
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🔐 JWT Auth Client</h1>
-
-    <div class="info-box">
-        <strong>💡 How it works:</strong><br>
-        1. Enter username and password (password should be the reverse of username)<br>
-        2. Click "Login" to get a JWT token<br>
-        3. Use "Access Protected Route" to test authentication<br>
-        <br>
-        <strong>Example:</strong> Username: "John", Password: "nhoJ"
+    <div class="header">
+        <div class="auth-logo">🔐</div>
+        <h1>JWT Authentication Client</h1>
+        <p class="subtitle">Symmetric JWT Token Authentication</p>
     </div>
 
-    <form id="loginForm">
-        <div class="form-group">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" value="John" required>
-            <div class="hint">Enter any username</div>
+    <div class="credentials">
+        <strong>Authentication Information:</strong>
+        <div class="credential-item">
+            <span>💡 Password should be the reverse of username</span>
         </div>
-
-        <div class="form-group">
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" value="nhoJ" required>
-            <div class="hint">Password should be the reverse of username</div>
+        <div class="credential-item">
+            <span>🔑 Example: Username "John" → Password "nhoJ"</span>
         </div>
-
-        <div class="button-group">
-            <button type="submit" class="login-btn">🔑 Login</button>
-            <button type="button" id="accessBtn" class="access-btn" disabled>🛡️ Access Protected Route</button>
+        <div class="credential-item">
+            <span>🎫 JWT tokens are used for authentication</span>
         </div>
-    </form>
-
-    <div class="response-section">
-        <label>
-            <span class="status-indicator status-disconnected"></span>
-            JWT Token:
-        </label>
-        <div id="tokenResponse" class="response-box">No token received yet...</div>
     </div>
 
-    <div class="response-section">
-        <label>Protected Route Response:</label>
-        <div id="protectedResponse" class="response-box">Click "Access Protected Route" after login...</div>
+    <div class="section">
+        <h2>🔑 Login & Get JWT Token</h2>
+        <p>Enter your credentials to receive a JWT token for authentication.</p>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" value="John" placeholder="Enter username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" value="nhoJ" placeholder="Enter password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <span>🔑</span>
+                Login
+            </button>
+        </form>
+        <div class="loading" id="loginLoading">
+            <div class="spinner"></div>
+            <div>Authenticating...</div>
+        </div>
+        <div id="loginResponse" class="response"></div>
+    </div>
+
+    <div class="section">
+        <h2>🎫 JWT Token Display</h2>
+        <p>Your JWT token will be displayed here after successful login.</p>
+        <div id="tokenResponse" class="response">No token received yet...</div>
+    </div>
+
+    <div class="section">
+        <h2>🛡️ Protected Route Access</h2>
+        <p>This endpoint requires a valid JWT token to access user profile information.</p>
+        <button class="btn btn-primary" id="accessBtn" disabled>
+            <span>👤</span>
+            Access Protected Profile
+        </button>
+        <div class="loading" id="profileLoading">
+            <div class="spinner"></div>
+            <div>Accessing protected route...</div>
+        </div>
+        <div id="profileResponse" class="response"></div>
     </div>
 </div>
 
@@ -267,34 +344,36 @@
     const loginForm = document.getElementById('loginForm');
     const accessBtn = document.getElementById('accessBtn');
     const tokenResponse = document.getElementById('tokenResponse');
-    const protectedResponse = document.getElementById('protectedResponse');
-    const statusIndicator = document.querySelector('.status-indicator');
+    const profileResponse = document.getElementById('profileResponse');
 
-    function updateTokenDisplay(token, isError = false) {
+    function showLoading(elementId, show) {
+        const element = document.getElementById(elementId);
+        if (show) {
+            element.classList.add('show');
+        } else {
+            element.classList.remove('show');
+        }
+    }
+
+    function displayResponse(elementId, response, isError = false) {
+        const element = document.getElementById(elementId);
+        element.innerHTML = '';
+        element.textContent = response;
+        element.className = `response ${isError ? 'error' : 'success'}`;
+        element.classList.add('show');
+    }
+
+    function displayTokenResponse(token, isError = false) {
         tokenResponse.textContent = token;
-        tokenResponse.className = `response-box ${isError ? 'error-box' : 'token-box'}`;
+        tokenResponse.className = `response ${isError ? 'error' : 'success'}`;
+        tokenResponse.classList.add('show');
 
         if (!isError && token !== 'No token received yet...') {
             currentToken = token;
             accessBtn.disabled = false;
-            statusIndicator.className = 'status-indicator status-connected';
         } else {
             currentToken = null;
             accessBtn.disabled = true;
-            statusIndicator.className = 'status-indicator status-disconnected';
-        }
-    }
-
-    function updateProtectedDisplay(response, isError = false) {
-        protectedResponse.textContent = response;
-        protectedResponse.className = `response-box ${isError ? 'error-box' : 'success-box'}`;
-    }
-
-    function setLoading(element, isLoading) {
-        if (isLoading) {
-            element.classList.add('loading');
-        } else {
-            element.classList.remove('loading');
         }
     }
 
@@ -304,8 +383,8 @@
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        setLoading(loginForm, true);
-        updateTokenDisplay('Logging in...');
+        showLoading('loginLoading', true);
+        displayResponse('loginResponse', 'Logging in...', false);
 
         try {
             const params = new URLSearchParams();
@@ -323,28 +402,28 @@
             const responseText = await response.text();
 
             if (response.ok) {
-                updateTokenDisplay(responseText);
-                updateProtectedDisplay('Ready to access protected route!');
+                displayResponse('loginResponse', `Status: ${response.status} ✅\n\nLogin successful!`);
+                displayTokenResponse(responseText);
             } else {
-                updateTokenDisplay(`Login failed: ${responseText}`, true);
-                updateProtectedDisplay('Login required to access protected route.', true);
+                displayResponse('loginResponse', `Status: ${response.status} ❌\n\nLogin failed: ${responseText}`, true);
+                displayTokenResponse('No token received due to login failure', true);
             }
         } catch (error) {
-            updateTokenDisplay(`Network error: ${error.message}`, true);
-            updateProtectedDisplay('Login required to access protected route.', true);
+            displayResponse('loginResponse', `Network Error ❌\n\n${error.message}`, true);
+            displayTokenResponse('No token received due to network error', true);
         } finally {
-            setLoading(loginForm, false);
+            showLoading('loginLoading', false);
         }
     });
 
     accessBtn.addEventListener('click', async () => {
         if (!currentToken) {
-            updateProtectedDisplay('No token available. Please login first.', true);
+            displayResponse('profileResponse', 'No token available. Please login first.', true);
             return;
         }
 
-        setLoading(accessBtn, true);
-        updateProtectedDisplay('Accessing protected route...');
+        showLoading('profileLoading', true);
+        displayResponse('profileResponse', 'Accessing protected route...', false);
 
         try {
             const response = await fetch('/profile/me', {
@@ -357,14 +436,14 @@
             const responseText = await response.text();
 
             if (response.ok) {
-                updateProtectedDisplay(`✅ Success!\n\nResponse: ${responseText}`);
+                displayResponse('profileResponse', `Status: ${response.status} ✅\n\n${responseText}`);
             } else {
-                updateProtectedDisplay(`❌ Access denied!\n\nError: ${responseText}`, true);
+                displayResponse('profileResponse', `Status: ${response.status} ❌\n\nAccess denied: ${responseText}`, true);
             }
         } catch (error) {
-            updateProtectedDisplay(`❌ Network error!\n\nError: ${error.message}`, true);
+            displayResponse('profileResponse', `Network Error ❌\n\n${error.message}`, true);
         } finally {
-            setLoading(accessBtn, false);
+            showLoading('profileLoading', false);
         }
     });
 
@@ -374,6 +453,21 @@
         const passwordField = document.getElementById('password');
         if (username) {
             passwordField.value = username.split('').reverse().join('');
+        }
+    });
+
+    // Add Enter key support for form inputs
+    document.getElementById('username').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('password').focus();
+        }
+    });
+
+    document.getElementById('password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            loginForm.dispatchEvent(new Event('submit'));
         }
     });
 </script>

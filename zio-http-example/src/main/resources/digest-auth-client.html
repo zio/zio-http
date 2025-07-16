@@ -12,85 +12,154 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
             max-width: 800px;
             width: 100%;
-            animation: slideIn 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
         }
 
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
         }
 
         h1 {
-            text-align: center;
             color: #333;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
         }
 
-        .auth-form {
-            display: grid;
-            gap: 20px;
+        .subtitle {
+            color: #666;
             margin-bottom: 30px;
-            padding: 30px;
-            background: rgba(102, 126, 234, 0.1);
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
             border-radius: 15px;
-            border: 1px solid rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-card.active {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .user-card h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-card p {
+            color: #666;
+            font-size: 12px;
         }
 
         .form-group {
-            display: grid;
-            gap: 8px;
+            margin-bottom: 20px;
         }
 
         label {
-            font-weight: 600;
-            color: #555;
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
             font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
-        input {
-            padding: 15px;
-            border: 2px solid #e0e0e0;
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
             border-radius: 10px;
             font-size: 16px;
             transition: all 0.3s ease;
             background: white;
         }
 
-        input:focus {
+        input[type="text"]:focus, input[type="password"]:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            transform: translateY(-2px);
         }
 
         .endpoints {
@@ -103,13 +172,14 @@
             background: rgba(255, 255, 255, 0.8);
             padding: 20px;
             border-radius: 15px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
         .endpoint-section h3 {
             color: #333;
             margin-bottom: 15px;
-            font-size: 1.2em;
+            font-size: 18px;
+            font-weight: 600;
         }
 
         .endpoint-buttons {
@@ -118,7 +188,7 @@
             flex-wrap: wrap;
         }
 
-        button {
+        .btn {
             padding: 12px 24px;
             border: none;
             border-radius: 10px;
@@ -130,9 +200,12 @@
             letter-spacing: 0.5px;
             position: relative;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        button:before {
+        .btn:before {
             content: '';
             position: absolute;
             top: 0;
@@ -143,7 +216,7 @@
             transition: left 0.5s;
         }
 
-        button:hover:before {
+        .btn:hover:before {
             left: 100%;
         }
 
@@ -162,12 +235,17 @@
             color: white;
         }
 
-        button:hover {
+        .btn-clear {
+            background: linear-gradient(45deg, #666, #555);
+            color: white;
+        }
+
+        .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
 
-        button:active {
+        .btn:active {
             transform: translateY(0);
         }
 
@@ -176,7 +254,7 @@
             color: #00ff00;
             padding: 20px;
             border-radius: 15px;
-            font-family: 'Courier New', monospace;
+            font-family: 'SF Mono', Monaco, monospace;
             font-size: 14px;
             line-height: 1.5;
             min-height: 200px;
@@ -212,50 +290,12 @@
             font-weight: bold;
         }
 
-        .clear-btn {
-            background: linear-gradient(45deg, #666, #555);
-            color: white;
-            margin-top: 15px;
-        }
-
-        .user-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .user-card {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .user-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .user-card.active {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.1);
-        }
-
-        .user-card h4 {
-            color: #333;
-            margin-bottom: 5px;
-        }
-
-        .user-card p {
-            color: #666;
-            font-size: 12px;
-        }
-
         @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
             .user-info {
                 grid-template-columns: 1fr;
             }
@@ -264,7 +304,7 @@
                 flex-direction: column;
             }
 
-            button {
+            .btn {
                 width: 100%;
             }
         }
@@ -272,62 +312,80 @@
 </head>
 <body>
 <div class="container">
-    <h1>🔐 Digest Authentication Client</h1>
-    <div class="user-info">
-        <div class="user-card active" onclick="selectUser('john', 'password123')">
-            <h4>John</h4>
-            <p>Regular User</p>
-        </div>
-        <div class="user-card" onclick="selectUser('jane', 'secret456')">
-            <h4>Jane</h4>
-            <p>Regular User</p>
-        </div>
-        <div class="user-card" onclick="selectUser('admin', 'admin123')">
-            <h4>Admin</h4>
-            <p>Administrator</p>
-        </div>
+    <div class="header">
+        <div class="auth-logo">🔐</div>
+        <h1>Digest Authentication Client</h1>
+        <p class="subtitle">HTTP Digest Authentication Demo</p>
     </div>
 
-    <div class="auth-form">
+    <div class="section">
+        <h2>👥 User Selection</h2>
+        <div class="user-info">
+            <div class="user-card active" onclick="selectUser('john', 'password123')">
+                <h4>John</h4>
+                <p>Regular User</p>
+            </div>
+            <div class="user-card" onclick="selectUser('jane', 'secret456')">
+                <h4>Jane</h4>
+                <p>Regular User</p>
+            </div>
+            <div class="user-card" onclick="selectUser('admin', 'admin123')">
+                <h4>Admin</h4>
+                <p>Administrator</p>
+            </div>
+        </div>
+
         <div class="form-group">
-            <label for="username">Username</label>
+            <label for="username">Username:</label>
             <input type="text" id="username" value="john" placeholder="Enter username">
         </div>
         <div class="form-group">
-            <label for="password">Password</label>
+            <label for="password">Password:</label>
             <input type="password" id="password" value="password123" placeholder="Enter password">
         </div>
     </div>
 
-    <div class="endpoints">
-        <div class="endpoint-section">
-            <h3>🔒 Protected Endpoints</h3>
-            <div class="endpoint-buttons">
-                <button class="btn-profile" onclick="testEndpoint('/profile/me')">
-                    Profile (/profile/me)
-                </button>
-                <button class="btn-admin" onclick="testEndpoint('/admin')">
-                    Admin (/admin)
-                </button>
+    <div class="section">
+        <h2>🔒 Protected Endpoints</h2>
+        <div class="endpoints">
+            <div class="endpoint-section">
+                <h3>🛡️ Protected Routes</h3>
+                <div class="endpoint-buttons">
+                    <button class="btn btn-profile" onclick="testEndpoint('/profile/me')">
+                        <span>👤</span>
+                        Profile (/profile/me)
+                    </button>
+                    <button class="btn btn-admin" onclick="testEndpoint('/admin')">
+                        <span>👨‍💼</span>
+                        Admin (/admin)
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <div class="endpoint-section">
-            <h3>🌐 Public Endpoints</h3>
-            <div class="endpoint-buttons">
-                <button class="btn-public" onclick="testEndpoint('/public')">
-                    Public (/public)
-                </button>
+            <div class="endpoint-section">
+                <h3>🌐 Public Routes</h3>
+                <div class="endpoint-buttons">
+                    <button class="btn btn-public" onclick="testEndpoint('/public')">
+                        <span>🌍</span>
+                        Public (/public)
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="response-area" id="responseArea">
-        <div class="status-success">Digest Authentication Client ready!</div>
-        <div>Click on any endpoint button to test authentication.</div>
-    </div>
+    <div class="section">
+        <h2>💻 Response Console</h2>
+        <div class="response-area" id="responseArea">
+            <div class="status-success">Digest Authentication Client ready!</div>
+            <div>Click on any endpoint button to test authentication.</div>
+        </div>
 
-    <button class="clear-btn" onclick="clearResponse()">Clear Response</button>
+        <button class="btn btn-clear" onclick="clearResponse()" style="margin-top: 15px;">
+            <span>🗑️</span>
+            Clear Response
+        </button>
+    </div>
 </div>
 
 <!-- CryptoJS library from CDN -->

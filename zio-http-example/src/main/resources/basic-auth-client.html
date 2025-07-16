@@ -22,7 +22,8 @@
         }
 
         .container {
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
@@ -30,6 +31,12 @@
             width: 100%;
             position: relative;
             overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .container::before {
@@ -57,13 +64,43 @@
             color: #333;
             margin-bottom: 10px;
             font-size: 28px;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .subtitle {
             color: #666;
             margin-bottom: 30px;
             font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
         }
 
         .credentials {
@@ -82,25 +119,27 @@
             font-size: 16px;
         }
 
-        .section {
-            margin-bottom: 30px;
-            padding: 25px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            border: 1px solid #e9ecef;
+        .credential-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
         }
 
-        .section h2 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 20px;
-            font-weight: 600;
+        .credential-item:last-child {
+            margin-bottom: 0;
         }
 
-        .section p {
-            color: #666;
-            margin-bottom: 20px;
-            font-size: 14px;
+        .role-badge {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .role-badge.admin {
+            background: #dc3545;
         }
 
         .form-group {
@@ -118,10 +157,10 @@
         input[type="text"], input[type="password"] {
             width: 100%;
             padding: 12px 16px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
             font-size: 16px;
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            transition: all 0.3s ease;
             background: white;
         }
 
@@ -137,9 +176,9 @@
             gap: 8px;
             padding: 12px 24px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 16px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
@@ -157,18 +196,6 @@
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
 
-        .btn-secondary {
-            background: #f8f9fa;
-            color: #333;
-            border: 1px solid #dee2e6;
-        }
-
-        .btn-secondary:hover {
-            background: #e9ecef;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -178,12 +205,13 @@
         .response {
             margin-top: 20px;
             padding: 20px;
-            border-radius: 8px;
+            border-radius: 10px;
             white-space: pre-wrap;
             font-family: 'SF Mono', Monaco, monospace;
             font-size: 14px;
             line-height: 1.5;
             display: none;
+            transition: all 0.3s ease;
         }
 
         .response.show {
@@ -197,21 +225,15 @@
         }
 
         .response.success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
             color: #155724;
         }
 
         .response.error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
             color: #721c24;
-        }
-
-        .response.loading {
-            background: #e2e3e5;
-            color: #383d41;
-            border: 1px solid #d6d8db;
         }
 
         .loading {
@@ -239,69 +261,24 @@
             100% { transform: rotate(360deg); }
         }
 
-        .status {
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            margin: 15px 0;
-            text-align: center;
-            display: none;
-        }
-
-        .status.show {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status.loading {
-            background: #e2e3e5;
-            color: #383d41;
-            border: 1px solid #d6d8db;
-        }
-
         .footer {
             margin-top: 30px;
             padding-top: 20px;
-            border-top: 1px solid #e9ecef;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
             color: #666;
             font-size: 14px;
             text-align: center;
         }
 
-        .credential-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
 
-        .credential-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .role-badge {
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-left: 8px;
-        }
-
-        .role-badge.admin {
-            background: #dc3545;
+            .section {
+                padding: 20px;
+            }
         }
     </style>
 </head>
@@ -400,11 +377,6 @@
         element.textContent = response;
         element.className = `response ${isError ? 'error' : 'success'}`;
         element.classList.add('show');
-    }
-
-    function showStatus(message, type) {
-        // You can add a status element if needed
-        console.log(`${type.toUpperCase()}: ${message}`);
     }
 
     async function fetchPublic() {

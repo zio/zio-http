@@ -12,74 +12,111 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .container {
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
             max-width: 800px;
             width: 100%;
-            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
         }
 
         h1 {
-            text-align: center;
             color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
             margin-bottom: 30px;
-            font-size: 2.5em;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 16px;
         }
 
         .section {
             margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #e1e1e1;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
             border-radius: 15px;
-            background: #f8f9fa;
+            border: 1px solid rgba(255, 255, 255, 0.3);
             transition: all 0.3s ease;
         }
 
         .section:hover {
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         }
 
         .section h2 {
-            color: #495057;
+            color: #333;
             margin-bottom: 15px;
-            font-size: 1.4em;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         label {
             display: block;
-            margin-bottom: 5px;
-            color: #555;
+            margin-bottom: 8px;
             font-weight: 500;
+            color: #333;
+            font-size: 14px;
         }
 
         input[type="text"], input[type="password"] {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e1e1e1;
-            border-radius: 8px;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
             font-size: 16px;
-            transition: border-color 0.3s ease;
+            transition: all 0.3s ease;
+            background: white;
         }
 
         input[type="text"]:focus, input[type="password"]:focus {
@@ -88,81 +125,112 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        button {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
             padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
+            border: none;
+            border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
+            cursor: pointer;
             transition: all 0.3s ease;
             margin-right: 10px;
             margin-bottom: 10px;
         }
 
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
 
-        button:disabled {
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            color: #333;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
-            transform: none;
+            transform: none !important;
         }
 
         .response {
-            margin-top: 15px;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'SF Mono', Monaco, monospace;
             font-size: 14px;
+            line-height: 1.5;
             white-space: pre-wrap;
             word-wrap: break-word;
             max-height: 200px;
             overflow-y: auto;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .response.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .response.success {
-            background: #d4edda;
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
             color: #155724;
-            border: 1px solid #c3e6cb;
         }
 
         .response.error {
-            background: #f8d7da;
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
             color: #721c24;
-            border: 1px solid #f5c6cb;
         }
 
         .token-info {
-            background: #e2e3e5;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
+            background: rgba(248, 249, 250, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
             border-left: 4px solid #667eea;
         }
 
         .token-info h3 {
-            color: #495057;
-            margin-bottom: 10px;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
         }
 
         .token-field {
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
 
         .token-field strong {
             color: #333;
+            display: block;
+            margin-bottom: 5px;
         }
 
         .token-value {
-            font-family: 'Courier New', monospace;
+            font-family: 'SF Mono', Monaco, monospace;
             font-size: 12px;
             color: #666;
             word-break: break-all;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #e1e5e9;
         }
 
         .status-indicator {
@@ -170,7 +238,7 @@
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            margin-right: 5px;
+            margin-right: 8px;
         }
 
         .status-indicator.connected {
@@ -189,11 +257,11 @@
         }
 
         .auto-refresh {
-            margin-top: 15px;
-            padding: 15px;
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 8px;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 10px;
             color: #856404;
         }
 
@@ -201,11 +269,26 @@
             font-weight: bold;
             color: #dc3545;
         }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .section {
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>JWT Authentication Demo</h1>
+    <div class="header">
+        <div class="auth-logo">🔐</div>
+        <h1>JWT Authentication Demo</h1>
+        <p class="subtitle">JWT with Refresh Token Management</p>
+    </div>
 
     <!-- Login Section -->
     <div class="section">
@@ -219,28 +302,46 @@
                 <label for="password">Password:</label>
                 <input type="password" id="password" value="nhoJ" placeholder="Enter password">
             </div>
-            <button onclick="login()">Login</button>
-            <button onclick="clearTokens()">Clear Tokens</button>
+            <button class="btn btn-primary" onclick="login()">
+                <span>🔑</span>
+                Login
+            </button>
+            <button class="btn btn-secondary" onclick="clearTokens()">
+                <span>🗑️</span>
+                Clear Tokens
+            </button>
         </div>
-        <div id="authResponse" class="response" style="display: none;"></div>
+        <div id="authResponse" class="response"></div>
         <div id="tokenInfo" class="token-info" style="display: none;"></div>
     </div>
 
     <!-- Protected Route Section -->
     <div class="section">
-        <h2>Protected Route Access</h2>
-        <button onclick="accessProtectedRoute()" id="protectedBtn">Access Profile</button>
-        <button onclick="refreshTokens()" id="refreshBtn">Refresh Tokens</button>
-        <div id="protectedResponse" class="response" style="display: none;"></div>
+        <h2>🛡️ Protected Route Access</h2>
+        <button class="btn btn-primary" onclick="accessProtectedRoute()" id="protectedBtn">
+            <span>👤</span>
+            Access Profile
+        </button>
+        <button class="btn btn-secondary" onclick="refreshTokens()" id="refreshBtn">
+            <span>🔄</span>
+            Refresh Tokens
+        </button>
+        <div id="protectedResponse" class="response"></div>
     </div>
 
     <!-- Auto-refresh Section -->
     <div class="section">
-        <h2>Auto-refresh Demo</h2>
-        <button onclick="startAutoRefresh()" id="autoRefreshBtn">Start Auto-refresh Demo</button>
-        <button onclick="stopAutoRefresh()" id="stopAutoRefreshBtn" disabled>Stop Auto-refresh</button>
+        <h2>⚡ Auto-refresh Demo</h2>
+        <button class="btn btn-primary" onclick="startAutoRefresh()" id="autoRefreshBtn">
+            <span>🔄</span>
+            Start Auto-refresh Demo
+        </button>
+        <button class="btn btn-secondary" onclick="stopAutoRefresh()" id="stopAutoRefreshBtn" disabled>
+            <span>⏹️</span>
+            Stop Auto-refresh
+        </button>
         <div id="autoRefreshInfo" class="auto-refresh" style="display: none;"></div>
-        <div id="autoRefreshResponse" class="response" style="display: none;"></div>
+        <div id="autoRefreshResponse" class="response"></div>
     </div>
 </div>
 
@@ -277,7 +378,7 @@
     function displayResponse(elementId, response, isError = false) {
         const element = document.getElementById(elementId);
         element.style.display = 'block';
-        element.className = `response ${isError ? 'error' : 'success'}`;
+        element.className = `response ${isError ? 'error' : 'success'} show`;
 
         if (typeof response === 'object') {
             element.textContent = JSON.stringify(response, null, 2);
@@ -297,21 +398,24 @@
         tokenInfo.innerHTML = `
             <h3>Token Information</h3>
             <div class="token-field">
-                <strong>Access Token:</strong><br>
-                <span class="token-value">${tokens.accessToken}</span>
+                <strong>Access Token:</strong>
+                <div class="token-value">${tokens.accessToken}</div>
             </div>
             <div class="token-field">
-                <strong>Refresh Token:</strong><br>
-                <span class="token-value">${tokens.refreshToken}</span>
+                <strong>Refresh Token:</strong>
+                <div class="token-value">${tokens.refreshToken}</div>
             </div>
             <div class="token-field">
-                <strong>Token Type:</strong> ${tokens.tokenType}
+                <strong>Token Type:</strong>
+                <div class="token-value">${tokens.tokenType}</div>
             </div>
             <div class="token-field">
-                <strong>Expires In:</strong> ${tokens.expiresIn} seconds
+                <strong>Expires In:</strong>
+                <div class="token-value">${tokens.expiresIn} seconds</div>
             </div>
             <div class="token-field">
-                <strong>Expires At:</strong> ${tokenExpiryTime.toLocaleString()}
+                <strong>Expires At:</strong>
+                <div class="token-value">${tokenExpiryTime.toLocaleString()}</div>
             </div>
         `;
     }

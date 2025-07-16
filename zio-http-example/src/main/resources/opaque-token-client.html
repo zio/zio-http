@@ -12,197 +12,132 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
         }
 
         .container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
             max-width: 500px;
             width: 100%;
+            position: relative;
+            overflow: hidden;
             animation: slideIn 0.6s ease-out;
         }
 
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
         }
 
         h1 {
-            text-align: center;
             color: #333;
-            margin-bottom: 30px;
-            font-size: 2rem;
+            margin-bottom: 10px;
+            font-size: 28px;
             font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
         }
 
         .section {
             margin-bottom: 30px;
-            padding: 20px;
+            padding: 25px;
             background: rgba(255, 255, 255, 0.7);
             border-radius: 15px;
             border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         }
 
         .section h2 {
-            color: #555;
+            color: #333;
             margin-bottom: 15px;
-            font-size: 1.2rem;
+            font-size: 20px;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #666;
-            font-weight: 500;
-        }
-
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e1e5e9;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            background: white;
-        }
-
-        input[type="text"]:focus,
-        input[type="password"]:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .token-display {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            padding: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            word-break: break-all;
-            color: #495057;
-            margin-top: 15px;
-        }
-
-        .status {
-            padding: 12px 16px;
-            border-radius: 10px;
-            margin-top: 15px;
-            font-weight: 500;
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status.info {
-            background: #d1ecf1;
+        .info-section {
+            background: rgba(23, 162, 184, 0.1);
+            border: 1px solid rgba(23, 162, 184, 0.3);
             color: #0c5460;
-            border: 1px solid #bee5eb;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.6;
         }
 
-        .hint {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 10px;
-            border-radius: 8px;
-            margin-top: 10px;
-            font-size: 14px;
+        .info-section strong {
+            color: #0c5460;
         }
 
         .http-details {
-            background: #f8f9fa;
+            background: rgba(248, 249, 250, 0.9);
             border: 1px solid #dee2e6;
-            border-radius: 8px;
-            margin-top: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
             overflow: hidden;
         }
 
         .http-details-header {
-            background: #e9ecef;
-            padding: 10px 15px;
+            background: rgba(248, 249, 250, 0.9);
+            padding: 15px;
             cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-weight: 500;
             color: #495057;
+            transition: all 0.3s ease;
         }
 
         .http-details-header:hover {
-            background: #d1ecf1;
+            background: rgba(23, 162, 184, 0.1);
         }
 
         .http-details-content {
-            padding: 15px;
+            padding: 20px;
             display: none;
         }
 
@@ -214,8 +149,8 @@
             background: #2d3748;
             color: #e2e8f0;
             padding: 15px;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
+            border-radius: 8px;
+            font-family: 'SF Mono', Monaco, monospace;
             font-size: 13px;
             margin-bottom: 15px;
             overflow-x: auto;
@@ -254,8 +189,138 @@
             transform: rotate(180deg);
         }
 
-        .hidden {
-            display: none;
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .token-display {
+            background: rgba(248, 249, 250, 0.9);
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            word-break: break-all;
+            color: #495057;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .token-display.success {
+            background: rgba(40, 167, 69, 0.1);
+            border-color: rgba(40, 167, 69, 0.3);
+            color: #155724;
+        }
+
+        .status {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .status.success {
+            background: rgba(40, 167, 69, 0.1);
+            color: #155724;
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .status.error {
+            background: rgba(220, 53, 69, 0.1);
+            color: #721c24;
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+
+        .status.info {
+            background: rgba(23, 162, 184, 0.1);
+            color: #0c5460;
+            border: 1px solid rgba(23, 162, 184, 0.3);
+        }
+
+        .hint {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-size: 14px;
         }
 
         .loading {
@@ -273,44 +338,71 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .loading-btn {
+            position: relative;
+            color: transparent;
+        }
+
+        .loading-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .section {
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🔐 Authentication Demo</h1>
+    <div class="header">
+        <div class="auth-logo">🔐</div>
+        <h1>Opaque Token Authentication</h1>
+        <p class="subtitle">Server-side Token Management Demo</p>
+    </div>
 
     <!-- Info Section -->
-    <div class="http-details">
-        <div class="http-details-header" onclick="toggleHttpDetails('infoHttp')">
-            <span>ℹ️ Authentication Flow & Token Information</span>
-            <span class="toggle-icon" id="infoHttpIcon">▼</span>
-        </div>
-        <div class="http-details-content" id="infoHttp">
-            <div style="color: #495057; line-height: 1.6;">
-                <strong>🔄 Authentication Flow:</strong><br>
-                1. <strong>Login:</strong> POST /login with username/password → Receive opaque token<br>
-                2. <strong>Access Protected Route:</strong> GET /profile/me with Bearer token → Get user info<br>
-                3. <strong>Logout:</strong> POST /logout with Bearer token → Revoke all user tokens<br><br>
+    <div class="info-section">
+        <strong>🔄 Authentication Flow:</strong><br>
+        1. <strong>Login:</strong> POST /login with username/password → Receive opaque token<br>
+        2. <strong>Access Protected Route:</strong> GET /profile/me with Bearer token → Get user info<br>
+        3. <strong>Logout:</strong> POST /logout with Bearer token → Revoke all user tokens<br><br>
 
-                <strong>🎫 Token Details:</strong><br>
-                • <strong>Format:</strong> 32-character UUID without dashes<br>
-                • <strong>Validity:</strong> 300 seconds (5 minutes)<br>
-                • <strong>Storage:</strong> In-memory Map (server-side)<br>
-                • <strong>Revocation:</strong> Logout revokes ALL tokens for the user<br>
-                • <strong>Cleanup:</strong> Expired tokens auto-removed on login<br><br>
+        <strong>🎫 Token Details:</strong><br>
+        • <strong>Format:</strong> 32-character UUID without dashes<br>
+        • <strong>Validity:</strong> 300 seconds (5 minutes)<br>
+        • <strong>Storage:</strong> In-memory Map (server-side)<br>
+        • <strong>Revocation:</strong> Logout revokes ALL tokens for the user<br>
+        • <strong>Cleanup:</strong> Expired tokens auto-removed on login<br><br>
 
-                <strong>🔐 Security Notes:</strong><br>
-                • Password must be reverse of username (e.g., "John" → "nhoJ")<br>
-                • Token automatically expires after 5 minutes<br>
-                • Bearer token required in Authorization header<br>
-                • 401 Unauthorized returned for invalid/expired tokens<br>
-            </div>
-        </div>
+        <strong>🔐 Security Notes:</strong><br>
+        • Password must be reverse of username (e.g., "John" → "nhoJ")<br>
+        • Token automatically expires after 5 minutes<br>
+        • Bearer token required in Authorization header<br>
+        • 401 Unauthorized returned for invalid/expired tokens<br>
     </div>
 
     <!-- Login Section -->
     <div class="section">
-        <h2>Login</h2>
+        <h2>🔑 Login</h2>
         <form id="loginForm">
             <div class="form-group">
                 <label for="username">Username:</label>
@@ -320,7 +412,10 @@
                 <label for="password">Password:</label>
                 <input type="password" id="password" name="password" placeholder="Enter password" required>
             </div>
-            <button type="submit" id="loginBtn">Login</button>
+            <button type="submit" class="btn btn-primary" id="loginBtn">
+                <span>🔑</span>
+                Login
+            </button>
         </form>
         <div class="hint">
             💡 Hint: The password should be the reverse of the username (e.g., username: "John", password: "nhoJ")
@@ -344,14 +439,17 @@
 
     <!-- Token Section -->
     <div class="section" id="tokenSection">
-        <h2>Token</h2>
+        <h2>🎫 Token</h2>
         <div id="tokenDisplay" class="token-display">No token received yet</div>
     </div>
 
     <!-- Protected Route Section -->
     <div class="section" id="protectedSection">
-        <h2>Protected Profile</h2>
-        <button id="profileBtn" disabled>Access Profile</button>
+        <h2>🛡️ Protected Profile</h2>
+        <button class="btn btn-secondary" id="profileBtn" disabled>
+            <span>👤</span>
+            Access Profile
+        </button>
         <div id="profileStatus"></div>
 
         <div class="http-details">
@@ -371,8 +469,11 @@
 
     <!-- Logout Section -->
     <div class="section" id="logoutSection">
-        <h2>Logout</h2>
-        <button id="logoutBtn" disabled>Logout</button>
+        <h2>🚪 Logout</h2>
+        <button class="btn btn-danger" id="logoutBtn" disabled>
+            <span>🚪</span>
+            Logout
+        </button>
         <div id="logoutStatus"></div>
 
         <div class="http-details">
@@ -409,27 +510,23 @@
         element.innerHTML = `<div class="status ${type}">${message}</div>`;
     }
 
-    function showLoading(button, text = 'Processing...') {
-        button.disabled = true;
-        button.innerHTML = `<span class="loading"></span>${text}`;
-    }
-
-    function hideLoading(button, text) {
-        button.disabled = false;
-        button.innerHTML = text;
+    function showLoading(button, isLoading) {
+        if (isLoading) {
+            button.classList.add('loading-btn');
+            button.disabled = true;
+        } else {
+            button.classList.remove('loading-btn');
+            button.disabled = false;
+        }
     }
 
     function updateTokenDisplay(token) {
         if (token) {
             tokenDisplay.textContent = token;
-            tokenDisplay.style.background = '#d4edda';
-            tokenDisplay.style.color = '#155724';
-            tokenDisplay.style.border = '2px solid #c3e6cb';
+            tokenDisplay.classList.add('success');
         } else {
             tokenDisplay.textContent = 'No token received yet';
-            tokenDisplay.style.background = '#f8f9fa';
-            tokenDisplay.style.color = '#495057';
-            tokenDisplay.style.border = '2px solid #e9ecef';
+            tokenDisplay.classList.remove('success');
         }
     }
 
@@ -514,7 +611,7 @@
         const password = formData.get('password');
         const requestBody = new URLSearchParams({ username, password }).toString();
 
-        showLoading(loginBtn);
+        showLoading(loginBtn, true);
         showStatus(loginStatus, 'Logging in...', 'info');
 
         const requestData = {
@@ -575,7 +672,7 @@
             displayHttpTransaction('loginHttpContent', requestData, responseData);
         }
 
-        hideLoading(loginBtn, 'Login');
+        showLoading(loginBtn, false);
     });
 
     // Profile access functionality
@@ -585,7 +682,7 @@
             return;
         }
 
-        showLoading(profileBtn, 'Accessing...');
+        showLoading(profileBtn, true);
         showStatus(profileStatus, 'Accessing protected profile...', 'info');
 
         const requestData = {
@@ -640,7 +737,7 @@
             displayHttpTransaction('profileHttpContent', requestData, responseData);
         }
 
-        hideLoading(profileBtn, 'Access Profile');
+        showLoading(profileBtn, false);
     });
 
     // Logout functionality
@@ -650,7 +747,7 @@
             return;
         }
 
-        showLoading(logoutBtn, 'Logging out...');
+        showLoading(logoutBtn, true);
         showStatus(logoutStatus, 'Logging out...', 'info');
 
         const requestData = {
@@ -707,7 +804,13 @@
             displayHttpTransaction('logoutHttpContent', requestData, responseData);
         }
 
-        hideLoading(logoutBtn, 'Logout');
+        showLoading(logoutBtn, false);
+    });
+
+    // Auto-reverse password hint
+    document.getElementById('username').addEventListener('input', (e) => {
+        const reversed = e.target.value.split('').reverse().join('');
+        document.getElementById('password').value = reversed;
     });
 
     // Initialize button states

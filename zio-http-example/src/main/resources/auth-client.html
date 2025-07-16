@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authentication Client</title>
+    <title>Cookie Authentication Client</title>
     <style>
         * {
             margin: 0;
@@ -12,35 +12,125 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
         }
 
         .container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
-            width: 100%;
             max-width: 500px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
         }
 
         h1 {
-            text-align: center;
             color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
             margin-bottom: 30px;
-            font-size: 2.5em;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .server-info {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            background: rgba(40, 167, 69, 0.1);
+            color: #155724;
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .status {
+            display: inline-block;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .status.logged-in {
+            background: rgba(40, 167, 69, 0.1);
+            color: #155724;
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .status.logged-out {
+            background: rgba(220, 53, 69, 0.1);
+            color: #721c24;
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+
+        .hint {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
         }
 
         .form-group {
@@ -50,139 +140,98 @@
         label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 600;
-            color: #555;
+            font-weight: 500;
+            color: #333;
             font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         input[type="text"], input[type="password"] {
             width: 100%;
-            padding: 15px;
+            padding: 12px 16px;
             border: 2px solid #e1e5e9;
             border-radius: 10px;
             font-size: 16px;
             transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.9);
+            background: white;
         }
 
         input[type="text"]:focus, input[type="password"]:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            transform: translateY(-2px);
         }
 
         .button-group {
             display: flex;
-            gap: 15px;
-            margin-top: 30px;
+            gap: 10px;
+            margin-top: 20px;
         }
 
-        button {
+        .btn {
             flex: 1;
-            padding: 15px;
+            padding: 12px 24px;
             border: none;
             border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .btn-primary {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
 
         .btn-secondary {
-            background: linear-gradient(45deg, #ffeaa7, #fdcb6e);
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
             color: #333;
         }
 
-        .btn-secondary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(253, 203, 110, 0.3);
-        }
-
         .btn-danger {
-            background: linear-gradient(45deg, #fd79a8, #e84393);
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
             color: white;
         }
 
-        .btn-danger:hover {
+        .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(232, 67, 147, 0.3);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
 
-        button:disabled {
+        .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none !important;
         }
 
         .response {
-            margin-top: 30px;
+            margin-top: 20px;
             padding: 20px;
             border-radius: 10px;
-            font-family: 'Courier New', monospace;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.5;
             white-space: pre-wrap;
             max-height: 300px;
             overflow-y: auto;
-            border: 2px solid #e1e5e9;
-            background: rgba(248, 249, 250, 0.9);
+            transition: all 0.3s ease;
         }
 
         .response.success {
-            border-color: #27ae60;
-            background: rgba(39, 174, 96, 0.1);
-            color: #27ae60;
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #155724;
         }
 
         .response.error {
-            border-color: #e74c3c;
-            background: rgba(231, 76, 60, 0.1);
-            color: #e74c3c;
-        }
-
-        .status {
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 10px;
-            border-radius: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .status.logged-in {
-            background: rgba(39, 174, 96, 0.1);
-            color: #27ae60;
-            border: 2px solid #27ae60;
-        }
-
-        .status.logged-out {
-            background: rgba(231, 76, 60, 0.1);
-            color: #e74c3c;
-            border: 2px solid #e74c3c;
-        }
-
-        .hint {
-            background: rgba(52, 152, 219, 0.1);
-            border: 1px solid rgba(52, 152, 219, 0.3);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            color: #2980b9;
-            font-size: 14px;
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: #721c24;
         }
 
         .loading {
@@ -190,12 +239,12 @@
             pointer-events: none;
         }
 
-        .loading button {
+        .loading .btn {
             position: relative;
             color: transparent;
         }
 
-        .loading button::after {
+        .loading .btn::after {
             content: '';
             position: absolute;
             top: 50%;
@@ -215,52 +264,57 @@
             100% { transform: rotate(360deg); }
         }
 
-        .server-info {
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 10px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            background: rgba(39, 174, 96, 0.1);
-            color: #27ae60;
-            border: 1px solid #27ae60;
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🔐 Auth Client</h1>
+    <div class="header">
+        <div class="auth-logo">🔐</div>
+        <h1>Cookie Authentication</h1>
+        <p class="subtitle">ZIO HTTP Cookie Authentication Demo</p>
+    </div>
 
     <div class="server-info">
         ✅ ZIO HTTP Cookie Authentication
     </div>
 
-    <div id="status" class="status logged-out">
-        Not Authenticated
+    <div class="section">
+        <div id="status" class="status logged-out">
+            Not Authenticated
+        </div>
+
+        <div class="hint">
+            💡 <strong>Hint:</strong> The password should be the reverse of the username. For example, if username is "John", password should be "nhoJ".
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required placeholder="Enter your username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required placeholder="Enter your password">
+            </div>
+            <div class="button-group">
+                <button type="submit" class="btn btn-primary">Login</button>
+                <button type="button" id="profileBtn" class="btn btn-secondary">Get Profile</button>
+                <button type="button" id="logoutBtn" class="btn btn-danger">Logout</button>
+            </div>
+        </form>
+
+        <div id="response" class="response" style="display: none;"></div>
     </div>
-
-    <div class="hint">
-        💡 <strong>Hint:</strong> The password should be the reverse of the username. For example, if username is "John", password should be "nhoJ".
-    </div>
-
-    <form id="loginForm">
-        <div class="form-group">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required placeholder="Enter your username">
-        </div>
-        <div class="form-group">
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required placeholder="Enter your password">
-        </div>
-        <div class="button-group">
-            <button type="submit" class="btn-primary">Login</button>
-            <button type="button" id="profileBtn" class="btn-secondary">Get Profile</button>
-            <button type="button" id="logoutBtn" class="btn-danger">Logout</button>
-        </div>
-    </form>
-
-    <div id="response" class="response" style="display: none;"></div>
 </div>
 
 <script>
