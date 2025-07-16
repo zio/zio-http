@@ -3,117 +3,348 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authentication Demo</title>
+    <title>Basic Authentication Demo</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         .container {
             background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
         }
-        h1 {
-            color: #333;
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
             text-align: center;
             margin-bottom: 30px;
         }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .credentials {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .credentials strong {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
         .section {
             margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #fafafa;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
         }
+
         .section h2 {
-            color: #555;
-            margin-top: 0;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 20px;
+            font-weight: 600;
         }
+
+        .section p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
+
         label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
         }
+
         input[type="text"], input[type="password"] {
             width: 100%;
-            padding: 10px;
+            padding: 12px 16px;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 8px;
             font-size: 16px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            background: white;
         }
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 4px;
-            cursor: pointer;
+            border-radius: 8px;
             font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
             margin-right: 10px;
+            margin-bottom: 10px;
         }
-        button:hover {
-            background-color: #0056b3;
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
         .response {
-            margin-top: 15px;
-            padding: 15px;
-            border-radius: 4px;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
             white-space: pre-wrap;
-            font-family: monospace;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            display: none;
         }
-        .success {
-            background-color: #d4edda;
+
+        .response.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .response.success {
+            background: #d4edda;
             border: 1px solid #c3e6cb;
             color: #155724;
         }
-        .error {
-            background-color: #f8d7da;
+
+        .response.error {
+            background: #f8d7da;
             border: 1px solid #f5c6cb;
             color: #721c24;
         }
-        .info {
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
+
+        .response.loading {
+            background: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
         }
-        .credentials {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 10px;
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 15px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.loading {
+            background: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .credential-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .credential-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .role-badge {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
             border-radius: 4px;
-            margin-bottom: 15px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .role-badge.admin {
+            background: #dc3545;
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🔐 Authentication Demo</h1>
+    <div class="header">
+        <div class="auth-logo">🔐</div>
+        <h1>Basic Authentication Demo</h1>
+        <p class="subtitle">Test HTTP Basic Auth with different user roles</p>
+    </div>
 
     <div class="credentials">
-        <strong>Available Credentials:</strong><br>
-        👤 john / secret123 (user)<br>
-        👤 jane / password456 (user)<br>
-        👨‍💼 admin / admin123 (admin)
+        <strong>Available Test Credentials:</strong>
+        <div class="credential-item">
+            <span>👤 john / secret123</span>
+            <span class="role-badge">user</span>
+        </div>
+        <div class="credential-item">
+            <span>👤 jane / password456</span>
+            <span class="role-badge">user</span>
+        </div>
+        <div class="credential-item">
+            <span>👨‍💼 admin / admin123</span>
+            <span class="role-badge admin">admin</span>
+        </div>
     </div>
 
     <div class="section">
-        <h2>1. Public Endpoint</h2>
-        <p>This endpoint doesn't require authentication.</p>
-        <button onclick="fetchPublic()">Access Public Endpoint</button>
-        <div id="publicResponse"></div>
+        <h2>🌐 Public Endpoint</h2>
+        <p>This endpoint doesn't require authentication and is publicly accessible.</p>
+        <button class="btn btn-primary" onclick="fetchPublic()">
+            <span>📡</span>
+            Access Public Endpoint
+        </button>
+        <div class="loading" id="publicLoading">
+            <div class="spinner"></div>
+            <div>Loading...</div>
+        </div>
+        <div id="publicResponse" class="response"></div>
     </div>
 
     <div class="section">
-        <h2>2. User Profile</h2>
+        <h2>👤 User Profile</h2>
         <p>This endpoint requires authentication and shows user information.</p>
         <div class="form-group">
             <label for="username">Username:</label>
@@ -123,52 +354,74 @@
             <label for="password">Password:</label>
             <input type="password" id="password" placeholder="Enter password">
         </div>
-        <button onclick="fetchProfile()">Get My Profile</button>
-        <div id="profileResponse"></div>
+        <button class="btn btn-primary" onclick="fetchProfile()">
+            <span>🔍</span>
+            Get My Profile
+        </button>
+        <div class="loading" id="profileLoading">
+            <div class="spinner"></div>
+            <div>Authenticating...</div>
+        </div>
+        <div id="profileResponse" class="response"></div>
     </div>
 
     <div class="section">
-        <h2>3. Admin Users</h2>
+        <h2>👨‍💼 Admin Panel</h2>
         <p>This endpoint requires admin authentication to view all users.</p>
-        <button onclick="fetchAdminUsers()">Get All Users (Admin Only)</button>
-        <div id="adminResponse"></div>
+        <button class="btn btn-primary" onclick="fetchAdminUsers()">
+            <span>⚙️</span>
+            Get All Users (Admin Only)
+        </button>
+        <div class="loading" id="adminLoading">
+            <div class="spinner"></div>
+            <div>Verifying admin access...</div>
+        </div>
+        <div id="adminResponse" class="response"></div>
+    </div>
+
+    <div class="footer">
+        <p>This demo showcases HTTP Basic Authentication with different user roles</p>
     </div>
 </div>
 
 <script>
+    function showLoading(elementId, show) {
+        const element = document.getElementById(elementId);
+        if (show) {
+            element.classList.add('show');
+        } else {
+            element.classList.remove('show');
+        }
+    }
+
     function displayResponse(elementId, response, isError = false) {
         const element = document.getElementById(elementId);
         element.innerHTML = '';
-
-        const responseDiv = document.createElement('div');
-        responseDiv.className = `response ${isError ? 'error' : 'success'}`;
-        responseDiv.textContent = response;
-        element.appendChild(responseDiv);
+        element.textContent = response;
+        element.className = `response ${isError ? 'error' : 'success'}`;
+        element.classList.add('show');
     }
 
-    function displayInfo(elementId, message) {
-        const element = document.getElementById(elementId);
-        element.innerHTML = '';
-
-        const responseDiv = document.createElement('div');
-        responseDiv.className = 'response info';
-        responseDiv.textContent = message;
-        element.appendChild(responseDiv);
+    function showStatus(message, type) {
+        // You can add a status element if needed
+        console.log(`${type.toUpperCase()}: ${message}`);
     }
 
     async function fetchPublic() {
-        displayInfo('publicResponse', 'Loading...');
+        showLoading('publicLoading', true);
         try {
             const response = await fetch('/public');
             const text = await response.text();
 
             if (response.ok) {
-                displayResponse('publicResponse', `Status: ${response.status}\n${text}`);
+                displayResponse('publicResponse', `Status: ${response.status} ✅\n\n${text}`);
             } else {
-                displayResponse('publicResponse', `Error ${response.status}: ${text}`, true);
+                displayResponse('publicResponse', `Error ${response.status} ❌\n\n${text}`, true);
             }
         } catch (error) {
-            displayResponse('publicResponse', `Network error: ${error.message}`, true);
+            displayResponse('publicResponse', `Network Error ❌\n\n${error.message}`, true);
+        } finally {
+            showLoading('publicLoading', false);
         }
     }
 
@@ -181,7 +434,7 @@
             return;
         }
 
-        displayInfo('profileResponse', 'Loading...');
+        showLoading('profileLoading', true);
         try {
             const credentials = btoa(`${username}:${password}`);
             const response = await fetch('/profile/me', {
@@ -192,12 +445,14 @@
             const text = await response.text();
 
             if (response.ok) {
-                displayResponse('profileResponse', `Status: ${response.status}\n${text}`);
+                displayResponse('profileResponse', `Status: ${response.status} ✅\n\n${text}`);
             } else {
-                displayResponse('profileResponse', `Error ${response.status}: ${text}`, true);
+                displayResponse('profileResponse', `Error ${response.status} ❌\n\n${text}`, true);
             }
         } catch (error) {
-            displayResponse('profileResponse', `Network error: ${error.message}`, true);
+            displayResponse('profileResponse', `Network Error ❌\n\n${error.message}`, true);
+        } finally {
+            showLoading('profileLoading', false);
         }
     }
 
@@ -210,7 +465,7 @@
             return;
         }
 
-        displayInfo('adminResponse', 'Loading...');
+        showLoading('adminLoading', true);
         try {
             const credentials = btoa(`${username}:${password}`);
             const response = await fetch('/admin/users', {
@@ -221,19 +476,34 @@
             const text = await response.text();
 
             if (response.ok) {
-                displayResponse('adminResponse', `Status: ${response.status}\n${text}`);
+                displayResponse('adminResponse', `Status: ${response.status} ✅\n\n${text}`);
             } else {
-                displayResponse('adminResponse', `Error ${response.status}: ${text}`, true);
+                displayResponse('adminResponse', `Error ${response.status} ❌\n\n${text}`, true);
             }
         } catch (error) {
-            displayResponse('adminResponse', `Network error: ${error.message}`, true);
+            displayResponse('adminResponse', `Network Error ❌\n\n${error.message}`, true);
+        } finally {
+            showLoading('adminLoading', false);
         }
     }
 
     // Auto-load public endpoint on page load
-    window.onload = function() {
+    window.addEventListener('DOMContentLoaded', function() {
         fetchPublic();
-    };
+    });
+
+    // Add Enter key support for form inputs
+    document.getElementById('username').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            fetchProfile();
+        }
+    });
+
+    document.getElementById('password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            fetchProfile();
+        }
+    });
 </script>
 </body>
 </html>
