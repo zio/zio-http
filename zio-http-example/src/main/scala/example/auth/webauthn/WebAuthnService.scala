@@ -258,10 +258,12 @@ object WebAuthnService {
   val live: ULayer[WebAuthnService] = ZLayer {
     for {
       sessions <- Ref.make(Map.empty[String, (String, Long)])
+      storage <- InMemoryCredentialStorage.make.orDie
       webAuthnServer = new WebAuthnServer(
         rpId = "localhost",
         rpName = "WebAuthn Demo",
         rpOrigin = "http://localhost:8080",
+        storage
       )
     } yield WebAuthnServiceLive(webAuthnServer, sessions)
   }

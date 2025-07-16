@@ -50,11 +50,12 @@ object WebAuthnExample extends ZIOAppDefault {
     for {
       _ <- Console.printLine("WebAuthn Server Implementation Demo")
       _ <- Console.printLine("===================================")
-
+      storage <- InMemoryCredentialStorage.make
       server = new WebAuthnServer(
         rpId = "example.com",
         rpName = "Example Corp",
         rpOrigin = "https://example.com",
+        storage
       )
 
       userHandle = scala.util.Random.nextBytes(32)

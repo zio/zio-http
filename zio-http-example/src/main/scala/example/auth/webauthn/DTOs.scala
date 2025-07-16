@@ -80,7 +80,6 @@ object FinishAuthenticationResponse {
   implicit val schema: Schema[FinishAuthenticationResponse] = DeriveSchema.gen
 }
 
-// DTO classes for JSON serialization
 case class PublicKeyCredentialCreationOptionsDTO(
   rp: PublicKeyCredentialRpEntityDTO,
   user: PublicKeyCredentialUserEntityDTO,

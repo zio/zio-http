@@ -6,7 +6,7 @@ case class WebAuthnServer(
   rpId: String,
   rpName: String,
   rpOrigin: String,
-  credentialStorage: CredentialStorage = new InMemoryCredentialStorage,
+  credentialStorage: CredentialStorage
 ) {
 
   private var pendingChallenges: Map[String, (BufferSource, Long)] = Map.empty
@@ -150,7 +150,7 @@ case class WebAuthnServer(
         .getCredentialById(credential.rawId)
         .someOrFail(
           new Exception("Credential not found"),
-        )
+        ).debug("Got credential: ======================== ")
 
       // Get stored sign count
       storage = credentialStorage.asInstanceOf[InMemoryCredentialStorage]
