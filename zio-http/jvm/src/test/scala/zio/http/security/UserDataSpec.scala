@@ -158,6 +158,7 @@ object UserDataSpec extends ZIOSpecDefault {
     },
   ).provide(
     Scope.default,
+    ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
     Server.customized,
     ZLayer.succeed(
       Server.Config.default,

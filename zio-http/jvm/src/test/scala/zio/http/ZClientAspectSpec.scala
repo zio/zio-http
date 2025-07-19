@@ -184,6 +184,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
         },
       ),
     ).provide(
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
