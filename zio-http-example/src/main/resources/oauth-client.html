@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub OAuth Authentication</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .github-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .auth-section {
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            margin: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .user-info {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .user-info.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin-bottom: 15px;
+            border: 3px solid #667eea;
+        }
+
+        .user-detail {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .user-detail strong {
+            color: #333;
+            min-width: 80px;
+            display: inline-block;
+        }
+
+        .status {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 10px 0;
+            display: inline-block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.loading {
+            background: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .token-info {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .actions {
+            margin-top: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="github-logo">🐙</div>
+    <h1>GitHub OAuth Demo</h1>
+    <p class="subtitle">Authenticate with GitHub to access your profile</p>
+
+    <div class="auth-section">
+        <div id="loginSection">
+            <button id="loginBtn" class="btn btn-primary">
+                <span>🔐</span>
+                Sign in with GitHub
+            </button>
+        </div>
+
+        <div id="loadingSection" class="loading">
+            <div class="spinner"></div>
+            <div>Processing authentication...</div>
+        </div>
+
+        <div id="statusMessage"></div>
+    </div>
+
+    <div id="userInfo" class="user-info">
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+            <img id="userAvatar" src="" alt="User Avatar" class="user-avatar">
+            <div style="margin-left: 15px;">
+                <h3 id="userName" style="margin-bottom: 5px; color: #333;"></h3>
+                <div id="userLogin" style="color: #666; font-size: 14px;"></div>
+            </div>
+        </div>
+
+        <div class="user-detail">
+            <strong>ID:</strong> <span id="userId"></span>
+        </div>
+        <div class="user-detail">
+            <strong>Email:</strong> <span id="userEmail"></span>
+        </div>
+        <div class="user-detail">
+            <strong>Profile:</strong> <a id="userHtmlUrl" href="" target="_blank" style="color: #667eea;"></a>
+        </div>
+    </div>
+
+    <div id="tokenSection" class="hidden">
+        <h3 style="margin-bottom: 10px; color: #333;">Token Information</h3>
+        <div class="token-info" id="tokenInfo"></div>
+    </div>
+
+    <div id="authenticatedSection" class="actions hidden">
+        <button id="refreshBtn" class="btn btn-secondary">
+            <span>🔄</span>
+            Refresh Token
+        </button>
+        <button id="testApiBtn" class="btn btn-secondary">
+            <span>🧪</span>
+            Test API Call
+        </button>
+        <button id="toggleTokenBtn" class="btn btn-secondary">
+            <span>👁️</span>
+            Show Tokens
+        </button>
+        <button id="logoutBtn" class="btn btn-secondary">
+            <span>🚪</span>
+            Logout
+        </button>
+    </div>
+
+    <div class="footer">
+        <p>This demo showcases OAuth 2.0 authentication flow with GitHub</p>
+    </div>
+</div>
+
+<script>
+    let currentTokens = null;
+    let tokenVisible = false;
+
+    // DOM elements
+    const loginBtn = document.getElementById('loginBtn');
+    const loadingSection = document.getElementById('loadingSection');
+    const statusMessage = document.getElementById('statusMessage');
+    const userInfo = document.getElementById('userInfo');
+    const authenticatedSection = document.getElementById('authenticatedSection');
+    const loginSection = document.getElementById('loginSection');
+    const tokenSection = document.getElementById('tokenSection');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const testApiBtn = document.getElementById('testApiBtn');
+    const toggleTokenBtn = document.getElementById('toggleTokenBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    // Event listeners
+    loginBtn.addEventListener('click', startAuth);
+    refreshBtn.addEventListener('click', refreshToken);
+    testApiBtn.addEventListener('click', testApiCall);
+    toggleTokenBtn.addEventListener('click', toggleTokenDisplay);
+    logoutBtn.addEventListener('click', logout);
+
+    // Check for tokens in URL on page load
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+            currentTokens = {
+                accessToken: accessToken,
+                refreshToken: refreshToken,
+                tokenType: urlParams.get('token_type') || 'Bearer',
+                expiresIn: parseInt(urlParams.get('expires_in')) || 3600
+            };
+
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            showStatus('Authentication successful!', 'success');
+            fetchUserProfile();
+        }
+    });
+
+    function startAuth() {
+        const redirectUri = encodeURIComponent(window.location.origin);
+        const authUrl = `/auth/github?redirect_uri=${redirectUri}`;
+
+        showLoading(true);
+        showStatus('Redirecting to GitHub...', 'loading');
+
+        // Redirect to GitHub OAuth
+        window.location.href = authUrl;
+    }
+
+    async function fetchUserProfile() {
+        if (!currentTokens) return;
+
+        try {
+            showLoading(true);
+
+            const response = await fetch('/profile/me', {
+                headers: {
+                    'Authorization': `${currentTokens.tokenType} ${currentTokens.accessToken}`
+                }
+            });
+
+            if (response.ok) {
+                const user = await response.json();
+                displayUserInfo(user);
+                showAuthenticatedState();
+            } else {
+                throw new Error(`Failed to fetch profile: ${response.status}`);
+            }
+        } catch (error) {
+            showStatus(`Error fetching profile: ${error.message}`, 'error');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function refreshToken() {
+        if (!currentTokens) return;
+
+        try {
+            showLoading(true);
+            refreshBtn.disabled = true;
+
+            const response = await fetch('/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    refreshToken: currentTokens.refreshToken
+                })
+            });
+
+            if (response.ok) {
+                const newTokens = await response.json();
+                currentTokens = newTokens;
+                updateTokenDisplay();
+                showStatus('Token refreshed successfully!', 'success');
+            } else {
+                throw new Error(`Refresh failed: ${response.status}`);
+            }
+        } catch (error) {
+            showStatus(`Error refreshing token: ${error.message}`, 'error');
+        } finally {
+            showLoading(false);
+            refreshBtn.disabled = false;
+        }
+    }
+
+    async function testApiCall() {
+        if (!currentTokens) return;
+
+        try {
+            showLoading(true);
+            testApiBtn.disabled = true;
+
+            const response = await fetch('/profile/me', {
+                headers: {
+                    'Authorization': `${currentTokens.tokenType} ${currentTokens.accessToken}`
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                showStatus('API call successful!', 'success');
+                console.log('API Response:', result);
+            } else {
+                throw new Error(`API call failed: ${response.status}`);
+            }
+        } catch (error) {
+            showStatus(`API call error: ${error.message}`, 'error');
+        } finally {
+            showLoading(false);
+            testApiBtn.disabled = false;
+        }
+    }
+
+    function displayUserInfo(user) {
+        document.getElementById('userAvatar').src = user.avatar_url;
+        document.getElementById('userName').textContent = user.name || 'N/A';
+        document.getElementById('userLogin').textContent = `@${user.login}`;
+        document.getElementById('userId').textContent = user.id;
+        document.getElementById('userEmail').textContent = user.email || 'N/A';
+        document.getElementById('userHtmlUrl').href = user.html_url;
+        document.getElementById('userHtmlUrl').textContent = user.html_url;
+
+        userInfo.classList.add('show');
+    }
+
+    function showAuthenticatedState() {
+        loginSection.classList.add('hidden');
+        authenticatedSection.classList.remove('hidden');
+        updateTokenDisplay();
+    }
+
+    function updateTokenDisplay() {
+        if (currentTokens && tokenVisible) {
+            const tokenInfo = document.getElementById('tokenInfo');
+            tokenInfo.innerHTML = `
+                <strong>Access Token:</strong><br>
+                ${currentTokens.accessToken.substring(0, 50)}...<br><br>
+                <strong>Refresh Token:</strong><br>
+                ${currentTokens.refreshToken.substring(0, 50)}...<br><br>
+                <strong>Token Type:</strong> ${currentTokens.tokenType}<br>
+                <strong>Expires In:</strong> ${currentTokens.expiresIn} seconds
+            `;
+        }
+    }
+
+    function toggleTokenDisplay() {
+        tokenVisible = !tokenVisible;
+        if (tokenVisible) {
+            tokenSection.classList.remove('hidden');
+            toggleTokenBtn.innerHTML = '<span>🙈</span> Hide Tokens';
+            updateTokenDisplay();
+        } else {
+            tokenSection.classList.add('hidden');
+            toggleTokenBtn.innerHTML = '<span>👁️</span> Show Tokens';
+        }
+    }
+
+    function logout() {
+        currentTokens = null;
+        tokenVisible = false;
+
+        // Reset UI
+        loginSection.classList.remove('hidden');
+        authenticatedSection.classList.add('hidden');
+        userInfo.classList.remove('show');
+        tokenSection.classList.add('hidden');
+        statusMessage.innerHTML = '';
+
+        showStatus('Logged out successfully', 'success');
+        setTimeout(() => {
+            statusMessage.innerHTML = '';
+        }, 2000);
+    }
+
+    function showLoading(show) {
+        if (show) {
+            loadingSection.classList.add('show');
+        } else {
+            loadingSection.classList.remove('show');
+        }
+    }
+
+    function showStatus(message, type) {
+        statusMessage.innerHTML = `<div class="status ${type}">${message}</div>`;
+    }
+</script>
+</body>
+</html>
