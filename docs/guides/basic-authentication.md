@@ -471,11 +471,6 @@ We will discuss rate limiting in more detail in a separate article.
 
 ## Conclusion
 
-Basic Authentication with ZIO HTTP provides a straightforward way to secure your HTTP applications. While simple to implement, it's important to follow security best practices, especially regarding HTTPS usage and password handling.
-
-
-## Conclusion
-
 Through this guide, we've explored how to implement authentication middleware, create protected routes, and integrate user services in a modular and testable way. 
 
 While Basic Authentication is simple to implement and understand, it's crucial to follow security best practices in production environments. Always use HTTPS to protect credentials in transit, implement proper password hashing with salt using algorithms like bcrypt or argon2, and consider additional security measures such as rate limiting to prevent brute force attacks. For applications requiring more sophisticated authentication mechanisms, consider exploring other options like JWT tokens, OAuth 2.0, or session-based authentication.
