@@ -392,9 +392,20 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
 <script>
-    // MD5 hash function using CryptoJS
-    function md5(str) {
-        return CryptoJS.MD5(str).toString();
+    // Hash function that supports both MD5 and SHA-256
+    function hash(str, algorithm) {
+        algorithm = algorithm.toUpperCase();
+        switch(algorithm) {
+            case 'MD5':
+                return CryptoJS.MD5(str).toString();
+            case 'SHA-256':
+                return CryptoJS.SHA256(str).toString();
+            case 'SHA256':
+                return CryptoJS.SHA256(str).toString();
+            default:
+                logResponse(`Unsupported algorithm: ${algorithm}, falling back to MD5`, 'error');
+                return CryptoJS.MD5(str).toString();
+        }
     }
 
     // Generate random nonce
@@ -415,6 +426,21 @@
         }
 
         return result;
+    }
+
+    // Parse QOP parameter and select the first supported one
+    function selectQop(qopString) {
+        if (!qopString) return 'auth';
+
+        // Split by comma and trim whitespace
+        const qopOptions = qopString.split(',').map(q => q.trim());
+
+        // Prefer 'auth' if available, otherwise take the first one
+        if (qopOptions.includes('auth')) {
+            return 'auth';
+        }
+
+        return qopOptions[0] || 'auth';
     }
 
     // Log response
@@ -475,28 +501,29 @@
                     logResponse(`Parsed auth params: ${JSON.stringify(authParams, null, 2)}`, 'info');
 
                     const cnonce = generateNonce();
-                    const qop = authParams.qop || 'auth';
                     const algorithm = authParams.algorithm || 'MD5';
+                    const qop = selectQop(authParams.qop);  // Fixed: select single QOP value
+                    const nc = "00000001";
 
-                    // Use the working format: nc="00000001" in both hash and header
-                    const ncForHash = "00000001";
-                    const ncForHeader = "00000001";
+                    logResponse(`Selected QOP: ${qop} (from "${authParams.qop}")`, 'info');
+                    logResponse(`Using algorithm: ${algorithm}`, 'info');
 
-                    // Compute digest with the correct format
+                    // Compute digest with the correct algorithm
                     const hashInput1 = `${username}:${authParams.realm}:${password}`;
                     const hashInput2 = `GET:${endpoint}`;
-                    const hash1 = md5(hashInput1);
-                    const hash2 = md5(hashInput2);
-                    const finalInput = `${hash1}:${authParams.nonce}:${ncForHash}:${cnonce}:${qop}:${hash2}`;
-                    const digestResponse = md5(finalInput);
+                    const hash1 = hash(hashInput1, algorithm);  // Fixed: use correct algorithm
+                    const hash2 = hash(hashInput2, algorithm);  // Fixed: use correct algorithm
+                    const finalInput = `${hash1}:${authParams.nonce}:${nc}:${cnonce}:${qop}:${hash2}`;
+                    const digestResponse = hash(finalInput, algorithm);  // Fixed: use correct algorithm
 
-                    logResponse(`Digest computation:`, 'info');
-                    logResponse(`  HA1 = MD5("${hashInput1}") = ${hash1}`, 'info');
-                    logResponse(`  HA2 = MD5("${hashInput2}") = ${hash2}`, 'info');
-                    logResponse(`  Response = MD5("${finalInput}") = ${digestResponse}`, 'info');
+                    logResponse(`Digest computation using ${algorithm}:`, 'info');
+                    logResponse(`  HA1 = ${algorithm}("${hashInput1}") = ${hash1}`, 'info');
+                    logResponse(`  HA2 = ${algorithm}("${hashInput2}") = ${hash2}`, 'info');
+                    logResponse(`  Response = ${algorithm}("${finalInput}") = ${digestResponse}`, 'info');
 
-                    // Use the working authorization header format
-                    const authHeader = `Digest username="${username}", realm="${authParams.realm}", nonce="${authParams.nonce}", uri="${endpoint}", algorithm="${algorithm}", qop="${qop}", nc="${ncForHeader}", cnonce="${cnonce}", response="${digestResponse}", userhash=false, opaque=""`;
+                    // Create authorization header with proper opaque handling
+                    const opaque = authParams.opaque || '';
+                    const authHeader = `Digest username="${username}", realm="${authParams.realm}", nonce="${authParams.nonce}", uri="${endpoint}", algorithm="${algorithm}", qop="${qop}", nc="${nc}", cnonce="${cnonce}", response="${digestResponse}", userhash=false, opaque="${opaque}"`;
 
                     logResponse(`Authorization: ${authHeader}`, 'info');
 
@@ -557,25 +584,8 @@
     logResponse('Digest Authentication Client ready!', 'success');
     logResponse('Server should be running on http://localhost:8080', 'info');
     logResponse('Available users: john/password123, jane/secret456, admin/admin123', 'info');
-    logResponse('Using CryptoJS library for secure MD5 hashing', 'info');
+    logResponse('Using CryptoJS library for secure MD5 and SHA-256 hashing', 'info');
     logResponse('Authentication format: RFC 2617 compliant with ZIO HTTP', 'info');
-
-    // Verify CryptoJS is working
-    if (typeof CryptoJS !== 'undefined') {
-        logResponse('CryptoJS library loaded successfully', 'success');
-
-        // Test MD5 implementation
-        const testMD5_1 = md5('');
-        const testMD5_2 = md5('abc');
-
-        if (testMD5_1 === 'd41d8cd98f00b204e9800998ecf8427e' && testMD5_2 === '900150983cd24fb0d6963f7d28e17f72') {
-            logResponse('MD5 implementation verified successfully', 'success');
-        } else {
-            logResponse('MD5 implementation verification failed', 'error');
-        }
-    } else {
-        logResponse('Error: CryptoJS library failed to load', 'error');
-    }
 </script>
 </body>
 </html>
