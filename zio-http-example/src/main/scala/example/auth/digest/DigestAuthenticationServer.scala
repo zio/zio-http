@@ -1,11 +1,13 @@
 package example.auth.digest
 
-import example.auth.digest.another._
+import example.auth.digest.core.DigestAuthHandlerAspect.UserCredentials
+import example.auth.digest.core.QualityOfProtection.AuthInt
+import example.auth.digest.core._
 import zio.Config.Secret
 import zio._
 import zio.http._
-import zio.json._
-
+import zio.schema._
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
 object DigestAuthenticationServer extends ZIOAppDefault {
 
@@ -18,9 +20,6 @@ object DigestAuthenticationServer extends ZIOAppDefault {
 
   def getUserCredentials(username: String): Task[Option[UserCredentials]] =
     ZIO.succeed(userDatabase.get(username))
-
-  val realm     = "Protected API"
-  val algorithm = "MD5"
 
   def routes =
     Routes(
@@ -38,7 +37,7 @@ object DigestAuthenticationServer extends ZIOAppDefault {
         ZIO.serviceWith[UserCredentials] { userCredentials =>
           Response.text(s"Hello ${userCredentials.username}! This is your profile. Email: ${userCredentials.email}")
         }
-      } @@ DigestAuthAspect(
+      } @@ DigestAuthHandlerAspect(
         realm = "http-auth@example.org",
         getUserCredentials = getUserCredentials,
       ),
@@ -47,19 +46,18 @@ object DigestAuthenticationServer extends ZIOAppDefault {
       Method.PUT / "profile" / "email" -> handler { (req: Request) =>
         for {
           userCredentials <- ZIO.service[UserCredentials]
-          body <- req.body.asString.orDie
-          updateRequest <- ZIO.fromEither(body.fromJson[UpdateEmailRequest])
+          updateRequest   <- req.body
+            .to[UpdateEmailRequest]
             .mapError(error => Response.badRequest(s"Invalid JSON: $error"))
-          response = UpdateEmailResponse(
-            message = s"Email updated successfully for user ${userCredentials.username}",
-            newEmail = updateRequest.email
-          )
           // In a real application, you would persist this change to a database
           _ <- Console.printLine(s"User ${userCredentials.username} updated email to: ${updateRequest.email}").orDie
-        } yield Response.json(response.toJson)
-      } @@ DigestAuthAspect(
+        } yield Response.text(
+          s"Email updated successfully for user ${userCredentials.username}! New email: ${updateRequest.email}",
+        )
+      } @@ DigestAuthHandlerAspect(
         realm = "http-auth@example.org",
         getUserCredentials = getUserCredentials,
+        qop = List(AuthInt),
       ),
 
       // Protected admin route - only for admin user
@@ -70,7 +68,7 @@ object DigestAuthenticationServer extends ZIOAppDefault {
           else
             Response.unauthorized(s"Access denied. User ${userCredentials.username} is not an admin.")
         }
-      } @@ DigestAuthAspect(
+      } @@ DigestAuthHandlerAspect(
         realm = "http-auth@example.org",
         getUserCredentials = getUserCredentials,
       ),
@@ -82,6 +80,12 @@ object DigestAuthenticationServer extends ZIOAppDefault {
     )
 
   override val run =
-    Server.serve(routes).provide(Server.default, DigestHashService.live, NonceService.live, DigestAuthService.live)
+    Server.serve(routes).provide(Server.default, HashService.live, NonceService.live, DigestAuthService.live)
 
+}
+
+case class UpdateEmailRequest(email: String)
+
+object UpdateEmailRequest {
+  implicit val schema: Schema[UpdateEmailRequest] = DeriveSchema.gen
 }

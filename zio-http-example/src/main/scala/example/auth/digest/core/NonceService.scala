@@ -1,4 +1,4 @@
-package example.auth.digest.another
+package example.auth.digest.core
 
 import zio._
 import zio.Config.Secret
