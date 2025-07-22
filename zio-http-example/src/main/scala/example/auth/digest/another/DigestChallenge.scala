@@ -104,33 +104,6 @@ object DigestAuthError {
   }
 }
 
-trait DigestHashService {
-  def hash(data: String, algorithm: HashAlgorithm): Task[String]
-  def keyedDigest(secret: String, data: String, algorithm: HashAlgorithm): Task[String]
-}
-
-object DigestHashService {
-  val live: ULayer[DigestHashService] = ZLayer.succeed(new DigestHashService {
-
-    def hash(data: String, algorithm: HashAlgorithm): Task[String] =
-      ZIO.attempt {
-        val md = algorithm match {
-          case HashAlgorithm.MD5                                =>
-            MessageDigest.getInstance("MD5")
-          case HashAlgorithm.SHA256 | HashAlgorithm.SHA256_SESS =>
-            MessageDigest.getInstance("SHA-256")
-          case HashAlgorithm.SHA512                             =>
-            MessageDigest.getInstance("SHA-512")
-        }
-        md.digest(data.getBytes("UTF-8"))
-          .map(b => String.format("%02x", b & 0xff))
-          .mkString
-      }
-
-    def keyedDigest(secret: String, data: String, algorithm: HashAlgorithm): Task[String] =
-      hash(s"$secret:$data", algorithm)
-  })
-}
 
 trait DigestAuthService {
   def createChallenge(realm: String): UIO[List[DigestChallenge]]
@@ -154,8 +127,8 @@ trait DigestAuthService {
 }
 
 object DigestAuthService {
-  val live: ZLayer[DigestHashService & NonceService, Nothing, DigestAuthService] =
-    ZLayer.fromFunction((hashService: DigestHashService, nonceService: NonceService) =>
+  val live: ZLayer[HashService & NonceService, Nothing, DigestAuthService] =
+    ZLayer.fromFunction((hashService: HashService, nonceService: NonceService) =>
       new DigestAuthService {
         def createChallenge(
           realm: String,
@@ -239,7 +212,7 @@ object DigestAuthService {
             case None    =>
               s"$nonce:$ha2"
           }
-          hashService.keyedDigest(ha1, responseData, algorithm)
+          hashService.keyedHash(responseData, algorithm, ha1)
         }
 
         def validateCredentials(response: String)(
