@@ -165,7 +165,7 @@ object DigestAuthService {
                  nonce = nonce,
                  opaque = Some(opaque),
                  algorithm = algorithm,
-                 qop = List(QualityOfProtection.Auth, QualityOfProtection.AuthInt),
+                 qop = List( QualityOfProtection.AuthInt),
                )
              }
 
@@ -181,10 +181,12 @@ object DigestAuthService {
         ): Task[String] = {
           val a1 = s"$username:$realm:${password.stringValue}"
           algorithm match {
+            // if session algorithm
             case HashAlgorithm.SHA256_SESS =>
               hashService
                 .hash(a1, HashAlgorithm.SHA256)
                 .map(ha1 => s"$ha1:$nonce:$cnonce")
+            // if regular algorithm
             case _                         =>
               ZIO.succeed(a1)
           }

@@ -359,6 +359,10 @@
                         <span>👨‍💼</span>
                         Admin (/admin)
                     </button>
+                    <button class="btn btn-profile" onclick="testEndpoint('/profile/update', 'POST', '{\"name\":\"Updated Name\"}')">
+                    <span>📝</span>
+                    Update Profile (POST)
+                    </button>
                 </div>
             </div>
 
@@ -419,7 +423,7 @@
         return isSessionAlgorithm(algorithm) ? algorithm.replace('-sess', '') : algorithm;
     }
 
-    // Calculate HA1
+    // Calculate HA1 according to RFC 7616
     function calculateHA1(username, realm, password, algorithm, nonce, cnonce) {
         const baseAlgorithm = getBaseAlgorithm(algorithm);
         const initialHash = hash(`${username}:${realm}:${password}`, baseAlgorithm);
@@ -461,12 +465,28 @@
         // Split by comma and trim whitespace
         const qopOptions = qopString.split(',').map(q => q.trim());
 
-        // Prefer 'auth' if available, otherwise take the first one
+        // Prefer 'auth' if available, then 'auth-int', otherwise take the first one
         if (qopOptions.includes('auth')) {
             return 'auth';
+        } else if (qopOptions.includes('auth-int')) {
+            return 'auth-int';
         }
 
         return qopOptions[0] || 'auth';
+    }
+
+    // Calculate HA2 based on QOP value
+    function calculateHA2(method, uri, qop, entityBody, algorithm) {
+        const baseAlgorithm = getBaseAlgorithm(algorithm);
+
+        if (qop === 'auth-int') {
+            // For auth-int: HA2 = H(method:uri:H(entity-body))
+            const entityHash = hash(entityBody || '', baseAlgorithm);
+            return hash(`${method}:${uri}:${entityHash}`, baseAlgorithm);
+        } else {
+            // For auth: HA2 = H(method:uri)
+            return hash(`${method}:${uri}`, baseAlgorithm);
+        }
     }
 
     // Log response
@@ -494,7 +514,7 @@
     }
 
     // Test endpoint
-    async function testEndpoint(endpoint) {
+    async function testEndpoint(endpoint, method = 'GET', body = null) {
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
@@ -506,14 +526,26 @@
         const url = `http://localhost:8080${endpoint}`;
 
         logResponse(`Testing ${endpoint}...`, 'info');
-        logResponse(`Request: GET ${url}`, 'info');
+        logResponse(`Request: ${method} ${url}`, 'info');
+        if (body) {
+            logResponse(`Request Body: ${body}`, 'info');
+        }
 
         try {
             // First request - expect 401 for protected endpoints
-            const response = await fetch(url, {
-                method: 'GET',
+            const requestOptions = {
+                method: method,
                 credentials: 'omit'
-            });
+            };
+
+            if (body && method !== 'GET') {
+                requestOptions.headers = {
+                    'Content-Type': 'application/json'
+                };
+                requestOptions.body = body;
+            }
+
+            const response = await fetch(url, requestOptions);
 
             logResponse(`Response Status: ${response.status} ${response.statusText}`,
                 response.status === 200 ? 'success' : 'info');
@@ -537,16 +569,16 @@
                     // Calculate HA1 with proper RFC 7616 support for -sess algorithms
                     const ha1 = calculateHA1(username, authParams.realm, password, algorithm, authParams.nonce, cnonce);
 
-                    // Calculate HA2
-                    const ha2Input = `GET:${endpoint}`;
-                    const ha2 = hash(ha2Input, getBaseAlgorithm(algorithm));
+                    // Calculate HA2 with proper QOP support
+                    const entityBody = body || ''; // Use actual request body
+                    const ha2 = calculateHA2(method, endpoint, qop, entityBody, algorithm);
 
                     // Calculate response
                     const responseInput = `${ha1}:${authParams.nonce}:${nc}:${cnonce}:${qop}:${ha2}`;
                     const digestResponse = hash(responseInput, getBaseAlgorithm(algorithm));
 
                     // Log the computation details
-                    logResponse(`Digest computation using ${algorithm}:`, 'info');
+                    logResponse(`Digest computation using ${algorithm} with qop=${qop}:`, 'info');
 
                     if (isSessionAlgorithm(algorithm)) {
                         const baseAlg = getBaseAlgorithm(algorithm);
@@ -557,7 +589,14 @@
                         logResponse(`  HA1 = ${algorithm}("${username}:${authParams.realm}:${password}") = ${ha1}`, 'info');
                     }
 
-                    logResponse(`  HA2 = ${getBaseAlgorithm(algorithm)}("${ha2Input}") = ${ha2}`, 'info');
+                    if (qop === 'auth-int') {
+                        const entityHash = hash(entityBody, getBaseAlgorithm(algorithm));
+                        logResponse(`  Entity-Body Hash = ${getBaseAlgorithm(algorithm)}("${entityBody}") = ${entityHash}`, 'info');
+                        logResponse(`  HA2 = ${getBaseAlgorithm(algorithm)}("${method}:${endpoint}:${entityHash}") = ${ha2}`, 'info');
+                    } else {
+                        logResponse(`  HA2 = ${getBaseAlgorithm(algorithm)}("${method}:${endpoint}") = ${ha2}`, 'info');
+                    }
+
                     logResponse(`  Response = ${getBaseAlgorithm(algorithm)}("${responseInput}") = ${digestResponse}`, 'info');
 
                     // Create authorization header with proper opaque handling
@@ -567,13 +606,20 @@
                     logResponse(`Authorization: ${authHeader}`, 'info');
 
                     // Make the authenticated request
-                    const authResponse = await fetch(url, {
-                        method: 'GET',
+                    const authRequestOptions = {
+                        method: method,
                         headers: {
                             'Authorization': authHeader
                         },
                         credentials: 'omit'
-                    });
+                    };
+
+                    if (body && method !== 'GET') {
+                        authRequestOptions.headers['Content-Type'] = 'application/json';
+                        authRequestOptions.body = body;
+                    }
+
+                    const authResponse = await fetch(url, authRequestOptions);
 
                     logResponse(`Response: ${authResponse.status} ${authResponse.statusText}`,
                         authResponse.status === 200 ? 'success' : 'error');
@@ -625,6 +671,7 @@
     logResponse('Available users: john/password123, jane/secret456, admin/admin123', 'info');
     logResponse('Using CryptoJS library for secure hashing', 'info');
     logResponse('RFC 7616 compliant: Supports MD5, SHA-256, SHA-256-sess, SHA-512, SHA-512-sess', 'info');
+    logResponse('QOP support: auth, auth-int (authentication with integrity protection)', 'info');
     logResponse('Authentication format: RFC 2617/7616 compliant with ZIO HTTP', 'info');
 </script>
 </body>
