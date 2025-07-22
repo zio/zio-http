@@ -39,7 +39,6 @@ object DigestAuthenticationServer extends ZIOAppDefault {
       } @@ DigestAuthAspect(
         realm = "http-auth@example.org",
         getUserCredentials = getUserCredentials,
-        algorithm = HashAlgorithm.SHA256,
       ),
 
       // Protected admin route - only for admin user
@@ -53,7 +52,6 @@ object DigestAuthenticationServer extends ZIOAppDefault {
       } @@ DigestAuthAspect(
         realm = "http-auth@example.org",
         getUserCredentials = getUserCredentials,
-        algorithm = HashAlgorithm.SHA256,
       ),
 
       // Public route (no authentication required)

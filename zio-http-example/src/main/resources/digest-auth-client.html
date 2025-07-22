@@ -392,16 +392,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
 <script>
-    // Hash function that supports both MD5 and SHA-256
     function hash(str, algorithm) {
-        algorithm = algorithm.toUpperCase();
         switch(algorithm) {
             case 'MD5':
                 return CryptoJS.MD5(str).toString();
             case 'SHA-256':
                 return CryptoJS.SHA256(str).toString();
-            case 'SHA256':
+            case 'SHA-256-sess':
                 return CryptoJS.SHA256(str).toString();
+            case 'SHA-512':
+                return CryptoJS.SHA512(str).toString();
             default:
                 logResponse(`Unsupported algorithm: ${algorithm}, falling back to MD5`, 'error');
                 return CryptoJS.MD5(str).toString();

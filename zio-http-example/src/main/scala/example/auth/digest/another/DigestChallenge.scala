@@ -46,9 +46,9 @@ object HashAlgorithm {
     val digestSize = 256
   }
 
-  case object SHA512_256 extends HashAlgorithm {
-    val name       = "SHA-512-256"
-    val digestSize = 256
+  case object SHA512 extends HashAlgorithm {
+    val name       = "SHA-512"
+    val digestSize = 512
   }
 
   case object SHA256_SESS extends HashAlgorithm {
@@ -59,7 +59,7 @@ object HashAlgorithm {
   def fromString(s: String): Option[HashAlgorithm] = s.toLowerCase match {
     case "md5"          => Some(MD5)
     case "sha-256"      => Some(SHA256)
-    case "sha-512-256"  => Some(SHA512_256)
+    case "sha-512"      => Some(SHA512)
     case "sha-256-sess" => Some(SHA256_SESS)
     case _              => None
   }
@@ -111,8 +111,8 @@ object DigestHashService {
             MessageDigest.getInstance("MD5")
           case HashAlgorithm.SHA256 | HashAlgorithm.SHA256_SESS =>
             MessageDigest.getInstance("SHA-256")
-          case HashAlgorithm.SHA512_256                         =>
-            MessageDigest.getInstance("SHA-512/256")
+          case HashAlgorithm.SHA512                         =>
+            MessageDigest.getInstance("SHA-512")
         }
         md.digest(data.getBytes("UTF-8"))
           .map(b => String.format("%02x", b & 0xff))
@@ -125,10 +125,7 @@ object DigestHashService {
 }
 
 trait DigestAuthService {
-  def createChallenge(
-    realm: String,
-    algorithm: HashAlgorithm = HashAlgorithm.SHA256,
-  ): UIO[DigestChallenge]
+  def createChallenge(realm: String): UIO[List[DigestChallenge]]
 
   def validateCredentials(response: String)(
     username: String,
@@ -154,19 +151,25 @@ object DigestAuthService {
       new DigestAuthService {
         def createChallenge(
           realm: String,
-          algorithm: HashAlgorithm = HashAlgorithm.SHA256,
-        ): UIO[DigestChallenge] = for {
+        ): UIO[List[DigestChallenge]] =
+          for {
           timestamp <- Clock.currentTime(TimeUnit.MILLISECONDS)
           nonce     <- nonceService.generateNonce(timestamp)
           bytes     <- Random.nextString(32).map(_.getBytes(Charsets.Utf8))
           opaque    <- ZIO.succeed(Base64.getEncoder.encodeToString(bytes))
-        } yield DigestChallenge(
-          realm = realm,
-          nonce = nonce,
-          opaque = Some(opaque),
-          algorithm = algorithm,
-          qop = List(QualityOfProtection.Auth, QualityOfProtection.AuthInt),
-        )
+        } yield
+           {
+             List(HashAlgorithm.SHA256, HashAlgorithm.SHA256_SESS/* HashAlgorithm.MD5, HashAlgorithm.SHA512*/).map { algorithm =>
+               DigestChallenge(
+                 realm = realm,
+                 nonce = nonce,
+                 opaque = Some(opaque),
+                 algorithm = algorithm,
+                 qop = List(QualityOfProtection.Auth, QualityOfProtection.AuthInt),
+               )
+             }
+
+           }
 
         private def calculateA1(
           username: String,
@@ -296,25 +299,30 @@ object DigestAuthAspect {
   def apply(
     realm: String,
     getUserCredentials: String => Task[Option[UserCredentials]],
-    algorithm: HashAlgorithm = HashAlgorithm.SHA256,
   )(implicit trace: Trace): HandlerAspect[DigestAuthService, UserCredentials] = {
 
-    def createUnauthorizedResponse(challenge: DigestChallenge): Response =
-      Response
-        .status(Status.Unauthorized)
-        .addHeader(
-          Header.WWWAuthenticate.Digest(
-            realm = Some(challenge.realm),
-            domain = challenge.domain.flatMap(_.headOption),
-            nonce = Some(challenge.nonce),
-            stale = Some(challenge.stale),
-            opaque = challenge.opaque,
-            algorithm = Some(challenge.algorithm.name),
-            qop = Some(challenge.qop.map(_.name).mkString(", ")),
-            charset = challenge.charset,
-            userhash = Some(challenge.userhash),
-          ),
+    def createUnauthorizedResponse(challenges: List[DigestChallenge]): Response = {
+      val headers = challenges.map { challenge =>
+        Header.WWWAuthenticate.Digest(
+          realm = Some(challenge.realm),
+          domain = challenge.domain.flatMap(_.headOption),
+          nonce = Some(challenge.nonce),
+          stale = Some(challenge.stale),
+          opaque = challenge.opaque,
+          algorithm = Some(challenge.algorithm.name),
+          qop = Some(challenge.qop.map(_.name).mkString(", ")),
+          charset = challenge.charset,
+          userhash = Some(challenge.userhash)
         )
+      }
+
+     val res = headers.foldLeft(Response.status(Status.Unauthorized))((resp, header) =>
+        resp.addHeader(header)
+      )
+
+      println(res)
+     res
+    }
 
     HandlerAspect.interceptIncomingHandler[DigestAuthService, UserCredentials] {
       Handler.fromFunctionZIO[Request](request =>
@@ -328,7 +336,7 @@ object DigestAuthAspect {
                 case Some(creds) => ZIO.succeed(creds)
                 case None        =>
                   digestService
-                    .createChallenge(realm, algorithm)
+                    .createChallenge(realm)
                     .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
               }
               entityBody      <- request.body.asString.option
@@ -356,17 +364,14 @@ object DigestAuthAspect {
                   ZIO.succeed((request, userCreds))
                 else
                   digestService
-                    .createChallenge(
-                      authHeader.realm,
-                      HashAlgorithm.fromString(authHeader.algorithm).getOrElse(HashAlgorithm.MD5),
-                    )
+                    .createChallenge(authHeader.realm)
                     .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
             } yield result
 
           case _ =>
             // No auth header or not digest, send challenge
             ZIO.serviceWithZIO[DigestAuthService] {
-              _.createChallenge(realm, algorithm)
+              _.createChallenge(realm)
                 .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
             }
         },
