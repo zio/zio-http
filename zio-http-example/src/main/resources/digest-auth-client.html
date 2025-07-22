@@ -97,7 +97,7 @@
             gap: 10px;
         }
 
-        .user-info {
+        .user-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
@@ -134,7 +134,7 @@
             font-size: 12px;
         }
 
-        .user-card .email {
+        .user-email {
             color: #888;
             font-size: 11px;
             font-style: italic;
@@ -163,24 +163,10 @@
             background: white;
         }
 
-        input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus {
+        input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .email-update-section {
-            background: rgba(255, 255, 255, 0.8);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            margin-bottom: 20px;
-        }
-
-        .endpoints {
-            display: grid;
-            gap: 15px;
-            margin-bottom: 30px;
         }
 
         .endpoint-section {
@@ -188,6 +174,7 @@
             padding: 20px;
             border-radius: 15px;
             border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 20px;
         }
 
         .endpoint-section h3 {
@@ -197,7 +184,7 @@
             font-weight: 600;
         }
 
-        .endpoint-buttons {
+        .button-group {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
@@ -220,7 +207,7 @@
             gap: 8px;
         }
 
-        .btn:before {
+        .btn::before {
             content: '';
             position: absolute;
             top: 0;
@@ -231,33 +218,8 @@
             transition: left 0.5s;
         }
 
-        .btn:hover:before {
+        .btn:hover::before {
             left: 100%;
-        }
-
-        .btn-profile {
-            background: linear-gradient(45deg, #4CAF50, #45a049);
-            color: white;
-        }
-
-        .btn-admin {
-            background: linear-gradient(45deg, #FF6B6B, #ee5a52);
-            color: white;
-        }
-
-        .btn-public {
-            background: linear-gradient(45deg, #4ECDC4, #44a08d);
-            color: white;
-        }
-
-        .btn-update {
-            background: linear-gradient(45deg, #9C27B0, #8E24AA);
-            color: white;
-        }
-
-        .btn-clear {
-            background: linear-gradient(45deg, #666, #555);
-            color: white;
         }
 
         .btn:hover {
@@ -269,7 +231,13 @@
             transform: translateY(0);
         }
 
-        .response-area {
+        .btn-profile { background: linear-gradient(45deg, #4CAF50, #45a049); color: white; }
+        .btn-admin { background: linear-gradient(45deg, #FF6B6B, #ee5a52); color: white; }
+        .btn-public { background: linear-gradient(45deg, #4ECDC4, #44a08d); color: white; }
+        .btn-update { background: linear-gradient(45deg, #9C27B0, #8E24AA); color: white; }
+        .btn-clear { background: linear-gradient(45deg, #666, #555); color: white; }
+
+        .console {
             background: #1e1e1e;
             color: #00ff00;
             padding: 20px;
@@ -283,7 +251,7 @@
             position: relative;
         }
 
-        .response-area:before {
+        .console::before {
             content: 'Response Console';
             position: absolute;
             top: -10px;
@@ -295,38 +263,15 @@
             font-weight: bold;
         }
 
-        .status-success {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-
-        .status-error {
-            color: #FF6B6B;
-            font-weight: bold;
-        }
-
-        .status-info {
-            color: #2196F3;
-            font-weight: bold;
-        }
+        .log-success { color: #4CAF50; font-weight: bold; }
+        .log-error { color: #FF6B6B; font-weight: bold; }
+        .log-info { color: #2196F3; font-weight: bold; }
 
         @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-                margin: 10px;
-            }
-
-            .user-info {
-                grid-template-columns: 1fr;
-            }
-
-            .endpoint-buttons {
-                flex-direction: column;
-            }
-
-            .btn {
-                width: 100%;
-            }
+            .container { padding: 20px; margin: 10px; }
+            .user-grid { grid-template-columns: 1fr; }
+            .button-group { flex-direction: column; }
+            .btn { width: 100%; }
         }
     </style>
 </head>
@@ -340,21 +285,21 @@
 
     <div class="section">
         <h2>👥 User Selection</h2>
-        <div class="user-info">
-            <div class="user-card active" onclick="selectUser('john', 'password123')">
+        <div class="user-grid">
+            <div class="user-card active" data-username="john" data-password="password123">
                 <h4>John</h4>
                 <p>Regular User</p>
-                <p class="email">john@example.com</p>
+                <p class="user-email">john@example.com</p>
             </div>
-            <div class="user-card" onclick="selectUser('jane', 'secret456')">
+            <div class="user-card" data-username="jane" data-password="secret456">
                 <h4>Jane</h4>
                 <p>Regular User</p>
-                <p class="email">jane@example.com</p>
+                <p class="user-email">jane@example.com</p>
             </div>
-            <div class="user-card" onclick="selectUser('admin', 'admin123')">
+            <div class="user-card" data-username="admin" data-password="admin123">
                 <h4>Admin</h4>
                 <p>Administrator</p>
-                <p class="email">admin@company.com</p>
+                <p class="user-email">admin@company.com</p>
             </div>
         </div>
 
@@ -370,380 +315,287 @@
 
     <div class="section">
         <h2>🔒 Protected Endpoints</h2>
-        <div class="endpoints">
-            <div class="endpoint-section">
-                <h3>📧 Email Management</h3>
-                <div class="email-update-section">
-                    <div class="form-group">
-                        <label for="newEmail">New Email Address:</label>
-                        <input type="email" id="newEmail" placeholder="Enter new email address">
-                    </div>
-                    <div class="endpoint-buttons">
-                        <button class="btn btn-update" onclick="updateEmail()">
-                            <span>📧</span>
-                            Update Email (PUT /profile/email)
-                        </button>
-                    </div>
-                </div>
-            </div>
 
-            <div class="endpoint-section">
-                <h3>🛡️ Protected Routes</h3>
-                <div class="endpoint-buttons">
-                    <button class="btn btn-profile" onclick="testEndpoint('/profile/me')">
-                        <span>👤</span>
-                        Profile (/profile/me)
-                    </button>
-                    <button class="btn btn-admin" onclick="testEndpoint('/admin')">
-                        <span>👨‍💼</span>
-                        Admin (/admin)
-                    </button>
-                </div>
+        <div class="endpoint-section">
+            <h3>📧 Email Management</h3>
+            <div class="form-group">
+                <label for="newEmail">New Email Address:</label>
+                <input type="email" id="newEmail" placeholder="Enter new email address">
             </div>
+            <div class="button-group">
+                <button class="btn btn-update" onclick="handleEmailUpdate()">
+                    <span>📧</span>Update Email
+                </button>
+            </div>
+        </div>
 
-            <div class="endpoint-section">
-                <h3>🌐 Public Routes</h3>
-                <div class="endpoint-buttons">
-                    <button class="btn btn-public" onclick="testEndpoint('/public')">
-                        <span>🌍</span>
-                        Public (/public)
-                    </button>
-                </div>
+        <div class="endpoint-section">
+            <h3>🛡️ Protected Routes</h3>
+            <div class="button-group">
+                <button class="btn btn-profile" onclick="makeRequest('/profile/me')">
+                    <span>👤</span>Profile
+                </button>
+                <button class="btn btn-admin" onclick="makeRequest('/admin')">
+                    <span>👨‍💼</span>Admin
+                </button>
+            </div>
+        </div>
+
+        <div class="endpoint-section">
+            <h3>🌐 Public Routes</h3>
+            <div class="button-group">
+                <button class="btn btn-public" onclick="makeRequest('/public')">
+                    <span>🌍</span>Public
+                </button>
             </div>
         </div>
     </div>
 
     <div class="section">
         <h2>💻 Response Console</h2>
-        <div class="response-area" id="responseArea">
-            <div class="status-success">Digest Authentication Client ready!</div>
+        <div class="console" id="console">
+            <div class="log-success">Digest Authentication Client ready!</div>
             <div>Click on any endpoint button to test authentication.</div>
         </div>
-
-        <button class="btn btn-clear" onclick="clearResponse()" style="margin-top: 15px;">
-            <span>🗑️</span>
-            Clear Response
+        <button class="btn btn-clear" onclick="clearConsole()" style="margin-top: 15px;">
+            <span>🗑️</span>Clear Console
         </button>
     </div>
 </div>
 
-<!-- CryptoJS library from CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
 <script>
-    // Hash function supporting different algorithms
-    function hash(str, algorithm) {
-        switch(algorithm) {
-            case 'MD5':
-                return CryptoJS.MD5(str).toString();
-            case 'SHA-256':
-            case 'SHA-256-sess':
-                return CryptoJS.SHA256(str).toString();
-            case 'SHA-512':
-            case 'SHA-512-sess':
-                return CryptoJS.SHA512(str).toString();
-            default:
-                logResponse(`Unsupported algorithm: ${algorithm}, falling back to MD5`, 'error');
-                return CryptoJS.MD5(str).toString();
+    // Constants
+    const SERVER_URL = 'http://localhost:8080';
+    const DIGEST_ALGORITHMS = {
+        'MD5': CryptoJS.MD5,
+        'SHA-256': CryptoJS.SHA256,
+        'SHA-256-sess': CryptoJS.SHA256,
+        'SHA-512': CryptoJS.SHA512,
+        'SHA-512-sess': CryptoJS.SHA512
+    };
+
+    // Utility Functions
+    const generateNonce = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const isValidEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const isSessionAlgorithm = algorithm => algorithm && algorithm.endsWith('-sess');
+    const getBaseAlgorithm = algorithm => isSessionAlgorithm(algorithm) ? algorithm.replace('-sess', '') : algorithm;
+    const getCurrentCredentials = () => ({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+    });
+
+    // Hash function with algorithm support
+    function computeHash(str, algorithm) {
+        const hashFunc = DIGEST_ALGORITHMS[algorithm];
+        if (!hashFunc) {
+            logToConsole(`Unsupported algorithm: ${algorithm}, using MD5`, 'error');
+            return CryptoJS.MD5(str).toString();
         }
+        return hashFunc(str).toString();
     }
 
-    // Check if algorithm is a session variant
-    function isSessionAlgorithm(algorithm) {
-        return algorithm && algorithm.endsWith('-sess');
-    }
-
-    // Get base algorithm from session algorithm
-    function getBaseAlgorithm(algorithm) {
-        return isSessionAlgorithm(algorithm) ? algorithm.replace('-sess', '') : algorithm;
-    }
-
-    // Calculate HA1 according to RFC 7616
-    function calculateHA1(username, realm, password, algorithm, nonce, cnonce) {
-        const baseAlgorithm = getBaseAlgorithm(algorithm);
-        const initialHash = hash(`${username}:${realm}:${password}`, baseAlgorithm);
-
-        if (isSessionAlgorithm(algorithm)) {
-            // For -sess algorithms: HA1 = H(H(username:realm:password):nonce:cnonce)
-            const sessionInput = `${initialHash}:${nonce}:${cnonce}`;
-            return hash(sessionInput, baseAlgorithm);
-        } else {
-            // For regular algorithms: HA1 = H(username:realm:password)
-            return initialHash;
-        }
-    }
-
-    // Generate random nonce
-    function generateNonce() {
-        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    // Console logging
+    function logToConsole(message, type = 'info') {
+        const console = document.getElementById('console');
+        const timestamp = new Date().toLocaleTimeString();
+        const className = `log-${type}`;
+        console.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+        console.scrollTop = console.scrollHeight;
     }
 
     // Parse WWW-Authenticate header
-    function parseWWWAuthenticate(headerValue) {
-        const result = {};
+    function parseAuthHeader(headerValue) {
+        const params = {};
         const regex = /(\w+)=("([^"]+)"|([^,\s]+))/g;
         let match;
-
         while ((match = regex.exec(headerValue)) !== null) {
-            const key = match[1];
-            const value = match[3] || match[4];
-            result[key] = value;
+            params[match[1]] = match[3] || match[4];
         }
-
-        return result;
+        return params;
     }
 
-    // Parse QOP parameter and select the first supported one
+    // Select best QOP option
     function selectQop(qopString) {
         if (!qopString) return 'auth';
+        const options = qopString.split(',').map(q => q.trim());
+        return options.includes('auth') ? 'auth' : options.includes('auth-int') ? 'auth-int' : options[0] || 'auth';
+    }
 
-        // Split by comma and trim whitespace
-        const qopOptions = qopString.split(',').map(q => q.trim());
+    // Calculate digest authentication values
+    function calculateDigestAuth(username, password, method, uri, authParams, requestBody = '') {
+        const { realm, nonce, algorithm = 'MD5', qop = 'auth' } = authParams;
+        const cnonce = generateNonce();
+        const nc = "00000001";
+        const baseAlg = getBaseAlgorithm(algorithm);
 
-        // Prefer 'auth' if available, then 'auth-int', otherwise take the first one
-        if (qopOptions.includes('auth')) {
-            return 'auth';
-        } else if (qopOptions.includes('auth-int')) {
-            return 'auth-int';
+        // Calculate HA1
+        const initialHash = computeHash(`${username}:${realm}:${password}`, baseAlg);
+        const ha1 = isSessionAlgorithm(algorithm)
+            ? computeHash(`${initialHash}:${nonce}:${cnonce}`, baseAlg)
+            : initialHash;
+
+        // Calculate HA2
+        const ha2 = qop === 'auth-int'
+            ? computeHash(`${method}:${uri}:${computeHash(requestBody, baseAlg)}`, baseAlg)
+            : computeHash(`${method}:${uri}`, baseAlg);
+
+        // Calculate response
+        const responseInput = `${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`;
+        const response = computeHash(responseInput, baseAlg);
+
+        return { ha1, ha2, response, cnonce, nc, qop: qop };
+    }
+
+    // Create authorization header
+    function createAuthHeader(username, authParams, digestValues, uri) {
+        const { realm, nonce, algorithm = 'MD5', opaque = '' } = authParams;
+        const { response, cnonce, nc, qop } = digestValues;
+
+        return `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", ` +
+               `algorithm="${algorithm}", qop="${qop}", nc="${nc}", cnonce="${cnonce}", ` +
+               `response="${response}", userhash=false, opaque="${opaque}"`;
+    }
+
+    // Make authenticated request
+    async function makeAuthenticatedRequest(endpoint, method = 'GET', body = null) {
+        const { username, password } = getCurrentCredentials();
+
+        if (!username || !password) {
+            logToConsole('Please enter username and password', 'error');
+            return;
         }
 
-        return qopOptions[0] || 'auth';
-    }
+        const url = `${SERVER_URL}${endpoint}`;
+        logToConsole(`${method} ${endpoint}`, 'info');
+        if (body) logToConsole(`Request Body: ${body}`, 'info');
 
-    // Calculate HA2 based on QOP value
-    function calculateHA2(method, uri, qop, entityBody, algorithm) {
-        const baseAlgorithm = getBaseAlgorithm(algorithm);
+        try {
+            // Initial request
+            const options = { method, credentials: 'omit' };
+            if (body && method !== 'GET') {
+                options.headers = { 'Content-Type': 'application/json' };
+                options.body = body;
+            }
 
-        if (qop === 'auth-int') {
-            // For auth-int: HA2 = H(method:uri:H(entity-body))
-            const entityHash = hash(entityBody || '', baseAlgorithm);
-            return hash(`${method}:${uri}:${entityHash}`, baseAlgorithm);
-        } else {
-            // For auth: HA2 = H(method:uri)
-            return hash(`${method}:${uri}`, baseAlgorithm);
+            const response = await fetch(url, options);
+            logToConsole(`Status: ${response.status} ${response.statusText}`, response.status === 200 ? 'success' : 'info');
+
+            if (response.status === 401) {
+                return await handleAuthChallenge(response, endpoint, method, body, username, password);
+            } else {
+                const text = await response.text();
+                logToConsole(`Response: ${text}`, 'success');
+                return true;
+            }
+        } catch (error) {
+            logToConsole(`Error: ${error.message}`, 'error');
+            return false;
+        } finally {
+            logToConsole('---', 'info');
         }
     }
 
-    // Log response
-    function logResponse(message, type = 'info') {
-        const responseArea = document.getElementById('responseArea');
-        const timestamp = new Date().toLocaleTimeString();
-        const className = type === 'error' ? 'status-error' : type === 'success' ? 'status-success' : 'status-info';
+    // Handle 401 authentication challenge
+    async function handleAuthChallenge(response, endpoint, method, body, username, password) {
+        const wwwAuth = response.headers.get('WWW-Authenticate');
+        if (!wwwAuth || !wwwAuth.startsWith('Digest')) {
+            logToConsole('No valid WWW-Authenticate header', 'error');
+            return false;
+        }
 
-        responseArea.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
-        responseArea.scrollTop = responseArea.scrollHeight;
+        const authParams = parseAuthHeader(wwwAuth);
+        const selectedQop = selectQop(authParams.qop);
+        authParams.qop = selectedQop;
+
+        logToConsole(`Auth params: realm="${authParams.realm}", qop="${selectedQop}", algorithm="${authParams.algorithm || 'MD5'}"`, 'info');
+
+        const digestValues = calculateDigestAuth(username, password, method, endpoint, authParams, body || '');
+        const authHeader = createAuthHeader(username, authParams, digestValues, endpoint);
+
+        logToConsole(`Authorization: ${authHeader}`, 'info');
+
+        // Make authenticated request
+        const authOptions = {
+            method,
+            headers: { 'Authorization': authHeader },
+            credentials: 'omit'
+        };
+
+        if (body && method !== 'GET') {
+            authOptions.headers['Content-Type'] = 'application/json';
+            authOptions.body = body;
+        }
+
+        const authResponse = await fetch(`${SERVER_URL}${endpoint}`, authOptions);
+        const success = authResponse.status === 200;
+        const text = await authResponse.text();
+
+        logToConsole(`Auth Response: ${authResponse.status} ${authResponse.statusText}`, success ? 'success' : 'error');
+        if (text) logToConsole(`Response Body: ${text}`, success ? 'success' : 'error');
+
+        return success;
     }
 
-    // Select user
-    function selectUser(username, password) {
+    // Event Handlers
+    function setActiveUser(card) {
+        document.querySelectorAll('.user-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+
+        const username = card.dataset.username;
+        const password = card.dataset.password;
+
         document.getElementById('username').value = username;
         document.getElementById('password').value = password;
 
-        // Update active user card
-        document.querySelectorAll('.user-card').forEach(card => {
-            card.classList.remove('active');
-        });
-        event.target.closest('.user-card').classList.add('active');
-
-        logResponse(`Selected user: ${username}`, 'info');
+        logToConsole(`Selected user: ${username}`, 'info');
     }
 
-    // Update email function
-    async function updateEmail() {
-        const newEmail = document.getElementById('newEmail').value;
+    async function handleEmailUpdate() {
+        const newEmail = document.getElementById('newEmail').value.trim();
 
         if (!newEmail) {
-            logResponse('Please enter a new email address', 'error');
+            logToConsole('Please enter a new email address', 'error');
             return;
         }
 
         if (!isValidEmail(newEmail)) {
-            logResponse('Please enter a valid email address', 'error');
+            logToConsole('Please enter a valid email address', 'error');
             return;
         }
 
-        const body = JSON.stringify({
-            email: newEmail
-        });
+        const body = JSON.stringify({ email: newEmail });
+        const success = await makeAuthenticatedRequest('/profile/email', 'PUT', body);
 
-        logResponse(`Updating email to: ${newEmail}`, 'info');
-        await testEndpoint('/profile/email', 'PUT', body);
+        if (success) {
+            document.getElementById('newEmail').value = '';
+            logToConsole('Email field cleared after successful update', 'info');
+        }
     }
 
-    // Email validation function
-    function isValidEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
+    function makeRequest(endpoint) {
+        return makeAuthenticatedRequest(endpoint);
     }
 
-    // Test endpoint
-    async function testEndpoint(endpoint, method = 'GET', body = null) {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-
-        if (!username || !password) {
-            logResponse('Please enter username and password', 'error');
-            return;
-        }
-
-        const url = `http://localhost:8080${endpoint}`;
-
-        logResponse(`Testing ${endpoint}...`, 'info');
-        logResponse(`Request: ${method} ${url}`, 'info');
-        if (body) {
-            logResponse(`Request Body: ${body}`, 'info');
-        }
-
-        try {
-            // First request - expect 401 for protected endpoints
-            const requestOptions = {
-                method: method,
-                credentials: 'omit'
-            };
-
-            if (body && method !== 'GET') {
-                requestOptions.headers = {
-                    'Content-Type': 'application/json'
-                };
-                requestOptions.body = body;
-            }
-
-            const response = await fetch(url, requestOptions);
-
-            logResponse(`Response Status: ${response.status} ${response.statusText}`,
-                response.status === 200 ? 'success' : 'info');
-
-            if (response.status === 401) {
-                const wwwAuth = response.headers.get('WWW-Authenticate');
-                logResponse(`WWW-Authenticate: ${wwwAuth}`, 'info');
-
-                if (wwwAuth && wwwAuth.startsWith('Digest')) {
-                    const authParams = parseWWWAuthenticate(wwwAuth);
-                    logResponse(`Parsed auth params: ${JSON.stringify(authParams, null, 2)}`, 'info');
-
-                    const cnonce = generateNonce();
-                    const algorithm = authParams.algorithm || 'MD5';
-                    const qop = selectQop(authParams.qop);
-                    const nc = "00000001";
-
-                    logResponse(`Selected QOP: ${qop} (from "${authParams.qop}")`, 'info');
-                    logResponse(`Using algorithm: ${algorithm}`, 'info');
-
-                    // Calculate HA1 with proper RFC 7616 support for -sess algorithms
-                    const ha1 = calculateHA1(username, authParams.realm, password, algorithm, authParams.nonce, cnonce);
-
-                    // Calculate HA2 with proper QOP support
-                    const entityBody = body || ''; // Use actual request body
-                    const ha2 = calculateHA2(method, endpoint, qop, entityBody, algorithm);
-
-                    // Calculate response
-                    const responseInput = `${ha1}:${authParams.nonce}:${nc}:${cnonce}:${qop}:${ha2}`;
-                    const digestResponse = hash(responseInput, getBaseAlgorithm(algorithm));
-
-                    // Log the computation details
-                    logResponse(`Digest computation using ${algorithm} with qop=${qop}:`, 'info');
-
-                    if (isSessionAlgorithm(algorithm)) {
-                        const baseAlg = getBaseAlgorithm(algorithm);
-                        const initialHA1 = hash(`${username}:${authParams.realm}:${password}`, baseAlg);
-                        logResponse(`  Initial HA1 = ${baseAlg}("${username}:${authParams.realm}:${password}") = ${initialHA1}`, 'info');
-                        logResponse(`  HA1 = ${baseAlg}("${initialHA1}:${authParams.nonce}:${cnonce}") = ${ha1}`, 'info');
-                    } else {
-                        logResponse(`  HA1 = ${algorithm}("${username}:${authParams.realm}:${password}") = ${ha1}`, 'info');
-                    }
-
-                    if (qop === 'auth-int') {
-                        const entityHash = hash(entityBody, getBaseAlgorithm(algorithm));
-                        logResponse(`  Entity-Body Hash = ${getBaseAlgorithm(algorithm)}("${entityBody}") = ${entityHash}`, 'info');
-                        logResponse(`  HA2 = ${getBaseAlgorithm(algorithm)}("${method}:${endpoint}:${entityHash}") = ${ha2}`, 'info');
-                    } else {
-                        logResponse(`  HA2 = ${getBaseAlgorithm(algorithm)}("${method}:${endpoint}") = ${ha2}`, 'info');
-                    }
-
-                    logResponse(`  Response = ${getBaseAlgorithm(algorithm)}("${responseInput}") = ${digestResponse}`, 'info');
-
-                    // Create authorization header with proper opaque handling
-                    const opaque = authParams.opaque || '';
-                    const authHeader = `Digest username="${username}", realm="${authParams.realm}", nonce="${authParams.nonce}", uri="${endpoint}", algorithm="${algorithm}", qop="${qop}", nc="${nc}", cnonce="${cnonce}", response="${digestResponse}", userhash=false, opaque="${opaque}"`;
-
-                    logResponse(`Authorization: ${authHeader}`, 'info');
-
-                    // Make the authenticated request
-                    const authRequestOptions = {
-                        method: method,
-                        headers: {
-                            'Authorization': authHeader
-                        },
-                        credentials: 'omit'
-                    };
-
-                    if (body && method !== 'GET') {
-                        authRequestOptions.headers['Content-Type'] = 'application/json';
-                        authRequestOptions.body = body;
-                    }
-
-                    const authResponse = await fetch(url, authRequestOptions);
-
-                    logResponse(`Response: ${authResponse.status} ${authResponse.statusText}`,
-                        authResponse.status === 200 ? 'success' : 'error');
-
-                    if (authResponse.status === 200) {
-                        const responseText = await authResponse.text();
-                        logResponse(`Success! Response Body: ${responseText}`, 'success');
-
-                        // If it's an email update, clear the email field on success
-                        if (endpoint === '/profile/email' && method === 'PUT') {
-                            document.getElementById('newEmail').value = '';
-                            logResponse('Email field cleared after successful update', 'info');
-                        }
-                    } else {
-                        const responseText = await authResponse.text();
-                        if (responseText) {
-                            logResponse(`Failed. Response Body: ${responseText}`, 'error');
-                        } else {
-                            logResponse(`Failed. Empty response body`, 'error');
-                        }
-
-                        if (authResponse.status === 401) {
-                            const newChallenge = authResponse.headers.get('WWW-Authenticate');
-                            if (newChallenge) {
-                                logResponse(`New challenge: ${newChallenge}`, 'error');
-                            }
-                        }
-                    }
-                } else {
-                    logResponse('No valid WWW-Authenticate header found', 'error');
-                }
-            } else {
-                // Public endpoint or already authenticated
-                const responseText = await response.text();
-                logResponse(`Response Body: ${responseText}`, 'success');
-            }
-
-        } catch (error) {
-            logResponse(`Error: ${error.message}`, 'error');
-        }
-
-        logResponse('---', 'info');
-    }
-
-    // Clear response
-    function clearResponse() {
-        document.getElementById('responseArea').innerHTML =
-            '<div class="status-success">Digest Authentication Client ready!</div>' +
+    function clearConsole() {
+        document.getElementById('console').innerHTML =
+            '<div class="log-success">Digest Authentication Client ready!</div>' +
             '<div>Click on any endpoint button to test authentication.</div>';
     }
 
     // Initialize
-    logResponse('Digest Authentication Client ready!', 'success');
-    logResponse('Server should be running on http://localhost:8080', 'info');
-    logResponse('Available users: john/password123, jane/secret456, admin/admin123', 'info');
-    logResponse('User emails: john@example.com, jane@example.com, admin@company.com', 'info');
-    logResponse('Using CryptoJS library for secure hashing', 'info');
-    logResponse('RFC 7616 compliant: Supports MD5, SHA-256, SHA-256-sess, SHA-512, SHA-512-sess', 'info');
-    logResponse('QOP support: auth, auth-int (authentication with integrity protection)', 'info');
-    logResponse('Authentication format: RFC 2617/7616 compliant with ZIO HTTP', 'info');
-    logResponse('New feature: Update user email via PUT /profile/email', 'info');
+    document.addEventListener('DOMContentLoaded', () => {
+        // Setup user card click handlers
+        document.querySelectorAll('.user-card').forEach(card => {
+            card.addEventListener('click', () => setActiveUser(card));
+        });
+
+        // Initial console messages
+        logToConsole('Server running on http://localhost:8080', 'info');
+        logToConsole('Users: john/password123, jane/secret456, admin/admin123', 'info');
+        logToConsole('RFC 7616 compliant with MD5, SHA-256, SHA-512 support', 'info');
+    });
 </script>
 </body>
 </html>

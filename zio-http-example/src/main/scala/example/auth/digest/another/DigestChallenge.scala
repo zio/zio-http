@@ -119,7 +119,7 @@ object DigestHashService {
             MessageDigest.getInstance("MD5")
           case HashAlgorithm.SHA256 | HashAlgorithm.SHA256_SESS =>
             MessageDigest.getInstance("SHA-256")
-          case HashAlgorithm.SHA512                         =>
+          case HashAlgorithm.SHA512                             =>
             MessageDigest.getInstance("SHA-512")
         }
         md.digest(data.getBytes("UTF-8"))
@@ -161,23 +161,23 @@ object DigestAuthService {
           realm: String,
         ): UIO[List[DigestChallenge]] =
           for {
-          timestamp <- Clock.currentTime(TimeUnit.MILLISECONDS)
-          nonce     <- nonceService.generateNonce(timestamp)
-          bytes     <- Random.nextString(32).map(_.getBytes(Charsets.Utf8))
-          opaque    <- ZIO.succeed(Base64.getEncoder.encodeToString(bytes))
-        } yield
-           {
-             List(HashAlgorithm.SHA256, HashAlgorithm.SHA256_SESS/* HashAlgorithm.MD5, HashAlgorithm.SHA512*/).map { algorithm =>
-               DigestChallenge(
-                 realm = realm,
-                 nonce = nonce,
-                 opaque = Some(opaque),
-                 algorithm = algorithm,
-                 qop = List( QualityOfProtection.AuthInt),
-               )
-             }
+            timestamp <- Clock.currentTime(TimeUnit.MILLISECONDS)
+            nonce     <- nonceService.generateNonce(timestamp)
+            bytes     <- Random.nextString(32).map(_.getBytes(Charsets.Utf8))
+            opaque    <- ZIO.succeed(Base64.getEncoder.encodeToString(bytes))
+          } yield {
+            List(HashAlgorithm.SHA256, HashAlgorithm.SHA256_SESS/*, HashAlgorithm.MD5, HashAlgorithm.SHA512*/).map {
+              algorithm =>
+                DigestChallenge(
+                  realm = realm,
+                  nonce = nonce,
+                  opaque = Some(opaque),
+                  algorithm = algorithm,
+                  qop = List(QualityOfProtection.AuthInt),
+                )
+            }
 
-           }
+          }
 
         private def calculateA1(
           username: String,
@@ -289,7 +289,7 @@ object DigestAuthService {
               cnonce,
               qop,
               ha2,
-              algorithm
+              algorithm,
             )
 
             // Mark nonce as used
@@ -311,28 +311,21 @@ object DigestAuthAspect {
     getUserCredentials: String => Task[Option[UserCredentials]],
   )(implicit trace: Trace): HandlerAspect[DigestAuthService, UserCredentials] = {
 
-    def createUnauthorizedResponse(challenges: List[DigestChallenge]): Response = {
-      val headers = challenges.map { challenge =>
-        Header.WWWAuthenticate.Digest(
-          realm = Some(challenge.realm),
-          domain = challenge.domain.flatMap(_.headOption),
-          nonce = Some(challenge.nonce),
-          stale = Some(challenge.stale),
-          opaque = challenge.opaque,
-          algorithm = Some(challenge.algorithm.name),
-          qop = Some(challenge.qop.map(_.name).mkString(", ")),
-          charset = challenge.charset,
-          userhash = Some(challenge.userhash)
-        )
-      }
-
-     val res = headers.foldLeft(Response.status(Status.Unauthorized))((resp, header) =>
-        resp.addHeader(header)
-      )
-
-      println(res)
-     res
-    }
+def createUnauthorizedResponse(challenges: List[DigestChallenge]): Response = {
+  Response.unauthorized.addHeaders(Headers(challenges.map { challenge =>
+    Header.WWWAuthenticate.Digest(
+      realm = Some(challenge.realm),
+      domain = challenge.domain.flatMap(_.headOption),
+      nonce = Some(challenge.nonce),
+      stale = Some(challenge.stale),
+      opaque = challenge.opaque,
+      algorithm = Some(challenge.algorithm.name),
+      qop = Some(challenge.qop.map(_.name).mkString(", ")),
+      charset = challenge.charset,
+      userhash = Some(challenge.userhash),
+    )
+  }))
+}
 
     HandlerAspect.interceptIncomingHandler[DigestAuthService, UserCredentials] {
       Handler.fromFunctionZIO[Request](request =>
