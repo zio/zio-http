@@ -315,7 +315,7 @@
     <div class="header">
         <div class="auth-logo">🔐</div>
         <h1>Digest Authentication Client</h1>
-        <p class="subtitle">HTTP Digest Authentication Demo</p>
+        <p class="subtitle">HTTP Digest Authentication Demo (RFC 7616 Compliant)</p>
     </div>
 
     <div class="section">
@@ -392,19 +392,45 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
 <script>
+    // Hash function supporting different algorithms
     function hash(str, algorithm) {
         switch(algorithm) {
             case 'MD5':
                 return CryptoJS.MD5(str).toString();
             case 'SHA-256':
-                return CryptoJS.SHA256(str).toString();
             case 'SHA-256-sess':
                 return CryptoJS.SHA256(str).toString();
             case 'SHA-512':
+            case 'SHA-512-sess':
                 return CryptoJS.SHA512(str).toString();
             default:
                 logResponse(`Unsupported algorithm: ${algorithm}, falling back to MD5`, 'error');
                 return CryptoJS.MD5(str).toString();
+        }
+    }
+
+    // Check if algorithm is a session variant
+    function isSessionAlgorithm(algorithm) {
+        return algorithm && algorithm.endsWith('-sess');
+    }
+
+    // Get base algorithm from session algorithm
+    function getBaseAlgorithm(algorithm) {
+        return isSessionAlgorithm(algorithm) ? algorithm.replace('-sess', '') : algorithm;
+    }
+
+    // Calculate HA1
+    function calculateHA1(username, realm, password, algorithm, nonce, cnonce) {
+        const baseAlgorithm = getBaseAlgorithm(algorithm);
+        const initialHash = hash(`${username}:${realm}:${password}`, baseAlgorithm);
+
+        if (isSessionAlgorithm(algorithm)) {
+            // For -sess algorithms: HA1 = H(H(username:realm:password):nonce:cnonce)
+            const sessionInput = `${initialHash}:${nonce}:${cnonce}`;
+            return hash(sessionInput, baseAlgorithm);
+        } else {
+            // For regular algorithms: HA1 = H(username:realm:password)
+            return initialHash;
         }
     }
 
@@ -502,24 +528,37 @@
 
                     const cnonce = generateNonce();
                     const algorithm = authParams.algorithm || 'MD5';
-                    const qop = selectQop(authParams.qop);  // Fixed: select single QOP value
+                    const qop = selectQop(authParams.qop);
                     const nc = "00000001";
 
                     logResponse(`Selected QOP: ${qop} (from "${authParams.qop}")`, 'info');
                     logResponse(`Using algorithm: ${algorithm}`, 'info');
 
-                    // Compute digest with the correct algorithm
-                    const hashInput1 = `${username}:${authParams.realm}:${password}`;
-                    const hashInput2 = `GET:${endpoint}`;
-                    const hash1 = hash(hashInput1, algorithm);  // Fixed: use correct algorithm
-                    const hash2 = hash(hashInput2, algorithm);  // Fixed: use correct algorithm
-                    const finalInput = `${hash1}:${authParams.nonce}:${nc}:${cnonce}:${qop}:${hash2}`;
-                    const digestResponse = hash(finalInput, algorithm);  // Fixed: use correct algorithm
+                    // Calculate HA1 with proper RFC 7616 support for -sess algorithms
+                    const ha1 = calculateHA1(username, authParams.realm, password, algorithm, authParams.nonce, cnonce);
 
+                    // Calculate HA2
+                    const ha2Input = `GET:${endpoint}`;
+                    const ha2 = hash(ha2Input, getBaseAlgorithm(algorithm));
+
+                    // Calculate response
+                    const responseInput = `${ha1}:${authParams.nonce}:${nc}:${cnonce}:${qop}:${ha2}`;
+                    const digestResponse = hash(responseInput, getBaseAlgorithm(algorithm));
+
+                    // Log the computation details
                     logResponse(`Digest computation using ${algorithm}:`, 'info');
-                    logResponse(`  HA1 = ${algorithm}("${hashInput1}") = ${hash1}`, 'info');
-                    logResponse(`  HA2 = ${algorithm}("${hashInput2}") = ${hash2}`, 'info');
-                    logResponse(`  Response = ${algorithm}("${finalInput}") = ${digestResponse}`, 'info');
+
+                    if (isSessionAlgorithm(algorithm)) {
+                        const baseAlg = getBaseAlgorithm(algorithm);
+                        const initialHA1 = hash(`${username}:${authParams.realm}:${password}`, baseAlg);
+                        logResponse(`  Initial HA1 = ${baseAlg}("${username}:${authParams.realm}:${password}") = ${initialHA1}`, 'info');
+                        logResponse(`  HA1 = ${baseAlg}("${initialHA1}:${authParams.nonce}:${cnonce}") = ${ha1}`, 'info');
+                    } else {
+                        logResponse(`  HA1 = ${algorithm}("${username}:${authParams.realm}:${password}") = ${ha1}`, 'info');
+                    }
+
+                    logResponse(`  HA2 = ${getBaseAlgorithm(algorithm)}("${ha2Input}") = ${ha2}`, 'info');
+                    logResponse(`  Response = ${getBaseAlgorithm(algorithm)}("${responseInput}") = ${digestResponse}`, 'info');
 
                     // Create authorization header with proper opaque handling
                     const opaque = authParams.opaque || '';
@@ -584,8 +623,9 @@
     logResponse('Digest Authentication Client ready!', 'success');
     logResponse('Server should be running on http://localhost:8080', 'info');
     logResponse('Available users: john/password123, jane/secret456, admin/admin123', 'info');
-    logResponse('Using CryptoJS library for secure MD5 and SHA-256 hashing', 'info');
-    logResponse('Authentication format: RFC 2617 compliant with ZIO HTTP', 'info');
+    logResponse('Using CryptoJS library for secure hashing', 'info');
+    logResponse('RFC 7616 compliant: Supports MD5, SHA-256, SHA-256-sess, SHA-512, SHA-512-sess', 'info');
+    logResponse('Authentication format: RFC 2617/7616 compliant with ZIO HTTP', 'info');
 </script>
 </body>
 </html>
