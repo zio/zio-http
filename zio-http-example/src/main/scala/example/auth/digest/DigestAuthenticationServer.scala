@@ -1,6 +1,6 @@
 package example.auth.digest
 
-import example.auth.digest.core.DigestAuthHandlerAspect.UserCredentials
+import example.auth.digest.core.DigestAuthHandlerAspect.{UserCredentials, Username}
 import example.auth.digest.core.QualityOfProtection.AuthInt
 import example.auth.digest.core._
 import zio.Config.Secret
@@ -11,15 +11,24 @@ import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
 object DigestAuthenticationServer extends ZIOAppDefault {
 
-  val userDatabase: Map[String, UserCredentials] =
+  def extractUser(request: Request): Option[String] = {
+    request.header(Header.Authorization) match {
+      case Some(authHeader: Header.Authorization.Digest) => Some(authHeader.username)
+      case _                                             => None
+    }
+  }
+
+  case class User(username: String, password: Secret, email: String)
+
+  val userDatabase: Map[String, User] =
     Map(
-      "john"  -> UserCredentials("john", Secret("password123"), "john@example.com"),
-      "jane"  -> UserCredentials("jane", Secret("secret456"), "jane@example.com"),
-      "admin" -> UserCredentials("admin", Secret("admin123"), "admin@company.com"),
+      "john"  -> User("john", Secret("password123"), "john@example.com"),
+      "jane"  -> User("jane", Secret("secret456"), "jane@example.com"),
+      "admin" -> User("admin", Secret("admin123"), "admin@company.com"),
     )
 
   def getUserCredentials(username: String): Task[Option[UserCredentials]] =
-    ZIO.succeed(userDatabase.get(username))
+    ZIO.succeed(userDatabase.get(username).map(user => UserCredentials(Username(user.username), user.password)))
 
   def routes =
     Routes(
@@ -34,8 +43,12 @@ object DigestAuthenticationServer extends ZIOAppDefault {
 
       // Protected profile route
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
-        ZIO.serviceWith[UserCredentials] { userCredentials =>
-          Response.text(s"Hello ${userCredentials.username}! This is your profile. Email: ${userCredentials.email}")
+        {
+          for {
+            username <- ZIO.service[Username]
+            user = userDatabase(username.value)
+          } yield Response.text(s"Hello ${user.username}! This is your profile. Email: ${user.email}")
+
         }
       } @@ DigestAuthHandlerAspect(
         realm = "http-auth@example.org",
@@ -45,14 +58,15 @@ object DigestAuthenticationServer extends ZIOAppDefault {
       // New protected route for updating email
       Method.PUT / "profile" / "email" -> handler { (req: Request) =>
         for {
-          userCredentials <- ZIO.service[UserCredentials]
-          updateRequest   <- req.body
+          userCredentials <- ZIO.service[Username]
+          user = userDatabase(userCredentials.value)
+          updateRequest <- req.body
             .to[UpdateEmailRequest]
             .mapError(error => Response.badRequest(s"Invalid JSON: $error"))
           // In a real application, you would persist this change to a database
-          _ <- Console.printLine(s"User ${userCredentials.username} updated email to: ${updateRequest.email}").orDie
+          _             <- Console.printLine(s"User ${user.username} updated email to: ${user.email}").orDie
         } yield Response.text(
-          s"Email updated successfully for user ${userCredentials.username}! New email: ${updateRequest.email}",
+          s"Email updated successfully for user ${user.username}! New email: ${updateRequest.email}",
         )
       } @@ DigestAuthHandlerAspect(
         realm = "http-auth@example.org",
@@ -62,11 +76,12 @@ object DigestAuthenticationServer extends ZIOAppDefault {
 
       // Protected admin route - only for admin user
       Method.GET / "admin" -> handler { (_: Request) =>
-        ZIO.serviceWith[UserCredentials] { userCredentials =>
-          if (userCredentials.username == "admin")
-            Response.text(s"Welcome to admin panel, ${userCredentials.username}! Admin email: ${userCredentials.email}")
+        ZIO.serviceWith[Username] { userCredentials =>
+          val user = userDatabase(userCredentials.value)
+          if (userCredentials.value == "admin")
+            Response.text(s"Welcome to admin panel, ${user.username}! Admin email: ${user.email}")
           else
-            Response.unauthorized(s"Access denied. User ${userCredentials.username} is not an admin.")
+            Response.unauthorized(s"Access denied. User ${user.username} is not an admin.")
         }
       } @@ DigestAuthHandlerAspect(
         realm = "http-auth@example.org",

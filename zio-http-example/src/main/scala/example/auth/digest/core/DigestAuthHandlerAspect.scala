@@ -1,6 +1,6 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.QualityOfProtection.Auth
+import example.auth.digest.core.QualityOfProtection.AuthInt
 import zio.Config.Secret
 import zio._
 import zio.http._
@@ -10,8 +10,8 @@ object DigestAuthHandlerAspect {
   def apply(
     realm: String,
     getUserCredentials: String => Task[Option[UserCredentials]],
-    qop: List[QualityOfProtection] = List(Auth),
-  ): HandlerAspect[DigestAuthService, UserCredentials] = {
+    qop: List[QualityOfProtection] = List(AuthInt),
+  ): HandlerAspect[DigestAuthService, Username] = {
 
     def createUnauthorizedResponse(challenges: List[DigestChallenge]): Response = {
       Response.unauthorized.addHeaders(Headers(challenges.map { challenge =>
@@ -29,7 +29,7 @@ object DigestAuthHandlerAspect {
       }))
     }
 
-    HandlerAspect.interceptIncomingHandler[DigestAuthService, UserCredentials] {
+    HandlerAspect.interceptIncomingHandler[DigestAuthService, Username] {
       Handler.fromFunctionZIO[Request](request =>
         request.header(Header.Authorization) match {
           case Some(authHeader: Header.Authorization.Digest) =>
@@ -66,7 +66,7 @@ object DigestAuthHandlerAspect {
 
               result <-
                 if (isValid)
-                  ZIO.succeed((request, userCreds))
+                  ZIO.succeed((request, userCreds.username))
                 else
                   digestService
                     .createChallenge(authHeader.realm, QualityOfProtection.fromString(authHeader.qop).toList)
@@ -97,6 +97,7 @@ object DigestAuthHandlerAspect {
     userhash: Boolean = false,
   )
 
-  case class UserCredentials(username: String, password: Secret, email: String)
+  case class UserCredentials(username: Username, password: Secret)
+  case class Username(value: String)
 
 }
