@@ -27,7 +27,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
             position: relative;
             overflow: hidden;
@@ -134,6 +134,13 @@
             font-size: 12px;
         }
 
+        .user-card .email {
+            color: #888;
+            font-size: 11px;
+            font-style: italic;
+            margin-top: 5px;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -146,7 +153,7 @@
             font-size: 14px;
         }
 
-        input[type="text"], input[type="password"] {
+        input[type="text"], input[type="password"], input[type="email"] {
             width: 100%;
             padding: 12px 16px;
             border: 2px solid #e1e5e9;
@@ -156,10 +163,18 @@
             background: white;
         }
 
-        input[type="text"]:focus, input[type="password"]:focus {
+        input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .email-update-section {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 20px;
         }
 
         .endpoints {
@@ -232,6 +247,11 @@
 
         .btn-public {
             background: linear-gradient(45deg, #4ECDC4, #44a08d);
+            color: white;
+        }
+
+        .btn-update {
+            background: linear-gradient(45deg, #9C27B0, #8E24AA);
             color: white;
         }
 
@@ -324,14 +344,17 @@
             <div class="user-card active" onclick="selectUser('john', 'password123')">
                 <h4>John</h4>
                 <p>Regular User</p>
+                <p class="email">john@example.com</p>
             </div>
             <div class="user-card" onclick="selectUser('jane', 'secret456')">
                 <h4>Jane</h4>
                 <p>Regular User</p>
+                <p class="email">jane@example.com</p>
             </div>
             <div class="user-card" onclick="selectUser('admin', 'admin123')">
                 <h4>Admin</h4>
                 <p>Administrator</p>
+                <p class="email">admin@company.com</p>
             </div>
         </div>
 
@@ -349,6 +372,22 @@
         <h2>🔒 Protected Endpoints</h2>
         <div class="endpoints">
             <div class="endpoint-section">
+                <h3>📧 Email Management</h3>
+                <div class="email-update-section">
+                    <div class="form-group">
+                        <label for="newEmail">New Email Address:</label>
+                        <input type="email" id="newEmail" placeholder="Enter new email address">
+                    </div>
+                    <div class="endpoint-buttons">
+                        <button class="btn btn-update" onclick="updateEmail()">
+                            <span>📧</span>
+                            Update Email (PUT /profile/email)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-section">
                 <h3>🛡️ Protected Routes</h3>
                 <div class="endpoint-buttons">
                     <button class="btn btn-profile" onclick="testEndpoint('/profile/me')">
@@ -358,10 +397,6 @@
                     <button class="btn btn-admin" onclick="testEndpoint('/admin')">
                         <span>👨‍💼</span>
                         Admin (/admin)
-                    </button>
-                    <button class="btn btn-profile" onclick="testEndpoint('/profile/update', 'POST', '{\"name\":\"Updated Name\"}')">
-                    <span>📝</span>
-                    Update Profile (POST)
                     </button>
                 </div>
             </div>
@@ -513,6 +548,34 @@
         logResponse(`Selected user: ${username}`, 'info');
     }
 
+    // Update email function
+    async function updateEmail() {
+        const newEmail = document.getElementById('newEmail').value;
+
+        if (!newEmail) {
+            logResponse('Please enter a new email address', 'error');
+            return;
+        }
+
+        if (!isValidEmail(newEmail)) {
+            logResponse('Please enter a valid email address', 'error');
+            return;
+        }
+
+        const body = JSON.stringify({
+            email: newEmail
+        });
+
+        logResponse(`Updating email to: ${newEmail}`, 'info');
+        await testEndpoint('/profile/email', 'PUT', body);
+    }
+
+    // Email validation function
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
     // Test endpoint
     async function testEndpoint(endpoint, method = 'GET', body = null) {
         const username = document.getElementById('username').value;
@@ -627,6 +690,12 @@
                     if (authResponse.status === 200) {
                         const responseText = await authResponse.text();
                         logResponse(`Success! Response Body: ${responseText}`, 'success');
+
+                        // If it's an email update, clear the email field on success
+                        if (endpoint === '/profile/email' && method === 'PUT') {
+                            document.getElementById('newEmail').value = '';
+                            logResponse('Email field cleared after successful update', 'info');
+                        }
                     } else {
                         const responseText = await authResponse.text();
                         if (responseText) {
@@ -669,10 +738,12 @@
     logResponse('Digest Authentication Client ready!', 'success');
     logResponse('Server should be running on http://localhost:8080', 'info');
     logResponse('Available users: john/password123, jane/secret456, admin/admin123', 'info');
+    logResponse('User emails: john@example.com, jane@example.com, admin@company.com', 'info');
     logResponse('Using CryptoJS library for secure hashing', 'info');
     logResponse('RFC 7616 compliant: Supports MD5, SHA-256, SHA-256-sess, SHA-512, SHA-512-sess', 'info');
     logResponse('QOP support: auth, auth-int (authentication with integrity protection)', 'info');
     logResponse('Authentication format: RFC 2617/7616 compliant with ZIO HTTP', 'info');
+    logResponse('New feature: Update user email via PUT /profile/email', 'info');
 </script>
 </body>
 </html>

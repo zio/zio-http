@@ -4,6 +4,7 @@ import example.auth.digest.another.DigestAuthError.{NonceExpired, ReplayAttack}
 import zio.Config.Secret
 import zio._
 import zio.http._
+import zio.json.{DeriveJsonDecoder, DeriveJsonEncoder, JsonDecoder, JsonEncoder}
 
 import java.net.URI
 import java.security.MessageDigest
@@ -22,13 +23,20 @@ case class DigestChallenge(
   userhash: Boolean = false,
 )
 
-case class DigestResponse(
-)
+// Updated UserCredentials case class with email field
+case class UserCredentials(username: String, password: Secret, email: String)
 
-case class UserCredentials(
-  username: String,
-  password: Secret,
-)
+// JSON codecs for request/response
+case class UpdateEmailRequest(email: String)
+case class UpdateEmailResponse(message: String, newEmail: String)
+
+object UpdateEmailRequest {
+  implicit val decoder: JsonDecoder[UpdateEmailRequest] = DeriveJsonDecoder.gen[UpdateEmailRequest]
+}
+
+object UpdateEmailResponse {
+  implicit val encoder: JsonEncoder[UpdateEmailResponse] = DeriveJsonEncoder.gen[UpdateEmailResponse]
+}
 
 sealed trait HashAlgorithm {
   def name: String
