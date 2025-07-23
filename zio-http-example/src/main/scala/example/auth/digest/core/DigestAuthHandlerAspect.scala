@@ -34,7 +34,9 @@ object DigestAuthHandlerAspect {
           case Some(authHeader: Header.Authorization.Digest) =>
             for {
               digestService <- ZIO.service[DigestAuthService]
-              userOption    <- ZIO.serviceWithZIO[UserService](_.getUser(authHeader.username)).orDie
+              userOption    <- ZIO
+                .serviceWithZIO[UserService](_.getUser(authHeader.username))
+                .mapError(_ => Response.internalServerError(s"Failed to authenticate user ${authHeader.username}"))
               user          <- userOption match {
                 case Some(u) => ZIO.succeed(u)
                 case None    =>

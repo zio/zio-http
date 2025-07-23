@@ -39,8 +39,10 @@ object DigestAuthenticationServer extends ZIOAppDefault {
               updateRequest <- req.body
                 .to[UpdateEmailRequest]
                 .mapError(error => Response.badRequest(s"Invalid JSON (UpdateEmailRequest): $error"))
-              _             <- userService.updateEmail(user.username, updateRequest.email).orDie
-              _             <- Console.printLine(s"User ${user.username} updated email to: ${user.email}").orDie
+              _             <- userService
+                .updateEmail(user.username, updateRequest.email)
+                .logError(s"Failed to update email for user ${user.username}")
+                .mapError(_ => Response.internalServerError(s"Failed to update email!"))
             } yield Response.text(
               s"Email updated successfully for user ${user.username}! New email: ${updateRequest.email}",
             )
