@@ -27,7 +27,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
-            max-width: 900px;
+            max-width: 1200px;
             width: 100%;
             position: relative;
             overflow: hidden;
@@ -267,11 +267,113 @@
         .log-error { color: #FF6B6B; font-weight: bold; }
         .log-info { color: #2196F3; font-weight: bold; }
 
+        /* HTTP Transaction Details Styles */
+        .transaction-details {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .transaction-details.visible {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .http-message {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .http-message-header {
+            background: linear-gradient(45deg, #495057, #6c757d);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .http-message-content {
+            padding: 20px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: white;
+        }
+
+        .http-message-content pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            margin: 0;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .http-request {
+            border-left: 4px solid #007bff;
+        }
+
+        .http-request .http-message-header {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+
+        .http-response-401 {
+            border-left: 4px solid #ffc107;
+        }
+
+        .http-response-401 .http-message-header {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+        }
+
+        .http-response-success {
+            border-left: 4px solid #28a745;
+        }
+
+        .http-response-success .http-message-header {
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+        }
+
+        .http-response-error {
+            border-left: 4px solid #dc3545;
+        }
+
+        .http-response-error .http-message-header {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+        }
+
+        .http-method { color: #007bff; font-weight: bold; }
+        .http-status-200 { color: #28a745; font-weight: bold; }
+        .http-status-401 { color: #ffc107; font-weight: bold; }
+        .http-status-error { color: #dc3545; font-weight: bold; }
+        .http-header-name { color: #6f42c1; font-weight: bold; }
+        .http-header-value { color: #495057; }
+
+        .transaction-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            font-size: 24px;
+            color: #6c757d;
+        }
+
         @media (max-width: 768px) {
             .container { padding: 20px; margin: 10px; }
             .user-grid { grid-template-columns: 1fr; }
             .button-group { flex-direction: column; }
             .btn { width: 100%; }
+            .http-message-content { font-size: 12px; }
         }
     </style>
 </head>
@@ -280,7 +382,7 @@
     <div class="header">
         <div class="auth-logo">🔐</div>
         <h1>Digest Authentication Client</h1>
-        <p class="subtitle">HTTP Digest Authentication Demo (RFC 7616 Compliant)</p>
+        <p class="subtitle">HTTP Digest Authentication Demo</p>
     </div>
 
     <div class="section">
@@ -361,6 +463,16 @@
             <span>🗑️</span>Clear Console
         </button>
     </div>
+
+    <!-- HTTP Transaction Details Section -->
+    <div class="section">
+        <h2>📊 HTTP Transaction Details</h2>
+        <div id="transactionDetails" class="transaction-details">
+            <p style="text-align: center; color: #6c757d; font-style: italic;">
+                Click any endpoint button to see detailed HTTP request/response messages
+            </p>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
@@ -370,6 +482,7 @@
     const SERVER_URL = 'http://localhost:8080';
     const DIGEST_ALGORITHMS = {
         'MD5': CryptoJS.MD5,
+        'MD5-sess': CryptoJS.MD5,
         'SHA-256': CryptoJS.SHA256,
         'SHA-256-sess': CryptoJS.SHA256,
         'SHA-512': CryptoJS.SHA512,
@@ -403,6 +516,87 @@
         const className = `log-${type}`;
         console.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
         console.scrollTop = console.scrollHeight;
+    }
+
+    // HTTP Transaction Details Functions
+    function formatHeaders(headers) {
+        let formatted = '';
+        if (headers && typeof headers.forEach === 'function') {
+            headers.forEach((value, name) => {
+                formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
+            });
+        } else if (headers && typeof headers === 'object') {
+            Object.entries(headers).forEach(([name, value]) => {
+                formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
+            });
+        }
+        return formatted;
+    }
+
+    function formatHttpRequest(method, url, headers, body) {
+        const urlObj = new URL(url);
+        let request = `<span class="http-method">${method}</span> ${urlObj.pathname}${urlObj.search} HTTP/1.1\n`;
+        request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${urlObj.host}</span>\n`;
+        request += formatHeaders(headers);
+        if (body) {
+            request += `\n${body}`;
+        }
+        return request;
+    }
+
+    function formatHttpResponse(response, body) {
+        const statusClass = response.status === 200 ? 'http-status-200' :
+                           response.status === 401 ? 'http-status-401' : 'http-status-error';
+
+        let formatted = `HTTP/1.1 <span class="${statusClass}">${response.status} ${response.statusText}</span>\n`;
+        formatted += formatHeaders(response.headers);
+        if (body) {
+            formatted += `\n${body}`;
+        }
+        return formatted;
+    }
+
+    function displayTransactionDetails(transactions) {
+        const detailsContainer = document.getElementById('transactionDetails');
+        let html = '';
+
+        transactions.forEach((transaction, index) => {
+            if (index > 0) {
+                html += '<div class="transaction-flow">⬇️</div>';
+            }
+
+            // Request
+            const requestClass = transaction.type === 'initial' ? 'http-request' : 'http-request';
+            html += `
+                <div class="http-message ${requestClass}">
+                    <div class="http-message-header">
+                        🌐 ${transaction.type === 'initial' ? 'Initial Request' : 'Authenticated Request'}
+                    </div>
+                    <div class="http-message-content">
+                        <pre>${transaction.request}</pre>
+                    </div>
+                </div>
+            `;
+
+            // Response
+            let responseClass = 'http-response-error';
+            if (transaction.response.status === 401) responseClass = 'http-response-401';
+            else if (transaction.response.status === 200) responseClass = 'http-response-success';
+
+            html += `
+                <div class="http-message ${responseClass}">
+                    <div class="http-message-header">
+                        📨 ${transaction.type === 'initial' ? 'Challenge Response (401)' : 'Final Response'}
+                    </div>
+                    <div class="http-message-content">
+                        <pre>${transaction.responseText}</pre>
+                    </div>
+                </div>
+            `;
+        });
+
+        detailsContainer.innerHTML = html;
+        detailsContainer.classList.add('visible');
     }
 
     // Parse WWW-Authenticate header
@@ -471,26 +665,46 @@
         logToConsole(`${method} ${endpoint}`, 'info');
         if (body) logToConsole(`Request Body: ${body}`, 'info');
 
+        const transactions = [];
+
         try {
             // Initial request
             const options = { method, credentials: 'omit' };
+            const requestHeaders = {};
+
             if (body && method !== 'GET') {
-                options.headers = { 'Content-Type': 'application/json' };
+                requestHeaders['Content-Type'] = 'application/json';
+                options.headers = requestHeaders;
                 options.body = body;
             }
 
             const response = await fetch(url, options);
+            const responseBody = await response.text();
+
+            // Record initial transaction
+            transactions.push({
+                type: 'initial',
+                request: formatHttpRequest(method, url, requestHeaders, body),
+                response: response,
+                responseText: formatHttpResponse(response, responseBody)
+            });
+
             logToConsole(`Status: ${response.status} ${response.statusText}`, response.status === 200 ? 'success' : 'info');
 
             if (response.status === 401) {
-                return await handleAuthChallenge(response, endpoint, method, body, username, password);
+                const authSuccess = await handleAuthChallenge(response, endpoint, method, body, username, password, transactions);
+                displayTransactionDetails(transactions);
+                return authSuccess;
             } else {
-                const text = await response.text();
-                logToConsole(`Response: ${text}`, 'success');
+                logToConsole(`Response: ${responseBody}`, 'success');
+                displayTransactionDetails(transactions);
                 return true;
             }
         } catch (error) {
             logToConsole(`Error: ${error.message}`, 'error');
+            if (transactions.length > 0) {
+                displayTransactionDetails(transactions);
+            }
             return false;
         } finally {
             logToConsole('---', 'info');
@@ -498,7 +712,7 @@
     }
 
     // Handle 401 authentication challenge
-    async function handleAuthChallenge(response, endpoint, method, body, username, password) {
+    async function handleAuthChallenge(response, endpoint, method, body, username, password, transactions) {
         const wwwAuth = response.headers.get('WWW-Authenticate');
         if (!wwwAuth || !wwwAuth.startsWith('Digest')) {
             logToConsole('No valid WWW-Authenticate header', 'error');
@@ -529,11 +743,20 @@
         }
 
         const authResponse = await fetch(`${SERVER_URL}${endpoint}`, authOptions);
+        const authResponseBody = await authResponse.text();
+
+        // Record authenticated transaction
+        transactions.push({
+            type: 'authenticated',
+            request: formatHttpRequest(method, `${SERVER_URL}${endpoint}`, authOptions.headers, body),
+            response: authResponse,
+            responseText: formatHttpResponse(authResponse, authResponseBody)
+        });
+
         const success = authResponse.status === 200;
-        const text = await authResponse.text();
 
         logToConsole(`Auth Response: ${authResponse.status} ${authResponse.statusText}`, success ? 'success' : 'error');
-        if (text) logToConsole(`Response Body: ${text}`, success ? 'success' : 'error');
+        if (authResponseBody) logToConsole(`Response Body: ${authResponseBody}`, success ? 'success' : 'error');
 
         return success;
     }
@@ -582,6 +805,15 @@
         document.getElementById('console').innerHTML =
             '<div class="log-success">Digest Authentication Client ready!</div>' +
             '<div>Click on any endpoint button to test authentication.</div>';
+
+        // Also clear transaction details
+        const detailsContainer = document.getElementById('transactionDetails');
+        detailsContainer.innerHTML = `
+            <p style="text-align: center; color: #6c757d; font-style: italic;">
+                Click any endpoint button to see detailed HTTP request/response messages
+            </p>
+        `;
+        detailsContainer.classList.remove('visible');
     }
 
     // Initialize
@@ -594,7 +826,6 @@
         // Initial console messages
         logToConsole('Server running on http://localhost:8080', 'info');
         logToConsole('Users: john/password123, jane/secret456, admin/admin123', 'info');
-        logToConsole('RFC 7616 compliant with MD5, SHA-256, SHA-512 support', 'info');
     });
 </script>
 </body>

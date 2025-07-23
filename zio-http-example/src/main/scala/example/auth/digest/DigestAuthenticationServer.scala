@@ -25,7 +25,7 @@ object DigestAuthenticationServer extends ZIOAppDefault {
         {
           for {
             user <- ZIO.service[User]
-          } yield Response.text(s"Hello ${user}! This is your profile. Email: ${user.email}")
+          } yield Response.text(s"Hello ${user.username}! This is your profile: \n Username: ${user.username} \n Email: ${user.email}")
 
         }
       } @@ DigestAuthHandlerAspect(realm = "User Profile"),

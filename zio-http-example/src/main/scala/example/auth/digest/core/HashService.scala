@@ -1,5 +1,6 @@
 package example.auth.digest.core
 
+import example.auth.digest.core.HashAlgorithm._
 import zio._
 
 import java.security.MessageDigest
@@ -15,11 +16,11 @@ object HashService {
     def hash(data: String, algorithm: HashAlgorithm): UIO[String] =
       ZIO.succeed {
         val md = algorithm match {
-          case HashAlgorithm.MD5                                =>
+          case MD5 | MD5_SESS =>
             MessageDigest.getInstance("MD5")
-          case HashAlgorithm.SHA256 | HashAlgorithm.SHA256_SESS =>
+          case SHA256 | SHA256_SESS =>
             MessageDigest.getInstance("SHA-256")
-          case HashAlgorithm.SHA512                             =>
+          case SHA512 | SHA512_SESS                           =>
             MessageDigest.getInstance("SHA-512")
         }
         md.digest(data.getBytes("UTF-8"))

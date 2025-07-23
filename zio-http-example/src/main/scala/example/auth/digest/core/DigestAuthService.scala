@@ -2,6 +2,7 @@ package example.auth.digest.core
 
 import example.auth.digest.core.DigestAuthError._
 import example.auth.digest.core.DigestAuthHandlerAspect.DigestChallenge
+import example.auth.digest.core.HashAlgorithm._
 import zio.Config.Secret
 import zio._
 import zio.http._
@@ -20,7 +21,7 @@ trait DigestAuthService {
     uri: URI,
     realm: String,
     nonce: String,
-    algorithm: HashAlgorithm = HashAlgorithm.MD5,
+    algorithm: HashAlgorithm = MD5,
     cnonce: Option[String] = None,
     opaque: Option[String] = None,
     qop: Option[QualityOfProtection] = None,
@@ -45,7 +46,7 @@ object DigestAuthService {
             bytes     <- Random.nextString(32).map(_.getBytes(Charsets.Utf8))
             opaque    <- ZIO.succeed(Base64.getEncoder.encodeToString(bytes))
           } yield {
-            List(HashAlgorithm.SHA256, HashAlgorithm.SHA256_SESS, HashAlgorithm.MD5, HashAlgorithm.SHA512).map {
+            List(MD5, MD5_SESS, SHA256, SHA256_SESS, SHA512, SHA512_SESS).map {
               algorithm =>
                 DigestChallenge(
                   realm = realm,
@@ -69,9 +70,9 @@ object DigestAuthService {
           val a1 = s"$username:$realm:${password.stringValue}"
           algorithm match {
             // if session algorithm
-            case HashAlgorithm.SHA256_SESS =>
+            case MD5_SESS | SHA256_SESS | SHA512_SESS =>
               hashService
-                .hash(a1, HashAlgorithm.SHA256)
+                .hash(a1, algorithm)
                 .map(ha1 => s"$ha1:$nonce:$cnonce")
             // if regular algorithm
             case _                         =>
@@ -128,7 +129,7 @@ object DigestAuthService {
           uri: URI,
           realm: String,
           nonce: String,
-          algorithm: HashAlgorithm = HashAlgorithm.MD5,
+          algorithm: HashAlgorithm = MD5,
           cnonce: Option[String] = None,
           opaque: Option[String] = None,
           qop: Option[QualityOfProtection] = None,
