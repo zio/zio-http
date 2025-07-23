@@ -47,6 +47,14 @@ object DigestAuthHandlerAspect {
                     .createChallenge(realm, qop)
                     .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
               }
+              qp <- ZIO.fromOption(QualityOfProtection.fromString(authHeader.qop)).orElse(
+                digestService
+                  .createChallenge(realm, qop).flatMap( challenges =>
+                    ZIO.fail(
+                      createUnauthorizedResponse(challenges, message = Some(s"Unsupported qop: ${authHeader.qop}"))
+                    )
+                  )
+              )
               entityBody    <- request.body.asString.option
               isValid       <- digestService
                 .validateCredentials(authHeader.response)(
@@ -56,10 +64,10 @@ object DigestAuthHandlerAspect {
                   nonce = authHeader.nonce,
                   uri = authHeader.uri,
                   algorithm = HashAlgorithm.fromString(authHeader.algorithm).getOrElse(HashAlgorithm.MD5),
-                  cnonce = Some(authHeader.cnonce),
-                  opaque = Option(authHeader.opaque),
-                  qop = QualityOfProtection.fromString(authHeader.qop),
-                  nc = Some(String.format("%08d", authHeader.nc)), // Ensure 8-digit zero-padded format
+                  cnonce = authHeader.cnonce,
+                  opaque = authHeader.opaque,
+                  qop = qp,
+                  nc = String.format("%08d", authHeader.nc), // Ensure 8-digit zero-padded format
                   userhash = authHeader.userhash,
                   method = request.method,
                   body = entityBody,
