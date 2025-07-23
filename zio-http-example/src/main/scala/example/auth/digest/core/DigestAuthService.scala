@@ -27,7 +27,7 @@ trait DigestAuthService {
     nc: Option[String] = None,
     userhash: Boolean = false,
     body: Option[String] = None,
-  ): Task[Boolean]
+  ): ZIO[Any, DigestAuthError, Boolean]
 
 }
 
@@ -37,7 +37,7 @@ object DigestAuthService {
       new DigestAuthService {
         def createChallenge(
           realm: String,
-          qop: List[QualityOfProtection]
+          qop: List[QualityOfProtection],
         ): UIO[List[DigestChallenge]] =
           for {
             timestamp <- Clock.currentTime(TimeUnit.MILLISECONDS)
@@ -45,7 +45,7 @@ object DigestAuthService {
             bytes     <- Random.nextString(32).map(_.getBytes(Charsets.Utf8))
             opaque    <- ZIO.succeed(Base64.getEncoder.encodeToString(bytes))
           } yield {
-            List(HashAlgorithm.SHA256, HashAlgorithm.SHA256_SESS /*, HashAlgorithm.MD5, HashAlgorithm.SHA512*/ ).map {
+            List(HashAlgorithm.SHA256, HashAlgorithm.SHA256_SESS, HashAlgorithm.MD5, HashAlgorithm.SHA512).map {
               algorithm =>
                 DigestChallenge(
                   realm = realm,
@@ -65,7 +65,7 @@ object DigestAuthService {
           algorithm: HashAlgorithm,
           nonce: String,
           cnonce: String,
-        ): Task[String] = {
+        ): UIO[String] = {
           val a1 = s"$username:$realm:${password.stringValue}"
           algorithm match {
             // if session algorithm
@@ -85,7 +85,7 @@ object DigestAuthService {
           qop: Option[QualityOfProtection],
           entityBody: Option[String],
           algorithm: HashAlgorithm,
-        ): Task[String] =
+        ): UIO[String] =
           qop match {
             case Some(QualityOfProtection.AuthInt) =>
               entityBody match {
@@ -108,7 +108,7 @@ object DigestAuthService {
           qop: Option[QualityOfProtection],
           ha2: String,
           algorithm: HashAlgorithm,
-        ): Task[String] = {
+        ): UIO[String] = {
           val responseData = qop match {
             case Some(_) =>
               val ncValue     = nc.getOrElse("00000001")
@@ -135,7 +135,7 @@ object DigestAuthService {
           nc: Option[String] = None,
           userhash: Boolean = false,
           body: Option[String] = None,
-        ): Task[Boolean] = {
+        ): ZIO[Any, DigestAuthError, Boolean] = {
 
           for {
             // Validate nonce
@@ -183,13 +183,15 @@ object DigestAuthService {
     )
 }
 
-sealed trait DigestAuthError extends Throwable
+sealed trait DigestAuthError {
+  def message: String
+}
 
 object DigestAuthError {
   case class NonceExpired(nonce: String)             extends DigestAuthError {
-    override def getMessage: String = s"Nonce expired: $nonce"
+    override def message: String = s"Nonce expired: $nonce"
   }
   case class ReplayAttack(nonce: String, nc: String) extends DigestAuthError {
-    override def getMessage: String = s"Replay attack detected for nonce: $nonce with nc: $nc"
+    override def message: String = s"Replay attack detected for nonce: $nonce with nc: $nc"
   }
 }

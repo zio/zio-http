@@ -5,15 +5,15 @@ import zio._
 import java.security.MessageDigest
 
 trait HashService {
-  def hash(data: String, algorithm: HashAlgorithm): Task[String]
-  def keyedHash(data: String, algorithm: HashAlgorithm, secret: String): Task[String]
+  def hash(data: String, algorithm: HashAlgorithm): UIO[String]
+  def keyedHash(data: String, algorithm: HashAlgorithm, secret: String): UIO[String]
 }
 
 object HashService {
   object HashServiceLive extends HashService {
 
-    def hash(data: String, algorithm: HashAlgorithm): Task[String] =
-      ZIO.attempt {
+    def hash(data: String, algorithm: HashAlgorithm): UIO[String] =
+      ZIO.succeed {
         val md = algorithm match {
           case HashAlgorithm.MD5                                =>
             MessageDigest.getInstance("MD5")
@@ -27,7 +27,7 @@ object HashService {
           .mkString
       }
 
-    def keyedHash(data: String, algorithm: HashAlgorithm, secret: String): Task[String] =
+    def keyedHash(data: String, algorithm: HashAlgorithm, secret: String): UIO[String] =
       hash(s"$secret:$data", algorithm)
   }
 

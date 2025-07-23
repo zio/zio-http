@@ -1,7 +1,7 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.QualityOfProtection.{Auth, AuthInt}
-import zio.Config.Secret
+import example.auth.digest.core.DigestAuthError.{NonceExpired, ReplayAttack}
+import example.auth.digest.core.QualityOfProtection.Auth
 import zio._
 import zio.http._
 
@@ -12,20 +12,23 @@ object DigestAuthHandlerAspect {
     qop: List[QualityOfProtection] = List(Auth),
   ): HandlerAspect[DigestAuthService & UserService, User] = {
 
-    def createUnauthorizedResponse(challenges: List[DigestChallenge]): Response = {
-      Response.unauthorized.addHeaders(Headers(challenges.map { challenge =>
-        Header.WWWAuthenticate.Digest(
-          realm = Some(challenge.realm),
-          domain = challenge.domain.flatMap(_.headOption),
-          nonce = Some(challenge.nonce),
-          stale = Some(challenge.stale),
-          opaque = challenge.opaque,
-          algorithm = Some(challenge.algorithm.name),
-          qop = Some(challenge.qop.map(_.name).mkString(", ")),
-          charset = challenge.charset,
-          userhash = Some(challenge.userhash),
-        )
-      }))
+    def createUnauthorizedResponse(challenges: List[DigestChallenge], message: Option[String] = None): Response = {
+      message
+        .map(Response.unauthorized)
+        .getOrElse(Response.unauthorized)
+        .addHeaders(Headers(challenges.map { challenge =>
+          Header.WWWAuthenticate.Digest(
+            realm = Some(challenge.realm),
+            domain = challenge.domain.flatMap(_.headOption),
+            nonce = Some(challenge.nonce),
+            stale = Some(challenge.stale),
+            opaque = challenge.opaque,
+            algorithm = Some(challenge.algorithm.name),
+            qop = Some(challenge.qop.map(_.name).mkString(", ")),
+            charset = challenge.charset,
+            userhash = Some(challenge.userhash),
+          )
+        }))
     }
 
     HandlerAspect.interceptIncomingHandler[DigestAuthService & UserService, User] {
@@ -61,7 +64,31 @@ object DigestAuthHandlerAspect {
                   method = request.method,
                   body = entityBody,
                 )
-                .mapError(e => Response.unauthorized(e.getMessage))
+                .flatMapError {
+                  case NonceExpired(nonce) =>
+                  digestService
+                    .createChallenge(authHeader.realm, QualityOfProtection.fromString(authHeader.qop).toList)
+                    .flatMap(challenge =>
+                      ZIO.succeed(
+                        createUnauthorizedResponse(
+                          challenge,
+                          message = Some(s"Nonce expired for user ${authHeader.username}: $nonce"),
+                        )
+                      ),
+                    )
+                  case ReplayAttack(nonce, nc) =>
+                    digestService
+                      .createChallenge(authHeader.realm, QualityOfProtection.fromString(authHeader.qop).toList)
+                      .flatMap(challenge =>
+                        ZIO.succeed(
+                          createUnauthorizedResponse(
+                            challenge,
+                            message = Some(s"The nonce $nonce with nc $nc has already been used by user ${authHeader.username}.")
+                          )
+                        ),
+                      )
+
+                }
 
               result <-
                 if (isValid)
@@ -95,8 +122,5 @@ object DigestAuthHandlerAspect {
     charset: Option[String] = Some("UTF-8"),
     userhash: Boolean = false,
   )
-
-  case class UserCredentials(username: Username, password: Secret)
-  case class Username(value: String)
 
 }
