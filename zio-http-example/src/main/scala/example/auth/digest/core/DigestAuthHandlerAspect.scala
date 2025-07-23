@@ -1,6 +1,6 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.QualityOfProtection.AuthInt
+import example.auth.digest.core.QualityOfProtection.{Auth, AuthInt}
 import zio.Config.Secret
 import zio._
 import zio.http._
@@ -9,9 +9,8 @@ object DigestAuthHandlerAspect {
 
   def apply(
     realm: String,
-    getUserCredentials: String => Task[Option[UserCredentials]],
-    qop: List[QualityOfProtection] = List(AuthInt),
-  ): HandlerAspect[DigestAuthService, Username] = {
+    qop: List[QualityOfProtection] = List(Auth),
+  ): HandlerAspect[DigestAuthService & UserService, User] = {
 
     def createUnauthorizedResponse(challenges: List[DigestChallenge]): Response = {
       Response.unauthorized.addHeaders(Headers(challenges.map { challenge =>
@@ -29,27 +28,25 @@ object DigestAuthHandlerAspect {
       }))
     }
 
-    HandlerAspect.interceptIncomingHandler[DigestAuthService, Username] {
+    HandlerAspect.interceptIncomingHandler[DigestAuthService & UserService, User] {
       Handler.fromFunctionZIO[Request](request =>
         request.header(Header.Authorization) match {
           case Some(authHeader: Header.Authorization.Digest) =>
             for {
               digestService <- ZIO.service[DigestAuthService]
-
-              userCredsOption <- getUserCredentials(authHeader.username).orDie
-              userCreds       <- userCredsOption match {
-                case Some(creds) => ZIO.succeed(creds)
-                case None        =>
+              userOption    <- ZIO.serviceWithZIO[UserService](_.getUser(authHeader.username)).orDie
+              user          <- userOption match {
+                case Some(u) => ZIO.succeed(u)
+                case None    =>
                   digestService
                     .createChallenge(realm, qop)
                     .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
               }
-              entityBody      <- request.body.asString.option
-
-              isValid <- digestService
+              entityBody    <- request.body.asString.option
+              isValid       <- digestService
                 .validateCredentials(authHeader.response)(
                   username = authHeader.username,
-                  password = userCreds.password,
+                  password = user.password,
                   realm = authHeader.realm,
                   nonce = authHeader.nonce,
                   uri = authHeader.uri,
@@ -66,7 +63,7 @@ object DigestAuthHandlerAspect {
 
               result <-
                 if (isValid)
-                  ZIO.succeed((request, userCreds.username))
+                  ZIO.succeed((request, user))
                 else
                   digestService
                     .createChallenge(authHeader.realm, QualityOfProtection.fromString(authHeader.qop).toList)
