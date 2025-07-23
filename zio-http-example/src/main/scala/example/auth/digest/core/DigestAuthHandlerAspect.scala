@@ -47,7 +47,7 @@ object DigestAuthHandlerAspect {
                     .createChallenge(realm, qop)
                     .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
               }
-              qp <- ZIO.fromOption(QualityOfProtection.fromString(authHeader.qop)).orElse(
+              rqop <- ZIO.fromOption(QualityOfProtection.fromString(authHeader.qop)).orElse(
                 digestService
                   .createChallenge(realm, qop).flatMap( challenges =>
                     ZIO.fail(
@@ -66,7 +66,7 @@ object DigestAuthHandlerAspect {
                   algorithm = HashAlgorithm.fromString(authHeader.algorithm).getOrElse(HashAlgorithm.MD5),
                   cnonce = authHeader.cnonce,
                   opaque = authHeader.opaque,
-                  qop = qp,
+                  qop = rqop,
                   nc = String.format("%08d", authHeader.nc), // Ensure 8-digit zero-padded format
                   userhash = authHeader.userhash,
                   method = request.method,
