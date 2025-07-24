@@ -42,6 +42,7 @@ object DynamicAppTest extends ZIOHttpSpec {
       NettyClientDriver.live,
       Client.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
