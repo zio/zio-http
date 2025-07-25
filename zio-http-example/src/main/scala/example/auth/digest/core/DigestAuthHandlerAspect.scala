@@ -18,7 +18,7 @@ object DigestAuthHandlerAspect {
       ZIO
         .collectAll(
           supportedAlgorithms
-            .map(algorithm => ZIO.serviceWithZIO[DigestAuthService](_.createChallenge(realm, qop, algorithm))),
+            .map(algorithm => ZIO.serviceWithZIO[DigestAuthService](_.generateChallenge(realm, qop, algorithm))),
         )
         .flatMap(challenges =>
           ZIO.fail(
@@ -57,7 +57,7 @@ object DigestAuthHandlerAspect {
               body <- request.body.asString.option
               result     <- ZIO
                 .serviceWithZIO[DigestAuthService](
-                  _.validateDigest(DigestHeader.fromDigestHeader(digest), user.password, request.method, body),
+                  _.validateResponse(DigestResponse.fromDigestHeader(digest), user.password, request.method, body),
                 )
                 .flatMap {
                   case true  =>

@@ -11,7 +11,7 @@ import java.net.URI
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 
-case class DigestHeader(
+case class DigestResponse(
   response: String,
   username: String,
   realm: String,
@@ -25,9 +25,9 @@ case class DigestHeader(
   userhash: Boolean,
 )
 
-object DigestHeader {
-  def fromDigestHeader(digest: Header.Authorization.Digest): DigestHeader = {
-    DigestHeader(
+object DigestResponse {
+  def fromDigestHeader(digest: Header.Authorization.Digest): DigestResponse = {
+    DigestResponse(
       response = digest.response,
       username = digest.username,
       realm = digest.realm,
@@ -44,10 +44,10 @@ object DigestHeader {
 }
 
 trait DigestAuthService {
-  def createChallenge(realm: String, qop: List[QualityOfProtection], algorithm: HashAlgorithm): UIO[DigestChallenge]
+  def generateChallenge(realm: String, qop: List[QualityOfProtection], algorithm: HashAlgorithm): UIO[DigestChallenge]
 
-  def validateDigest(
-    digest: DigestHeader,
+  def validateResponse(
+    digest: DigestResponse,
     password: Secret,
     method: Method,
     body: Option[String] = None,
@@ -59,7 +59,7 @@ object DigestAuthService {
   val live: ZLayer[HashService & NonceService, Nothing, DigestAuthService] =
     ZLayer.fromFunction((hashService: HashService, nonceService: NonceService) =>
       new DigestAuthService {
-        def createChallenge(
+        def generateChallenge(
           realm: String,
           qop: List[QualityOfProtection],
           algorithm: HashAlgorithm,
@@ -68,15 +68,13 @@ object DigestAuthService {
             timestamp <- Clock.currentTime(TimeUnit.MILLISECONDS)
             nonce     <- nonceService.generateNonce(timestamp)
             opaque    <- Random.nextBytes(16).map(_.toArray).map(Base64.getEncoder.encodeToString)
-          } yield {
-            DigestChallenge(
-              realm = realm,
-              nonce = nonce,
-              opaque = Some(opaque),
-              algorithm = algorithm,
-              qop = qop,
-            )
-          }
+          } yield DigestChallenge(
+            realm = realm,
+            nonce = nonce,
+            opaque = Some(opaque),
+            algorithm = algorithm,
+            qop = qop,
+          )
 
         private def calculateA1(
           username: String,
@@ -133,13 +131,12 @@ object DigestAuthService {
           hashService.keyedHash(responseData, algorithm, ha1)
         }
 
-        def validateDigest(
-          digest: DigestHeader,
+        def validateResponse(
+          digest: DigestResponse,
           password: Secret,
           method: Method,
           body: Option[String] = None,
         ): ZIO[Any, DigestAuthError, Boolean] = {
-
           for {
             // Validate nonce
             nonceValid <- nonceService.validateNonce(digest.nonce, Duration.fromSeconds(60))
