@@ -1,6 +1,7 @@
 package example.auth.digest.core
 
 import example.auth.digest.core.DigestAuthError.{NonceExpired, ReplayAttack}
+import example.auth.digest.core.HashAlgorithm._
 import example.auth.digest.core.QualityOfProtection.Auth
 import zio._
 import zio.http._
@@ -10,111 +11,75 @@ object DigestAuthHandlerAspect {
   def apply(
     realm: String,
     qop: List[QualityOfProtection] = List(Auth),
+    supportedAlgorithms: Set[HashAlgorithm] = Set(MD5, MD5_SESS, SHA256, SHA256_SESS, SHA512, SHA512_SESS),
   ): HandlerAspect[DigestAuthService & UserService, User] = {
 
-    def createUnauthorizedResponse(challenges: List[DigestChallenge], message: Option[String] = None): Response = {
-      message
-        .map(Response.unauthorized)
-        .getOrElse(Response.unauthorized)
-        .addHeaders(Headers(challenges.map { challenge =>
-          Header.WWWAuthenticate.Digest(
-            realm = Some(challenge.realm),
-            domain = challenge.domain.flatMap(_.headOption),
-            nonce = Some(challenge.nonce),
-            stale = Some(challenge.stale),
-            opaque = challenge.opaque,
-            algorithm = Some(challenge.algorithm.name),
-            qop = Some(challenge.qop.map(_.name).mkString(", ")),
-            charset = challenge.charset,
-            userhash = Some(challenge.userhash),
-          )
-        }))
-    }
+    def unauthorizedResponse(message: String): ZIO[DigestAuthService, Response, Nothing] =
+      ZIO
+        .collectAll(
+          supportedAlgorithms
+            .map(algorithm => ZIO.serviceWithZIO[DigestAuthService](_.createChallenge(realm, qop, algorithm))),
+        )
+        .flatMap(challenges =>
+          ZIO.fail(
+            Response
+              .unauthorized(message)
+              .addHeaders(
+                Headers(
+                  challenges.map { challenge =>
+                    Header.WWWAuthenticate.Digest(
+                      realm = Some(challenge.realm),
+                      domain = challenge.domain.flatMap(_.headOption),
+                      nonce = Some(challenge.nonce),
+                      stale = Some(challenge.stale),
+                      opaque = challenge.opaque,
+                      algorithm = Some(challenge.algorithm.name),
+                      qop = Some(challenge.qop.map(_.name).mkString(", ")),
+                      charset = challenge.charset,
+                      userhash = Some(challenge.userhash),
+                    )
+                  },
+                ),
+              ),
+          ),
+        )
 
     HandlerAspect.interceptIncomingHandler[DigestAuthService & UserService, User] {
-      Handler.fromFunctionZIO[Request](request =>
+      handler { (request: Request) =>
         request.header(Header.Authorization) match {
-          case Some(authHeader: Header.Authorization.Digest) =>
+          case Some(digest: Header.Authorization.Digest) =>
             for {
-              digestService <- ZIO.service[DigestAuthService]
-              userOption    <- ZIO
-                .serviceWithZIO[UserService](_.getUser(authHeader.username))
-                .mapError(_ => Response.internalServerError(s"Failed to authenticate user ${authHeader.username}"))
-              user          <- userOption match {
-                case Some(u) => ZIO.succeed(u)
-                case None    =>
-                  digestService
-                    .createChallenge(realm, qop)
-                    .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
-              }
-              rqop <- ZIO.fromOption(QualityOfProtection.fromString(authHeader.qop)).orElse(
-                digestService
-                  .createChallenge(realm, qop).flatMap( challenges =>
-                    ZIO.fail(
-                      createUnauthorizedResponse(challenges, message = Some(s"Unsupported qop: ${authHeader.qop}"))
-                    )
-                  )
-              )
-              entityBody    <- request.body.asString.option
-              isValid       <- digestService
-                .validateCredentials(authHeader.response)(
-                  username = authHeader.username,
-                  password = user.password,
-                  realm = authHeader.realm,
-                  nonce = authHeader.nonce,
-                  uri = authHeader.uri,
-                  algorithm = HashAlgorithm.fromString(authHeader.algorithm).getOrElse(HashAlgorithm.MD5),
-                  cnonce = authHeader.cnonce,
-                  opaque = authHeader.opaque,
-                  qop = rqop,
-                  nc = String.format("%08d", authHeader.nc), // Ensure 8-digit zero-padded format
-                  userhash = authHeader.userhash,
-                  method = request.method,
-                  body = entityBody,
+              user       <-
+                ZIO
+                  .serviceWithZIO[UserService](_.getUser(digest.username))
+                  .some
+                  .orElse(unauthorizedResponse(s"Failed to authenticate user ${digest.username}"))
+              body <- request.body.asString.option
+              result     <- ZIO
+                .serviceWithZIO[DigestAuthService](
+                  _.validateDigest(DigestHeader.fromDigestHeader(digest), user.password, request.method, body),
                 )
-                .flatMapError {
-                  case NonceExpired(nonce) =>
-                  digestService
-                    .createChallenge(authHeader.realm, QualityOfProtection.fromString(authHeader.qop).toList)
-                    .flatMap(challenge =>
-                      ZIO.succeed(
-                        createUnauthorizedResponse(
-                          challenge,
-                          message = Some(s"Nonce expired for user ${authHeader.username}: $nonce"),
-                        )
-                      ),
-                    )
-                  case ReplayAttack(nonce, nc) =>
-                    digestService
-                      .createChallenge(authHeader.realm, QualityOfProtection.fromString(authHeader.qop).toList)
-                      .flatMap(challenge =>
-                        ZIO.succeed(
-                          createUnauthorizedResponse(
-                            challenge,
-                            message = Some(s"The nonce $nonce with nc $nc has already been used by user ${authHeader.username}.")
-                          )
-                        ),
-                      )
-
+                .flatMap {
+                  case true  =>
+                    ZIO.succeed((request, user))
+                  case false =>
+                    unauthorizedResponse(s"Invalid digest response for user ${digest.username}.")
                 }
-
-              result <-
-                if (isValid)
-                  ZIO.succeed((request, user))
-                else
-                  digestService
-                    .createChallenge(authHeader.realm, QualityOfProtection.fromString(authHeader.qop).toList)
-                    .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
+                .catchAll {
+                  case NonceExpired(nonce)     =>
+                    unauthorizedResponse(s"Nonce expired for user ${digest.username}: $nonce")
+                  case ReplayAttack(nonce, nc) =>
+                    unauthorizedResponse(
+                      s"The nonce $nonce with nc $nc has already been used by user ${digest.username}.",
+                    )
+                }
             } yield result
 
           case _ =>
-            // No auth header or not digest, send challenge
-            ZIO.serviceWithZIO[DigestAuthService] {
-              _.createChallenge(realm, qop)
-                .flatMap(challenge => ZIO.fail(createUnauthorizedResponse(challenge)))
-            }
-        },
-      )
+            // No auth header or not digest, send challenges
+            unauthorizedResponse(s"Missing Authorization header for realm: $realm")
+        }
+      }
 
     }
   }
@@ -123,7 +88,7 @@ object DigestAuthHandlerAspect {
     realm: String,
     nonce: String,
     opaque: Option[String] = None,
-    algorithm: HashAlgorithm = HashAlgorithm.MD5,
+    algorithm: HashAlgorithm = MD5,
     qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
     stale: Boolean = false,
     domain: Option[List[String]] = None,

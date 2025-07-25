@@ -33,38 +33,20 @@ object NonceService {
 
     private def computeHash(timestamp: Long, etag: Option[String], secretData: String): Array[Byte] = {
       val mac       = Mac.getInstance("HmacSHA256")
-      val secretKey = new SecretKeySpec(secretData.getBytes("UTF-8"), "HmacSHA256")
+      val secretKey = new SecretKeySpec(secretData.getBytes("UTF-8"), "HMAC-SHA256")
       mac.init(secretKey)
 
-      val etagValue = etag.getOrElse("")
-      val input     = s"$timestamp:$etagValue"
-      mac.doFinal(input.getBytes("UTF-8"))
-    }
-
-    private def bytesToHex(bytes: Array[Byte]): String = {
-      bytes.map(b => String.format("%02x", b & 0xff)).mkString
-    }
-
-    private def hexToBytes(hex: String): Option[Array[Byte]] = {
-      try {
-        if (hex.length % 2 != 0) None
-        else Some(hex.grouped(2).map(Integer.parseInt(_, 16).toByte).toArray)
-      } catch {
-        case _: Exception => None
-      }
+      val input     = s"$timestamp:${etag.getOrElse("")}"
+      Array.copyOf(mac.doFinal(input.getBytes("UTF-8")), 16)
     }
 
     def generateNonce(timestamp: Long, etag: Option[String] = None): UIO[String] =
       ZIO.succeed {
-        val preciseTimestamp = timestamp
-
         // Compute hash: H(timestamp ":" ETag ":" secret-data)
-        val hashBytes = computeHash(preciseTimestamp, etag, secret.stringValue)
-        val hashHex   = bytesToHex(hashBytes)
+        val hashBytes    = computeHash(timestamp, etag, secret.stringValue)
+        val base64Hash   = Base64.getEncoder.encodeToString(hashBytes)
+        val nonceContent = s"$timestamp:$base64Hash"
 
-        val nonceContent = s"$preciseTimestamp:$hashHex"
-
-        // Base64 encode the complete nonce
         Base64.getEncoder.encodeToString(nonceContent.getBytes("UTF-8"))
       }
 
@@ -91,12 +73,7 @@ object NonceService {
                 computeHash(timestamp, etag, secret.stringValue)
 
               // Convert provided hash back to bytes for constant-time comparison
-              hexToBytes(providedHashHex) match {
-                case Some(providedHashBytes) =>
-                  constantTimeEquals(expectedHashBytes, providedHashBytes)
-                case None                    =>
-                  false
-              }
+              constantTimeEquals(expectedHashBytes, Base64.getDecoder.decode(providedHashHex))
             }
           }
         } catch {
