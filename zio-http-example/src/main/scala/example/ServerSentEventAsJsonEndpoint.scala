@@ -1,13 +1,16 @@
 package example
 
+import java.time.Instant
+
 import zio._
+
+import zio.stream.ZStream
+
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.schema.{DeriveSchema, Schema}
-import zio.stream.ZStream
-
-import java.time.Instant
 
 object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
 
@@ -19,8 +22,7 @@ object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
   private val stream: ZStream[Any, Nothing, ServerSentEvent[Payload]] =
     ZStream.repeatWithSchedule(ServerSentEvent(Payload(Instant.now(), "message")), Schedule.spaced(1.second))
 
-  val sseEndpoint
-    : Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
+  val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
     Endpoint(Method.GET / "sse")
       .outStream[ServerSentEvent[Payload]]
       .inCodec(HttpCodec.header(Header.Accept).const(Header.Accept(MediaType.text.`event-stream`)))

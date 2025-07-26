@@ -1,6 +1,7 @@
 package example
 
 import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
+
 import zio.http._
 
 object ClientServer extends ZIOAppDefault {

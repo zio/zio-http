@@ -1,12 +1,15 @@
 package example
 
-import example.SSEServer.Environment
-
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter.ISO_LOCAL_TIME
+
 import zio._
+
 import zio.stream.ZStream
+
 import zio.http._
+
+import example.SSEServer.Environment
 
 object SSEServer extends ZIOAppDefault {
 
