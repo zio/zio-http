@@ -9,6 +9,8 @@ import zio.stream.ZStream
 
 import zio.http._
 
+import example.SSEServer.Environment
+
 object SSEServer extends ZIOAppDefault {
 
   val stream: ZStream[Any, Nothing, ServerSentEvent[String]] =
@@ -20,27 +22,28 @@ object SSEServer extends ZIOAppDefault {
         handler(Response.fromServerSentEvents(stream)),
     )
 
-  val run: URIO[Any, ExitCode] = {
-    Server.serve(routes).provide(Server.default).exitCode
-  }
+  override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
+    Server.serve(routes).provide(Server.default)
 }
 
 object SSEClient extends ZIOAppDefault {
 
-  override def run =
-    (for {
-      client <- ZIO.service[Client]
-      _      <-
-        client
-          .url(url"http://localhost:8080")
-          .batched(
-            Request(method = Method.GET, url = url"http://localhost:8080/sse", body = Body.empty)
-              .addHeader(Header.Accept(MediaType.text.`event-stream`)),
-          )
-          .flatMap { response =>
-            response.body.asServerSentEvents[String].foreach { event =>
-              ZIO.logInfo(event.data)
+  override def run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
+    (
+      for {
+        client <- ZIO.service[Client]
+        _      <-
+          client
+            .url(url"http://localhost:8080")
+            .batched(
+              Request(method = Method.GET, url = url"http://localhost:8080/sse", body = Body.empty)
+                .addHeader(Header.Accept(MediaType.text.`event-stream`)),
+            )
+            .flatMap { response =>
+              response.body.asServerSentEvents[String].foreach { event =>
+                ZIO.logInfo(event.data)
+              }
             }
-          }
-    } yield ()).provide(ZClient.default)
+      } yield ()
+    ).provide(ZClient.default)
 }
