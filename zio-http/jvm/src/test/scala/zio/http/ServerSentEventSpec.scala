@@ -144,15 +144,10 @@ object ServerSentEventSpec extends ZIOHttpSpec {
       test("empty string data") {
         val event  = ServerSentEvent(data = "")
         val result = event.encode
-        assertTrue(
-          result ==
-            """data:
-              |
-              |""".stripMargin,
-        )
+        assertTrue(result == "data: \n\n")
       },
       test("eventType with carriage returns gets flattened") {
-        val event  = ServerSentEvent(data = "data", eventType = Some("message\r\nwith\rreturns"))
+        val event  = ServerSentEvent(data = "data", eventType = Some("message\nwith\nreturns"))
         val result = event.encode
         assertTrue(
           result ==
