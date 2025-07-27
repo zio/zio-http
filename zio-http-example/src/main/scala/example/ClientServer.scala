@@ -1,17 +1,18 @@
 package example
 
-import zio.ZIOAppDefault
+import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import zio.http._
 
 object ClientServer extends ZIOAppDefault {
-  val url = URL.decode("http://localhost:8080/hello").toOption.get
+  private val url = URL.decode("http://localhost:8080/hello").toOption.get
 
-  val app = Routes(
-    Method.GET / "hello" -> handler(Response.text("hello")),
-    Method.GET / ""      -> handler(ZClient.batched(Request.get(url))),
-  ).sandbox
+  private val app =
+    Routes(
+      Method.GET / "hello" -> handler(Response.text("hello")),
+      Method.GET / ""      -> handler(ZClient.batched(Request.get(url))),
+    ).sandbox
 
-  val run =
-    Server.serve(app).provide(Server.default, Client.default).exitCode
+  override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
+    Server.serve(app).provide(Server.default, Client.default)
 }
