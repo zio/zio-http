@@ -81,9 +81,11 @@ final case class ServerSentEvent[T](
     id.foreach { i =>
       sb.append("id: ")
       val iterator = i.linesIterator
-      while (iterator.hasNext) {
+      var hasNext  = iterator.hasNext
+      while (hasNext) {
         sb.append(iterator.next())
-        if (iterator.hasNext) sb.append(' ')
+        hasNext = iterator.hasNext
+        if (hasNext) sb.append(' ')
       }
       sb.append('\n')
     }
