@@ -16,16 +16,13 @@
 
 package zio.http
 
-import scala.util.Try
-
 import zio._
-
-import zio.stream.ZPipeline
-
+import zio.http.codec._
 import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
+import zio.stream.ZPipeline
 
-import zio.http.codec._
+import scala.util.Try
 
 /**
  * Server-Sent Event (SSE) as defined by
@@ -48,15 +45,44 @@ final case class ServerSentEvent[T](
 ) {
 
   def encode(implicit binaryCodec: BinaryCodec[T]): String = {
-    val sb = new StringBuilder
-    binaryCodec.encode(data).asString(Charsets.Utf8).linesIterator.foreach { line =>
+    val dataLines: Array[String] =
+      data match {
+        case s: String => s.split('\n')
+        case _ => binaryCodec.encode(data).asString(Charsets.Utf8).split('\n')
+      }
+
+    val initialCapacity: Int =
+      (
+        (6 + dataLines.length * 16)        // 6 for "data: ", 16 for each data line
+          + eventType.fold(0)(_ => 7 + 16) // 7 for "event: ", 16 for the event type itself
+          + id.fold(0)(_ => 5 + 16)        // 5 for "id: ", 16 for the id itself
+          + retry.fold(0)(_ => 7 + 16)     // 7 for "retry: ", 16 for the retry value
+          + 1                              // for the final newline
+      )
+
+    val sb = new java.lang.StringBuilder(initialCapacity)
+    eventType.foreach { et =>
+      sb.append("event: ")
+      val iterator = et.linesIterator
+      var hasNext  = iterator.hasNext
+      while (hasNext) {
+        sb.append(iterator.next())
+        hasNext = iterator.hasNext
+        if (hasNext) sb.append(' ')
+      }
+      sb.append('\n')
+    }
+    dataLines.foreach { line =>
       sb.append("data: ").append(line).append('\n')
     }
-    eventType.foreach { et =>
-      sb.append("event: ").append(et.linesIterator.mkString(" ")).append('\n')
-    }
     id.foreach { i =>
-      sb.append("id: ").append(i.linesIterator.mkString(" ")).append('\n')
+      sb.append("id: ")
+      val iterator = i.linesIterator
+      while (iterator.hasNext) {
+        sb.append(iterator.next())
+        if (iterator.hasNext) sb.append(' ')
+      }
+      sb.append('\n')
     }
     retry.foreach { r =>
       sb.append("retry: ").append(r.toMillis).append('\n')
@@ -165,5 +191,5 @@ object ServerSentEvent {
     else contentCodec(JsonCodec.schemaBasedBinaryCodec, schema)
   }
 
-  def heartbeat: ServerSentEvent[String] = new ServerSentEvent("")
+  val heartbeat: ServerSentEvent[String] = new ServerSentEvent("")
 }
