@@ -156,13 +156,7 @@ object ServerSentEvent {
               event.copy(eventType = Some(line.replaceFirst("event: ?", "")).filter(_.nonEmpty))
             case Some("event")  => event.copy(eventType = None)
             case Some("retry:") =>
-              event.copy(retry =
-                Some(line.replaceFirst("retry: ?", ""))
-                  .filter(_.nonEmpty)
-                  .flatMap(_.toIntOption)
-                  .filter(_ >= 0)
-                  .map(_.milliseconds),
-              )
+              event.copy(retry = line.replaceFirst("retry: ?", "").toIntOption.filter(_ >= 0).map(_.milliseconds))
             case Some("retry")  => event.copy(retry = None)
             case Some("id:")    => event.copy(id = Some(line.replaceFirst("id: ?", "")).filter(_.nonEmpty))
             case Some("id")     => event.copy(id = None)
