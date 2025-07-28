@@ -16,8 +16,6 @@
 
 package zio.http
 
-import scala.util.Try
-
 import zio._
 
 import zio.stream.ZPipeline
@@ -161,7 +159,7 @@ object ServerSentEvent {
               event.copy(retry =
                 Some(line.replaceFirst("retry: ?", ""))
                   .filter(_.nonEmpty)
-                  .flatMap(retry => Try(retry.toInt).toOption)
+                  .flatMap(_.toIntOption)
                   .filter(_ >= 0)
                   .map(_.milliseconds),
               )
