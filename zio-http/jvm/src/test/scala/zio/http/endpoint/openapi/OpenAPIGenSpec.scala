@@ -237,6 +237,8 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   private val endpointWithAuthScopes =
     Endpoint(GET / "withAuthScopes").auth(AuthType.Bearer).scopes("read", "write")
 
+  private val endpointWithAuth = Endpoint(GET / "withAuth").auth(AuthType.Bearer)
+
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
 
@@ -262,6 +264,42 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |  },
                               |  "components" : {}
                               |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("auth with no scopes to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth", "1.0", endpointWithAuth)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Endpoint with Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withAuth": {
+                             |      "get": {
+                             |        "security": [
+                             |          {
+                             |            "Bearer": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "Bearer": {
+                             |        "type": "http",
+                             |        "scheme": "Bearer"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "Bearer": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
       test("auth scopes to OpenAPI") {
