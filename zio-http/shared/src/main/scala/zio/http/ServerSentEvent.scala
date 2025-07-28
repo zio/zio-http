@@ -16,16 +16,13 @@
 
 package zio.http
 
-import scala.util.Try
-
 import zio._
-
-import zio.stream.ZPipeline
-
+import zio.http.codec._
 import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
+import zio.stream.ZPipeline
 
-import zio.http.codec._
+import scala.util.Try
 
 /**
  * Server-Sent Event (SSE) as defined by
@@ -48,19 +45,21 @@ final case class ServerSentEvent[T](
 ) {
 
   def encode(implicit binaryCodec: BinaryCodec[T]): String = {
-    val dataLines: Array[String] =
+    val dataString: String =
       data match {
-        case s: String => s.split('\n')
-        case _         => binaryCodec.encode(data).asString(Charsets.Utf8).split('\n')
+        case s: String => s
+        case _         => binaryCodec.encode(data).asString(Charsets.Utf8)
       }
+
+    val dataLines: Array[String] = dataString.split("\n")
 
     val initialCapacity: Int =
       (
-        (6 + dataLines.length * 16)        // 6 for "data: ", 16 for each data line
-          + eventType.fold(0)(_ => 7 + 16) // 7 for "event: ", 16 for the event type itself
-          + id.fold(0)(_ => 5 + 16)        // 5 for "id: ", 16 for the id itself
-          + retry.fold(0)(_ => 7 + 16)     // 7 for "retry: ", 16 for the retry value
-          + 1                              // for the final newline
+        (6 + dataString.length + dataLines.length) // 6 for "data: ", the data itself, and the newlines
+          + eventType.fold(0)(_ => 24) // 24 because 7 for "event: ", 1 for the newline, 16 for the event type itself
+          + id.fold(0)(_ => 21)        // 21 because 4 for "id: ", 1 for the newline, 16 for the id itself
+          + retry.fold(0)(_ => 24)     // 24 because 7 for "retry: ", 1 for the newline, 16 for the retry value
+          + 1                          // for the final newline
       )
 
     val sb = new java.lang.StringBuilder(initialCapacity)
