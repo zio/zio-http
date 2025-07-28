@@ -242,6 +242,7 @@ object Code {
     inCode: InCode,
     outCodes: List[OutCode],
     errorsCode: List[OutCode],
+    authTypeCode: Option[AuthTypeCode] = None,
   ) extends Code
 
   final case class PathPatternCode(segments: List[PathSegmentCode])
@@ -287,4 +288,5 @@ object Code {
       OutCode(outType, status, Some("application/json"), None, streaming = false)
   }
 
+  final case class AuthTypeCode(authType: String) extends Code
 }

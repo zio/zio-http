@@ -82,6 +82,39 @@ object EndpointGenSpec extends ZIOSpecDefault {
           )
           assertTrue(scala.files.head == expected)
         },
+        test("empty request and response with auth") {
+          val endpoint =
+            Endpoint(Method.GET / "api" / "v1" / "users").auth(AuthType.Bearer)
+          val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
+          val scala    = EndpointGen.fromOpenAPI(openAPI)
+          val expected = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                    authTypeCode = Some(Code.AuthTypeCode("Bearer")),
+                  ),
+                ),
+              ),
+            ),
+            Nil,
+            Nil,
+          )
+          assertTrue(scala.files.head == expected)
+        },
         test("empty request and response with int path parameter") {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users" / int("userId"))
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
