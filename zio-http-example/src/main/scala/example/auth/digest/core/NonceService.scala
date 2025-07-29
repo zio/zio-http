@@ -7,8 +7,8 @@ import javax.crypto.spec.SecretKeySpec
 import java.util.Base64
 
 trait NonceService {
-  def generateNonce(timestamp: Long, etag: Option[String] = None): UIO[String]
-  def validateNonce(nonce: String, maxAge: Duration, etag: Option[String] = None): UIO[Boolean]
+  def generateNonce(timestamp: Long): UIO[String]
+  def validateNonce(nonce: String, maxAge: Duration): UIO[Boolean]
   def isNonceUsed(nonce: String, nc: String): UIO[Boolean]
   def markNonceUsed(nonce: String, nc: String): UIO[Unit]
 }
@@ -31,26 +31,24 @@ object NonceService {
       }
     }
 
-    private def computeHash(timestamp: Long, etag: Option[String], secretData: String): Array[Byte] = {
-      val mac       = Mac.getInstance("HmacSHA256")
-      val secretKey = new SecretKeySpec(secretData.getBytes("UTF-8"), "HMAC-SHA256")
-      mac.init(secretKey)
+    private def computeHash(timestamp: Long, secretKey: Secret): Array[Byte] = {
+      val mac = Mac.getInstance("HmacSHA256")
+      mac.init(new SecretKeySpec(secretKey.stringValue.getBytes("UTF-8"), "HMAC-SHA256"))
 
-      val input     = s"$timestamp:${etag.getOrElse("")}"
+      val input = s"$timestamp"
       Array.copyOf(mac.doFinal(input.getBytes("UTF-8")), 16)
     }
 
-    def generateNonce(timestamp: Long, etag: Option[String] = None): UIO[String] =
+    def generateNonce(timestamp: Long): UIO[String] =
       ZIO.succeed {
-        // Compute hash: H(timestamp ":" ETag ":" secret-data)
-        val hashBytes    = computeHash(timestamp, etag, secret.stringValue)
+        val hashBytes    = computeHash(timestamp, secret)
         val base64Hash   = Base64.getEncoder.encodeToString(hashBytes)
         val nonceContent = s"$timestamp:$base64Hash"
 
         Base64.getEncoder.encodeToString(nonceContent.getBytes("UTF-8"))
       }
 
-    def validateNonce(nonce: String, maxAge: Duration, etag: Option[String] = None): UIO[Boolean] =
+    def validateNonce(nonce: String, maxAge: Duration): UIO[Boolean] =
       ZIO.succeed {
         try {
           val decoded = new String(Base64.getDecoder.decode(nonce), "UTF-8")
@@ -70,7 +68,7 @@ object NonceService {
               false
             } else {
               val expectedHashBytes =
-                computeHash(timestamp, etag, secret.stringValue)
+                computeHash(timestamp, secret)
 
               // Convert provided hash back to bytes for constant-time comparison
               constantTimeEquals(expectedHashBytes, Base64.getDecoder.decode(providedHashHex))
