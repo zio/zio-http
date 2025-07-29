@@ -54,9 +54,7 @@ final case class ServerSentEvent[T](
 
     val dataLines: Array[String] = dataString.split("\n")
 
-    /**
-     * See https://github.com/zio/zio-http/pull/3596#discussion_r2235083078
-     */
+    // See https://github.com/zio/zio-http/pull/3596#discussion_r2235083078
     @inline def allocationFreeFold(option: Option[?])(ifEmpty: Int, ifNonEmpty: Int): Int =
       if (option.isEmpty) ifEmpty else ifNonEmpty
 
