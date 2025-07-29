@@ -54,13 +54,24 @@ final case class ServerSentEvent[T](
 
     val dataLines: Array[String] = dataString.split("\n")
 
+    /**
+     * See https://github.com/zio/zio-http/pull/3596#discussion_r2235083078
+     */
+    @inline def allocationFreeFold(option: Option[?])(ifEmpty: Int, ifNonEmpty: Int): Int =
+      if (option.isEmpty) ifEmpty else ifNonEmpty
+
     val initialCapacity: Int =
       (
-        (6 + dataString.length + dataLines.length) // 6 for "data: ", the data itself, and the newlines
-          + eventType.fold(0)(_ => 24) // 24 because 7 for "event: ", 1 for the newline, 16 for the event type itself
-          + id.fold(0)(_ => 21)        // 21 because 4 for "id: ", 1 for the newline, 16 for the id itself
-          + retry.fold(0)(_ => 24)     // 24 because 7 for "retry: ", 1 for the newline, 16 for the retry value
-          + 1                          // for the final newline
+        // 6 for "data: ", the data itself, and the newlines
+        (6 + dataString.length + dataLines.length)
+        // 24 because 7 for "event: ", 1 for the newline, 16 for the event type itself
+          + allocationFreeFold(eventType)(0, 24)
+          // 21 because 4 for "id: ", 1 for the newline, 16 for the id itself
+          + allocationFreeFold(id)(0, 21)
+          // 24 because 7 for "retry: ", 1 for the newline, 16 for the retry value
+          + allocationFreeFold(retry)(0, 24)
+          // for the final newline
+          + 1
       )
 
     val sb = new java.lang.StringBuilder(initialCapacity)
