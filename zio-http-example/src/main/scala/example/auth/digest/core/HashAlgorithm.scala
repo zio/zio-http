@@ -1,49 +1,20 @@
 package example.auth.digest.core
 
-sealed trait HashAlgorithm {
-  def name: String
-  def digestSize: Int
+sealed abstract class HashAlgorithm(val name: String, val digestSize: Int) {
+  override def toString: String = name
 }
 
 object HashAlgorithm {
-  case object MD5 extends HashAlgorithm {
-    val name       = "MD5"
-    val digestSize = 128
-  }
+  case object MD5         extends HashAlgorithm("MD5", 128)
+  case object MD5_SESS    extends HashAlgorithm("MD5-sess", 128)
+  case object SHA256      extends HashAlgorithm("SHA-256", 256)
+  case object SHA256_SESS extends HashAlgorithm("SHA-256-sess", 256)
+  case object SHA512      extends HashAlgorithm("SHA-512", 512)
+  case object SHA512_SESS extends HashAlgorithm("SHA-512-sess", 512)
 
-  case object MD5_SESS extends HashAlgorithm {
-    val name       = "MD5-sess"
-    val digestSize = 128
-  }
+  val values: List[HashAlgorithm] =
+    List(MD5, MD5_SESS, SHA256, SHA256_SESS, SHA512, SHA512_SESS)
 
-  case object SHA256 extends HashAlgorithm {
-    val name       = "SHA-256"
-    val digestSize = 256
-  }
-
-  case object SHA256_SESS extends HashAlgorithm {
-    val name       = "SHA-256-sess"
-    val digestSize = 256
-  }
-
-  case object SHA512 extends HashAlgorithm {
-    val name       = "SHA-512"
-    val digestSize = 512
-  }
-
-  case object SHA512_SESS extends HashAlgorithm {
-    val name       = "SHA-512-sess"
-    val digestSize = 512
-  }
-
-
-  def fromString(s: String): Option[HashAlgorithm] = s.toLowerCase match {
-    case "md5"          => Some(MD5)
-    case "md5-sess"     => Some(MD5_SESS)
-    case "sha-256"      => Some(SHA256)
-    case "sha-256-sess" => Some(SHA256_SESS)
-    case "sha-512"      => Some(SHA512)
-    case "sha-512-sess" => Some(SHA512_SESS)
-    case _              => None
-  }
+  def fromString(s: String): Option[HashAlgorithm] =
+    values.find(_.name.equalsIgnoreCase(s.trim))
 }

@@ -5,6 +5,7 @@ import example.auth.digest.core.HashAlgorithm._
 import zio.Config.Secret
 import zio._
 import zio.http._
+import zio.stream.ZSink.digest
 
 import java.net.URI
 import java.util.Base64
@@ -147,72 +148,106 @@ case class DigestAuthServiceLive(
     )
 
   def validateResponse(
-    digest: DigestResponse,
+    response: DigestResponse,
     password: Secret,
     method: Method,
     body: Option[String] = None,
   ): ZIO[Any, DigestAuthError, Unit] = {
     for {
-      _                <- validateNonce(digest)
-      _                <- checkReplayAttack(digest)
-      expectedResponse <- calculateExpectedResponse(digest, password, method, body)
-      _                <- markNonceAsUsed(digest)
-      _                <- compareResponses(expectedResponse, digest.response)
+      _                <- validateNonce(response.nonce)
+      _                <- checkReplayAttack(response.nonce, response.nc)
+      expectedResponse <- calculateResponse(
+        response.username,
+        response.realm,
+        password,
+        response.nonce,
+        response.nc,
+        response.cnonce,
+        response.algorithm,
+        response.qop,
+        response.uri,
+        method,
+        body,
+      )
+      _                <- markNonceAsUsed(response.nonce, response.nc)
+      _                <- compareResponses(expectedResponse, response.response)
     } yield ()
   }
 
   // Private helper methods
-
   private def generateOpaque: UIO[String] =
     Random
       .nextBytes(config.nonceByteLength)
       .map(_.toArray)
       .map(Base64.getEncoder.encodeToString)
 
-  private def validateNonce(digest: DigestResponse): ZIO[Any, DigestAuthError, Unit] =
-    nonceService.validateNonce(digest.nonce, config.nonceValidityDuration).flatMap { isValid =>
-      if (isValid) ZIO.unit
-      else ZIO.fail(NonceExpired(digest.nonce))
+  private def validateNonce(nonce: String): ZIO[Any, DigestAuthError, Unit] =
+    nonceService.validateNonce(nonce, config.nonceValidityDuration).flatMap { isValid =>
+      ZIO
+        .unless(isValid) {
+          ZIO.fail(NonceExpired(nonce))
+        }
+        .unit
     }
 
-  private def checkReplayAttack(digest: DigestResponse): ZIO[Any, DigestAuthError, Unit] =
-    nonceService.isNonceUsed(digest.nonce, digest.nc).flatMap { isUsed =>
-      if (isUsed) ZIO.fail(ReplayAttack(digest.nonce, digest.nc))
-      else ZIO.unit
+  private def checkReplayAttack(nonce: String, nc: String): ZIO[Any, DigestAuthError, Unit] =
+    nonceService.isNonceUsed(nonce, nc).flatMap { isUsed =>
+      ZIO
+        .when(isUsed) {
+          ZIO.fail(ReplayAttack(nonce, nc))
+        }
+        .unit
     }
 
-  private def markNonceAsUsed(digest: DigestResponse): UIO[Unit] =
-    nonceService.markNonceUsed(digest.nonce, digest.nc)
+  private def markNonceAsUsed(nonce: String, nc: String): UIO[Unit] =
+    nonceService.markNonceUsed(nonce, nc)
 
   private def compareResponses(expected: String, actual: String): ZIO[Any, InvalidResponse, Unit] = {
     val isValid = expected.equalsIgnoreCase(actual)
-    if (isValid) ZIO.succeed(())
-    else ZIO.fail(InvalidResponse(expected, actual))
+    ZIO
+      .unless(isValid) {
+        ZIO.fail(InvalidResponse(expected, actual))
+      }
+      .unit
   }
 
-  private def calculateExpectedResponse(
-    digest: DigestResponse,
+  private def calculateResponse(
+    username: String,
+    realm: String,
     password: Secret,
+    nonce: String,
+    nc: String,
+    cnonce: String,
+    algorithm: HashAlgorithm,
+    qop: QualityOfProtection,
+    uri: URI,
     method: Method,
     body: Option[String],
   ): UIO[String] = {
     for {
-      a1       <- calculateA1(digest, password)
-      ha1      <- hashService.hash(a1, digest.algorithm)
-      a2       <- calculateA2(method, digest, body)
-      ha2      <- hashService.hash(a2, digest.algorithm)
-      response <- calculateFinalResponse(ha1, ha2, digest)
+      a1       <- calculateA1(username, realm, password, nonce, cnonce, algorithm)
+      ha1      <- hashService.hash(a1, algorithm)
+      a2       <- calculateA2(method, uri, algorithm, qop, body)
+      ha2      <- hashService.hash(a2, algorithm)
+      response <- calculateFinalResponse(ha1, ha2, nonce, nc, cnonce, qop, algorithm)
     } yield response
   }
 
-  private def calculateA1(digest: DigestResponse, password: Secret): UIO[String] = {
-    val baseA1 = s"${digest.username}:${digest.realm}:${password.stringValue}"
+  private def calculateA1(
+    username: String,
+    realm: String,
+    password: Secret,
+    nonce: String,
+    cnonce: String,
+    algorithm: HashAlgorithm,
+  ): UIO[String] = {
+    val baseA1 = s"$username:$realm:${password.stringValue}"
 
-    digest.algorithm match {
+    algorithm match {
       case MD5_SESS | SHA256_SESS | SHA512_SESS =>
         hashService
-          .hash(baseA1, digest.algorithm)
-          .map(ha1 => s"$ha1:${digest.nonce}:${digest.cnonce}")
+          .hash(baseA1, algorithm)
+          .map(ha1 => s"$ha1:$nonce:$cnonce")
       case _                                    =>
         ZIO.succeed(baseA1)
     }
@@ -220,38 +255,36 @@ case class DigestAuthServiceLive(
 
   private def calculateA2(
     method: Method,
-    digest: DigestResponse,
+    uri: URI,
+    algorithm: HashAlgorithm,
+    qop: QualityOfProtection,
     entityBody: Option[String],
   ): UIO[String] = {
-    digest.qop match {
+    qop match {
       case QualityOfProtection.AuthInt =>
-        calculateA2WithEntityBody(method, digest, entityBody)
+        entityBody match {
+          case Some(body) =>
+            hashService
+              .hash(body, algorithm)
+              .map(hbody => s"${method.name}:${uri.getPath}:$hbody")
+          case None       =>
+            ZIO.succeed(s"${method.name}:${uri.getPath}:")
+        }
       case _                           =>
-        ZIO.succeed(s"${method.name}:${digest.uri.getPath}")
-    }
-  }
-
-  private def calculateA2WithEntityBody(
-    method: Method,
-    digest: DigestResponse,
-    entityBody: Option[String],
-  ): UIO[String] = {
-    entityBody match {
-      case Some(body) =>
-        hashService
-          .hash(body, digest.algorithm)
-          .map(hbody => s"${method.name}:${digest.uri.getPath}:$hbody")
-      case None       =>
-        ZIO.succeed(s"${method.name}:${digest.uri.getPath}:")
+        ZIO.succeed(s"${method.name}:${uri.getPath}")
     }
   }
 
   private def calculateFinalResponse(
     ha1: String,
     ha2: String,
-    digest: DigestResponse,
+    nonce: String,
+    nc: String,
+    cnonce: String,
+    qop: QualityOfProtection,
+    algorithm: HashAlgorithm,
   ): UIO[String] = {
-    val responseData = s"${digest.nonce}:${digest.nc}:${digest.cnonce}:${digest.qop.name}:$ha2"
-    hashService.keyedHash(responseData, digest.algorithm, ha1)
+    val responseData = s"$nonce:$nc:$cnonce:${qop.name}:$ha2"
+    hashService.keyedHash(responseData, algorithm, ha1)
   }
 }

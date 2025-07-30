@@ -1,6 +1,5 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.DigestAuthError.{NonceExpired, ReplayAttack}
 import example.auth.digest.core.HashAlgorithm._
 import example.auth.digest.core.QualityOfProtection.Auth
 import zio._
@@ -31,32 +30,20 @@ object DigestAuthHandlerAspect {
     HandlerAspect.interceptIncomingHandler[DigestAuthService & UserService, User] {
       handler { (request: Request) =>
         request.header(Header.Authorization) match {
-          case Some(digest: Header.Authorization.Digest) =>
+          case Some(digest: Header.Authorization.Digest) => {
             for {
-              user   <-
+              user <-
                 ZIO
                   .serviceWithZIO[UserService](_.getUser(digest.username))
-                  .some
-                  .orElse(unauthorizedResponse(s"Failed to authenticate user ${digest.username}"))
-              body   <- request.body.asString.option
-              result <- ZIO
+              body <- request.body.asString.option
+              _ <- ZIO
                 .serviceWithZIO[DigestAuthService](
                   _.validateResponse(DigestResponse.fromDigestHeader(digest), user.password, request.method, body),
                 )
-                .catchAll {
-                  case NonceExpired(nonce)                   =>
-                    unauthorizedResponse(s"Nonce expired for user ${digest.username}: $nonce")
-                  case ReplayAttack(nonce, nc)               =>
-                    unauthorizedResponse(
-                      s"The nonce $nonce with nc $nc has already been used by user ${digest.username}.",
-                    )
-                  case DigestAuthError.InvalidResponse(_, _) =>
-                    unauthorizedResponse(s"Invalid digest response for user ${digest.username}.")
-                }
             } yield (request, user)
+          }.catchAll(_ => unauthorizedResponse("Authentication failed!"))
 
           case _ =>
-            // No auth header or not digest, send challenges
             unauthorizedResponse(s"Missing Authorization header for realm: $realm")
         }
       }
