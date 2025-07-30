@@ -1,11 +1,10 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.DigestAuthError._
 import example.auth.digest.core.DigestAlgorithm._
+import example.auth.digest.core.DigestAuthError._
 import zio.Config.Secret
 import zio._
 import zio.http._
-import zio.stream.ZSink.digest
 
 import java.net.URI
 import java.util.Base64
@@ -20,17 +19,17 @@ case class DigestAuthConfig(
 
 // Represents a digest authentication response from the client
 case class DigestResponse(
-                           response: String,
-                           username: String,
-                           realm: String,
-                           uri: URI,
-                           opaque: String,
-                           algorithm: DigestAlgorithm,
-                           qop: QualityOfProtection,
-                           cnonce: String,
-                           nonce: String,
-                           nc: String,
-                           userhash: Boolean,
+  response: String,
+  username: String,
+  realm: String,
+  uri: URI,
+  opaque: String,
+  algorithm: DigestAlgorithm,
+  qop: QualityOfProtection,
+  cnonce: String,
+  nonce: String,
+  nc: String,
+  userhash: Boolean,
 )
 
 object DigestResponse {
@@ -53,15 +52,15 @@ object DigestResponse {
 
 // Represents a digest authentication challenge sent to the client
 case class DigestChallenge(
-                            realm: String,
-                            nonce: String,
-                            opaque: Option[String] = None,
-                            algorithm: DigestAlgorithm = MD5,
-                            qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
-                            stale: Boolean = false,
-                            domain: Option[List[String]] = None,
-                            charset: Option[String] = Some("UTF-8"),
-                            userhash: Boolean = false,
+  realm: String,
+  nonce: String,
+  opaque: Option[String] = None,
+  algorithm: DigestAlgorithm = MD5,
+  qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
+  stale: Boolean = false,
+  domain: Option[List[String]] = None,
+  charset: Option[String] = Some("UTF-8"),
+  userhash: Boolean = false,
 ) {
   def toHeader: Header.WWWAuthenticate.Digest = {
     Header.WWWAuthenticate.Digest(
@@ -99,9 +98,9 @@ object DigestAuthError {
 
 trait DigestAuthService {
   def generateChallenge(
-                         realm: String,
-                         qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
-                         algorithm: DigestAlgorithm = MD5,
+    realm: String,
+    qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
+    algorithm: DigestAlgorithm = MD5,
   ): UIO[DigestChallenge]
 
   def validateResponse(
@@ -130,9 +129,9 @@ case class DigestAuthServiceLive(
 ) extends DigestAuthService {
 
   def generateChallenge(
-                         realm: String,
-                         qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
-                         algorithm: DigestAlgorithm = MD5,
+    realm: String,
+    qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
+    algorithm: DigestAlgorithm = MD5,
   ): UIO[DigestChallenge] =
     for {
       timestamp <- Clock.currentTime(TimeUnit.MILLISECONDS)
@@ -212,17 +211,17 @@ case class DigestAuthServiceLive(
   }
 
   private def calculateResponse(
-                                 username: String,
-                                 realm: String,
-                                 password: Secret,
-                                 nonce: String,
-                                 nc: String,
-                                 cnonce: String,
-                                 algorithm: DigestAlgorithm,
-                                 qop: QualityOfProtection,
-                                 uri: URI,
-                                 method: Method,
-                                 body: Option[String],
+    username: String,
+    realm: String,
+    password: Secret,
+    nonce: String,
+    nc: String,
+    cnonce: String,
+    algorithm: DigestAlgorithm,
+    qop: QualityOfProtection,
+    uri: URI,
+    method: Method,
+    body: Option[String],
   ): UIO[String] = {
     for {
       a1       <- calculateA1(username, realm, password, nonce, cnonce, algorithm)
@@ -234,12 +233,12 @@ case class DigestAuthServiceLive(
   }
 
   private def calculateA1(
-                           username: String,
-                           realm: String,
-                           password: Secret,
-                           nonce: String,
-                           cnonce: String,
-                           algorithm: DigestAlgorithm,
+    username: String,
+    realm: String,
+    password: Secret,
+    nonce: String,
+    cnonce: String,
+    algorithm: DigestAlgorithm,
   ): UIO[String] = {
     val baseA1 = s"$username:$realm:${password.stringValue}"
 
@@ -254,11 +253,11 @@ case class DigestAuthServiceLive(
   }
 
   private def calculateA2(
-                           method: Method,
-                           uri: URI,
-                           algorithm: DigestAlgorithm,
-                           qop: QualityOfProtection,
-                           entityBody: Option[String],
+    method: Method,
+    uri: URI,
+    algorithm: DigestAlgorithm,
+    qop: QualityOfProtection,
+    entityBody: Option[String],
   ): UIO[String] = {
     qop match {
       case QualityOfProtection.AuthInt =>
@@ -276,13 +275,13 @@ case class DigestAuthServiceLive(
   }
 
   private def calculateFinalResponse(
-                                      ha1: String,
-                                      ha2: String,
-                                      nonce: String,
-                                      nc: String,
-                                      cnonce: String,
-                                      qop: QualityOfProtection,
-                                      algorithm: DigestAlgorithm,
+    ha1: String,
+    ha2: String,
+    nonce: String,
+    nc: String,
+    cnonce: String,
+    qop: QualityOfProtection,
+    algorithm: DigestAlgorithm,
   ): UIO[String] = {
     val responseData = s"$nonce:$nc:$cnonce:${qop.name}:$ha2"
     hashService.keyedHash(responseData, algorithm, ha1)
