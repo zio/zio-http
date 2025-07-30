@@ -1,19 +1,19 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.HashAlgorithm._
+import example.auth.digest.core.DigestAlgorithm._
 import zio._
 
 import java.security.MessageDigest
 
 trait HashService {
-  def hash(data: String, algorithm: HashAlgorithm): UIO[String]
-  def keyedHash(data: String, algorithm: HashAlgorithm, secret: String): UIO[String]
+  def hash(data: String, algorithm: DigestAlgorithm): UIO[String]
+  def keyedHash(data: String, algorithm: DigestAlgorithm, secret: String): UIO[String]
 }
 
 object HashService {
   object HashServiceLive extends HashService {
 
-    def hash(data: String, algorithm: HashAlgorithm): UIO[String] =
+    def hash(data: String, algorithm: DigestAlgorithm): UIO[String] =
       ZIO.succeed {
         val md = algorithm match {
           case MD5 | MD5_SESS =>
@@ -28,7 +28,7 @@ object HashService {
           .mkString
       }
 
-    def keyedHash(data: String, algorithm: HashAlgorithm, secret: String): UIO[String] =
+    def keyedHash(data: String, algorithm: DigestAlgorithm, secret: String): UIO[String] =
       hash(s"$secret:$data", algorithm)
   }
 

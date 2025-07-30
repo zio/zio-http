@@ -1,6 +1,6 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.HashAlgorithm._
+import example.auth.digest.core.DigestAlgorithm._
 import example.auth.digest.core.QualityOfProtection.Auth
 import zio._
 import zio.http._
@@ -8,9 +8,9 @@ import zio.http._
 object DigestAuthHandlerAspect {
 
   def apply(
-    realm: String,
-    qop: List[QualityOfProtection] = List(Auth),
-    supportedAlgorithms: Set[HashAlgorithm] = Set(MD5, MD5_SESS, SHA256, SHA256_SESS, SHA512, SHA512_SESS),
+             realm: String,
+             qop: List[QualityOfProtection] = List(Auth),
+             supportedAlgorithms: Set[DigestAlgorithm] = Set(MD5, MD5_SESS, SHA256, SHA256_SESS, SHA512, SHA512_SESS),
   ): HandlerAspect[DigestAuthService & UserService, User] = {
 
     def unauthorizedResponse(message: String): ZIO[DigestAuthService, Response, Nothing] =
