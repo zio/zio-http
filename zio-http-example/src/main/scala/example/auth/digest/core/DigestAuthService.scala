@@ -10,13 +10,6 @@ import java.net.URI
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 
-// Configuration for digest authentication
-case class DigestAuthConfig(
-  nonceValidityDuration: Duration = Duration.fromSeconds(12000),
-  defaultCharset: String = "UTF-8",
-  nonceByteLength: Int = 16,
-)
-
 // Represents a digest authentication response from the client
 case class DigestResponse(
   response: String,
@@ -78,22 +71,13 @@ case class DigestChallenge(
 }
 
 // Error types for digest authentication failures
-sealed trait DigestAuthError {
-  def message: String
-}
+sealed trait DigestAuthError
 
 object DigestAuthError {
-  case class NonceExpired(nonce: String) extends DigestAuthError {
-    override def message: String = s"Nonce expired: $nonce"
-  }
-
-  case class ReplayAttack(nonce: String, nc: String) extends DigestAuthError {
-    override def message: String = s"Replay attack detected for nonce: $nonce with nc: $nc"
-  }
-
-  case class InvalidResponse(expected: String, actual: String) extends DigestAuthError {
-    override def message: String = s"Invalid digest response: expected $expected, got $actual"
-  }
+  case class NonceExpired(nonce: String)                       extends DigestAuthError
+  case class InvalidNonce(nonce: String)                       extends DigestAuthError
+  case class ReplayAttack(nonce: String, nc: String)           extends DigestAuthError
+  case class InvalidResponse(expected: String, actual: String) extends DigestAuthError
 }
 
 trait DigestAuthService {
@@ -112,21 +96,18 @@ trait DigestAuthService {
 }
 
 object DigestAuthService {
-  val live: ZLayer[HashService & NonceService & DigestAuthConfig, Nothing, DigestAuthService] =
-    ZLayer.fromFunction((hashService: HashService, nonceService: NonceService, config: DigestAuthConfig) =>
-      DigestAuthServiceLive(hashService, nonceService, config),
+  val live: ZLayer[NonceService & DigestService, Nothing, DigestAuthService] =
+    ZLayer.fromFunction((nonceService: NonceService, digestService: DigestService) =>
+      DigestAuthServiceLive(nonceService, digestService),
     )
-
-  // Convenience layer with default config
-  val liveWithDefaults: ZLayer[HashService & NonceService, Nothing, DigestAuthService] =
-    ZLayer.succeed(DigestAuthConfig()) >>> live
 }
 
 case class DigestAuthServiceLive(
-  hashService: HashService,
   nonceService: NonceService,
-  config: DigestAuthConfig,
+  digestService: DigestService,
 ) extends DigestAuthService {
+  val OPAQUE_BYTES_LENGTH = 16
+  val NONCE_MAX_AGE       = 300L // 5 minutes
 
   def generateChallenge(
     realm: String,
@@ -143,147 +124,49 @@ case class DigestAuthServiceLive(
       opaque = Some(opaque),
       algorithm = algorithm,
       qop = qop,
-      charset = Some(config.defaultCharset),
+      charset = Some("UTF-8"),
     )
 
+  // format: off
   def validateResponse(
     response: DigestResponse,
     password: Secret,
     method: Method,
     body: Option[String] = None,
   ): ZIO[Any, DigestAuthError, Unit] = {
+    val r = response
     for {
-      _                <- validateNonce(response.nonce)
-      _                <- checkReplayAttack(response.nonce, response.nc)
-      expectedResponse <- calculateResponse(
-        response.username,
-        response.realm,
-        password,
-        response.nonce,
-        response.nc,
-        response.cnonce,
-        response.algorithm,
-        response.qop,
-        response.uri,
-        method,
-        body,
-      )
-      _                <- markNonceAsUsed(response.nonce, response.nc)
-      _                <- compareResponses(expectedResponse, response.response)
+      _        <- nonceService.validateNonce(r.nonce, Duration.fromSeconds(NONCE_MAX_AGE)).mapError(errorMapper)
+      _        <- nonceService.isNonceUsed(r.nonce, r.nc).mapError(errorMapper)
+      expected <- digestService.calculateResponse(r.username, r.realm, password, r.nonce, r.nc, r.cnonce, r.algorithm, r.qop, r.uri, method, body)
+      _        <- compareResponses(expected, r.response)
+      _        <- nonceService.markNonceUsed(r.nonce, r.nc)
     } yield ()
+  }
+  // format: on
+
+  private def errorMapper(error: NonceError): DigestAuthError = error match {
+    case NonceError.NonceExpired(nonce)         => DigestAuthError.NonceExpired(nonce)
+    case NonceError.NonceAlreadyUsed(nonce, nc) => DigestAuthError.ReplayAttack(nonce, nc)
+    case NonceError.InvalidNonce(nonce)         => DigestAuthError.InvalidNonce(nonce)
   }
 
   // Private helper methods
   private def generateOpaque: UIO[String] =
     Random
-      .nextBytes(config.nonceByteLength)
+      .nextBytes(OPAQUE_BYTES_LENGTH)
       .map(_.toArray)
       .map(Base64.getEncoder.encodeToString)
 
-  private def validateNonce(nonce: String): ZIO[Any, DigestAuthError, Unit] =
-    nonceService.validateNonce(nonce, config.nonceValidityDuration).flatMap { isValid =>
-      ZIO
-        .unless(isValid) {
-          ZIO.fail(NonceExpired(nonce))
-        }
-        .unit
-    }
+  private def constantTimeEquals(a: Array[Byte], b: Array[Byte]): Boolean =
+    a.length == b.length && a.zip(b).map { case (x, y) => x ^ y }.fold(0)(_ | _) == 0
 
-  private def checkReplayAttack(nonce: String, nc: String): ZIO[Any, DigestAuthError, Unit] =
-    nonceService.isNonceUsed(nonce, nc).flatMap { isUsed =>
-      ZIO
-        .when(isUsed) {
-          ZIO.fail(ReplayAttack(nonce, nc))
-        }
-        .unit
-    }
-
-  private def markNonceAsUsed(nonce: String, nc: String): UIO[Unit] =
-    nonceService.markNonceUsed(nonce, nc)
-
-  private def compareResponses(expected: String, actual: String): ZIO[Any, InvalidResponse, Unit] = {
-    val isValid = expected.equalsIgnoreCase(actual)
-    ZIO
-      .unless(isValid) {
-        ZIO.fail(InvalidResponse(expected, actual))
-      }
-      .unit
-  }
-
-  private def calculateResponse(
-    username: String,
-    realm: String,
-    password: Secret,
-    nonce: String,
-    nc: String,
-    cnonce: String,
-    algorithm: DigestAlgorithm,
-    qop: QualityOfProtection,
-    uri: URI,
-    method: Method,
-    body: Option[String],
-  ): UIO[String] = {
-    for {
-      a1       <- calculateA1(username, realm, password, nonce, cnonce, algorithm)
-      ha1      <- hashService.hash(a1, algorithm)
-      a2       <- calculateA2(method, uri, algorithm, qop, body)
-      ha2      <- hashService.hash(a2, algorithm)
-      response <- calculateFinalResponse(ha1, ha2, nonce, nc, cnonce, qop, algorithm)
-    } yield response
-  }
-
-  private def calculateA1(
-    username: String,
-    realm: String,
-    password: Secret,
-    nonce: String,
-    cnonce: String,
-    algorithm: DigestAlgorithm,
-  ): UIO[String] = {
-    val baseA1 = s"$username:$realm:${password.stringValue}"
-
-    algorithm match {
-      case MD5_SESS | SHA256_SESS | SHA512_SESS =>
-        hashService
-          .hash(baseA1, algorithm)
-          .map(ha1 => s"$ha1:$nonce:$cnonce")
-      case _                                    =>
-        ZIO.succeed(baseA1)
-    }
-  }
-
-  private def calculateA2(
-    method: Method,
-    uri: URI,
-    algorithm: DigestAlgorithm,
-    qop: QualityOfProtection,
-    entityBody: Option[String],
-  ): UIO[String] = {
-    qop match {
-      case QualityOfProtection.AuthInt =>
-        entityBody match {
-          case Some(body) =>
-            hashService
-              .hash(body, algorithm)
-              .map(hbody => s"${method.name}:${uri.getPath}:$hbody")
-          case None       =>
-            ZIO.succeed(s"${method.name}:${uri.getPath}:")
-        }
-      case _                           =>
-        ZIO.succeed(s"${method.name}:${uri.getPath}")
-    }
-  }
-
-  private def calculateFinalResponse(
-    ha1: String,
-    ha2: String,
-    nonce: String,
-    nc: String,
-    cnonce: String,
-    qop: QualityOfProtection,
-    algorithm: DigestAlgorithm,
-  ): UIO[String] = {
-    val responseData = s"$nonce:$nc:$cnonce:${qop.name}:$ha2"
-    hashService.keyedHash(responseData, algorithm, ha1)
+  def compareResponses(expected: String, actual: String): ZIO[Any, InvalidResponse, Unit] = {
+    val exp = expected.getBytes("UTF-8")
+    val act = actual.getBytes("UTF-8")
+    if (constantTimeEquals(exp, act))
+      ZIO.unit
+    else
+      ZIO.fail(InvalidResponse(expected, actual))
   }
 }

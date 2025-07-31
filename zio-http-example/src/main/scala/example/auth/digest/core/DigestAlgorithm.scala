@@ -1,8 +1,6 @@
 package example.auth.digest.core
 
-sealed abstract class DigestAlgorithm(val name: String, val digestSize: Int) {
-  override def toString: String = name
-}
+sealed abstract class DigestAlgorithm(val name: String, val digestSize: Int)
 
 object DigestAlgorithm {
   case object MD5         extends DigestAlgorithm("MD5", 128)
