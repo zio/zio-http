@@ -212,7 +212,7 @@ case class DigestResponse(
   qop: QualityOfProtection,
   cnonce: String,
   nonce: String,
-  nc: String,
+  nc: NC,
   userhash: Boolean,
 )
 
@@ -228,9 +228,9 @@ The `DigestAuthError` is a sealed trait that represents the possible errors that
 ```scala
 sealed trait NonceError extends Serializable with Product
 object NonceError {
-  case class NonceExpired(nonce: String)                 extends NonceError
-  case class NonceAlreadyUsed(nonce: String, nc: String) extends NonceError
-  case class InvalidNonce(nonce: String)                 extends NonceError
+  case class NonceExpired(nonce: String)             extends NonceError
+  case class NonceAlreadyUsed(nonce: String, nc: NC) extends NonceError
+  case class InvalidNonce(nonce: String)             extends NonceError
 }
 ```
 
@@ -301,8 +301,22 @@ In this guide, we will use the timestamp-based nonce generation approach, which 
 trait NonceService {
   def generateNonce: UIO[String]
   def validateNonce(nonce: String, maxAge: Duration): UIO[Boolean]
-  def isNonceUsed(nonce: String, nc: String): UIO[Boolean]
-  def markNonceUsed(nonce: String, nc: String): UIO[Unit]
+  def isNonceUsed(nonce: String, nc: NC): UIO[Boolean]
+  def markNonceUsed(nonce: String, nc: NC): UIO[Unit]
+}
+```
+
+The `NC` class represents the nonce count (`nc`) as 8-digit hexadecimal string, zero-padded on the left. The `NC` class is defined as follows:
+
+```scala
+case class NC(value: Int) extends AnyVal {
+  override def toString: String = toHexString
+
+  private def toHexString: String = f"$value%08x"
+}
+
+object NC {
+  implicit val ordering: Ordering[NC] = Ordering.by(_.value)
 }
 ```
 
@@ -323,8 +337,8 @@ final case class NonceServiceLive(
     }
   
   def validateNonce(nonce: String, maxAge: Duration): UIO[Boolean] = ???
-  def isNonceUsed(nonce: String, nc: String): UIO[Boolean] = ???
-  def markNonceUsed(nonce: String, nc: String): UIO[Unit] = ???
+  def isNonceUsed(nonce: String, nc: NC): UIO[Boolean] = ???
+  def markNonceUsed(nonce: String, nc: NC): UIO[Unit] = ???
 
   private def createHash(timestamp: Long): Array[Byte] = {
     val mac = Mac.getInstance(HASH_ALGORITHM)
@@ -380,8 +394,8 @@ final case class NonceServiceLive(secretKey: Secret) extends NonceService {
       }
     }
   
-  def isNonceUsed(nonce: String, nc: String): UIO[Boolean] = ???
-  def markNonceUsed(nonce: String, nc: String): UIO[Unit] = ???
+  def isNonceUsed(nonce: String, nc: NC): UIO[Boolean] = ???
+  def markNonceUsed(nonce: String, nc: NC): UIO[Unit] = ???
     
   private def constantTimeEquals(a: Array[Byte], b: Array[Byte]): Boolean =
     a.length == b.length && a.zip(b).map { case (x, y) => x ^ y }.fold(0)(_ | _) == 0
@@ -394,18 +408,24 @@ To implement this functionality, called `isNonceUsed`, we can use a `Ref` to sto
 
 ```scala
 final case class NonceServiceLive(
-    usedNonce: Ref[Map[String, Set[String]]],
+    usedNonce: Ref[Map[String, NC]],
     secretKey: SecretKey
   ) extends NonceService {
   def generateNonce: UIO[String] = ???
   def validateNonce(nonce: String, maxAge: Duration): UIO[Boolean] = ???
 
-  def isNonceUsed(nonce: String, nc: String): ZIO[Any, NonceError, Unit] =
-    usedNonces.get.map(_.get(nonce).exists(_.contains(nc))).flatMap { isUsed =>
-      ZIO.when(isUsed)(ZIO.fail(NonceError.NonceAlreadyUsed(nonce, nc))).unit
-    }
+  def isNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit] =
+    for {
+      usedNoncesMap <- usedNonces.get
+      _             <- usedNoncesMap.get(nonce) match {
+        case Some(lastUsedNc) if nc <= lastUsedNc =>
+          ZIO.fail(NonceAlreadyUsed(nonce, nc))
+        case _                                    =>
+          ZIO.unit
+      }
+    } yield ()
     
-  def markNonceUsed(nonce: String, nc: String): UIO[Unit] = ???
+  def markNonceUsed(nonce: String, nc: NC): UIO[Unit] = ???
 }
 ```
 
@@ -413,20 +433,18 @@ Similarly, we have to implement the `markNonceUsed` method to mark a `nonce` and
 
 ```scala
 final case class NonceServiceLive(
-    usedNonce: Ref[Map[String, Set[String]]],
+    usedNonce: Ref[Map[String, NC]],
     secretKey: SecretKey
   ) extends NonceService {
   def generateNonce: UIO[String] = ???
-  
   def validateNonce(nonce: String, maxAge: Duration): UIO[Boolean] = ???
+  def isNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit] = ???
 
-  def isNonceUsed(nonce: String, nc: String): ZIO[Any, NonceError, Unit] =
-    usedNonces.get.map(_.get(nonce).exists(_.contains(nc))).flatMap { isUsed =>
-      ZIO.when(isUsed)(ZIO.fail(NonceError.NonceAlreadyUsed(nonce, nc))).unit
+  def markNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit] =
+    usedNonces.update { nonces =>
+      val currentMax = nonces.getOrElse(nonce, NC(0))
+      nonces.updated(nonce, currentMax max nc)
     }
-
-  def markNonceUsed(nonce: String, nc: String): UIO[Unit] =
-    usedNonces.update(nonces => nonces.updated(nonce, nonces.getOrElse(nonce, Set.empty) + nc))
 }
 ```
 
@@ -445,7 +463,7 @@ trait DigestService {
     realm: String,
     password: Secret,
     nonce: String,
-    nc: String,
+    nc: NC,
     cnonce: String,
     algorithm: DigestAlgorithm,
     qop: QualityOfProtection,
@@ -491,7 +509,7 @@ def computeResponse(
   realm: String,
   password: Secret,
   nonce: String,
-  nc: String,
+  nc: NC,
   cnonce: String,
   algorithm: DigestAlgorithm,
   qop: QualityOfProtection,
@@ -563,7 +581,7 @@ private def computeFinalResponse(
   ha1: String,
   ha2: String,
   nonce: String,
-  nc: String,
+  nc: NC,
   cnonce: String,
   qop: QualityOfProtection,
   algorithm: DigestAlgorithm,
