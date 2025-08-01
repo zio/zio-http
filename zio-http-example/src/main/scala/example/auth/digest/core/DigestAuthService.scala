@@ -140,7 +140,7 @@ case class DigestAuthServiceLive(
       _        <- nonceService.isNonceUsed(r.nonce, r.nc).mapError(errorMapper)
       expected <- digestService.computeResponse(r.username, r.realm, password, r.nonce, r.nc, r.cnonce, r.algorithm, r.qop, r.uri, method, body)
       _        <- isEqual(expected, r.response)
-      _        <- nonceService.markNonceUsed(r.nonce, r.nc)
+      _        <- nonceService.markNonceUsed(r.nonce, r.nc).mapError(errorMapper)
     } yield ()
   }
   // format: on

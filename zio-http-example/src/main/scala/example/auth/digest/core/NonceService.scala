@@ -1,5 +1,5 @@
 package example.auth.digest.core
-
+import example.auth.digest.core.NonceError.{InvalidNonce, NonceAlreadyUsed, NonceExpired}
 import zio.Config.Secret
 import zio._
 
@@ -20,17 +20,19 @@ trait NonceService {
   def generateNonce: UIO[String]
   def validateNonce(nonce: String, maxAge: Duration): ZIO[Any, NonceError, Unit]
   def isNonceUsed(nonce: String, nc: String): ZIO[Any, NonceError, Unit]
-  def markNonceUsed(nonce: String, nc: String): UIO[Unit]
+  def markNonceUsed(nonce: String, nc: String): ZIO[Any, NonceError, Unit]
 }
 
 object NonceService {
-
   final case class NonceServiceLive(
-    usedNonces: Ref[Map[String, Set[String]]],
+    // Now tracking highest nc value per nonce instead of all nc values
+    usedNonces: Ref[Map[String, Int]],
     secret: Secret,
   ) extends NonceService {
+
     private val HASH_ALGORITHM = "HmacSHA256"
     private val HASH_LENGTH    = 16
+    private val NC_RADIX       = 16 // RFC 2617 specifies the hexadecimal format
 
     def generateNonce: UIO[String] =
       Clock.currentTime(TimeUnit.MILLISECONDS).map { timestamp =>
@@ -44,34 +46,46 @@ object NonceService {
         try {
           val decoded = new String(Base64.getDecoder.decode(nonce), "UTF-8")
           val parts   = decoded.split(":", 2)
-
           if (parts.length != 2) {
-            Left(NonceError.InvalidNonce(nonce))
+            Left(InvalidNonce(nonce))
           } else {
             val timestamp         = parts(0).toLong
             val providedHash      = Base64.getDecoder.decode(parts(1))
             val isWithinTimeLimit = java.lang.System.currentTimeMillis() - timestamp <= maxAge.toMillis
-
             if (!isWithinTimeLimit) {
-              Left(NonceError.NonceExpired(nonce))
+              Left(NonceExpired(nonce))
             } else if (!constantTimeEquals(createHash(timestamp), providedHash)) {
-              Left(NonceError.InvalidNonce(nonce))
+              Left(InvalidNonce(nonce))
             } else {
               Right(())
             }
           }
         } catch {
-          case _: Exception => Left(NonceError.InvalidNonce(nonce))
+          case _: Exception => Left(InvalidNonce(nonce))
         }
       }
+    def isNonceUsed(nonce: String, nc: String): ZIO[Any, NonceError, Unit]         =
+      for {
+        ncValue       <- ZIO.attempt(Integer.parseInt(nc, NC_RADIX)).mapError(_ => InvalidNonce(nonce))
+        usedNoncesMap <- usedNonces.get
+        _             <- usedNoncesMap.get(nonce) match {
+          case Some(lastUsedNc) if ncValue <= lastUsedNc =>
+            ZIO.fail(NonceAlreadyUsed(nonce, nc))
+          case _                                         =>
+            ZIO.unit
+        }
+      } yield ()
 
-    def isNonceUsed(nonce: String, nc: String): ZIO[Any, NonceError, Unit] =
-      usedNonces.get.map(_.get(nonce).exists(_.contains(nc))).flatMap { isUsed =>
-        ZIO.when(isUsed)(ZIO.fail(NonceError.NonceAlreadyUsed(nonce, nc))).unit
-      }
-
-    def markNonceUsed(nonce: String, nc: String): UIO[Unit] =
-      usedNonces.update(nonces => nonces.updated(nonce, nonces.getOrElse(nonce, Set.empty) + nc))
+    def markNonceUsed(nonce: String, nc: String): ZIO[Any, NonceError, Unit] =
+      for {
+        ncValue <- ZIO
+          .attempt(Integer.parseInt(nc, NC_RADIX))
+          .mapError(_ => NonceError.InvalidNonce(nonce))
+        _       <- usedNonces.update { nonces =>
+          val currentMax = nonces.getOrElse(nonce, 0)
+          nonces.updated(nonce, math.max(currentMax, ncValue))
+        }
+      } yield ()
 
     private def createHash(timestamp: Long): Array[Byte] = {
       val mac = Mac.getInstance(HASH_ALGORITHM)
@@ -85,7 +99,7 @@ object NonceService {
 
   val live: ULayer[NonceService] = ZLayer.fromZIO {
     for {
-      usedNoncesRef <- Ref.make(Map.empty[String, Set[String]])
+      usedNoncesRef <- Ref.make(Map.empty[String, Int])
       secretValue = sys.env.getOrElse("NONCE_SECRET", "MY_SERVER_SECRET")
     } yield NonceServiceLive(usedNoncesRef, Secret(secretValue))
   }
