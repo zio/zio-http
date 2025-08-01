@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+//> using dep "dev.zio::zio-http:3.3.1"
+
 package example
 
 import zio._

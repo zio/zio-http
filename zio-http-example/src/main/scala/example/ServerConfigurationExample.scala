@@ -1,3 +1,6 @@
+//> using dep "dev.zio::zio-http:3.3.1"
+//> using dep "dev.zio::zio-config-typesafe:4.0.4"
+
 package example
 
 import zio._

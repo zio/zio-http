@@ -1,3 +1,7 @@
+//> using dep "dev.zio::zio-http:3.3.1"
+//> using dep "dev.zio::zio-streams:2.1.18"
+//> using dep "dev.zio::zio-schema:1.7.2"
+
 package example
 
 import java.time.Instant
