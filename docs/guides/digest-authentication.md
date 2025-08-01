@@ -184,7 +184,51 @@ trait DigestAuthService {
 }
 ```
 
-The `createChallenge` method generates a new challenge with the specified realm, quality of protection, and algorithm. The `validateResponse` method checks if the provided digest response is valid for the given password, HTTP method, and optionally the request body.
+The `DigestAuthService#createChallenge` method generates a new challenge to send to the client when they attempt to access a protected resource without authentication. The `DigestAuthService#validateResponse` method checks if the provided digest response by the client is valid.
+
+The `DigestChallenge` is a data type that encapsulates the parameters needed to generate a challenge, such as `realm`, `nonce`, `opaque`, `algorithm`, and `qop`:
+
+```scala
+case class DigestChallenge(
+  realm: String,
+  nonce: String,
+  opaque: Option[String] = None,
+  algorithm: DigestAlgorithm = MD5,
+  qop: List[QualityOfProtection] = List(Auth),
+  stale: Boolean = false,
+  domain: Option[List[String]] = None,
+  charset: Option[String] = Some("UTF-8"),
+  userhash: Boolean = false,
+) {
+  def toHeader: Header.WWWAuthenticate.Digest = ???
+}
+```
+
+The `DigestChallenge#toHeader` method converts the `DigestChallenge` into a `Header.WWWAuthenticate.Digest`, which can be used in the HTTP response to challenge the client.
+
+The `DigestResponse` is a data type that represents the response sent by the client in the `Authorization` header, containing the username, realm, nonce, cnonce, nc, qop, uri, and response digest.
+
+```scala
+case class DigestResponse(
+  response: String,
+  username: String,
+  realm: String,
+  uri: URI,
+  opaque: String,
+  algorithm: DigestAlgorithm,
+  qop: QualityOfProtection,
+  cnonce: String,
+  nonce: String,
+  nc: String,
+  userhash: Boolean,
+)
+
+object DigestResponse {
+  def fromHeader(digest: Header.Authorization.Digest): DigestResponse = ???
+}
+```
+
+The `DigestResponse.fromHeader` translate the `Header.Authorization.Digest` to `DigestResponse` which is a more typesafe representation of digest response.
 
 The `DigestAuthError` is a sealed trait that represents the possible errors that can occur during the digest authentication process. It includes:
 
@@ -758,14 +802,10 @@ object DigestAuthHandlerAspect {
           case Some(digest: Header.Authorization.Digest) =>
             {
               for {
-                user <-
-                  ZIO
-                    .serviceWithZIO[UserService](_.getUser(digest.username))
-                body <- request.body.asString.option
-                _    <- ZIO
-                  .serviceWithZIO[DigestAuthService](
-                    _.validateResponse(DigestResponse.fromDigestHeader(digest), user.password, request.method, body),
-                  )
+                user        <- ZIO.serviceWithZIO[UserService](_.getUser(digest.username))
+                body        <- request.body.asString.option
+                authService <- ZIO.service[DigestAuthService]
+                _    <- authService.validateResponse(DigestResponse.fromDigestHeader(digest), user.password, request.method, body)
               } yield (request, user)
             }.catchAll(_ => unauthorizedResponse("Authentication failed!"))
 
