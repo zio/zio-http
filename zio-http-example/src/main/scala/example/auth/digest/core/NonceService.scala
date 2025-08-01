@@ -63,7 +63,8 @@ object NonceService {
           case _: Exception => Left(InvalidNonce(nonce))
         }
       }
-    def isNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit]             =
+
+    def isNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit] =
       for {
         usedNoncesMap <- usedNonces.get
         _             <- usedNoncesMap.get(nonce) match {
