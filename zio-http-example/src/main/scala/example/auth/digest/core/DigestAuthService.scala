@@ -27,7 +27,7 @@ case class DigestResponse(
 )
 
 object DigestResponse {
-  def fromDigestHeader(digest: Header.Authorization.Digest): DigestResponse = {
+  def fromHeader(digest: Header.Authorization.Digest): DigestResponse = {
     DigestResponse(
       response = digest.response,
       username = digest.username,

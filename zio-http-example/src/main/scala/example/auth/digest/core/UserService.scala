@@ -1,5 +1,6 @@
 package example.auth.digest.core
 
+import example.auth.digest.core.UserServiceError._
 import zio.Config._
 import zio._
 
@@ -19,36 +20,22 @@ trait UserService {
 
 case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
 
-  def getUser(username: String): IO[UserServiceError, User] = {
-    for {
-      userMap <- users.get
-      user    <- ZIO
-        .fromOption(userMap.get(username))
-        .orElseFail(UserServiceError.UserNotFound(username))
-    } yield user
-  }
+  def getUser(username: String): IO[UserServiceError, User] =
+    users.get.flatMap { userMap =>
+      ZIO.fromOption(userMap.get(username)).orElseFail(UserNotFound(username))
+    }
 
-  def addUser(user: User): IO[UserServiceError, Unit] = {
-    for {
-      userMap <- users.get
-      _       <- ZIO.when(userMap.contains(user.username))(
-        ZIO.fail(UserServiceError.UserAlreadyExists(user.username)),
-      )
-      _       <- users.update(_.updated(user.username, user))
-    } yield ()
-  }
+  def addUser(user: User): IO[UserServiceError, Unit] =
+    users.get.flatMap { userMap =>
+      ZIO.when(userMap.contains(user.username)) {
+        ZIO.fail(UserAlreadyExists(user.username))
+      } *> users.update(_.updated(user.username, user))
+    }
 
   def updateEmail(username: String, newEmail: String): IO[UserServiceError, Unit] = for {
-    updated <- users.modify { currentUsers =>
-      currentUsers.get(username) match {
-        case Some(user) =>
-          val updatedUser = user.copy(email = newEmail)
-          (Right(()), currentUsers.updated(username, updatedUser))
-        case None       =>
-          (Left(UserServiceError.UserNotFound(username)), currentUsers)
-      }
-    }
-    _       <- ZIO.fromEither(updated)
+    currentUsers <- users.get
+    user         <- ZIO.fromOption(currentUsers.get(username)).orElseFail(UserNotFound(username))
+    _            <- users.update(_.updated(username, user.copy(email = newEmail)))
   } yield ()
 }
 
