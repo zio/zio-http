@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digest Authentication Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 1200px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-card.active {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .user-card h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-card p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .user-email {
+            color: #888;
+            font-size: 11px;
+            font-style: italic;
+            margin-top: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="password"], input[type="email"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .endpoint-section {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .endpoint-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-profile { background: linear-gradient(45deg, #4CAF50, #45a049); color: white; }
+        .btn-admin { background: linear-gradient(45deg, #FF6B6B, #ee5a52); color: white; }
+        .btn-public { background: linear-gradient(45deg, #4ECDC4, #44a08d); color: white; }
+        .btn-update { background: linear-gradient(45deg, #9C27B0, #8E24AA); color: white; }
+        .btn-clear { background: linear-gradient(45deg, #666, #555); color: white; }
+
+        .console {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 15px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            position: relative;
+        }
+
+        .console::before {
+            content: 'Response Console';
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .log-success { color: #4CAF50; font-weight: bold; }
+        .log-error { color: #FF6B6B; font-weight: bold; }
+        .log-info { color: #2196F3; font-weight: bold; }
+
+        /* HTTP Transaction Details Styles */
+        .transaction-details {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .transaction-details.visible {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .http-message {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .http-message-header {
+            background: linear-gradient(45deg, #495057, #6c757d);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .http-message-content {
+            padding: 20px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: white;
+        }
+
+        .http-message-content pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            margin: 0;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .http-request {
+            border-left: 4px solid #007bff;
+        }
+
+        .http-request .http-message-header {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+
+        .http-response-401 {
+            border-left: 4px solid #ffc107;
+        }
+
+        .http-response-401 .http-message-header {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+        }
+
+        .http-response-success {
+            border-left: 4px solid #28a745;
+        }
+
+        .http-response-success .http-message-header {
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+        }
+
+        .http-response-error {
+            border-left: 4px solid #dc3545;
+        }
+
+        .http-response-error .http-message-header {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+        }
+
+        .http-method { color: #007bff; font-weight: bold; }
+        .http-status-200 { color: #28a745; font-weight: bold; }
+        .http-status-401 { color: #ffc107; font-weight: bold; }
+        .http-status-error { color: #dc3545; font-weight: bold; }
+        .http-header-name { color: #6f42c1; font-weight: bold; }
+        .http-header-value { color: #495057; }
+
+        .transaction-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            font-size: 24px;
+            color: #6c757d;
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 20px; margin: 10px; }
+            .user-grid { grid-template-columns: 1fr; }
+            .button-group { flex-direction: column; }
+            .btn { width: 100%; }
+            .http-message-content { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="auth-logo">🔐</div>
+        <h1>Digest Authentication Client</h1>
+        <p class="subtitle">HTTP Digest Authentication Demo</p>
+    </div>
+
+    <div class="section">
+        <h2>👥 User Selection</h2>
+        <div class="user-grid">
+            <div class="user-card active" data-username="john" data-password="password123">
+                <h4>John</h4>
+                <p>Regular User</p>
+                <p class="user-email">john@example.com</p>
+            </div>
+            <div class="user-card" data-username="jane" data-password="secret456">
+                <h4>Jane</h4>
+                <p>Regular User</p>
+                <p class="user-email">jane@example.com</p>
+            </div>
+            <div class="user-card" data-username="admin" data-password="admin123">
+                <h4>Admin</h4>
+                <p>Administrator</p>
+                <p class="user-email">admin@company.com</p>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" value="john" placeholder="Enter username">
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="password123" placeholder="Enter password">
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🔒 Protected Endpoints</h2>
+
+        <div class="endpoint-section">
+            <h3>📧 Email Management</h3>
+            <div class="form-group">
+                <label for="newEmail">New Email Address:</label>
+                <input type="email" id="newEmail" placeholder="Enter new email address">
+            </div>
+            <div class="button-group">
+                <button class="btn btn-update" onclick="handleEmailUpdate()">
+                    <span>📧</span>Update Email
+                </button>
+            </div>
+        </div>
+
+        <div class="endpoint-section">
+            <h3>🛡️ Protected Routes</h3>
+            <div class="button-group">
+                <button class="btn btn-profile" onclick="makeRequest('/profile/me')">
+                    <span>👤</span>Profile
+                </button>
+                <button class="btn btn-admin" onclick="makeRequest('/admin')">
+                    <span>👨‍💼</span>Admin
+                </button>
+            </div>
+        </div>
+
+        <div class="endpoint-section">
+            <h3>🌐 Public Routes</h3>
+            <div class="button-group">
+                <button class="btn btn-public" onclick="makeRequest('/public')">
+                    <span>🌍</span>Public
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>💻 Response Console</h2>
+        <div class="console" id="console">
+            <div class="log-success">Digest Authentication Client ready!</div>
+            <div>Click on any endpoint button to test authentication.</div>
+        </div>
+        <button class="btn btn-clear" onclick="clearConsole()" style="margin-top: 15px;">
+            <span>🗑️</span>Clear Console
+        </button>
+    </div>
+
+    <!-- HTTP Transaction Details Section -->
+    <div class="section">
+        <h2>📊 HTTP Transaction Details</h2>
+        <div id="transactionDetails" class="transaction-details">
+            <p style="text-align: center; color: #6c757d; font-style: italic;">
+                Click any endpoint button to see detailed HTTP request/response messages
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
+<script>
+    // Constants
+    const SERVER_URL = 'http://localhost:8080';
+    const DIGEST_ALGORITHMS = {
+        'MD5': CryptoJS.MD5,
+        'MD5-sess': CryptoJS.MD5,
+        'SHA-256': CryptoJS.SHA256,
+        'SHA-256-sess': CryptoJS.SHA256,
+        'SHA-512': CryptoJS.SHA512,
+        'SHA-512-sess': CryptoJS.SHA512
+    };
+
+    // Utility Functions
+    const generateNonce = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const isValidEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const isSessionAlgorithm = algorithm => algorithm && algorithm.endsWith('-sess');
+    const getBaseAlgorithm = algorithm => isSessionAlgorithm(algorithm) ? algorithm.replace('-sess', '') : algorithm;
+    const getCurrentCredentials = () => ({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+    });
+
+    // Hash function with algorithm support
+    function computeHash(str, algorithm) {
+        const hashFunc = DIGEST_ALGORITHMS[algorithm];
+        if (!hashFunc) {
+            logToConsole(`Unsupported algorithm: ${algorithm}, using MD5`, 'error');
+            return CryptoJS.MD5(str).toString();
+        }
+        return hashFunc(str).toString();
+    }
+
+    // Console logging
+    function logToConsole(message, type = 'info') {
+        const console = document.getElementById('console');
+        const timestamp = new Date().toLocaleTimeString();
+        const className = `log-${type}`;
+        console.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+        console.scrollTop = console.scrollHeight;
+    }
+
+    // HTTP Transaction Details Functions
+    function formatHeaders(headers) {
+        let formatted = '';
+        if (headers && typeof headers.forEach === 'function') {
+            headers.forEach((value, name) => {
+                formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
+            });
+        } else if (headers && typeof headers === 'object') {
+            Object.entries(headers).forEach(([name, value]) => {
+                formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
+            });
+        }
+        return formatted;
+    }
+
+    function formatHttpRequest(method, url, headers, body) {
+        const urlObj = new URL(url);
+        let request = `<span class="http-method">${method}</span> ${urlObj.pathname}${urlObj.search} HTTP/1.1\n`;
+        request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${urlObj.host}</span>\n`;
+        request += formatHeaders(headers);
+        if (body) {
+            request += `\n${body}`;
+        }
+        return request;
+    }
+
+    function formatHttpResponse(response, body) {
+        const statusClass = response.status === 200 ? 'http-status-200' :
+                           response.status === 401 ? 'http-status-401' : 'http-status-error';
+
+        let formatted = `HTTP/1.1 <span class="${statusClass}">${response.status} ${response.statusText}</span>\n`;
+        formatted += formatHeaders(response.headers);
+        if (body) {
+            formatted += `\n${body}`;
+        }
+        return formatted;
+    }
+
+    function displayTransactionDetails(transactions) {
+        const detailsContainer = document.getElementById('transactionDetails');
+        let html = '';
+
+        transactions.forEach((transaction, index) => {
+            if (index > 0) {
+                html += '<div class="transaction-flow">⬇️</div>';
+            }
+
+            // Request
+            const requestClass = transaction.type === 'initial' ? 'http-request' : 'http-request';
+            html += `
+                <div class="http-message ${requestClass}">
+                    <div class="http-message-header">
+                        🌐 ${transaction.type === 'initial' ? 'Initial Request' : 'Authenticated Request'}
+                    </div>
+                    <div class="http-message-content">
+                        <pre>${transaction.request}</pre>
+                    </div>
+                </div>
+            `;
+
+            // Response
+            let responseClass = 'http-response-error';
+            if (transaction.response.status === 401) responseClass = 'http-response-401';
+            else if (transaction.response.status === 200) responseClass = 'http-response-success';
+
+            html += `
+                <div class="http-message ${responseClass}">
+                    <div class="http-message-header">
+                        📨 ${transaction.type === 'initial' ? 'Challenge Response (401)' : 'Final Response'}
+                    </div>
+                    <div class="http-message-content">
+                        <pre>${transaction.responseText}</pre>
+                    </div>
+                </div>
+            `;
+        });
+
+        detailsContainer.innerHTML = html;
+        detailsContainer.classList.add('visible');
+    }
+
+    // Parse WWW-Authenticate header
+    function parseAuthHeader(headerValue) {
+        const params = {};
+        const regex = /(\w+)=("([^"]+)"|([^,\s]+))/g;
+        let match;
+        while ((match = regex.exec(headerValue)) !== null) {
+            params[match[1]] = match[3] || match[4];
+        }
+        return params;
+    }
+
+    // Select best QOP option
+    function selectQop(qopString) {
+        if (!qopString) return 'auth';
+        const options = qopString.split(',').map(q => q.trim());
+        return options.includes('auth') ? 'auth' : options.includes('auth-int') ? 'auth-int' : options[0] || 'auth';
+    }
+
+    // Calculate digest authentication values
+    function calculateDigestAuth(username, password, method, uri, authParams, requestBody = '') {
+        const { realm, nonce, algorithm = 'MD5', qop = 'auth' } = authParams;
+        const cnonce = generateNonce();
+        const nc = "00000001";
+        const baseAlg = getBaseAlgorithm(algorithm);
+
+        // Calculate HA1
+        const initialHash = computeHash(`${username}:${realm}:${password}`, baseAlg);
+        const ha1 = isSessionAlgorithm(algorithm)
+            ? computeHash(`${initialHash}:${nonce}:${cnonce}`, baseAlg)
+            : initialHash;
+
+        // Calculate HA2
+        const ha2 = qop === 'auth-int'
+            ? computeHash(`${method}:${uri}:${computeHash(requestBody, baseAlg)}`, baseAlg)
+            : computeHash(`${method}:${uri}`, baseAlg);
+
+        // Calculate response
+        const responseInput = `${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`;
+        const response = computeHash(responseInput, baseAlg);
+
+        return { ha1, ha2, response, cnonce, nc, qop: qop };
+    }
+
+    // Create authorization header
+    function createAuthHeader(username, authParams, digestValues, uri) {
+        const { realm, nonce, algorithm = 'MD5', opaque = '' } = authParams;
+        const { response, cnonce, nc, qop } = digestValues;
+
+        return `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", ` +
+               `algorithm="${algorithm}", qop="${qop}", nc="${nc}", cnonce="${cnonce}", ` +
+               `response="${response}", userhash=false, opaque="${opaque}"`;
+    }
+
+    // Make authenticated request
+    async function makeAuthenticatedRequest(endpoint, method = 'GET', body = null) {
+        const { username, password } = getCurrentCredentials();
+
+        if (!username || !password) {
+            logToConsole('Please enter username and password', 'error');
+            return;
+        }
+
+        const url = `${SERVER_URL}${endpoint}`;
+        logToConsole(`${method} ${endpoint}`, 'info');
+        if (body) logToConsole(`Request Body: ${body}`, 'info');
+
+        const transactions = [];
+
+        try {
+            // Initial request
+            const options = { method, credentials: 'omit' };
+            const requestHeaders = {};
+
+            if (body && method !== 'GET') {
+                requestHeaders['Content-Type'] = 'application/json';
+                options.headers = requestHeaders;
+                options.body = body;
+            }
+
+            const response = await fetch(url, options);
+            const responseBody = await response.text();
+
+            // Record initial transaction
+            transactions.push({
+                type: 'initial',
+                request: formatHttpRequest(method, url, requestHeaders, body),
+                response: response,
+                responseText: formatHttpResponse(response, responseBody)
+            });
+
+            logToConsole(`Status: ${response.status} ${response.statusText}`, response.status === 200 ? 'success' : 'info');
+
+            if (response.status === 401) {
+                const authSuccess = await handleAuthChallenge(response, endpoint, method, body, username, password, transactions);
+                displayTransactionDetails(transactions);
+                return authSuccess;
+            } else {
+                logToConsole(`Response: ${responseBody}`, 'success');
+                displayTransactionDetails(transactions);
+                return true;
+            }
+        } catch (error) {
+            logToConsole(`Error: ${error.message}`, 'error');
+            if (transactions.length > 0) {
+                displayTransactionDetails(transactions);
+            }
+            return false;
+        } finally {
+            logToConsole('---', 'info');
+        }
+    }
+
+    // Handle 401 authentication challenge
+    async function handleAuthChallenge(response, endpoint, method, body, username, password, transactions) {
+        const wwwAuth = response.headers.get('WWW-Authenticate');
+        if (!wwwAuth || !wwwAuth.startsWith('Digest')) {
+            logToConsole('No valid WWW-Authenticate header', 'error');
+            return false;
+        }
+
+        const authParams = parseAuthHeader(wwwAuth);
+        const selectedQop = selectQop(authParams.qop);
+        authParams.qop = selectedQop;
+
+        logToConsole(`Auth params: realm="${authParams.realm}", qop="${selectedQop}", algorithm="${authParams.algorithm || 'MD5'}"`, 'info');
+
+        const digestValues = calculateDigestAuth(username, password, method, endpoint, authParams, body || '');
+        const authHeader = createAuthHeader(username, authParams, digestValues, endpoint);
+
+        logToConsole(`Authorization: ${authHeader}`, 'info');
+
+        // Make authenticated request
+        const authOptions = {
+            method,
+            headers: { 'Authorization': authHeader },
+            credentials: 'omit'
+        };
+
+        if (body && method !== 'GET') {
+            authOptions.headers['Content-Type'] = 'application/json';
+            authOptions.body = body;
+        }
+
+        const authResponse = await fetch(`${SERVER_URL}${endpoint}`, authOptions);
+        const authResponseBody = await authResponse.text();
+
+        // Record authenticated transaction
+        transactions.push({
+            type: 'authenticated',
+            request: formatHttpRequest(method, `${SERVER_URL}${endpoint}`, authOptions.headers, body),
+            response: authResponse,
+            responseText: formatHttpResponse(authResponse, authResponseBody)
+        });
+
+        const success = authResponse.status === 200;
+
+        logToConsole(`Auth Response: ${authResponse.status} ${authResponse.statusText}`, success ? 'success' : 'error');
+        if (authResponseBody) logToConsole(`Response Body: ${authResponseBody}`, success ? 'success' : 'error');
+
+        return success;
+    }
+
+    // Event Handlers
+    function setActiveUser(card) {
+        document.querySelectorAll('.user-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+
+        const username = card.dataset.username;
+        const password = card.dataset.password;
+
+        document.getElementById('username').value = username;
+        document.getElementById('password').value = password;
+
+        logToConsole(`Selected user: ${username}`, 'info');
+    }
+
+    async function handleEmailUpdate() {
+        const newEmail = document.getElementById('newEmail').value.trim();
+
+        if (!newEmail) {
+            logToConsole('Please enter a new email address', 'error');
+            return;
+        }
+
+        if (!isValidEmail(newEmail)) {
+            logToConsole('Please enter a valid email address', 'error');
+            return;
+        }
+
+        const body = JSON.stringify({ email: newEmail });
+        const success = await makeAuthenticatedRequest('/profile/email', 'PUT', body);
+
+        if (success) {
+            document.getElementById('newEmail').value = '';
+            logToConsole('Email field cleared after successful update', 'info');
+        }
+    }
+
+    function makeRequest(endpoint) {
+        return makeAuthenticatedRequest(endpoint);
+    }
+
+    function clearConsole() {
+        document.getElementById('console').innerHTML =
+            '<div class="log-success">Digest Authentication Client ready!</div>' +
+            '<div>Click on any endpoint button to test authentication.</div>';
+
+        // Also clear transaction details
+        const detailsContainer = document.getElementById('transactionDetails');
+        detailsContainer.innerHTML = `
+            <p style="text-align: center; color: #6c757d; font-style: italic;">
+                Click any endpoint button to see detailed HTTP request/response messages
+            </p>
+        `;
+        detailsContainer.classList.remove('visible');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        // Setup user card click handlers
+        document.querySelectorAll('.user-card').forEach(card => {
+            card.addEventListener('click', () => setActiveUser(card));
+        });
+
+        // Initial console messages
+        logToConsole('Server running on http://localhost:8080', 'info');
+        logToConsole('Users: john/password123, jane/secret456, admin/admin123', 'info');
+    });
+</script>
+</body>
+</html>
