@@ -22,7 +22,7 @@ case class DigestResponse(
   qop: QualityOfProtection,
   cnonce: String,
   nonce: String,
-  nc: String,
+  nc: NC,
   userhash: Boolean,
 )
 
@@ -38,7 +38,7 @@ object DigestResponse {
       qop = QualityOfProtection.fromString(digest.qop).getOrElse(Auth),
       cnonce = digest.cnonce,
       nonce = digest.nonce,
-      nc = String.format("%08d", digest.nc), // Format as zero-padded 8-digit string
+      nc = NC(digest.nc),
       userhash = digest.userhash,
     )
   }
@@ -77,7 +77,7 @@ sealed trait DigestAuthError
 object DigestAuthError {
   case class NonceExpired(nonce: String)                       extends DigestAuthError
   case class InvalidNonce(nonce: String)                       extends DigestAuthError
-  case class ReplayAttack(nonce: String, nc: String)           extends DigestAuthError
+  case class ReplayAttack(nonce: String, nc: NC)               extends DigestAuthError
   case class InvalidResponse(expected: String, actual: String) extends DigestAuthError
 }
 

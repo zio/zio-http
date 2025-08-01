@@ -14,7 +14,7 @@ trait DigestService {
     realm: String,
     password: Secret,
     nonce: String,
-    nc: String,
+    nc: NC,
     cnonce: String,
     algorithm: DigestAlgorithm,
     qop: QualityOfProtection,
@@ -35,7 +35,7 @@ object DigestServiceLive extends DigestService {
     realm: String,
     password: Secret,
     nonce: String,
-    nc: String,
+    nc: NC,
     cnonce: String,
     algorithm: DigestAlgorithm,
     qop: QualityOfProtection,
@@ -97,12 +97,12 @@ object DigestServiceLive extends DigestService {
     ha1: String,
     ha2: String,
     nonce: String,
-    nc: String,
+    nc: NC,
     cnonce: String,
     qop: QualityOfProtection,
     algorithm: DigestAlgorithm,
   ): UIO[String] =
-    hash(s"$ha1:$nonce:$nc:$cnonce:${qop.name}:$ha2", algorithm)
+    hash(s"$ha1:$nonce:$nc:$cnonce:$qop:$ha2", algorithm)
 
   private def hash(data: String, algorithm: DigestAlgorithm): UIO[String] =
     ZIO.succeed {
