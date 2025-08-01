@@ -8,40 +8,6 @@ import zio.schema._
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
 object DigestAuthenticationServer extends ZIOAppDefault {
-
-val updateEmail: Route[DigestAuthService & UserService, Nothing] =
-  Method.PUT / "profile" / "email" ->
-    Handler.fromZIO(ZIO.service[UserService]).flatMap { userService =>
-      handler { (req: Request) =>
-        for {
-          user <- ZIO.service[User]
-          updateRequest <- req.body
-            .to[UpdateEmailRequest]
-            .mapError(error => Response.badRequest(s"Invalid JSON (UpdateEmailRequest): $error"))
-          _ <- userService
-            .updateEmail(user.username, updateRequest.email)
-            .logError(s"Failed to update email for user ${user.username}")
-            .mapError(_ => Response.internalServerError(s"Failed to update email!"))
-        } yield Response.text(
-          s"Email updated successfully for user ${user.username}! New email: ${updateRequest.email}",
-        )
-      } @@ DigestAuthHandlerAspect(realm = "User Profile", qop = List(AuthInt))
-    }
-
-
-  val routess: Routes[DigestAuthService & UserService, Nothing] =
-    Routes(
-      // Protected profile route
-      Method.GET / "profile" / "me" -> handler { (_: Request) =>
-        for {
-          user <- ZIO.service[User]
-        } yield Response.text(
-          s"Hello ${user.username}! This is your profile: \n Username: ${user.username} \n Email: ${user.email}",
-        )
-
-      } @@ DigestAuthHandlerAspect(realm = "User Profile"),
-    )
-
   def routes: Routes[DigestAuthService & UserService, Nothing] =
     Routes(
       Method.GET / Root ->
@@ -103,7 +69,7 @@ val updateEmail: Route[DigestAuthService & UserService, Nothing] =
   override val run =
     Server
       .serve(routes)
-      .provide(Server.default, HashService.live, NonceService.live, DigestAuthService.live, UserService.live, ZLayer.succeed(DigestAuthConfig()))
+      .provide(Server.default, NonceService.live, DigestAuthService.live, UserService.live, DigestService.live)
 
 }
 
