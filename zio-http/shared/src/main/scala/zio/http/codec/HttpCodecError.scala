@@ -92,6 +92,10 @@ object HttpCodecError {
     def message = s"Unsupported content type $contentType"
   }
 
+  final case object EncodingResponseError extends HttpCodecError {
+    override def message: String = "Unexpected error happened when encoding response"
+  }
+
   def asHttpCodecError(cause: Cause[Any]): Option[HttpCodecError] = {
     if (!cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError]))
       cause.defects.headOption.asInstanceOf[Option[HttpCodecError]]
