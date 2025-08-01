@@ -15,8 +15,6 @@ trait UserService {
   def getUser(username: String): IO[UserServiceError, User]
   def addUser(user: User): IO[UserServiceError, Unit]
   def updateEmail(username: String, newEmail: String): IO[UserServiceError, Unit]
-  def userExists(username: String): Task[Boolean]
-  def getAllUsers: Task[List[User]]
 }
 
 case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
@@ -40,28 +38,18 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
     } yield ()
   }
 
-  def updateEmail(username: String, newEmail: String): IO[UserServiceError, Unit] = {
-    for {
-      updated <- users.modify { currentUsers =>
-        currentUsers.get(username) match {
-          case Some(user) =>
-            val updatedUser = user.copy(email = newEmail)
-            (Right(()), currentUsers.updated(username, updatedUser))
-          case None       =>
-            (Left(UserServiceError.UserNotFound(username)), currentUsers)
-        }
+  def updateEmail(username: String, newEmail: String): IO[UserServiceError, Unit] = for {
+    updated <- users.modify { currentUsers =>
+      currentUsers.get(username) match {
+        case Some(user) =>
+          val updatedUser = user.copy(email = newEmail)
+          (Right(()), currentUsers.updated(username, updatedUser))
+        case None       =>
+          (Left(UserServiceError.UserNotFound(username)), currentUsers)
       }
-      _       <- ZIO.fromEither(updated)
-    } yield ()
-  }
-
-  def userExists(username: String): Task[Boolean] = {
-    users.get.map(_.contains(username))
-  }
-
-  def getAllUsers: Task[List[User]] = {
-    users.get.map(_.values.toList)
-  }
+    }
+    _       <- ZIO.fromEither(updated)
+  } yield ()
 }
 
 object UserService {

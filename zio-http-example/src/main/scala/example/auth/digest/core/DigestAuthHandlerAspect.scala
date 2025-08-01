@@ -8,9 +8,9 @@ import zio.http._
 object DigestAuthHandlerAspect {
 
   def apply(
-             realm: String,
-             qop: List[QualityOfProtection] = List(Auth),
-             supportedAlgorithms: Set[DigestAlgorithm] = Set(MD5, MD5_SESS, SHA256, SHA256_SESS, SHA512, SHA512_SESS),
+    realm: String,
+    qop: List[QualityOfProtection] = List(Auth),
+    supportedAlgorithms: Set[DigestAlgorithm] = Set(MD5, MD5_SESS, SHA256, SHA256_SESS, SHA512, SHA512_SESS),
   ): HandlerAspect[DigestAuthService & UserService, User] = {
 
     def unauthorizedResponse(message: String): ZIO[DigestAuthService, Response, Nothing] =
@@ -30,18 +30,19 @@ object DigestAuthHandlerAspect {
     HandlerAspect.interceptIncomingHandler[DigestAuthService & UserService, User] {
       handler { (request: Request) =>
         request.header(Header.Authorization) match {
-          case Some(digest: Header.Authorization.Digest) => {
-            for {
-              user <-
-                ZIO
-                  .serviceWithZIO[UserService](_.getUser(digest.username))
-              body <- request.body.asString.option
-              _ <- ZIO
-                .serviceWithZIO[DigestAuthService](
-                  _.validateResponse(DigestResponse.fromDigestHeader(digest), user.password, request.method, body),
-                )
-            } yield (request, user)
-          }.catchAll(_ => unauthorizedResponse("Authentication failed!"))
+          case Some(digest: Header.Authorization.Digest) =>
+            {
+              for {
+                user <-
+                  ZIO
+                    .serviceWithZIO[UserService](_.getUser(digest.username))
+                body <- request.body.asString.option
+                _    <- ZIO
+                  .serviceWithZIO[DigestAuthService](
+                    _.validateResponse(DigestResponse.fromDigestHeader(digest), user.password, request.method, body),
+                  )
+              } yield (request, user)
+            }.catchAll(_ => unauthorizedResponse("Authentication failed!"))
 
           case _ =>
             unauthorizedResponse(s"Missing Authorization header for realm: $realm")

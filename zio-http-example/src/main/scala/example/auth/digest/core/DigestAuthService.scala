@@ -2,13 +2,14 @@ package example.auth.digest.core
 
 import example.auth.digest.core.DigestAlgorithm._
 import example.auth.digest.core.DigestAuthError._
+import example.auth.digest.core.QualityOfProtection.Auth
 import zio.Config.Secret
 import zio._
 import zio.http._
 
 import java.net.URI
+import java.security.MessageDigest
 import java.util.Base64
-import java.util.concurrent.TimeUnit
 
 // Represents a digest authentication response from the client
 case class DigestResponse(
@@ -34,7 +35,7 @@ object DigestResponse {
       uri = digest.uri,
       opaque = digest.opaque,
       algorithm = fromString(digest.algorithm).getOrElse(MD5),
-      qop = QualityOfProtection.fromString(digest.qop).getOrElse(QualityOfProtection.Auth),
+      qop = QualityOfProtection.fromString(digest.qop).getOrElse(Auth),
       cnonce = digest.cnonce,
       nonce = digest.nonce,
       nc = String.format("%08d", digest.nc), // Format as zero-padded 8-digit string
@@ -49,7 +50,7 @@ case class DigestChallenge(
   nonce: String,
   opaque: Option[String] = None,
   algorithm: DigestAlgorithm = MD5,
-  qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
+  qop: List[QualityOfProtection] = List(Auth),
   stale: Boolean = false,
   domain: Option[List[String]] = None,
   charset: Option[String] = Some("UTF-8"),
@@ -83,7 +84,7 @@ object DigestAuthError {
 trait DigestAuthService {
   def generateChallenge(
     realm: String,
-    qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
+    qop: List[QualityOfProtection] = List(Auth),
     algorithm: DigestAlgorithm = MD5,
   ): UIO[DigestChallenge]
 
@@ -111,13 +112,12 @@ case class DigestAuthServiceLive(
 
   def generateChallenge(
     realm: String,
-    qop: List[QualityOfProtection] = List(QualityOfProtection.Auth),
+    qop: List[QualityOfProtection] = List(Auth),
     algorithm: DigestAlgorithm = MD5,
   ): UIO[DigestChallenge] =
     for {
-      timestamp <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      nonce     <- nonceService.generateNonce(timestamp)
-      opaque    <- generateOpaque
+      nonce  <- nonceService.generateNonce
+      opaque <- generateOpaque
     } yield DigestChallenge(
       realm = realm,
       nonce = nonce,
@@ -138,8 +138,8 @@ case class DigestAuthServiceLive(
     for {
       _        <- nonceService.validateNonce(r.nonce, Duration.fromSeconds(NONCE_MAX_AGE)).mapError(errorMapper)
       _        <- nonceService.isNonceUsed(r.nonce, r.nc).mapError(errorMapper)
-      expected <- digestService.calculateResponse(r.username, r.realm, password, r.nonce, r.nc, r.cnonce, r.algorithm, r.qop, r.uri, method, body)
-      _        <- compareResponses(expected, r.response)
+      expected <- digestService.computeResponse(r.username, r.realm, password, r.nonce, r.nc, r.cnonce, r.algorithm, r.qop, r.uri, method, body)
+      _        <- isEqual(expected, r.response)
       _        <- nonceService.markNonceUsed(r.nonce, r.nc)
     } yield ()
   }
@@ -158,13 +158,10 @@ case class DigestAuthServiceLive(
       .map(_.toArray)
       .map(Base64.getEncoder.encodeToString)
 
-  private def constantTimeEquals(a: Array[Byte], b: Array[Byte]): Boolean =
-    a.length == b.length && a.zip(b).map { case (x, y) => x ^ y }.fold(0)(_ | _) == 0
-
-  def compareResponses(expected: String, actual: String): ZIO[Any, InvalidResponse, Unit] = {
+  private def isEqual(expected: String, actual: String): ZIO[Any, InvalidResponse, Unit] = {
     val exp = expected.getBytes("UTF-8")
     val act = actual.getBytes("UTF-8")
-    if (constantTimeEquals(exp, act))
+    if (MessageDigest.isEqual(exp, act))
       ZIO.unit
     else
       ZIO.fail(InvalidResponse(expected, actual))

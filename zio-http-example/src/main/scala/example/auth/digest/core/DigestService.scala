@@ -1,7 +1,6 @@
 package example.auth.digest.core
 
 import example.auth.digest.core.DigestAlgorithm._
-import example.auth.digest.core.DigestAuthError.InvalidResponse
 import zio.Config.Secret
 import zio._
 import zio.http._
@@ -10,7 +9,7 @@ import java.net.URI
 import java.security.MessageDigest
 
 trait DigestService {
-  def calculateResponse(
+  def computeResponse(
     username: String,
     realm: String,
     password: Secret,
@@ -23,7 +22,6 @@ trait DigestService {
     method: Method,
     body: Option[String] = None,
   ): UIO[String]
-
 }
 
 object DigestService {
@@ -32,7 +30,7 @@ object DigestService {
 }
 
 object DigestServiceLive extends DigestService {
-  def calculateResponse(
+  def computeResponse(
     username: String,
     realm: String,
     password: Secret,
@@ -46,16 +44,16 @@ object DigestServiceLive extends DigestService {
     body: Option[String] = None,
   ): UIO[String] = {
     for {
-      a1       <- calculateA1(username, realm, password, nonce, cnonce, algorithm)
+      a1       <- computeA1(username, realm, password, nonce, cnonce, algorithm)
       ha1      <- hash(a1, algorithm)
-      a2       <- calculateA2(method, uri, algorithm, qop, body)
+      a2       <- computeA2(method, uri, algorithm, qop, body)
       ha2      <- hash(a2, algorithm)
-      response <- calculateFinalResponse(ha1, ha2, nonce, nc, cnonce, qop, algorithm)
+      response <- computeFinalResponse(ha1, ha2, nonce, nc, cnonce, qop, algorithm)
     } yield response
   }
 
   // Private helper methods
-  private def calculateA1(
+  private def computeA1(
     username: String,
     realm: String,
     password: Secret,
@@ -74,7 +72,7 @@ object DigestServiceLive extends DigestService {
     }
   }
 
-  private def calculateA2(
+  private def computeA2(
     method: Method,
     uri: URI,
     algorithm: DigestAlgorithm,
@@ -95,7 +93,7 @@ object DigestServiceLive extends DigestService {
     }
   }
 
-  private def calculateFinalResponse(
+  private def computeFinalResponse(
     ha1: String,
     ha2: String,
     nonce: String,
@@ -103,11 +101,10 @@ object DigestServiceLive extends DigestService {
     cnonce: String,
     qop: QualityOfProtection,
     algorithm: DigestAlgorithm,
-  ): UIO[String] = {
+  ): UIO[String] =
     hash(s"$ha1:$nonce:$nc:$cnonce:${qop.name}:$ha2", algorithm)
-  }
 
-  def hash(data: String, algorithm: DigestAlgorithm): UIO[String] =
+  private def hash(data: String, algorithm: DigestAlgorithm): UIO[String] =
     ZIO.succeed {
       val md = algorithm match {
         case MD5 | MD5_SESS       =>

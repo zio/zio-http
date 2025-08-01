@@ -4,6 +4,7 @@ import zio.Config.Secret
 import zio._
 
 import java.util.Base64
+import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -16,7 +17,7 @@ object NonceError {
 }
 
 trait NonceService {
-  def generateNonce(timestamp: Long): UIO[String]
+  def generateNonce: UIO[String]
   def validateNonce(nonce: String, maxAge: Duration): ZIO[Any, NonceError, Unit]
   def isNonceUsed(nonce: String, nc: String): ZIO[Any, NonceError, Unit]
   def markNonceUsed(nonce: String, nc: String): UIO[Unit]
@@ -31,20 +32,12 @@ object NonceService {
     private val HASH_ALGORITHM = "HmacSHA256"
     private val HASH_LENGTH    = 16
 
-    private def constantTimeEquals(a: Array[Byte], b: Array[Byte]): Boolean =
-      a.length == b.length && a.zip(b).map { case (x, y) => x ^ y }.fold(0)(_ | _) == 0
-
-    private def createHash(timestamp: Long): Array[Byte] = {
-      val mac = Mac.getInstance(HASH_ALGORITHM)
-      mac.init(new SecretKeySpec(secret.stringValue.getBytes("UTF-8"), HASH_ALGORITHM))
-      mac.doFinal(timestamp.toString.getBytes("UTF-8")).take(HASH_LENGTH)
-    }
-
-    def generateNonce(timestamp: Long): UIO[String] = ZIO.succeed {
-      val hash    = Base64.getEncoder.encodeToString(createHash(timestamp))
-      val content = s"$timestamp:$hash"
-      Base64.getEncoder.encodeToString(content.getBytes("UTF-8"))
-    }
+    def generateNonce: UIO[String] =
+      Clock.currentTime(TimeUnit.MILLISECONDS).map { timestamp =>
+        val hash    = Base64.getEncoder.encodeToString(createHash(timestamp))
+        val content = s"$timestamp:$hash"
+        Base64.getEncoder.encodeToString(content.getBytes("UTF-8"))
+      }
 
     def validateNonce(nonce: String, maxAge: Duration): ZIO[Any, NonceError, Unit] =
       ZIO.fromEither {
@@ -80,6 +73,14 @@ object NonceService {
     def markNonceUsed(nonce: String, nc: String): UIO[Unit] =
       usedNonces.update(nonces => nonces.updated(nonce, nonces.getOrElse(nonce, Set.empty) + nc))
 
+    private def createHash(timestamp: Long): Array[Byte] = {
+      val mac = Mac.getInstance(HASH_ALGORITHM)
+      mac.init(new SecretKeySpec(secret.stringValue.getBytes("UTF-8"), HASH_ALGORITHM))
+      mac.doFinal(timestamp.toString.getBytes("UTF-8")).take(HASH_LENGTH)
+    }
+
+    private def constantTimeEquals(a: Array[Byte], b: Array[Byte]): Boolean =
+      a.length == b.length && a.zip(b).map { case (x, y) => x ^ y }.fold(0)(_ | _) == 0
   }
 
   val live: ULayer[NonceService] = ZLayer.fromZIO {
