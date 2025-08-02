@@ -242,7 +242,7 @@ object Code {
     inCode: InCode,
     outCodes: List[OutCode],
     errorsCode: List[OutCode],
-    authTypeCode: Option[AuthTypeCode] = None,
+    authTypeCode: Option[AuthTypeCode],
   ) extends Code
 
   final case class PathPatternCode(segments: List[PathSegmentCode])
