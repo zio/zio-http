@@ -236,6 +236,7 @@
         .btn-public { background: linear-gradient(45deg, #4ECDC4, #44a08d); color: white; }
         .btn-update { background: linear-gradient(45deg, #9C27B0, #8E24AA); color: white; }
         .btn-clear { background: linear-gradient(45deg, #666, #555); color: white; }
+        .btn-reset { background: linear-gradient(45deg, #FF9800, #F57C00); color: white; }
 
         .console {
             background: #1e1e1e;
@@ -266,6 +267,51 @@
         .log-success { color: #4CAF50; font-weight: bold; }
         .log-error { color: #FF6B6B; font-weight: bold; }
         .log-info { color: #2196F3; font-weight: bold; }
+        .log-warning { color: #FFC107; font-weight: bold; }
+
+        /* Auth State Display */
+        .auth-state {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .auth-state h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .auth-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .auth-param {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .auth-param-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .auth-param-value {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            color: #666;
+            word-break: break-all;
+        }
 
         /* HTTP Transaction Details Styles */
         .transaction-details {
@@ -374,6 +420,7 @@
             .button-group { flex-direction: column; }
             .btn { width: 100%; }
             .http-message-content { font-size: 12px; }
+            .auth-info { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -382,7 +429,7 @@
     <div class="header">
         <div class="auth-logo">🔐</div>
         <h1>Digest Authentication Client</h1>
-        <p class="subtitle">HTTP Digest Authentication Demo</p>
+        <p class="subtitle">HTTP Digest Authentication Demo with Nonce Reuse</p>
     </div>
 
     <div class="section">
@@ -412,6 +459,23 @@
         <div class="form-group">
             <label for="password">Password:</label>
             <input type="password" id="password" value="password123" placeholder="Enter password">
+        </div>
+    </div>
+
+    <!-- Auth State Display -->
+    <div class="section">
+        <h2>🔑 Authentication State</h2>
+        <div class="auth-state">
+            <div id="authStateContent">
+                <p style="text-align: center; color: #6c757d; font-style: italic;">
+                    No active authentication session
+                </p>
+            </div>
+            <div style="margin-top: 15px;">
+                <button class="btn btn-reset" onclick="resetAuthState()">
+                    <span>🔄</span>Reset Auth State
+                </button>
+            </div>
         </div>
     </div>
 
@@ -489,8 +553,26 @@
         'SHA-512-sess': CryptoJS.SHA512
     };
 
+    // Global authentication state
+    let authState = {
+        nonce: null,
+        realm: null,
+        algorithm: null,
+        qop: null,
+        opaque: null,
+        nc: 0,
+        username: null,
+        password: null,
+        isValid: false
+    };
+
     // Utility Functions
-    const generateNonce = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const generateNonce = () => {
+    const randomWords = CryptoJS.lib.WordArray.random(16);
+        return randomWords.toString(CryptoJS.enc.Base64)
+            .replace(/[+/=]/g, '')  // Remove URL-unsafe chars
+            .substring(0, 22);      // Trim to reasonable length
+    };
     const isValidEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     const isSessionAlgorithm = algorithm => algorithm && algorithm.endsWith('-sess');
     const getBaseAlgorithm = algorithm => isSessionAlgorithm(algorithm) ? algorithm.replace('-sess', '') : algorithm;
@@ -516,6 +598,96 @@
         const className = `log-${type}`;
         console.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
         console.scrollTop = console.scrollHeight;
+    }
+
+    // Auth State Management
+    function updateAuthState(newParams) {
+        const credentials = getCurrentCredentials();
+
+        authState = {
+            ...authState,
+            ...newParams,
+            username: credentials.username,
+            password: credentials.password,
+            isValid: true
+        };
+
+        displayAuthState();
+        logToConsole(`Auth state updated - NC: ${authState.nc.toString().padStart(8, '0')}`, 'info');
+    }
+
+    function incrementNc() {
+        authState.nc++;
+        displayAuthState();
+        return authState.nc.toString().padStart(8, '0');
+    }
+
+    function resetAuthState() {
+        authState = {
+            nonce: null,
+            realm: null,
+            algorithm: null,
+            qop: null,
+            opaque: null,
+            nc: 0,
+            username: null,
+            password: null,
+            isValid: false
+        };
+        displayAuthState();
+        logToConsole('Authentication state reset', 'warning');
+    }
+
+    function isAuthStateValid() {
+        const credentials = getCurrentCredentials();
+        return authState.isValid &&
+               authState.nonce &&
+               authState.username === credentials.username &&
+               authState.password === credentials.password;
+    }
+
+    function displayAuthState() {
+        const container = document.getElementById('authStateContent');
+
+        if (!authState.isValid || !authState.nonce) {
+            container.innerHTML = `
+                <p style="text-align: center; color: #6c757d; font-style: italic;">
+                    No active authentication session
+                </p>
+            `;
+            return;
+        }
+
+        const ncFormatted = authState.nc.toString().padStart(8, '0');
+
+        container.innerHTML = `
+            <div class="auth-info">
+                <div class="auth-param">
+                    <div class="auth-param-name">Username</div>
+                    <div class="auth-param-value">${authState.username || 'N/A'}</div>
+                </div>
+                <div class="auth-param">
+                    <div class="auth-param-name">Realm</div>
+                    <div class="auth-param-value">${authState.realm || 'N/A'}</div>
+                </div>
+                <div class="auth-param">
+                    <div class="auth-param-name">Nonce</div>
+                    <div class="auth-param-value">${authState.nonce ? authState.nonce.substring(0, 20) + '...' : 'N/A'}</div>
+                </div>
+                <div class="auth-param">
+                    <div class="auth-param-name">Algorithm</div>
+                    <div class="auth-param-value">${authState.algorithm || 'MD5'}</div>
+                </div>
+                <div class="auth-param">
+                    <div class="auth-param-name">QOP</div>
+                    <div class="auth-param-value">${authState.qop || 'auth'}</div>
+                </div>
+                <div class="auth-param">
+                    <div class="auth-param-name">NC (Request Count)</div>
+                    <div class="auth-param-value">${ncFormatted}</div>
+                </div>
+            </div>
+        `;
     }
 
     // HTTP Transaction Details Functions
@@ -566,11 +738,10 @@
             }
 
             // Request
-            const requestClass = transaction.type === 'initial' ? 'http-request' : 'http-request';
             html += `
-                <div class="http-message ${requestClass}">
+                <div class="http-message http-request">
                     <div class="http-message-header">
-                        🌐 ${transaction.type === 'initial' ? 'Initial Request' : 'Authenticated Request'}
+                        🌐 ${transaction.type}
                     </div>
                     <div class="http-message-content">
                         <pre>${transaction.request}</pre>
@@ -586,7 +757,7 @@
             html += `
                 <div class="http-message ${responseClass}">
                     <div class="http-message-header">
-                        📨 ${transaction.type === 'initial' ? 'Challenge Response (401)' : 'Final Response'}
+                        📨 ${transaction.responseType}
                     </div>
                     <div class="http-message-content">
                         <pre>${transaction.responseText}</pre>
@@ -618,10 +789,9 @@
     }
 
     // Calculate digest authentication values
-    function calculateDigestAuth(username, password, method, uri, authParams, requestBody = '') {
+    function calculateDigestAuth(username, password, method, uri, authParams, requestBody = '', nc = "00000001") {
         const { realm, nonce, algorithm = 'MD5', qop = 'auth' } = authParams;
         const cnonce = generateNonce();
-        const nc = "00000001";
         const baseAlg = getBaseAlgorithm(algorithm);
 
         // Calculate HA1
@@ -652,7 +822,7 @@
                `response="${response}", userhash=false, opaque="${opaque}"`;
     }
 
-    // Make authenticated request
+    // Make authenticated request with nonce reuse
     async function makeAuthenticatedRequest(endpoint, method = 'GET', body = null) {
         const { username, password } = getCurrentCredentials();
 
@@ -668,7 +838,19 @@
         const transactions = [];
 
         try {
-            // Initial request
+            // Check if we can reuse existing auth state
+            if (isAuthStateValid()) {
+                logToConsole('Reusing existing authentication state', 'info');
+                const success = await tryAuthenticatedRequest(endpoint, method, body, transactions);
+                if (success) {
+                    displayTransactionDetails(transactions);
+                    return true;
+                }
+                // If authenticated request failed with 401, we'll fall through to get new challenge
+                logToConsole('Existing auth state expired, getting new challenge', 'warning');
+            }
+
+            // Make initial request to get challenge
             const options = { method, credentials: 'omit' };
             const requestHeaders = {};
 
@@ -683,9 +865,10 @@
 
             // Record initial transaction
             transactions.push({
-                type: 'initial',
+                type: 'Initial Request',
                 request: formatHttpRequest(method, url, requestHeaders, body),
                 response: response,
+                responseType: 'Challenge Response (401)',
                 responseText: formatHttpResponse(response, responseBody)
             });
 
@@ -711,6 +894,74 @@
         }
     }
 
+    // Try authenticated request with existing state
+    async function tryAuthenticatedRequest(endpoint, method, body, transactions) {
+        const nc = incrementNc();
+        const digestValues = calculateDigestAuth(
+            authState.username,
+            authState.password,
+            method,
+            endpoint,
+            authState,
+            body || '',
+            nc
+        );
+
+        const authHeader = createAuthHeader(authState.username, authState, digestValues, endpoint);
+        logToConsole(`Reusing nonce with NC: ${nc}`, 'info');
+
+        const authOptions = {
+            method,
+            headers: { 'Authorization': authHeader },
+            credentials: 'omit'
+        };
+
+        if (body && method !== 'GET') {
+            authOptions.headers['Content-Type'] = 'application/json';
+            authOptions.body = body;
+        }
+
+        const authResponse = await fetch(`${SERVER_URL}${endpoint}`, authOptions);
+        const authResponseBody = await authResponse.text();
+
+        // Record transaction
+        transactions.push({
+            type: 'Authenticated Request (Reused Nonce)',
+            request: formatHttpRequest(method, `${SERVER_URL}${endpoint}`, authOptions.headers, body),
+            response: authResponse,
+            responseType: authResponse.status === 200 ? 'Success Response' : 'Auth Failed Response',
+            responseText: formatHttpResponse(authResponse, authResponseBody)
+        });
+
+        const success = authResponse.status === 200;
+
+        logToConsole(`Auth Response: ${authResponse.status} ${authResponse.statusText}`, success ? 'success' : 'warning');
+        if (authResponseBody) logToConsole(`Response Body: ${authResponseBody}`, success ? 'success' : 'warning');
+
+        if (!success && authResponse.status === 401) {
+            // Check if this is a new challenge
+            const wwwAuth = authResponse.headers.get('WWW-Authenticate');
+            if (wwwAuth && wwwAuth.startsWith('Digest')) {
+                const newAuthParams = parseAuthHeader(wwwAuth);
+                if (newAuthParams.nonce && newAuthParams.nonce !== authState.nonce) {
+                    logToConsole('Received new challenge, updating auth state', 'info');
+                    // Reset NC and update auth state with new challenge
+                    updateAuthState({
+                        ...newAuthParams,
+                        qop: selectQop(newAuthParams.qop),
+                        nc: 0
+                    });
+                    // Try one more time with new nonce
+                    return await tryAuthenticatedRequest(endpoint, method, body, transactions);
+                }
+            }
+            // Auth state is invalid, reset it
+            resetAuthState();
+        }
+
+        return success;
+    }
+
     // Handle 401 authentication challenge
     async function handleAuthChallenge(response, endpoint, method, body, username, password, transactions) {
         const wwwAuth = response.headers.get('WWW-Authenticate');
@@ -723,9 +974,17 @@
         const selectedQop = selectQop(authParams.qop);
         authParams.qop = selectedQop;
 
+        // Update auth state with new challenge
+        updateAuthState({
+            ...authParams,
+            qop: selectedQop,
+            nc: 0
+        });
+
         logToConsole(`Auth params: realm="${authParams.realm}", qop="${selectedQop}", algorithm="${authParams.algorithm || 'MD5'}"`, 'info');
 
-        const digestValues = calculateDigestAuth(username, password, method, endpoint, authParams, body || '');
+        const nc = incrementNc();
+        const digestValues = calculateDigestAuth(username, password, method, endpoint, authParams, body || '', nc);
         const authHeader = createAuthHeader(username, authParams, digestValues, endpoint);
 
         logToConsole(`Authorization: ${authHeader}`, 'info');
@@ -747,9 +1006,10 @@
 
         // Record authenticated transaction
         transactions.push({
-            type: 'authenticated',
+            type: 'Authenticated Request (New Challenge)',
             request: formatHttpRequest(method, `${SERVER_URL}${endpoint}`, authOptions.headers, body),
             response: authResponse,
+            responseType: authResponse.status === 200 ? 'Success Response' : 'Auth Failed Response',
             responseText: formatHttpResponse(authResponse, authResponseBody)
         });
 
@@ -757,6 +1017,10 @@
 
         logToConsole(`Auth Response: ${authResponse.status} ${authResponse.statusText}`, success ? 'success' : 'error');
         if (authResponseBody) logToConsole(`Response Body: ${authResponseBody}`, success ? 'success' : 'error');
+
+        if (!success) {
+            resetAuthState();
+        }
 
         return success;
     }
@@ -772,6 +1036,8 @@
         document.getElementById('username').value = username;
         document.getElementById('password').value = password;
 
+        // Reset auth state when user changes
+        resetAuthState();
         logToConsole(`Selected user: ${username}`, 'info');
     }
 
@@ -822,6 +1088,22 @@
         document.querySelectorAll('.user-card').forEach(card => {
             card.addEventListener('click', () => setActiveUser(card));
         });
+
+        // Watch for credential changes to reset auth state
+        ['username', 'password'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                const currentCreds = getCurrentCredentials();
+                if (authState.isValid &&
+                    (authState.username !== currentCreds.username ||
+                     authState.password !== currentCreds.password)) {
+                    resetAuthState();
+                    logToConsole('Credentials changed, auth state reset', 'warning');
+                }
+            });
+        });
+
+        // Initialize auth state display
+        displayAuthState();
 
         // Initial console messages
         logToConsole('Server running on http://localhost:8080', 'info');
