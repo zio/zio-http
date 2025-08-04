@@ -1,4 +1,4 @@
-//> using dep "dev.zio::zio-http:3.3.1"
+//> using dep "dev.zio::zio-http:3.3.3"
 //> using dep "dev.zio::zio-streams:2.1.18"
 
 package example
