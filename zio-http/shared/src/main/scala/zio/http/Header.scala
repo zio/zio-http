@@ -1365,7 +1365,7 @@ object Header {
           qop           <- params.get("qop")
           cnonce        <- params.get("cnonce")
           nonce         <- params.get("nonce")
-          nc            <- params.get("nc").flatMap(v => Try(v.toInt).toOption)
+          nc            <- params.get("nc").flatMap(v => Try(Integer.parseInt(v, 16)).toOption)
         } yield Digest(response, usernameFinal, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash)
 
         maybeDigest
