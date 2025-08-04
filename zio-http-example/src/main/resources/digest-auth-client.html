@@ -802,7 +802,7 @@
                 return response;
             },
 
-            createAuthHeader(username, realm, nonce, uri, algorithm, qop, nc, cnonce, response, opaque = '') {
+            createAuthHeader(username, realm, nonce, uri, algorithm = 'MD5', qop = 'auth', nc, cnonce, response, opaque = '') {
                 return `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", ` +
                        `algorithm="${algorithm}", qop="${qop}", nc="${nc}", cnonce="${cnonce}", ` +
                        `response="${response}", userhash=false, opaque="${opaque}"`;
@@ -939,9 +939,9 @@
                     state.nonce,
                     nc,
                     cnonce,
-                    state.algorithm || 'MD5',
-                    state.qop || 'auth',
-                    body || ''
+                    state.algorithm,
+                    state.qop,
+                    body
                 );
 
                 const authHeader = DigestAuth.createAuthHeader(
@@ -949,12 +949,12 @@
                     state.realm,
                     state.nonce,
                     endpoint,
-                    state.algorithm || 'MD5',
-                    state.qop || 'auth',
+                    state.algorithm,
+                    state.qop,
                     nc,
                     cnonce,
                     response,
-                    state.opaque || ''
+                    state.opaque
                 );
                 Logger.info(`Reusing nonce with NC: ${nc}`);
 
@@ -993,9 +993,9 @@
                             AuthState.update(
                                 newAuthParams.realm,
                                 newAuthParams.nonce,
-                                newAuthParams.algorithm || 'MD5',
+                                newAuthParams.algorithm,
                                 Utils.selectQop(newAuthParams.qop),
-                                newAuthParams.opaque || '',
+                                newAuthParams.opaque,
                                 0
                             );
                             return await this._tryAuthenticatedRequest(endpoint, method, body, transactions);
@@ -1055,9 +1055,9 @@
                 AuthState.update(
                     authParams.realm,
                     authParams.nonce,
-                    authParams.algorithm || 'MD5',
+                    authParams.algorithm,
                     selectedQop,
-                    authParams.opaque || '',
+                    authParams.opaque,
                     0
                 );
 
@@ -1074,21 +1074,21 @@
                     authParams.nonce,
                     nc,
                     cnonce,
-                    authParams.algorithm || 'MD5',
+                    authParams.algorithm,
                     selectedQop,
-                    body || ''
+                    body
                 );
                 const authHeader = DigestAuth.createAuthHeader(
                     username,
                     authParams.realm,
                     authParams.nonce,
                     endpoint,
-                    authParams.algorithm || 'MD5',
+                    authParams.algorithm,
                     selectedQop,
                     nc,
                     cnonce,
                     digestResponse,
-                    authParams.opaque || ''
+                    authParams.opaque
                 );
 
                 Logger.info(`Authorization: ${authHeader}`);
