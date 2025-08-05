@@ -92,6 +92,7 @@ trait DigestAuthService {
     digest: DigestResponse,
     password: Secret,
     method: Method,
+    supportedQop: List[QualityOfProtection],
     body: Option[String] = None,
   ): ZIO[Any, DigestAuthError, Unit]
 }
@@ -108,7 +109,7 @@ case class DigestAuthServiceLive(
   digestService: DigestService,
 ) extends DigestAuthService {
   val OPAQUE_BYTES_LENGTH = 16
-  val NONCE_MAX_AGE       = 300L // 5 minutes
+  val NONCE_MAX_AGE       = 2L // 5 minutes
 
   def generateChallenge(
     realm: String,
@@ -132,12 +133,14 @@ case class DigestAuthServiceLive(
     response: DigestResponse,
     password: Secret,
     method: Method,
+    supportedQop: List[QualityOfProtection],
     body: Option[String] = None,
   ): ZIO[Any, DigestAuthError, Unit] = {
     val r = response
     for {
-      _        <- nonceService.validateNonce(r.nonce, Duration.fromSeconds(NONCE_MAX_AGE)).mapError(errorMapper)
-      _        <- nonceService.isNonceUsed(r.nonce, r.nc).mapError(errorMapper)
+      _        <- ZIO.when(!supportedQop.contains(r.qop)) (ZIO.fail(UnsupportedQop(r.qop.name)))
+      _        <- nonceService.validateNonce(r.nonce, Duration.fromSeconds(NONCE_MAX_AGE)).tapError(error => ZIO.debug("validate nonce" + error)).mapError(errorMapper)
+      _        <- nonceService.isNonceUsed(r.nonce, r.nc).tapError(error => ZIO.debug(error)).mapError(errorMapper)
       expected <- digestService.computeResponse(r.username, r.realm, password, r.nonce, r.nc, r.cnonce, r.algorithm, r.qop, r.uri, method, body)
       _        <- isEqual(expected, r.response)
       _        <- nonceService.markNonceUsed(r.nonce, r.nc).mapError(errorMapper)

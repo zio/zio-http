@@ -39,7 +39,7 @@ object DigestAuthHandlerAspect {
                 body <- request.body.asString.option
                 _    <- ZIO
                   .serviceWithZIO[DigestAuthService](
-                    _.validateResponse(DigestResponse.fromHeader(digest), user.password, request.method, body),
+                    _.validateResponse(DigestResponse.fromHeader(digest), user.password, request.method, qop, body),
                   )
               } yield (request, user)
             }.catchAll(_ => unauthorizedResponse("Authentication failed!"))
