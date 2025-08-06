@@ -8,23 +8,14 @@ import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
 import java.net.URI
 
-case class DigestAuthState(
-  realm: String,
-  nonce: String,
-  algorithm: DigestAlgorithm,
-  supportedQop: Set[QualityOfProtection],
-  opaque: Option[String],
-  nc: Ref[NC], // Mutable counter for nonce count
-)
-
-// ZIO Service for managing digest authentication
 trait DigestAuthClient {
   def makeRequest(request: Request): ZIO[Any, Throwable, Response]
 }
 
 object DigestAuthClient {
   final case class DigestAuthClientImpl(
-    authStateRef: Ref[Option[DigestAuthState]],
+    challengeRef: Ref[Option[DigestChallenge]],
+    ncRef: Ref[NC],
     client: Client,
     digestService: DigestService,
     nonceService: NonceService,
@@ -56,18 +47,18 @@ object DigestAuthClient {
         QualityOfProtection.Auth
 
     private def authenticate(request: Request): ZIO[Any, Throwable, Request] =
-      authStateRef.get.flatMap {
+      challengeRef.get.flatMap {
         case None =>
           ZIO.debug(s"No cached digest!") *>
             ZIO.debug("Sending request without auth header to get a fresh challenge")
           ZIO.succeed(request)
 
-        case Some(authState) =>
+        case Some(challenge) =>
           for {
-            _         <- ZIO.debug(s"Cached digest challenge found, use it to compute the digest response!")
-            cnonce    <- nonceService.generateNonce
-            currentNc <- authState.nc.updateAndGet(nc => NC(nc.value + 1))
-            selectedQop = selectQop(request, authState.supportedQop)
+            _      <- ZIO.debug(s"Cached digest challenge found, use it to compute the digest response!")
+            cnonce <- nonceService.generateNonce
+            nc     <- ncRef.updateAndGet(nc => NC(nc.value + 1))
+            selectedQop = selectQop(request, challenge.qop.toSet)
             uri         = URI.create(request.url.path.toString)
             body <- request.body.asString
               .map(Some(_))
@@ -77,13 +68,13 @@ object DigestAuthClient {
 
             response <- digestService.computeResponse(
               username = username,
-              realm = authState.realm,
+              realm = challenge.realm,
               uri = uri,
-              algorithm = authState.algorithm,
+              algorithm = challenge.algorithm,
               qop = selectedQop,
               cnonce = cnonce,
-              nonce = authState.nonce,
-              nc = currentNc,
+              nonce = challenge.nonce,
+              nc = nc,
               password = password,
               method = request.method,
               body = body,
@@ -92,18 +83,18 @@ object DigestAuthClient {
             authHeader = Header.Authorization.Digest(
               response = response,
               username = username,
-              realm = authState.realm,
-              nonce = authState.nonce,
+              realm = challenge.realm,
+              nonce = challenge.nonce,
               uri = uri,
-              algorithm = authState.algorithm.toString,
+              algorithm = challenge.algorithm.toString,
               qop = selectedQop.toString,
-              nc = currentNc.value,
+              nc = nc.value,
               cnonce = cnonce,
               userhash = false,
-              opaque = authState.opaque.getOrElse(""),
+              opaque = challenge.opaque.getOrElse(""),
             )
-            _ <- ZIO.debug(s"nonce: ${authState.nonce}")
-            _ <- ZIO.debug(s"nc: $currentNc")
+            _ <- ZIO.debug(s"nonce: ${challenge.nonce}")
+            _ <- ZIO.debug(s"nc: $nc")
             _ <- ZIO.debug(s"response: $response")
           } yield request.addHeader(authHeader)
       }
@@ -112,36 +103,13 @@ object DigestAuthClient {
       response.header(Header.WWWAuthenticate) match {
         case Some(header: Header.WWWAuthenticate.Digest) =>
           for {
-            _     <- ZIO.debug(s"Received a new WWW-Authenticate Digest challenge")
-            realm <- ZIO
-              .fromOption(header.realm)
-              .orDieWith(_ => new RuntimeException("Missing required 'realm' in WWW-Authenticate header"))
-            nonce <- ZIO
-              .fromOption(header.nonce)
-              .orDieWith(_ => new RuntimeException("Missing required 'nonce' in WWW-Authenticate header"))
-
-            algorithmValue = DigestAlgorithm.fromString(header.algorithm).getOrElse(DigestAlgorithm.MD5)
-            supportedQop   = QualityOfProtection.fromChallenge(header.qop.getOrElse("auth"))
-
-            ncRef <- Ref.make(NC(0))
-
-            newAuthState = DigestAuthState(
-              realm = realm,
-              nonce = nonce,
-              algorithm = algorithmValue,
-              supportedQop = supportedQop,
-              opaque = header.opaque,
-              nc = ncRef,
-            )
-
-            _ <- ZIO.debug(s"Caching digest challenge")
-            _ <- authStateRef.set(Some(newAuthState))
+            _            <- ZIO.debug(s"Received a new WWW-Authenticate Digest challenge")
+            newChallenge <- DigestChallenge.fromHeader(header)
+            _            <- ZIO.debug(s"Caching digest challenge")
+            _            <- challengeRef.set(Some(newChallenge))
           } yield ()
-        case Some(other)                                 =>
-          ZIO.die(new RuntimeException(s"Unexpected WWW-Authenticate header type: $other"))
-
-        case None =>
-          ZIO.fail(new Exception("No WWW-Authenticate header found"))
+        case _                                           =>
+          ZIO.fail(new IllegalStateException("Expected WWW-Authenticate Digest header in unauthorized response"))
       }
 
   }
@@ -152,11 +120,12 @@ object DigestAuthClient {
   ): ZLayer[Client with DigestService with NonceService, Nothing, DigestAuthClient] =
     ZLayer {
       for {
+        challengeRef  <- Ref.make[Option[DigestChallenge]](None)
+        nc            <- Ref.make(NC(0))
         client        <- ZIO.service[Client]
         digestService <- ZIO.service[DigestService]
         nonceService  <- ZIO.service[NonceService]
-        authStateRef  <- Ref.make[Option[DigestAuthState]](None)
-      } yield DigestAuthClientImpl(authStateRef, client, digestService, nonceService, username, password)
+      } yield DigestAuthClientImpl(challengeRef, nc, client, digestService, nonceService, username, password)
     }
 }
 
