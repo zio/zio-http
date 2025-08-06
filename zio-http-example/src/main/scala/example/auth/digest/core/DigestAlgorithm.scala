@@ -1,6 +1,8 @@
 package example.auth.digest.core
 
-sealed abstract class DigestAlgorithm(val name: String, val digestSize: Int)
+sealed abstract class DigestAlgorithm(val name: String, val digestSize: Int) {
+  override def toString: String = name
+}
 
 object DigestAlgorithm {
   case object MD5         extends DigestAlgorithm("MD5", 128)
@@ -15,4 +17,7 @@ object DigestAlgorithm {
 
   def fromString(s: String): Option[DigestAlgorithm] =
     values.find(_.name.equalsIgnoreCase(s.trim))
+
+  def fromString(s: Option[String]): Option[DigestAlgorithm] =
+    s.flatMap(fromString)
 }

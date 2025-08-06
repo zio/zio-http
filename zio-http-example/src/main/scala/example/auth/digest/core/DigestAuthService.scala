@@ -71,6 +71,29 @@ case class DigestChallenge(
   }
 }
 
+object DigestChallenge {
+  def fromHeader(header: Header.WWWAuthenticate.Digest): ZIO[Any, Nothing, DigestChallenge] =
+    for {
+      realm <- ZIO
+        .fromOption(header.realm)
+        .orDieWith(_ => new RuntimeException("Missing required 'realm' in WWW-Authenticate header"))
+      nonce <- ZIO
+        .fromOption(header.nonce)
+        .orDieWith(_ => new RuntimeException("Missing required 'nonce' in WWW-Authenticate header"))
+    } yield DigestChallenge(
+      realm = realm,
+      nonce = nonce,
+      opaque = header.opaque,
+      algorithm = DigestAlgorithm.fromString(header.algorithm).getOrElse(MD5),
+      qop = QualityOfProtection.fromChallenge(header.qop).toList,
+      stale = header.stale.getOrElse(false),
+      domain = header.domain.map(List(_)),
+      charset = header.charset,
+      userhash = header.userhash.getOrElse(false),
+    )
+
+}
+
 // Error types for digest authentication failures
 sealed trait DigestAuthError
 
@@ -79,6 +102,7 @@ object DigestAuthError {
   case class InvalidNonce(nonce: String)                       extends DigestAuthError
   case class ReplayAttack(nonce: String, nc: NC)               extends DigestAuthError
   case class InvalidResponse(expected: String, actual: String) extends DigestAuthError
+  case class UnsupportedQop(qop: String)                       extends DigestAuthError
 }
 
 trait DigestAuthService {

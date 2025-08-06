@@ -5,11 +5,24 @@ sealed abstract class QualityOfProtection(val name: String) {
 }
 
 object QualityOfProtection {
-  case object Auth     extends QualityOfProtection("auth")
-  case object AuthInt  extends QualityOfProtection("auth-int")
+  case object Auth    extends QualityOfProtection("auth")
+  case object AuthInt extends QualityOfProtection("auth-int")
 
-  val values: List[QualityOfProtection] = List(Auth, AuthInt)
+  private val values: Set[QualityOfProtection] = Set(Auth, AuthInt)
 
   def fromString(s: String): Option[QualityOfProtection] =
     values.find(_.name.equalsIgnoreCase(s.trim))
+
+  def fromString(s: Option[String]): Option[QualityOfProtection] =
+    s.flatMap(fromString)
+
+  def fromChallenge(s: String): Set[QualityOfProtection] = {
+    s.split(",")
+      .map(_.trim)
+      .flatMap(QualityOfProtection.fromString)
+      .toSet
+  }
+
+  def fromChallenge(s: Option[String]): Set[QualityOfProtection] =
+    s.fold(Set.empty[QualityOfProtection])(fromChallenge)
 }

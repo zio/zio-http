@@ -50,8 +50,8 @@ object DigestAuthClient {
       challengeRef.get.flatMap {
         case None =>
           ZIO.debug(s"No cached digest!") *>
-            ZIO.debug("Sending request without auth header to get a fresh challenge")
-          ZIO.succeed(request)
+            ZIO.debug("Sending request without auth header to get a fresh challenge") *>
+            ZIO.succeed(request)
 
         case Some(challenge) =>
           for {
@@ -59,7 +59,8 @@ object DigestAuthClient {
             cnonce <- nonceService.generateNonce
             nc     <- ncRef.updateAndGet(nc => NC(nc.value + 1))
             selectedQop = selectQop(request, challenge.qop.toSet)
-            uri         = URI.create(request.url.path.toString)
+            _ <- ZIO.debug(s"Selected QOP: $selectedQop")
+            uri = URI.create(request.url.path.toString)
             body <- request.body.asString
               .map(Some(_))
               .orElseFail(
@@ -107,6 +108,7 @@ object DigestAuthClient {
             newChallenge <- DigestChallenge.fromHeader(header)
             _            <- ZIO.debug(s"Caching digest challenge")
             _            <- challengeRef.set(Some(newChallenge))
+            _            <- ncRef.set(NC(0)) // Reset nonce count
           } yield ()
         case _                                           =>
           ZIO.fail(new IllegalStateException("Expected WWW-Authenticate Digest header in unauthorized response"))
