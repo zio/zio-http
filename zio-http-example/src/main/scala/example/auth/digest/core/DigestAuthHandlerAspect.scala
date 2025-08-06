@@ -9,7 +9,7 @@ object DigestAuthHandlerAspect {
 
   def apply(
     realm: String,
-    qop: List[QualityOfProtection] = List(Auth),
+    qop: Set[QualityOfProtection] = Set(Auth),
     supportedAlgorithms: Set[DigestAlgorithm] = Set(MD5, MD5_SESS, SHA256, SHA256_SESS, SHA512, SHA512_SESS),
   ): HandlerAspect[DigestAuthService & UserService, User] = {
 

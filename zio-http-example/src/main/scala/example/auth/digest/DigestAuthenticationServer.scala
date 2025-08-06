@@ -47,7 +47,7 @@ object DigestAuthenticationServer extends ZIOAppDefault {
             } yield Response.text(
               s"Email updated successfully for user ${user.username}! New email: ${updateRequest.email}",
             )
-          } @@ DigestAuthHandlerAspect(realm = "User Profile", qop = List(AuthInt))
+          } @@ DigestAuthHandlerAspect(realm = "User Profile", qop = Set(AuthInt))
         },
 
       // Protected admin route - only for admin user

@@ -7,108 +7,13 @@ import zio.Config.Secret
 import zio._
 import zio.http._
 
-import java.net.URI
 import java.security.MessageDigest
 import java.util.Base64
-
-// Represents a digest authentication response from the client
-case class DigestResponse(
-  response: String,
-  username: String,
-  realm: String,
-  uri: URI,
-  opaque: String,
-  algorithm: DigestAlgorithm,
-  qop: QualityOfProtection,
-  cnonce: String,
-  nonce: String,
-  nc: NC,
-  userhash: Boolean,
-)
-
-object DigestResponse {
-  def fromHeader(digest: Header.Authorization.Digest): DigestResponse = {
-    DigestResponse(
-      response = digest.response,
-      username = digest.username,
-      realm = digest.realm,
-      uri = digest.uri,
-      opaque = digest.opaque,
-      algorithm = fromString(digest.algorithm).getOrElse(MD5),
-      qop = QualityOfProtection.fromString(digest.qop).getOrElse(Auth),
-      cnonce = digest.cnonce,
-      nonce = digest.nonce,
-      nc = NC(digest.nc),
-      userhash = digest.userhash,
-    )
-  }
-}
-
-// Represents a digest authentication challenge sent to the client
-case class DigestChallenge(
-  realm: String,
-  nonce: String,
-  opaque: Option[String] = None,
-  algorithm: DigestAlgorithm = MD5,
-  qop: List[QualityOfProtection] = List(Auth),
-  stale: Boolean = false,
-  domain: Option[List[String]] = None,
-  charset: Option[String] = Some("UTF-8"),
-  userhash: Boolean = false,
-) {
-  def toHeader: Header.WWWAuthenticate.Digest = {
-    Header.WWWAuthenticate.Digest(
-      realm = Some(realm),
-      nonce = Some(nonce),
-      opaque = opaque,
-      algorithm = Some(algorithm.name),
-      qop = Some(qop.map(_.name).mkString(", ")),
-      stale = Some(stale),
-      domain = domain.flatMap(_.headOption),
-      charset = charset,
-      userhash = Some(userhash),
-    )
-  }
-}
-
-object DigestChallenge {
-  def fromHeader(header: Header.WWWAuthenticate.Digest): ZIO[Any, Nothing, DigestChallenge] =
-    for {
-      realm <- ZIO
-        .fromOption(header.realm)
-        .orDieWith(_ => new RuntimeException("Missing required 'realm' in WWW-Authenticate header"))
-      nonce <- ZIO
-        .fromOption(header.nonce)
-        .orDieWith(_ => new RuntimeException("Missing required 'nonce' in WWW-Authenticate header"))
-    } yield DigestChallenge(
-      realm = realm,
-      nonce = nonce,
-      opaque = header.opaque,
-      algorithm = DigestAlgorithm.fromString(header.algorithm).getOrElse(MD5),
-      qop = QualityOfProtection.fromChallenge(header.qop).toList,
-      stale = header.stale.getOrElse(false),
-      domain = header.domain.map(List(_)),
-      charset = header.charset,
-      userhash = header.userhash.getOrElse(false),
-    )
-
-}
-
-// Error types for digest authentication failures
-sealed trait DigestAuthError
-
-object DigestAuthError {
-  case class NonceExpired(nonce: String)                       extends DigestAuthError
-  case class InvalidNonce(nonce: String)                       extends DigestAuthError
-  case class ReplayAttack(nonce: String, nc: NC)               extends DigestAuthError
-  case class InvalidResponse(expected: String, actual: String) extends DigestAuthError
-  case class UnsupportedQop(qop: String)                       extends DigestAuthError
-}
 
 trait DigestAuthService {
   def generateChallenge(
     realm: String,
-    qop: List[QualityOfProtection] = List(Auth),
+    qop: Set[QualityOfProtection] = Set(Auth),
     algorithm: DigestAlgorithm = MD5,
   ): UIO[DigestChallenge]
 
@@ -116,7 +21,7 @@ trait DigestAuthService {
     digest: DigestResponse,
     password: Secret,
     method: Method,
-    supportedQop: List[QualityOfProtection],
+    supportedQop: Set[QualityOfProtection],
     body: Option[String] = None,
   ): ZIO[Any, DigestAuthError, Unit]
 }
@@ -137,7 +42,7 @@ case class DigestAuthServiceLive(
 
   def generateChallenge(
     realm: String,
-    qop: List[QualityOfProtection] = List(Auth),
+    qop: Set[QualityOfProtection] = Set(Auth),
     algorithm: DigestAlgorithm = MD5,
   ): UIO[DigestChallenge] =
     for {
@@ -157,7 +62,7 @@ case class DigestAuthServiceLive(
     response: DigestResponse,
     password: Secret,
     method: Method,
-    supportedQop: List[QualityOfProtection],
+    supportedQop: Set[QualityOfProtection],
     body: Option[String] = None,
   ): ZIO[Any, DigestAuthError, Unit] = {
     val r = response

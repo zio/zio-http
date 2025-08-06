@@ -1,5 +1,6 @@
 package example.auth.digest
 
+import example.auth.digest.core.DigestAuthError.UnsupportedAuthHeader
 import example.auth.digest.core._
 import zio.Config.Secret
 import zio._
@@ -9,7 +10,7 @@ import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 import java.net.URI
 
 trait DigestAuthClient {
-  def makeRequest(request: Request): ZIO[Any, Throwable, Response]
+  def makeRequest(request: Request): ZIO[Any, DigestAuthError, Response]
 }
 
 object DigestAuthClient {
@@ -22,10 +23,10 @@ object DigestAuthClient {
     username: String,
     password: Secret,
   ) extends DigestAuthClient {
-    override def makeRequest(request: Request): ZIO[Any, Throwable, Response] =
+    override def makeRequest(request: Request): ZIO[Any, DigestAuthError, Response] =
       for {
         authenticatedRequest <- authenticate(request)
-        response             <- client.batched(authenticatedRequest)
+        response             <- client.batched(authenticatedRequest).orDie
 
         finalResponse <-
           if (response.status == Status.Unauthorized) {
@@ -33,7 +34,7 @@ object DigestAuthClient {
               _             <- ZIO.debug("Unauthorized response received!")
               _             <- handleUnauthorized(response)
               retryRequest  <- authenticate(request)
-              retryResponse <- client.batched(retryRequest)
+              retryResponse <- client.batched(retryRequest).orDie
               _             <- ZIO.debug("Retrying request with updated authentication headers")
             } yield retryResponse
           } else ZIO.succeed(response)
@@ -46,7 +47,7 @@ object DigestAuthClient {
       else
         QualityOfProtection.Auth
 
-    private def authenticate(request: Request): ZIO[Any, Throwable, Request] =
+    private def authenticate(request: Request): ZIO[Any, Nothing, Request] =
       challengeRef.get.flatMap {
         case None =>
           ZIO.debug(s"No cached digest!") *>
@@ -58,14 +59,12 @@ object DigestAuthClient {
             _      <- ZIO.debug(s"Cached digest challenge found, use it to compute the digest response!")
             cnonce <- nonceService.generateNonce
             nc     <- ncRef.updateAndGet(nc => NC(nc.value + 1))
-            selectedQop = selectQop(request, challenge.qop.toSet)
+            selectedQop = selectQop(request, challenge.qop)
             _ <- ZIO.debug(s"Selected QOP: $selectedQop")
             uri = URI.create(request.url.path.toString)
             body <- request.body.asString
               .map(Some(_))
-              .orElseFail(
-                new RuntimeException("Failed to read request body as string"),
-              )
+              .orDie
 
             response <- digestService.computeResponse(
               username = username,
@@ -100,7 +99,7 @@ object DigestAuthClient {
           } yield request.addHeader(authHeader)
       }
 
-    private def handleUnauthorized(response: Response): ZIO[Any, Throwable, Unit] =
+    private def handleUnauthorized(response: Response): ZIO[Any, DigestAuthError, Unit] =
       response.header(Header.WWWAuthenticate) match {
         case Some(header: Header.WWWAuthenticate.Digest) =>
           for {
@@ -111,7 +110,7 @@ object DigestAuthClient {
             _            <- ncRef.set(NC(0)) // Reset nonce count
           } yield ()
         case _                                           =>
-          ZIO.fail(new IllegalStateException("Expected WWW-Authenticate Digest header in unauthorized response"))
+          ZIO.fail(UnsupportedAuthHeader("Expected WWW-Authenticate header"))
       }
 
   }
