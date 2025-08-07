@@ -13,15 +13,11 @@ object QualityOfProtection {
   def fromString(s: String): Option[QualityOfProtection] =
     values.find(_.name.equalsIgnoreCase(s.trim))
 
-  def fromString(s: Option[String]): Option[QualityOfProtection] =
-    s.flatMap(fromString)
-
-  def fromChallenge(s: String): Set[QualityOfProtection] = {
+  def fromChallenge(s: String): Set[QualityOfProtection] =
     s.split(",")
       .map(_.trim)
       .flatMap(QualityOfProtection.fromString)
       .toSet
-  }
 
   def fromChallenge(s: Option[String]): Set[QualityOfProtection] =
     s.fold(Set.empty[QualityOfProtection])(fromChallenge)

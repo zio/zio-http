@@ -38,7 +38,7 @@ case class DigestAuthServiceLive(
   digestService: DigestService,
 ) extends DigestAuthService {
   val OPAQUE_BYTES_LENGTH = 16
-  val NONCE_MAX_AGE       = 2L // 5 minutes
+  val NONCE_MAX_AGE       = 300L // 5 minutes
 
   def generateChallenge(
     realm: String,
