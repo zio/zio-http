@@ -16,6 +16,7 @@ sealed trait AuthType { self =>
         AuthType { type ClientRequirement = ClientReq },
       ]
 
+  def asWWWAuthenticateHeader: Option[Header.WWWAuthenticate]
 }
 
 object AuthType {
@@ -27,28 +28,43 @@ object AuthType {
   case object None extends AuthType {
     type ClientRequirement = Unit
     override val codec: HeaderCodec[Unit] = HttpCodec.empty.asInstanceOf[HeaderCodec[Unit]]
+
+    override def asWWWAuthenticateHeader: Option[Header.WWWAuthenticate] =
+      Option.empty
   }
 
   case object Basic  extends AuthType {
     type ClientRequirement = Header.Authorization.Basic
     override val codec: HeaderCodec[Header.Authorization.Basic] =
       HeaderCodec.basicAuth
+
+    override def asWWWAuthenticateHeader: Option[Header.WWWAuthenticate] =
+      Some(Header.WWWAuthenticate.Basic())
   }
   case object Bearer extends AuthType {
     type ClientRequirement = Header.Authorization.Bearer
     override val codec: HeaderCodec[Header.Authorization.Bearer] =
       HeaderCodec.bearerAuth
+
+    override def asWWWAuthenticateHeader: Option[Header.WWWAuthenticate] =
+      Some(Header.WWWAuthenticate.Bearer(???))
   }
 
   case object Digest extends AuthType {
     type ClientRequirement = Header.Authorization.Digest
     override val codec: HeaderCodec[Header.Authorization.Digest] =
       HeaderCodec.digestAuth
+
+    override def asWWWAuthenticateHeader: Option[Header.WWWAuthenticate] =
+      Some(Header.WWWAuthenticate.Digest(None))
   }
 
   final case class Custom[ClientReq](override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq])
       extends AuthType {
     type ClientRequirement = ClientReq
+
+    override def asWWWAuthenticateHeader: Option[Header.WWWAuthenticate] =
+      Some(Header.WWWAuthenticate.Unknown(???, ???, ???))
   }
 
   final case class Or[ClientReq1, ClientReq2, ClientReq](
@@ -57,8 +73,10 @@ object AuthType {
     alternator: Alternator.WithOut[ClientReq1, ClientReq2, ClientReq],
   ) extends AuthType {
     type ClientRequirement = ClientReq
-    override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] =
+    override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq]  =
       auth1.codec.orElseEither(auth2.codec)(alternator)
+    override def asWWWAuthenticateHeader: Option[Header.WWWAuthenticate] =
+      auth1.asWWWAuthenticateHeader
   }
 
   final case class ScopedAuth[ClientReq](
@@ -67,6 +85,9 @@ object AuthType {
   ) extends AuthType {
     type ClientRequirement = ClientReq
     override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] = authType.codec
+
+    override def asWWWAuthenticateHeader: Option[Header.WWWAuthenticate] =
+      authType.asWWWAuthenticateHeader
 
     def scopes: List[String] = _scopes
 
