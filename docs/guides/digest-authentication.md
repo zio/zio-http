@@ -195,6 +195,10 @@ case class DigestChallenge(
 ) {
   def toHeader: Header.WWWAuthenticate.Digest = ???
 }
+
+object DigestChallenge {
+  def fromHeader(header: Header.WWWAuthenticate.Digest): ZIO[Any, Nothing, DigestChallenge] = ???
+}
 ```
 
 The `DigestChallenge#toHeader` method converts the `DigestChallenge` into a `Header.WWWAuthenticate.Digest`, which can be used in the HTTP response to challenge the client.
@@ -226,11 +230,16 @@ The `DigestResponse.fromHeader` translates the `Header.Authorization.Digest` to 
 The `DigestAuthError` is a sealed trait that represents the possible errors that can occur during the digest authentication process. It includes:
 
 ```scala
-sealed trait NonceError extends Serializable with Product
-object NonceError {
-  case class NonceExpired(nonce: String)             extends NonceError
-  case class NonceAlreadyUsed(nonce: String, nc: NC) extends NonceError
-  case class InvalidNonce(nonce: String)             extends NonceError
+sealed trait DigestAuthError extends Throwable
+
+object DigestAuthError {
+   case class NonceExpired(nonce: String)                       extends DigestAuthError
+   case class InvalidNonce(nonce: String)                       extends DigestAuthError
+   case class ReplayAttack(nonce: String, nc: NC)               extends DigestAuthError
+   case class InvalidResponse(expected: String, actual: String) extends DigestAuthError
+   case class UnsupportedQop(qop: String)                       extends DigestAuthError
+   case class MissingRequiredField(field: String)               extends DigestAuthError
+   case class UnsupportedAuthHeader(message: String)            extends DigestAuthError
 }
 ```
 
@@ -265,13 +274,22 @@ sealed abstract class QualityOfProtection(val name: String) {
 }
 
 object QualityOfProtection {
-  case object Auth     extends QualityOfProtection("auth")
-  case object AuthInt  extends QualityOfProtection("auth-int")
+  case object Auth    extends QualityOfProtection("auth")
+  case object AuthInt extends QualityOfProtection("auth-int")
 
-  val values: List[QualityOfProtection] = List(Auth, AuthInt)
+  private val values: Set[QualityOfProtection] = Set(Auth, AuthInt)
 
   def fromString(s: String): Option[QualityOfProtection] =
     values.find(_.name.equalsIgnoreCase(s.trim))
+
+  def fromChallenge(s: String): Set[QualityOfProtection] =
+    s.split(",")
+      .map(_.trim)
+      .flatMap(QualityOfProtection.fromString)
+      .toSet
+
+  def fromChallenge(s: Option[String]): Set[QualityOfProtection] =
+    s.fold(Set.empty[QualityOfProtection])(fromChallenge)
 }
 ```
 
@@ -897,7 +915,7 @@ So, to make a client that reuse `nonce` between calls, we require a client that 
 
 ```scala
 trait DigestAuthClient {
-   def makeRequest(request: Request): ZIO[Any, Throwable, Response]
+   def makeRequest(request: Request): ZIO[Any, DigestAuthError, Response]
 }
 ```
 
@@ -917,18 +935,18 @@ final case class DigestAuthClientImpl(
   username: String,
   password: Secret,
 ) extends DigestAuthClient {
-  override def makeRequest(request: Request): ZIO[Any, Throwable, Response] =
+  override def makeRequest(request: Request): ZIO[Any, DigestAuthError, Response] =
     for {
       authenticatedRequest <- authenticate(request)
-      response             <- client.batched(authenticatedRequest)
-
+      response             <- client.batched(authenticatedRequest).orDie
+  
       finalResponse <-
         if (response.status == Status.Unauthorized) {
           for {
             _             <- ZIO.debug("Unauthorized response received!")
             _             <- handleUnauthorized(response)
             retryRequest  <- authenticate(request)
-            retryResponse <- client.batched(retryRequest)
+            retryResponse <- client.batched(retryRequest).orDie
             _             <- ZIO.debug("Retrying request with updated authentication headers")
           } yield retryResponse
         } else ZIO.succeed(response)
@@ -943,26 +961,22 @@ The method first attempts to authenticate the incoming request using any cached 
 Here is the implementation of `authenticate` helper method, it takes a `Request`, use cached digest to compute the response and finally add proper digest header to the given request:
 
 ```scala
-def authenticate(request: Request): ZIO[Any, Throwable, Request] =
+def authenticate(request: Request): ZIO[Any, Nothing, Request] =
   challengeRef.get.flatMap {
     case None =>
       ZIO.debug(s"No cached digest!") *>
         ZIO.debug("Sending request without auth header to get a fresh challenge") *>
-      ZIO.succeed(request)
+        ZIO.succeed(request)
 
     case Some(challenge) =>
       for {
         _      <- ZIO.debug(s"Cached digest challenge found, use it to compute the digest response!")
         cnonce <- nonceService.generateNonce
         nc     <- ncRef.updateAndGet(nc => NC(nc.value + 1))
-        selectedQop = selectQop(request, challenge.qop.toSet)
-        _    <- ZIO.debug(s"Selected QOP: $selectedQop")
-        uri  = URI.create(request.url.path.toString)
-        body <- request.body.asString
-          .map(Some(_))
-          .orElseFail(
-            new RuntimeException("Failed to read request body as string"),
-          )
+        selectedQop = selectQop(request, challenge.qop)
+        _ <- ZIO.debug(s"Selected QOP: $selectedQop")
+        uri = URI.create(request.url.path.toString)
+        body <- request.body.asString.map(Some(_)).orDie
 
         response <- digestService.computeResponse(
           username = username,
@@ -1011,7 +1025,7 @@ def selectQop(request: Request, supportedQop: Set[QualityOfProtection]): Quality
 For extracting and storing the digest challenge from the response of unauthorized calls, here is another helper method, called `handleUnauthorized`:
 
 ```scala
-def handleUnauthorized(response: Response): ZIO[Any, Throwable, Unit] =
+def handleUnauthorized(response: Response): ZIO[Any, DigestAuthError, Unit] =
   response.header(Header.WWWAuthenticate) match {
     case Some(header: Header.WWWAuthenticate.Digest) =>
       for {
@@ -1022,10 +1036,73 @@ def handleUnauthorized(response: Response): ZIO[Any, Throwable, Unit] =
         _            <- ncRef.set(NC(0)) // Reset nonce count
       } yield ()
     case _                                           =>
-      ZIO.fail(new IllegalStateException("Expected WWW-Authenticate Digest header in unauthorized response"))
+      ZIO.fail(UnsupportedAuthHeader("Expected WWW-Authenticate header"))
   }
 ```
 
-Storing the digest challenge parameters enables reusing the same challenge for subsequent requests until the nonce expires or the server sends a new challenge. When receiving a new challenge, we reset the nonce count (`nc`) to zero so the next request starts with `nc = 1`. This prevents sending out-of-order nonce counts that would cause the server to reject the request, since the server tracks nonce usage sequentially for each challenge it issues.
+Storing the digest challenge parameters enables reusing the same challenge for subsequent requests until the nonce expires or the server sends a new challenge. When receiving a new challenge, we reset the nonce count (`nc`) to zero so the next request starts with `nc = 1`. This prevents sending out-of-order nonce counts that would cause the server to reject the request since the server tracks nonce count usage for each nonce it issues.
 
-This design provides transparent digest authentication handling where clients can make requests normally without manually managing the challenge-response handshake. The method efficiently handles both cold-start scenarios (first request triggers the challenge) and challenge refresh situations (when server nonces expire), while maintaining authentication state between requests for optimal performance.
+Now, we are ready to write some API calls and see how the digest authentication works in practice:
+
+```scala
+val program: ZIO[Client with DigestAuthClient, Throwable, Unit] =
+  for {
+    authClient <- ZIO.service[DigestAuthClient]
+
+    profileEndpoint <- ZIO.fromEither(URL.decode(s"$url/profile/me"))
+    emailEndpoint   <- ZIO.fromEither(URL.decode(s"$url/profile/email"))
+
+    _         <- ZIO.debug("\nFirst call: GET /profile/me")
+    response1 <- authClient.makeRequest(Request(method = Method.GET, url = profileEndpoint))
+    body1     <- response1.body.asString
+    _         <- ZIO.debug(s"Received response: $body1")
+
+    _         <- ZIO.debug("\nSecond call: GET /profile/me")
+    response2 <- authClient.makeRequest(Request(method = Method.GET, url = profileEndpoint))
+    body2     <- response2.body.asString
+    _         <- ZIO.debug(s"Received response: $body2")
+
+    _ <- ZIO.debug("\nThird call: PUT /profile/email")
+    email        = UpdateEmailRequest("my-new-email@example.com")
+    emailRequest = Request(method = Method.PUT, url = emailEndpoint, body = Body.from(email))
+    response3 <- authClient.makeRequest(emailRequest)
+    body3     <- response3.body.asString
+    _         <- ZIO.debug(s"Received response: $body3")
+
+    _         <- ZIO.debug("\nFourth call: GET /profile/me")
+    response4 <- authClient.makeRequest(Request(method = Method.GET, url = profileEndpoint))
+    body4     <- response4.body.asString
+    _         <- ZIO.debug(s"Received response: $body4")
+  } yield ()
+```
+
+To run this program, you need to have the `DigestAuthClient` and `DigestAuthService` in your ZIO environment:
+
+```scala
+program.provide(
+   Client.default,
+   NonceService.live,
+   DigestService.live,
+   DigestAuthClient.live(USERNAME, PASSWORD),
+)
+```
+
+This ZIO program executes four sequential HTTP calls:
+
+1. `GET /profile/me` (initial request)
+2. `GET /profile/me` (second request using cached authentication)
+3. `PUT /profile/email` (update email address)
+4. `GET /profile/me` (verify the email update)
+
+Let's discuss each call in details:
+
+**First Call:** Since no digest challenge is cached, the client sends an unauthenticated request. The server responds with `401 Unauthorized` and includes a `WWW-Authenticate` header containing the digest challenge parameters (realm, nonce, algorithm, etc.). The client parses and caches this challenge information, computes the digest response using the user's credentials, and retries the request with the computed authentication header. This results in a successful response containing the user's profile.
+**Second Call:** The client reuses the cached digest challenge to compute the authentication response without requiring a server round-trip for challenge negotiation. It increments the nonce count (`nc`) to `00000002`, ensuring the server recognizes this as a distinct request and preventing replay attacks. The authentication succeeds immediately without an initial `401` response, demonstrating efficient authentication state reuse.
+**Third Call:** The `PUT /profile/email` request attempts to update the user's email address. The client computes the digest response using the cached challenge and increments the nonce count to `00000003`. However, since this endpoint requires `auth-int` (authentication with integrity protection) quality of protection to verify the request body hasn't been tampered with, the server rejects this request with `401 Unauthorized` because the request's response header is computed using wrong `qop` parameter, i.e. `auth`. The client receives a new digest challenge specifying `auth-int` QOP, caches this updated challenge, and retries the request. For the new challenge, the nonce count starts from `00000001`, and the client successfully authenticates using `auth-int`, which includes the hash of the request body in the digest calculation.
+**Fourth Call:** The final `GET /profile/me` request retrieves the updated profile information. The client uses the most recently cached challenge (from the PUT request), incrementing the nonce count to `00000002`. Since this is a GET request with an empty body, the client uses standard `auth` quality of protection rather than `auth-int`. The server responds with the updated profile, confirming the email address change was successful.
+
+This design provides transparent handling of digest authentication, allowing clients to make requests normally without manually managing the challenge–response handshake. The method efficiently addresses both cold-start scenarios, in which the first request triggers a challenge, and challenge-refresh situations, when server nonces expire, while maintaining authentication state between requests for optimal performance.
+
+## Writing a Web Client to Test the Digest Authentication
+
+Similar to the client we wrote in the previous section, we can write a web client. The overall structure of the web client is similar, but as the implementation detail goes beyond the scope of this guide, we will not cover it here. However, by running the `DigestAuthenticationServer`, it will serve the `digest-auth-client.html` on `http://localhost:8080`, which is a simple web client that allows you to demo and test the digest authentication flow in your browser. You can use it to send requests to the server and see how the digest authentication works in practice.
