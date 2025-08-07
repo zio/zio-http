@@ -4,35 +4,35 @@ title: "Securing Your APIs: Digest Authentication"
 ---
 # Digest Authentication
 
-Digest Authentication is a more secure HTTP authentication method than Basic Authentication, designed to address the security vulnerabilities of transmitting credentials in easily decodable formats. In this guide, we'll explore how to implement Digest Authentication using ZIO HTTP, providing both server-side middleware and client-side integration.
+Digest Authentication provides enhanced security over Basic Authentication by addressing fundamental vulnerabilities in credential transmission. This implementation guide demonstrates how to build Digest Authentication using ZIO HTTP, covering both server-side middleware and client-side integration patterns.
 
 ## Understanding Digest Authentication
 
-Digest Authentication, defined in RFC 2617 and extended in RFC 7616, is an HTTP authentication scheme that uses a **challenge-response mechanism with cryptographic hashing**. Unlike Basic Authentication, which transmits credentials in Base64 encoding, Digest Authentication never sends the actual raw password over the network. Instead, it uses hash functions to create a digest (typically MD5 or SHA-256) that proves the client knows the password without revealing it.
+Digest Authentication, standardized in RFC 2617 and extended in RFC 7616, implements an HTTP authentication scheme utilizing a **challenge-response mechanism with cryptographic hashing**. Unlike Basic Authentication, which transmits credentials in Base64 encoding, Digest Authentication employs hash functions to generate cryptographic digests (typically MD5 or SHA-256) that verify credential knowledge without exposing plaintext passwords over the network.
 
-### The Challenge-Response Flow
+### The Challenge-Response Protocol Flow
 
-The authentication process follows this sequence:
+The authentication protocol follows this standardized sequence:
 
-1. **Initial Request**: The client makes a request to a protected resource
-2. **Challenge**: The server responds with `401 Unauthorized` and a `WWW-Authenticate` header containing:
-    - `realm`: A string indicating the protection space
-    - `nonce`: A server-generated unique value (prevents replay attacks)
-    - `qop`: Quality of Protection (usually "auth")
-    - `algorithm`: Hash algorithm to use (MD5, SHA-256, etc.)
-3. **Response**: The client computes a digest using the provided parameters and its credentials, then retries the request with an `Authorization` header
-4. **Verification**: The server validates the digest and grants or denies access
+1. **Initial Request**: The client initiates a request to a protected resource
+2. **Authentication Challenge**: The server responds with `401 Unauthorized` status and a `WWW-Authenticate` header containing:
+    - `realm`: A string identifying the protection space
+    - `nonce`: A server-generated cryptographic nonce (prevents replay attacks)
+    - `qop`: Quality of Protection specification (typically "auth" or "auth-int"; or supporting both)
+    - `algorithm`: Cryptographic hash algorithm specification (MD5, SHA-256, etc.)
+3. **Challenge Response**: The client computes a cryptographic digest using the challenge parameters and credentials, then resubmits the request with an `Authorization` header
+4. **Authentication Verification**: The server validates the digest and either grants access or denies authorization
 
-Here are examples of the initial request, the challenge response from the server, and the subsequent authenticated request:
+The following examples illustrate the complete authentication handshake:
 
-1. First, the client tries to access a protected resource at `/profile/me` without authentication: 
+1. **Initial Resource Access Attempt**: The client requests a protected resource at `/profile/me` without authentication credentials:
 
 ```http
 GET /profile/me HTTP/1.1
 Host: localhost:8080
 ```
 
-2. The server responds with "401 Unauthorized" and a challenge:
+2. **Server Authentication Challenge**: The server responds with "401 Unauthorized" and presents an authentication challenge:
 
 ```http
 HTTP/1.1 401 Unauthorized
@@ -41,11 +41,11 @@ date: Thu, 24 Jul 2025 07:27:40 GMT
 www-authenticate: Digest realm="User Profile", nonce="MTc1MzM0MjA2MDI0NDpmbXNGK2dTblF4WEVwN1gwWktMVllRPT0=", opaque="uSla+F7cMBsB/t3K9OCLzg==", stale=false, algorithm=MD5, qop="auth", charset=UTF-8, userhash=false
 ```
 
-The `WWW-Authenticate` header is sent by the server in the HTTP 401 Unauthorized response to present the digest authentication challenge parameters. This challenge indicates that the requested resource requires authentication within the specified realm and requires the client to compute a cryptographic digest response using the provided parameters.
+The `WWW-Authenticate` header delivers the authentication challenge within an HTTP 401 Unauthorized response, indicating that the requested resource requires authentication within the specified protection realm and mandating cryptographic digest computation using the provided parameters.
 
-3. The client computes a digest response using the specified cryptographic hash algorithm (typically MD5 or SHA-256) applied to a structured combination of challenge parameters and user credentials. This process generates a hash value that cryptographically proves credential possession without transmitting the plaintext password.
+3. **Cryptographic Digest Computation**: The client computes a cryptographic digest response using the specified hash algorithm (typically MD5 or SHA-256) applied to a structured combination of challenge parameters and user credentials. This process generates a hash value that cryptographically proves credential possession without transmitting plaintext passwords.
 
-The digest response is calculated using the following formula:
+The digest response calculation follows this standardized algorithm:
 
 ```http
 HA1 = H(username:realm:password)
@@ -56,28 +56,30 @@ else
 response = H(HA1:nonce:nc:cnonce:qop:HA2)
 ```
 
-Let's discuss the parameters involved in this calculation:
+**Parameter Definitions:**
 
 - **`username`**: The user identifier for authentication
-- **`realm`**: A server-defined protection space identifier that logically groups protected resources.
-- **`password`**: The user's secret credential (never transmitted in plaintext).
-- **`method`** and **`uri`**: The HTTP request method (GET, POST, etc.) and the requested URI path. Including these values binds the digest to the specific request, preventing attackers from reusing valid digests for different requests (request tampering protection).
-- **`nonce`**: A server-generated, time-limited unique value that changes for each authentication challenge. This server-controlled parameter ensures temporal uniqueness and prevents replay attacks by invalidating previously captured authentication attempts.
-- **`nc` (nonce count)**: A hexadecimal counter (starting at 00000001) that increments with each request using the same nonce value. This enables the server to detect duplicate or out-of-sequence requests, providing protection against replay attacks even when nonces are reused during their validity period.
-- **`cnonce` (client nonce)**: A client-generated random value that adds entropy from the client side. This parameter ensures that identical server challenges produce different digest responses, preventing certain cryptographic attacks and enabling client request correlation.
+- **`realm`**: A server-defined protection space identifier that logically partitions protected resources
+- **`password`**: The user's authentication secret (never transmitted in plaintext)
+- **`method`** and **`uri`**: The HTTP request method (GET, POST, etc.) and the requested URI path. Including these values cryptographically binds the digest to the specific request, preventing attackers from reusing valid digests for different requests (mitigates request tampering)
+- **`nonce`**: A server-generated, temporally-limited unique value that varies for each authentication challenge. This server-controlled parameter ensures temporal uniqueness and prevents replay attacks by invalidating previously captured authentication attempts
+- **`nc` (nonce count)**: A hexadecimal counter (initialized at 00000001) that increments with each request utilizing the same nonce value. This enables the server to detect duplicate or out-of-sequence requests, providing protection against replay attacks even when nonces are reused during their validity period
+- **`cnonce` (client nonce)**: A client-generated cryptographic nonce that contributes entropy from the client side. This parameter ensures that identical server challenges produce different digest responses, preventing certain cryptographic attacks and enabling client request correlation
 - **`qop`** (Quality of Protection): Defines the protection level - "auth" for authentication-only or "auth-int" for authentication with message integrity protection
 
-The digest authentication mechanism provides several cryptographic security improvements over HTTP Basic Authentication:
+**Security Properties**
 
-1. **Credential Protection**: User passwords remain on the client side and are never transmitted across the network, even in hashed form.
-2. **Replay Attack Resistance**: The combination of server nonces and nonce counts creates unique authentication tokens for each request, making captured authentication data unusable for subsequent unauthorized requests.
-3. **Request Integrity**: By incorporating the HTTP method and URI into the digest calculation, the protocol prevents attackers from redirecting valid authentication tokens to different endpoints or changing request methods.
-4. **Mutual Verification**: The client can verify server authenticity through the server's ability to validate client-generated digests, while the server confirms client identity through successful digest verification.
-5. **Enhanced Integrity Protection**: When using `qop="auth-int"`, the protocol includes the request body hash in the authentication calculation, ensuring both authentication and message integrity.
+The digest authentication mechanism provides several cryptographic security enhancements over HTTP Basic Authentication:
 
-Even with these security improvements, HTTPS remains necessary since Digest Authentication doesn't encrypt the entire communication channel. HTTPS deployment is essential for production systems to provide complete security through transport-layer encryption.
+1. **Credential Protection**: User passwords remain client-side and are never transmitted across the network, even in hashed form
+2. **Replay Attack Resistance**: The combination of server nonces and nonce counts creates unique authentication tokens for each request, rendering captured authentication data unusable for subsequent unauthorized requests
+3. **Request Integrity**: By incorporating the HTTP method and URI into the digest calculation, the protocol prevents attackers from redirecting valid authentication tokens to different endpoints or modifying request methods
+4. **Mutual Authentication**: The client can verify server authenticity through the server's ability to validate client-generated digests, while the server confirms client identity through successful digest verification
+5. **Message Integrity Protection**: When utilizing `qop="auth-int"`, the protocol includes the request body hash in the authentication calculation, ensuring both authentication and message integrity
 
-Let's calculate the digest response using the formula above:
+Despite these security enhancements, HTTPS deployment remains essential since Digest Authentication does not encrypt the communication channel. HTTPS is mandatory for production systems to provide comprehensive security through transport-layer encryption.
+
+**Example Digest Calculation:**
 
 ```
 HA1 = H(username:realm:password)
@@ -98,7 +100,7 @@ response = H(HA1:nonce:nc:cnonce:qop:HA2)
 = f7e07fe43aa7a7e3a296edf8f3b3772a
 ```
 
-After calculating the digest response, the client constructs the `Authorization` header with the computed values:
+After calculating the digest response, the client constructs the `Authorization` header with the computed authentication response:
 
 ```http
 GET /profile/me HTTP/1.1
@@ -106,10 +108,10 @@ Host: localhost:8080
 Authorization: Digest username="john", realm="User Profile", nonce="MTc1MzM0MjA2MDI0NDpmbXNGK2dTblF4WEVwN1gwWktMVllRPT0=", uri="/profile/me", algorithm="MD5", qop="auth", nc="00000001", cnonce="71n315lg67i4kr9473e5hw", response="f7e07fe43aa7a7e3a296edf8f3b3772a", userhash=false, opaque="uSla+F7cMBsB/t3K9OCLzg=="
 ```
 
-4. The server verifies the digest by recalculating it using the same parameters and its stored credentials for the user "john". If the digest matches, the server grants access to the requested resource. To do this, the server extracts the "username" parameter from the authorization header, then looks up the user's password in its database. The server can now compute the digest using the same algorithm and parameters as the client. If the digest matches the one sent by the client, the server responds with the requested resource:
+4. **Server Authentication Verification**: The server validates the digest by recalculating it using identical parameters and stored credentials for user "john". Upon successful digest verification, the server grants access to the requested resource. The server extracts the "username" parameter from the authorization header, retrieves the user's password from its credential store, and computes the expected digest using the same algorithm and parameters as the client. When the computed digest matches the client-provided digest, the server responds with the requested resource:
 
 ```http
-HTTP/1.1 200 Ok
+HTTP/1.1 200 OK
 content-length: 76
 content-type: text/plain
 date: Wed, 23 Jul 2025 12:59:32 GMT
@@ -119,35 +121,36 @@ Hello john! This is your profile:
  Email: john@example.com
 ```
 
-If the digest does not match, the server responds with `401 Unauthorized` again, indicating that authentication failed, with a new `WWW-Authenticate` header containing a new challenge.
+If digest verification fails, the server responds with `401 Unauthorized`, indicating authentication failure and presenting a new challenge in the `WWW-Authenticate` header.
 
-## Implementing Digest Authentication
+## Implementation Architecture
 
-To implement Digest Authentication in ZIO HTTP, we are going to create middleware that intercepts incoming requests, checks for the presence of the `Authorization` header, and validates the digest against stored user credentials. We'll also create a simple HTML client to demonstrate how to use Digest Authentication in practice.
+To implement Digest Authentication in ZIO HTTP, we develop middleware that intercepts incoming requests, validates `Authorization` headers, and authenticates digest credentials against stored user data. We also construct a client implementation to demonstrate practical digest authentication usage.
 
-ZIO HTTP currently does not have built-in support for Digest Authentication, but it has an excellent foundation for implementing it as custom middleware.
+ZIO HTTP does not provide built-in Digest Authentication support, but offers an excellent foundation for implementing it as custom middleware.
 
-### Overview
+### Implementation Overview
 
-The middleware we are going to implement should handle two main scenarios, based on whether the request contains an `Authorization` header:
-- If it is present and is of type `Header.Authorization.Digest`, it means the client is trying to authenticate by responding to a challenge from the server. We need to validate the digest against the stored user credentials. If the digest is valid, we allow the request to proceed. If the digest is invalid, we respond with a `401 Unauthorized` status and a new challenge in the `WWW-Authenticate` header.
-- If the header is not present, this means that the client is trying to access a protected resource without authentication, so we need to respond with a `401 Unauthorized` status and a `WWW-Authenticate` header containing the challenge parameters (`realm`, `nonce`, `algorithm`, etc.).
+The middleware implementation handles two primary authentication scenarios based on `Authorization` header presence:
+
+- **Digest Authentication Present**: When the request contains a `Header.Authorization.Digest`, the client is responding to a server challenge. The middleware validates the digest against stored user credentials. Valid digests permit request continuation; invalid digests trigger a `401 Unauthorized` response with a new challenge in the `WWW-Authenticate` header.
+- **Missing Authentication**: When no authorization header exists or received unsupported authentication header, the middleware responds with `401 Unauthorized` status and a `WWW-Authenticate` header containing challenge parameters (`realm`, `nonce`, `algorithm`, etc.).
 
 ```scala
 val digestAuthHandler: HandlerAspect[Any, Unit] =
    HandlerAspect.interceptIncomingHandler[Any, Unit] {
       Handler.fromFunctionZIO[Request](request =>
          request.header(Header.Authorization) match {
-            // If the request contains a Digest Authorization header
+            // Process Digest Authorization header
             case Some(authHeader: Header.Authorization.Digest) =>
-               // 1. find the user's credentials in the database using the username from header
-               // 2. validate the digest against stored user credentials
-               // 3. if valid, allow the request to proceed
-               // 4. if invalid, respond with 401 Unauthorized with a new challenge
+               // 1. Retrieve user credentials from credential store using header username
+               // 2. Validate digest against stored user credentials
+               // 3. On success, allow request continuation
+               // 4. On failure, respond with 401 Unauthorized and new challenge
    
-            // No auth header or not digest, send a challenge
+            // No authentication header present or unsupported authentication header, issue challenge
             case _ =>
-             // 1. respond with 401 Unauthorized with a new challenge
+             // 1. Respond with 401 Unauthorized and authentication challenge
          },
       )
    }
@@ -155,12 +158,12 @@ val digestAuthHandler: HandlerAspect[Any, Unit] =
 
 ### Digest Authentication Service Interface
 
-There are two main operations we need to implement:
+The implementation requires two core operations:
 
-- **Creating a challenge**: When the client tries to access a protected resource without authentication, we need to generate a challenge that includes the `realm`, `nonce`, `algorithm`, and quality of protection (`qop`). The server generates the challenge and sends it back to the client in the `WWW-Authenticate` header of the response.
-- **Validating the response**: When the client responds with a digest in the `Authorization` header, the server needs to validate it against the stored user credentials. This involves computing the expected digest and comparing it with the one sent by the client.
+- **Challenge Generation**: When clients attempt to access protected resources without authentication, the system generates challenges containing `realm`, `nonce`, `algorithm`, and quality of protection (`qop`) parameters. The server generates and transmits the challenge via the `WWW-Authenticate` header in the response.
+- **Response Validation**: When clients provide digest responses in `Authorization` headers, the server validates them against stored user credentials by computing expected digests and comparing them with client-provided values.
 
-It is good practice to put these functionalities into a separate service called `DigestAuthService`:
+These functionalities are encapsulated within a dedicated `DigestAuthService`:
 
 ```scala
 trait DigestAuthService {
@@ -179,7 +182,7 @@ trait DigestAuthService {
 }
 ```
 
-The `DigestChallenge` is a data type that encapsulates the parameters needed to generate a challenge, such as `realm`, `nonce`, `opaque`, `algorithm`, and `qop`:
+The `DigestChallenge` data structure encapsulates challenge generation parameters including `realm`, `nonce`, `opaque`, `algorithm`, and `qop`:
 
 ```scala
 case class DigestChallenge(
@@ -201,9 +204,9 @@ object DigestChallenge {
 }
 ```
 
-The `DigestChallenge#toHeader` method converts the `DigestChallenge` into a `Header.WWWAuthenticate.Digest`, which can be used in the HTTP response to challenge the client.
+The `DigestChallenge#toHeader` method transforms the `DigestChallenge` into a `Header.WWWAuthenticate.Digest` for HTTP response integration. #TODO
 
-The `DigestResponse` is a data type that represents the response sent by the client in the `Authorization` header:
+The `DigestResponse` data structure represents client responses within `Authorization` headers:
 
 ```scala
 case class DigestResponse(
@@ -225,9 +228,9 @@ object DigestResponse {
 }
 ```
 
-The `DigestResponse.fromHeader` constructor translates the `Header.Authorization.Digest` to `DigestResponse`, which is a more type-safe representation of the digest response.
+The `DigestResponse.fromHeader` constructor provides type-safe conversion from `Header.Authorization.Digest` to `DigestResponse`.
 
-The `DigestAuthError` is a sealed trait that represents the possible errors that can occur during the digest authentication process. It includes:
+The `DigestAuthError` sealed trait represents authentication process errors:
 
 ```scala
 sealed trait DigestAuthError extends Throwable
@@ -243,7 +246,7 @@ object DigestAuthError {
 }
 ```
 
-The `DigestAlgorithm` is an enum that represents the hashing algorithms used in Digest Authentication. It includes common algorithms like MD5, SHA-256, and SHA-512, along with their session variants:
+The `DigestAlgorithm` enumeration represents cryptographic hash algorithms used in Digest Authentication, including standard algorithms like MD5, SHA-256, and SHA-512, along with their session variants:
 
 ```scala
 sealed abstract class DigestAlgorithm(val name: String, val digestSize: Int) {
@@ -266,7 +269,7 @@ object DigestAlgorithm {
 }
 ```
 
-The `QualityOfProtection` is a sealed trait that represents the quality of protection used in Digest Authentication. It includes two common values: `auth` and `auth-int`. The `auth` value indicates that the request is authenticated, while `auth-int` indicates that the request is authenticated and the integrity of the request body is protected:
+The `QualityOfProtection` sealed trait represents protection levels in Digest Authentication, encompassing `auth` for authentication-only and `auth-int` for authentication with message integrity protection:
 
 ```scala
 sealed abstract class QualityOfProtection(val name: String) {
@@ -293,27 +296,27 @@ object QualityOfProtection {
 }
 ```
 
-Now that we have defined the service interface and the supporting types, we are ready to dive into the implementation details of the `DigestAuthService`. But before we do that, we need to implement two core components: a nonce management service and a digest computation service.
+Having defined the service interface and supporting types, we can proceed to implement core components: nonce management and digest computation services.
 
 #### Nonce Management Service
 
-An important aspect of challenge generation is `nonce` generation. The `nonce` is a unique value generated by the server for each challenge, which prevents replay attacks and ensures freshness in the authentication process. It should be a random value that changes for each request/session, so that reuse (replay) of old requests is not possible.
+Challenge generation requires robust `nonce` generation. The `nonce` serves as a unique server-generated value for each challenge, preventing replay attacks and ensuring authentication freshness. It must be a cryptographically secure random value that changes for each request/session, rendering replay of previous requests impossible.
 
-There is no mandated algorithm for nonce generation, but here are some common approaches:
+While no specific algorithm is mandated for nonce generation, several industry-standard approaches exist:
 
-- **Random Nonce**: The nonce can be a random value generated by the server. This is a simple approach but requires the server to keep track of used nonces to prevent replay attacks. After receiving the response to a challenge, if the digest is valid, the server should mark the nonce as used so it cannot be reused in subsequent requests. With this approach, the server does not use the nonce count (`nc`), as the nonce itself is unique for each API session and cannot be reused:
+- **Cryptographically Random Nonce**: Generate nonces using cryptographically secure random number generators. This approach requires the server to maintain used nonce tracking to prevent replay attacks. After successful digest validation, the server marks the nonce as consumed, preventing reuse in subsequent requests. This approach typically does not utilize nonce count (`nc`), as each nonce is unique per session and cannot be reused:
 
 ```scala
 val nonce = 
   Random.nextBytes(16)
     .map(_.toArray)
     .map(Base64.getEncoder.encodeToString) 
-// e.g. nonce: pY0+z+EeTgrXwq/Y3L8lGA==
+// Example nonce: pY0+z+EeTgrXwq/Y3L8lGA==
 ```
 
-- **Timestamp-based Nonce**: The nonce can be a combination of the current timestamp and a random value or hash of the timestamp. This allows the server to check if a nonce is too old and reject it, reducing the replay attack window for the session. After receiving the response to a challenge, if the digest is valid, the server should first check if the nonce is still valid (not expired) and then mark the combination of `nonce` and `nc` as used, so it cannot be reused in subsequent requests. The next request with the same nonce should increment the `nc` value to indicate that it is a new request. Using this approach, we can use the same nonce for multiple requests until the session expires.
+- **Temporal Nonce**: Generate nonces combining current timestamps with random values or timestamp hashes. This enables servers to validate nonce freshness and reject expired nonces, reducing replay attack windows. After successful digest validation, the server verifies nonce validity (non-expired status) and marks the `nonce` and `nc` combination as used, preventing reuse in subsequent requests. Subsequent requests with identical nonces must increment the `nc` value to indicate new requests. This approach enables nonce reuse for multiple requests until session expiration.
 
-In this guide, we will use the timestamp-based nonce generation approach, which has better control over nonce expiration policies. To implement this approach, we are going to create a `NonceService` that will handle nonce generation, validation, and tracking of used nonces:
+This implementation utilizes the temporal nonce generation approach, providing superior nonce expiration policy control. We implement a `NonceService` to handle nonce generation, validation, and usage tracking:
 
 ```scala
 trait NonceService {
@@ -324,7 +327,7 @@ trait NonceService {
 }
 ```
 
-The `NC` class represents the nonce count (`nc`) as an 8-digit hexadecimal string, zero-padded on the left. The `NC` class is defined as follows:
+The `NC` class represents the nonce count (`nc`) as an 8-digit hexadecimal string with zero-padding:
 
 ```scala
 case class NC(value: Int) extends AnyVal {
@@ -338,7 +341,7 @@ object NC {
 }
 ```
 
-Let's start by implementing the `generateNonce` method:
+Implementation of the `generateNonce` method:
 
 ```scala
 final case class NonceServiceLive(
@@ -366,17 +369,17 @@ final case class NonceServiceLive(
 }
 ```
 
-Each nonce generated by this method has two parts: 
+Each generated nonce contains two components:
 
 ```
-nonce = Base64(timestamp:Base64(KD(timestamp)))
+nonce = Base64(timestamp:Base64(HMAC(timestamp)))
 ```
 
-The `timestamp` is the current time in milliseconds, and `KD(timestamp)` is the HMAC hash of the timestamp using a secret key known only to the server. The nonce is then Base64-encoded to ensure it can be safely transmitted in HTTP headers.
+The `timestamp` represents current time in milliseconds, and `HMAC(timestamp)` is the cryptographic hash of the timestamp using a server-exclusive secret key. The nonce undergoes Base64 encoding to ensure safe HTTP header transmission.
 
-When receiving a nonce value from the client, the server should decode it, extract the timestamp and hash, and check if the nonce is valid:
-- First, check if the timestamp is within an acceptable range (e.g., not older than a certain duration, like 5 minutes). This prevents old requests from being used for replay attacks.
-- Then, verify that the hash matches the computed hash for the given timestamp using the same secret key. This allows the server to ensure that the nonce was generated by itself and has not been tampered with.
+Upon receiving client nonces, servers decode them, extract timestamps and hashes, and validate nonce authenticity:
+- **Temporal Validation**: Verify timestamps fall within acceptable ranges (e.g., not exceeding 5 minutes age) to prevent replay attack utilization of expired requests
+- **Cryptographic Verification**: Confirm hash values match computed hashes for given timestamps using identical secret keys. This ensures the server generated the nonce and prevents tampering
 
 If the nonce passes both checks, it is considered valid. Let's implement the `validateNonce` method to check if the nonce is valid:
 
@@ -420,7 +423,7 @@ final case class NonceServiceLive(secretKey: Secret) extends NonceService {
 }
 ```
 
-After validating the nonce, we should also check if the `nonce` and `nc` have already been used in previous requests. This can be done by maintaining a map of used nonces and their associated counts (`nc`). If the nonce is found in the map, it means it has already been used, and we should reject the request. This helps us prevent current-session replay attacks, where an attacker might try to reuse a valid nonce from a previous request before it expires.
+After nonce validation, the system must verify that the `nonce` and `nc` combination has not been previously utilized. This is accomplished by maintaining a registry of used nonces with their associated counts (`nc`). Discovery of nonces within this registry indicates prior usage, warranting request rejection. This mechanism prevents intra-session replay attacks where attackers might attempt to reuse valid nonces from previous requests before expiration.
 
 To implement this functionality, called `isNonceUsed`, we can use a `Ref` to store the used nonces in memory, which maintains a map of nonces to sets of counts (`nc`) that have been used:
 
@@ -466,13 +469,13 @@ final case class NonceServiceLive(
 }
 ```
 
-The nonce generation and validation logic is now encapsulated in the `NonceService`, which can be injected into the `DigestAuthService` to handle nonce management during the digest authentication process. 
+The nonce generation and validation logic is now encapsulated within the `NonceService`, which can be injected into the `DigestAuthService` for nonce management during digest authentication processes.
 
-It is time to think about computing the digest response, which is the next step in implementing the `DigestAuthService`.
+The next implementation step involves digest response computation.
 
-#### Digest Response Service
+#### Digest Response Computation Service
 
-Let's create another service that is responsible for calculating the digest response based on the provided parameters:
+We implement a dedicated service responsible for calculating digest responses based on provided parameters:
 
 ```scala
 trait DigestService {
@@ -515,9 +518,9 @@ In regular algorithms, the `HA1` is a constant value for a given `username`, `re
 
 Session algorithms are variants of digest algorithms that enhance security by making the hash depend not only on the `username`, `realm`, and `password` but also on values that are unique to each session, such as the server nonce (`nonce`) and the client nonce (`cnonce`).
 
-If someone steals `H(username:realm:password)` from the client, e.g., via sniffing or memory dump, they still can't generate a valid digest without knowing the specific `nonce` and `cnonce` values.
+Even if an attacker obtains `H(username:realm:password)` through network monitoring, sniffing or memory dump, they cannot generate valid digests without knowing the specific `nonce` and `cnonce` values.
 
-So, as a security best practice, always prefer `-sess` algorithms if both the client and server support them, especially over unsecured networks.
+As a security best practice, always prefer `-sess` algorithms when both client and server support them, particularly for unsecured network communications.
 
 Now, let's implement the `computeResponse` method in the `DigestService`:
 
@@ -567,7 +570,7 @@ private def computeA1(
 }
 ```
 
-Creating `a2` is also straightforward; it is just a hash of the HTTP method and URI. In the case of `auth-int` quality of protection, we also need to include the request body in the calculation:
+The `a2` computation encompasses HTTP method and URI hash calculation. For `auth-int` quality of protection, the request body is included in the calculation:
 
 ```scala
 private def computeA2(
@@ -607,7 +610,7 @@ private def computeFinalResponse(
   hash(s"$ha1:$nonce:$nc:$cnonce:${qop.name}:$ha2", algorithm)
 ```
 
-The `hash` function is a utility function that computes the hash of a given string using the specified algorithm. It can be implemented using Java's `MessageDigest` or any other hashing library:
+The `hash` function computes cryptographic hashes using specified algorithms, implemented with Java's `MessageDigest` or equivalent libraries:
 
 ```scala
 private def hash(data: String, algorithm: DigestAlgorithm): UIO[String] =
@@ -628,7 +631,7 @@ private def hash(data: String, algorithm: DigestAlgorithm): UIO[String] =
 
 ### Digest Authentication Service Implementation
 
-#### Generating a Challenge
+#### Authentication Challenge Generation
 
 Let's implement the `generateChallenge` method in the `DigestAuthService`:
 
@@ -660,19 +663,16 @@ case class DigestAuthServiceLive(
 }
 ```
 
-The `opaque` is an optional value chosen by the server, and the client should copy it back unchanged in the `Authorization` header when responding to the challenge.
+The `opaque` parameter is a server-selected optional value that clients must return unchanged within `Authorization` headers when responding to challenges.
 
 [//]: # (Please note that `DigestChallenge` and `DigestResponse` are custom data types that encapsulate the digest challenge parameters and the digest response, respectively. They have the same structure as `Header.WWWAuthenticate.Digest` and `Header.Authorization.Digest`, but with better type safety guarantees.)
 
 
 [//]: # (To validate the digest header, we also need to pass the password and method of the request, and optionally the body if we want to validate the integrity of the request body as well. Integrity of the request body is only required if the `qop` is set to `auth-int`, which means that the request body has been included in the digest calculation.)
 
-#### Validating the Challenge Response
+#### Challenge Response Validation
 
-Another method we need to implement is `validateResponse`, which checks whether the provided digest response is valid. This method will compute the expected digest using the provided parameters and compare it with the one sent by the client.
-
-
-Let's implement the `validateResponse` method in the `DigestAuthService`:
+Implementation of the `validateResponse` method, which verifies provided digest responses by computing expected digests and comparing them with client-provided values:
 
 ```scala
 case class DigestAuthServiceLive(
@@ -706,7 +706,7 @@ case class DigestAuthServiceLive(
 
 The validation process involves several steps:
 1. **Nonce Validation**: Check if the nonce is valid and not expired using the `NonceService`.
-2. **Replay Attack Check**: Ensure that the nonce has not been used before with the same `nc` (nonce count) using the `NonceService`.
+2. **Replay Attack Prevention**: Ensure `nonce` and `nc` combination has not been previously utilized
 3. **Calculate the Expected Response**: Compute the expected response digest using the provided parameters and the user's password.
 4. **Compare Responses**: Compare the expected response with the one provided by the client.
 5. **Mark Nonce as Used**: If the response is valid, mark the nonce as used to prevent replay attacks in future requests.
@@ -724,9 +724,9 @@ private def isEqual(expected: String, actual: String): ZIO[Any, InvalidResponse,
 }
 ```
 
-## User Service
+## User Management Service
 
-Besides the `DigestAuthService`, we also need a `UserService` to store and retrieve user credentials. This service will provide methods to authenticate users and retrieve their passwords:
+Besides the `DigestAuthService`, we also need a `UserService` to store and retrieve user credentials:
 
 ```scala
 import zio._
@@ -749,7 +749,7 @@ trait UserService {
 
 For the sake of simplicity, we can use an in-memory store for users, but in a real application, you would typically use a database or another persistent storage solution:
 
-```
+```scala
 case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
   def getUser(username: String): IO[UserServiceError, User] =
     users.get.flatMap { userMap =>
@@ -783,7 +783,7 @@ object UserService {
 }
 ```
 
-## Implementing the Middleware
+## Middleware Implementation
 
 The middleware uses the `UserService` to retrieve user credentials in order to validate the digest. We can make our middleware more flexible by passing the user details to the outgoing request context in case of successful validation, so that downstream handlers can access the authenticated user information:
 
@@ -837,16 +837,15 @@ object DigestAuthHandlerAspect {
 }
 ```
 
-This middleware takes three parameters:
+This middleware accepts three configuration parameters:
 
-- `realm`: The realm for the digest authentication, which is a string that identifies the protected area we are going to protect.
-- `qop`: A list of `QualityOfProtection` values that specify the quality of protection to use, such as `auth`, `auth-int`, or both. The challenge generated by the middleware will include these values in the `qop` parameter. For example, if the `qop` is set to `List(Auth, AuthInt)`, the challenge will include both `auth` and `auth-int` in the `qop` parameter, allowing the client to choose which one to use.
-- `supportedAlgorithms`: A set of `HashAlgorithm` values that specify the supported hashing algorithms for digest authentication. The middleware will generate challenges for each of the supported algorithms, allowing the client to choose which one to use. For example, if the `supportedAlgorithms` is set to `Set(MD5, SHA256)`, the challenge will include both `MD5` and `SHA-256` headers, allowing the client to pick one of them.
+- **`realm`**: The authentication realm string identifying the protected resource space
+- **`qop`**: A list of `QualityOfProtection` values that specify the quality of protection to use, such as `auth`, `auth-int`, or both. The challenge generated by the middleware will include these values in the `qop` parameter. For example, if the `qop` is set to `List(Auth, AuthInt)`, the challenge will include both `auth` and `auth-int` in the `qop` parameter, allowing the client to choose which one to use.
+- **`supportedAlgorithms`**: A set of `HashAlgorithm` values that specify the supported hashing algorithms for digest authentication. The middleware will generate challenges for each of the supported algorithms, allowing the client to choose which one to use. For example, if the `supportedAlgorithms` is set to `Set(MD5, SHA256)`, the challenge will include both `MD5` and `SHA-256` headers, allowing the client to pick one of them.
 
-To decode and extract the digest parameters from an incoming request, we do not require any extra effort, as ZIO HTTP extracts the `Authorization` header and makes it accessible via `request.header(Header.Authorization)`. If the header is present, we can check if it is of type `Header.Authorization.Digest`, which contains all the necessary parameters for digest authentication.
+[//]: # (To decode and extract the digest parameters from an incoming request, we do not require any extra effort, as ZIO HTTP extracts the `Authorization` header and makes it accessible via `request.header&#40;Header.Authorization&#41;`. If the header is present, we can check if it is of type `Header.Authorization.Digest`, which contains all the necessary parameters for digest authentication.)
 
-
-## Applying the Middleware
+## Middleware Application
 
 Now we can finally use this middleware in our ZIO HTTP application to protect our `/profile/me` route:
 
@@ -907,7 +906,7 @@ Here are some points to consider when writing this route:
 - First, we used `List(AuthInt)` as the Quality of Protection (`qop`) parameter. This enforces the client to include the request body in the digest calculation, ensuring that the integrity of the request body is verified by the server. Please note that we can also include the `Auth` value in the `qop` list, which allows the client to optionally pick either `auth` or `auth-int` for the authentication request.
 - Second, in the implementation of the route, we extracted the user details from the ZIO environment using the `ZIO.service[User]` method, which is made available by the `DigestAuthHandlerAspect`. Besides this, we also need to obtain the `UserService` from the ZIO environment to update the user's email. If we do both of these inside one handler, the type of our handler becomes `Handler[User & UserService, Response, Request, Response]`. On the other hand, the type of the `DigestAuthHandlerAspect` is `HandlerAspect[DigestAuthService & UserService, User]`. The type of the handler aspect tells us that it can only be applied to a handler whose environment is a subset of `User`. So it can't be applied to a handler that requires both `User` and `UserService` in its environment. To solve this, we chained two handlers using `flatMap`, where the first handler extracts the `UserService` from the environment, and the second handler uses it to update the user's email. The inner handler has the type `Handler[User, Response, Request, Response]`, which is compatible with the `DigestAuthHandlerAspect` that requires only `User` in its environment. So now we can apply the `DigestAuthHandlerAspect` to the inner handler and chain it with the outer handler that extracts the `UserService` from the environment.
 
-## Writing a Client to Test the Digest Authentication
+## Client Implementation for Testing Digest Authentication
 
 As we saw, the digest authentication process involves at least two requests: the first request to get the challenge and the second request to send the response (response to the challenge). However, this is not always the case. If the client already has a valid `nonce`, it can use it for subsequent requests without needing to get a new challenge until the nonce expires.
 
@@ -1106,6 +1105,6 @@ Let's discuss each call in detail:
 
 This design provides transparent handling of digest authentication, allowing clients to make requests normally without manually managing the challenge-response handshake. The method efficiently addresses both cold-start scenarios, where the first request triggers a challenge, and challenge-refresh situations, where server nonces expire, while maintaining authentication state between requests for optimal performance.
 
-## Writing a Web Client to Test the Digest Authentication
+## Web Client Demo
 
 Similar to the client we wrote in the previous section, we can write a web client. The overall structure of the web client is similar, but since the implementation details go beyond the scope of this guide, we will not cover them here. However, by running the `DigestAuthenticationServer`, it will serve the `digest-auth-client.html` at `http://localhost:8080`, which is a simple web client that allows you to demo and test the digest authentication flow in your browser. You can use it to send requests to the server and see how digest authentication works in practice.
