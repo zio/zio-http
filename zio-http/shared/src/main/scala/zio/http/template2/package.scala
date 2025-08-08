@@ -24,8 +24,12 @@ import zio.http.template2.Dom
  * Package object for template2 providing all HTML elements and attributes.
  * Users can import everything with: import zio.http.template2._
  */
-package object template2 extends HtmlElements with HtmlAttributes with LowPriorityTemplateImplicits {
-
+package object template2
+    extends HtmlElements
+    with HtmlAttributes
+    with LowPriorityTemplateImplicits
+    with CssInterpolator
+    with JsInterpolator {
   implicit def itrToModifier(seq: Iterable[Dom]): Modifier    = Dom.Fragment(seq)
   implicit def optToModifier(opt: Option[Modifier]): Modifier = opt match {
     case Some(mod) => mod

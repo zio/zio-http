@@ -14,6 +14,21 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.http.template2
 
-package object template extends Attributes with Elements
+import scala.language.experimental.macros
+
+/**
+ * Trait providing CSS and selector string interpolation with compile-time
+ * validation.
+ */
+trait CssInterpolator {
+
+  /**
+   * CSS string interpolator that validates CSS syntax at compile time.
+   */
+  implicit class CssStringContext(val sc: StringContext) {
+    def css(args: Any*): Css = macro CssInterpolatorMacros.cssImpl
+    def selector(args: Any*): CssSelector = macro CssInterpolatorMacros.selectorImpl
+  }
+}
