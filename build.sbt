@@ -139,6 +139,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpJS,
       zioHttpBenchmarks,
       zioHttpCli,
+      zioHttpDatastarSdk,
       zioHttpGen,
       sbtZioHttpGrpc,
       sbtZioHttpGrpcTests,
@@ -147,7 +148,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpTestkit,
       zioHttpTools,
       docs,
-    )
+      )
   }
 
 lazy val root = (project in file("."))
@@ -276,6 +277,21 @@ lazy val zioHttpCli = (project in file("zio-http-cli"))
   )
   .dependsOn(zioHttpJVM)
   .dependsOn(zioHttpTestkit % Test)
+
+lazy val zioHttpDatastarSdk = (project in file("zio-http-datastar-sdk"))
+  .settings(stdSettings("zio-http-datastar-sdk"))
+  .settings(publishSetting(true))
+  .settings(
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-schema`,
+      `zio-schema-json`,
+      `zio-test`,
+      `zio-test-sbt`,
+      )
+    )
+    .dependsOn(zioHttpJVM)
 
 lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
   .settings(

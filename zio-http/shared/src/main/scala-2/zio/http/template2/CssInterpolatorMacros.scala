@@ -80,7 +80,7 @@ object CssInterpolatorMacros {
     }
 
     // Always delegate to standard string interpolation
-    c.Expr[CssSelector](q"CssSelector.apply($stringContext.s(..$args))")
+    c.Expr[CssSelector](q"CssSelector.raw($stringContext.s(..$args))")
   }
 
   private def isValidCss(css: String): Boolean = {

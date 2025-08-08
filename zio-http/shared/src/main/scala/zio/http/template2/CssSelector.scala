@@ -2,8 +2,6 @@ package zio.http.template2
 
 import scala.language.implicitConversions
 
-import zio.http.template.Element.PartialElement
-
 trait CssSelectable {
   self =>
   val selector: CssSelector
@@ -101,7 +99,7 @@ sealed trait CssSelector extends CssSelectable with Product with Serializable {
 }
 
 object CssSelector {
-  private[template2] def apply(value: String): Raw = new Raw(value) {}
+  def raw(value: String): Raw = Raw(value)
 
   def `class`(name: String): Class = Class(name)
 
@@ -187,7 +185,7 @@ object CssSelector {
     def render: String = s"$inner::$pseudoElement"
   }
 
-  sealed abstract case class Raw(value: String) extends CssSelector {
+  final case class Raw(value: String) extends CssSelector {
     def render: String = value
   }
 
