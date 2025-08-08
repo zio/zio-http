@@ -39,7 +39,7 @@ package object template2
 
 }
 
-trait LowPriorityTemplateImplicits {
+private[http] trait LowPriorityTemplateImplicits {
   implicit def optStrToDom(opt: Option[String]): Dom = opt match {
     case Some(str) => Dom.Text(str)
     case None      => Dom.Empty

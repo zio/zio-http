@@ -16,7 +16,6 @@
 
 package zio.http.internal
 
-import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
 private[http] object DateEncoding {

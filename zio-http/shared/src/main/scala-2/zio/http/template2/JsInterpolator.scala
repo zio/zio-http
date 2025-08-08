@@ -21,7 +21,7 @@ import scala.language.experimental.macros
 /**
  * Trait providing JavaScript string interpolation with compile-time validation.
  */
-trait JsInterpolator {
+private[template2] trait JsInterpolator {
 
   /**
    * JavaScript string interpolator that validates JavaScript syntax at compile
