@@ -63,8 +63,8 @@ Server
 
 The `Server.Config` class provides a wide range of configuration options, including SSL/TLS, address binding, request decompression and response compression, request streaming, and more. Here is the full list of available configurations:
 
-```
-case class Config(
+```scala
+final case class Config(
   sslConfig: Option[SSLConfig],
   address: InetSocketAddress,
   acceptContinue: Boolean,
