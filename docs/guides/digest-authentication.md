@@ -237,9 +237,6 @@ The `DigestAuthError` sealed trait represents authentication process errors:
 sealed trait DigestAuthError extends Throwable
 
 object DigestAuthError {
-   case class NonceExpired(nonce: String)                       extends DigestAuthError
-   case class InvalidNonce(nonce: String)                       extends DigestAuthError
-   case class ReplayAttack(nonce: String, nc: NC)               extends DigestAuthError
    case class InvalidResponse(expected: String, actual: String) extends DigestAuthError
    case class UnsupportedQop(qop: String)                       extends DigestAuthError
    case class MissingRequiredField(field: String)               extends DigestAuthError
@@ -320,6 +317,14 @@ val nonce =
 This implementation utilizes the temporal nonce generation approach, providing superior nonce expiration policy control. We implement a `NonceService` to handle nonce generation, validation, and usage tracking:
 
 ```scala
+sealed trait NonceError extends Throwable
+object NonceError {
+  case class NonceExpired(nonce: String)               extends NonceError
+  case class NonceAlreadyUsed(nonce: String, nc: NC)   extends NonceError
+  case class InvalidNonce(nonce: String)               extends NonceError
+  case class NonceOutOfSequence(nonce: String, nc: NC) extends NonceError
+}
+
 trait NonceService {
   def generateNonce: UIO[String]
   def validateNonce(nonce: String, maxAge: Duration): ZIO[Any, NonceError, Unit]

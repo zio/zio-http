@@ -9,19 +9,19 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.math.Ordering.Implicits.infixOrderingOps
 
-// NonceService-specific error types
-sealed trait NonceError extends Serializable with Product
+sealed trait NonceError extends Throwable
 object NonceError {
-  case class NonceExpired(nonce: String)             extends NonceError
-  case class NonceAlreadyUsed(nonce: String, nc: NC) extends NonceError
-  case class InvalidNonce(nonce: String)             extends NonceError
+  case class NonceExpired(nonce: String)               extends NonceError
+  case class NonceAlreadyUsed(nonce: String, nc: NC)   extends NonceError
+  case class InvalidNonce(nonce: String)               extends NonceError
+  case class NonceOutOfSequence(nonce: String, nc: NC) extends NonceError
 }
 
 trait NonceService {
   def generateNonce: UIO[String]
   def validateNonce(nonce: String, maxAge: Duration): ZIO[Any, NonceError, Unit]
   def isNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit]
-  def markNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit]
+  def markNonceUsed(nonce: String, nc: NC): UIO[Unit]
 }
 
 object NonceService {
@@ -66,16 +66,18 @@ object NonceService {
 
     def isNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit] =
       for {
-        usedNoncesMap <- usedNonces.get
+        usedNoncesMap <- usedNonces.get // Fixed typo
         _             <- usedNoncesMap.get(nonce) match {
-          case Some(lastUsedNc) if nc <= lastUsedNc =>
+          case Some(lastUsedNc) if nc <= lastUsedNc                 =>
             ZIO.fail(NonceAlreadyUsed(nonce, nc))
-          case _                                    =>
+          case Some(lastUsedNc) if nc.value != lastUsedNc.value + 1 =>
+            ZIO.fail(NonceOutOfSequence(nonce, nc))
+          case _                                                    =>
             ZIO.unit
         }
       } yield ()
 
-    def markNonceUsed(nonce: String, nc: NC): ZIO[Any, NonceError, Unit] =
+    def markNonceUsed(nonce: String, nc: NC): UIO[Unit] =
       usedNonces.update { nonces =>
         val currentMax = nonces.getOrElse(nonce, NC(0))
         nonces.updated(nonce, currentMax max nc)

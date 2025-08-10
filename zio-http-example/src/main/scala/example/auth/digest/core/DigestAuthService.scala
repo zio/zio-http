@@ -66,22 +66,17 @@ case class DigestAuthServiceLive(
     body: Option[String] = None,
   ): ZIO[Any, DigestAuthError, Unit] = {
     val r = response
+    def mapNonceError: NonceError => InvalidResponse = _ => InvalidResponse(r.response)
     for {
-      _        <- ZIO.when(!supportedQop.contains(r.qop)) (ZIO.fail(UnsupportedQop(r.qop.name)))
-      _        <- nonceService.validateNonce(r.nonce, Duration.fromSeconds(NONCE_MAX_AGE)).tapError(error => ZIO.debug("validate nonce" + error)).mapError(errorMapper)
-      _        <- nonceService.isNonceUsed(r.nonce, r.nc).tapError(error => ZIO.debug(error)).mapError(errorMapper)
+      _        <- ZIO.when(!supportedQop.contains(r.qop))(ZIO.fail(UnsupportedQop(r.qop.name)))
+      _        <- nonceService.validateNonce(r.nonce, Duration.fromSeconds(NONCE_MAX_AGE)).mapError(mapNonceError)
+      _        <- nonceService.isNonceUsed(r.nonce, r.nc).mapError(mapNonceError)
       expected <- digestService.computeResponse(r.username, r.realm, password, r.nonce, r.nc, r.cnonce, r.algorithm, r.qop, r.uri, method, body)
       _        <- isEqual(expected, r.response)
-      _        <- nonceService.markNonceUsed(r.nonce, r.nc).mapError(errorMapper)
+      _        <- nonceService.markNonceUsed(r.nonce, r.nc)
     } yield ()
   }
   // format: on
-
-  private def errorMapper(error: NonceError): DigestAuthError = error match {
-    case NonceError.NonceExpired(nonce)         => DigestAuthError.NonceExpired(nonce)
-    case NonceError.NonceAlreadyUsed(nonce, nc) => DigestAuthError.ReplayAttack(nonce, nc)
-    case NonceError.InvalidNonce(nonce)         => DigestAuthError.InvalidNonce(nonce)
-  }
 
   // Private helper methods
   private def generateOpaque: UIO[String] =
@@ -96,6 +91,6 @@ case class DigestAuthServiceLive(
     if (MessageDigest.isEqual(exp, act))
       ZIO.unit
     else
-      ZIO.fail(InvalidResponse(expected, actual))
+      ZIO.fail(InvalidResponse(actual))
   }
 }
