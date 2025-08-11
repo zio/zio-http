@@ -53,7 +53,8 @@ libraryDependencies ++= Seq(
 
 Assume we have a simple in-memory user store that holds usernames, passwords, and roles:
 
-```scala
+```scala mdoc:silent
+import zio.Config.Secret
 
 case class User(username: String, password: Secret, email: String, role: String)
 
@@ -73,7 +74,7 @@ In a real application, you would typically use a database or an external service
 
 Next, we'll create middleware that handles Basic Authentication:
 
-```scala mdoc:compile-only
+```scala mdoc:silent
 import zio._
 import zio.http._
 
@@ -107,7 +108,9 @@ This middleware checks for the `Authorization` header, decodes the credentials, 
 
 Now that the authentication middleware is ready, we can apply it to any routes that we want to protect:
 
-```scala
+```scala mdoc:silent
+import zio.http._
+
 def routes: Routes[Any, Response] =
   Routes(
     // Public route - no authentication required
@@ -132,21 +135,12 @@ Please note how the `basicAuthWithUserContext` middleware is applied to the rout
 
 Here's how we combine everything into a complete application:
 
-```scala
+```scala mdoc:silent
 import zio.Config.Secret
 import zio._
 import zio.http._
 
 object AuthenticationServer extends ZIOAppDefault {
-  case class User(username: String, password: Secret, email: String, role: String)
-
-  // Sample user database
-  val users = Map(
-    "john"  -> User("john", Secret("secret123"), "john@example.com", "user"),
-    "jane"  -> User("jane", Secret("password456"), "jane@example.com", "user"),
-    "admin" -> User("admin", Secret("admin123"), "admin@example.com", "admin"),
-  )
-
   val basicAuthWithUserContext: HandlerAspect[Any, User] =
     HandlerAspect.interceptIncomingHandler(Handler.fromFunctionZIO[Request] { request =>
       request.header(Header.Authorization) match {
@@ -238,7 +232,7 @@ The `www-authenticate: Basic realm="Protected API"` header indicates that the se
 
 ZIO HTTP provides support for both server and client applications. You can create a simple client to test the Basic Authentication implementation:
 
-```scala
+```scala mdoc:silent
 import zio._
 import zio.http._
 
@@ -300,7 +294,7 @@ We used `btoa()` to encode the username and password in Base64 format, which is 
 
 Now, it's time to serve this HTML page using ZIO HTTP. You can create a simple server that serves this HTML file. First, make sure to place the HTML file in the resources directory of your project, for example, `src/main/resources/basic-auth-client.html`. Then, let's add the following route to the existing `routes`:
 
-```scala
+```scala mdoc:silent:nest
 import zio._
 import zio.http._
 import zio.stream.{ZPipeline, ZStream}
@@ -337,7 +331,7 @@ Now if we run the server and open localhost:8080 in a web browser, we can enter 
 
 Our first implementation used an immutable in-memory map for user storage. In a real-world application, you would typically have a separate user service that interacts with a database or an external authentication provider. So, let's create a separate user service that can have different implementations, such as in-memory, database-backed, or even an external API.
 
-```scala
+```scala mdoc:silent
 case class User(
   username: String,
   password: Secret,
@@ -372,7 +366,7 @@ object InMemoryUserService {
 
 Now you can use this `UserService` in your authentication middleware:
 
-```scala
+```scala mdoc:silent
 import zio.Config.Secret
 import zio._
 import zio.http._

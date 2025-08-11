@@ -128,6 +128,14 @@ const sidebars = {
     {
        type: "category",
        collapsed: false,
+       label: "Authentication",
+       items: [
+          "guides/basic-authentication",
+       ],
+    },
+    {
+       type: "category",
+       collapsed: false,
        label: "SSL/TLS",
        link: { type: 'doc', id: "guides/securing-communication-with-ssl-tls" },
        items: [
