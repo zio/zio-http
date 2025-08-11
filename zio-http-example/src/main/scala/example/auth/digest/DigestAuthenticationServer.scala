@@ -14,9 +14,7 @@ object DigestAuthenticationServer extends ZIOAppDefault {
         Handler
           .fromResource("digest-auth-client.html")
           .orElse(
-            handler { (_: Request) =>
-              ZIO.fail(Response.internalServerError("Failed to load HTML file"))
-            },
+            Handler.internalServerError("Failed to load HTML file"),
           ),
 
       // Protected profile route
