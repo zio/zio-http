@@ -1,13 +1,16 @@
 package example.auth.digest
 
-import example.auth.digest.core.DigestAuthError.UnsupportedAuthHeader
-import example.auth.digest.core._
+import java.net.URI
+
 import zio.Config.Secret
 import zio._
-import zio.http._
+
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
-import java.net.URI
+import zio.http._
+
+import example.auth.digest.core.DigestAuthError.UnsupportedAuthHeader
+import example.auth.digest.core._
 
 trait DigestAuthClient {
   def makeRequest(request: Request): ZIO[Any, DigestAuthError, Response]

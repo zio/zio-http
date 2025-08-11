@@ -1,10 +1,11 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.DigestAlgorithm._
-import example.auth.digest.core.QualityOfProtection.Auth
+import java.net.URI
+
 import zio.http._
 
-import java.net.URI
+import example.auth.digest.core.DigestAlgorithm._
+import example.auth.digest.core.QualityOfProtection.Auth
 case class DigestResponse(
   response: String,
   username: String,

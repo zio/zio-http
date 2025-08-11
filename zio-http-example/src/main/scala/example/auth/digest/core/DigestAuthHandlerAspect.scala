@@ -1,9 +1,11 @@
 package example.auth.digest.core
 
+import zio._
+
+import zio.http._
+
 import example.auth.digest.core.DigestAlgorithm._
 import example.auth.digest.core.QualityOfProtection.Auth
-import zio._
-import zio.http._
 
 object DigestAuthHandlerAspect {
 

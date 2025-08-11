@@ -1,8 +1,9 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.UserServiceError._
 import zio.Config._
 import zio._
+
+import example.auth.digest.core.UserServiceError._
 
 case class User(username: String, password: Secret, email: String)
 

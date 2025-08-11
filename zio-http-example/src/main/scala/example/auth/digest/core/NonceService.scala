@@ -1,13 +1,15 @@
 package example.auth.digest.core
-import example.auth.digest.core.NonceError._
-import zio.Config.Secret
-import zio._
-
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+
 import scala.math.Ordering.Implicits.infixOrderingOps
+
+import zio.Config.Secret
+import zio._
+
+import example.auth.digest.core.NonceError._
 
 sealed trait NonceError extends Throwable
 object NonceError {

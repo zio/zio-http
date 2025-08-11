@@ -1,11 +1,14 @@
 package example.auth.digest
 
-import example.auth.digest.core.QualityOfProtection.AuthInt
-import example.auth.digest.core._
 import zio._
-import zio.http._
+
 import zio.schema._
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+import zio.http._
+
+import example.auth.digest.core.QualityOfProtection.AuthInt
+import example.auth.digest.core._
 
 object DigestAuthenticationServer extends ZIOAppDefault {
   def routes: Routes[DigestAuthService & UserService, Nothing] =

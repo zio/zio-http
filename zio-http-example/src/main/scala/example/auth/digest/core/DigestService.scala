@@ -1,12 +1,14 @@
 package example.auth.digest.core
 
-import example.auth.digest.core.DigestAlgorithm._
-import zio.Config.Secret
-import zio._
-import zio.http._
-
 import java.net.URI
 import java.security.MessageDigest
+
+import zio.Config.Secret
+import zio._
+
+import zio.http._
+
+import example.auth.digest.core.DigestAlgorithm._
 
 trait DigestService {
   def computeResponse(
