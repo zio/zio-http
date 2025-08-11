@@ -129,6 +129,18 @@ To implement Digest Authentication in ZIO HTTP, we develop middleware that inter
 
 ZIO HTTP does not provide built-in Digest Authentication support but offers an excellent foundation for implementing it as custom middleware.
 
+### Setting Up Dependencies
+
+First, add the necessary dependencies to your `build.sbt`:
+
+```scala 
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio"        % "@ZIO_VERSION@"
+  "dev.zio" %% "zio-http"   % "@VERSION@",
+  "dev.zio" %% "zio-schema" % "@ZIO_SCHEMA_VERSION@",
+)
+```
+
 ### Implementation Overview
 
 The middleware implementation handles two primary authentication scenarios based on `Authorization` header presence:
