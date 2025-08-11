@@ -27,7 +27,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
-            max-width: 600px;
+            max-width: 900px;
             width: 100%;
             position: relative;
             overflow: hidden;
@@ -103,43 +103,124 @@
             font-size: 14px;
         }
 
-        .credentials {
-            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 20px;
+        /* Enhanced User Selection Section */
+        .user-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .user-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 18px;
             border-radius: 12px;
-            margin-bottom: 30px;
-            font-size: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-width: 0;
         }
 
-        .credentials strong {
-            display: block;
-            margin-bottom: 10px;
-            font-size: 16px;
+        .user-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+            transition: left 0.5s;
         }
 
-        .credential-item {
+        .user-card:hover::before {
+            left: 100%;
+        }
+
+        .user-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .user-card.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .user-card.active::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 50%;
             display: flex;
             align-items: center;
-            margin-bottom: 8px;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            animation: checkIn 0.3s ease-out;
         }
 
-        .credential-item:last-child {
-            margin-bottom: 0;
+        @keyframes checkIn {
+            from {
+                transform: scale(0) rotate(-180deg);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) rotate(0);
+                opacity: 1;
+            }
+        }
+
+        .user-card-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .user-card-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .user-card-credentials {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .user-card-password {
+            font-size: 11px;
+            color: #888;
+            font-style: italic;
         }
 
         .role-badge {
+            display: inline-block;
             background: #667eea;
             color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-left: 8px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
         }
 
         .role-badge.admin {
-            background: #dc3545;
+            background: linear-gradient(135deg, #dc3545, #c82333);
         }
 
         .form-group {
@@ -170,6 +251,19 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 18px;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -184,6 +278,23 @@
             text-decoration: none;
             margin-right: 10px;
             margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
         }
 
         .btn-primary {
@@ -194,6 +305,36 @@
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #FF6B6B, #ee5a52);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-clear {
+            background: linear-gradient(135deg, #666, #555);
+            color: white;
+        }
+
+        .btn-clear:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 102, 102, 0.3);
         }
 
         .btn:disabled {
@@ -212,6 +353,7 @@
             line-height: 1.5;
             display: none;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .response.show {
@@ -234,6 +376,17 @@
             background: rgba(220, 53, 69, 0.1);
             border: 1px solid rgba(220, 53, 69, 0.3);
             color: #721c24;
+        }
+
+        .response-header {
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: white;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: inherit;
         }
 
         .loading {
@@ -261,6 +414,101 @@
             100% { transform: rotate(360deg); }
         }
 
+        .transaction-details {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .transaction-details.visible {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .http-message {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .http-message-header {
+            background: linear-gradient(45deg, #495057, #6c757d);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .http-message-content {
+            padding: 20px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: white;
+        }
+
+        .http-message-content pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            margin: 0;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .http-request {
+            border-left: 4px solid #007bff;
+        }
+
+        .http-request .http-message-header {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+
+        .http-response-200 {
+            border-left: 4px solid #28a745;
+        }
+
+        .http-response-200 .http-message-header {
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+        }
+
+        .http-response-401 {
+            border-left: 4px solid #ffc107;
+        }
+
+        .http-response-401 .http-message-header {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+        }
+
+        .http-response-403 {
+            border-left: 4px solid #dc3545;
+        }
+
+        .http-response-403 .http-message-header {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+        }
+
+        .http-method { color: #007bff; font-weight: bold; }
+        .http-status-200 { color: #28a745; font-weight: bold; }
+        .http-status-401 { color: #ffc107; font-weight: bold; }
+        .http-status-403 { color: #dc3545; font-weight: bold; }
+        .http-header-name { color: #6f42c1; font-weight: bold; }
+        .http-header-value { color: #495057; }
+
+        .transaction-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            font-size: 24px;
+            color: #6c757d;
+        }
+
         .footer {
             margin-top: 30px;
             padding-top: 20px;
@@ -268,6 +516,30 @@
             color: #666;
             font-size: 14px;
             text-align: center;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                max-width: 95%;
+            }
+        }
+
+        @media (max-width: 850px) and (min-width: 769px) {
+            .user-grid {
+                gap: 10px;
+            }
+
+            .user-card {
+                padding: 15px;
+            }
+
+            .user-card-icon {
+                font-size: 24px;
+            }
+
+            .user-card-name {
+                font-size: 14px;
+            }
         }
 
         @media (max-width: 768px) {
@@ -278,6 +550,18 @@
 
             .section {
                 padding: 20px;
+            }
+
+            .user-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .user-card {
+                padding: 15px;
+            }
+
+            .user-card-icon {
+                font-size: 24px;
             }
         }
     </style>
@@ -290,19 +574,46 @@
         <p class="subtitle">Test HTTP Basic Auth with different user roles</p>
     </div>
 
-    <div class="credentials">
-        <strong>Available Test Credentials:</strong>
-        <div class="credential-item">
-            <span>👤 john / secret123</span>
-            <span class="role-badge">user</span>
+    <div class="section">
+        <h2>👥 User Selection</h2>
+        <p>Click on any user card below to automatically fill in the credentials</p>
+        <div class="user-grid" id="userGrid">
+            <div class="user-card" data-username="john" data-password="secret123">
+                <div class="user-card-icon">👤</div>
+                <div class="user-card-name">John</div>
+                <div class="user-card-credentials">john</div>
+                <div class="user-card-password">password: secret123</div>
+                <span class="role-badge">Regular User</span>
+            </div>
+            <div class="user-card" data-username="jane" data-password="password456">
+                <div class="user-card-icon">👤</div>
+                <div class="user-card-name">Jane</div>
+                <div class="user-card-credentials">jane</div>
+                <div class="user-card-password">password: password456</div>
+                <span class="role-badge">Regular User</span>
+            </div>
+            <div class="user-card" data-username="admin" data-password="admin123">
+                <div class="user-card-icon">👨‍💼</div>
+                <div class="user-card-name">Admin</div>
+                <div class="user-card-credentials">admin</div>
+                <div class="user-card-password">password: admin123</div>
+                <span class="role-badge admin">Administrator</span>
+            </div>
         </div>
-        <div class="credential-item">
-            <span>👤 jane / password456</span>
-            <span class="role-badge">user</span>
+
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <div class="input-wrapper">
+                <input type="text" id="username" placeholder="Enter username or click a user card above">
+                <span class="input-icon">👤</span>
+            </div>
         </div>
-        <div class="credential-item">
-            <span>👨‍💼 admin / admin123</span>
-            <span class="role-badge admin">admin</span>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <div class="input-wrapper">
+                <input type="password" id="password" placeholder="Enter password or click a user card above">
+                <span class="input-icon">🔒</span>
+            </div>
         </div>
     </div>
 
@@ -317,21 +628,15 @@
             <div class="spinner"></div>
             <div>Loading...</div>
         </div>
-        <div id="publicResponse" class="response"></div>
+        <div id="publicResponse" class="response">
+            <span class="response-header">Response</span>
+        </div>
     </div>
 
     <div class="section">
         <h2>👤 User Profile</h2>
         <p>This endpoint requires authentication and shows user information.</p>
-        <div class="form-group">
-            <label for="username">Username:</label>
-            <input type="text" id="username" placeholder="Enter username (john, jane, or admin)">
-        </div>
-        <div class="form-group">
-            <label for="password">Password:</label>
-            <input type="password" id="password" placeholder="Enter password">
-        </div>
-        <button class="btn btn-primary" onclick="fetchProfile()">
+        <button class="btn btn-success" onclick="fetchProfile()">
             <span>🔍</span>
             Get My Profile
         </button>
@@ -339,13 +644,15 @@
             <div class="spinner"></div>
             <div>Authenticating...</div>
         </div>
-        <div id="profileResponse" class="response"></div>
+        <div id="profileResponse" class="response">
+            <span class="response-header">Response</span>
+        </div>
     </div>
 
     <div class="section">
         <h2>👨‍💼 Admin Panel</h2>
         <p>This endpoint requires admin authentication to view all users.</p>
-        <button class="btn btn-primary" onclick="fetchAdminUsers()">
+        <button class="btn btn-danger" onclick="fetchAdminUsers()">
             <span>⚙️</span>
             Get All Users (Admin Only)
         </button>
@@ -353,7 +660,23 @@
             <div class="spinner"></div>
             <div>Verifying admin access...</div>
         </div>
-        <div id="adminResponse" class="response"></div>
+        <div id="adminResponse" class="response">
+            <span class="response-header">Response</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📊 HTTP Transaction Details</h2>
+        <p>View detailed HTTP request and response messages</p>
+        <button class="btn btn-clear" onclick="clearTransactions()" style="margin-bottom: 15px;">
+            <span>🗑️</span>
+            Clear Transactions
+        </button>
+        <div id="transactionDetails" class="transaction-details">
+            <p style="text-align: center; color: #6c757d; font-style: italic; padding: 20px;">
+                Click any endpoint button to see detailed HTTP request/response messages
+            </p>
+        </div>
     </div>
 
     <div class="footer">
@@ -362,6 +685,148 @@
 </div>
 
 <script>
+    // Initialize active user tracking
+    let activeUser = null;
+
+    // HTTP Transaction Module
+    const HTTPTransaction = {
+        formatHeaders(headers) {
+            let formatted = '';
+            if (headers && typeof headers === 'object') {
+                Object.entries(headers).forEach(([name, value]) => {
+                    formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
+                });
+            }
+            return formatted;
+        },
+
+        formatRequest(method, url, headers) {
+            const urlObj = new URL(url, window.location.origin);
+            let request = `<span class="http-method">${method}</span> ${urlObj.pathname}${urlObj.search} HTTP/1.1\n`;
+            request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${urlObj.host}</span>\n`;
+            request += this.formatHeaders(headers);
+            return request;
+        },
+
+        formatResponse(status, statusText, headers, body) {
+            const statusClass = status === 200 ? 'http-status-200' :
+                               status === 401 ? 'http-status-401' :
+                               status === 403 ? 'http-status-403' : 'http-status-403';
+
+            let formatted = `HTTP/1.1 <span class="${statusClass}">${status} ${statusText}</span>\n`;
+            if (headers) {
+                formatted += this.formatHeaders(headers);
+            }
+            if (body) {
+                formatted += `\n${body}`;
+            }
+            return formatted;
+        },
+
+        display(transaction) {
+            const detailsContainer = document.getElementById('transactionDetails');
+            if (!detailsContainer) return;
+
+            let responseClass = 'http-response-403';
+            if (transaction.response.status === 200) responseClass = 'http-response-200';
+            else if (transaction.response.status === 401) responseClass = 'http-response-401';
+
+            const html = `
+                <div class="http-message http-request">
+                    <div class="http-message-header">🌐 HTTP Request</div>
+                    <div class="http-message-content"><pre>${transaction.request}</pre></div>
+                </div>
+                <div class="transaction-flow">⬇️</div>
+                <div class="http-message ${responseClass}">
+                    <div class="http-message-header">📨 HTTP Response</div>
+                    <div class="http-message-content"><pre>${transaction.responseText}</pre></div>
+                </div>
+            `;
+
+            detailsContainer.innerHTML = html;
+            detailsContainer.classList.add('visible');
+        },
+
+        hide() {
+            const detailsContainer = document.getElementById('transactionDetails');
+            if (detailsContainer) {
+                detailsContainer.classList.remove('visible');
+                setTimeout(() => {
+                    detailsContainer.innerHTML = '';
+                }, 500);
+            }
+        }
+    };
+
+    // User card click handlers
+    document.addEventListener('DOMContentLoaded', function() {
+        const userCards = document.querySelectorAll('.user-card');
+
+        userCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove active class from all cards
+                userCards.forEach(c => c.classList.remove('active'));
+
+                // Add active class to clicked card
+                this.classList.add('active');
+
+                // Get credentials from data attributes
+                const username = this.dataset.username;
+                const password = this.dataset.password;
+
+                // Fill in the form fields
+                document.getElementById('username').value = username;
+                document.getElementById('password').value = password;
+
+                // Store active user
+                activeUser = username;
+
+                // Add a subtle animation to the inputs to show they've been updated
+                const inputs = ['username', 'password'];
+                inputs.forEach(id => {
+                    const input = document.getElementById(id);
+                    input.style.transition = 'none';
+                    input.style.background = 'linear-gradient(to right, rgba(102, 126, 234, 0.1), transparent)';
+                    setTimeout(() => {
+                        input.style.transition = 'all 0.3s ease';
+                        input.style.background = 'white';
+                    }, 100);
+                });
+            });
+        });
+
+        // Set the first user as active by default
+        const firstCard = userCards[0];
+        if (firstCard) {
+            firstCard.click();
+        }
+
+        // Auto-load public endpoint on page load
+        setTimeout(() => fetchPublic(), 500);
+    });
+
+    // Input field change detection
+    document.getElementById('username').addEventListener('input', function() {
+        updateActiveCard();
+    });
+
+    document.getElementById('password').addEventListener('input', function() {
+        updateActiveCard();
+    });
+
+    function updateActiveCard() {
+        const username = document.getElementById('username').value;
+        const userCards = document.querySelectorAll('.user-card');
+
+        userCards.forEach(card => {
+            if (card.dataset.username === username) {
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+    }
+
     function showLoading(elementId, show) {
         const element = document.getElementById(elementId);
         if (show) {
@@ -373,8 +838,18 @@
 
     function displayResponse(elementId, response, isError = false) {
         const element = document.getElementById(elementId);
+
+        // Clear previous content but keep the header
+        const header = element.querySelector('.response-header');
         element.innerHTML = '';
-        element.textContent = response;
+        if (header) {
+            element.appendChild(header);
+        }
+
+        // Add the response text
+        const textNode = document.createTextNode(response);
+        element.appendChild(textNode);
+
         element.className = `response ${isError ? 'error' : 'success'}`;
         element.classList.add('show');
     }
@@ -382,8 +857,29 @@
     async function fetchPublic() {
         showLoading('publicLoading', true);
         try {
-            const response = await fetch('/public');
+            const url = '/public';
+            const response = await fetch(url);
             const text = await response.text();
+
+            // Create transaction record
+            const transaction = {
+                request: HTTPTransaction.formatRequest('GET', url, {}),
+                response: {
+                    status: response.status,
+                    statusText: response.statusText
+                },
+                responseText: HTTPTransaction.formatResponse(
+                    response.status,
+                    response.statusText,
+                    {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'Content-Length': text.length
+                    },
+                    text
+                )
+            };
+
+            HTTPTransaction.display(transaction);
 
             if (response.ok) {
                 displayResponse('publicResponse', `Status: ${response.status} ✅\n\n${text}`);
@@ -392,6 +888,7 @@
             }
         } catch (error) {
             displayResponse('publicResponse', `Network Error ❌\n\n${error.message}`, true);
+            HTTPTransaction.hide();
         } finally {
             showLoading('publicLoading', false);
         }
@@ -402,27 +899,51 @@
         const password = document.getElementById('password').value;
 
         if (!username || !password) {
-            displayResponse('profileResponse', 'Please enter both username and password', true);
+            displayResponse('profileResponse', 'Please select a user or enter credentials', true);
+            HTTPTransaction.hide();
             return;
         }
 
         showLoading('profileLoading', true);
         try {
+            const url = '/profile/me';
             const credentials = btoa(`${username}:${password}`);
-            const response = await fetch('/profile/me', {
-                headers: {
-                    'Authorization': `Basic ${credentials}`
-                }
-            });
+            const headers = {
+                'Authorization': `Basic ${credentials}`
+            };
+
+            const response = await fetch(url, { headers });
             const text = await response.text();
 
+            // Create transaction record
+            const transaction = {
+                request: HTTPTransaction.formatRequest('GET', url, headers),
+                response: {
+                    status: response.status,
+                    statusText: response.statusText
+                },
+                responseText: HTTPTransaction.formatResponse(
+                    response.status,
+                    response.statusText,
+                    {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'WWW-Authenticate': response.headers.get('WWW-Authenticate') || '',
+                        'Content-Length': text.length
+                    },
+                    text
+                )
+            };
+
+            HTTPTransaction.display(transaction);
+
             if (response.ok) {
-                displayResponse('profileResponse', `Status: ${response.status} ✅\n\n${text}`);
+                displayResponse('profileResponse', `Status: ${response.status} ✅\nAuthenticated as: ${username}\n\n${text}`);
             } else {
-                displayResponse('profileResponse', `Error ${response.status} ❌\n\n${text}`, true);
+                displayResponse('profileResponse', `Error ${response.status} ❌\nAuthentication failed for: ${username}\n\n${text}`, true);
             }
         } catch (error) {
             displayResponse('profileResponse', `Network Error ❌\n\n${error.message}`, true);
+            HTTPTransaction.hide();
         } finally {
             showLoading('profileLoading', false);
         }
@@ -433,36 +954,69 @@
         const password = document.getElementById('password').value;
 
         if (!username || !password) {
-            displayResponse('adminResponse', 'Please enter credentials in the User Profile section first', true);
+            displayResponse('adminResponse', 'Please select a user or enter credentials', true);
+            HTTPTransaction.hide();
             return;
         }
 
         showLoading('adminLoading', true);
         try {
+            const url = '/admin/users';
             const credentials = btoa(`${username}:${password}`);
-            const response = await fetch('/admin/users', {
-                headers: {
-                    'Authorization': `Basic ${credentials}`
-                }
-            });
+            const headers = {
+                'Authorization': `Basic ${credentials}`
+            };
+
+            const response = await fetch(url, { headers });
             const text = await response.text();
 
+            // Create transaction record
+            const transaction = {
+                request: HTTPTransaction.formatRequest('GET', url, headers),
+                response: {
+                    status: response.status,
+                    statusText: response.statusText
+                },
+                responseText: HTTPTransaction.formatResponse(
+                    response.status,
+                    response.statusText,
+                    {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'WWW-Authenticate': response.headers.get('WWW-Authenticate') || '',
+                        'Content-Length': text.length
+                    },
+                    text
+                )
+            };
+
+            HTTPTransaction.display(transaction);
+
             if (response.ok) {
-                displayResponse('adminResponse', `Status: ${response.status} ✅\n\n${text}`);
+                displayResponse('adminResponse', `Status: ${response.status} ✅\nAuthenticated as: ${username}\n\n${text}`);
             } else {
-                displayResponse('adminResponse', `Error ${response.status} ❌\n\n${text}`, true);
+                displayResponse('adminResponse', `Error ${response.status} ❌\nAccess denied for: ${username}\n\n${text}`, true);
             }
         } catch (error) {
             displayResponse('adminResponse', `Network Error ❌\n\n${error.message}`, true);
+            HTTPTransaction.hide();
         } finally {
             showLoading('adminLoading', false);
         }
     }
 
-    // Auto-load public endpoint on page load
-    window.addEventListener('DOMContentLoaded', function() {
-        fetchPublic();
-    });
+    function clearTransactions() {
+        const detailsContainer = document.getElementById('transactionDetails');
+        if (detailsContainer) {
+            detailsContainer.classList.remove('visible');
+            setTimeout(() => {
+                detailsContainer.innerHTML = `
+                    <p style="text-align: center; color: #6c757d; font-style: italic; padding: 20px;">
+                        Click any endpoint button to see detailed HTTP request/response messages
+                    </p>
+                `;
+            }, 300);
+        }
+    }
 
     // Add Enter key support for form inputs
     document.getElementById('username').addEventListener('keypress', function(e) {

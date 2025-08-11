@@ -41,9 +41,9 @@ object AuthenticationServer extends ZIOAppDefault {
      * Hashes a password with the given salt using SHA-256
      */
     def hashPassword(password: Secret, salt: String): String = {
-      val md = MessageDigest.getInstance("SHA-256")
+      val md             = MessageDigest.getInstance("SHA-256")
       val saltedPassword = password.stringValue + salt
-      val hashedBytes = md.digest(saltedPassword.getBytes(StandardCharsets.UTF_8))
+      val hashedBytes    = md.digest(saltedPassword.getBytes(StandardCharsets.UTF_8))
       hashedBytes.map("%02x".format(_)).mkString
     }
 
@@ -58,7 +58,7 @@ object AuthenticationServer extends ZIOAppDefault {
      * Helper method to create a user with hashed password
      */
     def createUser(username: String, password: String, email: String, role: String): User = {
-      val salt = generateSalt()
+      val salt         = generateSalt()
       val passwordHash = hashPassword(Secret(password), salt)
       User(username, passwordHash, salt, email, role)
     }
@@ -66,9 +66,9 @@ object AuthenticationServer extends ZIOAppDefault {
 
   case class InMemoryUserService(private val users: Ref[Map[String, User]]) extends UserService {
     def authenticate(username: String, password: Secret): UIO[Option[User]] =
-      users.get.map(_.get(username).filter(user =>
-        PasswordHasher.verifyPassword(password, user.passwordHash, user.salt)
-      ))
+      users.get.map(
+        _.get(username).filter(user => PasswordHasher.verifyPassword(password, user.passwordHash, user.salt)),
+      )
   }
 
   object InMemoryUserService {
@@ -117,23 +117,11 @@ object AuthenticationServer extends ZIOAppDefault {
   def routes: Routes[UserService, Response] =
     Routes(
       // Serve the web client interface from resources
-      Method.GET / Root -> handler { (_: Request) =>
-        ZStream
-          .fromResource("basic-auth-client.html")
-          .via(ZPipeline.utf8Decode)
-          .runCollect
-          .map(_.mkString)
-          .map { htmlContent =>
-            Response(
-              status = Status.Ok,
-              headers = Headers(Header.ContentType(MediaType.text.html)),
-              body = Body.fromString(htmlContent),
-            )
-          }
-          .orElseFail(
-            Response.internalServerError("Failed to load HTML file"),
-          )
-      },
+      Method.GET / Root -> Handler
+        .fromResource("basic-auth-client.html")
+        .orElse(
+          Handler.internalServerError("Failed to load HTML file"),
+        ),
 
       // Public route - no authentication required
       Method.GET / "public" -> handler { (_: Request) =>
@@ -164,8 +152,8 @@ object AuthenticationServer extends ZIOAppDefault {
       Method.GET / "debug" / "hash" -> handler { (_: Request) =>
         ZIO.succeed {
           val testPassword = "testpassword"
-          val salt = PasswordHasher.generateSalt()
-          val hash = PasswordHasher.hashPassword(Secret(testPassword), salt)
+          val salt         = PasswordHasher.generateSalt()
+          val hash         = PasswordHasher.hashPassword(Secret(testPassword), salt)
           Response.text(s"Password: $testPassword\nSalt: $salt\nHash: $hash")
         }
       },
