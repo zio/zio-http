@@ -1,6 +1,7 @@
 ---
 id: basic-authentication
 title: "Securing Your APIs: Basic Authentication"
+sidebar_label: "Basic Authentication"
 ---
 
 # Basic Authentication with ZIO HTTP

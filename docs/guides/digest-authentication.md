@@ -1,6 +1,7 @@
 ---
 id: digest-authentication
 title: "Securing Your APIs: Digest Authentication"
+sidebar_label: "Digest Authentication"
 ---
 
 Digest Authentication provides enhanced security over Basic Authentication by addressing fundamental vulnerabilities in credential transmission. This implementation guide demonstrates how to build Digest Authentication using ZIO HTTP, covering both server-side middleware and client-side integration patterns.
