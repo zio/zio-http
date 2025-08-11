@@ -40,10 +40,10 @@ Another important aspect is that the server should not store passwords in plain 
 
 First, add the necessary dependencies to your `build.sbt`:
 
-```scala
+```scala 
 libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-http" % "<VERSION>",
-  "dev.zio" %% "zio" % "<ZIO_VERSION>"
+  "dev.zio" %% "zio"      % "$ZIO_VERSION$"
+  "dev.zio" %% "zio-http" % "$VERSION$",
 )
 ```
 
