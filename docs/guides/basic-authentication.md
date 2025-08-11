@@ -4,8 +4,6 @@ title: "Securing Your APIs: Basic Authentication"
 sidebar_label: "Basic Authentication"
 ---
 
-# Basic Authentication with ZIO HTTP
-
 Basic Authentication is one of the simplest HTTP authentication schemes, widely used for securing web applications and APIs. In this guide, we'll explore how to implement Basic Authentication using ZIO HTTP, a powerful and type-safe HTTP library for Scala.
 
 ## Understanding Basic Authentication
