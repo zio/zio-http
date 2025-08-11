@@ -152,22 +152,22 @@ So, the general structure of the middleware is as follows:
 
 ```scala
 val digestAuthHandler: HandlerAspect[Any, Unit] =
-   HandlerAspect.interceptIncomingHandler[Any, Unit] {
-      Handler.fromFunctionZIO[Request](request =>
-         request.header(Header.Authorization) match {
-            // Process Digest Authorization header
-            case Some(authHeader: Header.Authorization.Digest) =>
-               // 1. Retrieve user credentials from credential store using header username
-               // 2. Validate digest against stored user credentials
-               // 3. On success, allow request continuation
-               // 4. On failure, respond with 401 Unauthorized and new challenge
-   
-            // No authentication header present or unsupported authentication header, issue challenge
-            case _ =>
-             // Respond with 401 Unauthorized and authentication challenge
-         },
-      )
-   }
+  HandlerAspect.interceptIncomingHandler[Any, Unit] {
+    Handler.fromFunctionZIO[Request](request =>
+      request.header(Header.Authorization) match {
+        // Process Digest Authorization header
+        case Some(authHeader: Header.Authorization.Digest) =>
+          // 1. Retrieve user credentials from credential store using header username
+          // 2. Validate digest against stored user credentials
+          // 3. On success, allow request continuation
+          // 4. On failure, respond with 401 Unauthorized and new challenge
+  
+        // No authentication header present or unsupported authentication header, issue challenge
+        case _ =>
+         // Respond with 401 Unauthorized and authentication challenge
+      },
+    )
+  }
 ```
 
 ### Digest Authentication Service Interface
