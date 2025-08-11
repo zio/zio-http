@@ -1,6 +1,7 @@
 package example.auth.basic
 
 import zio._
+
 import zio.http._
 
 object AuthenticationClient extends ZIOAppDefault {

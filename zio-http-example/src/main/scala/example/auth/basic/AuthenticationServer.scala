@@ -1,14 +1,16 @@
 package example.auth.basic
 
+import java.nio.charset.StandardCharsets
+import java.security.{MessageDigest, SecureRandom}
+
+import scala.io.Source
+
 import zio.Config.Secret
 import zio._
-import zio.http._
+
 import zio.stream.{ZPipeline, ZStream}
 
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
-import java.security.SecureRandom
-import scala.io.Source
+import zio.http._
 
 /**
  * This is an example to demonstrate basic Authentication middleware that passes
