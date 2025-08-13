@@ -26,30 +26,23 @@ object AuthenticationClient extends ZIOAppDefault {
           ),
       )
       .flatMap(_.body.asString)
-      .tapError(error => Console.printLine(s"Login failed: $error"))
 
-    response <- client
+    profileBody <- client
       .batched(Request.get(profileUrl).addHeader(Header.Authorization.Bearer(token)))
-      .tapError(error => Console.printLine(s"Protected route access failed: $error"))
+      .flatMap(_.body.asString)
+    _           <- ZIO.debug(s"Protected route response: $profileBody")
 
-    body <- response.body.asString
-    _    <- Console.printLine(s"Protected route response: $body")
-
-    _              <- Console.printLine("Logging out...")
-    logoutResponse <- client
+    _          <- ZIO.debug("Logging out...")
+    logoutBody <- client
       .batched(Request.post(logoutUrl, Body.empty).addHeader(Header.Authorization.Bearer(token)))
-      .tapError(error => Console.printLine(s"Logout failed: $error"))
+      .flatMap(_.body.asString)
+    _          <- ZIO.debug(s"Logout response: $logoutBody")
 
-    logoutBody <- logoutResponse.body.asString
-    _          <- Console.printLine(s"Logout response: $logoutBody")
-
-    _ <- Console.printLine("Trying to access protected route after logout...")
-    _ <- client
+    _    <- ZIO.debug("Trying to access protected route after logout...")
+    res  <- client
       .batched(Request.get(profileUrl).addHeader(Header.Authorization.Bearer(token)))
-      .tapBoth(
-        error => Console.printLine(s"Failure after logout: $error"),
-        response => response.body.asString.flatMap(body => Console.printLine(s"Unexpected success: $body")),
-      )
+    body <- res.body.asString
+    _    <- ZIO.debug(s"Protected route response after logout: $body")
 
   } yield ()
 
