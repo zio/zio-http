@@ -8,7 +8,7 @@ sidebar_label: "Opaque Bearer Token Authentication"
 
 Bearer token authentication is an HTTP authentication scheme that provides secure access to resources by requiring clients to present a token with each request. The term "bearer" implies that whoever possesses the token (the bearer) can access the associated resources, similar to how a physical ticket grants entry to an event. In this authentication method, the client includes a token in the `Authorization` header of HTTP requests using the format: `Authorization: Bearer <token>`.
 
-Unlike traditional session-based authentication where the server maintains session state through cookies, bearer token authentication enables stateless communication between clients and servers. The token itself serves as the credential, eliminating the need for the server to look up session information in a centralized session store for every request—though as we'll see with opaque tokens, some server-side state management is still involved.
+Unlike traditional session-based authentication where the server maintains session state through cookies, bearer token authentication enables stateless communication between clients and servers. The token itself serves as the credential, eliminating the need for the server to look up session information in a centralized session store for every request—though as you'll see with opaque tokens, some server-side state management is still involved.
 
 ## Why Use Token-Based Authentication?
 
@@ -24,13 +24,13 @@ Token-based authentication offers several compelling advantages over traditional
 
 The bearer token authentication flow with opaque tokens follows a well-defined sequence of interactions between the client and server. Let's examine this flow as implemented in our ZIO HTTP example:
 
-**1. Initial Authentication (Login)**: The client initiates the authentication process by sending credentials to the `/login` endpoint. The server validates that the password is the given username is correct. Upon successful validation, the server generates a token, stores it with the username and expiration time, and returns the token to the client.
+**1. Initial Authentication (Login)**: The client initiates the authentication process by sending credentials to the `/login` endpoint. The server validates that the password for the given username is correct. Upon successful validation, the server generates a token, stores it with the username and expiration time, and returns the token to the client.
 
 **2. Accessing Protected Resources**: When accessing protected routes, the client includes the token in the Authorization header. The server's authentication middleware intercepts the request, validates the token against its storage, and either allows the request to proceed with the user context or rejects it with a 401 Unauthorized response.
 
-**3. Token Lifecycle Management**: The authentication flow includes token lifecycle management through logout (explicit revocation) and automatic cleanup of expired tokens. This ensures that the whenever a user wants to log out, they can invalidate their session immediately, and also the token storage doesn't grow indefinitely.
+**3. Token Lifecycle Management**: The authentication flow includes token lifecycle management through logout (explicit revocation) and automatic cleanup of expired tokens. This ensures that whenever a user wants to log out, they can invalidate their session immediately, and also that the token storage doesn't grow indefinitely.
 
-This is the simple flow of how an opaque token authentication works. It can be extended with additional features like supporting refresh tokens, implementing scopes and permissions, but the core principles remain the same. The server issues tokens that clients use to authenticate requests, and the server maintains those tokens to grant or deny access to resources.
+This is the simple flow of how opaque token authentication works. It can be extended with additional features like supporting refresh tokens and implementing scopes and permissions, but the core principles remain the same. The server issues tokens that clients use to authenticate requests, and the server maintains those tokens to grant or deny access to resources.
 
 ## Understanding Opaque Tokens
 
@@ -74,7 +74,7 @@ The fundamental distinction between opaque tokens and self-contained tokens like
 - **Opaque Tokens**: Typically compact (32-64 characters), resulting in smaller HTTP headers and reduced bandwidth usage.
 - **JWTs**: Can become quite large (hundreds of characters) especially with multiple claims, potentially causing issues with HTTP header size limits.
 
-These are some of the key differences between opaque tokens and self-contained tokens like JWTs. The choice between them depends on the specific requirements of your application, such as security needs, performance considerations, and architectural constraints (such as weather you work with a monolithic or microservices architecture).
+These are some of the key differences between opaque tokens and self-contained tokens like JWTs. The choice between them depends on the specific requirements of your application, such as security needs, performance considerations, and architectural constraints (such as whether you work with a monolithic or microservices architecture).
 
 ## Implementation of Opaque Bearer Token Authentication
 
@@ -95,7 +95,7 @@ trait TokenService {
 }
 ```
 
-It consists of four key operations: creating, validating, revoking, and cleaning up tokens. The `create` method generates a new token for a given user with a specified lifetime, while `validate` checks if a token is valid and returns the associated username if it is. The `revoke` invalidates all tokens for a specific user and the `cleanup` method removes expired tokens.
+It consists of four key operations: creating, validating, revoking, and cleaning up tokens. The `create` method generates a new token for a given user with a specified lifetime, while `validate` checks if a token is valid and returns the associated username if it is. The `revoke` method invalidates all tokens for a specific user and the `cleanup` method removes expired tokens.
 
 For simplicity, we will implement the `TokenService` using an in-memory store:
 
@@ -260,7 +260,7 @@ This middleware checks for the presence of the `Authorization` header in the inc
 
 ## Server Routes
 
-All the components are in place, and now we can start defining the server routes. Firstly, we will define a route for login, which will handle token generation, and then we will create a protected route that requires authentication to access user profile information. Finally we step into logout functionality to revoke tokens.
+All the components are in place, and now we can start defining the server routes. First, we will define a route for login, which will handle token generation, and then we will create a protected route that requires authentication to access user profile information. Finally, we'll step into logout functionality to revoke tokens.
 
 ### Login
 
@@ -291,7 +291,7 @@ val login =
     },
 ```
 
-This login route processes POST requests with URL-encoded username and password fields, extracts the form data, retrieves the user from `UserService`, and generate an authentication token via `TokenService`. If the credentials are valid, it returns the token in the response; otherwise, it responds with a 401 Unauthorized status.
+This login route processes POST requests with URL-encoded username and password fields, extracts the form data, retrieves the user from `UserService`, and generates an authentication token via `TokenService`. If the credentials are valid, it returns the token in the response; otherwise, it responds with a 401 Unauthorized status.
 
 ### Protected Route: Profile
 
@@ -319,7 +319,7 @@ Authorization: Bearer pC7SRyZ_WK5TbIml1coCTC4NwnE4nSHwEjlSkH__z_A
 
 One of the key benefits of opaque tokens is that they can be easily revoked by the server. To implement a logout route that revokes the user's token, we can define the following route:
 
-```
+```scala
 val logout =
   Method.POST / "logout"        ->
     Handler.fromZIO(ZIO.service[TokenService]).flatMap { tokenService =>
@@ -341,7 +341,7 @@ val logout =
     }
 ```
 
-As we don't require the returned user context for the logout operation, convert the `HandlerAspect[TokenService & UserService, User]` to `HandlerAspect[TokenService & UserService, Unit]` using `as[Unit](())`. This allows us to focus solely on the token revocation logic without requiring user detail from the context.
+As we don't require the returned user context for the logout operation, convert the `HandlerAspect[TokenService & UserService, User]` to `HandlerAspect[TokenService & UserService, Unit]` using `as[Unit](())`. This allows us to focus solely on the token revocation logic without requiring user details from the context.
 
 
 ## Writing the Client
@@ -412,6 +412,7 @@ After logging out, the client attempts to access the profile route again, which 
 ## Web Client Demo
 
 To demonstrate the authentication flow in a web client, we’ve created a simple HTML page where users can log in, view their profile, and log out.
+
 First, start the `AuthenticationServer`, which provides the authentication API and serves the HTML client (`opaque-bearer-token-authentication.html`) located in the resource folder:
 
 ```scala
@@ -420,10 +421,10 @@ sbt "zioHttpExample/runMain example.auth.bearer.opaque.AuthenticationServer"
 
 Then open [http://localhost:8080](http://localhost:8080) in your browser to interact with the system using predefined credentials. You can log in, view your profile, and log out, showcasing the full opaque bearer token authentication flow.
 
-The HTML file’s source code can be found in the example project’s resource folder.
+The HTML file's source code can be found in the example project's resource folder.
 
 ## Conclusion
 
 Opaque bearer token authentication provides a robust and flexible approach for securing APIs, offering clear advantages in scenarios where fine-grained control, immediate revocation, and server-managed session data are priorities. By storing all authentication details server-side, opaque tokens mitigate the risk of exposing sensitive information within the token itself and simplify revocation processes compared to self-contained tokens like JWTs.
 
-The implementation outlined here demonstrates how to integrate opaque tokens into a ZIO HTTP application, from token generation and validation to middleware enforcement and route protection. 
+The implementation outlined here demonstrates how to integrate opaque tokens into a ZIO HTTP application, from token generation and validation to middleware enforcement and route protection.
