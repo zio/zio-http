@@ -62,7 +62,7 @@ ThisBuild / githubWorkflowPublish         :=
         "PGP_SECRET"          -> "${{ secrets.PGP_SECRET }}",
         "SONATYPE_PASSWORD"   -> "${{ secrets.SONATYPE_PASSWORD }}",
         "SONATYPE_USERNAME"   -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_SONATYPE_RELEASE" -> "${{ secrets.CI_SONATYPE_RELEASE }}",
+        "CI_RELEASE_MODE" -> "1",
       ),
     ),
     WorkflowStep.Sbt(
@@ -74,7 +74,7 @@ ThisBuild / githubWorkflowPublish         :=
         "PGP_SECRET"               -> "${{ secrets.PGP_SECRET }}",
         "SONATYPE_PASSWORD"        -> "${{ secrets.SONATYPE_PASSWORD }}",
         "SONATYPE_USERNAME"        -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_SONATYPE_RELEASE"      -> "${{ secrets.CI_SONATYPE_RELEASE }}",
+        "CI_RELEASE_MODE"      -> "1",
       ),
     ),
   )
@@ -265,6 +265,7 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 
 lazy val zioHttpCli = (project in file("zio-http-cli"))
   .settings(stdSettings("zio-http-cli"))
+  .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= Seq(`zio-cli`),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
@@ -407,6 +408,7 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
 lazy val docs = project
   .in(file("zio-http-docs"))
   .settings(stdSettings("zio-http-docs"))
+  .settings(publishSetting(false))
   .settings(
     fork                                       := false,
     moduleName                                 := "zio-http-docs",
