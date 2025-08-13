@@ -40,7 +40,6 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
 }
 
 object UserService {
-
   private val initialUsers = Map(
     "john"  -> User("john", Secret("password123"), "john@example.com"),
     "jane"  -> User("jane", Secret("secret456"), "jane@example.com"),

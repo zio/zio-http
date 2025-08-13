@@ -181,7 +181,7 @@ Let's define an interface that outlines the essential operations for our token s
 
 ```scala
 trait TokenService {
-  def create(username: String, lifeTime: Duration): UIO[String]
+  def create(username: String): UIO[String]
   def validate(token: String): UIO[Option[String]]
   def cleanup(): UIO[Unit]
   def revoke(username: String): UIO[Unit]
@@ -192,21 +192,26 @@ It consists of four key operations: creating, validating, revoking, and cleaning
 
 For simplicity, we will implement the `TokenService` using an in-memory store:
 
-```scala
+```
+case class TokenInfo(username: String, expiresAt: Instant)
+
 class InmemoryTokenService(tokenStorage: Ref[Map[String, TokenInfo]]) extends TokenService {
-  override def create(username: String, lifeTime: Duration): UIO[String] =
+
+  private val TOKEN_LIFETIME = 300.seconds
+
+  override def create(username: String): UIO[String] =
     for {
       token <- generateSecureToken
-      now <- Clock.instant
-      _ <- tokenStorage.update { tokens =>
+      now   <- Clock.instant
+      _     <- tokenStorage.update { tokens =>
         tokens + (token -> TokenInfo(
           username = username,
-          expiresAt = now.plusSeconds(lifeTime.toSeconds)
+          expiresAt = now.plusSeconds(TOKEN_LIFETIME.toSeconds),
         ))
       }
     } yield token
 
-  override def validate(token: String): UIO[Option[String]] = {
+  override def validate(token: String): UIO[Option[String]] =
     tokenStorage.modify { tokens =>
       tokens.get(token) match {
         case Some(tokenInfo) if tokenInfo.expiresAt.isAfter(Instant.now()) =>
@@ -218,24 +223,214 @@ class InmemoryTokenService(tokenStorage: Ref[Map[String, TokenInfo]]) extends To
           (None, tokens)
       }
     }
-  }
 
   override def cleanup(): UIO[Unit] =
-    tokenStorage.update(_.filter { case (_, tokenInfo) =>
-      tokenInfo.expiresAt.isAfter(Instant.now())
-    })
+    tokenStorage.update {
+      _.filter { case (_, tokenInfo) =>
+        tokenInfo.expiresAt.isAfter(Instant.now())
+      }
+    }
 
   override def revoke(username: String): UIO[Unit] =
-    tokenStorage.update(_.filter { case (_, tokenInfo) =>
-      tokenInfo.username != username
-    })
+    tokenStorage.update {
+      _.filter { case (_, tokenInfo) =>
+        tokenInfo.username != username
+      }
+    }
 
   private def generateSecureToken: UIO[String] =
-    ZIO.randomWith(_.nextBytes(32))
-      .map(_.toArray)
-      .map(java.util.Base64.getUrlEncoder.withoutPadding.encodeToString)
+    ZIO.succeed {
+      val random = new SecureRandom()
+      val bytes  = new Array[Byte](32)
+      random.nextBytes(bytes)
+      java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(bytes)
+    }
 }
 ```
 
 In a production system, you would typically use a distributed cache like Redis or a database to persist tokens across server restarts and scale horizontally.
 
+The next step is to define the `UserService` which is the same as in the digest authentication guide, but we will include it here for completeness. The `UserService` manages user accounts and their associated data, such as usernames, passwords, and emails:
+
+```scala
+case class User(username: String, password: Secret, email: String)
+
+sealed trait UserServiceError
+object UserServiceError {
+  case class UserNotFound(username: String)      extends UserServiceError
+  case class UserAlreadyExists(username: String) extends UserServiceError
+}
+
+trait UserService {
+  def getUser(username: String): IO[UserNotFound, User]
+  def addUser(user: User): IO[UserAlreadyExists, Unit]
+  def updateEmail(username: String, newEmail: String): IO[UserNotFound, Unit]
+}
+
+case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
+
+  def getUser(username: String): IO[UserNotFound, User] =
+    users.get.flatMap { userMap =>
+      ZIO.fromOption(userMap.get(username)).orElseFail(UserNotFound(username))
+    }
+
+  def addUser(user: User): IO[UserAlreadyExists, Unit] =
+    users.get.flatMap { userMap =>
+      ZIO.when(userMap.contains(user.username)) {
+        ZIO.fail(UserAlreadyExists(user.username))
+      } *> users.update(_.updated(user.username, user))
+    }
+
+  def updateEmail(username: String, newEmail: String): IO[UserNotFound, Unit] = for {
+    currentUsers <- users.get
+    user         <- ZIO.fromOption(currentUsers.get(username)).orElseFail(UserNotFound(username))
+    _            <- users.update(_.updated(username, user.copy(email = newEmail)))
+  } yield ()
+}
+```
+
+To initiate the `UserService`, we can use a simple in-memory store with a predefined set of users. This is useful for testing and demonstration purposes, but in a real application, you would typically connect to a database or another persistent storage solution.
+
+```scala
+object UserService {
+  private val initialUsers = Map(
+    "john"  -> User("john", Secret("password123"), "john@example.com"),
+    "jane"  -> User("jane", Secret("secret456"), "jane@example.com"),
+    "admin" -> User("admin", Secret("admin123"), "admin@company.com"),
+  )
+
+  val live: ZLayer[Any, Nothing, UserService] =
+    ZLayer.fromZIO {
+      Ref.make(initialUsers).map(UserServiceLive(_))
+    }
+}
+```
+
+We instantiate the service using a predefined set of users, which allows us to test the authentication flow without doing registration or user creation.
+
+:::note
+In real production applications, we shouldn't store passwords in plain text. Instead, we should use a secure hashing algorithm like bcrypt or Argon2 to hash passwords before storing them.
+:::
+
+### Authentication Middleware
+
+The authentication middleware serves as the security gateway for protected resources, implementing a clean separation between authentication logic and business logic. It is responsible for intercepting incoming requests and authenticating users based on the provided bearer token. This middleware will use the `TokenService` to validate tokens and the `UserService` to retrieve user information associated with the token:
+
+```scala
+import zio._
+import zio.http._
+
+object AuthHandlerAspect {
+  def authenticate: HandlerAspect[TokenService with UserService, User] =
+    HandlerAspect.interceptIncomingHandler(Handler.fromFunctionZIO[Request] { request =>
+      request.header(Header.Authorization) match {
+        case Some(Header.Authorization.Bearer(token)) =>
+          ZIO.serviceWithZIO[TokenService](_.validate(token.stringValue)).flatMap {
+            case Some(username) =>
+              ZIO
+                .serviceWithZIO[UserService](_.getUser(username))
+                .map(user => (request, user))
+                .orElse(
+                  ZIO.fail(
+                    Response.unauthorized("User not found!"),
+                  ),
+                )
+            case None           =>
+              ZIO.fail(Response.unauthorized("Invalid or expired token!"))
+          }
+        case _                                        =>
+          ZIO.fail(
+            Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm = "Access"))),
+          )
+      }
+    })
+}
+```
+
+This middleware checks for the presence of the `Authorization` header in the incoming request. If the header is present and contains a valid bearer token, it retrieves the associated username from the `TokenService`. Then, it uses the `UserService` to fetch the user details. If successful, it allows the request to proceed with the user context; otherwise, it returns an unauthorized response.
+
+## Server Routes
+
+### Login
+
+The login route is responsible for taking user credentials (username and password) and generating an opaque token upon successful authentication:
+
+```scala
+val login =
+  Method.POST / "login"         ->
+    handler { (request: Request) =>
+      val form = request.body.asURLEncodedForm.orElseFail(Response.badRequest)
+      for {
+        username <- form
+          .map(_.get("username"))
+          .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing username field!")))
+          .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing username value!")))
+        password <- form
+          .map(_.get("password"))
+          .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing password field!")))
+          .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing password value!")))
+        users    <- ZIO.service[UserService]
+        user     <- users.getUser(username).orElseFail(Response.unauthorized(s"Username or password is incorrect."))
+        tokenService <- ZIO.service[TokenService]
+        response     <-
+          if (user.password == Secret(password))
+            tokenService.create(username).map(Response.text)
+          else ZIO.fail(Response.unauthorized("Username or password is incorrect."))
+      } yield response
+    },
+```
+
+This login route processes POST requests with URL-encoded username and password fields, extracts the form data, retrieves the user from `UserService`, and generate an authentication token via `TokenService`. If the credentials are valid, it returns the token in the response; otherwise, it responds with a 401 Unauthorized status.
+
+### Protected Route: Profile
+
+Let's write the protected route `GET /profile/me` which returns the profile of the user:
+
+```scala
+val profile = 
+  Method.GET / "profile" / "me" -> handler { (_: Request) =>
+    ZIO.serviceWith[User](user =>
+      Response.text(
+         s"This is your profile: \n Username: ${user.username} \n Email: ${user.email}",
+      ),
+    )
+  } @@ authenticate
+```
+
+This route is protected by the `authenticate` middleware we defined earlier. It retrieves the authenticated user from the request context and returns their profile information. The client should use the token issued by the server after login by including it in the `Authorization` header to access this protected route, e.g. API call:
+
+```http
+GET /profile/me HTTP/1.1
+Authorization: Bearer pC7SRyZ_WK5TbIml1coCTC4NwnE4nSHwEjlSkH__z_A
+```
+
+### Logging Out and Revoking Tokens
+
+One of the key benefits of opaque tokens is that they can be easily revoked by the server. To implement a logout route that revokes the user's token, we can define the following route:
+
+```
+val logout =
+  Method.POST / "logout"        ->
+    Handler.fromZIO(ZIO.service[TokenService]).flatMap { tokenService =>
+      handler { (request: Request) =>
+        request.header(Header.Authorization) match {
+          case Some(Header.Authorization.Bearer(token)) =>
+            tokenService.validate(token.stringValue).flatMap {
+              case Some(username) =>
+                tokenService.revoke(username).as(Response.text("Logged out successfully!"))
+              case None           =>
+                ZIO.fail(Response.unauthorized("Invalid or expired token!"))
+            }
+          case _                                        =>
+            ZIO.fail(
+              Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm = "Access"))),
+            )
+        }
+      } @@ authenticate.as[Unit](())
+    }
+```
+
+As we don't require the returned user context for the logout operation, convert the `HandlerAspect[TokenService & UserService, User]` to `HandlerAspect[TokenService & UserService, Unit]` using `as[Unit](())`. This allows us to focus solely on the token revocation logic without requiring user detail from the context.
+
+
+## Conclustion

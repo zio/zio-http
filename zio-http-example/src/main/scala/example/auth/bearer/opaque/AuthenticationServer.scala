@@ -2,6 +2,7 @@ package example.auth.bearer.opaque
 
 import example.auth.bearer.opaque.core.AuthHandlerAspect._
 import example.auth.bearer.opaque.core._
+import zio.Config.Secret
 import zio._
 import zio.http._
 
@@ -36,12 +37,11 @@ object AuthenticationServer extends ZIOAppDefault {
             users    <- ZIO.service[UserService]
             user     <- users.getUser(username).orElseFail(Response.unauthorized(s"Username or password is incorrect."))
             tokenService <- ZIO.service[TokenService]
-            token        <- tokenService.create(username)
-          } yield
-            if (user.password.stringValue == password)
-              Response.text(token)
-            else
-              Response.unauthorized("Invalid username or password.")
+            response     <-
+              if (user.password == Secret(password))
+                tokenService.create(username).map(Response.text)
+              else ZIO.fail(Response.unauthorized("Username or password is incorrect."))
+          } yield response
         },
       Method.POST / "logout"        ->
         Handler.fromZIO(ZIO.service[TokenService]).flatMap { tokenService =>
