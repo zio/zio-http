@@ -132,6 +132,7 @@ const sidebars = {
        items: [
           "guides/basic-authentication",
           "guides/digest-authentication",
+          "guides/opaque-bearer-token-authentication",
        ],
     },
     {

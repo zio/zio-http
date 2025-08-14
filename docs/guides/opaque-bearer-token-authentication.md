@@ -24,11 +24,9 @@ Token-based authentication offers several compelling advantages over traditional
 
 The bearer token authentication flow with opaque tokens follows a well-defined sequence of interactions between the client and server. Let's examine this flow as implemented in our ZIO HTTP example:
 
-**1. Initial Authentication (Login)**: The client initiates the authentication process by sending credentials to the `/login` endpoint. The server validates that the password matches the one stored for the given username. Upon successful validation, the server generates a token, stores it with the username and expiration time, and returns the token to the client.
-
-**2. Accessing Protected Resources**: When accessing protected routes, the client includes the token in the Authorization header. The server's authentication middleware intercepts the request, validates the token against its storage, and either allows the request to proceed with the user context or rejects it with a 401 Unauthorized response.
-
-**3. Token Lifecycle Management**: The authentication flow includes token lifecycle management through logout (explicit revocation) and automatic cleanup of expired tokens. This ensures that users can invalidate their sessions immediately when they want to log out, and also that the token storage doesn't grow indefinitely.
+1. **Initial Authentication (Login)**: The client initiates the authentication process by sending credentials to the `/login` endpoint. The server validates that the password matches the one stored for the given username. Upon successful validation, the server generates a token, stores it with the username and expiration time, and returns the token to the client.
+2. **Accessing Protected Resources**: When accessing protected routes, the client includes the token in the Authorization header. The server's authentication middleware intercepts the request, validates the token against its storage, and either allows the request to proceed with the user context or rejects it with a 401 Unauthorized response.
+3. **Token Lifecycle Management**: The authentication flow includes token lifecycle management through logout (explicit revocation) and automatic cleanup of expired tokens. This ensures that users can invalidate their sessions immediately when they want to log out, and also that the token storage doesn't grow indefinitely.
 
 This is the simple flow of how opaque token authentication works. It can be extended with additional features like refresh tokens and scopes and permissions, but the core principles remain the same. The server issues tokens that clients use to authenticate requests, and the server maintains those tokens to grant or deny access to resources.
 
