@@ -1,5 +1,5 @@
-//> using dep "dev.zio::zio-http:3.3.3"
-//> using dep "dev.zio::zio-http-gen:3.3.3"
+//> using dep "dev.zio::zio-http:3.4.0"
+//> using dep "dev.zio::zio-http-gen:3.4.0"
 
 package example.endpoint
 
