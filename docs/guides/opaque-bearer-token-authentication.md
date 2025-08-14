@@ -123,10 +123,10 @@ class InmemoryTokenService(tokenStorage: Ref[Map[String, TokenInfo]]) extends To
       tokens.get(token) match {
         case Some(tokenInfo) if tokenInfo.expiresAt.isAfter(Instant.now()) =>
           (Some(tokenInfo.username), tokens)
-        case Some(_)                                                       =>
+        case Some(_) =>
           // Token expired, remove it
           (None, tokens - token)
-        case None                                                          =>
+        case None =>
           (None, tokens)
       }
     }
