@@ -74,7 +74,7 @@ object TestClientSpec extends ZIOHttpSpec {
         for {
           client <- ZIO.service[Client]
           ref    <- Ref.Synchronized.make[List[Request]](Nil)
-          _      <- TestClient.setFallbackHandler(req => ref.update(_.appended(req)).as(Response.notFound))
+          _      <- TestClient.setFallbackHandler(req => ref.update(_ :+ req).as(Response.notFound))
           _      <- TestClient.addRoute(
             Method.GET / "test" -> handler { Response.text("ok") },
           )
