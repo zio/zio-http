@@ -38,12 +38,14 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
+  ): Handler[Env1, Response, Request, Response] =
+    if (aspect eq HandlerAspect.identity) self
+    else {
+      def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
+        handler.asInstanceOf[Handler[R, Response, Request, Response]]
 
-    aspect.applyHandler(convert(self))
-  }
+      aspect.applyHandler(convert(self))
+    }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
     in: Handler.IsRequest[In1],
@@ -52,16 +54,17 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
     tag: Tag[Ctx],
   ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
-      Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Scope & Ctx, Response, Response] =
-            self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+    if (aspect eq HandlerAspect.identity) self
+    else
+      aspect.applyHandlerContext {
+        Handler.scoped[Env0] {
+          handler { (ctx: Ctx, req: Request) =>
+            val handler: ZIO[Scope & Ctx, Response, Response] =
+              self.asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
+            handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+          }
         }
       }
-    }
 
   def @@[Env0]: ApplyContextAspect[R, Err, In, Out, Env0] =
     new ApplyContextAspect(self)
