@@ -421,8 +421,17 @@ Then open [http://localhost:8080](http://localhost:8080) in your browser to inte
 
 The HTML file's source code can be found in the example project's resource folder.
 
+## Future Works
+
+In this guide, we have implemented a basic opaque bearer token authentication system using ZIO HTTP. In future iterations of this authentication system, we could consider implementing the following enhancements:
+
+1. **Refresh Tokens**: Introduce refresh tokens to allow users to obtain new access tokens without re-authenticating, extending session lifetimes while maintaining security.
+2. **Scopes and Permissions**: Implement fine-grained access control by associating scopes or permissions with tokens, allowing for more granular authorization decisions based on user roles or resource access levels.
+3. **Rate Limiting**: Add rate limiting to protect against abuse and ensure fair usage of the API, preventing excessive requests from a single user or IP address.
+4. **Password Hashing**: Use secure password hashing algorithms (e.g., bcrypt, Argon2) to store user passwords securely, enhancing security against password leaks.
+
 ## Conclusion
 
 Opaque bearer token authentication provides a robust and flexible approach for securing APIs, offering clear advantages in scenarios where fine-grained control, immediate revocation, and server-managed session data are priorities. By storing all authentication details server-side, opaque tokens mitigate the risk of exposing sensitive information within the token itself and simplify revocation processes compared to self-contained tokens like JWTs.
 
-The implementation outlined here demonstrates how to integrate opaque tokens into a ZIO HTTP application, from token generation and validation to middleware enforcement and route protection.
+The implementation outlined here demonstrates how to integrate opaque tokens into a ZIO HTTP application, from token generation and validation to writing authentication middleware.
