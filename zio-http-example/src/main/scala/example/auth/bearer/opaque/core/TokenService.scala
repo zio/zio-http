@@ -1,9 +1,9 @@
 package example.auth.bearer.opaque.core
 
-import zio._
-
 import java.security.SecureRandom
 import java.time.Instant
+
+import zio._
 
 trait TokenService {
   def create(username: String): UIO[String]

@@ -1,8 +1,9 @@
 package example.auth.bearer.opaque.core
 
-import example.auth.bearer.opaque.core.UserServiceError._
 import zio.Config._
 import zio._
+
+import example.auth.bearer.opaque.core.UserServiceError._
 
 case class User(username: String, password: Secret, email: String)
 

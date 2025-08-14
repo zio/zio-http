@@ -1,10 +1,12 @@
 package example.auth.bearer.opaque
 
-import example.auth.bearer.opaque.core.AuthHandlerAspect._
-import example.auth.bearer.opaque.core._
 import zio.Config.Secret
 import zio._
+
 import zio.http._
+
+import example.auth.bearer.opaque.core.AuthHandlerAspect._
+import example.auth.bearer.opaque.core._
 
 object AuthenticationServer extends ZIOAppDefault {
 
