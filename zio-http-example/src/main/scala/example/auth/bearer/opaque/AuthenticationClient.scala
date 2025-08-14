@@ -39,9 +39,9 @@ object AuthenticationClient extends ZIOAppDefault {
     _          <- ZIO.debug(s"Logout response: $logoutBody")
 
     _    <- ZIO.debug("Trying to access protected route after logout...")
-    res  <- client
+    body <- client
       .batched(Request.get(profileUrl).addHeader(Header.Authorization.Bearer(token)))
-    body <- res.body.asString
+      .flatMap(_.body.asString)
     _    <- ZIO.debug(s"Protected route response after logout: $body")
 
   } yield ()

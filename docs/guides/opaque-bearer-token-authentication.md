@@ -313,7 +313,7 @@ GET /profile/me HTTP/1.1
 Authorization: Bearer pC7SRyZ_WK5TbIml1coCTC4NwnE4nSHwEjlSkH__z_A
 ```
 
-### Logging Out and Revoking Tokens
+### Logging out and Revoking Tokens
 
 One of the key benefits of opaque tokens is that they can be easily revoked by the server. To implement a logout route that revokes the user's token, we can define the following route:
 
@@ -397,9 +397,9 @@ for {
   _          <- ZIO.debug(s"Logout response: $logoutBody")
 
   _    <- ZIO.debug("Trying to access protected route after logout...")
-  res  <- client
+  body <- client
     .batched(Request.get(profileUrl).addHeader(Header.Authorization.Bearer(token)))
-  body <- res.body.asString
+    .flatMap(_.body.asString)
   _    <- ZIO.debug(s"Protected route response after logout: $body")
 
 } yield ()
