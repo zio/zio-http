@@ -24,13 +24,13 @@ Token-based authentication offers several compelling advantages over traditional
 
 The bearer token authentication flow with opaque tokens follows a well-defined sequence of interactions between the client and server. Let's examine this flow as implemented in our ZIO HTTP example:
 
-**1. Initial Authentication (Login)**: The client initiates the authentication process by sending credentials to the `/login` endpoint. The server validates that the password for the given username is correct. Upon successful validation, the server generates a token, stores it with the username and expiration time, and returns the token to the client.
+**1. Initial Authentication (Login)**: The client initiates the authentication process by sending credentials to the `/login` endpoint. The server validates that the password matches the one stored for the given username. Upon successful validation, the server generates a token, stores it with the username and expiration time, and returns the token to the client.
 
 **2. Accessing Protected Resources**: When accessing protected routes, the client includes the token in the Authorization header. The server's authentication middleware intercepts the request, validates the token against its storage, and either allows the request to proceed with the user context or rejects it with a 401 Unauthorized response.
 
-**3. Token Lifecycle Management**: The authentication flow includes token lifecycle management through logout (explicit revocation) and automatic cleanup of expired tokens. This ensures that whenever a user wants to log out, they can invalidate their session immediately, and also that the token storage doesn't grow indefinitely.
+**3. Token Lifecycle Management**: The authentication flow includes token lifecycle management through logout (explicit revocation) and automatic cleanup of expired tokens. This ensures that users can invalidate their sessions immediately when they want to log out, and also that the token storage doesn't grow indefinitely.
 
-This is the simple flow of how opaque token authentication works. It can be extended with additional features like supporting refresh tokens and implementing scopes and permissions, but the core principles remain the same. The server issues tokens that clients use to authenticate requests, and the server maintains those tokens to grant or deny access to resources.
+This is the simple flow of how opaque token authentication works. It can be extended with additional features like refresh tokens and scopes and permissions, but the core principles remain the same. The server issues tokens that clients use to authenticate requests, and the server maintains those tokens to grant or deny access to resources.
 
 ## Understanding Opaque Tokens
 
@@ -72,7 +72,7 @@ The fundamental distinction between opaque tokens and self-contained tokens like
 
 **Size and Transmission**:
 - **Opaque Tokens**: Typically compact (32-64 characters), resulting in smaller HTTP headers and reduced bandwidth usage.
-- **JWTs**: Can become quite large (hundreds of characters) especially with multiple claims, potentially causing issues with HTTP header size limits.
+- **JWTs**: Can become quite large (hundreds of characters), especially with multiple claims, potentially causing issues with HTTP header size limits.
 
 These are some of the key differences between opaque tokens and self-contained tokens like JWTs. The choice between them depends on the specific requirements of your application, such as security needs, performance considerations, and architectural constraints (such as whether you work with a monolithic or microservices architecture).
 
@@ -95,7 +95,7 @@ trait TokenService {
 }
 ```
 
-It consists of four key operations: creating, validating, revoking, and cleaning up tokens. The `create` method generates a new token for a given user with a specified lifetime, while `validate` checks if a token is valid and returns the associated username if it is. The `revoke` method invalidates all tokens for a specific user and the `cleanup` method removes expired tokens.
+It consists of four key operations: creating, validating, revoking, and cleaning up tokens. The `create` method generates a new token for a given user with a specified lifetime, while `validate` checks if a token is valid and returns the associated username if it is. The `revoke` method invalidates all tokens for a specific user, and the `cleanup` method removes expired tokens.
 
 For simplicity, we will implement the `TokenService` using an in-memory store:
 
@@ -159,7 +159,7 @@ In a production system, you would typically use a distributed cache like Redis o
 
 ### User Service
 
-The next step is to define the `UserService` which is the same as in the digest authentication guide, but we will include it here for completeness. The `UserService` manages user accounts and their associated data, such as usernames, passwords, and emails:
+The next step is to define the `UserService`, which is the same as in the digest authentication guide, but we will include it here for completeness. The `UserService` manages user accounts and their associated data, such as usernames, passwords, and emails:
 
 ```scala
 case class User(username: String, password: Secret, email: String)
@@ -198,7 +198,7 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
 }
 ```
 
-To initiate the `UserService`, we can use a simple in-memory store with a predefined set of users. This is useful for testing and demonstration purposes, but in a real application, you would typically connect to a database or another persistent storage solution.
+To initialize the `UserService`, we can use a simple in-memory store with a predefined set of users. This is useful for testing and demonstration purposes, but in a real application, you would typically connect to a database or another persistent storage solution.
 
 ```scala
 object UserService {
@@ -215,10 +215,10 @@ object UserService {
 }
 ```
 
-We instantiate the service using a predefined set of users, which allows us to test the authentication flow without doing registration or user creation.
+We instantiate the service using a predefined set of users, which allows us to test the authentication flow without handling registration or user creation.
 
 :::note
-In real production applications, we shouldn't store passwords in plain text. Instead, we should use a secure hashing algorithm like bcrypt or Argon2 to hash passwords before storing them.
+In production applications, we shouldn't store passwords in plain text. Instead, we should use a secure hashing algorithm like bcrypt or Argon2 to hash passwords before storing them.
 :::
 
 ### Authentication Middleware
@@ -260,7 +260,7 @@ This middleware checks for the presence of the `Authorization` header in the inc
 
 ## Server Routes
 
-All the components are in place, and now we can start defining the server routes. First, we will define a route for login, which will handle token generation, and then we will create a protected route that requires authentication to access user profile information. Finally, we'll step into logout functionality to revoke tokens.
+All the components are in place, and now we can start defining the server routes. First, we will define a route for login, which will handle token generation, and then we will create a protected route that requires authentication to access user profile information. Finally, we'll implement logout functionality to revoke tokens.
 
 ### Login
 
@@ -295,7 +295,7 @@ This login route processes POST requests with URL-encoded username and password 
 
 ### Protected Route: Profile
 
-Let's write the protected route `GET /profile/me` which returns the profile of the user:
+Let's write the protected route `GET /profile/me`, which returns the profile of the user:
 
 ```scala
 val profile = 
@@ -308,7 +308,7 @@ val profile =
   } @@ authenticate
 ```
 
-This route is protected by the `authenticate` middleware we defined earlier. It retrieves the authenticated user from the request context and returns their profile information. The client should use the token issued by the server after login by including it in the `Authorization` header to access this protected route, e.g. API call:
+This route is protected by the `authenticate` middleware we defined earlier. It retrieves the authenticated user from the request context and returns their profile information. The client should use the token issued by the server after login by including it in the `Authorization` header to access this protected route, e.g., API call:
 
 ```http
 GET /profile/me HTTP/1.1
@@ -341,7 +341,7 @@ val logout =
     }
 ```
 
-As we don't require the returned user context for the logout operation, convert the `HandlerAspect[TokenService & UserService, User]` to `HandlerAspect[TokenService & UserService, Unit]` using `as[Unit](())`. This allows us to focus solely on the token revocation logic without requiring user details from the context.
+As we don't require the returned user context for the logout operation, we convert the `HandlerAspect[TokenService & UserService, User]` to `HandlerAspect[TokenService & UserService, Unit]` using `as[Unit](())`. This allows us to focus solely on the token revocation logic without requiring user details from the context.
 
 
 ## Writing the Client
@@ -386,7 +386,7 @@ object AuthenticationClient extends ZIOAppDefault {
 }
 ```
 
-Using the same `token` we have obtained, we can try to log out or revoke the token, so the client can't access the protected profile route anymore:
+Using the same `token` we obtained, we can try to log out or revoke the token, so the client can't access the protected profile route anymore:
 
 ```scala
 val logoutUrl  = URL.decode(s"$url/logout").toOption.get
@@ -411,7 +411,7 @@ After logging out, the client attempts to access the profile route again, which 
 
 ## Web Client Demo
 
-To demonstrate the authentication flow in a web client, we’ve created a simple HTML page where users can log in, view their profile, and log out.
+To demonstrate the authentication flow in a web client, we've created a simple HTML page where users can log in, view their profile, and log out.
 
 First, start the `AuthenticationServer`, which provides the authentication API and serves the HTML client (`opaque-bearer-token-authentication.html`) located in the resource folder:
 
