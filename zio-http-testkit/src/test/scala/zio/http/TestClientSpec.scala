@@ -70,6 +70,29 @@ object TestClientSpec extends ZIOHttpSpec {
           fallbackBody     <- fallbackResponse.body.asString
         } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
       },
+      test("setFallbackHandler") {
+        for {
+          client <- ZIO.service[Client]
+          ref    <- Ref.Synchronized.make[List[Request]](Nil)
+          _      <- TestClient.setFallbackHandler(req => ref.update(_ :+ req).as(Response.notFound))
+          _      <- TestClient.addRoute(
+            Method.GET / "test" -> handler { Response.text("ok") },
+          )
+
+          successResponse1 <- client(Request.get(URL.root / "test")).flatMap(_.body.asString)
+          failResponse1    <- client(Request.get(URL.root / "foo"))
+          successResponse2 <- client(Request.get(URL.root / "test")).flatMap(_.body.asString)
+          failResponse2    <- client(Request.post(URL.root / "xyzzy", Body.empty))
+          failedRequests   <- ref.get.map(_.map(req => (req.method, req.url)))
+        } yield assertTrue(
+          successResponse1 == "ok",
+          successResponse2 == "ok",
+          failResponse1 == Response.notFound,
+          failResponse2 == Response.notFound,
+          failedRequests == List((Method.GET, URL.root / "foo"), (Method.POST, URL.root / "xyzzy")),
+        )
+
+      },
       suite("sad paths")(
         test("error when submitting a request to a blank TestServer")(
           for {
