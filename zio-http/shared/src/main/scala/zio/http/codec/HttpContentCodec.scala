@@ -1,15 +1,11 @@
 package zio.http.codec
 
-import java.nio.charset.StandardCharsets
-
 import scala.collection.immutable.ListMap
 
 import zio._
 
-import zio.stream.{ZChannel, ZPipeline}
+import zio.stream._
 
-import zio.schema.codec.DecodeError.ReadError
-import zio.schema.codec.JsonCodec.{JsonDecoder, JsonEncoder}
 import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
 
@@ -22,7 +18,7 @@ sealed trait HttpContentCodec[A] { self =>
   def choices: ListMap[MediaType, BinaryCodecWithSchema[A]]
 
   /**
-   * A right biased merge of two HttpContentCodecs.
+   * A right-biased merge of two HttpContentCodecs.
    */
   def ++(that: HttpContentCodec[A]): HttpContentCodec[A] =
     HttpContentCodec.Choices(choices ++ that.choices)
@@ -318,10 +314,7 @@ object HttpContentCodec {
             MediaType.application.`json` ->
               BinaryCodecWithSchema(
                 config => {
-                  JsonCodec.schemaBasedBinaryCodec(
-                    JsonCodec
-                      .Config(ignoreEmptyCollections = config.ignoreEmptyCollections, treatStreamsAsArrays = true),
-                  )(schema)
+                  JsonCodec.schemaBasedBinaryCodec(config.schemaConfig)(schema)
                 },
                 schema,
               ),

@@ -1,3 +1,6 @@
+//> using dep "dev.zio::zio-http:3.4.0"
+//> using dep "dev.zio::zio-http-gen:3.4.0"
+
 package example.endpoint
 
 import java.nio.file._

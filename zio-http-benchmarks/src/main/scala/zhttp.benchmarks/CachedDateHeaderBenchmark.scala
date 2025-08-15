@@ -23,5 +23,5 @@ class CachedDateHeaderBenchmark {
 
   @Benchmark
   def benchmarkFresh() =
-    DateEncoding.default.encodeDate(ZonedDateTime.now())
+    DateEncoding.encodeDate(ZonedDateTime.now())
 }

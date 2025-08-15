@@ -12,7 +12,7 @@ val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 
-ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
 
 ThisBuild / githubWorkflowJavaVersions := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
@@ -58,11 +58,11 @@ ThisBuild / githubWorkflowPublish         :=
       List("ci-release"),
       name = Some("Release"),
       env = Map(
-        "PGP_PASSPHRASE"      -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET"          -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD"   -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME"   -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_SONATYPE_RELEASE" -> "${{ secrets.CI_SONATYPE_RELEASE }}",
+        "PGP_PASSPHRASE"    -> "${{ secrets.PGP_PASSPHRASE }}",
+        "PGP_SECRET"        -> "${{ secrets.PGP_SECRET }}",
+        "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
+        "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
+        "CI_RELEASE_MODE"   -> "1",
       ),
     ),
     WorkflowStep.Sbt(
@@ -74,7 +74,7 @@ ThisBuild / githubWorkflowPublish         :=
         "PGP_SECRET"               -> "${{ secrets.PGP_SECRET }}",
         "SONATYPE_PASSWORD"        -> "${{ secrets.SONATYPE_PASSWORD }}",
         "SONATYPE_USERNAME"        -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_SONATYPE_RELEASE"      -> "${{ secrets.CI_SONATYPE_RELEASE }}",
+        "CI_RELEASE_MODE"          -> "1",
       ),
     ),
   )
@@ -184,7 +184,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-test`,
       `zio-test-sbt`,
       `scala-compat-collection`,
-    ) ++ netty ++ Seq(`netty-incubator`),
+    ) ++ netty,
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
@@ -194,7 +194,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       "org.scala-lang.modules" %%% "scala-collection-compat" % ScalaCompatCollectionVersion,
       "io.github.cquiroz"      %%% "scala-java-time"         % "2.6.0",
       "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.6.0",
-      "org.scala-js"           %%% "scalajs-dom"             % "2.8.0",
+      "org.scala-js"           %%% "scalajs-dom"             % "2.8.1",
       "dev.zio"                %%% "zio-test"                % ZioVersion % "test",
       "dev.zio"                %%% "zio-test-sbt"            % ZioVersion % "test",
       "dev.zio"                %%% "zio"                     % ZioVersion,
@@ -253,9 +253,9 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.23",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.23",
-      "com.softwaremill.sttp.client3" %% "core"                % "3.10.3",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.42",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.42",
+      "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
       "org.slf4j"                      % "slf4j-simple"        % "2.0.17",
@@ -265,6 +265,7 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 
 lazy val zioHttpCli = (project in file("zio-http-cli"))
   .settings(stdSettings("zio-http-cli"))
+  .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= Seq(`zio-cli`),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
@@ -300,8 +301,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
-      "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.4.1",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.4.1",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen)
@@ -345,9 +346,9 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
   .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.17",
-      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.30.2"  % "protobuf",
+      "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.19",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.32.0"  % "protobuf",
     ),
   )
   .settings(
@@ -371,8 +372,8 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.30.2"  % "protobuf",
-      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.17" % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.32.0"  % "protobuf",
+      "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % "protobuf",
     ),
     Compile / run / fork := true,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
@@ -407,6 +408,7 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
 lazy val docs = project
   .in(file("zio-http-docs"))
   .settings(stdSettings("zio-http-docs"))
+  .settings(publishSetting(false))
   .settings(
     fork                                       := false,
     moduleName                                 := "zio-http-docs",
@@ -426,6 +428,7 @@ lazy val docs = project
       `zio-config-typesafe`,
     ),
     publish / skip                             := true,
+    mdocOut                                    := file("website/docs"),
     mdocVariables ++= Map(
       "ZIO_VERSION"        -> ZioVersion,
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,

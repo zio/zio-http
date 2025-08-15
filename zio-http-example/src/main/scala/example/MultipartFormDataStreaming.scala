@@ -1,3 +1,6 @@
+//> using dep "dev.zio::zio-http:3.4.0"
+//> using dep "dev.zio::zio-streams:2.1.18"
+
 package example
 
 import scala.annotation.nowarn

@@ -11,7 +11,6 @@ private object CachedDateHeader {
 
 private final class CachedDateHeader(
   clock: Clock = Clock.tickSeconds(ZoneOffset.UTC),
-  dateEncoding: DateEncoding = DateEncoding.default,
 ) {
   private var _headerValue = renderDateHeaderValue(clock.millis())
 
@@ -42,7 +41,7 @@ private final class CachedDateHeader(
       .ofEpochSecond(epochMilli / 1000L, 0, ZoneOffset.UTC)
       .atZone(ZoneOffset.UTC)
 
-    dateEncoding.encodeDate(dt)
+    DateEncoding.encodeDate(dt)
   }
 
   private def updateHeaderValue(epochMilli: Long): Unit =

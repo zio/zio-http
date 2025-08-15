@@ -18,6 +18,8 @@ package zio.http
 
 import zio.{Chunk, ChunkBuilder}
 
+import zio.http.internal.ThreadLocals
+
 /**
  * Path is an immutable representation of the path of a URL. Internally it
  * stores each element of a path in a sequence of text, together with flags on
@@ -122,9 +124,22 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
    * Encodes the current path into a valid string.
    */
   def encode: String =
-    if (self == Path.empty) ""
+    if (isEmpty) ""
     else if (self == Path.root) "/"
     else segments.mkString(if (hasLeadingSlash) "/" else "", "/", if (hasTrailingSlash) "/" else "")
+
+  private[http] def encodeBuilder: java.lang.StringBuilder = {
+    val sb      = ThreadLocals.stringBuilder
+    if (hasLeadingSlash) sb.append('/')
+    var idx     = 0
+    val lastIdx = segments.length - 1
+    while (idx <= lastIdx) {
+      sb.append(segments(idx))
+      if (hasTrailingSlash || idx != lastIdx) sb.append('/')
+      idx += 1
+    }
+    sb
+  }
 
   override def equals(that: Any): Boolean =
     that match {
@@ -159,7 +174,7 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   /**
    * Checks if the path is equal to "".
    */
-  def isEmpty: Boolean = segments.isEmpty && (flags == Flags.none)
+  def isEmpty: Boolean = (self eq Path.empty) || segments.isEmpty && (flags == Flags.none)
 
   /**
    * Checks if the path is equal to "/".
@@ -333,7 +348,7 @@ object Path {
         i = i + 1
       }
 
-      Path(flags, chunkBuilder.result())
+      Path(flags, chunkBuilder.result()).removeDotSegments
     }
 
   /**

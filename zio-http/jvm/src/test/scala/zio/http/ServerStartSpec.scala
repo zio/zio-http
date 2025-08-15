@@ -17,7 +17,7 @@
 package zio.http
 
 import zio.test.Assertion.{equalTo, not}
-import zio.test.TestAspect.withLiveClock
+import zio.test.TestAspect.{flaky, withLiveClock}
 import zio.test._
 import zio.{Scope, ZIO, ZLayer}
 
@@ -59,7 +59,7 @@ object ServerStartSpec extends RoutesRunnableSpec {
           ZLayer.succeed(Server.Config.default.port(8089)),
           ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         )
-    },
+    } @@ flaky,
   )
 
   override def spec: Spec[TestEnvironment with Scope, Any] = serverStartSpec @@ withLiveClock

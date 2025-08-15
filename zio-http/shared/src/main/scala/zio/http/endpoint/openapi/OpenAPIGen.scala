@@ -702,13 +702,23 @@ object OpenAPIGen {
       OpenAPI.Path.fromString(pathString).getOrElse(throw new Exception(s"Invalid path: $pathString"))
     }
 
-    def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
-      val maybeDoc                               = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
-      val securityObj: List[SecurityRequirement] = endpoint.authType match {
-        case AuthType.ScopedAuth(auth, scopes) =>
+    def getSecurity(
+      endpoint: Endpoint[_, _, _, _, _],
+    ): List[SecurityRequirement] =
+      endpointSecurity(endpoint)
+
+    def endpointSecurity(endpoint: Endpoint[_, _, _, _, _]): List[SecurityRequirement] = {
+      endpoint.authType match {
+        case AuthType.ScopedAuth(auth, scopes)                  =>
           List(SecurityRequirement(Map(auth.toString() -> scopes)))
-        case _                                 => Nil
+        case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+          List(SecurityRequirement(Map(endpoint.authType.toString() -> Nil)))
+        case _                                                  => Nil
       }
+    }
+
+    def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
+      val maybeDoc = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
         tags = endpoint.tags,
         summary = None,
@@ -719,7 +729,7 @@ object OpenAPIGen {
         requestBody = requestBody,
         responses = responses,
         callbacks = Map.empty,
-        security = securityObj,
+        security = getSecurity(endpoint),
         servers = Nil,
       )
     }
@@ -734,8 +744,11 @@ object OpenAPIGen {
 
     def requestBody: Option[OpenAPI.ReferenceOr[OpenAPI.RequestBody]] =
       ins.map { mediaTypes =>
-        val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }.reduce(_ ++ _)
-        val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
+        val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }
+          .reduceOption(_ ++ _)
+          .getOrElse(AtomizedMetaCodecs.empty)
+
+        val mediaTypeResponses = mediaTypes.map { case (mediaType, (schema, atomized)) =>
           mediaType.fullType -> OpenAPI.MediaType(
             schema = OpenAPI.ReferenceOr.Or(schema),
             examples = atomized.contentExamples(genExamples),
@@ -770,10 +783,13 @@ object OpenAPIGen {
           exName -> recordSchema.deconstruct(ex)(Unsafe.unsafe)
         }
         codec.recordFields.zipWithIndex.map { case ((field, codec), index) =>
+          val docs = codec.schema.annotations.collectFirst { case desc: zio.schema.annotation.description =>
+            mc.docs + Doc.p(desc.text)
+          }.orElse(mc.docsOpt)
           OpenAPI.ReferenceOr.Or(
             OpenAPI.Parameter.queryParameter(
               name = field.name,
-              description = mc.docsOpt,
+              description = docs,
               schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
               deprecated = mc.deprecated,
               style = OpenAPI.Parameter.Style.Form,
@@ -846,8 +862,9 @@ object OpenAPIGen {
             // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
             val typeId   =
               (case_.schema match {
-                case lzy: Schema.Lazy[_] => lzy.schema
-                case _                   => case_.schema
+                case lzy: Schema.Lazy[_]                  => lzy.schema
+                case transform: Schema.Transform[_, _, _] => transform.schema
+                case _                                    => case_.schema
               })
                 .asInstanceOf[Schema.Record[_]]
                 .id
@@ -945,43 +962,41 @@ object OpenAPIGen {
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(jsonSchemaFromCodec(codec).get))))
       }.flatten.toMap
 
-    val securityObj: List[SecurityRequirement] = endpoint.authType match {
-      case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-        List(
-          SecurityRequirement(
-            Map(endpoint.authType.toString() -> endpoint.scopes),
-          ),
-        )
-      case AuthType.ScopedAuth(auth, scopes)                  =>
-        List(SecurityRequirement(Map(auth.toString() -> scopes)))
-      case _                                                  => Nil
-    }
+    def httpSecuritySchemes(
+      endpoint: Endpoint[_, _, _, _, _],
+      params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
+    ): ListMap[Key, ReferenceOr[SecurityScheme]] =
+      endpoint.authType match {
+        case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+          ListMap(
+            OpenAPI.Key.fromString(endpoint.authType.toString()).get ->
+              ReferenceOr.Or[SecurityScheme.Http](
+                SecurityScheme.Http(
+                  scheme = endpoint.authType.toString(),
+                  bearerFormat = None,
+                  description = None,
+                ),
+              ),
+          )
+        case AuthType.ScopedAuth(auth, _)                       =>
+          ListMap(
+            OpenAPI.Key.fromString(auth.toString()).get ->
+              ReferenceOr.Or[SecurityScheme.Http](
+                SecurityScheme.Http(
+                  scheme = auth.toString(),
+                  bearerFormat = None,
+                  description = None,
+                ),
+              ),
+          )
+        case _                                                  => ListMap.empty
+      }
 
-    val securitySchemesObj: ListMap[Key, ReferenceOr[SecurityScheme]] = endpoint.authType match {
-      case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-        ListMap(
-          OpenAPI.Key.fromString(endpoint.authType.toString()).get ->
-            ReferenceOr.Or[SecurityScheme.Http](
-              SecurityScheme.Http(
-                scheme = endpoint.authType.toString(),
-                bearerFormat = None,
-                description = None,
-              ),
-            ),
-        )
-      case AuthType.ScopedAuth(auth, _)                       =>
-        ListMap(
-          OpenAPI.Key.fromString(auth.toString()).get ->
-            ReferenceOr.Or[SecurityScheme.Http](
-              SecurityScheme.Http(
-                scheme = auth.toString(),
-                bearerFormat = None,
-                description = None,
-              ),
-            ),
-        )
-      case _                                                  => ListMap.empty
-    }
+    def getSecuritySchemes(
+      endpoint: Endpoint[_, _, _, _, _],
+      params: Set[ReferenceOr[OpenAPI.Parameter]],
+    ): ListMap[Key, ReferenceOr[SecurityScheme]] =
+      httpSecuritySchemes(endpoint, params)
 
     def components = OpenAPI.Components(
       schemas = ListMap(componentSchemas.toSeq.sortBy(_._1.name): _*),
@@ -990,7 +1005,7 @@ object OpenAPIGen {
       examples = ListMap.empty,
       requestBodies = ListMap.empty,
       headers = ListMap.empty,
-      securitySchemes = securitySchemesObj,
+      securitySchemes = getSecuritySchemes(endpoint, headerParams ++ queryParams),
       links = ListMap.empty,
       callbacks = ListMap.empty,
     )
@@ -1008,7 +1023,7 @@ object OpenAPIGen {
       servers = Nil,
       paths = ListMap(path.toSeq.sortBy(_._1.name): _*),
       components = Some(components),
-      security = securityObj,
+      security = getSecurity(endpoint),
       tags = Nil,
       externalDocs = None,
     )
@@ -1035,7 +1050,7 @@ object OpenAPIGen {
     groupMap(statusAndCodec) { case (status, _) => status } { case (_, atomizedAndSchema) =>
       atomizedAndSchema
     }.map { case (status, values) =>
-      val mapped = values
+      val mapped = values.filter { case (atomized, _) => atomized.content.nonEmpty }
         .foldLeft(Chunk.empty[(MediaType, (AtomizedMetaCodecs, JsonSchema))]) { case (acc, (atomized, schema)) =>
           if (atomized.content.size > 1) {
             acc :+ ((MediaType.multipart.`form-data`, (atomized, schema(MediaType.multipart.`form-data`))))
@@ -1055,10 +1070,13 @@ object OpenAPIGen {
       status -> groupMap(mapped) { case (mediaType, _) => mediaType } { case (_, atomizedAndSchema) =>
         atomizedAndSchema
       }.map {
-        case (mediaType, Chunk((atomized, schema))) if values.size == 1 =>
+        case (mediaType, Chunk((atomized, schema))) if mapped.size == 1 =>
           (mediaType, (schema, atomized))
         case (mediaType, values)                                        =>
-          val combinedAtomized: AtomizedMetaCodecs = values.map(_._1).reduce(_ ++ _)
+          val combinedAtomized: AtomizedMetaCodecs = values
+            .map(_._1)
+            .reduceOption(_ ++ _)
+            .getOrElse(AtomizedMetaCodecs.empty)
           val combinedContentDoc                   = combinedAtomized.contentDocs.toCommonMark
           val vals                                 =
             if (values.forall(v => v._2.isNullable || v._2 == JsonSchema.Null))
