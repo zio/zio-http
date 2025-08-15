@@ -58,11 +58,11 @@ ThisBuild / githubWorkflowPublish         :=
       List("ci-release"),
       name = Some("Release"),
       env = Map(
-        "PGP_PASSPHRASE"      -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET"          -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD"   -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME"   -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_RELEASE_MODE" -> "1",
+        "PGP_PASSPHRASE"    -> "${{ secrets.PGP_PASSPHRASE }}",
+        "PGP_SECRET"        -> "${{ secrets.PGP_SECRET }}",
+        "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
+        "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
+        "CI_RELEASE_MODE"   -> "1",
       ),
     ),
     WorkflowStep.Sbt(
@@ -74,7 +74,7 @@ ThisBuild / githubWorkflowPublish         :=
         "PGP_SECRET"               -> "${{ secrets.PGP_SECRET }}",
         "SONATYPE_PASSWORD"        -> "${{ secrets.SONATYPE_PASSWORD }}",
         "SONATYPE_USERNAME"        -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_RELEASE_MODE"      -> "1",
+        "CI_RELEASE_MODE"          -> "1",
       ),
     ),
   )
@@ -301,8 +301,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
-      "dev.zio" %% "zio-metrics-connectors"            % "2.4.0",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.4.0",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.4.1",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.4.1",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen)
