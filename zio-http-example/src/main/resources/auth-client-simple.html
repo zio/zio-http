@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 300px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+
+        #response {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+<h2>Auth Client</h2>
+
+<form id="loginForm">
+    <input type="text" id="username" placeholder="Username" required>
+    <input type="password" id="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+</form>
+
+<button onclick="getProfile()">Get Profile</button>
+<button onclick="logout()">Logout</button>
+
+<div id="response"></div>
+
+<script>
+    const response = document.getElementById('response');
+
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        const params = new URLSearchParams();
+        params.append('username', username);
+        params.append('password', password);
+
+        try {
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params,
+                credentials: 'include'
+            });
+            response.textContent = await res.text();
+        } catch (error) {
+            response.textContent = 'Error: ' + error.message;
+        }
+    });
+
+    async function getProfile() {
+        try {
+            const res = await fetch('/profile/me', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            response.textContent = await res.text();
+        } catch (error) {
+            response.textContent = 'Error: ' + error.message;
+        }
+    }
+
+    async function logout() {
+        try {
+            const res = await fetch('/logout', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            response.textContent = await res.text();
+        } catch (error) {
+            response.textContent = 'Error: ' + error.message;
+        }
+    }
+</script>
+</body>
+</html>

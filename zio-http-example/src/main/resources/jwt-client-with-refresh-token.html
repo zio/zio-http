@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT Authentication with Refresh Token</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            color: #333;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .response.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .response.success {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #155724;
+        }
+
+        .response.error {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: #721c24;
+        }
+
+        .token-info {
+            background: rgba(248, 249, 250, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .token-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .token-field {
+            margin-bottom: 15px;
+        }
+
+        .token-field strong {
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .token-value {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            color: #666;
+            word-break: break-all;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #e1e5e9;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.connected {
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .auto-refresh {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 10px;
+            color: #856404;
+        }
+
+        .countdown {
+            font-weight: bold;
+            color: #dc3545;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="auth-logo">🔐</div>
+        <h1>JWT Authentication Demo</h1>
+        <p class="subtitle">JWT with Refresh Token Management</p>
+    </div>
+
+    <!-- Login Section -->
+    <div class="section">
+        <h2><span class="status-indicator" id="authStatus"></span>Authentication</h2>
+        <div id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" value="John" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="nhoJ" placeholder="Enter password">
+            </div>
+            <button class="btn btn-primary" onclick="login()">
+                <span>🔑</span>
+                Login
+            </button>
+            <button class="btn btn-secondary" onclick="clearTokens()">
+                <span>🗑️</span>
+                Clear Tokens
+            </button>
+        </div>
+        <div id="authResponse" class="response"></div>
+        <div id="tokenInfo" class="token-info" style="display: none;"></div>
+    </div>
+
+    <!-- Protected Route Section -->
+    <div class="section">
+        <h2>🛡️ Protected Route Access</h2>
+        <button class="btn btn-primary" onclick="accessProtectedRoute()" id="protectedBtn">
+            <span>👤</span>
+            Access Profile
+        </button>
+        <button class="btn btn-secondary" onclick="refreshTokens()" id="refreshBtn">
+            <span>🔄</span>
+            Refresh Tokens
+        </button>
+        <div id="protectedResponse" class="response"></div>
+    </div>
+
+    <!-- Auto-refresh Section -->
+    <div class="section">
+        <h2>⚡ Auto-refresh Demo</h2>
+        <button class="btn btn-primary" onclick="startAutoRefresh()" id="autoRefreshBtn">
+            <span>🔄</span>
+            Start Auto-refresh Demo
+        </button>
+        <button class="btn btn-secondary" onclick="stopAutoRefresh()" id="stopAutoRefreshBtn" disabled>
+            <span>⏹️</span>
+            Stop Auto-refresh
+        </button>
+        <div id="autoRefreshInfo" class="auto-refresh" style="display: none;"></div>
+        <div id="autoRefreshResponse" class="response"></div>
+    </div>
+</div>
+
+<script>
+    let accessToken = null;
+    let refreshToken = null;
+    let tokenExpiryTime = null;
+    let autoRefreshInterval = null;
+    let countdownInterval = null;
+
+    // Update UI based on authentication state
+    function updateAuthStatus() {
+        const statusIndicator = document.getElementById('authStatus');
+        const protectedBtn = document.getElementById('protectedBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const autoRefreshBtn = document.getElementById('autoRefreshBtn');
+
+        if (accessToken) {
+            statusIndicator.classList.remove('disconnected');
+            statusIndicator.classList.add('connected');
+            protectedBtn.disabled = false;
+            refreshBtn.disabled = false;
+            autoRefreshBtn.disabled = false;
+        } else {
+            statusIndicator.classList.remove('connected');
+            statusIndicator.classList.add('disconnected');
+            protectedBtn.disabled = true;
+            refreshBtn.disabled = true;
+            autoRefreshBtn.disabled = true;
+        }
+    }
+
+    // Display response in a formatted way
+    function displayResponse(elementId, response, isError = false) {
+        const element = document.getElementById(elementId);
+        element.style.display = 'block';
+        element.className = `response ${isError ? 'error' : 'success'} show`;
+
+        if (typeof response === 'object') {
+            element.textContent = JSON.stringify(response, null, 2);
+        } else {
+            element.textContent = response;
+        }
+    }
+
+    // Display token information
+    function displayTokenInfo(tokens) {
+        const tokenInfo = document.getElementById('tokenInfo');
+        tokenInfo.style.display = 'block';
+
+        // Calculate expiry time
+        tokenExpiryTime = new Date(Date.now() + (tokens.expiresIn * 1000));
+
+        tokenInfo.innerHTML = `
+            <h3>Token Information</h3>
+            <div class="token-field">
+                <strong>Access Token:</strong>
+                <div class="token-value">${tokens.accessToken}</div>
+            </div>
+            <div class="token-field">
+                <strong>Refresh Token:</strong>
+                <div class="token-value">${tokens.refreshToken}</div>
+            </div>
+            <div class="token-field">
+                <strong>Token Type:</strong>
+                <div class="token-value">${tokens.tokenType}</div>
+            </div>
+            <div class="token-field">
+                <strong>Expires In:</strong>
+                <div class="token-value">${tokens.expiresIn} seconds</div>
+            </div>
+            <div class="token-field">
+                <strong>Expires At:</strong>
+                <div class="token-value">${tokenExpiryTime.toLocaleString()}</div>
+            </div>
+        `;
+    }
+
+    // Login function
+    async function login() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            displayResponse('authResponse', 'Please enter both username and password', true);
+            return;
+        }
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                const tokens = await response.json();
+                accessToken = tokens.accessToken;
+                refreshToken = tokens.refreshToken;
+
+                displayResponse('authResponse', 'Login successful!');
+                displayTokenInfo(tokens);
+                updateAuthStatus();
+            } else {
+                const errorText = await response.text();
+                displayResponse('authResponse', `Login failed: ${errorText}`, true);
+            }
+        } catch (error) {
+            displayResponse('authResponse', `Network error: ${error.message}`, true);
+        }
+    }
+
+    // Access protected route
+    async function accessProtectedRoute() {
+        if (!accessToken) {
+            displayResponse('protectedResponse', 'No access token available. Please login first.', true);
+            return;
+        }
+
+        try {
+            const response = await fetch('/profile/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.text();
+                displayResponse('protectedResponse', data);
+            } else if (response.status === 401) {
+                displayResponse('protectedResponse', 'Access token expired. Attempting to refresh...', true);
+                await refreshTokens();
+                // Retry after refresh
+                if (accessToken) {
+                    setTimeout(() => accessProtectedRoute(), 1000);
+                }
+            } else {
+                const errorText = await response.text();
+                displayResponse('protectedResponse', `Error: ${errorText}`, true);
+            }
+        } catch (error) {
+            displayResponse('protectedResponse', `Network error: ${error.message}`, true);
+        }
+    }
+
+    // Refresh tokens
+    async function refreshTokens() {
+        if (!refreshToken) {
+            displayResponse('protectedResponse', 'No refresh token available. Please login first.', true);
+            return;
+        }
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('refreshToken', refreshToken);
+
+            const response = await fetch('/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                const tokens = await response.json();
+                accessToken = tokens.accessToken;
+                refreshToken = tokens.refreshToken;
+
+                displayResponse('protectedResponse', 'Tokens refreshed successfully!');
+                displayTokenInfo(tokens);
+                updateAuthStatus();
+            } else {
+                const errorText = await response.text();
+                displayResponse('protectedResponse', `Token refresh failed: ${errorText}`, true);
+                clearTokens();
+            }
+        } catch (error) {
+            displayResponse('protectedResponse', `Network error: ${error.message}`, true);
+        }
+    }
+
+    // Clear tokens
+    function clearTokens() {
+        accessToken = null;
+        refreshToken = null;
+        tokenExpiryTime = null;
+
+        document.getElementById('tokenInfo').style.display = 'none';
+        document.getElementById('authResponse').style.display = 'none';
+        document.getElementById('protectedResponse').style.display = 'none';
+        document.getElementById('autoRefreshResponse').style.display = 'none';
+
+        stopAutoRefresh();
+        updateAuthStatus();
+    }
+
+    // Start auto-refresh demo
+    function startAutoRefresh() {
+        if (!accessToken) {
+            displayResponse('autoRefreshResponse', 'Please login first to start auto-refresh demo.', true);
+            return;
+        }
+
+        document.getElementById('autoRefreshBtn').disabled = true;
+        document.getElementById('stopAutoRefreshBtn').disabled = false;
+
+        const autoRefreshInfo = document.getElementById('autoRefreshInfo');
+        autoRefreshInfo.style.display = 'block';
+
+        // Make requests every 10 seconds
+        autoRefreshInterval = setInterval(async () => {
+            displayResponse('autoRefreshResponse', 'Making auto-refresh request...');
+            await accessProtectedRoute();
+        }, 10000);
+
+        // Update countdown every second
+        countdownInterval = setInterval(() => {
+            if (tokenExpiryTime) {
+                const now = new Date();
+                const timeLeft = Math.max(0, Math.floor((tokenExpiryTime - now) / 1000));
+
+                if (timeLeft > 0) {
+                    autoRefreshInfo.innerHTML = `
+                        <strong>Auto-refresh Demo Running</strong><br>
+                        Making requests every 10 seconds...<br>
+                        Token expires in: <span class="countdown">${timeLeft}s</span>
+                    `;
+                } else {
+                    autoRefreshInfo.innerHTML = `
+                        <strong>Auto-refresh Demo Running</strong><br>
+                        Making requests every 10 seconds...<br>
+                        Token expired - should refresh on next request
+                    `;
+                }
+            }
+        }, 1000);
+
+        // Make initial request
+        accessProtectedRoute();
+    }
+
+    // Stop auto-refresh demo
+    function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+
+        document.getElementById('autoRefreshBtn').disabled = false;
+        document.getElementById('stopAutoRefreshBtn').disabled = true;
+        document.getElementById('autoRefreshInfo').style.display = 'none';
+    }
+
+    // Initialize
+    updateAuthStatus();
+
+    // Allow Enter key to login
+    document.getElementById('password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            login();
+        }
+    });
+</script>
+</body>
+</html>
