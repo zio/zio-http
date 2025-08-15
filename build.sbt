@@ -58,11 +58,11 @@ ThisBuild / githubWorkflowPublish         :=
       List("ci-release"),
       name = Some("Release"),
       env = Map(
-        "PGP_PASSPHRASE"      -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET"          -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD"   -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME"   -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_RELEASE_MODE" -> "1",
+        "PGP_PASSPHRASE"    -> "${{ secrets.PGP_PASSPHRASE }}",
+        "PGP_SECRET"        -> "${{ secrets.PGP_SECRET }}",
+        "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
+        "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
+        "CI_RELEASE_MODE"   -> "1",
       ),
     ),
     WorkflowStep.Sbt(
@@ -74,7 +74,7 @@ ThisBuild / githubWorkflowPublish         :=
         "PGP_SECRET"               -> "${{ secrets.PGP_SECRET }}",
         "SONATYPE_PASSWORD"        -> "${{ secrets.SONATYPE_PASSWORD }}",
         "SONATYPE_USERNAME"        -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_RELEASE_MODE"      -> "1",
+        "CI_RELEASE_MODE"          -> "1",
       ),
     ),
   )
@@ -348,7 +348,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.19",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.31.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.32.0"  % "protobuf",
     ),
   )
   .settings(
@@ -372,7 +372,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.31.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.32.0"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % "protobuf",
     ),
     Compile / run / fork := true,
