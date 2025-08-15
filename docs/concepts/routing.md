@@ -21,7 +21,7 @@ ZIO HTTP will then reject the request automatically. The user defined handler wi
 ```scala mdoc:compile-only
 import zio.http._
 val routes = Routes(
-  Method.GET / "hello" / string("name") -> handler { (name: String, req: Request) =>
+  Method.GET / "hello" / string("name") -> handler { (name: String, _: Request) =>
     Response.text(s"Hello $name")
   }
 )
