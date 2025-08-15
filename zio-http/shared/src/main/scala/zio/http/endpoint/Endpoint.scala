@@ -298,6 +298,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
 
+    def isAuthHeader(headerName: String): Boolean = {
+      val lowerName = headerName.toLowerCase
+      lowerName == "authorization" || lowerName == "www-authenticate" || lowerName.startsWith("x-auth")
+    }
+
     def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
       case AuthType.None                => HttpCodec.empty
       case AuthType.Basic               =>
@@ -384,7 +389,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
                 maybeUnauthedResponse.get
-              case Some(_) =>
+              case Some(HttpCodecError.MissingHeader(headerName)) if isAuthHeader(headerName)           =>
+                Handler.succeed(Response.unauthorized)
+              case Some(HttpCodecError.MissingHeaders(headerNames)) if headerNames.exists(isAuthHeader) =>
+                Handler.succeed(Response.unauthorized)
+              case Some(_)                                                                              =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
@@ -399,7 +408,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   }
                   ZIO.succeed(response)
                 }
-              case None    =>
+              case None                                                                                 =>
                 Handler.failCause(cause)
             }
           }
