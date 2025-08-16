@@ -340,17 +340,26 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       config: CodecConfig,
     ): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] = {
       def handleEncodingBodyErrorHandling(request: Request) =
-        ZIO.attempt(
-          codecError.encodeResponse(
-            EncodingResponseError,
-            (
-              request.headers
-                .getAll(Header.Accept)
-                .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
-            ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn),
-            config,
-          ),
+        codecError.encodeResponse(
+          EncodingResponseError,
+          (
+            request.headers
+              .getAll(Header.Accept)
+              .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
+          ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn),
+          config,
         )
+
+      def encodeWithFallback(encode: => Response, fallback: => Response) = {
+        try {
+          val result = encode
+          Exit.succeed(result)
+        } catch {
+          case t: Throwable =>
+            ZIO.logErrorCause("Encoding failed", Cause.fail(t)) *>
+              Exit.succeed(fallback)
+        }
+      }
 
       self.alternatives.map { case (endpoint, condition) =>
         Handler.fromFunctionZIO { (request: zio.http.Request) =>
@@ -365,20 +374,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               .asInstanceOf[ZIO[Env, Err, Output]]
               .foldZIO(
                 success = output =>
-                  ZIO
-                    .attempt(endpoint.output.encodeResponse(output, outputMediaTypes, config))
-                    .logError
-                    .orElse(handleEncodingBodyErrorHandling(request))
-                    .orDie
-                    .flatMap(Exit.succeed),
+                  encodeWithFallback(
+                    endpoint.output.encodeResponse(output, outputMediaTypes, config),
+                    handleEncodingBodyErrorHandling(request),
+                  ),
                 failure = error =>
-                  ZIO
-                    .attempt(endpoint.error.encodeResponse(error, outputMediaTypes, config))
-                    .logError
-                    .orElse(handleEncodingBodyErrorHandling(request))
-                    .logError
-                    .orDie
-                    .flatMap(Exit.succeed),
+                  encodeWithFallback(
+                    endpoint.error.encodeResponse(error, outputMediaTypes, config),
+                    handleEncodingBodyErrorHandling(request),
+                  ),
               )
           }
         } -> condition
