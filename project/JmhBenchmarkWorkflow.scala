@@ -126,7 +126,7 @@ object JmhBenchmarkWorkflow {
           UseRef.Public("actions", "setup-java", "v4"),
           Map(
             "distribution" -> "temurin",
-            "java-version" -> "11",
+            "java-version" -> "17",
           ),
         ),
         WorkflowStep.Run(

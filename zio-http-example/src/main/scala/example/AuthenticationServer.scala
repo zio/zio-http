@@ -1,3 +1,6 @@
+//> using dep "dev.zio::zio-http:3.4.0"
+//> using dep "com.github.jwt-scala::jwt-core:10.0.4"
+
 package example
 
 import java.time.Clock

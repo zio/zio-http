@@ -331,6 +331,10 @@ object Response {
     }
   }
 
+  def badGateway: Response = error(Status.BadGateway)
+
+  def badGateway(message: String): Response = error(Status.BadGateway, message)
+
   def gatewayTimeout: Response = error(Status.GatewayTimeout)
 
   def gatewayTimeout(message: String): Response = error(Status.GatewayTimeout, message)

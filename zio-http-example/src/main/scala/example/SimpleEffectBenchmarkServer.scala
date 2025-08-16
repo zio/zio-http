@@ -1,3 +1,5 @@
+//> using dep "dev.zio::zio-http:3.4.0"
+
 package example
 
 import zio._
@@ -40,7 +42,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
   private val configLayer      = ZLayer.succeed(config)
   private val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
-  val run: UIO[ExitCode] =
-    Server.serve(routes).provide(configLayer, nettyConfigLayer, Server.customized).exitCode
+  override val run =
+    Server.serve(routes).provide(configLayer, nettyConfigLayer, Server.customized)
 
 }

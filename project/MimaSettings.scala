@@ -40,6 +40,8 @@ object MimaSettings {
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.netty.CachedDateHeader.<init>$default$2"),
         ProblemFilters.exclude[MissingClassProblem]("zio.http.netty.NettyDateEncoding"),
         ProblemFilters.exclude[MissingClassProblem]("zio.http.netty.NettyDateEncoding$"),
+        ProblemFilters.exclude[MissingClassProblem]("zio.http.netty.NettyHeaderEncoding"),
+        ProblemFilters.exclude[MissingClassProblem]("zio.http.netty.NettyHeaderEncoding$"),
       ),
       mimaFailOnProblem := failOnProblem,
     )
