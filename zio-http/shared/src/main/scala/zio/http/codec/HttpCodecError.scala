@@ -92,7 +92,7 @@ object HttpCodecError {
     def message = s"Unsupported content type $contentType"
   }
 
-  final case object EncodingResponseError extends HttpCodecError {
+  case object EncodingResponseError extends HttpCodecError {
     override def message: String = "Unexpected error happened when encoding response"
   }
 
