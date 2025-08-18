@@ -24,7 +24,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
     Routes(
       Method.GET / Root             ->
         Handler
-          .fromResource("auth-client.html")
+          .fromResource("cookie-based-auth-client.html")
           .orElse(
             Handler.internalServerError("Failed to load HTML file"),
           ),
@@ -49,7 +49,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
               name = SESSION_COOKIE_NAME,
               content = sessionId,
               maxAge = Some(SESSION_LIFETIME.seconds),
-              isHttpOnly = true,
+              isHttpOnly = false, // Set to true in production to prevent XSS attacks
               isSecure = false, // Set to true in production with HTTPS
               sameSite = Some(Cookie.SameSite.Strict),
             )
@@ -97,6 +97,5 @@ object CookieAuthenticationServer extends ZIOAppDefault {
       _ <- Console.printLine("   - GET /profile/me (protected)")
       _ <- Console.printLine("   - GET /logout (protected)")
     } yield ()
-  }.flatMap(_ => SessionService.make)
-    .flatMap(authService => Server.serve(routes).provide(Server.default, SessionService.live, UserService.live))
+  }.flatMap(_ => Server.serve(routes).provide(Server.default, SessionService.live, UserService.live))
 }
