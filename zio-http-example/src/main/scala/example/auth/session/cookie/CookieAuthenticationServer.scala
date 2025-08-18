@@ -33,7 +33,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
           ),
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
         ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
-      } @@ cookieAuth(SESSION_COOKIE_NAME) @@ Middleware.debug,
+      } @@ cookieAuth(SESSION_COOKIE_NAME),
       Method.POST / "login"         ->
         handler { (request: Request) =>
           val form = request.body.asURLEncodedForm.orElseFail(Response.badRequest("Invalid form data"))
