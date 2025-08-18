@@ -4,12 +4,10 @@ import zio._
 import zio.http._
 
 object CookieAuthMiddleware {
-  val SESSION_COOKIE_NAME = "session_id"
-
-  val cookieAuth: HandlerAspect[SessionService, String] =
+  def cookieAuth(cookieName: String = "session_id"): HandlerAspect[SessionService, String] =
     HandlerAspect.interceptIncomingHandler(Handler.fromFunctionZIO[Request] { request =>
       ZIO.serviceWithZIO[SessionService] { sessionService =>
-        request.cookie(SESSION_COOKIE_NAME) match {
+        request.cookie(cookieName) match {
           case Some(cookie) =>
             sessionService.getSession(cookie.content).flatMap {
               case Some(username) =>

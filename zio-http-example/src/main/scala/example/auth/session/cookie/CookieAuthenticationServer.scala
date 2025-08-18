@@ -1,7 +1,9 @@
+//> using dep "dev.zio::zio-http:3.3.3"
+
 package example.auth.session.cookie
 
-import example.auth.session.cookie.core.CookieAuthMiddleware.{SESSION_COOKIE_NAME, cookieAuth}
-import example.auth.session.cookie.core.{SessionService, UserService}
+import example.auth.session.cookie.core.CookieAuthMiddleware.cookieAuth
+import example.auth.session.cookie.core._
 import zio.Config.Secret
 import zio._
 import zio.http._
@@ -18,7 +20,8 @@ import zio.http._
  *   - GET /logout -> Logout endpoint
  */
 object CookieAuthenticationServer extends ZIOAppDefault {
-  val SESSION_LIFETIME = 300
+  val SESSION_LIFETIME    = 300
+  val SESSION_COOKIE_NAME = "session_id"
 
   def routes: Routes[SessionService & UserService, Nothing] =
     Routes(
@@ -30,7 +33,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
           ),
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
         ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
-      } @@ cookieAuth,
+      } @@ cookieAuth(SESSION_COOKIE_NAME) @@ Middleware.debug,
       Method.POST / "login"         ->
         handler { (request: Request) =>
           val form = request.body.asURLEncodedForm.orElseFail(Response.badRequest("Invalid form data"))
@@ -50,7 +53,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
               content = sessionId,
               maxAge = Some(SESSION_LIFETIME.seconds),
               isHttpOnly = false, // Set to true in production to prevent XSS attacks
-              isSecure = false, // Set to true in production with HTTPS
+              isSecure = false,   // Set to true in production with HTTPS
               sameSite = Some(Cookie.SameSite.Strict),
             )
             users <- ZIO.service[UserService]
@@ -84,7 +87,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
               case None         =>
                 ZIO.succeed(Response.text("No active session found."))
             }
-          } @@ cookieAuth.as(())
+          } @@ cookieAuth(SESSION_COOKIE_NAME).as(())
         },
     ) @@ Middleware.debug
 
