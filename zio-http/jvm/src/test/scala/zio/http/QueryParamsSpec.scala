@@ -268,6 +268,8 @@ object QueryParamsSpec extends ZIOHttpSpec {
               ("?a=%2C&a=b%2Cc", QueryParams("a" -> Chunk(",", "b,c"))),
               ("?commas=%2C%2C%2C%2C%2C", QueryParams(("commas", ",,,,,"))),
               ("?commas=%2Cb%2Cc%2Cd%2Ce%2Cf", QueryParams(("commas", ",b,c,d,e,f"))),
+              ("?spaces=foo%20bar%20baz", QueryParams(("spaces", "foo bar baz"))),
+              ("?spaces=foo+bar+baz", QueryParams(("spaces", "foo bar baz"))),
             ),
           )
 
@@ -295,6 +297,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
               (QueryParams(Map("a" -> Chunk(""))), "?a="),
               (QueryParams(Map("a" -> Chunk("", "b"))), "?a=&a=b"),
               (QueryParams(Map("a" -> Chunk("c,d"))), "?a=c%2Cd"),
+              (QueryParams(Map("spaces" -> Chunk("foo bar baz"))), "?spaces=foo+bar+baz"),
             ),
           )
 

@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -129,7 +129,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -214,7 +214,7 @@ jobs:
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
+          CI_RELEASE_MODE: 1
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
         run: sbt ci-release
@@ -224,7 +224,7 @@ jobs:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           PUBLISH_SHADED: true
-          CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
+          CI_RELEASE_MODE: 1
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
         run: sbt ci-release
@@ -313,7 +313,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -351,7 +351,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -389,7 +389,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -427,7 +427,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -465,7 +465,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -503,7 +503,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -541,7 +541,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -579,7 +579,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -617,7 +617,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -655,7 +655,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -693,7 +693,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -731,7 +731,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -769,7 +769,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -807,7 +807,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -845,7 +845,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -883,7 +883,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -921,7 +921,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -959,7 +959,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main

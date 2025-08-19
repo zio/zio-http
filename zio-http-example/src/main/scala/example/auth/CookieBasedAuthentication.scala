@@ -1,3 +1,5 @@
+//> using dep "dev.zio::zio-http:3.4.0"
+
 package example.auth
 
 import zio._
