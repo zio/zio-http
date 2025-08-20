@@ -5,7 +5,7 @@ title: "Installation"
 
 In this guide, we will learn how to get started with a new ZIO HTTP project.
 
-Before we dive in, we should make sure that we have the following on our computer:
+Before we dive in, we should make sure that we have the following on our system:
 
 * JDK 17 or higher
 * sbt (scalaVersion >= 2.12)
@@ -20,7 +20,7 @@ libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 
 ## Using g8 Template
 
-To set up a ZIO HTTP project using the provided g8 template we can run the following command on our terminal:
+To set up a ZIO HTTP project using the provided g8 template, we can run the following command in our terminal:
 
 ```shell
 sbt new zio/zio-http.g8

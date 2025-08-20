@@ -4,7 +4,7 @@ title: "How to Integrate with ZIO Config"
 sidebar_label: Integration with ZIO Config
 ---
 
-When building HTTP applications, it is common to have configuration settings that need to be loaded from various sources such as environment variables, system properties, or configuration files. It is essential especially when deploying applications to different environments like development, testing, and production, or we want to have a cloud-native application that can be configured dynamically.
+When building HTTP applications, it is common to have configuration settings that need to be loaded from various sources such as environment variables, system properties, or configuration files. This is especially essential when deploying applications to different environments like development, testing, and production, or when we want to have a cloud-native application that can be configured dynamically.
 
 ZIO HTTP provides seamless integration with [ZIO Config](https://zio.dev/zio-config/), a powerful configuration library for ZIO, to manage configurations in your HTTP applications.
 

@@ -5,7 +5,7 @@ sidebar_label: "Introduction"
 slug: /introduction
 ---
 
-ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic Scala.
+ZIO HTTP is a Scala library for building HTTP apps. It is powered by ZIO and [Netty](https://netty.io/) and aims at being the de facto solution for writing, highly scalable and performant web applications using idiomatic Scala.
 
 ZIO HTTP is designed in terms of **HTTP as function**, where both server and client are a function from a request to a response, with a focus on type safety, composability, and testability.
 
@@ -17,9 +17,9 @@ Some of the key features of ZIO HTTP are:
 
 **Cloud-Native**: ZIO HTTP is designed for cloud-native environments and supports building highly scalable and performant web applications. Built atop ZIO, it features built-in support for concurrency, parallelism, resource management, error handling, structured logging, configuration management, and metrics instrumentation.
 
-**Imperative and Declarative Endpoints**: ZIO HTTP provides a declarative API for defining HTTP endpoints besides the imperative API. With imperative endpoints, both the shape of the endpoint and the logic are defined together, while with declarative endpoints, the description of the endpoint is separated from its logic. Developers can choose the style that best fit their needs.
+**Imperative and Declarative Endpoints**: ZIO HTTP provides a declarative API for defining HTTP endpoints besides the imperative API. With imperative endpoints, both the shape of the endpoint and the logic are defined together, while with declarative endpoints, the description of the endpoint is separated from its logic. Developers can choose the style that best fits their needs.
 
-**Type-Driven API Design**: Beside the fact that ZIO HTTP supports declarative endpoint descriptions, it also provides a type-driven API design that leverages Scala's type system to ensure correctness and safety at compile time. So the implementation of the endpoint is type-checked against the description of the endpoint.
+**Type-Driven API Design**: Besides the fact that ZIO HTTP supports declarative endpoint descriptions, it also provides a type-driven API design that leverages Scala's type system to ensure correctness and safety at compile time. So the implementation of the endpoint is type-checked against the description of the endpoint.
 
 **Middleware Support**: ZIO HTTP offers middleware support for incorporating cross-cutting concerns such as logging, metrics, authentication, and more into your services.
 
