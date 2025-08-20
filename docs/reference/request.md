@@ -226,7 +226,7 @@ object QueryParamsExample extends ZIOAppDefault {
 The typed version of `Request#queryParams` is `Request#query[Chunk[T]](key: String)` which returns a `Either[QueryParamError, Chunk[T]]`.
 
 :::note
-All the above methods also have `OrElse` versions which take a default value as input and return the default value if the query parameter can not be found or decoded.
+All the above methods also have `OrElse` versions which take a default value as input and return the default value if the query parameter cannot be found or decoded.
 :::
 
 To get a `QueryParams` instance for a request use `Request#queryParameters`. 
@@ -263,7 +263,7 @@ The above example sends a GET request to `http://localhost:8080/search?language=
 
 ### Retrieving URL/Path
 
-To access the URL of the request, we can utilize the `Request#url` method, which yields a `URL` object. For updating the URL of the request, we can use the `Request#updateURL` method, which takes a `URL => URL` function as input. This function allows us to update the URL and return a new `Request` object with the updated URL.
+To access the URL of the request, we can use the `Request#url` method, which yields a `URL` object. For updating the URL of the request, we can use the `Request#updateURL` method, which takes a `URL => URL` function as input. This function allows us to update the URL and return a new `Request` object with the updated URL.
 
 If we want to access the path of the request, we can use the `Request#path` method which returns a `Path` object. Also, we can use the `Request#path` method which takes a `Path` and returns a new `Request` with the updated path.
 

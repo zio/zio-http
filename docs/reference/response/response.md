@@ -216,7 +216,7 @@ final case class ErrorResponseConfig(
 )
 ```
 
-This config can not only be used directly, but can also configure how ZIO-HTTP internally converts a `Cause` or `Throwable` to a `Response`.
+This config cannot only be used directly, but can also configure how ZIO-HTTP internally converts a `Cause` or `Throwable` to a `Response`.
 You can configure error responses globally by providing a custom `ErrorResponseConfig` via layer for example in the bootstrap of your application.
 Or you can apply the config locally to some routes via middleware.
 

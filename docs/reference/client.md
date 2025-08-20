@@ -375,7 +375,7 @@ Let's take a look at the available configuration options:
 - **Connection Pool Configuration**: Defines the size of the connection pool.
 - **Max Initial Line Length**: Sets the maximum length of the initial line in an HTTP request or response. The default is set to 4096 characters.
 - **Max Header Size**: Specifies the maximum size of HTTP headers in bytes. The default is set to 8192 bytes.
-- **Request Decompression**: Specifies whether the client should decompress the response body if it's compressed.
+- **Request Decompression**: Specifies whether the client should decompress the response body if it is compressed.
 - **Local Address**: Specifies the local network interface or address to use for outgoing connections. It's set to None, indicating that the client will use the default local address.
 - **Add User-Agent Header**: Indicates whether the client should automatically add a User-Agent header to outgoing requests. It's set to true in the default configuration.
 - **WebSocket Configuration**: Configures settings specific to WebSocket connections. In this example, the default WebSocket configuration is used.
@@ -433,7 +433,7 @@ printSource("zio-http-example/src/main/scala/example/ClientWithConnectionPooling
 
 ### Enabling Response Decompression
 
-When making HTTP requests using a client, such as a web browser or a custom HTTP client, it's essential to optimize data transfer for efficiency and performance.
+When making HTTP requests using a client, such as a web browser or a custom HTTP client, it is essential to optimize data transfer for efficiency and performance.
 
 By default, most HTTP clients do not advertise compression support when making requests to web servers. However, servers often compress response bodies when they detect that the client supports compression. To enable response compression, we need to add the `Accept-Encoding` header to our HTTP requests. The `Accept-Encoding` header specifies the compression algorithms supported by the client. Common values include `gzip` and `deflate`. When a server receives a request with the `Accept-Encoding` header, it may compress the response body using one of the specified algorithms.
 

@@ -5,7 +5,7 @@ title: Cookies
 
 Cookies are small pieces of data that websites store on a user's browser. They are sent between the client (browser) and server in HTTP requests and responses. Cookies serve various purposes, including session management, user authentication, personalization, and tracking.
 
-When a user visits a website, the server can send one or more cookies to the browser, which stores them locally. The browser then includes these cookies in subsequent requests to the same website, allowing the server to retrieve and utilize the stored information.
+When a user visits a website, the server can send one or more cookies to the browser, which stores them locally. The browser then includes these cookies in subsequent requests to the same website, allowing the server to retrieve and use the stored information.
 
 In ZIO HTTP, cookies are represented by the `Cookie` data type, which encompasses both request cookies and response cookies:
 

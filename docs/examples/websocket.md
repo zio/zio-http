@@ -42,7 +42,7 @@ But since we don't want to reconnect to the server every time the user enters a 
 Adding a new message to the queue, as well as sending the messages to the server, should happen in a loop in the background. For this we will use the operators `forever` (looping) and `forkDaemon` (fork to a background fiber).
 
 Again we will use the `Handler.webSocket` constructor to define how to handle messages and create a `WebSocketApp`. But this time, instead of serving the `WebSocketApp` we will use the `connect` method to establish a connection to the server.
-All we need for that, is the URL of the server. In our case it's `"ws://localhost:8080/subscriptions"`.
+All we need for that, is the URL of the server. In our case it is `"ws://localhost:8080/subscriptions"`.
 
 ```scala mdoc:passthrough
 import utils._

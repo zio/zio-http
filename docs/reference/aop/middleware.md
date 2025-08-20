@@ -119,7 +119,7 @@ So there are some problems with this approach:
 * **Violation of Separation of Concerns Principle**: Our current approach conflates business logic with cross-cutting concerns, such as timeouts, which violates the Separation of Concerns Principle. This coupling complicates the maintenance and understanding of our codebase.
 * **Code Duplication**: Replicating cross-cutting concerns across multiple routes results in unnecessary code duplication. For instance, if there are 100 routes, each requiring a timeout, we're forced to repeat the same logic 100 times. Consequently, any modification or upgrade to a shared concern, like altering the logging mechanism, necessitates making changes in numerous locations, significantly increasing the risk of errors and maintenance effort.
 * **Maintenance Nightmare**: With this approach, even a minor alteration in a cross-cutting concern demands updating every corresponding route. This not only escalates maintenance efforts but also complicates testing and debugging of core business logic. Consequently, the overall maintenance cost and complexity of the system are amplified.
-* **Readability Issues**— This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability.
+* **Readability Issues**— This can lead to substantial boilerplate clogging our neatly written endpoints affecting readability.
 
 ### The solution: Middleware and Aspect-oriented Programming
 

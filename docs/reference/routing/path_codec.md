@@ -118,7 +118,7 @@ object UserId {
 val userIdPathCodec: PathCodec[UserId] = int("user-id").transform(UserId.apply)(_.value)
 ```
 
-This approach enables us to utilize the `UserId` value object in our routes, and the `PathCodec` will take care of the conversion between the path segment and the value object.
+This approach enables us to use the `UserId` value object in our routes, and the `PathCodec` will take care of the conversion between the path segment and the value object.
 
 In the previous example, instead of throwing an exception, we can model the failure using the `Either` data type and then use the `transformOrFailLeft` to create a `PathCodec`:
 
