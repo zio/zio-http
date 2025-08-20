@@ -2,7 +2,7 @@
 
 package example.auth.session.cookie
 
-import example.auth.session.cookie.core.CookieAuthMiddleware.cookieAuth
+import example.auth.session.cookie.core.AuthMiddleware.cookieAuth
 import example.auth.session.cookie.core._
 import zio.Config.Secret
 import zio._
@@ -27,12 +27,17 @@ object CookieAuthenticationServer extends ZIOAppDefault {
     Routes(
       Method.GET / Root             ->
         Handler
-          .fromResource("cookie-based-auth-client.html")
+          .fromResource("cookie-based-auth-client-simple.html")
           .orElse(
             Handler.internalServerError("Failed to load HTML file"),
           ),
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
-        ZIO.serviceWith[String](name => Response.text(s"Welcome $name!"))
+        ZIO.serviceWith[User](user =>
+          Response.text(
+            s"Welcome ${user.username}! " +
+              s"This is your profile: \n Username: ${user.username} \n Email: ${user.email}",
+          ),
+        )
       } @@ cookieAuth(SESSION_COOKIE_NAME),
       Method.POST / "login"         ->
         handler { (request: Request) =>
@@ -47,7 +52,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
               .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing password field!")))
               .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing password value!")))
             sessionService <- ZIO.service[SessionService]
-            sessionId      <- sessionService.createSession(username)
+            sessionId      <- sessionService.create(username)
             sessionCookie = Cookie.Response(
               name = SESSION_COOKIE_NAME,
               content = sessionId,
@@ -78,7 +83,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
           handler { (request: Request) =>
             request.cookie(SESSION_COOKIE_NAME) match {
               case Some(cookie) =>
-                sessionService.removeSession(cookie.content) *>
+                sessionService.remove(cookie.content) *>
                   ZIO.succeed(
                     Response
                       .text("Logged out successfully!")

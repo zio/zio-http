@@ -1,9 +1,8 @@
 package example.auth.session.cookie.core
 
+import example.auth.session.cookie.core.UserServiceError._
 import zio.Config._
 import zio._
-
-import example.auth.bearer.opaque.core.UserServiceError._
 
 case class User(username: String, password: Secret, email: String)
 
@@ -20,7 +19,6 @@ trait UserService {
 }
 
 case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
-
   def getUser(username: String): IO[UserNotFound, User] =
     users.get.flatMap { userMap =>
       ZIO.fromOption(userMap.get(username)).orElseFail(UserNotFound(username))
