@@ -16,7 +16,7 @@ The foundation of cookie-based authentication lies in two HTTP headers: `Set-Coo
 
 The `Set-Cookie` header is used by the server to send cookies to the client. When a user successfully authenticates, the server creates a session and sends the session identifier to the client using this header.
 
-In ZIO HTTP, you can create a `Set-Cookie` header using the `Cookie.Response` data type:
+In ZIO HTTP, we can create a `Set-Cookie` header using the `Cookie.Response` data type:
 
 ```scala
 val cookie = Cookie.Response(
@@ -36,7 +36,7 @@ Here is a precise breakdown of the attributes used in the `Cookie.Response`:
 - **`name`**: The name of the cookie (e.g., `session_id`).
 - **`content`**: The value of the cookie, typically a session identifier.
 - **`domain`**: The domain for which the cookie is valid. It defines which hosts (subdomains) can receive the cookie. If no domain is specified, the cookie is valid for the host that set it. If a domain is specified, the cookie will be sent to that domain and its subdomains.
-- **`path`**: The path for which the cookie is valid. The server can include this attribute to restrict where that cookie is sent back to the server. If no path is specified, the cookie is sent only to the same path as the resource that set it and its subdirectories. If a path is specified, the cookie will be sent to that path and its subdirectories.
+- **`path`**: The path for which the cookie is valid. The server can include this attribute to restrict where the cookie is sent back to the server. If no path is specified, the cookie is sent only to the same path as the resource that set it and its subdirectories. If a path is specified, the cookie will be sent to that path and its subdirectories.
 - **`isSecure`**: If `true`, the cookie is only sent over HTTPS connections. This prevents the cookie from being transmitted over unencrypted HTTP, enhancing security.
 - **`isHttpOnly`**: If `true`, the cookie is not accessible via JavaScript, mitigating the risk of cross-site scripting (XSS) attacks.
 - **`maxAge`**: The maximum age of the cookie in seconds. After this time, the cookie will be deleted by the browser. If not specified, the cookie is a **session cookie** and will be deleted when the browser is closed.
@@ -91,10 +91,10 @@ for {
 
 ## Implementation
 
-In this section, we will implement a complete cookie-based authentication system using ZIO HTTP. Before we start, we have to define and implement some services that will help us manage user sessions and user accounts.
+In this section, we will implement a complete cookie-based authentication system using ZIO HTTP. Before we start, we need to define and implement some services that will help us manage user sessions and user accounts.
 
 1. **Session Service**: This service will manage user sessions, allowing us to create, retrieve, and remove sessions.
-2. **User Service**: This service will manage user accounts, allowing us to retrieve and create users. We need user service to validate user credentials during login and also to retrieve user profile information.
+2. **User Service**: This service will manage user accounts, allowing us to retrieve and create users. We need the user service to validate user credentials during login and also to retrieve user profile information.
 
 Let's first implement these two services.
 
@@ -194,7 +194,7 @@ object UserService {
 }
 ```
 
-Now, we have all required services to write the login route and then implement cookie-based authentication middleware.
+Now, we have all the required services to write the login route and then implement cookie-based authentication middleware.
 
 The next step is to implement the login route that will authenticate users and create sessions.
 
@@ -249,7 +249,7 @@ val login =
 ```
 
 :::note
-In production environments, you should set `isHttpOnly = true` and `isSecure = true` for the session cookie to enhance security. This prevents client-side scripts from accessing the cookie and ensures it is only sent over secure HTTPS connections.
+In production environments, we should set `isHttpOnly = true` and `isSecure = true` for the session cookie to enhance security. This prevents client-side scripts from accessing the cookie and ensures it is only sent over secure HTTPS connections.
 :::
 
 ### Authentication Middleware
@@ -293,7 +293,7 @@ If the cookie is present and valid, it retrieves the associated user and allows 
 
 ## Applying Middleware
 
-This middleware can be applied to any route that requires authentication. For example, to protect a user profile route, you can use it like this:
+This middleware can be applied to any route that requires authentication. For example, to protect a user profile route, we can use it like this:
 
 ```scala
 val profile =
@@ -357,7 +357,7 @@ val cookie = setCookieHeader.value.toRequest
 The `toRequest` method converts a `Cookie.Response` (used in `Set-Cookie` headers) to a `Cookie.Request` (used in `Cookie` headers), handling all the necessary format conversions.
 
 :::note
-In the client we have written, we only handle a single cookie for session management. However, in real-world applications, you might need to manage multiple cookies, such as those for CSRF protection or other session-related data. In such scenarios, you should extract all cookies from the response and manage them accordingly.
+In the client we have written, we only handle a single cookie for session management. However, in real-world applications, we might need to manage multiple cookies, such as those for CSRF protection or other session-related data. In such scenarios, we should extract all cookies from the response and manage them accordingly.
 :::
 
 ### Step 3: Using the Cookie for Protected Routes
@@ -381,7 +381,7 @@ The `addCookie` method adds the cookie to the request's `Cookie` header, authent
 Here's a complete example that demonstrates the full authentication lifecycle:
 
 ```scala mdoc:passthrough
-utils.printSource("zio-http-example/ src/main/scala/example/auth/session/cookie/CookieAuthenticationClient.scala")
+utils.printSource("zio-http-example/src/main/scala/example/auth/session/cookie/CookieAuthenticationClient.scala")
 ```
 
 ## Writing a Web Client
@@ -390,7 +390,7 @@ In this section, we will implement a simple web client that interacts with our c
 
 ### Logging In
 
-First, we have to write a login form to ask the user for their credentials. This form will submit the username and password to the server, which will then create a session and send back a cookie:
+First, we need to write a login form to ask the user for their credentials. This form will submit the username and password to the server, which will then create a session and send back a cookie:
 
 ```html
 <div id="loginForm">
@@ -437,7 +437,7 @@ The next step is to make authenticated requests to the server using the received
 
 ### Making Authenticated Requests
 
-Unlike token-based authentication where you manually store and attach tokens, cookies can be handled automatically by the browser, making the client implementation much simpler.
+Unlike token-based authentication where we manually store and attach tokens, cookies can be handled automatically by the browser, making the client implementation much simpler.
 
 To fetch the user profile after logging in, let's write a button that triggers an authenticated request to the server:
 
@@ -448,7 +448,7 @@ To fetch the user profile after logging in, let's write a button that triggers a
 <pre id="result">Results will appear here...</pre>
 ```
 
-Also, we added a section for displaying the result of the request.
+We also added a section for displaying the result of the request.
 
 By default, the "Get Profile" button is hidden until the user logs in. When clicked, it calls the `getProfile` function:
 
@@ -466,7 +466,7 @@ async function getProfile() {
 As the `getProfile` function shows, we make a GET request to the `/profile/me` endpoint using the `fetch()` function. By default, the session cookie is sent along with the request, so no additional handling is needed to include the cookie in the request.
 
 :::note
-To have more control over cookie handling, we can specify the `credentials` option in the `fetch` call, for example the following code snippet will ensure that cookies are sent with the request even for cross-origin requests:
+To have more control over cookie handling, we can specify the `credentials` option in the `fetch` call. For example, the following code snippet will ensure that cookies are sent with the request even for cross-origin requests:
 
 ```javascript
 fetch('/api/endpoint', {
@@ -474,10 +474,10 @@ fetch('/api/endpoint', {
 })
 ```
 
-In JavaScript the `credentials` option of the `fetch` method can accept three possible values:
+In JavaScript, the `credentials` option of the `fetch` method can accept three possible values:
 - **`omit`** - Never send cookies, HTTP authentication, or client certificates with the request, even for same-origin requests. This is the most restrictive option.
-- **`same-origin`** - Only send credentials (cookies, HTTP authentication, client certificates) when the request is to the same origin. This is the default value if you don't specify the `credentials` option.
-- **`include`** - Always send credentials with the request, even for cross-origin requests. This is necessary when you need to send cookies or authentication headers to a different domain.
+- **`same-origin`** - Only send credentials (cookies, HTTP authentication, client certificates) when the request is to the same origin. This is the default value if we don't specify the `credentials` option.
+- **`include`** - Always send credentials with the request, even for cross-origin requests. This is necessary when we need to send cookies or authentication headers to a different domain.
 :::
 
 Now that we added a div called `loggedIn` which contains all the elements that need to be visible after logging in, let's update the `setLoginState` function:
@@ -514,9 +514,9 @@ window.onload = async () => {
 };
 ```
 
-This pattern prevents the login form from flashing before showing authenticated content. It's better UX to check authentication first, then render the appropriate UI. You may want to show a loading spinner during this check. 
+This pattern prevents the login form from flashing before showing authenticated content. It's better UX to check authentication first, then render the appropriate UI. We may want to show a loading spinner during this check. 
 
-Please note that for simplicity, we used the same `/profile/me` endpoint for checking session status, which also returns user details if authenticated. In real applications, you might want to have a dedicated endpoint for checking session status without returning user details.
+Please note that for simplicity, we used the same `/profile/me` endpoint for checking session status, which also returns user details if authenticated. In real applications, we might want to have a dedicated endpoint for checking session status without returning user details.
 
 ### Logging Out
 
@@ -636,7 +636,7 @@ Here is the complete HTML code that includes the login form, profile retrieval, 
 </html>
 ```
 
-After placing this HTML file in your resources directory and naming it `cookie-based-auth-client-simple.html`, you can serve it using the following ZIO HTTP route:
+After placing this HTML file in our resources directory and naming it `cookie-based-auth-client-simple.html`, we can serve it using the following ZIO HTTP route:
 
 ```scala
 val route = 
