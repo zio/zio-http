@@ -1,7 +1,7 @@
 ---
 id: cookie-based-authentication
 title: "Securing Your APIs: Cookie-based Authentication"
-sidebar_label: "Digest Authentication"
+sidebar_label: "Cookie-based Authentication"
 ---
 
 Session-based authentication using cookies is one of the most common authentication mechanisms for web applications. In this guide, we demonstrate how to implement a robust cookie-based authentication system in ZIO HTTP, covering both server-side implementation and client integration.
