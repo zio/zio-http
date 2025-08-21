@@ -650,22 +650,13 @@ val route =
 
 When implementing cookie-based authentication, it is crucial to follow security best practices to protect user sessions and sensitive data. Here are some key recommendations:
 
-1. **Cookie Security:**
-   - **HttpOnly Flag**: Always set `httpOnly = true` for session cookies to prevent client-side JavaScript access. Never store sensitive authentication data in localStorage or sessionStorage as these are vulnerable to XSS attacks.
-   - **Secure Flag**: Enable `secure = true` to ensure cookies are only transmitted over HTTPS connections. Always use HTTPS in production environments to protect data in transit.
-   - **SameSite Attribute**: Configure `sameSite` attribute (Strict or Lax) to provide CSRF protection by default. Combine with CSRF tokens for defense in depth.
-   - **CSRF Protection**: Implement CSRF tokens for all state-changing operations (POST, PUT, DELETE requests) alongside SameSite cookies.
+Cookie security forms the foundation of a robust authentication system. Always set the `isHttpOnly` flag to true for session cookies to prevent client-side JavaScript access, and never store sensitive authentication data in localStorage or sessionStorage as these are vulnerable to XSS attacks. The `isSecure` flag should be enabled to ensure cookies are only transmitted over HTTPS connections, and you should always use HTTPS in production environments to protect data in transit.
 
-2. **Session Management:**
-   - **Expiration Strategy**: Implement both idle timeout and absolute timeout for sessions to balance security and user experience.
-   - **Session Renewal**: Provide secure session renewal mechanisms before expiration to maintain user sessions without re-authentication.
-   - **Session Invalidation**: Ensure proper session destruction on logout, clearing both server-side session data and client-side cookies.
-   - **Session Rotation**: Generate new session IDs after successful authentication to prevent session fixation attacks.
+Additionally, configure the `SameSite` attribute with either `Strict` or `Lax` settings to provide CSRF protection by default, and combine this with CSRF tokens for defense in depth. Implement CSRF tokens for all state-changing operations, including POST, PUT, and DELETE requests, alongside `SameSite` cookies for comprehensive protection.
 
-3. **Infrastructure Security:**
-   - **Persistent Storage**: Use distributed session stores (Redis, database) instead of in-memory storage for scalability and reliability.
-   - **Rate Limiting**: Implement rate limiting on authentication endpoints to prevent brute force and DoS attacks.
-   - **Password Security**: Use secure password hashing algorithms (bcrypt, scrypt, or Argon2) instead of storing raw passwords.
+Session management requires careful attention to multiple security considerations. Implement both idle timeout and absolute timeout for sessions to balance security and user experience, and provide secure session renewal mechanisms before expiration to maintain user sessions without requiring re-authentication. Ensure proper session destruction on logout by clearing both server-side session data and client-side cookies. 
+
+Infrastructure security completes the authentication security triad. Implement rate limiting on authentication endpoints to prevent brute force and denial-of-service attacks. For password security, always use secure password hashing algorithms like bcrypt, scrypt, or Argon2 instead of storing raw passwords, which would be a critical vulnerability.
 
 ## Conclusion
 
