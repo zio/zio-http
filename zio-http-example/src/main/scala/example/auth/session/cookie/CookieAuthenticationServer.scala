@@ -1,4 +1,4 @@
-//> using dep "dev.zio::zio-http:3.3.3"
+//> using dep "dev.zio::zio-http:3.4.0"
 
 package example.auth.session.cookie
 
@@ -8,17 +8,6 @@ import zio.Config.Secret
 import zio._
 import zio.http._
 
-/**
- * This is an example to demonstrate cookie-based authentication middleware with
- * a web client. The Server has both API routes and serves a web client
- * interface loaded from resources.
- *
- * Routes:
- *   - GET / -> Web client interface
- *   - GET /login -> Login endpoint
- *   - GET /profile/me -> Protected route
- *   - GET /logout -> Logout endpoint
- */
 object CookieAuthenticationServer extends ZIOAppDefault {
   val SESSION_LIFETIME    = 300
   val SESSION_COOKIE_NAME = "session_id"
@@ -28,6 +17,7 @@ object CookieAuthenticationServer extends ZIOAppDefault {
       Method.GET / Root             ->
         Handler
           .fromResource("cookie-based-auth-client-simple.html")
+//          .fromResource("cookie-based-auth-client.html")
           .orElse(
             Handler.internalServerError("Failed to load HTML file"),
           ),
@@ -43,37 +33,36 @@ object CookieAuthenticationServer extends ZIOAppDefault {
         handler { (request: Request) =>
           val form = request.body.asURLEncodedForm.orElseFail(Response.badRequest("Invalid form data"))
           for {
-            username       <- form
+            username <- form
               .map(_.get("username"))
               .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing username field!")))
               .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing username value!")))
-            password       <- form
+            password <- form
               .map(_.get("password"))
               .flatMap(ff => ZIO.fromOption(ff).orElseFail(Response.badRequest("Missing password field!")))
               .flatMap(ff => ZIO.fromOption(ff.stringValue).orElseFail(Response.badRequest("Missing password value!")))
-            sessionService <- ZIO.service[SessionService]
-            sessionId      <- sessionService.create(username)
-            sessionCookie = Cookie.Response(
-              name = SESSION_COOKIE_NAME,
-              content = sessionId,
-              maxAge = Some(SESSION_LIFETIME.seconds),
-              isHttpOnly = false, // Set to true in production to prevent XSS attacks
-              isSecure = false,   // Set to true in production with HTTPS
-              sameSite = Some(Cookie.SameSite.Strict),
-            )
-            users <- ZIO.service[UserService]
-            user <- users
+            users    <- ZIO.service[UserService]
+            user     <- users
               .getUser(username)
               .orElseFail(
                 Response.unauthorized("Invalid username or password."),
               )
-            res  <-
+            res      <-
               if (user.password == Secret(password)) {
-                ZIO.succeed(
-                  Response
-                    .text(s"Login successful! Session created for $username")
-                    .addCookie(sessionCookie),
-                )
+                for {
+                  sessionService <- ZIO.service[SessionService]
+                  sessionId      <- sessionService.create(username)
+                  cookie = Cookie.Response(
+                    name = SESSION_COOKIE_NAME,
+                    content = sessionId,
+                    maxAge = Some(SESSION_LIFETIME.seconds),
+                    isHttpOnly = false, // Set to true in production to prevent XSS attacks
+                    isSecure = false,   // Set to true in production with HTTPS
+                    sameSite = Some(Cookie.SameSite.Strict),
+                  )
+                } yield Response
+                  .text(s"Login successful! Session created for $username")
+                  .addCookie(cookie)
               } else
                 ZIO.fail(Response.unauthorized("Invalid username or password."))
           } yield res
