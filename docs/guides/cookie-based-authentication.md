@@ -18,7 +18,10 @@ The `Set-Cookie` header is used by the server to send cookies to the client. Whe
 
 In ZIO HTTP, we can create a `Set-Cookie` header using the `Cookie.Response` data type:
 
-```scala
+```scala mdoc:silent
+import zio._
+import zio.http._
+
 val cookie = Cookie.Response(
   name = "session_id",                    // Cookie name
   content = "abc123def456",               // Cookie value (session ID)
@@ -44,7 +47,16 @@ Here is a precise breakdown of the attributes used in the `Cookie.Response`:
 
 We can use this cookie in the login flow. When a user provides valid credentials, we create a session and send it back to the client as a `Set-Cookie` header:
 
-```scala
+```scala mdoc:invisible
+import zio.Config._
+object user {
+  val password: Secret = Secret("123")
+}
+val password = "123"
+val username = "john"
+```
+
+```scala mdoc:silent
 if (user.password == Secret(password)) {
   Response
     .text(s"Login successful! Session created for $username")
@@ -69,7 +81,13 @@ In this example, the client sends the `session_id` cookie to the server when acc
 
 In ZIO HTTP, when writing client code, we don't need to manually create a `Cookie` header; instead, we can convert the received `Set-Cookie` header into a `Cookie` object and use it in subsequent requests:
 
-```scala
+```scala mdoc:invisible
+val SERVER_URL = "http://localhost:8080"
+val loginUrl   = URL.decode(s"$SERVER_URL/login").toOption.get
+val profileUrl = URL.decode(s"$SERVER_URL/profile/me").toOption.get
+```
+
+```scala mdoc:compile-only
 for {
   loginResponse <- ZClient.batched(
     Request
@@ -102,7 +120,7 @@ Let's first implement these two services.
 
 Here is a simple in-memory session service that manages user sessions. It allows creating, retrieving, and removing sessions:
 
-```scala
+```scala mdoc:silent
 class SessionService private(private val store: Ref[Map[String, String]]) {
   private def generateSessionId(): UIO[String] =
     ZIO.randomWith(_.nextUUID).map(_.toString)
@@ -123,7 +141,7 @@ class SessionService private(private val store: Ref[Map[String, String]]) {
 
 Here is how to create a live layer for the `SessionService`:
 
-```scala
+```scala mdoc:silent
 object SessionService {
   def live: ZLayer[Any, Nothing, SessionService] =
     ZLayer.fromZIO {
@@ -136,10 +154,10 @@ object SessionService {
 
 The user service manages user accounts, allowing retrieval and creation of users. It also handles errors related to user operations, such as user not found or user already exists:
 
-```scala
+```scala mdoc:silent
 import zio._
 import zio.Config._
-import example.auth.session.cookie.core.UserServiceError._
+import UserServiceError._
 
 case class User(username: String, password: Secret, email: String)
 
@@ -179,7 +197,7 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
 
 To create a live layer for the `UserService`, let's initialize it with some predefined users:
 
-```scala
+```scala mdoc:silent
 object UserService {
   private val initialUsers = Map(
     "john"  -> User("john", Secret("password123"), "john@example.com"),
@@ -206,7 +224,7 @@ The login route is responsible for receiving user credentials (username and pass
 2. **Authenticate** - Retrieves user from `UserService` and verifies the password matches, returning unauthorized if user not found or password incorrect
 3. **Create session** - Generates a session ID via `SessionService` and attaches a session cookie with security settings to the success response
 
-```scala
+```scala mdoc:silent
 val login =
    Method.POST / "login" ->
      handler { (request: Request) =>
@@ -232,9 +250,9 @@ val login =
                sessionService <- ZIO.service[SessionService]
                sessionId      <- sessionService.create(username)
                cookie = Cookie.Response(
-                 name = SESSION_COOKIE_NAME,
+                 name = "session_id",
                  content = sessionId,
-                 maxAge = Some(SESSION_LIFETIME.seconds),
+                 maxAge = Some(300.seconds),
                  isHttpOnly = false, // Set to true in production to prevent XSS attacks
                  isSecure = false,   // Set to true in production with HTTPS
                  sameSite = Some(Cookie.SameSite.Strict),
@@ -258,7 +276,7 @@ After implementing the login route, we can now create a middleware that will int
 
 We can write it as a `HandlerAspect` like this:
 
-```scala
+```scala mdoc:silent
 import zio._
 import zio.http._
 
@@ -295,7 +313,7 @@ If the cookie is present and valid, it retrieves the associated user and allows 
 
 This middleware can be applied to any route that requires authentication. For example, to protect a user profile route, we can use it like this:
 
-```scala
+```scala mdoc:silent
 val profile =
   Method.GET / "profile" / "me" -> handler { (_: Request) =>
     ZIO.serviceWith[User](user =>
@@ -304,7 +322,7 @@ val profile =
           s"This is your profile: \n Username: ${user.username} \n Email: ${user.email}",
       ),
     )
-  } @@ cookieAuth("session_id")
+  } @@ AuthMiddleware.cookieAuth("session_id")
 ```
 
 ## Writing a ZIO HTTP Client
@@ -322,7 +340,7 @@ Let's build a client that authenticates with our server and accesses protected r
 
 To authenticate, we send a POST request with URL-encoded form data containing the username and password:
 
-```scala
+```scala mdoc:silent:nest
 val SERVER_URL = "http://localhost:8080"
 val loginUrl   = URL.decode(s"$SERVER_URL/login").toOption.get
 
@@ -346,12 +364,11 @@ The `Body.fromURLEncodedForm` helper creates the appropriate body with the `appl
 
 After successful authentication, the server responds with a `Set-Cookie` header containing our session cookie. We need to extract this cookie and convert it for use in subsequent requests:
 
-```scala
-// Extract the Set-Cookie header from the response
-val setCookieHeader = loginResponse.headers(Header.SetCookie).head
-
-// Convert the Set-Cookie (server format) to Cookie (client format)
-val cookie = setCookieHeader.value.toRequest
+```scala mdoc:silent:nest
+for {
+  res <- loginResponse
+  cookie = res.headers(Header.SetCookie).head.value.toRequest
+} yield ()
 ```
 
 The `toRequest` method converts a `Cookie.Response` (used in `Set-Cookie` headers) to a `Cookie.Request` (used in `Cookie` headers), handling all the necessary format conversions.
@@ -364,7 +381,11 @@ In the client we have written, we only handle a single cookie for session manage
 
 With the session cookie in hand, we can now access protected endpoints by including the cookie in our requests:
 
-```scala
+```scala mdoc:silent
+val cookie = Cookie.Request(name = "foo", content = "bar")
+```
+
+```scala mdoc:silent
 val profileUrl = URL.decode(s"$SERVER_URL/profile/me").toOption.get
 
 val protectedRequest = Request
@@ -638,7 +659,7 @@ Here is the complete HTML code that includes the login form, profile retrieval, 
 
 After placing this HTML file in our resources directory and naming it `cookie-based-auth-client-simple.html`, we can serve it using the following ZIO HTTP route:
 
-```scala
+```scala mdoc:silent
 val route = 
   Method.GET / Root ->
     Handler
