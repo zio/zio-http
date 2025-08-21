@@ -131,6 +131,7 @@ const sidebars = {
        label: "Authentication",
        items: [
           "guides/basic-authentication",
+          "guides/cookie-based-authentication",
           "guides/digest-authentication",
           "guides/opaque-bearer-token-authentication",
        ],
