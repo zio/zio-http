@@ -1,8 +1,9 @@
 package example.auth.session.cookie.core
 
-import example.auth.session.cookie.core.UserServiceError._
 import zio.Config._
 import zio._
+
+import example.auth.session.cookie.core.UserServiceError._
 
 case class User(username: String, password: Secret, email: String)
 

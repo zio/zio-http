@@ -2,22 +2,24 @@
 
 package example.auth.session.cookie
 
-import example.auth.session.cookie.core.AuthMiddleware.cookieAuth
-import example.auth.session.cookie.core._
 import zio.Config.Secret
 import zio._
+
 import zio.http._
 
+import example.auth.session.cookie.core.AuthMiddleware.cookieAuth
+import example.auth.session.cookie.core._
+
 object CookieAuthenticationServer extends ZIOAppDefault {
-  val SESSION_LIFETIME    = 300
-  val SESSION_COOKIE_NAME = "session_id"
+  private val SESSION_LIFETIME    = 300
+  private val SESSION_COOKIE_NAME = "session_id"
 
   def routes: Routes[SessionService & UserService, Nothing] =
     Routes(
       Method.GET / Root             ->
         Handler
-          .fromResource("cookie-based-auth-client-simple.html")
-//          .fromResource("cookie-based-auth-client.html")
+          .fromResource("cookie-based-auth-client.html")
+//          .fromResource("cookie-based-auth-client-simple.html")
           .orElse(
             Handler.internalServerError("Failed to load HTML file"),
           ),

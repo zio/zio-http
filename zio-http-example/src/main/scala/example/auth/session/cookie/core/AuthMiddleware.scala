@@ -1,6 +1,7 @@
 package example.auth.session.cookie.core
 
 import zio._
+
 import zio.http._
 
 object AuthMiddleware {

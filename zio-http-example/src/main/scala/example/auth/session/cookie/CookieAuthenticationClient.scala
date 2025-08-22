@@ -1,6 +1,7 @@
 package example.auth.session.cookie
 
 import zio._
+
 import zio.http._
 
 object CookieAuthenticationClient extends ZIOAppDefault {
