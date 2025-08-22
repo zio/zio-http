@@ -38,7 +38,7 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
    */
   def /(name: String): Path =
     if (name == "") addTrailingSlash
-    else if (isRoot) Path(Flags(Flag.LeadingSlash), Chunk(name))
+    else if (isRoot || segments.isEmpty) Path(Flags(Flag.LeadingSlash), Chunk(name))
     else Path(Flag.TrailingSlash.remove(flags), segments = segments :+ name)
 
   /**
