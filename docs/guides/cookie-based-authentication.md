@@ -34,12 +34,12 @@ val cookie = Cookie.Response(
 )
 ```
 
-Here is a precise breakdown of the attributes used in the `Cookie.Response`:
+Here is a concise breakdown of the attributes used in the `Cookie.Response`:
 
 - **`name`**: The name of the cookie (e.g., `session_id`).
 - **`content`**: The value of the cookie, typically a session identifier.
 - **`domain`**: The domain for which the cookie is valid. It defines which hosts (subdomains) can receive the cookie. If no domain is specified, the cookie is valid for the host that set it. If a domain is specified, the cookie will be sent to that domain and its subdomains.
-- **`path`**: The path for which the cookie is valid. The server can include this attribute to restrict where the cookie is sent back to the server. If no path is specified, the cookie is sent only to the same path as the resource that set it and its subdirectories. If a path is specified, the cookie will be sent to that path and its subdirectories.
+- **`path`**: The path for which the cookie is valid. The server can include this attribute to restrict the cookie to specific paths. If no path is specified, the cookie is sent only to the same path as the resource that set it and its subdirectories. If a path is specified, the cookie will be sent to that path and its subdirectories.
 - **`isSecure`**: If `true`, the cookie is only sent over HTTPS connections. This prevents the cookie from being transmitted over unencrypted HTTP, enhancing security.
 - **`isHttpOnly`**: If `true`, the cookie is not accessible via JavaScript, mitigating the risk of cross-site scripting (XSS) attacks.
 - **`maxAge`**: The maximum age of the cookie in seconds. After this time, the cookie will be deleted by the browser. If not specified, the cookie is a **session cookie** and will be deleted when the browser is closed.
@@ -212,7 +212,7 @@ object UserService {
 }
 ```
 
-Now, we have all the required services to write the login route and then implement cookie-based authentication middleware.
+Now we have all the required services to write the login route and then implement cookie-based authentication middleware.
 
 The next step is to implement the login route that will authenticate users and create sessions.
 
@@ -272,7 +272,7 @@ In production environments, we should set `isHttpOnly = true` and `isSecure = tr
 
 ### Authentication Middleware
 
-After implementing the login route, we can now create a middleware that will intercept incoming requests and check for a valid session cookie. If the cookie is present and valid, it will allow access to protected resources; otherwise, it will return an unauthorized response.
+After implementing the login route, we can now create middleware that will intercept incoming requests and check for a valid session cookie. If the cookie is present and valid, it will allow access to protected resources; otherwise, it will return an unauthorized response.
 
 We can write it as a `HandlerAspect` like this:
 
@@ -458,7 +458,7 @@ The next step is to make authenticated requests to the server using the received
 
 ### Making Authenticated Requests
 
-Unlike token-based authentication where we manually store and attach tokens, cookies can be handled automatically by the browser, making the client implementation much simpler.
+Unlike token-based authentication where we manually store and attach tokens, cookies are handled automatically by the browser, making the client implementation much simpler.
 
 To fetch the user profile after logging in, let's write a button that triggers an authenticated request to the server:
 
@@ -501,7 +501,7 @@ In JavaScript, the `credentials` option of the `fetch` method can accept three p
 - **`include`** - Always send credentials with the request, even for cross-origin requests. This is necessary when we need to send cookies or authentication headers to a different domain.
 :::
 
-Now that we added a div called `loggedIn` which contains all the elements that need to be visible after logging in, let's update the `setLoginState` function:
+Now that we've added a div called `loggedIn` which contains all the elements that need to be visible after logging in, let's update the `setLoginState` function:
 
 ```javascript
 function setLoginState(isLoggedIn) {
@@ -535,7 +535,7 @@ window.onload = async () => {
 };
 ```
 
-This pattern prevents the login form from flashing before showing authenticated content. It's better UX to check authentication first, then render the appropriate UI. We may want to show a loading spinner during this check. 
+This pattern prevents the login form from flashing before showing authenticated content. It's better UX to check authentication first, then render the appropriate UI. We may want to show a loading spinner during this check.
 
 Please note that for simplicity, we used the same `/profile/me` endpoint for checking session status, which also returns user details if authenticated. In real applications, we might want to have a dedicated endpoint for checking session status without returning user details.
 
@@ -551,7 +551,7 @@ To log out, let's add a corresponding button:
 <pre id="result">Results will appear here...</pre>
 ```
 
-Clearing the cookie on the client side is not enough, and it is good practice to call the server to invalidate the session. This ensures that the session is removed from the server-side store, preventing any further access to that session ID and also returning a cookie with an expired `maxAge` to the client, which will invalidate the stored cookie in the browser:
+Clearing the cookie on the client side is not enough, and it is good practice to call the server to invalidate the session. This ensures that the session is removed from the server-side store, preventing any further access with that session ID and also returning a cookie with an expired `maxAge` to the client, which will invalidate the stored cookie in the browser:
 
 ```javascript
 async function logout() {
@@ -565,7 +565,7 @@ async function logout() {
 }
 ```
 
-After successful logout, the client calls the `setLoginState` to make the login form visible again and hide the logged-in section.
+After successful logout, the client calls `setLoginState` to make the login form visible again and hide the logged-in section.
 
 ### Complete Client Implementation
 
@@ -675,7 +675,7 @@ Cookie security forms the foundation of a robust authentication system. Always s
 
 Additionally, configure the `SameSite` attribute with either `Strict` or `Lax` settings to provide CSRF protection by default, and combine this with CSRF tokens for defense in depth. Implement CSRF tokens for all state-changing operations, including POST, PUT, and DELETE requests, alongside `SameSite` cookies for comprehensive protection.
 
-Session management requires careful attention to multiple security considerations. Implement both idle timeout and absolute timeout for sessions to balance security and user experience, and provide secure session renewal mechanisms before expiration to maintain user sessions without requiring re-authentication. Ensure proper session destruction on logout by clearing both server-side session data and client-side cookies. 
+Session management requires careful attention to multiple security considerations. Implement both idle timeout and absolute timeout for sessions to balance security and user experience, and provide secure session renewal mechanisms before expiration to maintain user sessions without requiring re-authentication. Ensure proper session destruction on logout by clearing both server-side session data and client-side cookies.
 
 Infrastructure security completes the authentication security triad. Implement rate limiting on authentication endpoints to prevent brute force and denial-of-service attacks. For password security, always use secure password hashing algorithms like bcrypt, scrypt, or Argon2 instead of storing raw passwords, which would be a critical vulnerability.
 
