@@ -70,8 +70,7 @@ private[zio] final case class ServerInboundHandler(
 
   private val releaseRequest = () => inFlightRequests.decrement()
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
-
+  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit =
     msg match {
       case jReq: HttpRequest =>
         inFlightRequests.increment()
@@ -105,8 +104,6 @@ private[zio] final case class ServerInboundHandler(
       case _ =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
     }
-
-  }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
     cause match {

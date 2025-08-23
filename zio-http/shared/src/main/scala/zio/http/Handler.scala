@@ -999,6 +999,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
 
   /**
+   * Converts a ZIO to a Handler type. Allows the ZIO to have a scope.
+   */
+  def fromZIOScoped[R]: ScopePartiallyApplied[R] = new ScopePartiallyApplied[R](())
+
+  def handleRequest[R]: HandleRequestScopePartiallyApplied[R] = new HandleRequestScopePartiallyApplied[R](())
+
+  /**
    * Creates a handler which always responds with the provided Html page.
    */
   def html(view: => Html): Handler[Any, Nothing, Any, Response] =
@@ -1246,6 +1253,32 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[Scope & R, Err, Out] =
           try f(in)(in)
+          catch {
+            case error if NonFatal(error) => ZIO.die(error)
+          }
+      }
+  }
+
+  final class ScopePartiallyApplied[R](val self: Unit) extends AnyVal {
+    def apply[Err, Out](
+      zio: => ZIO[R & Scope, Err, Out],
+    )(implicit ev: HasNoScope[R]): Handler[R, Err, Any, Out] =
+      new Handler[R, Err, Any, Out] {
+        override def apply(in: Any): ZIO[Scope & R, Err, Out] =
+          try zio
+          catch {
+            case error if NonFatal(error) => ZIO.die(error)
+          }
+      }
+  }
+
+  final class HandleRequestScopePartiallyApplied[R](val self: Unit) extends AnyVal {
+    def apply[Err](
+      handle: Request => ZIO[R & Scope, Err, Response],
+    )(implicit ev: HasNoScope[R]): Handler[R, Err, Request, Response] =
+      new Handler[R, Err, Request, Response] {
+        override def apply(in: Request): ZIO[Scope & R, Err, Response] =
+          try handle(in)
           catch {
             case error if NonFatal(error) => ZIO.die(error)
           }

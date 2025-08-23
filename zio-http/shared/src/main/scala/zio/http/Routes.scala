@@ -353,6 +353,11 @@ object Routes extends RoutesCompanionVersionSpecific {
   def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))
 
+  def fromFunction[Env](
+    h: Request => ZIO[Env & Scope, Response, Response],
+  )(implicit trace: Trace, hasNoScope: HasNoScope[Env]): Routes[Env, Response] =
+    Handler.handleRequest[Env](h).toRoutes
+
   /**
    * Creates routes for serving static files from the directory `docRoot` at the
    * url path `path`.
