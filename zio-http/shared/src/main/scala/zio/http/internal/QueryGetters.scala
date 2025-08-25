@@ -19,8 +19,6 @@ package zio.http.internal
 import zio._
 
 import zio.schema.Schema
-import zio.schema.codec.DecodeError
-import zio.schema.validation.ValidationError
 
 import zio.http._
 import zio.http.codec.{HttpCodecError, TextCodec}
