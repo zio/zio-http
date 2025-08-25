@@ -173,7 +173,7 @@ jobs:
         uses: sbt/setup-sbt@v1
 
       - name: Download target directories (2.12.20)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: target-${{ matrix.os }}-2.12.20-${{ matrix.java }}
 
@@ -183,7 +183,7 @@ jobs:
           rm targets.tar
 
       - name: Download target directories (2.13.16)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: target-${{ matrix.os }}-2.13.16-${{ matrix.java }}
 
@@ -193,7 +193,7 @@ jobs:
           rm targets.tar
 
       - name: Download target directories (3.3.6)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: target-${{ matrix.os }}-3.3.6-${{ matrix.java }}
 
@@ -987,126 +987,126 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_CachedDateHeaderBenchmark
 
       - name: Format_Main_CachedDateHeaderBenchmark
         run: cat Main_CachedDateHeaderBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_ClientBenchmark
 
       - name: Format_Main_ClientBenchmark
         run: cat Main_ClientBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_CookieDecodeBenchmark
 
       - name: Format_Main_CookieDecodeBenchmark
         run: cat Main_CookieDecodeBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_DateEncodingBenchmark
 
       - name: Format_Main_DateEncodingBenchmark
         run: cat Main_DateEncodingBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_EndpointBenchmark
 
       - name: Format_Main_EndpointBenchmark
         run: cat Main_EndpointBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_FormToQueryBenchmark
 
       - name: Format_Main_FormToQueryBenchmark
         run: cat Main_FormToQueryBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_HttpCollectEval
 
       - name: Format_Main_HttpCollectEval
         run: cat Main_HttpCollectEval.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_HttpCombineEval
 
       - name: Format_Main_HttpCombineEval
         run: cat Main_HttpCombineEval.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
 
       - name: Format_Main_HttpNestedFlatMapEval
         run: cat Main_HttpNestedFlatMapEval.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_HttpRouteTextPerf
 
       - name: Format_Main_HttpRouteTextPerf
         run: cat Main_HttpRouteTextPerf.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_MethodLookupBenchmark
 
       - name: Format_Main_MethodLookupBenchmark
         run: cat Main_MethodLookupBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
 
       - name: Format_Main_ProbeContentTypeBenchmark
         run: cat Main_ProbeContentTypeBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_QueryEncodingBenchmark
 
       - name: Format_Main_QueryEncodingBenchmark
         run: cat Main_QueryEncodingBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_RoundtripBenchmark
 
       - name: Format_Main_RoundtripBenchmark
         run: cat Main_RoundtripBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_RoutesBenchmark
 
       - name: Format_Main_RoutesBenchmark
         run: cat Main_RoutesBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_SchemeDecodeBenchmark
 
       - name: Format_Main_SchemeDecodeBenchmark
         run: cat Main_SchemeDecodeBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_ServerInboundHandlerBenchmark
 
       - name: Format_Main_ServerInboundHandlerBenchmark
         run: cat Main_ServerInboundHandlerBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: Jmh_Main_UtilBenchmark
 
