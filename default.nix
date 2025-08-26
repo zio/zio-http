@@ -5,6 +5,5 @@ in pkgs.mkShell rec {
   
   buildInputs = with pkgs; [
     nodejs yarn
-    jdk21 sbt
   ];
 }    

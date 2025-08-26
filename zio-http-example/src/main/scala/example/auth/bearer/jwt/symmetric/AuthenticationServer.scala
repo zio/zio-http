@@ -1,0 +1,76 @@
+package example.auth.bearer.jwt.symmetric
+
+import example.auth.bearer.jwt.symmetric.core.AuthMiddleware.jwtAuth
+import example.auth.bearer.jwt.symmetric.core.{JwtTokenService, User, UserService}
+import pdi.jwt.JwtAlgorithm
+import zio.Config.Secret
+import zio._
+import zio.http._
+
+object AuthenticationServer extends ZIOAppDefault {
+  def routes: Routes[JwtTokenService & UserService, Response] =
+    Routes(
+      // Serve the web client interface from resources
+      Method.GET / Root ->
+        Handler
+          .fromResource("symmetric-jwt-client.html")
+          .orElse(
+            Handler.internalServerError("Failed to load HTML file"),
+          ),
+
+      // A route that is accessible only via a jwt token
+      Method.GET / "profile" / "me" -> handler { (_: Request) =>
+        ZIO.serviceWith[User](name => Response.text(s"Welcome $name!"))
+      } @@ jwtAuth(realm = "UserProfile"),
+
+      // A login route that is successful only if the password is the reverse of the username
+      Method.POST / "login" ->
+        handler { (request: Request) =>
+          def extractFormField(form: Form, fieldName: String): ZIO[Any, Response, String] =
+            ZIO
+              .fromOption(form.get(fieldName).flatMap(_.stringValue))
+              .orElseFail(Response.badRequest(s"Missing $fieldName"))
+
+          val unauthorizedResponse = Response.unauthorized("Invalid username or password.")
+
+          for {
+            form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest)
+            username     <- extractFormField(form, "username")
+            password     <- extractFormField(form, "password")
+            tokenService <- ZIO.service[JwtTokenService]
+            user         <- ZIO
+              .serviceWithZIO[UserService](_.getUser(username))
+              .orElseFail(unauthorizedResponse)
+            response     <-
+              if (user.password == Secret(password))
+                tokenService.issue(username).map(Response.text(_))
+              else
+                ZIO.fail(unauthorizedResponse)
+          } yield response
+        },
+      Method.GET / "admin"  -> handler { (_: Request) =>
+        ZIO.serviceWith[User] { user =>
+          if (user.username == "admin")
+            Response.text(s"Welcome to admin panel, ${user.username}! Admin email: ${user.email}")
+          else
+            Response.unauthorized(s"Access denied. User ${user.username} is not an admin.")
+        }
+      } @@ jwtAuth(realm = "Admin Area"),
+      Method.GET / "public" -> handler { (_: Request) =>
+        ZIO.succeed(Response.text("This is a public endpoint - no authentication required!"))
+      },
+    ) @@ Middleware.debug
+
+  override val run =
+    System
+      .envOrElse("JWT_SECRET_KEY", "my-secret")
+      .map(Secret(_))
+      .map { secret =>
+        val tokenService = JwtTokenService.live(secret, tokenTTL = 30.minutes, algorithm = JwtAlgorithm.HS512);
+        (secret, tokenService)
+      }
+      .flatMap { case (_, tokenService) =>
+        Server.serve(routes).provide(Server.default, tokenService, UserService.live)
+      }
+
+}
