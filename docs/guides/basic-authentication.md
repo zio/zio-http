@@ -41,8 +41,8 @@ First, add the necessary dependencies to your `build.sbt`:
 
 ```scala 
 libraryDependencies ++= Seq(
-  "dev.zio" %% "zio"      % "$ZIO_VERSION$"
-  "dev.zio" %% "zio-http" % "$VERSION$",
+  "dev.zio" %% "zio"      % "@ZIO_VERSION@"
+  "dev.zio" %% "zio-http" % "@VERSION@",
 )
 ```
 

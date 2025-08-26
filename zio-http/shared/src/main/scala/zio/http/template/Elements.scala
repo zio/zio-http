@@ -16,7 +16,10 @@
 
 package zio.http.template
 
+import scala.language.implicitConversions
+
 import zio.http.template.Element.PartialElement
+import zio.http.template2.{CssSelectable, CssSelector}
 
 trait Elements {
   final def a: PartialElement = PartialElement("a")
@@ -279,5 +282,7 @@ object Element {
         case Html.Multiple(children) => children
       }.flatten: _*,
     )
+
   }
+
 }

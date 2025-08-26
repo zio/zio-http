@@ -64,6 +64,19 @@ object URLSpec extends ZIOHttpSpec {
         },
       ),
       suite("encode-decode symmetry")(
+        test("url interpolator") {
+          val url           = url"https://api.com:8080/users?x=10&y=20"
+          val urlSpaces     = url"https://api.com:8080/users?x=10&y=20&spaces=with%20spaces"
+          val urlSpacesPlus = url"https://api.com:8080/users?x=10&y=20&spaces=with+spaces"
+          assertTrue(
+            url.encode == "https://api.com:8080/users?x=10&y=20",
+            urlSpaces.encode == "https://api.com:8080/users?x=10&y=20&spaces=with+spaces",
+            urlSpacesPlus.encode == "https://api.com:8080/users?x=10&y=20&spaces=with+spaces",
+            URL.decode(url.encode) == Right(url),
+            URL.decode(urlSpaces.encode) == Right(urlSpaces),
+            URL.decode(urlSpacesPlus.encode) == Right(urlSpacesPlus),
+          )
+        },
         test("auto-gen") {
           check(HttpGen.url) { url =>
             val expected        = url.copy(path = url.path.addLeadingSlash)
