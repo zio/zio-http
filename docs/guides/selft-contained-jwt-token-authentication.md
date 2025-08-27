@@ -86,7 +86,7 @@ The payload is where the magic happens—it contains the actual **claims** about
   "sub": "1234567890",
   "name": "Jane Doe",
   "email": "jane@example.com",
-  "roles": ["admin", "user"],
+  "roles": ["admin", "user"], // e.g. of custom field
   "iat": 1516239022,
   "exp": 1516242622
 }
@@ -339,14 +339,23 @@ The `profile` route listens for `GET` requests at the `/profile/me` endpoint. It
 
 In some cases, we may want to restrict access to certain routes based on user roles or permissions. For example, we can create an `/admin` route that only allows access to users with the `admin` role:
 
-```scala
+```
 val admin =
   Method.GET / "admin"  -> handler { (_: Request) =>
     ZIO.serviceWith[User] { user =>
-      if (user.username == "admin")
+      if (user.role == UserRole.Admin)
         Response.text(s"Welcome to admin panel, ${user.username}! Admin email: ${user.email}")
       else
         Response.unauthorized(s"Access denied. User ${user.username} is not an admin.")
     }
-  } @@ jwtAuth(realm = "Admin Area")
+  } @@ jwtAuth(realm = "Admin Area"),
 ```
+
+Please note that in this scenario, we retrieved the user role from the database at the server side, and then decide to authorize the given user to access the admin area or not.
+
+In this pattern of authentication, we only used the "username" as a JWT claim. The other information, such as "role" of the user is not included in the JWT token. So it is the responsibility of the API service, to retrieve the role of the user from its database. 
+
+This is a good decision in monolith application, but assume you are designing in microservice architecture, where the administration operations are served by a separate and depdendant service. Assume that service, provide an operation of blocking a user. An admin can block a specific user for some period of time. How that microservice can check if the requesting user has the "Admin" role? With traditional approach, it should api call the `UserService` and ask if the given username is admin or not. This approach works well but in such situations is not a ideal approach! The microservice is bound to the `UserService` only because of checking the user's role.
+
+Another approach is to encode all the required information in the JWT Claim. So in this example, the first time user's authorized through the login API, the server include required fields in the Claim, e.g. the "role" field. So in subsequent requests, where the client send their requests to the protected areas, all the necessary information about the user is encoded inside the Claim.
+

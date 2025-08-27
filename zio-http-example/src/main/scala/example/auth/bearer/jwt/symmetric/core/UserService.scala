@@ -2,10 +2,20 @@ package example.auth.bearer.jwt.symmetric.core
 
 import zio.Config._
 import zio._
-
 import example.auth.session.cookie.core.UserServiceError._
+import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.schema.{DeriveSchema, Schema}
 
-case class User(username: String, password: Secret, email: String)
+sealed trait UserRole
+object UserRole {
+  case object Admin extends UserRole
+  case object User  extends UserRole
+
+  implicit val schema: Schema[UserRole]   = DeriveSchema.gen
+  implicit val codec: JsonCodec[UserRole] = DeriveJsonCodec.gen
+}
+
+case class User(username: String, password: Secret, email: String, role: UserRole)
 
 sealed trait UserServiceError
 object UserServiceError {
@@ -17,9 +27,13 @@ trait UserService {
   def getUser(username: String): IO[UserNotFound, User]
   def addUser(user: User): IO[UserAlreadyExists, Unit]
   def updateEmail(username: String, newEmail: String): IO[UserNotFound, Unit]
+  def getUsers: UIO[List[User]]
 }
 
 case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
+  def getUsers: UIO[List[User]] =
+    users.get.map(_.values.toList)
+
   def getUser(username: String): IO[UserNotFound, User] =
     users.get.flatMap { userMap =>
       ZIO.fromOption(userMap.get(username)).orElseFail(UserNotFound(username))
@@ -41,9 +55,9 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
 
 object UserService {
   private val initialUsers = Map(
-    "john"  -> User("john", Secret("password123"), "john@example.com"),
-    "jane"  -> User("jane", Secret("secret456"), "jane@example.com"),
-    "admin" -> User("admin", Secret("admin123"), "admin@company.com"),
+    "john"  -> User("john", Secret("password123"), "john@example.com", UserRole.User),
+    "jane"  -> User("jane", Secret("secret456"), "jane@example.com", UserRole.User),
+    "admin" -> User("admin", Secret("admin123"), "admin@company.com", UserRole.Admin),
   )
 
   val live: ZLayer[Any, Nothing, UserService] =
