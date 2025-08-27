@@ -195,3 +195,158 @@ trait JwtTokenService {
 ```
 
 The `issue` method takes a `username` and generate a JWT token. It uses the standard `sub` claim to store the username. The `verify` method takes a JWT token and decodes it, returning the username if the token is valid, or failing if the token is invalid or expired.
+
+### Implementing the JWT Service
+
+To implement the `JwtTokenService`, we can use the `jwt-core` library:
+
+```sbt
+libraryDependencies += "com.github.jwt-scala" %% "jwt-core" % @JWT_CORE_VERSION@
+```
+
+It supports both symmetric and asymmetric signing. The following implementation uses symmetric signing algorithm:
+
+```scala
+case class JwtAuthServiceLive(
+  secretKey: Secret,
+  tokenTTL: Duration,
+  algorithm: JwtHmacAlgorithm,
+) extends JwtTokenService {
+  implicit val clock: Clock = Clock.systemUTC
+
+  override def issue(username: String): UIO[String] =
+    ZIO.succeed {
+      Jwt.encode(
+        JwtClaim(subject = Some(username)).issuedNow.expiresIn(tokenTTL.toSeconds),
+        secretKey.stringValue,
+        algorithm,
+      )
+    }
+
+  override def verify(token: String): Task[String] =
+    ZIO
+      .fromTry(
+        Jwt.decode(token, secretKey.stringValue, Seq(algorithm)),
+      )
+      .map(_.subject)
+      .some
+      .orElse(ZIO.fail(new Exception("Invalid token")))
+}
+
+object JwtTokenService {
+  def live(
+    secretKey: Secret,
+    tokenTTL: Duration = 15.minutes,
+    algorithm: JwtHmacAlgorithm = JwtAlgorithm.HS512,
+  ): ULayer[JwtAuthServiceLive] =
+    ZLayer.succeed(JwtAuthServiceLive(secretKey, tokenTTL, algorithm))
+}
+```
+
+The `JwtAuthServiceLive` class implements the `JwtTokenService` interface. It uses a `secretKey` to sign and verify tokens, a `tokenTTL` to set the token expiration time, and an `algorithm` to specify the signing algorithm.
+
+### Authentication Middleware
+
+Now that we have a JWT service, we can create an authentication middleware that verifies the JWT token in the `Authorization` header of incoming requests:
+
+```scala
+import zio._
+import zio.http._
+
+object AuthMiddleware {
+  def jwtAuth(realm: String): HandlerAspect[JwtTokenService & UserService, User] =
+    HandlerAspect.interceptIncomingHandler {
+      handler { (request: Request) =>
+        request.header(Header.Authorization) match {
+          case Some(Header.Authorization.Bearer(token)) =>
+            ZIO
+              .serviceWithZIO[JwtTokenService](_.verify(token.value.asString))
+              .flatMap { username =>
+                ZIO.serviceWithZIO[UserService](_.getUser(username))
+              }
+              .map(u => (request, u))
+              .orElseFail(
+                Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm))),
+              )
+          case _ => ZIO.fail(Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm))))
+        }
+      }
+    }
+}
+```
+
+The `jwtAuth` method creates a middleware that intercepts incoming requests. It checks for the `Authorization` header and extracts the JWT token. It then uses the `JwtTokenService` to verify the token and retrieve the username. If the token is valid, it fetches the user details from the `UserService` and passes them along with the request to the next handler. If the token is invalid or missing, it responds with a `401 Unauthorized` status including the `WWW-Authenticate` header with the realm of the resource that requires authentication.
+
+Please note that the `UserService` is the same as defined in the [digest authentication guide](digest-authentication.md).
+
+### The Login Route
+
+The login process involves the following steps:
+1. The server receives the username and password from the client.
+2. The server verifies the credentials against the user store.
+3. If the credentials are valid, the server issues a JWT token using the `JwtTokenService`.
+4. The server responds with the JWT token to the client.
+
+The login route requires two services: `UserService` to verify the user credentials and `JwtTokenService` to issue the JWT token. Here's how we can implement the login route:
+
+```scala
+val login =
+  Method.POST / "login" ->
+    handler { (request: Request) =>
+      def extractFormField(form: Form, fieldName: String): ZIO[Any, Response, String] =
+        ZIO
+          .fromOption(form.get(fieldName).flatMap(_.stringValue))
+          .orElseFail(Response.badRequest(s"Missing $fieldName"))
+
+      val unauthorizedResponse =
+        Response
+          .unauthorized("Invalid username or password.")
+          .addHeaders(Headers(Header.WWWAuthenticate.Bearer("User Login")))
+
+      for {
+        form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest)
+        username     <- extractFormField(form, "username")
+        password     <- extractFormField(form, "password")
+        tokenService <- ZIO.service[JwtTokenService]
+        user         <- ZIO
+          .serviceWithZIO[UserService](_.getUser(username))
+          .orElseFail(unauthorizedResponse)
+        response     <-
+          if (user.password == Secret(password))
+            tokenService.issue(username).map(Response.text(_))
+          else
+            ZIO.fail(unauthorizedResponse)
+      } yield response
+    }
+```
+
+The `login` route listens for `POST` requests at the `/login` endpoint. It extracts the `username` and `password` from the request body, verifies the credentials using the `UserService`, and if valid, issues a JWT token using the `JwtTokenService`. The token is then returned in the response body. If the credentials are invalid or missing, it responds with a `401 Unauthorized` status.
+
+### Applying the Middleware
+
+After user login, we are ready to protect out routes using the `jwtAuth` middleware. For example, we can protect the `/profile/me` route using the `@@` syntax:
+
+```scala
+val profile =
+  Method.GET / "profile" / "me" -> handler { (_: Request) =>
+    ZIO.serviceWith[User](name => Response.text(s"Welcome ${user.name}!"))
+  } @@ jwtAuth(realm = "User Profile")
+```
+
+The `profile` route listens for `GET` requests at the `/profile/me` endpoint. It uses the `jwtAuth` middleware to ensure that only authenticated users can access this route. If the user is authenticated, it retrieves the user's details and responds with a welcome message including the user's profile information. If the user is not authenticated, it responds with a `401 Unauthorized` status.
+
+### Restricting Access Based on User Roles
+
+In some cases, we may want to restrict access to certain routes based on user roles or permissions. For example, we can create an `/admin` route that only allows access to users with the `admin` role:
+
+```scala
+val admin =
+  Method.GET / "admin"  -> handler { (_: Request) =>
+    ZIO.serviceWith[User] { user =>
+      if (user.username == "admin")
+        Response.text(s"Welcome to admin panel, ${user.username}! Admin email: ${user.email}")
+      else
+        Response.unauthorized(s"Access denied. User ${user.username} is not an admin.")
+    }
+  } @@ jwtAuth(realm = "Admin Area")
+```

@@ -20,8 +20,11 @@ object AuthenticationServer extends ZIOAppDefault {
 
       // A route that is accessible only via a jwt token
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
-        ZIO.serviceWith[User](name => Response.text(s"Welcome $name!"))
-      } @@ jwtAuth(realm = "UserProfile"),
+        ZIO.serviceWith[User](user =>
+          Response.text(s"Welcome ${user.username}!" +
+            s"\nHere is your profile:\nEmail: ${user.email}"),
+        )
+      } @@ jwtAuth(realm = "User Profile"),
 
       // A login route that is successful only if the password is the reverse of the username
       Method.POST / "login" ->
@@ -31,7 +34,10 @@ object AuthenticationServer extends ZIOAppDefault {
               .fromOption(form.get(fieldName).flatMap(_.stringValue))
               .orElseFail(Response.badRequest(s"Missing $fieldName"))
 
-          val unauthorizedResponse = Response.unauthorized("Invalid username or password.")
+          val unauthorizedResponse =
+            Response
+              .unauthorized("Invalid username or password.")
+              .addHeaders(Headers(Header.WWWAuthenticate.Bearer("User Login")))
 
           for {
             form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest)
