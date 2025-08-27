@@ -1,3 +1,8 @@
+---
+id: netty
+title: "Netty Config"
+---
+
 ```scala mdoc:passthrough
 import zio.http.docs.ConfigReference
 import zio.http.netty.NettyConfig

@@ -14,6 +14,17 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.http.template2
 
-package object template extends Attributes with Elements
+/**
+ * Trait providing JavaScript string interpolation with compile-time validation.
+ */
+trait JsInterpolator {
+
+  /**
+   * JavaScript string interpolator that validates JavaScript syntax at compile time.
+   */
+  extension(inline sc: StringContext) {
+    inline def js(inline args: Any*): Js = ${ JsInterpolatorMacros.jsImpl('args, 'sc) }
+  }
+}
