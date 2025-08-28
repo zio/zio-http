@@ -198,6 +198,12 @@ object DomRenderingSpec extends ZIOSpecDefault {
         val rendered = element.render
         assertTrue(rendered.contains(""".class { content: "<>"; }"""))
       },
+      test("script with JsInterpolator should render correctly") {
+        val scriptContent = js"console.log(${1 + 2});"
+        val element       = script(scriptContent, id := "test-script")
+        val rendered      = element.render
+        assertTrue(rendered == """<script id="test-script">console.log(3);</script>""")
+      },
     ),
 
     // Test complex nested structures

@@ -163,17 +163,24 @@ object Dom {
       .replace("'", "&#x27;")
   }
 
-  sealed trait Element extends Dom {
-    def tag: String
+  sealed trait Element extends Dom with CssSelectable {
 
-    def attributes: Map[String, AttributeValue]
+    override val selector: CssSelector =
+      CssSelector.element(tag)
 
-    def children: Vector[Dom]
+    /**
+     * Apply modifiers (attributes and children) to this element
+     */
+    def apply(modifiers: Modifier*): Element
 
     /**
      * Add or update an attribute
      */
     def attr(name: String, value: AttributeValue): Element
+
+    def attributes: Map[String, AttributeValue]
+
+    def children: Vector[Dom]
 
     /**
      * Remove an attribute
@@ -185,6 +192,8 @@ object Dom {
      */
     def replaceChildren(children: Dom*): Element
 
+    def tag: String
+
     /**
      * Add children conditionally
      */
@@ -194,11 +203,6 @@ object Dom {
      * Add children if Option is defined
      */
     def whenSome[T](option: Option[T])(f: T => Seq[Modifier]): Element
-
-    /**
-     * Apply modifiers (attributes and children) to this element
-     */
-    def apply(modifiers: Modifier*): Element
 
     protected def shouldEscapeContent: Boolean
 
@@ -266,7 +270,14 @@ object Dom {
   /**
    * Complete attribute with name and value
    */
-  final case class CompleteAttribute(name: String, value: AttributeValue) extends Attribute
+  final case class CompleteAttribute(name: String, value: AttributeValue) extends Attribute with CssSelectable {
+    override val selector: CssSelector =
+      name match {
+        case "class" => CssSelector.`class`(value.toString)
+        case "id"    => CssSelector.id(value.toString)
+        case _       => CssSelector.Universal.withAttribute(name, value.toString)
+      }
+  }
 
   /**
    * Partial attribute that needs a value (like href := "...")
@@ -277,6 +288,12 @@ object Dom {
     def :=(value: Boolean): CompleteAttribute        = CompleteAttribute(name, AttributeValue.BooleanValue(value))
     def :=(value: Int): CompleteAttribute    = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
     def :=(value: Double): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
+
+    def apply(value: AttributeValue): CompleteAttribute = CompleteAttribute(name, value)
+    def apply(value: String): CompleteAttribute         = CompleteAttribute(name, AttributeValue.StringValue(value))
+    def apply(value: Boolean): CompleteAttribute        = CompleteAttribute(name, AttributeValue.BooleanValue(value))
+    def apply(value: Int): CompleteAttribute    = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
+    def apply(value: Double): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
   }
 
   /**
@@ -287,6 +304,9 @@ object Dom {
   }
 
   object Element {
+
+    implicit def toCssSelector(partialElement: Element): CssSelector =
+      partialElement.selector
 
     /**
      * Generic HTML element
@@ -352,6 +372,17 @@ object Dom {
         copy(attributes = attrs, children = kids)
       }
 
+      def apply(Js: Js, modifiers: Modifier*): Script = {
+        val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
+          case ((currentAttrs, currentChildren), modifier) =>
+            modifier match {
+              case attr: Attribute => (currentAttrs + (attr.name -> attr.value), currentChildren)
+              case child: Dom      => (currentAttrs, currentChildren :+ child)
+            }
+        }
+        copy(attributes = attrs, children = kids :+ Dom.text(Js.value))
+      }
+
       def async: Script = attr("async", true)
 
       def attr(name: String, value: AttributeValue): Script =
@@ -367,11 +398,17 @@ object Dom {
 
       def inlineJs(code: String): Script = `type`("text/javascript").javascript(code)
 
+      def inlineJs(code: Js): Script = `type`("text/javascript").javascript(code)
+
       def integrity(value: String): Script = attr("integrity", value)
 
       def javascript(code: String): Script = apply(Dom.text(code))
 
+      def javascript(code: Js): Script = apply(Dom.text(code.value))
+
       def module(code: String): Script = `type`("module").javascript(code)
+
+      def module(code: Js): Script = `type`("module").javascript(code)
 
       def noModule: Script = attr("nomodule", true)
 
@@ -420,12 +457,27 @@ object Dom {
         copy(attributes = attrs, children = kids)
       }
 
+      def apply(Css: Css, modifiers: Modifier*): Style = {
+        val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
+          case ((currentAttrs, currentChildren), modifier) =>
+            modifier match {
+              case attr: Attribute => (currentAttrs + (attr.name -> attr.value), currentChildren)
+              case child: Dom      => (currentAttrs, currentChildren :+ child)
+            }
+        }
+        copy(attributes = attrs, children = kids :+ Dom.text(Css.value))
+      }
+
       def attr(name: String, value: AttributeValue): Style =
         copy(attributes = attributes + (name -> value))
 
       def css(code: String): Style = apply(Dom.text(code))
 
+      def css(code: Css): Style = apply(Dom.text(code.value))
+
       def inlineCss(code: String): Style = `type`("text/css").css(code)
+
+      def inlineCss(code: Css): Style = `type`("text/css").css(code.value)
 
       def media(value: String): Style = attr("media", value)
 
@@ -493,9 +545,9 @@ private[template2] sealed trait RenderState {
 }
 
 private[template2] object RenderState {
-  def noIndentation: RenderState = NoIndentation
-
   val withIndentation: RenderState = WithIndentation(0, 2)
+
+  def noIndentation: RenderState = NoIndentation
 
   final case class WithIndentation(level: Int, spaces: Int) extends RenderState {
     def separator: String   = "\n" + (" " * (level * spaces))

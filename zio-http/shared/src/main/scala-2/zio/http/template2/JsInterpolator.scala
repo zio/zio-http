@@ -14,6 +14,20 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.http.template2
 
-package object template extends Attributes with Elements
+import scala.language.experimental.macros
+
+/**
+ * Trait providing JavaScript string interpolation with compile-time validation.
+ */
+trait JsInterpolator {
+
+  /**
+   * JavaScript string interpolator that validates JavaScript syntax at compile
+   * time.
+   */
+  implicit class JSStringContext(val sc: StringContext) {
+    def js(args: Any*): Js = macro JSInterpolatorMacros.jsImpl
+  }
+}
