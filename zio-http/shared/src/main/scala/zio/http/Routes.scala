@@ -1,12 +1,12 @@
 /*
  * Copyright 2023 the ZIO HTTP contributors.
- *
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -322,12 +322,26 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   }
 
   private[http] def uniqueRoutes: (Chunk[Route[Env, Err]], Chunk[Route[Env, Err]]) = {
-    val (unique, duplicates) = routes.reverse.foldLeft((Chunk.empty[Route[Env, Err]], Chunk.empty[Route[Env, Err]])) {
-      case ((unique, duplicates), route) =>
-        if (unique.exists(_.routePattern.structureEquals(route.routePattern))) (unique, duplicates :+ route)
-        else (unique :+ route, duplicates)
+    val uniqueList = scala.collection.mutable.ListBuffer[(Route[Env, Err], Int)]()
+    val duplicates = Chunk.newBuilder[Route[Env, Err]]
+
+    routes.zipWithIndex.foreach { case (route, index) =>
+      val existingIndex = uniqueList.indexWhere(_._1.routePattern.structureEquals(route.routePattern))
+      if (existingIndex >= 0) {
+        // Found duplicate - remove old route and add it to duplicates
+        val (oldRoute, _) = uniqueList.remove(existingIndex)
+        duplicates += oldRoute
+        // Add the new route (which takes precedence)
+        uniqueList += ((route, index))
+      } else {
+        // No duplicate found, add to unique list
+        uniqueList += ((route, index))
+      }
     }
-    (unique, duplicates)
+
+    // Sort unique routes by their original index to preserve order
+    val unique = uniqueList.sortBy(_._2).map(_._1)
+    (Chunk.fromIterable(unique), duplicates.result())
   }
 
   private[http] def withRoutes[Env1, Err1](routes: Chunk[Route[Env1, Err1]]): Routes[Env1, Err1] = {

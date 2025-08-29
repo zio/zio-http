@@ -137,5 +137,78 @@ object RoutesSpec extends ZIOHttpSpec {
         )
       }
     },
+    test("specific route should take precedence over trailing route (issue #3639)") {
+      val routes = Routes(
+        Method.GET / string("test") / "expectedA" -> handler { (test: String, req: Request) =>
+          Response.text(s"expectedA: $test")
+        },
+        Method.GET / trailing -> handler { (path: Path, req: Request) =>
+          Response.text(s"Remainder: $path")
+        },
+      )
+
+      for {
+        result <- routes.runZIO(Request.get("/value/expectedA"))
+        body   <- result.body.asString
+      } yield {
+        // The specific route should take precedence over the trailing route
+        assertTrue(body == "expectedA: value")
+      }
+    },
+    test("route order should be preserved for non-duplicates") {
+      val routes = Routes(
+        Method.GET / "first" -> handler { (_: Request) =>
+          Response.text("first")
+        },
+        Method.GET / trailing -> handler { (path: Path, req: Request) =>
+          Response.text(s"trailing: $path")
+        },
+        Method.GET / "second" -> handler { (_: Request) =>
+          Response.text("second")
+        },
+      )
+
+      for {
+        firstResult  <- routes.runZIO(Request.get("/first"))
+        firstBody    <- firstResult.body.asString
+        secondResult <- routes.runZIO(Request.get("/second"))
+        secondBody   <- secondResult.body.asString
+        otherResult  <- routes.runZIO(Request.get("/other"))
+        otherBody    <- otherResult.body.asString
+      } yield {
+        assertTrue(
+          firstBody == "first",
+          secondBody == "second",
+          otherBody == "trailing: /other"
+        )
+      }
+    },
+    test("last duplicate route should win while preserving non-duplicate order") {
+      val routes = Routes(
+        Method.GET / "unique1" -> handler { (_: Request) => Response.text("unique1") },
+        Method.GET / "duplicate" -> handler { (_: Request) => Response.text("first") },
+        Method.GET / "unique2" -> handler { (_: Request) => Response.text("unique2") },
+        Method.GET / "duplicate" -> handler { (_: Request) => Response.text("second") },
+        Method.GET / "unique3" -> handler { (_: Request) => Response.text("unique3") },
+      )
+
+      for {
+        unique1Result   <- routes.runZIO(Request.get("/unique1"))
+        unique1Body     <- unique1Result.body.asString
+        duplicateResult <- routes.runZIO(Request.get("/duplicate"))
+        duplicateBody   <- duplicateResult.body.asString
+        unique2Result   <- routes.runZIO(Request.get("/unique2"))
+        unique2Body     <- unique2Result.body.asString
+        unique3Result   <- routes.runZIO(Request.get("/unique3"))
+        unique3Body     <- unique3Result.body.asString
+      } yield {
+        assertTrue(
+          unique1Body == "unique1",
+          duplicateBody == "second", // Last duplicate should win
+          unique2Body == "unique2",
+          unique3Body == "unique3"
+        )
+      }
+    },
   )
 }
