@@ -7,6 +7,7 @@ import zio.Chunk
 
 import zio.http.Method
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPI}
 import zio.http.gen.scala.Code._
 import zio.http.gen.scala.{Code, CodeGen}
@@ -559,8 +560,12 @@ final case class EndpointGen(config: Config) {
           )
       }.unzip
 
-    val imports = inImports ++ outImports.flatten
-    val code    = Code.EndpointCode(
+    val imports            = inImports ++ outImports.flatten
+    val allowedAuthSchemes = Set("bearer", "basic", "digest")
+    val auth               = op.security.collect { case SecurityRequirement(reqs) =>
+      reqs.keys.find(key => allowedAuthSchemes.contains(key.toLowerCase))
+    }.flatten.headOption.map(Code.AuthTypeCode(_))
+    val code               = Code.EndpointCode(
       method = method,
       pathPatternCode = Code.PathPatternCode(segments),
       queryParamsCode = queryParams,
@@ -568,6 +573,7 @@ final case class EndpointGen(config: Config) {
       inCode = Code.InCode(inType),
       outCodes = outCodes.filterNot(_.status.isError).toList,
       errorsCode = outCodes.filter(_.status.isError).toList,
+      authTypeCode = auth,
     )
     imports -> code
   }
