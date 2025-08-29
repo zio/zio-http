@@ -322,10 +322,18 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   }
 
   private[http] def uniqueRoutes: (Chunk[Route[Env, Err]], Chunk[Route[Env, Err]]) = {
-    val (unique, duplicates) = routes.reverse.foldLeft((Chunk.empty[Route[Env, Err]], Chunk.empty[Route[Env, Err]])) {
+    val (unique, duplicates) = routes.foldLeft((Chunk.empty[Route[Env, Err]], Chunk.empty[Route[Env, Err]])) {
       case ((unique, duplicates), route) =>
-        if (unique.exists(_.routePattern.structureEquals(route.routePattern))) (unique, duplicates :+ route)
-        else (unique :+ route, duplicates)
+        unique.indexWhere(_.routePattern.structureEquals(route.routePattern)) match {
+          case -1 => 
+            // No duplicate found, add to unique
+            (unique :+ route, duplicates)
+          case index => 
+            // Duplicate found, replace the existing route with the new one and mark the old one as duplicate
+            val oldRoute = unique(index)
+            val newUnique = unique.updated(index, route)
+            (newUnique, duplicates :+ oldRoute)
+        }
     }
     (unique, duplicates)
   }

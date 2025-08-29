@@ -137,5 +137,51 @@ object RoutesSpec extends ZIOHttpSpec {
         )
       }
     },
+    test("specific route should take precedence over trailing route") {
+      val routes = Routes(
+        Method.GET / string("test") / "expectedA" -> handler { (test: String, req: Request) =>
+          Response.text(s"expectedA: $test")
+        },
+        Method.GET / trailing -> handler { (path: Path, req: Request) =>
+          Response.text(s"Remainder: $path")
+        },
+      )
+
+      for {
+        result <- routes.runZIO(Request.get("/value/expectedA"))
+        body   <- result.body.asString
+      } yield {
+        // The specific route should take precedence over the trailing route
+        assertTrue(body == "expectedA: value")
+      }
+    },
+    test("route order should be preserved for non-duplicates") {
+      val routes = Routes(
+        Method.GET / "first" -> handler { (_: Request) =>
+          Response.text("first")
+        },
+        Method.GET / trailing -> handler { (path: Path, req: Request) =>
+          Response.text(s"trailing: $path")
+        },
+        Method.GET / "second" -> handler { (_: Request) =>
+          Response.text("second")
+        },
+      )
+
+      for {
+        firstResult  <- routes.runZIO(Request.get("/first"))
+        firstBody    <- firstResult.body.asString
+        secondResult <- routes.runZIO(Request.get("/second"))
+        secondBody   <- secondResult.body.asString
+        otherResult  <- routes.runZIO(Request.get("/other"))
+        otherBody    <- otherResult.body.asString
+      } yield {
+        assertTrue(
+          firstBody == "first",
+          secondBody == "second", 
+          otherBody == "trailing: /other"
+        )
+      }
+    },
   )
 }
