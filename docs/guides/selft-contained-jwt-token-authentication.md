@@ -254,7 +254,7 @@ import zio._
 import zio.http._
 
 object AuthMiddleware {
-  def jwtAuth(realm: String): HandlerAspect[JwtTokenService & UserService, User] =
+  def jwtAuthentication(realm: String): HandlerAspect[JwtTokenService & UserService, UserInfo] =
     HandlerAspect.interceptIncomingHandler {
       handler { (request: Request) =>
         request.header(Header.Authorization) match {
@@ -264,7 +264,8 @@ object AuthMiddleware {
               .flatMap { username =>
                 ZIO.serviceWithZIO[UserService](_.getUser(username))
               }
-              .map(u => (request, u))
+              .map(u => UserInfo(u.username, u.email, u.roles))
+              .map(userInfo => (request, userInfo))
               .orElseFail(
                 Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm))),
               )
@@ -278,6 +279,20 @@ object AuthMiddleware {
 The `jwtAuth` method creates a middleware that intercepts incoming requests. It checks for the `Authorization` header and extracts the JWT token. It then uses the `JwtTokenService` to verify the token and retrieve the username. If the token is valid, it fetches the user details from the `UserService` and passes them along with the request to the next handler. If the token is invalid or missing, it responds with a `401 Unauthorized` status including the `WWW-Authenticate` header with the realm of the resource that requires authentication.
 
 Please note that the `UserService` is the same as defined in the [digest authentication guide](digest-authentication.md).
+
+Also please note that we've introduced a new data type called `UserInfo` that encapsulates all necessary user information to be passed to the next handlers in the request pipeline:
+
+```scala
+case class UserInfo(
+  username: String,
+  email: String,
+  roles: Set[String],
+)
+
+object UserInfo {
+  implicit val codec: JsonCodec[UserInfo] = DeriveJsonCodec.gen
+}
+```
 
 ### The Login Route
 
@@ -329,33 +344,187 @@ After user login, we are ready to protect out routes using the `jwtAuth` middlew
 ```scala
 val profile =
   Method.GET / "profile" / "me" -> handler { (_: Request) =>
-    ZIO.serviceWith[User](name => Response.text(s"Welcome ${user.name}!"))
+    ZIO.serviceWith[UserInfo](info => Response.text(s"Welcome ${info.username}!"))
   } @@ jwtAuth(realm = "User Profile")
 ```
 
 The `profile` route listens for `GET` requests at the `/profile/me` endpoint. It uses the `jwtAuth` middleware to ensure that only authenticated users can access this route. If the user is authenticated, it retrieves the user's details and responds with a welcome message including the user's profile information. If the user is not authenticated, it responds with a `401 Unauthorized` status.
 
-### Restricting Access Based on User Roles
+## Restricting Access Based on User Roles
 
-In some cases, we may want to restrict access to certain routes based on user roles or permissions. For example, we can create an `/admin` route that only allows access to users with the `admin` role:
+In many applications, we need to restrict access to certain routes based on user roles or permissions. For example, we can create an `/admin` route that only allows access to users with the `admin` role.
 
-```
+There are two main approaches to implement role-based access control with JWTs:
+1. The traditional approach, where the JWT token only contains the username, and the API service retrieves the user's roles from a user service or database for each request.
+2. An enhanced approach, where the JWT token includes all necessary user information (such as roles) in its claims, allowing the API service to make authorization decisions without additional lookups.
+
+### Traditional Approach: Server-Side Role Verification
+
+In this scenario, the `jwtAuth` middleware retrieves the authenticated username from the JWT token and then fetches the user details from the `UserService` and passes the user details (the `User` object) to the next handlers in the request pipeline. The admin route checks if the user has the `admin` role and grants or denies access accordingly:
+
+```scala
 val admin =
-  Method.GET / "admin"  -> handler { (_: Request) =>
-    ZIO.serviceWith[User] { user =>
-      if (user.role == UserRole.Admin)
-        Response.text(s"Welcome to admin panel, ${user.username}! Admin email: ${user.email}")
-      else
-        Response.unauthorized(s"Access denied. User ${user.username} is not an admin.")
+  Method.GET / "admin" / "users" -> handler { (_: Request) =>
+    Handler.fromZIO(ZIO.service[UserService]).flatMap { userService =>
+      Handler.fromZIO {
+        ZIO.serviceWithZIO[UserInfo] { info =>
+          if (info.roles.contains("admin")) userService.getUsers.map { users =>
+            val userList = users.map(u => s"${u.username} (${u.email}) - Role: ${u.roles}").mkString("\n")
+            Response.text(s"User List:\n$userList")
+          }
+          else
+            ZIO.fail(Response.unauthorized(s"Access denied. User ${info.username} is not an admin."))
+        }
+      } @@ jwtAuth(realm = "Admin Area")
     }
-  } @@ jwtAuth(realm = "Admin Area"),
+  } 
 ```
 
-Please note that in this scenario, we retrieved the user role from the database at the server side, and then decide to authorize the given user to access the admin area or not.
+In this authentication pattern, we only include the username as a JWT claim. Additional information, such as the user's role, is not included in the JWT token. Therefore, it is the responsibility of the middleware to fetch the complete user details from the `UserService` after verifying the token. 
 
-In this pattern of authentication, we only used the "username" as a JWT claim. The other information, such as "role" of the user is not included in the JWT token. So it is the responsibility of the API service, to retrieve the role of the user from its database. 
+While this approach works well for monolithic applications, it presents challenges in microservice architectures. Consider a scenario where administrative operations are handled by a separate, independent service. How can this microservice verify if the requesting user has admin privileges? Using the traditional approach, all protected routes using the `jwtAuth` middleware would require the `UserService` to verify user roles.
 
-This is a good decision in monolith application, but assume you are designing in microservice architecture, where the administration operations are served by a separate and depdendant service. Assume that service, provide an operation of blocking a user. An admin can block a specific user for some period of time. How that microservice can check if the requesting user has the "Admin" role? With traditional approach, it should api call the `UserService` and ask if the given username is admin or not. This approach works well but in such situations is not a ideal approach! The microservice is bound to the `UserService` only because of checking the user's role.
+With the traditional approach, the microservice must make an API call to the `UserService` to verify the user's roles. Although functional, this creates an unnecessary dependency—the microservice becomes coupled to the `UserService` solely for role verification.
 
-Another approach is to encode all the required information in the JWT Claim. So in this example, the first time user's authorized through the login API, the server include required fields in the Claim, e.g. the "role" field. So in subsequent requests, where the client send their requests to the protected areas, all the necessary information about the user is encoded inside the Claim.
+### Enhanced Approach: Encoding Roles in JWT Claims
 
+A more efficient approach is to encode all required information directly in the JWT claims. When a user initially authenticates through the login API, the server includes the necessary fields (such as roles) in the token's claims. In subsequent requests to protected areas, all essential user information is already encoded within the token.
+
+Let's revise the `jwtAuth` middleware to implement this approach. The original middleware had the type `HandlerAspect[JwtTokenService & UserService, UserInfo]`, which required calling the `UserService` after verifying the JWT token to retrieve user details.
+
+In our new implementation, we eliminate the dependency on `UserService` since all required fields are contained within the JWT claims:
+
+```scala
+object AuthMiddleware {
+  def jwtAuth(realm: String): HandlerAspect[JwtTokenServiceClaim, UserInfo] =
+    HandlerAspect.interceptIncomingHandler {
+      handler { (request: Request) =>
+        request.header(Header.Authorization) match {
+          case Some(Header.Authorization.Bearer(token)) =>
+            ZIO
+              .serviceWithZIO[JwtTokenServiceClaim](_.verify(token.value.asString))
+              .map(userInfo => (request, userInfo))
+              .orElseFail(
+                Response
+                  .unauthorized("Invalid or expired token.")
+                  .addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm))),
+              )
+          case _ => ZIO.fail(Response.unauthorized.addHeaders(Headers(Header.WWWAuthenticate.Bearer(realm))))
+        }
+      }
+    }
+}
+```
+
+The middleware now verifies the received token, extracts the user information, and passes it to subsequent handlers in the request pipeline. Note that the middleware type has changed to `HandlerAspect[JwtTokenService, UserInfo]`, eliminating the `UserService` dependency.
+
+### Updating the JWT Service
+
+We need to update the `JwtTokenService` interface to support the enhanced claims:
+
+```scala
+trait JwtTokenService {
+  def issue(username: String, email: String, roles: Set[String]): UIO[String]
+  def verify(token: String): Task[UserInfo]
+}
+```
+
+The `issue` method now accepts additional parameters (email and roles), and the `verify` method returns a `UserInfo` object instead of just the username. 
+
+
+The `JwtTokenService` implementation must be updated to include additional fields in the claims:
+
+```scala
+import pdi.jwt._
+import pdi.jwt.algorithms.JwtHmacAlgorithm
+import zio.Config.Secret
+import zio._
+import zio.json._
+
+import java.time.Clock
+
+case class JwtAuthServiceLive(
+  secretKey: Secret,
+  tokenTTL: Duration,
+  algorithm: JwtHmacAlgorithm,
+) extends JwtTokenServiceClaim {
+  implicit val clock: Clock = Clock.systemUTC
+
+  override def issue(username: String, email: String, roles: Set[String]): UIO[String] =
+    ZIO.succeed {
+      Jwt.encode(
+        claim = JwtClaim(subject = Some(username)).issuedNow
+          .expiresIn(tokenTTL.toSeconds)
+          .++(("roles", roles))
+          .++(("email", email)),
+        key = secretKey.stringValue,
+        algorithm = algorithm,
+      )
+    }
+
+  override def verify(token: String): ZIO[Any, Throwable, UserInfo] =
+    ZIO
+      .fromTry(
+        Jwt.decode(token, secretKey.stringValue, Seq(algorithm)),
+      )
+      .filterOrFail(_.isValid)(new Exception("Token expired"))
+      .map(_.toJson)
+      .map(UserInfo.codec.decodeJson(_).toOption)
+      .someOrFail(new Exception("Invalid token"))
+}
+
+object JwtTokenServiceClaim {
+  def live(
+    secretKey: Secret,
+    tokenTTL: Duration = 15.minutes,
+    algorithm: JwtHmacAlgorithm = JwtAlgorithm.HS512,
+  ): ULayer[JwtAuthServiceClaimLive] =
+    ZLayer.succeed(JwtAuthServiceClaimLive(secretKey, tokenTTL, algorithm))
+}
+```
+
+### Updating Routes
+
+The login route must be updated to pass additional fields to the `issue` method:
+
+```scala
+val login =
+  Method.POST / "login" ->
+    handler { (request: Request) =>
+      for {
+        form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest)
+        username     <- extractFormField(form, "username")
+        password     <- extractFormField(form, "password")
+        tokenService <- ZIO.service[JwtTokenServiceClaim]
+        user         <- ZIO
+          .serviceWithZIO[UserService](_.getUser(username))
+          .orElseFail(unauthorizedResponse)
+        response     <-
+          if (user.password == Secret(password))
+            tokenService.issue(username, user.email, user.roles).map(Response.text(_))
+          else
+            ZIO.fail(unauthorizedResponse)
+      } yield response
+    }
+```
+
+The admin route now uses the `UserInfo` object provided by the middleware:
+
+```scala
+val users =
+  Method.GET / "admin" / "users" ->
+    Handler.fromZIO(ZIO.service[UserService]).flatMap { userService =>
+      Handler.fromZIO {
+        ZIO.serviceWithZIO[UserInfo] { info: UserInfo =>
+          if (info.roles.contains("admin")) userService.getUsers.map { users =>
+            val userList = users.map(u => s"${u.username} (${u.email}) - Role: ${u.roles}").mkString("\n")
+            Response.text(s"User List:\n$userList")
+          }
+          else
+            ZIO.fail(Response.unauthorized(s"Access denied. User ${info.username} is not an admin."))
+        }
+      } @@ jwtAuth(realm = "Admin Area")
+    }
+```
+
+We verify authorization by checking if the `UserInfo` object's roles field contains the "admin" role. If it does, we grant access; otherwise, we respond with a `401 Unauthorized` status. The key advantage is that we no longer need to query the `UserService` for authorization decisions—all necessary information is contained within the JWT token.

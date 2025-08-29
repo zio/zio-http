@@ -292,7 +292,7 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
-  .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-schema-json`))
+  .settings(libraryDependencies ++= Seq(`jwt-core`, `jwt-zio-json`, `zio-schema-json`))
   .settings(
     run / fork := true,
     run / javaOptions ++= Seq("-Xms4G", "-Xmx4G", "-XX:+UseG1GC"),

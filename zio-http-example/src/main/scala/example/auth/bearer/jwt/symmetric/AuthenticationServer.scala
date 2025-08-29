@@ -1,7 +1,7 @@
 package example.auth.bearer.jwt.symmetric
 
-import example.auth.bearer.jwt.symmetric.core.AuthMiddleware.{Claim, jwtAuth, jwtAuthClaim}
-import example.auth.bearer.jwt.symmetric.core._
+import example.auth.bearer.jwt.symmetric.core.AuthMiddleware.{jwtAuth}
+import example.auth.bearer.jwt.symmetric.core.{UserInfo, _}
 import pdi.jwt.JwtAlgorithm
 import zio.Config.Secret
 import zio._
@@ -20,7 +20,7 @@ object AuthenticationServer extends ZIOAppDefault {
 
       // A route that is accessible only via a jwt token
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
-        ZIO.serviceWith[User](user =>
+        ZIO.serviceWith[UserInfo](user =>
           Response.text(
             s"Welcome ${user.username}!" +
               s"\nHere is your profile:\nEmail: ${user.email}",
@@ -51,7 +51,7 @@ object AuthenticationServer extends ZIOAppDefault {
               .orElseFail(unauthorizedResponse)
             response     <-
               if (user.password == Secret(password))
-                tokenService.issue(username, UserRole.Admin, user.email).map(Response.text(_))
+                tokenService.issue(username, user.email, user.roles).map(Response.text(_))
               else
                 ZIO.fail(unauthorizedResponse)
           } yield response
@@ -59,28 +59,16 @@ object AuthenticationServer extends ZIOAppDefault {
       Method.GET / "admin" / "users" ->
         Handler.fromZIO(ZIO.service[UserService]).flatMap { userService =>
           Handler.fromZIO {
-            ZIO.serviceWithZIO[Claim] { claim: Claim =>
-              if (claim.role == UserRole.Admin) {
-                userService.getUsers.map { users =>
-                  val userList = users.map(u => s"${u.username} (${u.email}) - Role: ${u.role}").mkString("\n")
-                  Response.text(s"User List:\n$userList")
-                }
-              } else {
-                ZIO.fail(
-                  Response.unauthorized(s"Access denied. User ${claim.username} is not an admin."),
-                )
+            ZIO.serviceWithZIO[UserInfo] { info: UserInfo =>
+              if (info.roles.contains("admin")) userService.getUsers.map { users =>
+                val userList = users.map(u => s"${u.username} (${u.email}) - Role: ${u.roles}").mkString("\n")
+                Response.text(s"User List:\n$userList")
               }
+              else
+                ZIO.fail(Response.unauthorized(s"Access denied. User ${info.username} is not an admin."))
             }
-          } @@ jwtAuthClaim(realm = "Admin Area")
+          } @@ jwtAuth(realm = "Admin Area")
         },
-//      Method.GET / "admin"  -> handler { (_: Request) =>
-//        ZIO.serviceWith[User] { user =>
-//          if (user.role == UserRole.Admin)
-//            Response.text(s"Welcome to admin panel, ${user.username}! Admin email: ${user.email}")
-//          else
-//            Response.unauthorized(s"Access denied. User ${user.username} is not an admin.")
-//        }
-//      } @@ jwtAuth(realm = "Admin Area"),
       Method.GET / "public"          -> handler { (_: Request) =>
         ZIO.succeed(Response.text("This is a public endpoint - no authentication required!"))
       },

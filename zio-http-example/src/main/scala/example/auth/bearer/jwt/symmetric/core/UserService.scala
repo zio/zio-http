@@ -3,19 +3,8 @@ package example.auth.bearer.jwt.symmetric.core
 import zio.Config._
 import zio._
 import example.auth.session.cookie.core.UserServiceError._
-import zio.json.{DeriveJsonCodec, JsonCodec}
-import zio.schema.{DeriveSchema, Schema}
 
-sealed trait UserRole
-object UserRole {
-  case object Admin extends UserRole
-  case object User  extends UserRole
-
-  implicit val schema: Schema[UserRole]   = DeriveSchema.gen
-  implicit val codec: JsonCodec[UserRole] = DeriveJsonCodec.gen
-}
-
-case class User(username: String, password: Secret, email: String, role: UserRole)
+case class User(username: String, password: Secret, email: String, roles: Set[String])
 
 sealed trait UserServiceError
 object UserServiceError {
@@ -55,9 +44,9 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
 
 object UserService {
   private val initialUsers = Map(
-    "john"  -> User("john", Secret("password123"), "john@example.com", UserRole.User),
-    "jane"  -> User("jane", Secret("secret456"), "jane@example.com", UserRole.User),
-    "admin" -> User("admin", Secret("admin123"), "admin@company.com", UserRole.Admin),
+    "john"  -> User("john", Secret("password123"), "john@example.com", Set("user")),
+    "jane"  -> User("jane", Secret("secret456"), "jane@example.com", Set("user")),
+    "admin" -> User("admin", Secret("admin123"), "admin@company.com", Set("user", "admin")),
   )
 
   val live: ZLayer[Any, Nothing, UserService] =

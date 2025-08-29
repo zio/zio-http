@@ -13,6 +13,7 @@ object Dependencies {
   val ZioConfigVersion             = "4.0.4"
 
   val `jwt-core`                = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
+  val `jwt-zio-json`            = "com.github.jwt-scala"   %% "jwt-zio-json"            % JwtCoreVersion
   val `scala-compat-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompatCollectionVersion
 
   val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.9"

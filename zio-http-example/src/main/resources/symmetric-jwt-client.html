@@ -244,6 +244,89 @@
             background: rgba(40, 167, 69, 0.05);
             border-color: rgba(40, 167, 69, 0.3);
             color: #155724;
+            display: block;
+        }
+
+        .jwt-decoded {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .jwt-decoded.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .jwt-part {
+            margin-bottom: 20px;
+        }
+
+        .jwt-part-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .jwt-part-label {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .jwt-part-content {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+
+        .jwt-json {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .jwt-raw {
+            color: #6c757d;
+            font-size: 10px;
+            word-break: break-all;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #dee2e6;
+        }
+
+        .jwt-field {
+            margin: 4px 0;
+        }
+
+        .jwt-field-name {
+            color: #6f42c1;
+            font-weight: bold;
+        }
+
+        .jwt-field-value {
+            color: #495057;
+        }
+
+        .jwt-field-timestamp {
+            color: #28a745;
+            font-size: 11px;
+            margin-left: 8px;
         }
 
         .form-group {
@@ -594,32 +677,32 @@
     <div class="header">
         <div class="auth-logo">🎫</div>
         <h1>JWT Authentication Demo</h1>
-        <p class="subtitle">Test JWT Bearer Token Authentication with different users</p>
+        <p class="subtitle">Test JWT Bearer Token Authentication with different user roles</p>
     </div>
 
     <div class="section">
         <h2>👥 User Selection</h2>
-        <p>Click on any user card below to automatically fill in the credentials (password is username reversed)</p>
+        <p>Click on any user card below to automatically fill in the credentials</p>
         <div class="user-grid" id="userGrid">
-            <div class="user-card" data-username="alice" data-password="ecila">
+            <div class="user-card" data-username="john" data-password="password123">
                 <div class="user-card-icon">👤</div>
-                <div class="user-card-name">Alice</div>
-                <div class="user-card-credentials">alice</div>
-                <div class="user-card-password">password: ecila</div>
+                <div class="user-card-name">John</div>
+                <div class="user-card-credentials">john</div>
+                <div class="user-card-password">password: password123</div>
                 <span class="role-badge">Regular User</span>
             </div>
-            <div class="user-card" data-username="bob" data-password="bob">
+            <div class="user-card" data-username="jane" data-password="secret456">
                 <div class="user-card-icon">👤</div>
-                <div class="user-card-name">Bob</div>
-                <div class="user-card-credentials">bob</div>
-                <div class="user-card-password">password: bob</div>
+                <div class="user-card-name">Jane</div>
+                <div class="user-card-credentials">jane</div>
+                <div class="user-card-password">password: secret456</div>
                 <span class="role-badge">Regular User</span>
             </div>
-            <div class="user-card" data-username="admin" data-password="nimda">
+            <div class="user-card" data-username="admin" data-password="admin123">
                 <div class="user-card-icon">👨‍💼</div>
                 <div class="user-card-name">Admin</div>
                 <div class="user-card-credentials">admin</div>
-                <div class="user-card-password">password: nimda</div>
+                <div class="user-card-password">password: admin123</div>
                 <span class="role-badge admin">Administrator</span>
             </div>
         </div>
@@ -634,8 +717,8 @@
         <div class="form-group">
             <label for="password">Password:</label>
             <div class="input-wrapper">
-                <input type="password" id="password" placeholder="Auto-fills as reverse of username">
-                <span class="input-icon">🔑</span>
+                <input type="password" id="password" placeholder="Enter password or click a user card above">
+                <span class="input-icon">🔒</span>
             </div>
         </div>
 
@@ -654,6 +737,48 @@
 
         <div class="token-display" id="tokenDisplay">
             <span style="color: #999;">No JWT token yet. Login to receive a token.</span>
+        </div>
+
+        <div class="jwt-decoded" id="jwtDecoded">
+            <h3 style="margin-bottom: 20px; color: #333; font-size: 18px;">🔍 Decoded JWT Token</h3>
+
+            <div class="jwt-part">
+                <div class="jwt-part-header">
+                    <span class="jwt-part-label">HEADER</span>
+                    <span>Algorithm & Token Type</span>
+                </div>
+                <div class="jwt-part-content">
+                    <div class="jwt-json" id="jwtHeader"></div>
+                    <div class="jwt-raw" id="jwtHeaderRaw"></div>
+                </div>
+            </div>
+
+            <div class="jwt-part">
+                <div class="jwt-part-header">
+                    <span class="jwt-part-label">PAYLOAD</span>
+                    <span>Data & Claims</span>
+                </div>
+                <div class="jwt-part-content">
+                    <div class="jwt-json" id="jwtPayload"></div>
+                    <div class="jwt-raw" id="jwtPayloadRaw"></div>
+                </div>
+            </div>
+
+            <div class="jwt-part">
+                <div class="jwt-part-header">
+                    <span class="jwt-part-label">SIGNATURE</span>
+                    <span>Verification</span>
+                </div>
+                <div class="jwt-part-content">
+                    <div style="color: #6c757d; font-size: 12px;">
+                        <strong>Signature (Base64Url Encoded):</strong><br>
+                        <span id="jwtSignature" style="word-break: break-all; color: #495057;"></span>
+                        <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; border: 1px solid #ffeeba;">
+                            <strong style="color: #856404;">⚠️ Note:</strong> The signature is used to verify that the sender of the JWT is who it says it is and to ensure that the message wasn't changed along the way.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -677,7 +802,7 @@
         <h2>👤 User Profile</h2>
         <p>This endpoint requires JWT authentication and shows user information.</p>
         <button class="btn btn-success" onclick="fetchProfile()" id="profileBtn" disabled>
-            <span>🔍</span>
+            <span>📋</span>
             Get My Profile
         </button>
         <div class="loading" id="profileLoading">
@@ -728,6 +853,111 @@
     // Initialize active user and token tracking
     let activeUser = null;
     let currentToken = null;
+
+    // JWT Decoder Module
+    const JWTDecoder = {
+        // Base64Url decode function
+        base64UrlDecode(str) {
+            // Add padding if necessary
+            const padding = '='.repeat((4 - str.length % 4) % 4);
+            const base64 = (str + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+
+            try {
+                const decoded = atob(base64);
+                return decodeURIComponent(escape(decoded));
+            } catch (e) {
+                console.error('Error decoding base64:', e);
+                return null;
+            }
+        },
+
+        // Decode JWT token
+        decode(token) {
+            if (!token) return null;
+
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+                console.error('Invalid JWT format');
+                return null;
+            }
+
+            try {
+                const header = this.base64UrlDecode(parts[0]);
+                const payload = this.base64UrlDecode(parts[1]);
+
+                return {
+                    header: JSON.parse(header),
+                    payload: JSON.parse(payload),
+                    signature: parts[2],
+                    headerRaw: parts[0],
+                    payloadRaw: parts[1]
+                };
+            } catch (e) {
+                console.error('Error parsing JWT:', e);
+                return null;
+            }
+        },
+
+        // Format timestamp to human readable date
+        formatTimestamp(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleString();
+        },
+
+        // Format JSON with proper indentation and highlighting
+        formatJSON(obj, isPayload = false) {
+            let formatted = '';
+            for (const [key, value] of Object.entries(obj)) {
+                formatted += `<div class="jwt-field">`;
+                formatted += `<span class="jwt-field-name">${key}:</span> `;
+
+                if (typeof value === 'object' && value !== null) {
+                    formatted += `<span class="jwt-field-value">${JSON.stringify(value)}</span>`;
+                } else {
+                    formatted += `<span class="jwt-field-value">${value}</span>`;
+                }
+
+                // Add human-readable timestamp for exp, iat, nbf
+                if (isPayload && ['exp', 'iat', 'nbf'].includes(key) && typeof value === 'number') {
+                    formatted += `<span class="jwt-field-timestamp">(${this.formatTimestamp(value)})</span>`;
+                }
+
+                formatted += `</div>`;
+            }
+            return formatted;
+        },
+
+        // Display decoded JWT
+        display(token) {
+            const decoded = this.decode(token);
+            if (!decoded) {
+                document.getElementById('jwtDecoded').classList.remove('show');
+                return;
+            }
+
+            // Display header
+            document.getElementById('jwtHeader').innerHTML = this.formatJSON(decoded.header);
+            document.getElementById('jwtHeaderRaw').innerHTML = `<strong>Raw:</strong> ${decoded.headerRaw}`;
+
+            // Display payload
+            document.getElementById('jwtPayload').innerHTML = this.formatJSON(decoded.payload, true);
+            document.getElementById('jwtPayloadRaw').innerHTML = `<strong>Raw:</strong> ${decoded.payloadRaw}`;
+
+            // Display signature
+            document.getElementById('jwtSignature').textContent = decoded.signature;
+
+            // Show the decoded section
+            document.getElementById('jwtDecoded').classList.add('show');
+        },
+
+        // Hide decoded JWT display
+        hide() {
+            document.getElementById('jwtDecoded').classList.remove('show');
+        }
+    };
 
     // HTTP Transaction Module
     const HTTPTransaction = {
@@ -849,19 +1079,11 @@
         setTimeout(() => fetchPublic(), 500);
     });
 
-    // Auto-reverse password as user types username
-    document.getElementById('username').addEventListener('input', function(e) {
-        const username = e.target.value;
-        const passwordField = document.getElementById('password');
-        if (username) {
-            passwordField.value = username.split('').reverse().join('');
-        } else {
-            passwordField.value = '';
-        }
+    // Input field change detection
+    document.getElementById('username').addEventListener('input', function() {
         updateActiveCard();
     });
 
-    // Input field change detection
     document.getElementById('password').addEventListener('input', function() {
         updateActiveCard();
     });
@@ -917,12 +1139,18 @@
             tokenDisplay.classList.add('has-token');
             profileBtn.disabled = false;
             adminBtn.disabled = false;
+
+            // Decode and display the JWT
+            JWTDecoder.display(token);
         } else {
             currentToken = null;
             tokenDisplay.innerHTML = '<span style="color: #999;">No JWT token yet. Login to receive a token.</span>';
             tokenDisplay.classList.remove('has-token');
             profileBtn.disabled = true;
             adminBtn.disabled = true;
+
+            // Hide the decoded JWT display
+            JWTDecoder.hide();
         }
     }
 
