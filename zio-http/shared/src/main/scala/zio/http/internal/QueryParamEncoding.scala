@@ -173,36 +173,39 @@ private[http] object QueryParamEncoding {
       return component.substring(start, end)
     }
 
-    val result = new StringBuilder(end - start) // Pre-allocate with estimated size
-    i = start
+    ByteArrayOutputStreamPool.withStream { byteBuffer =>
+      i = start
 
-    while (i < end) {
-      val c = component.charAt(i)
-      if (c == '%' && i + 2 < end) {
-        // Extract hex digits directly without substring
-        val digit1 = Character.digit(component.charAt(i + 1), 16)
-        val digit2 = Character.digit(component.charAt(i + 2), 16)
+      while (i < end) {
+        val c = component.charAt(i)
+        if (c == '%' && i + 2 < end) {
+          // Extract hex digits directly without substring
+          val digit1 = Character.digit(component.charAt(i + 1), 16)
+          val digit2 = Character.digit(component.charAt(i + 2), 16)
 
-        if (digit1 >= 0 && digit2 >= 0) { // Valid hex digits
-          val decoded = (digit1 << 4) | digit2
-          result.append(decoded.toChar)
-          i += 3
+          if (digit1 >= 0 && digit2 >= 0) { // Valid hex digits
+            val decoded = (digit1 << 4) | digit2
+            byteBuffer.write(decoded)
+            i += 3
+          } else {
+            // Invalid hex encoding, treat % as literal
+            val bytes = "%".getBytes(charset)
+            byteBuffer.write(bytes, 0, bytes.length)
+            i += 1
+          }
+        } else if (c == '+') {
+          val bytes = " ".getBytes(charset)
+          byteBuffer.write(bytes, 0, bytes.length)
+          i += 1
         } else {
-          // Invalid hex encoding, treat % as literal
-          result.append('%')
+          val bytes = c.toString.getBytes(charset)
+          byteBuffer.write(bytes, 0, bytes.length)
           i += 1
         }
-      } else if (c == '+') {
-        result.append(' ')
-        i += 1
-      } else {
-        result.append(c)
-        i += 1
       }
-    }
 
-    // Apply charset conversion only once at the end
-    new String(result.toString.getBytes(charset))
+      new String(byteBuffer.toByteArray, charset)
+    }
   }
 
   /**
@@ -228,86 +231,30 @@ private[http] object QueryParamEncoding {
       return
     }
 
-    // Special optimization for UTF-8 (most common case)
-    val isUtf8 = charset == java.nio.charset.StandardCharsets.UTF_8 || charset.name().equalsIgnoreCase("UTF-8")
-
-    // Copy the characters that we know don't need encoding
-    if (i > 1) {
-      target.append(component, 0, i - 1)
-    }
-
-    // Process remaining characters
-    var j = if (i == 0) 0 else i - 1
-
-    if (isUtf8) {
-      // Optimized UTF-8 path
-      while (j < len) {
-        val c = component.charAt(j)
-        if (needsNoEncoding(c)) {
-          // Unreserved character
-          target.append(c)
-        } else if (c == ' ') {
-          // Space becomes '+'
-          target.append('+')
-        } else if (c < 128) {
-          // ASCII character that needs encoding
-          target.append('%')
-          target.append(Character.forDigit((c >> 4) & 0xf, 16).toUpper)
-          target.append(Character.forDigit(c & 0xf, 16).toUpper)
-        } else if (c < 2048) {
-          // 2-byte UTF-8 encoding
-          val byte1 = 0xc0 | (c >> 6)
-          val byte2 = 0x80 | (c & 0x3f)
-          target.append('%')
-          target.append(Character.forDigit((byte1 >> 4) & 0xf, 16).toUpper)
-          target.append(Character.forDigit(byte1 & 0xf, 16).toUpper)
-          target.append('%')
-          target.append(Character.forDigit((byte2 >> 4) & 0xf, 16).toUpper)
-          target.append(Character.forDigit(byte2 & 0xf, 16).toUpper)
-        } else {
-          // 3-byte UTF-8 encoding
-          val byte1 = 0xe0 | (c >> 12)
-          val byte2 = 0x80 | ((c >> 6) & 0x3f)
-          val byte3 = 0x80 | (c & 0x3f)
-          target.append('%')
-          target.append(Character.forDigit((byte1 >> 4) & 0xf, 16).toUpper)
-          target.append(Character.forDigit(byte1 & 0xf, 16).toUpper)
-          target.append('%')
-          target.append(Character.forDigit((byte2 >> 4) & 0xf, 16).toUpper)
-          target.append(Character.forDigit(byte2 & 0xf, 16).toUpper)
-          target.append('%')
-          target.append(Character.forDigit((byte3 >> 4) & 0xf, 16).toUpper)
-          target.append(Character.forDigit(byte3 & 0xf, 16).toUpper)
-        }
-        j += 1
+    val bytes    = component.getBytes(charset)
+    var k        = 0
+    val bytesLen = bytes.length
+    while (k < bytesLen) {
+      val unsignedByte = bytes(k) & 0xff
+      if (
+        (unsignedByte >= 'a' && unsignedByte <= 'z') ||
+        (unsignedByte >= 'A' && unsignedByte <= 'Z') ||
+        (unsignedByte >= '0' && unsignedByte <= '9') ||
+        unsignedByte == '-' || unsignedByte == '.' ||
+        unsignedByte == '_' || unsignedByte == '~' || unsignedByte == '*'
+      ) {
+        // Unreserved character
+        target.append(unsignedByte.toChar)
+      } else if (unsignedByte == ' ') {
+        // Space becomes '+'
+        target.append('+')
+      } else {
+        // Percent encoding
+        target.append('%')
+        target.append(Character.forDigit((unsignedByte >> 4) & 0xf, 16).toUpper)
+        target.append(Character.forDigit(unsignedByte & 0xf, 16).toUpper)
       }
-    } else {
-      // Generic path for other charsets - using avoid byte array allocation when possible
-      val bytes    = component.getBytes(charset)
-      var k        = 0
-      val bytesLen = bytes.length
-      while (k < bytesLen) {
-        val unsignedByte = bytes(k) & 0xff
-        if (
-          (unsignedByte >= 'a' && unsignedByte <= 'z') ||
-          (unsignedByte >= 'A' && unsignedByte <= 'Z') ||
-          (unsignedByte >= '0' && unsignedByte <= '9') ||
-          unsignedByte == '-' || unsignedByte == '.' ||
-          unsignedByte == '_' || unsignedByte == '~' || unsignedByte == '*'
-        ) {
-          // Unreserved character
-          target.append(unsignedByte.toChar)
-        } else if (unsignedByte == ' ') {
-          // Space becomes '+'
-          target.append('+')
-        } else {
-          // Percent encoding
-          target.append('%')
-          target.append(Character.forDigit((unsignedByte >> 4) & 0xf, 16).toUpper)
-          target.append(Character.forDigit(unsignedByte & 0xf, 16).toUpper)
-        }
-        k += 1
-      }
+      k += 1
     }
   }
 

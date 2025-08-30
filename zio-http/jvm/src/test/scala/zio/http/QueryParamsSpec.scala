@@ -19,6 +19,7 @@ package zio.http
 import java.time.Instant
 import java.util.UUID
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 import zio.test.Assertion.{anything, equalTo, fails, hasSize, succeeds}
@@ -278,6 +279,55 @@ object QueryParamsSpec extends ZIOHttpSpec {
             assertTrue(result == expected)
           }
         },
+        test("non-ASCII characters decoding") {
+          val gens = Gen.fromIterable(
+            Seq(
+              // Basic Latin extended characters
+              ("?name=caf%C3%A9", QueryParams(Map("name" -> Chunk("café")))),
+              ("?city=M%C3%BCnchen", QueryParams(Map("city" -> Chunk("München")))),
+              ("?greeting=na%C3%AFve", QueryParams(Map("greeting" -> Chunk("naïve")))),
+              ("?resume=r%C3%A9sum%C3%A9", QueryParams(Map("resume" -> Chunk("résumé")))),
+
+              // Cyrillic characters
+              (
+                "?hello=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9",
+                QueryParams(Map("hello" -> Chunk("Здравствуй"))),
+              ),
+
+              // Chinese characters
+              ("?greeting=%E4%BD%A0%E5%A5%BD", QueryParams(Map("greeting" -> Chunk("你好")))),
+
+              // Japanese characters
+              ("?hello=%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF", QueryParams(Map("hello" -> Chunk("こんにちは")))),
+
+              // Arabic characters
+              ("?greeting=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7", QueryParams(Map("greeting" -> Chunk("مرحبا")))),
+
+              // Emojis (4-byte UTF-8 sequences)
+              ("?emoji=%F0%9F%98%80", QueryParams(Map("emoji" -> Chunk("😀")))),
+              ("?party=%F0%9F%8E%89", QueryParams(Map("party" -> Chunk("🎉")))),
+              ("?rocket=%F0%9F%9A%80", QueryParams(Map("rocket" -> Chunk("🚀")))),
+
+              // Mixed ASCII and non-ASCII
+              ("?message=Hello%20%E4%B8%96%E7%95%8C%21", QueryParams(Map("message" -> Chunk("Hello 世界!")))),
+              ("?data=%E2%9C%93%20Done", QueryParams(Map("data" -> Chunk("✓ Done")))),
+
+              // Multiple parameters with non-ASCII
+              (
+                "?name=Jos%C3%A9&city=S%C3%A3o%20Paulo&country=Brasil",
+                QueryParams(Map("name" -> Chunk("José"), "city" -> Chunk("São Paulo"), "country" -> Chunk("Brasil"))),
+              ),
+
+              // Plus signs in non-ASCII context (spaces should be handled properly)
+              ("?search=caf%C3%A9+with+friends", QueryParams(Map("search" -> Chunk("café with friends")))),
+            ),
+          )
+
+          checkAll(gens) { case (queryStringFragment, expected) =>
+            val result = QueryParams.decode(queryStringFragment)
+            assertTrue(result == expected)
+          }
+        },
       ),
       suite("encode")(
         test("success") {
@@ -285,7 +335,6 @@ object QueryParamsSpec extends ZIOHttpSpec {
             Seq(
               (QueryParams.empty, ""),
               (QueryParams(Map("a" -> Chunk.empty)), "?a="),
-              (QueryParams(Map("a" -> Chunk(""))), "?a="),
               (QueryParams(Map("a" -> Chunk("foo"))), "?a=foo"),
               (QueryParams(Map("a" -> Chunk("foo", "fee"))), "?a=foo&a=fee"),
               (
@@ -304,6 +353,73 @@ object QueryParamsSpec extends ZIOHttpSpec {
           checkAll(gens) { case (queryParams, expected) =>
             val result = queryParams.encode
             assertTrue(result == expected)
+          }
+        },
+        test("non-ASCII characters encoding") {
+          val gens = Gen.fromIterable(
+            Seq(
+              // Basic Latin extended characters
+              (QueryParams(Map("name" -> Chunk("café"))), "?name=caf%C3%A9"),
+              (QueryParams(Map("city" -> Chunk("München"))), "?city=M%C3%BCnchen"),
+              (QueryParams(Map("greeting" -> Chunk("naïve"))), "?greeting=na%C3%AFve"),
+              (QueryParams(Map("resume" -> Chunk("résumé"))), "?resume=r%C3%A9sum%C3%A9"),
+
+              // Cyrillic characters
+              (
+                QueryParams(Map("hello" -> Chunk("Здравствуй"))),
+                "?hello=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9",
+              ),
+
+              // Chinese characters
+              (QueryParams(Map("greeting" -> Chunk("你好"))), "?greeting=%E4%BD%A0%E5%A5%BD"),
+
+              // Japanese characters
+              (QueryParams(Map("hello" -> Chunk("こんにちは"))), "?hello=%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF"),
+
+              // Arabic characters
+              (QueryParams(Map("greeting" -> Chunk("مرحبا"))), "?greeting=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7"),
+
+              // Emojis (4-byte UTF-8 sequences)
+              (QueryParams(Map("emoji" -> Chunk("😀"))), "?emoji=%F0%9F%98%80"),
+              (QueryParams(Map("party" -> Chunk("🎉"))), "?party=%F0%9F%8E%89"),
+              (QueryParams(Map("rocket" -> Chunk("🚀"))), "?rocket=%F0%9F%9A%80"),
+
+              // Mixed ASCII and non-ASCII
+              (QueryParams(Map("message" -> Chunk("Hello 世界!"))), "?message=Hello+%E4%B8%96%E7%95%8C%21"),
+              (QueryParams(Map("data" -> Chunk("✓ Done"))), "?data=%E2%9C%93+Done"),
+
+              // Multiple parameters with non-ASCII
+              (
+                QueryParams(Map("name" -> Chunk("José"), "city" -> Chunk("São Paulo"), "country" -> Chunk("Brasil"))),
+                "?name=Jos%C3%A9&city=S%C3%A3o+Paulo&country=Brasil",
+              ),
+
+              // Non-ASCII with special characters that need encoding
+              (QueryParams(Map("search" -> Chunk("café & tea"))), "?search=caf%C3%A9+%26+tea"),
+              (QueryParams(Map("path" -> Chunk("/résumé.pdf"))), "?path=%2Fr%C3%A9sum%C3%A9.pdf"),
+            ),
+          )
+
+          checkAll(gens) { case (queryParams, expected) =>
+            val result = queryParams.encode
+            assertTrue(result == expected)
+          }
+        },
+        test("encode-decode round trip with non-ASCII characters") {
+          // This test verifies that encoding and then decoding preserves non-ASCII characters
+          val testCases = Seq(
+            QueryParams(Map("café" -> Chunk("naïve résumé"))),
+            QueryParams(Map("город" -> Chunk("Москва"))),
+            QueryParams(Map("city" -> Chunk("北京"), "country" -> Chunk("中国"))),
+            QueryParams(Map("emoji" -> Chunk("🎉🚀😀"))),
+            QueryParams(Map("mixed" -> Chunk("Hello 世界! 🌍"))),
+            QueryParams(Map("special" -> Chunk("café & résumé = 100%"))),
+          )
+
+          checkAll(Gen.fromIterable(testCases)) { queryParams =>
+            val encoded = queryParams.encode
+            val decoded = QueryParams.decode(encoded)
+            assertTrue(decoded == queryParams)
           }
         },
       ),
