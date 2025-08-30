@@ -1005,6 +1005,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fromResponse(Response.html(view))
 
   /**
+   * Creates a handler which always responds with the provided template2 Dom page.
+   * Note: Implicit conversions handle migration from old Html to template2 Dom automatically.
+   */
+
+  /**
    * Creates a pass thru Handler instance
    */
   def identity[A]: Handler[Any, Nothing, A, A] =
