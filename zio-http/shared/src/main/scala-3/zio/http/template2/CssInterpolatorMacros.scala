@@ -73,7 +73,7 @@ object CssInterpolatorMacros {
     }
 
     // Always delegate to standard string interpolation
-    '{ CssSelector.apply($sc.s($args: _*)) }
+    '{ CssSelector.raw($sc.s($args: _*)) }
   }
 
   private def isValidCss(css: String): Boolean = {

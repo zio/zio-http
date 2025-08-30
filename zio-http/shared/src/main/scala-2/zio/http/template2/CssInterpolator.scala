@@ -22,7 +22,7 @@ import scala.language.experimental.macros
  * Trait providing CSS and selector string interpolation with compile-time
  * validation.
  */
-trait CssInterpolator {
+private[template2] trait CssInterpolator {
 
   /**
    * CSS string interpolator that validates CSS syntax at compile time.

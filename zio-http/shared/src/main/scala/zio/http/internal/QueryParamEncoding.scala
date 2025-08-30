@@ -18,7 +18,7 @@ package zio.http.internal
 
 import java.nio.charset.Charset
 import java.util
-import java.util.{ArrayList, List => JList}
+import java.util.{List => JList}
 
 import zio.http.QueryParams
 
