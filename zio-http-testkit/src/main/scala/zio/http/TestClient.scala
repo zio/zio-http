@@ -12,6 +12,7 @@ import zio._
 final case class TestClient(
   behavior: Ref[Routes[Any, Response]],
   serverSocketBehavior: Ref[WebSocketApp[Any]],
+  missingRouteBehavior: Ref[Option[Routes[Any, Response]]],
 ) extends ZClient.Driver[Any, Scope, Throwable] {
 
   /**
@@ -101,6 +102,28 @@ final case class TestClient(
       _ <- behavior.update(_ ++ provided)
     } yield ()
 
+  /**
+   * Sets a fallback behaviour for when the TestClient attempts to access any
+   * unspecified routes
+   * @param fallbackHandler
+   *   The function to execute when the client attempts to perform a request not
+   *   part of it's behavior
+   * @tparam R
+   *   Environment of the handler
+   *
+   * @example
+   *   {{{
+   *   ref <- Ref.Synchronized.make[Seq[Request]](Nil)
+   *   _ <- TestClient.setFallbackHandler(req => ref.update(_.appended(req))
+   *   }}}
+   */
+  def setFallbackHandler[R](fallbackHandler: Request => ZIO[R, Response, Response]): ZIO[R, Nothing, Unit] =
+    for {
+      r <- ZIO.environment[R]
+      fallbackRoute = handler(fallbackHandler).toRoutes.provideEnvironment(r)
+      _ <- missingRouteBehavior.set(Some(fallbackRoute))
+    } yield ()
+
   def headers: Headers = Headers.empty
 
   def method: Method = Method.GET
@@ -121,7 +144,10 @@ final case class TestClient(
     proxy: Option[Proxy],
   )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
     for {
-      currentBehavior <- behavior.get
+      currentBehavior <- behavior.get.zipWith(missingRouteBehavior.get) {
+        case (behavior, None)           => behavior
+        case (behavior, Some(fallback)) => behavior ++ fallback
+      }
       request = Request(
         body = body,
         headers = headers,
@@ -130,7 +156,7 @@ final case class TestClient(
         version = version,
         remoteAddress = None,
       )
-      response <- currentBehavior(request).merge
+      response        <- currentBehavior(request).merge
     } yield response
   }
 
@@ -228,6 +254,26 @@ object TestClient {
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.addRoutes(route, routes: _*))
 
+  /**
+   * Sets a fallback behaviour for when the TestClient attempts to access any
+   * unspecified routes
+   * @param fallbackHandler
+   *   The function to execute when the client attempts to perform a request not
+   *   part of it's behavior
+   * @tparam R
+   *   Environment of the handler
+   *
+   * @example
+   *   {{{
+   *   ref <- Ref.Synchronized.make[Seq[Request]](Nil)
+   *   _ <- TestClient.setFallbackHandler(req => ref.update(_.appended(req))
+   *   }}}
+   */
+  def setFallbackHandler[R](
+    fallbackHandler: Request => ZIO[R, Response, Response],
+  ): ZIO[R with TestClient, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClient](_.setFallbackHandler(fallbackHandler))
+
   def installSocketApp(
     app: WebSocketApp[Any],
   ): ZIO[TestClient, Nothing, Unit] =
@@ -236,10 +282,15 @@ object TestClient {
   val layer: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
-        behavior       <- Ref.make[Routes[Any, Response]](Routes.empty)
-        socketBehavior <- Ref.make[WebSocketApp[Any]](WebSocketApp.unit)
-        driver = TestClient(behavior, socketBehavior)
+        behavior         <- Ref.make[Routes[Any, Response]](Routes.empty)
+        socketBehavior   <- Ref.make[WebSocketApp[Any]](WebSocketApp.unit)
+        fallbackBehavior <- Ref.make[Option[Routes[Any, Response]]](None)
+        driver = TestClient(behavior, socketBehavior, fallbackBehavior)
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
     }
 
+  def withFallbackHandler[R](
+    fallbackHandler: Request => ZIO[R, Response, Response],
+  ): ZLayer[R, Nothing, TestClient & Client] =
+    ZLayer.environment[R] ++ layer >+> ZLayer.fromZIO(setFallbackHandler(fallbackHandler))
 }
