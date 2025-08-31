@@ -1,14 +1,14 @@
 package example.auth.bearer.jwt.symmetric
 
-import example.auth.bearer.jwt.symmetric.core.AuthMiddleware.{jwtAuth}
-import example.auth.bearer.jwt.symmetric.core.{UserInfo, _}
+import example.auth.bearer.jwt.symmetric.core.AuthMiddleware.jwtAuth
+import example.auth.bearer.jwt.symmetric.core._
 import pdi.jwt.JwtAlgorithm
 import zio.Config.Secret
 import zio._
 import zio.http._
 
 object AuthenticationServer extends ZIOAppDefault {
-  def routes: Routes[JwtTokenService & UserService & JwtTokenServiceClaim, Response] =
+  def routes: Routes[UserService & JwtTokenService, Response] =
     Routes(
       // Serve the web client interface from resources
       Method.GET / Root ->
@@ -45,7 +45,7 @@ object AuthenticationServer extends ZIOAppDefault {
             form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest)
             username     <- extractFormField(form, "username")
             password     <- extractFormField(form, "password")
-            tokenService <- ZIO.service[JwtTokenServiceClaim]
+            tokenService <- ZIO.service[JwtTokenService]
             user         <- ZIO
               .serviceWithZIO[UserService](_.getUser(username))
               .orElseFail(unauthorizedResponse)
@@ -78,14 +78,10 @@ object AuthenticationServer extends ZIOAppDefault {
     System
       .envOrElse("JWT_SECRET_KEY", "my-secret")
       .map(Secret(_))
-      .map { secret =>
-        val tokenService      = JwtTokenService.live(secret, tokenTTL = 30.minutes, algorithm = JwtAlgorithm.HS512);
-        val tokenServiceClaim =
-          JwtTokenServiceClaim.live(secret, tokenTTL = 30.minutes, algorithm = JwtAlgorithm.HS512);
-        (secret, tokenService, tokenServiceClaim)
-      }
-      .flatMap { case (_, tokenService, tokenServiceClaim) =>
-        Server.serve(routes).provide(Server.default, tokenService, UserService.live, tokenServiceClaim)
+      .flatMap { secret =>
+        val tokenService =
+          JwtTokenService.live(secret, tokenTTL = 30.minutes, algorithm = JwtAlgorithm.HS512);
+        Server.serve(routes).provide(Server.default, UserService.live, tokenService)
       }
 
 }

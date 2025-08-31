@@ -23,8 +23,8 @@ object AuthenticationClient extends ZIOAppDefault {
           .post(loginUrl,
             Body.fromURLEncodedForm(
               Form(
-                FormField.simpleField("username", "John"),
-                FormField.simpleField("password", "nhoJ"),
+                FormField.simpleField("username", "john"),
+                FormField.simpleField("password", "password123"),
               ),
             ),
           )
