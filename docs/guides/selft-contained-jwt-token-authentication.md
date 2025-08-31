@@ -56,11 +56,11 @@ Watch the token size too. If your JWT grows to several kilobytes with extensive 
 
 For traditional server-rendered applications, JWTs often add unnecessary complexity. Cookie-based sessions work naturally with form submissions and page navigations—why complicate things using JWT tokens?
 
-When permissions must change instantly, session-based systems offer better control. You modify server-side data, and changes take effect immediately. While with JWTs, you're waiting for expiration or building complex revocation systems.
+When permissions must change instantly, session-based systems offer better control. You modify server-side data, and changes take effect immediately. With JWTs, you're waiting for expiration or building complex revocation systems.
 
 ## Anatomy of a JWT (Header, Payload, Signature)
 
-If you open any JWT in a decoder, and you'll see something that looks like this: three chunks of gibberish separated by dots. Something like `eyJhbGciOiJIUzI1NiIs...`. But this has a beautiful structure underneath.
+If you open any JWT in a decoder, you'll see something that looks like this: three chunks of gibberish separated by dots. Something like `eyJhbGciOiJIUzI1NiIs...`. But there's a beautiful structure underneath.
 
 A JWT consists of three distinct parts, joined together with periods: `header.payload.signature`. Each part serves a specific purpose, and together they create a self-contained, verifiable token.
 
@@ -120,7 +120,7 @@ When the server receives a JWT, the verification process runs in reverse. It spl
 
 The beauty lies in the mathematics: without the secret key, it's computationally infeasible to create a valid signature. Even changing a single character in the payload would produce a completely different signature. This is how JWTs achieve integrity without encryption.
 
-But here's what catches developers off guard: the server doesn't store these tokens anywhere. There's no database table of valid tokens, no session store to query. The token's validity comes entirely from its signature. If the signature checks out and the token hasn't expired, it's valid—period. This statelessness is both JWT's greatest strength and also its most significant limitation.
+But here's what catches developers off guard: the server doesn't store these tokens anywhere. There's no database table of valid tokens, no session store to query. The token's validity comes entirely from its signature. If the signature checks out and the token hasn't expired, it's valid—period. This statelessness is both JWT's greatest strength and its most significant limitation.
 
 ## The Difference Between Encoding, Encryption, and Signing
 
@@ -150,7 +150,7 @@ In symmetric signing, algorithms like HMAC with SHA-256 (HS256) are commonly use
 3. When verifying the JWT, the server uses the same secret key to validate the signature.
 4. If the signature matches, the token is valid.
 5. If the signature doesn't match, the token has been tampered with or is invalid.
-6. 
+
 The main advantage of symmetric signing is its simplicity and speed. Since only one key is involved, it's easy to implement and efficient to compute. However, the downside is that both the issuer and verifier must securely share and manage the same secret key. If the key is compromised, anyone with access to it can create valid tokens.
 
 ### Asymmetric Signing
@@ -177,7 +177,7 @@ The choice between symmetric and asymmetric signing depends on your application'
   - You can securely manage and share the secret key between the issuer and verifier.
 
 - **Use Asymmetric Signing (e.g., RS256, ES256)** when:
-- You have a distributed system or microservices architecture where multiple services need to verify tokens.
+  - You have a distributed system or microservices architecture where multiple services need to verify tokens.
   - You want to minimize the risk of key compromise by keeping the private key secure and only sharing the public key.
   - You require a higher level of security and flexibility in token verification.
 
@@ -185,7 +185,7 @@ The choice between symmetric and asymmetric signing depends on your application'
 
 ### JSON Web Token Service
 
-We need a service to issue and verify JWT tokens. Let's define an interface for a such service:
+We need a service to issue and verify JWT tokens. Let's define an interface for such a service:
 
 ```scala
 trait JwtTokenService {
@@ -194,7 +194,7 @@ trait JwtTokenService {
 }
 ```
 
-The `issue` method takes a `username` and generate a JWT token. It uses the standard `sub` claim to store the username. The `verify` method takes a JWT token and decodes it, returning the username if the token is valid, or failing if the token is invalid or expired.
+The `issue` method takes a `username` and generates a JWT token. It uses the standard `sub` claim to store the username. The `verify` method takes a JWT token and decodes it, returning the username if the token is valid, or failing if the token is invalid or expired.
 
 ### Implementing the JWT Service
 
@@ -204,7 +204,7 @@ To implement the `JwtTokenService`, we can use the `jwt-core` library:
 libraryDependencies += "com.github.jwt-scala" %% "jwt-core" % @JWT_CORE_VERSION@
 ```
 
-It supports both symmetric and asymmetric signing. The following implementation uses symmetric signing algorithm:
+It supports both symmetric and asymmetric signing. The following implementation uses a symmetric signing algorithm:
 
 ```scala
 case class JwtAuthServiceLive(
@@ -339,7 +339,7 @@ The `login` route listens for `POST` requests at the `/login` endpoint. It extra
 
 ### Applying the Middleware
 
-After user login, we are ready to protect out routes using the `jwtAuth` middleware. For example, we can protect the `/profile/me` route using the `@@` syntax:
+After user login, we are ready to protect our routes using the `jwtAuth` middleware. For example, we can protect the `/profile/me` route using the `@@` syntax:
 
 ```scala
 val profile =
@@ -430,7 +430,6 @@ trait JwtTokenService {
 ```
 
 The `issue` method now accepts additional parameters (email and roles), and the `verify` method returns a `UserInfo` object instead of just the username. 
-
 
 The `JwtTokenService` implementation must be updated to include additional fields in the claims:
 
@@ -528,3 +527,147 @@ val users =
 ```
 
 We verify authorization by checking if the `UserInfo` object's roles field contains the "admin" role. If it does, we grant access; otherwise, we respond with a `401 Unauthorized` status. The key advantage is that we no longer need to query the `UserService` for authorization decisions—all necessary information is contained within the JWT token.
+
+## Writing a Client
+
+In this section, we will demonstrate how to write a client application that interacts with the protected API using JWT authentication. The client will perform two main steps: first, it sends a login request to obtain a JWT token, and then it uses the token to access protected routes.
+
+Let's start by implementing a ZIO HTTP client, followed by a JavaScript client.
+
+### Writing a ZIO HTTP Client
+
+To implement the first step, we will create a ZIO HTTP client that sends a `POST` request to the `/login` endpoint with the user's credentials. Upon successful authentication, the server will respond with a JWT token:
+
+```scala
+val url = "http://localhost:8080"
+val loginUrl = URL.decode(s"$url/login").toOption.get
+
+val loginRequest =
+    ZClient
+      .batched(
+        Request
+          .post(loginUrl,
+            Body.fromURLEncodedForm(
+              Form(
+                FormField.simpleField("username", "john"),
+                FormField.simpleField("password", "password123"),
+              ),
+            ),
+          )
+      )
+      .flatMap(_.body.asString)
+```
+
+Making the login request will return the JWT token as a string.
+
+Next, we will use the received JWT token to access a protected route, such as `/profile/me`. We will include the token in the `Authorization` header of the request:
+
+```scala
+val greetUrl = URL.decode(s"$url/profile/me").toOption.get
+
+loginRequest.flatMap { token =>
+  ZClient.batched(Request.get(greetUrl).addHeader(Header.Authorization.Bearer(token)))
+}
+```
+
+The client sends a `GET` request to the `/profile/me` endpoint, including the JWT token in the `Authorization` header. If the token is valid, the server will respond with the user's profile information.
+
+### Writing a JavaScript Client
+
+It’s straightforward to create a JavaScript client—here are the steps:
+
+1. Create a login form to collect user credentials.
+2. Send a login request to obtain a JWT token.
+3. Use the JWT token to access protected routes.
+
+#### Login Form
+
+To obtain a JWT token, we need to create a simple login form that takes the username and password from the user:
+
+```html
+<div id="loginForm">
+  <input name="username" id="username" placeholder="username (try: john, jane, or admin)">
+  <input name="password" id="password" type="password" placeholder="password (john: password123, jane: secret456, admin: admin123)">
+  <button onclick="login()">Login & Get JWT</button>
+</div>
+```
+
+The form includes two input fields for the username and password, and a button that triggers the `login` function when clicked. When the button is clicked, the `login` function sends a `POST` request to the `/login` endpoint with the provided credentials:
+
+```javascript
+let currentToken = null;
+
+async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    try {
+        const res = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ username, password })
+        });
+
+        const token = res.ok ? await res.text() : null;
+        setTokenState(token);
+    } catch(e) {
+        setTokenState(null);
+    }
+}
+```
+
+We store the received JWT token in the `currentToken` variable for later use.
+
+### Sending Authenticated Requests
+
+Now that we have the JWT token, we can use it to access protected routes. For example, we can create a button that fetches the user's profile information from the `/profile/me` endpoint:
+
+```html
+<div class="section">
+  <h3>Endpoints:</h3>
+  <button onclick="fetchPublic()">Public Endpoint (No Auth)</button>
+  <button onclick="fetchProfile()">Get Profile (Requires JWT)</button>
+  <button onclick="fetchAllUsers()">Admin Users (Requires Admin JWT)</button>
+</div>
+
+<pre id="result">Results will appear here...</pre>
+```
+
+The `fetchProfile` function sends a `GET` request to the `/profile/me` endpoint, including the JWT token in the `Authorization` header:
+
+```javascript
+async function fetchProfile() {
+    if (!currentToken) {
+        document.getElementById('result').textContent = 'Please login first to get a JWT token';
+        return;
+    }
+
+    try {
+        const res = await fetch('/profile/me', {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const text = await res.text();
+        document.getElementById('result').textContent = `${text}`;
+    } catch(e) {
+        document.getElementById('result').textContent = `Error: ${e.message}`;
+    }
+}
+```
+
+We can do the same for all protected routes, such as the admin users endpoint.
+
+To improve usability, we can handle token expiration by implementing a refresh token mechanism on both the server and client.
+
+## Conclusion
+
+JSON Web Tokens have revolutionized API authentication by providing a stateless, scalable solution that aligns perfectly with modern architectural patterns. Throughout this guide, we've explored the journey from traditional session-based authentication to the token-based approach that dominates today's distributed systems. Here are some key takeaways:
+
+**JWTs excel in specific scenarios**: They're ideal for RESTful APIs, microservices architectures, cross-domain authentication, and temporary access tokens. Their self-contained nature eliminates database lookups and enables true horizontal scaling. When you need stateless authentication that works seamlessly across multiple services and domains, JWTs are often the perfect choice.
+
+**Security requires careful consideration**: Remember that JWTs are encoded, not encrypted. The payload is visible to anyone who intercepts the token, making HTTPS mandatory for production deployments. Never store sensitive information like passwords or credit card numbers in JWT payloads, and always validate tokens properly on the server side.
+
+**Choose your signing strategy wisely**: Symmetric signing offers simplicity and performance for single-service architectures, while asymmetric signing provides better security and flexibility for distributed systems. Your choice should align with your architecture's complexity and security requirements.
+
+**Token management matters**: The stateless nature of JWTs means they can't be revoked before expiration without additional infrastructure. Keep token lifetimes short, implement refresh token patterns for long-lived sessions, and consider maintaining a token blacklist for emergency revocations if your security requirements demand it.
+
+**Implementation patterns affect scalability**: The decision to include user roles and permissions in JWT claims versus fetching them from a database on each request has significant implications. Including them in the token reduces database load and improves performance but makes permission changes slower to propagate. Choose the pattern that best fits your application's needs.
