@@ -133,7 +133,8 @@ const sidebars = {
           "guides/basic-authentication",
           "guides/cookie-based-authentication",
           "guides/digest-authentication",
-          "guides/opaque-bearer-token-authentication",
+          "guides/authentication-with-bearer-tokens",
+          "guides/authentication-with-jwt-bearer-tokens",
        ],
     },
     {

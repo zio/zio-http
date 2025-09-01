@@ -1,7 +1,7 @@
 ---
-id: self-contained-jwt-token-authentication
-title: "Securing Your APIs: Self-contained JWT Token Authentication"
-sidebar_label: "Self-contained JWT Token Authentication"
+id: authentication-with-jwt-bearer-tokens
+title: "Securing Your APIs: Authentication with JWT Bearer Tokens"
+sidebar_label: "Authentication with JWT Bearer Tokens"
 ---
 
 Self-contained tokens are authentication tokens that carry all the necessary information within themselves, eliminating the need for server-side storage or database lookups during validation. Unlike traditional session identifiers that merely point to data stored on the server, self-contained tokens embed the actual user information, permissions, and metadata directly within the token structure.
