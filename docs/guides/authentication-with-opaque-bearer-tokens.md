@@ -1,7 +1,7 @@
 ---
-id: opaque-bearer-token-authentication
-title: "Securing Your APIs: Opaque Bearer Token Authentication"
-sidebar_label: "Opaque Bearer Token Authentication"
+id: authentication-with-opaque-bearer-tokens
+title: "Securing Your APIs: Authentication with Opaque Bearer Tokens"
+sidebar_label: "Authentication with Opaque Bearer Tokens"
 ---
 
 ## What is Bearer Token Authentication?
