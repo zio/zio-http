@@ -7,7 +7,6 @@ import scala.collection.immutable.ListMap
 import scala.collection.{immutable, mutable}
 
 import zio._
-import zio.json.EncoderOps
 import zio.json.ast.Json
 
 import zio.schema.Schema.{Record, Transform}

@@ -117,7 +117,7 @@ object DigestServiceLive extends DigestService {
           MessageDigest.getInstance("SHA-512")
       }
       md.digest(data.getBytes("UTF-8"))
-        .map(b => String.format("%02x", b & 0xff))
+        .map(b => f"${b & 0xff}%02x")
         .mkString
     }
 }
