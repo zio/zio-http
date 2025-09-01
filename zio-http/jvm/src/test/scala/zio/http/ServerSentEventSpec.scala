@@ -25,8 +25,22 @@ object ServerSentEventSpec extends ZIOHttpSpec {
 
   val routes: Routes[Any, Response] =
     Routes(
-      Method.GET / "sse" ->
+      Method.GET / "sse"                   ->
         handler(Response.fromServerSentEvents(stream)),
+      Method.GET / "sse" / "non-streaming" ->
+        handler(
+          Response.fromServerSentEvent(
+            ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now), retry = Some(10.milliseconds)),
+          ),
+        ),
+      Method.GET / "sse" / "collection"    ->
+        handler(
+          Response.fromServerSentEvents(
+            Chunk.fromIterable(
+              List.fill(5)(ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now), retry = Some(10.milliseconds))),
+            ),
+          ),
+        ),
     )
 
   val server =
@@ -41,6 +55,30 @@ object ServerSentEventSpec extends ZIOHttpSpec {
           .addHeader(Header.Accept(MediaType.text.`event-stream`))
           .stream(
             Request(method = Method.GET, url = url"/sse", body = Body.empty),
+          )(_.body.asServerSentEvents[String])
+    } yield event
+
+  def nonStreamingEventStream(port: Int): ZStream[Client, Throwable, ServerSentEvent[String]] =
+    for {
+      client <- ZStream.service[Client]
+      event  <-
+        client
+          .url(url"http://localhost:$port")
+          .addHeader(Header.Accept(MediaType.text.`event-stream`))
+          .stream(
+            Request(method = Method.GET, url = url"/sse/non-streaming", body = Body.empty),
+          )(_.body.asServerSentEvents[String])
+    } yield event
+
+  def collectionEventStream(port: Int): ZStream[Client, Throwable, ServerSentEvent[String]] =
+    for {
+      client <- ZStream.service[Client]
+      event  <-
+        client
+          .url(url"http://localhost:$port")
+          .addHeader(Header.Accept(MediaType.text.`event-stream`))
+          .stream(
+            Request(method = Method.GET, url = url"/sse/collection", body = Body.empty),
           )(_.body.asServerSentEvents[String])
     } yield event
 
@@ -177,6 +215,28 @@ object ServerSentEventSpec extends ZIOHttpSpec {
           events.forall(event => Try(ISO_LOCAL_TIME.parse(event.data)).isSuccess),
           events.forall(_.retry.contains(10.milliseconds)),
         )
-      }.provide(Server.defaultWithPort(0), ZClient.default),
-    ) @@ TestAspect.withLiveClock
+      },
+      test("Send and receive ServerSentEvent with non-streaming endpoint") {
+        for {
+          _      <- server.fork
+          port   <- ZIO.serviceWithZIO[Server](_.port)
+          events <- nonStreamingEventStream(port).take(1).runCollect
+        } yield assertTrue(
+          events.size == 1,
+          Try(ISO_LOCAL_TIME.parse(events.head.data)).isSuccess,
+          events.head.retry.contains(10.milliseconds),
+        )
+      },
+      test("Send and receive ServerSentEvent with collection endpoint") {
+        for {
+          _      <- server.fork
+          port   <- ZIO.serviceWithZIO[Server](_.port)
+          events <- collectionEventStream(port).take(5).runCollect
+        } yield assertTrue(
+          events.size == 5,
+          events.forall(event => Try(ISO_LOCAL_TIME.parse(event.data)).isSuccess),
+          events.forall(_.retry.contains(10.milliseconds)),
+        )
+      },
+    ).provideShared(Server.defaultWithPort(0), ZClient.default) @@ TestAspect.withLiveClock
 }

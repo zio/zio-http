@@ -375,6 +375,29 @@ object RoundtripSpec extends ZIOHttpSpec {
           ),
         )
       }
+      test("simple get with case class in return and header codec accepting media type text plain") {
+        val usersPostAPI =
+          Endpoint(GET / "users" / "posts")
+            .out[Post]
+            .header(HeaderCodec.accept)
+
+        val usersPostHandler =
+          usersPostAPI.implementHandler {
+            Handler.fromFunction(_ => Post(1, "title", "body", 3))
+          }
+
+        testEndpointCustomRequestZIO(
+          usersPostHandler.toRoutes,
+          Request(
+            method = GET,
+            url = URL(path = Path("/users/posts")),
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
+          ),
+          response =>
+            response.body.asString.map(s => assertTrue(s.contains("Unexpected error happened when encoding response"))),
+        )
+      }
+
       test("throwing error in handler") {
         val api = Endpoint(POST / string("id") / "xyz" / string("name") / "abc")
           .query(HttpCodec.query[String]("details"))

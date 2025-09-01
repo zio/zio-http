@@ -357,7 +357,9 @@ object URL {
       // is an edge case. But checking it allocates an `Option` that is not needed in most cases.
       abs.originalPort match {
         case None =>
-          ThreadLocals.stringBuilder.append(abs.scheme.encode).append("://").append(abs.host)
+          val sb = ThreadLocals.stringBuilder.append(abs.scheme.encode).append("://").append(abs.host)
+          if (path.nonEmpty && path.head != '/') sb.append('/')
+          sb
         case port =>
           val sb = ThreadLocals.stringBuilder
             .append(abs.scheme.encode)

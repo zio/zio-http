@@ -35,6 +35,8 @@ trait Attributes {
 
   final def asyncAttr: PartialAttribute[String] = PartialAttribute("async")
 
+  final def attr(name: String): PartialAttribute[String] = PartialAttribute(name)
+
   final def autocompleteAttr: PartialAttribute[String] = PartialAttribute("autocomplete")
 
   final def autofocusAttr: PartialAttribute[String] = PartialAttribute("autofocus")
