@@ -16,6 +16,8 @@
 
 package zio.http.template
 
+import scala.language.implicitConversions
+
 import zio.http.template.Element.PartialElement
 
 trait Elements {
@@ -279,5 +281,7 @@ object Element {
         case Html.Multiple(children) => children
       }.flatten: _*,
     )
+
   }
+
 }
