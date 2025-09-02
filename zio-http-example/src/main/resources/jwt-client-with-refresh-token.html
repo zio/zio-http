@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JWT Authentication with Refresh Token</title>
+    <title>JWT Authentication with Automatic Refresh Token Management</title>
     <style>
         * {
             margin: 0;
@@ -101,6 +101,100 @@
             color: #666;
             margin-bottom: 20px;
             font-size: 14px;
+        }
+
+        /* Token Timer Styles */
+        .token-timer {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border-radius: 15px;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .token-timer.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .token-timer.warning {
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.1));
+            border-color: rgba(255, 193, 7, 0.5);
+        }
+
+        .token-timer.expired {
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(255, 107, 107, 0.1));
+            border-color: rgba(220, 53, 69, 0.5);
+        }
+
+        .timer-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .timer-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .timer-display {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            font-family: 'SF Mono', Monaco, monospace;
+            margin-bottom: 10px;
+        }
+
+        .timer-display.warning {
+            color: #ff9800;
+            animation: pulse 1s infinite;
+        }
+
+        .timer-display.expired {
+            color: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .timer-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .timer-progress {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+
+        .timer-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .timer-progress-bar.warning {
+            background: linear-gradient(90deg, #ff9800, #ff6b00);
+        }
+
+        .timer-progress-bar.expired {
+            background: linear-gradient(90deg, #dc3545, #c82333);
         }
 
         /* User Selection Section */
@@ -482,12 +576,6 @@
             background: #dc3545;
         }
 
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
         .auto-refresh {
             margin-top: 20px;
             padding: 20px;
@@ -495,6 +583,29 @@
             border: 1px solid rgba(255, 193, 7, 0.3);
             border-radius: 10px;
             color: #856404;
+        }
+
+        .auto-refresh-notice {
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 10px;
+            color: #004085;
+            margin-top: 15px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auto-refresh-icon {
+            font-size: 20px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         .countdown {
@@ -588,6 +699,18 @@
             color: #6c757d;
         }
 
+        .transaction-step {
+            padding: 15px;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 10px;
+            margin: 15px 0;
+            color: #856404;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
+
         .footer {
             margin-top: 30px;
             padding-top: 20px;
@@ -618,7 +741,7 @@
     <div class="header">
         <div class="auth-logo">🔐</div>
         <h1>JWT Authentication Demo</h1>
-        <p class="subtitle">JWT with Refresh Token Management</p>
+        <p class="subtitle">JWT with Automatic Refresh Token Management</p>
     </div>
 
     <!-- Authentication Section -->
@@ -670,14 +793,36 @@
                 <span>🗑️</span>
                 Clear Tokens
             </button>
+            <button class="btn btn-secondary" onclick="revokeRefreshToken()">
+                <span>⏰</span>
+                Logout (Revoke Refresh Token)
+            </button>
         </div>
 
         <div id="authResponse" class="response">
             <span class="response-header">Response</span>
         </div>
 
+        <!-- Token Timer Display -->
+        <div id="tokenTimer" class="token-timer">
+            <div class="timer-icon" id="timerIcon">⏱️</div>
+            <div class="timer-label">Token Expires In</div>
+            <div class="timer-display" id="timerDisplay">--:--</div>
+            <div class="timer-details" id="timerDetails">
+                Expires at: <span id="expiryTime">--:--:--</span>
+            </div>
+            <div class="timer-progress">
+                <div class="timer-progress-bar" id="timerProgressBar"></div>
+            </div>
+        </div>
+
         <div class="token-display" id="tokenDisplay">
             <span style="color: #999;">No JWT token yet. Login to receive a token.</span>
+        </div>
+
+        <div class="auto-refresh-notice">
+            <span class="auto-refresh-icon">🔄</span>
+            <span><strong>Automatic Token Refresh Enabled:</strong> When your access token expires, the client will automatically use your refresh token to get new tokens and retry the request. You don't need to manually refresh!</span>
         </div>
 
         <div class="jwt-decoded" id="jwtDecoded">
@@ -726,34 +871,20 @@
     <!-- Protected Route Section -->
     <div class="section">
         <h2>🛡️ Protected Route Access</h2>
-        <p>These endpoints require JWT authentication. Access token will be automatically refreshed if expired.</p>
-        <button class="btn btn-success" onclick="accessProtectedRoute()" id="protectedBtn" disabled>
+        <p>These endpoints require JWT authentication. Access tokens will be automatically refreshed when expired!</p>
+        <button class="btn btn-success" onclick="accessProtectedRoute()" id="protectedBtn">
             <span>👤</span>
             Access Profile
         </button>
-        <button class="btn btn-secondary" onclick="refreshTokens()" id="refreshBtn" disabled>
+        <button class="btn btn-danger" onclick="accessAdminRoute()" id="protectedAdminBtn">
+            <span>👨‍💼</span>
+            Admin: List Users
+        </button>
+        <button class="btn btn-secondary" onclick="refreshTokensManually()" id="refreshBtn">
             <span>🔄</span>
-            Refresh Tokens Manually
+            Manual Token Refresh
         </button>
         <div id="protectedResponse" class="response">
-            <span class="response-header">Response</span>
-        </div>
-    </div>
-
-    <!-- Auto-refresh Section -->
-    <div class="section">
-        <h2>⚡ Auto-refresh Demo</h2>
-        <p>Demonstrates automatic token refresh when the access token expires</p>
-        <button class="btn btn-primary" onclick="startAutoRefresh()" id="autoRefreshBtn" disabled>
-            <span>🔄</span>
-            Start Auto-refresh Demo
-        </button>
-        <button class="btn btn-danger" onclick="stopAutoRefresh()" id="stopAutoRefreshBtn" disabled>
-            <span>⏹️</span>
-            Stop Auto-refresh
-        </button>
-        <div id="autoRefreshInfo" class="auto-refresh" style="display: none;"></div>
-        <div id="autoRefreshResponse" class="response">
             <span class="response-header">Response</span>
         </div>
     </div>
@@ -761,7 +892,7 @@
     <!-- HTTP Transaction Details Section -->
     <div class="section">
         <h2>📊 HTTP Transaction Details</h2>
-        <p>View detailed HTTP request and response messages</p>
+        <p>View detailed HTTP request and response messages (including automatic refresh flow)</p>
         <button class="btn btn-secondary" onclick="clearTransactions()" style="margin-bottom: 15px;">
             <span>🗑️</span>
             Clear Transactions
@@ -782,8 +913,318 @@
     let accessToken = null;
     let refreshToken = null;
     let tokenExpiryTime = null;
-    let autoRefreshInterval = null;
-    let countdownInterval = null;
+    let initialTokenDuration = null;
+    let tokenTimerInterval = null;
+    let transactionHistory = [];
+
+    // Token Timer Management
+    const TokenTimer = {
+        start(expiryTime, initialDuration) {
+            this.stop(); // Clear any existing timer
+
+            const timerElement = document.getElementById('tokenTimer');
+            const timerDisplay = document.getElementById('timerDisplay');
+            const timerDetails = document.getElementById('timerDetails');
+            const expiryTimeElement = document.getElementById('expiryTime');
+            const progressBar = document.getElementById('timerProgressBar');
+            const timerIcon = document.getElementById('timerIcon');
+
+            timerElement.classList.add('active');
+            timerElement.classList.remove('warning', 'expired');
+            timerDisplay.classList.remove('warning', 'expired');
+            progressBar.classList.remove('warning', 'expired');
+
+            // Set expiry time display
+            expiryTimeElement.textContent = expiryTime.toLocaleTimeString();
+
+            tokenTimerInterval = setInterval(() => {
+                const now = new Date();
+                const remainingMs = expiryTime - now;
+
+                if (remainingMs <= 0) {
+                    // Token has expired
+                    timerDisplay.textContent = 'EXPIRED';
+                    timerDisplay.classList.add('expired');
+                    timerElement.classList.add('expired');
+                    progressBar.classList.add('expired');
+                    progressBar.style.width = '0%';
+                    timerIcon.textContent = '❌';
+                    this.stop();
+                    return;
+                }
+
+                // Calculate time components
+                const totalSeconds = Math.floor(remainingMs / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+
+                // Format display
+                const displayMinutes = String(minutes).padStart(2, '0');
+                const displaySeconds = String(seconds).padStart(2, '0');
+                timerDisplay.textContent = `${displayMinutes}:${displaySeconds}`;
+
+                // Calculate progress percentage
+                const progressPercent = (remainingMs / (initialDuration * 1000)) * 100;
+                progressBar.style.width = `${progressPercent}%`;
+
+                // Warning state when less than 30 seconds remaining
+                if (totalSeconds <= 30) {
+                    if (!timerElement.classList.contains('warning')) {
+                        timerElement.classList.add('warning');
+                        timerDisplay.classList.add('warning');
+                        progressBar.classList.add('warning');
+                        timerIcon.textContent = '⚠️';
+                    }
+                } else {
+                    timerIcon.textContent = '⏱️';
+                }
+            }, 100); // Update every 100ms for smooth countdown
+        },
+
+        stop() {
+            if (tokenTimerInterval) {
+                clearInterval(tokenTimerInterval);
+                tokenTimerInterval = null;
+            }
+        },
+
+        hide() {
+            this.stop();
+            const timerElement = document.getElementById('tokenTimer');
+            timerElement.classList.remove('active', 'warning', 'expired');
+        }
+    };
+
+    // Core function that implements automatic token refresh with complete transaction logging
+    async function makeAuthenticatedRequest(url, options = {}) {
+        // Clear previous transactions for this request flow
+        transactionHistory = [];
+
+        const attemptRequest = async (token, isRetry = false) => {
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+
+            const requestDetails = {
+                method: options.method || 'GET',
+                url: url,
+                headers: headers,
+                body: options.body || null,
+                isRetry: isRetry
+            };
+
+            const response = await fetch(url, {
+                ...options,
+                headers: headers
+            });
+
+            const responseText = await response.text();
+
+            // Log this transaction
+            transactionHistory.push({
+                request: requestDetails,
+                response: {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'WWW-Authenticate': response.headers.get('WWW-Authenticate') || '',
+                        'Content-Length': responseText.length
+                    },
+                    body: responseText
+                }
+            });
+
+            return {
+                response: response,
+                text: responseText
+            };
+        };
+
+        const refreshAndRetry = async () => {
+            console.log('Access token expired, refreshing...');
+
+            const formData = new URLSearchParams();
+            formData.append('refreshToken', refreshToken);
+
+            const refreshHeaders = {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            };
+
+            const refreshResponse = await fetch('/refresh', {
+                method: 'POST',
+                headers: refreshHeaders,
+                body: formData
+            });
+
+            const refreshText = await refreshResponse.text();
+
+            // Log the refresh transaction
+            transactionHistory.push({
+                request: {
+                    method: 'POST',
+                    url: '/refresh',
+                    headers: refreshHeaders,
+                    body: formData.toString(),
+                    isRefresh: true
+                },
+                response: {
+                    status: refreshResponse.status,
+                    statusText: refreshResponse.statusText,
+                    headers: {
+                        'Content-Type': refreshResponse.headers.get('Content-Type') || 'text/plain',
+                        'Content-Length': refreshText.length
+                    },
+                    body: refreshText
+                }
+            });
+
+            if (!refreshResponse.ok) {
+                throw new Error(`Token refresh failed: ${refreshText}`);
+            }
+
+            const tokens = JSON.parse(refreshText);
+            accessToken = tokens.accessToken;
+            refreshToken = tokens.refreshToken;
+            tokenExpiryTime = new Date(Date.now() + (tokens.expiresIn * 1000));
+            initialTokenDuration = tokens.expiresIn;
+            updateTokenDisplay(tokens);
+
+            // Now retry the original request with the new token
+            return await attemptRequest(accessToken, true);
+        };
+
+        // Check if we have tokens
+        if (!accessToken || !refreshToken) {
+            throw new Error('No authentication tokens available. Please login first.');
+        }
+
+        // First attempt with current access token
+        const result = await attemptRequest(accessToken);
+
+        // If unauthorized, refresh and retry
+        if (result.response.status === 401) {
+            const retryResult = await refreshAndRetry();
+            displayCompleteTransactionFlow();
+            return {
+                ok: retryResult.response.ok,
+                status: retryResult.response.status,
+                text: () => Promise.resolve(retryResult.text),
+                headers: retryResult.response.headers
+            };
+        }
+
+        displayCompleteTransactionFlow();
+        return {
+            ok: result.response.ok,
+            status: result.response.status,
+            text: () => Promise.resolve(result.text),
+            headers: result.response.headers
+        };
+    }
+
+    // Display complete transaction flow including all steps
+    function displayCompleteTransactionFlow() {
+        const detailsContainer = document.getElementById('transactionDetails');
+        if (!detailsContainer || transactionHistory.length === 0) return;
+
+        let html = '';
+
+        transactionHistory.forEach((transaction, index) => {
+            const isRefreshRequest = transaction.request.isRefresh;
+            const isRetryRequest = transaction.request.isRetry;
+            const responseClass = transaction.response.status === 200 ? 'http-response-200' : 'http-response-401';
+
+            // Add step indicator for multi-step flows
+            if (transactionHistory.length > 1) {
+                if (index === 0) {
+                    html += '<div class="transaction-step">Step 1: Initial Request (with expired token)</div>';
+                } else if (isRefreshRequest) {
+                    html += '<div class="transaction-step">Step 2: Automatic Token Refresh</div>';
+                } else if (isRetryRequest) {
+                    html += '<div class="transaction-step">Step 3: Retry Original Request (with new token)</div>';
+                }
+            }
+
+            // Format the request
+            const requestFormatted = HTTPTransaction.formatRequest(
+                transaction.request.method,
+                transaction.request.url,
+                transaction.request.headers,
+                transaction.request.body
+            );
+
+            // Format the response
+            const responseFormatted = HTTPTransaction.formatResponse(
+                transaction.response.status,
+                transaction.response.statusText,
+                transaction.response.headers,
+                transaction.response.body
+            );
+
+            html += `
+                <div class="http-message http-request">
+                    <div class="http-message-header">
+                        🌐 HTTP Request ${isRefreshRequest ? '(Token Refresh)' : isRetryRequest ? '(Retry with New Token)' : ''}
+                    </div>
+                    <div class="http-message-content"><pre>${requestFormatted}</pre></div>
+                </div>
+                <div class="transaction-flow">⬇️</div>
+                <div class="http-message ${responseClass}">
+                    <div class="http-message-header">
+                        📨 HTTP Response ${transaction.response.status === 401 ? '(Token Expired)' : ''}
+                    </div>
+                    <div class="http-message-content"><pre>${responseFormatted}</pre></div>
+                </div>
+            `;
+
+            if (index < transactionHistory.length - 1) {
+                html += '<div class="transaction-flow">⬇️</div>';
+            }
+        });
+
+        detailsContainer.innerHTML = html;
+        detailsContainer.classList.add('visible');
+    }
+
+    // HTTP Transaction Module
+    const HTTPTransaction = {
+        formatHeaders(headers) {
+            let formatted = '';
+            if (headers && typeof headers === 'object') {
+                Object.entries(headers).forEach(([name, value]) => {
+                    if (value) {  // Only show headers with values
+                        formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
+                    }
+                });
+            }
+            return formatted;
+        },
+
+        formatRequest(method, url, headers, body) {
+            const urlObj = new URL(url, window.location.origin);
+            let request = `<span class="http-method">${method}</span> ${urlObj.pathname}${urlObj.search} HTTP/1.1\n`;
+            request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${urlObj.host}</span>\n`;
+            request += this.formatHeaders(headers);
+            if (body) {
+                request += `\n${body}`;
+            }
+            return request;
+        },
+
+        formatResponse(status, statusText, headers, body) {
+            const statusClass = status === 200 ? 'http-status-200' : 'http-status-401';
+            let formatted = `HTTP/1.1 <span class="${statusClass}">${status} ${statusText}</span>\n`;
+            if (headers) {
+                formatted += this.formatHeaders(headers);
+            }
+            if (body) {
+                formatted += `\n${body}`;
+            }
+            return formatted;
+        }
+    };
 
     // JWT Decoder Module
     const JWTDecoder = {
@@ -875,64 +1316,6 @@
         }
     };
 
-    // HTTP Transaction Module
-    const HTTPTransaction = {
-        formatHeaders(headers) {
-            let formatted = '';
-            if (headers && typeof headers === 'object') {
-                Object.entries(headers).forEach(([name, value]) => {
-                    formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
-                });
-            }
-            return formatted;
-        },
-
-        formatRequest(method, url, headers, body) {
-            const urlObj = new URL(url, window.location.origin);
-            let request = `<span class="http-method">${method}</span> ${urlObj.pathname}${urlObj.search} HTTP/1.1\n`;
-            request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${urlObj.host}</span>\n`;
-            request += this.formatHeaders(headers);
-            if (body) {
-                request += `\n${body}`;
-            }
-            return request;
-        },
-
-        formatResponse(status, statusText, headers, body) {
-            const statusClass = status === 200 ? 'http-status-200' : 'http-status-401';
-            let formatted = `HTTP/1.1 <span class="${statusClass}">${status} ${statusText}</span>\n`;
-            if (headers) {
-                formatted += this.formatHeaders(headers);
-            }
-            if (body) {
-                formatted += `\n${body}`;
-            }
-            return formatted;
-        },
-
-        display(transaction) {
-            const detailsContainer = document.getElementById('transactionDetails');
-            if (!detailsContainer) return;
-
-            const responseClass = transaction.response.status === 200 ? 'http-response-200' : 'http-response-401';
-
-            const html = `
-                <div class="http-message http-request">
-                    <div class="http-message-header">🌐 HTTP Request</div>
-                    <div class="http-message-content"><pre>${transaction.request}</pre></div>
-                </div>
-                <div class="transaction-flow">⬇️</div>
-                <div class="http-message ${responseClass}">
-                    <div class="http-message-header">📨 HTTP Response</div>
-                    <div class="http-message-content"><pre>${transaction.responseText}</pre></div>
-                </div>
-            `;
-
-            detailsContainer.innerHTML = html;
-            detailsContainer.classList.add('visible');
-        }
-    };
-
     // User card click handlers
     document.addEventListener('DOMContentLoaded', function() {
         const userCards = document.querySelectorAll('.user-card');
@@ -974,21 +1357,15 @@
     function updateAuthStatus() {
         const statusIndicator = document.getElementById('authStatus');
         const protectedBtn = document.getElementById('protectedBtn');
+        const protectedAdminBtn = document.getElementById('protectedAdminBtn');
         const refreshBtn = document.getElementById('refreshBtn');
-        const autoRefreshBtn = document.getElementById('autoRefreshBtn');
 
         if (accessToken) {
             statusIndicator.classList.remove('disconnected');
             statusIndicator.classList.add('connected');
-            protectedBtn.disabled = false;
-            refreshBtn.disabled = false;
-            autoRefreshBtn.disabled = false;
         } else {
             statusIndicator.classList.remove('connected');
             statusIndicator.classList.add('disconnected');
-            protectedBtn.disabled = true;
-            refreshBtn.disabled = true;
-            autoRefreshBtn.disabled = true;
         }
     }
 
@@ -1017,6 +1394,7 @@
             accessToken = tokens.accessToken;
             refreshToken = tokens.refreshToken;
             tokenExpiryTime = new Date(Date.now() + (tokens.expiresIn * 1000));
+            initialTokenDuration = tokens.expiresIn;
 
             tokenDisplay.innerHTML = `
                 <strong>Access Token:</strong><br>${accessToken}<br><br>
@@ -1029,18 +1407,26 @@
 
             JWTDecoder.display(accessToken);
             updateAuthStatus();
+
+            // Start the countdown timer
+            TokenTimer.start(tokenExpiryTime, initialTokenDuration);
         } else {
             accessToken = null;
             refreshToken = null;
             tokenExpiryTime = null;
+            initialTokenDuration = null;
 
             tokenDisplay.innerHTML = '<span style="color: #999;">No JWT token yet. Login to receive a token.</span>';
             tokenDisplay.classList.remove('has-token');
 
             JWTDecoder.hide();
             updateAuthStatus();
+
+            // Hide the timer
+            TokenTimer.hide();
         }
     }
+
 
     // Login function
     async function login() {
@@ -1053,6 +1439,9 @@
         }
 
         try {
+            // Clear transaction history for login
+            transactionHistory = [];
+
             const url = '/login';
             const formData = new URLSearchParams();
             formData.append('username', username);
@@ -1070,25 +1459,26 @@
 
             const text = await response.text();
 
-            // Create transaction record
-            const transaction = {
-                request: HTTPTransaction.formatRequest('POST', url, headers, formData.toString()),
+            // Log login transaction
+            transactionHistory.push({
+                request: {
+                    method: 'POST',
+                    url: url,
+                    headers: headers,
+                    body: formData.toString()
+                },
                 response: {
                     status: response.status,
-                    statusText: response.statusText
-                },
-                responseText: HTTPTransaction.formatResponse(
-                    response.status,
-                    response.statusText,
-                    {
+                    statusText: response.statusText,
+                    headers: {
                         'Content-Type': response.headers.get('Content-Type') || 'text/plain',
                         'Content-Length': text.length
                     },
-                    text
-                )
-            };
+                    body: text
+                }
+            });
 
-            HTTPTransaction.display(transaction);
+            displayCompleteTransactionFlow();
 
             if (response.ok) {
                 const tokens = JSON.parse(text);
@@ -1103,71 +1493,49 @@
         }
     }
 
-    // Access protected route
+    // Access protected route using makeAuthenticatedRequest
     async function accessProtectedRoute() {
-        if (!accessToken) {
-            displayResponse('protectedResponse', 'No access token available. Please login first.', true);
-            return;
-        }
-
         try {
-            const url = '/profile/me';
-            const headers = {
-                'Authorization': `Bearer ${accessToken}`
-            };
-
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: headers
-            });
-
+            const response = await makeAuthenticatedRequest('/profile/me');
             const text = await response.text();
-
-            // Create transaction record
-            const transaction = {
-                request: HTTPTransaction.formatRequest('GET', url, headers),
-                response: {
-                    status: response.status,
-                    statusText: response.statusText
-                },
-                responseText: HTTPTransaction.formatResponse(
-                    response.status,
-                    response.statusText,
-                    {
-                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
-                        'WWW-Authenticate': response.headers.get('WWW-Authenticate') || '',
-                        'Content-Length': text.length
-                    },
-                    text
-                )
-            };
-
-            HTTPTransaction.display(transaction);
 
             if (response.ok) {
                 displayResponse('protectedResponse', text);
-<!--            } else if (response.status === 401) {-->
-<!--                displayResponse('protectedResponse', 'Access token expired. Attempting to refresh...', true);-->
-<!--                await refreshTokens();-->
-<!--                if (accessToken) {-->
-<!--                    setTimeout(() => accessProtectedRoute(), 1000);-->
-<!--                }-->
             } else {
                 displayResponse('protectedResponse', `Error: ${text}`, true);
             }
         } catch (error) {
-            displayResponse('protectedResponse', `Network error: ${error.message}`, true);
+            displayResponse('protectedResponse', error.message, true);
         }
     }
 
-    // Refresh tokens
-    async function refreshTokens() {
+    // Access admin-only route to list all users
+    async function accessAdminRoute() {
+        try {
+            const response = await makeAuthenticatedRequest('/admin/users');
+            const text = await response.text();
+
+            if (response.ok) {
+                displayResponse('protectedResponse', text);
+            } else {
+                displayResponse('protectedResponse', `Admin Access Error: ${text}`, true);
+            }
+        } catch (error) {
+            displayResponse('protectedResponse', error.message, true);
+        }
+    }
+
+    // Manual refresh tokens
+    async function refreshTokensManually() {
         if (!refreshToken) {
             displayResponse('protectedResponse', 'No refresh token available. Please login first.', true);
             return;
         }
 
         try {
+            // Clear transaction history for manual refresh
+            transactionHistory = [];
+
             const url = '/refresh';
             const formData = new URLSearchParams();
             formData.append('refreshToken', refreshToken);
@@ -1184,25 +1552,26 @@
 
             const text = await response.text();
 
-            // Create transaction record
-            const transaction = {
-                request: HTTPTransaction.formatRequest('POST', url, headers, formData.toString()),
+            // Log refresh transaction
+            transactionHistory.push({
+                request: {
+                    method: 'POST',
+                    url: url,
+                    headers: headers,
+                    body: formData.toString()
+                },
                 response: {
                     status: response.status,
-                    statusText: response.statusText
-                },
-                responseText: HTTPTransaction.formatResponse(
-                    response.status,
-                    response.statusText,
-                    {
+                    statusText: response.statusText,
+                    headers: {
                         'Content-Type': response.headers.get('Content-Type') || 'text/plain',
                         'Content-Length': text.length
                     },
-                    text
-                )
-            };
+                    body: text
+                }
+            });
 
-            HTTPTransaction.display(transaction);
+            displayCompleteTransactionFlow();
 
             if (response.ok) {
                 const tokens = JSON.parse(text);
@@ -1217,17 +1586,75 @@
         }
     }
 
+    // Logout and revoke refresh token
+    async function revokeRefreshToken() {
+        if (!refreshToken) {
+            displayResponse('authResponse', 'No refresh token available. Please login first.', true);
+            return;
+        }
+
+        try {
+            // Clear transaction history for logout
+            transactionHistory = [];
+
+            const url = '/logout';
+            const formData = new URLSearchParams();
+            formData.append('refreshToken', refreshToken);
+
+            const headers = {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+
+            const text = await response.text();
+
+            // Log logout transaction
+            transactionHistory.push({
+                request: {
+                    method: 'POST',
+                    url: url,
+                    headers: headers,
+                    body: formData.toString()
+                },
+                response: {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'Content-Length': text.length
+                    },
+                    body: text
+                }
+            });
+
+            displayCompleteTransactionFlow();
+
+            if (response.ok) {
+                displayResponse('authResponse', text);
+                clearTokens();
+            } else {
+                displayResponse('authResponse', `Logout failed: ${text}`, true);
+            }
+        } catch (error) {
+            displayResponse('authResponse', `Network error: ${error.message}`, true);
+        }
+    }
+
     // Clear tokens
     function clearTokens() {
         updateTokenDisplay(null);
         document.getElementById('authResponse').style.display = 'none';
         document.getElementById('protectedResponse').style.display = 'none';
-        document.getElementById('autoRefreshResponse').style.display = 'none';
-        stopAutoRefresh();
     }
 
     // Clear transactions
     function clearTransactions() {
+        transactionHistory = [];
         const detailsContainer = document.getElementById('transactionDetails');
         if (detailsContainer) {
             detailsContainer.classList.remove('visible');
@@ -1241,78 +1668,15 @@
         }
     }
 
-    // Start auto-refresh demo
-    function startAutoRefresh() {
-        if (!accessToken) {
-            displayResponse('autoRefreshResponse', 'Please login first to start auto-refresh demo.', true);
-            return;
-        }
-
-        document.getElementById('autoRefreshBtn').disabled = true;
-        document.getElementById('stopAutoRefreshBtn').disabled = false;
-
-        const autoRefreshInfo = document.getElementById('autoRefreshInfo');
-        autoRefreshInfo.style.display = 'block';
-
-        // Make requests every 10 seconds
-        autoRefreshInterval = setInterval(async () => {
-            displayResponse('autoRefreshResponse', 'Making auto-refresh request...');
-            await accessProtectedRoute();
-        }, 10000);
-
-        // Update countdown every second
-        countdownInterval = setInterval(() => {
-            if (tokenExpiryTime) {
-                const now = new Date();
-                const timeLeft = Math.max(0, Math.floor((tokenExpiryTime - now) / 1000));
-
-                if (timeLeft > 0) {
-                    autoRefreshInfo.innerHTML = `
-                        <strong>Auto-refresh Demo Running</strong><br>
-                        Making requests every 10 seconds...<br>
-                        Token expires in: <span class="countdown">${timeLeft}s</span>
-                    `;
-                } else {
-                    autoRefreshInfo.innerHTML = `
-                        <strong>Auto-refresh Demo Running</strong><br>
-                        Making requests every 10 seconds...<br>
-                        Token expired - should refresh on next request
-                    `;
-                }
-            }
-        }, 1000);
-
-        // Make initial request
-        accessProtectedRoute();
-    }
-
-    // Stop auto-refresh demo
-    function stopAutoRefresh() {
-        if (autoRefreshInterval) {
-            clearInterval(autoRefreshInterval);
-            autoRefreshInterval = null;
-        }
-
-        if (countdownInterval) {
-            clearInterval(countdownInterval);
-            countdownInterval = null;
-        }
-
-        document.getElementById('autoRefreshBtn').disabled = false;
-        document.getElementById('stopAutoRefreshBtn').disabled = true;
-        document.getElementById('autoRefreshInfo').style.display = 'none';
-    }
-
-    // Allow Enter key to login
-    document.getElementById('password').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            login();
-        }
-    });
-
     document.getElementById('username').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             document.getElementById('password').focus();
+        }
+    });
+
+    document.getElementById('password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            login();
         }
     });
 </script>
