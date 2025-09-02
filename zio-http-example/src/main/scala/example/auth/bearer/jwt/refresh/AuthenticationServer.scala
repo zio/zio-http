@@ -15,6 +15,7 @@ object AuthenticationServer extends ZIOAppDefault {
       Method.GET / Root ->
         Handler
           .fromResource("jwt-client-with-refresh-token.html")
+//          .fromResource("jwt-client-with-refresh-token-simple.html")
           .orElse(
             Handler.internalServerError("Failed to load HTML file")
           ),
@@ -115,7 +116,7 @@ object AuthenticationServer extends ZIOAppDefault {
       .flatMap { secret =>
         val tokenService = JwtTokenService.live(
           secretKey = secret,
-          accessTokenTTL = 5.minutes,
+          accessTokenTTL = 10.seconds,
           refreshTokenTTL = 7.days,
           algorithm = JwtAlgorithm.HS512
         )
