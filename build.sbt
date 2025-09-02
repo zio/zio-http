@@ -148,7 +148,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpTestkit,
       zioHttpTools,
       docs,
-      )
+    )
   }
 
 lazy val root = (project in file("."))
@@ -254,8 +254,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.42",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.42",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.43",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.43",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -289,9 +289,9 @@ lazy val zioHttpDatastarSdk = (project in file("zio-http-datastar-sdk"))
       `zio-schema-json`,
       `zio-test`,
       `zio-test-sbt`,
-      )
-    )
-    .dependsOn(zioHttpJVM)
+    ),
+  )
+  .dependsOn(zioHttpJVM)
 
 lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
   .settings(
