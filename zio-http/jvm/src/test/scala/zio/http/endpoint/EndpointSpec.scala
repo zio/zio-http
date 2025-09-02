@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package zio.http.endpoint
 
 import java.time.Instant
+import java.util.UUID
 
 import scala.math.BigDecimal.javaBigDecimal2bigDecimal
 
@@ -26,7 +27,9 @@ import zio.test._
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.{HttpCodec, HttpContentCodec}
+import zio.http.codec.HttpCodec
+import zio.http.codec.HttpContentCodec
+import zio.http.codec.PathCodec.string
 
 object EndpointSpec extends ZIOHttpSpec {
   final case class Data(name: String, age: Int)
@@ -48,6 +51,30 @@ object EndpointSpec extends ZIOHttpSpec {
 
       assertTrue(inCodec == expectedCodec, outCodec == expectedCodec)
     },
+    suite("URL generation")(
+      test("should generate a relative URL") {
+        val endpoint = Endpoint(Method.GET / "users")
+        val url      = endpoint.toURL(())
+        assertTrue(url == Right(URL.decode("/users").toOption.get))
+      },
+      test("should generate a relative URL with path parameters") {
+        val endpoint = Endpoint(Method.GET / "users" / string("userId") / "posts")
+        val url      = endpoint.toURL("1234")
+        assertTrue(url == Right(URL.decode("/users/1234/posts").toOption.get))
+      },
+      test("should generate an absolute URL") {
+        val endpoint = Endpoint(Method.GET / "users")
+        val request  = Request.get(url = URL.decode("http://example.com/users").toOption.get)
+        val url      = endpoint.toAbsoluteURL(())(request)
+        assertTrue(url == Right(URL.decode("http://example.com/users").toOption.get))
+      },
+      test("should generate an absolute URL with path parameters") {
+        val endpoint = Endpoint(Method.GET / "users" / string("userId") / "posts")
+        val request  = Request.get(url = URL.decode("http://example.com/users/1234/posts").toOption.get)
+        val url      = endpoint.toAbsoluteURL("1234")(request)
+        assertTrue(url == Right(URL.decode("http://example.com/users/1234/posts").toOption.get))
+      },
+    ),
   )
 
   def testEndpoint[R](service: Routes[R, Nothing])(

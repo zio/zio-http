@@ -964,6 +964,37 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     g: Err1 => Err,
   ): Endpoint[PathInput, Input, Err1, Output, Auth] =
     copy(error = self.error.transform(f)(g))
+
+  /**
+   * Creates a relative URL for this endpoint, using the given input to
+   * fill in the path and query parameters.
+   */
+  def toURL(input: Input): Either[String, URL] =
+    try {
+      val request = self.input.encodeRequest(input)
+      Right(request.url.relative)
+    } catch {
+      case e: Throwable => Left(s"Failed to format URL: ${e.getMessage}")
+    }
+
+  /**
+   * Creates an absolute URL for this endpoint, using the given input to
+   * fill in the path and query parameters. The scheme and authority are derived from the
+   * provided base Request.
+   */
+  def toAbsoluteURL(input: Input)(request: Request): Either[String, URL] =
+    try {
+      val generatedRequest = self.input.encodeRequest(input)
+      val relativeUrl      = generatedRequest.url
+
+      val host   = request.url.host.getOrElse("localhost")
+      val scheme = request.url.scheme.getOrElse(Scheme.HTTP)
+      val port   = request.url.port
+
+      Right(relativeUrl.copy(kind = URL.Location.Absolute(scheme, host, port)))
+    } catch {
+      case e: Throwable => Left(s"Failed to format URL: ${e.getMessage}")
+    }
 }
 
 object Endpoint {

@@ -17,6 +17,7 @@
 package zio.http.endpoint
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.http.{Request, URL}
 
 /**
  * An invocation represents a single invocation of an endpoint through provision
@@ -28,4 +29,17 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 final case class Invocation[P, I, E, O, A <: AuthType](
   endpoint: Endpoint[P, I, E, O, A],
   input: I,
-)
+) {
+  /**
+  * Creates a relative URL for this invocation.
+  */
+  def toURL: Either[String, URL] =
+    endpoint.toURL(input)
+
+  /**
+   * Creates an absolute URL for this invocation, deriving the scheme and
+   * authority from the provided Request.
+   */
+  def toAbsoluteURL(request: Request): Either[String, URL] =
+    endpoint.toAbsoluteURL(input)(request)
+}
