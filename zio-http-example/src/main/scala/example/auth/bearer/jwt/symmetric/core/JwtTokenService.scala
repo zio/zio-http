@@ -49,13 +49,3 @@ object JwtTokenService {
   ): ULayer[JwtAuthServiceLive] =
     ZLayer.succeed(JwtAuthServiceLive(secretKey, tokenTTL, algorithm))
 }
-
-
-
-
-
-
-
-
-
-

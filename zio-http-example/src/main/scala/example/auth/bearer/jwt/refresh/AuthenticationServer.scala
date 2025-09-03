@@ -19,7 +19,7 @@ object AuthenticationServer extends ZIOAppDefault {
           .fromResource("jwt-client-with-refresh-token.html")
 //          .fromResource("jwt-client-with-refresh-token-simple.html")
           .orElse(
-            Handler.internalServerError("Failed to load HTML file")
+            Handler.internalServerError("Failed to load HTML file"),
           ),
 
       // Protected route that requires authentication
@@ -27,8 +27,8 @@ object AuthenticationServer extends ZIOAppDefault {
         ZIO.serviceWith[UserInfo](user =>
           Response.text(
             s"Welcome ${user.username}!" +
-              s"\nHere is your profile:\nEmail: ${user.email}"
-          )
+              s"\nHere is your profile:\nEmail: ${user.email}",
+          ),
         )
       } @@ jwtAuth(realm = "User Profile"),
 
@@ -46,15 +46,15 @@ object AuthenticationServer extends ZIOAppDefault {
               .addHeaders(Headers(Header.WWWAuthenticate.Bearer("User Login")))
 
           for {
-            form <- request.body.asURLEncodedForm.orElseFail(Response.badRequest)
-            username <- extractFormField(form, "username")
-            password <- extractFormField(form, "password")
-            userService <- ZIO.service[UserService]
+            form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest)
+            username     <- extractFormField(form, "username")
+            password     <- extractFormField(form, "password")
+            userService  <- ZIO.service[UserService]
             tokenService <- ZIO.service[JwtTokenService]
-            user <- userService
+            user         <- userService
               .validateCredentials(username, password)
               .orElseFail(unauthorizedResponse)
-            tokens <- tokenService.issueTokens(username, user.email, user.roles)
+            tokens       <- tokenService.issueTokens(username, user.email, user.roles)
             response = Response.json(tokens.toJson)
           } yield response
         },
@@ -63,12 +63,12 @@ object AuthenticationServer extends ZIOAppDefault {
       Method.POST / "refresh" ->
         handler { (request: Request) =>
           for {
-            form <- request.body.asURLEncodedForm.orElseFail(Response.badRequest("Expected form-encoded data"))
+            form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest("Expected form-encoded data"))
             refreshToken <- ZIO
               .fromOption(form.get("refreshToken").flatMap(_.stringValue))
               .orElseFail(Response.badRequest("Missing refreshToken"))
             tokenService <- ZIO.service[JwtTokenService]
-            newTokens <- tokenService
+            newTokens    <- tokenService
               .refreshTokens(refreshToken)
               .orElseFail(Response.unauthorized("Invalid or expired refresh token"))
             response = Response.json(newTokens.toJson)
@@ -82,7 +82,8 @@ object AuthenticationServer extends ZIOAppDefault {
             ZIO.serviceWithZIO[UserInfo] { info: UserInfo =>
               if (info.roles.contains("admin")) {
                 userService.getUsers.map { users =>
-                  val userList = users.map(u => s"${u.username} (${u.email}) - Roles: ${u.roles.mkString(", ")}").mkString("\n")
+                  val userList =
+                    users.map(u => s"${u.username} (${u.email}) - Roles: ${u.roles.mkString(", ")}").mkString("\n")
                   Response.text(s"User List:\n$userList")
                 }
               } else {
@@ -101,14 +102,14 @@ object AuthenticationServer extends ZIOAppDefault {
       Method.POST / "logout" ->
         handler { (request: Request) =>
           for {
-            form <- request.body.asURLEncodedForm.orElseFail(Response.badRequest("Expected form-encoded data"))
+            form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest("Expected form-encoded data"))
             refreshToken <- ZIO
               .fromOption(form.get("refreshToken").flatMap(_.stringValue))
               .orElseFail(Response.badRequest("Missing refreshToken"))
             tokenService <- ZIO.service[JwtTokenService]
-            _ <- tokenService.revokeRefreshToken(refreshToken)
+            _            <- tokenService.revokeRefreshToken(refreshToken)
           } yield Response.text("Logged out successfully")
-        }
+        },
     ) @@ Middleware.debug
 
   override val run =
@@ -120,12 +121,14 @@ object AuthenticationServer extends ZIOAppDefault {
           secretKey = secret,
           accessTokenTTL = 10.seconds,
           refreshTokenTTL = 7.days,
-          algorithm = JwtAlgorithm.HS512
+          algorithm = JwtAlgorithm.HS512,
         )
-        Server.serve(routes).provide(
-          Server.default,
-          UserService.live,
-          tokenService
-        )
+        Server
+          .serve(routes)
+          .provide(
+            Server.default,
+            UserService.live,
+            tokenService,
+          )
       }
 }

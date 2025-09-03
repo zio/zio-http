@@ -21,14 +21,15 @@ object AuthenticationClient extends ZIOAppDefault {
     token    <- ZClient
       .batched(
         Request
-          .post(loginUrl,
+          .post(
+            loginUrl,
             Body.fromURLEncodedForm(
               Form(
                 FormField.simpleField("username", "john"),
                 FormField.simpleField("password", "password123"),
               ),
             ),
-          )
+          ),
       )
       .flatMap(_.body.asString)
     // Once the jwt token is procured, adding it as a Bearer token in Authorization header while accessing a protected route.
