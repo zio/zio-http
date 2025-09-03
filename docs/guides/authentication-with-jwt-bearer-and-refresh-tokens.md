@@ -1,10 +1,10 @@
 ---
-id: authentication-with-jwt-and-refresh-token-management
-title: "Securing Your APIs: Authentication with JWT and Refresh Token Management"
-sidebar_label: "Authentication with JWT and Refresh Token Management"
+id: authentication-with-jwt-bearer-and-refresh-tokens
+title: "Securing Your APIs: Authentication with JWT Bearer and Refresh Tokens"
+sidebar_label: "Authentication with JWT Bearer and Refresh Tokens"
 ---
 
-In the [previous guide](authentication-with-jwt-bearer-tokens.md), we explored JWT bearer tokens and their role in modern API authentication. We examined their architectural elegance: stateless, self-contained tokens that eliminate database lookups. However, we also identified their fundamental limitation—once issued, a JWT remains valid until expiration. Revocation is impossible, modification is infeasible, and waiting for natural expiration is the only option.
+In the [previous guide](./authentication-with-jwt-bearer-tokens.md), we explored JWT bearer tokens and their role in modern API authentication. We examined their architectural elegance: stateless, self-contained tokens that eliminate database lookups. However, we also identified their fundamental limitation—once issued, a JWT remains valid until expiration. Revocation is impossible, modification is infeasible, and waiting for natural expiration is the only option.
 
 This creates a fundamental architectural dilemma. Short-lived tokens (5-15 minutes) provide strong security guarantees but degrade user experience through frequent re-authentication. Long-lived tokens (hours or days) improve usability but significantly increase security exposure. Consider a compromised token scenario or the need for immediate access revocation—neither case has an elegant solution with pure JWT implementations.
 
