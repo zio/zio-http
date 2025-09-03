@@ -119,7 +119,7 @@ object AuthenticationServer extends ZIOAppDefault {
       .flatMap { secret =>
         val tokenService = JwtTokenService.live(
           secretKey = secret,
-          accessTokenTTL = 10.seconds,
+          accessTokenTTL = 5.minutes,
           refreshTokenTTL = 7.days,
           algorithm = JwtAlgorithm.HS512,
         )
