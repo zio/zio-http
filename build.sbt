@@ -449,6 +449,7 @@ lazy val docs = project
       "ZIO_VERSION"        -> ZioVersion,
       "ZIO_SCHEMA_VERSION" -> ZioSchemaVersion,
       "ZIO_CONFIG_VERSION" -> ZioConfigVersion,
+      "JWT_CORE_VERSION"   -> JwtCoreVersion,
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpGen)
