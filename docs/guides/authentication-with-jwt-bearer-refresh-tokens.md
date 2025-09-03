@@ -4,9 +4,9 @@ title: "Securing Your APIs: Authentication with JWT and Refresh Token Management
 sidebar_label: "Authentication with JWT and Refresh Token Management"
 ---
 
-In the [previous guide](authentication-with-jwt-bearer-tokens.md), we explored JWT bearer tokens and their role in modern API authentication. We discovered their elegance: stateless, self-contained tokens that eliminate database lookups. But we also encountered their Achilles' heel—once issued, a JWT remains valid until expiration. You can't revoke it, you can't modify it, you can only wait.
+In the [previous guide](authentication-with-jwt-bearer-tokens.md), we explored JWT bearer tokens and their role in modern API authentication. We examined their architectural elegance: stateless, self-contained tokens that eliminate database lookups. However, we also identified their fundamental limitation—once issued, a JWT remains valid until expiration. Revocation is impossible, modification is infeasible, and waiting for natural expiration is the only option.
 
-This creates a fundamental dilemma. Short-lived tokens (5-15 minutes) are secure but annoying—users must re-authenticate constantly. Long-lived tokens (hours or days) provide better user experience but increase security risk. What if a token gets compromised? What if you need to revoke access immediately?
+This creates a fundamental architectural dilemma. Short-lived tokens (5-15 minutes) provide strong security guarantees but degrade user experience through frequent re-authentication. Long-lived tokens (hours or days) improve usability but significantly increase security exposure. Consider a compromised token scenario or the need for immediate access revocation—neither case has an elegant solution with pure JWT implementations.
 
 Enter refresh tokens: the elegant solution that gives us both security and usability.
 
@@ -32,7 +32,7 @@ This separation of concerns is powerful:
 
 The refresh token flow adds sophistication to our authentication process without adding complexity to our API endpoints. Here's the complete lifecycle:
 
-### Initial Authentication
+### 1. Initial Authentication
 
 When a user logs in successfully, the server generates two tokens:
 
@@ -48,7 +48,7 @@ When a user logs in successfully, the server generates two tokens:
 }
 ```
 
-### Using Access Tokens
+### 2. Using Access Tokens
 
 The client includes the access token in API requests exactly as before:
 
@@ -58,7 +58,7 @@ Authorization: Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9...
 
 API endpoints validate the JWT normally—they don't know or care about refresh tokens. This is the beauty of the pattern: your existing JWT infrastructure remains unchanged.
 
-### Token Refresh Process
+### 3. Token Refresh Process
 
 When the access token expires, the client sends the refresh token to a dedicated refresh endpoint:
 
@@ -75,26 +75,29 @@ The server:
 3. Issues a new access token (and optionally a new refresh token)
 4. Returns the new tokens to the client
 
-### Token Revocation
+### 4. Token Revocation
 
-Unlike JWTs, refresh tokens live in server storage. You can revoke them instantly:
-- User logs out? Delete their refresh token
-- Suspicious activity? Revoke all tokens for that user
-- Employee terminated? Immediate access termination
+When you need to revoke access, you simply delete the refresh token from server storage. Here's what happens:
 
-The short-lived access token ensures revocation takes effect quickly—within minutes, not days.
+1. User's refresh token is deleted from the database
+2. Their current access token still works (but only for a few more minutes)
+3. When the access token expires, they try to get a new one using their refresh token
+4. The server can't find their refresh token in storage → Access denied
+5. User must log in again
+
+The short-lived access token ensures revocation takes effect quickly—within minutes, not days. For example, if your access tokens lasted 30 days, revocation would be meaningless—the user could continue using their existing access token for weeks. But with 5-minute access tokens, even if someone has a valid token, when you revoke access, they'll be locked out within a 5-minute maximum.
 
 ## Security Considerations
 
 Refresh tokens introduce new security considerations. They're powerful, long-lived credentials that need careful handling.
 
-### Storage Security
+### 1. Storage Security
 
 **Never store refresh tokens in localStorage or sessionStorage.** These are accessible to any JavaScript code, including XSS attacks. For web applications, use `httpOnly` cookies with `Secure` and `SameSite` flags. For mobile apps, use platform-specific secure storage (iOS Keychain, Android Keystore).
 
-### Refresh Token Rotation
+### 2. Refresh Token Rotation
 
-Each time a refresh token is used, issue a new one and invalidate the old one. This limits the window of opportunity for stolen tokens. If an attacker steals a refresh token but the legitimate user uses it first, the attacker's token becomes invalid.
+Each time a refresh token is used, issue a new one and invalidate the old one. This limits the window of opportunity for stolen tokens. If an attacker steals a refresh token but the legitimate user uses it first, the attacker's token becomes invalid:
 
 ```scala
 override def refreshTokens(refreshToken: String): Task[TokenResponse] =
@@ -105,7 +108,7 @@ override def refreshTokens(refreshToken: String): Task[TokenResponse] =
   } yield newTokens
 ```
 
-### Detecting Token Theft
+### 3. Detecting Token Theft
 
 Track refresh token usage patterns. If a refresh token is used twice (indicating both legitimate user and attacker have it), revoke all tokens for that user immediately. Force re-authentication to establish a new secure session.
 
@@ -118,6 +121,8 @@ Let's build a complete refresh token system using ZIO HTTP. We'll extend our JWT
 First, define the structure for our token response:
 
 ```scala
+import zio.json._
+
 case class TokenResponse(
   accessToken: String,
   refreshToken: String,
@@ -156,6 +161,15 @@ Notice the separation of concerns:
 Unlike stateless JWTs, refresh tokens need server-side storage. We'll use an in-memory store for simplicity, but production systems should use Redis, a database, or another persistent store:
 
 ```scala
+import java.security.SecureRandom
+import java.time.Clock
+
+import zio.Config.Secret
+import zio._
+
+import pdi.jwt._
+import pdi.jwt.algorithms.JwtHmacAlgorithm
+
 case class RefreshTokenData(
   username: String, 
   email: String, 
@@ -170,7 +184,6 @@ case class JwtTokenServiceLive(
   algorithm: JwtHmacAlgorithm,
   refreshTokenStore: Ref[Map[String, RefreshTokenData]]
 ) extends JwtTokenService {
-  
   private def generateRefreshToken(
     username: String, 
     email: String, 
@@ -215,7 +228,7 @@ Method.POST / "refresh" ->
   }
 ```
 
-The implementation checks the refresh token store, validates expiration, and issues fresh tokens:
+The implementation checks the refresh token store, validates the refresh token, and issues fresh tokens:
 
 ```scala
 override def refreshTokens(refreshToken: String): Task[TokenResponse] =
@@ -257,34 +270,60 @@ The user's access token might remain valid for a few more minutes, but without a
 
 Clients need sophisticated token management to handle refresh tokens properly. The key is making token refresh transparent—API calls should "just work" even when tokens expire.
 
-### Automatic Token Refresh
+### ZIO HTTP Client
 
-Here's a pattern for automatic token refresh in a ZIO HTTP client:
+A simple client interface might look like this, which includes four operations:
 
 ```scala
-def makeAuthenticatedRequest(request: Request): IO[Throwable, Response] = {
-  def attemptRequest(accessToken: String): IO[Throwable, Response] =
-    client.batched(request.addHeader(Header.Authorization.Bearer(accessToken)))
+trait AuthenticationService {
+  def login(username: String, password: String): IO[Throwable, TokenResponse]
+  def refreshTokens(refreshToken: String): IO[Throwable, TokenResponse]
+  def makeAuthenticatedRequest(request: Request): IO[Throwable, Response]
+  def logout(refreshToken: String): IO[Throwable, Unit]
+}
+```
 
-  def refreshAndRetry(currentTokenStore: TokenStore): IO[Throwable, Response] =
-    for {
-      _         <- Console.printLine("Access token expired, refreshing...")
-      newTokens <- refreshTokens(currentTokenStore.refreshToken)
-      response  <- attemptRequest(newTokens.accessToken)
-    } yield response
+1. `login` obtains both issued tokens
+2. `refreshTokens` exchanges refresh tokens for new access tokens
+3. `makeAuthenticatedRequest` handles HTTP requests by transparently refreshing tokens as needed
+4. `logout` revokes the refresh token
 
-  tokenStore.get.flatMap {
-    case Some(tokens) =>
-      attemptRequest(tokens.accessToken).flatMap { response =>
-        if (response.status == Status.Unauthorized) {
-          refreshAndRetry(tokens)
-        } else {
-          ZIO.succeed(response)
+The `login`, `logout`, and `refreshTokens` functions are straightforward. The key function is `makeAuthenticatedRequest`, which takes a request and automatically handles token expiration and refresh:
+
+```scala
+case class AuthenticationServiceLive(
+  client: Client,
+  tokenStore: Ref[Option[TokenStore]],
+) extends AuthenticationService {
+  def login(username: String, password: String): IO[Throwable, TokenResponse] = ???
+  def refreshTokens(refreshToken: String): IO[Throwable, TokenResponse] = ???
+  
+  def makeAuthenticatedRequest(request: Request): IO[Throwable, Response] = {
+    def attemptRequest(accessToken: String): IO[Throwable, Response] =
+      client.batched(request.addHeader(Header.Authorization.Bearer(accessToken)))
+  
+    def refreshAndRetry(currentTokenStore: TokenStore): IO[Throwable, Response] =
+      for {
+        _         <- Console.printLine("Access token expired, refreshing...")
+        newTokens <- refreshTokens(currentTokenStore.refreshToken)
+        response  <- attemptRequest(newTokens.accessToken)
+      } yield response
+  
+    tokenStore.get.flatMap {
+      case Some(tokens) =>
+        attemptRequest(tokens.accessToken).flatMap { response =>
+          if (response.status == Status.Unauthorized) {
+            refreshAndRetry(tokens)
+          } else {
+            ZIO.succeed(response)
+          }
         }
-      }
-    case None =>
-      ZIO.fail(new Exception("No authentication tokens available"))
+      case None =>
+        ZIO.fail(new Exception("No authentication tokens available"))
+    }
   }
+
+  def logout(refreshToken: String): IO[Throwable, Unit] = ???
 }
 ```
 
@@ -549,6 +588,6 @@ Key takeaways from implementing refresh tokens:
 
 **Security improves dramatically**: Five-minute access tokens become practical when users don't have to re-authenticate constantly. Immediate revocation becomes possible. Token theft has limited impact. You get fine-grained session control without sacrificing user experience.
 
-**Requires server-side storage**: Refresh tokens need server-side storage, but the data is small and operations are simple. Redis, a database table, or even a distributed cache works fine. The storage overhead is negligible compared to the security benefits.
+**Server-side storage is required**: Refresh tokens need server-side storage, but the data is small and operations are simple. Redis, a database table, or even a distributed cache works fine. The storage overhead is negligible compared to the security benefits.
 
 Refresh tokens aren't perfect—they add complexity, require storage, and need careful implementation. But for applications that need both security and usability, they're the gold standard. They turn JWT's greatest weakness into a manageable tradeoff, giving us the best of both worlds: stateless scalability with stateful control.
