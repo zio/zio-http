@@ -79,7 +79,7 @@ object AuthenticationServer extends ZIOAppDefault {
       Method.GET / "admin" / "users" ->
         Handler.fromZIO(ZIO.service[UserService]).flatMap { userService =>
           Handler.fromZIO {
-            ZIO.serviceWithZIO[UserInfo] { info: UserInfo =>
+            ZIO.serviceWithZIO[UserInfo] { info =>
               if (info.roles.contains("admin")) {
                 userService.getUsers.map { users =>
                   val userList =
@@ -119,7 +119,7 @@ object AuthenticationServer extends ZIOAppDefault {
       .flatMap { secret =>
         val tokenService = JwtTokenService.live(
           secretKey = secret,
-          accessTokenTTL = 5.minutes,
+          accessTokenTTL = 30.seconds,
           refreshTokenTTL = 7.days,
           algorithm = JwtAlgorithm.HS512,
         )
