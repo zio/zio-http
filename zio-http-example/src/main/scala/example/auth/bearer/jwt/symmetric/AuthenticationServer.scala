@@ -61,7 +61,7 @@ object AuthenticationServer extends ZIOAppDefault {
       Method.GET / "admin" / "users" ->
         Handler.fromZIO(ZIO.service[UserService]).flatMap { userService =>
           Handler.fromZIO {
-            ZIO.serviceWithZIO[UserInfo] { info: UserInfo =>
+            ZIO.serviceWithZIO[UserInfo] { info =>
               if (info.roles.contains("admin")) userService.getUsers.map { users =>
                 val userList = users.map(u => s"${u.username} (${u.email}) - Role: ${u.roles}").mkString("\n")
                 Response.text(s"User List:\n$userList")
