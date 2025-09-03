@@ -1,6 +1,7 @@
 package example.auth.bearer.jwt.symmetric
 
 import zio._
+
 import zio.http._
 
 object AuthenticationClient extends ZIOAppDefault {

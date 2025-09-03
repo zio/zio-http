@@ -1,11 +1,13 @@
 package example.auth.bearer.jwt.symmetric
 
+import zio.Config.Secret
+import zio._
+
+import zio.http._
+
 import example.auth.bearer.jwt.symmetric.core.AuthMiddleware.jwtAuth
 import example.auth.bearer.jwt.symmetric.core._
 import pdi.jwt.JwtAlgorithm
-import zio.Config.Secret
-import zio._
-import zio.http._
 
 object AuthenticationServer extends ZIOAppDefault {
   def routes: Routes[UserService & JwtTokenService, Response] =

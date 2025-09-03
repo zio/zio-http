@@ -1,11 +1,12 @@
 package example.auth.bearer.jwt.symmetric.core
 
-import pdi.jwt._
-import pdi.jwt.algorithms.JwtHmacAlgorithm
+import java.time.Clock
+
 import zio.Config.Secret
 import zio._
 
-import java.time.Clock
+import pdi.jwt._
+import pdi.jwt.algorithms.JwtHmacAlgorithm
 
 trait JwtTokenService {
   def issue(username: String, email: String, roles: Set[String]): UIO[String]

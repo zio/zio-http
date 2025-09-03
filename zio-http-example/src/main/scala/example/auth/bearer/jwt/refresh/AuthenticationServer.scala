@@ -1,12 +1,14 @@
 package example.auth.bearer.jwt.refresh
 
+import zio.Config.Secret
+import zio._
+import zio.json._
+
+import zio.http._
+
 import example.auth.bearer.jwt.refresh.core.AuthMiddleware.jwtAuth
 import example.auth.bearer.jwt.refresh.core._
 import pdi.jwt.JwtAlgorithm
-import zio.Config.Secret
-import zio._
-import zio.http._
-import zio.json._
 
 object AuthenticationServer extends ZIOAppDefault {
   def routes: Routes[UserService & JwtTokenService, Response] =

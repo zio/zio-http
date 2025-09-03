@@ -1,12 +1,13 @@
 package example.auth.bearer.jwt.refresh.core
 
-import pdi.jwt._
-import pdi.jwt.algorithms.JwtHmacAlgorithm
+import java.security.SecureRandom
+import java.time.Clock
+
 import zio.Config.Secret
 import zio._
 
-import java.security.SecureRandom
-import java.time.Clock
+import pdi.jwt._
+import pdi.jwt.algorithms.JwtHmacAlgorithm
 
 trait JwtTokenService {
   def issueTokens(username: String, email: String, roles: Set[String]): UIO[TokenResponse]

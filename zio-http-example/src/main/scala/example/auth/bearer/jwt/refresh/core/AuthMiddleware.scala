@@ -1,6 +1,7 @@
 package example.auth.bearer.jwt.refresh.core
 
 import zio._
+
 import zio.http._
 
 object AuthMiddleware {

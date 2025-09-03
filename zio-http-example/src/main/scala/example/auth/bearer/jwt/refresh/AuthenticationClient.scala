@@ -1,10 +1,11 @@
-// File: example/auth/bearer/jwt/refresh/AuthenticationClient.scala
 package example.auth.bearer.jwt.refresh
 
-import example.auth.bearer.jwt.refresh.core.TokenResponse
 import zio._
-import zio.http._
 import zio.json._
+
+import zio.http._
+
+import example.auth.bearer.jwt.refresh.core.TokenResponse
 
 object AuthenticationClient extends ZIOAppDefault {
 

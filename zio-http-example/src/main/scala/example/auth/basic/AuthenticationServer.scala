@@ -1,11 +1,12 @@
 package example.auth.basic
 
-import zio.Config.Secret
-import zio._
-import zio.http._
-
 import java.nio.charset.StandardCharsets
 import java.security.{MessageDigest, SecureRandom}
+
+import zio.Config.Secret
+import zio._
+
+import zio.http._
 
 /**
  * This is an example to demonstrate basic Authentication middleware that passes
