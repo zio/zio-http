@@ -106,9 +106,7 @@ object AuthenticationClient extends ZIOAppDefault {
     }
 
     def logout(refreshToken: String): IO[Throwable, Unit] = {
-      val formData = Form(
-        FormField.simpleField("refreshToken", refreshToken),
-      )
+      val formData = Form(FormField.simpleField("refreshToken", refreshToken))
 
       for {
         response <- client
