@@ -205,6 +205,25 @@ object Middleware extends HandlerAspects {
 
   private[http] case class ForwardedHeaders(headers: Headers)
 
+  def forwardHeaders(f: Headers => Headers)(implicit trace: Trace): Middleware[Any] =
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        routes.transform[Env1] { h =>
+          Handler.scoped[Env1] {
+            handler { (req: Request) =>
+              val headerValues = f(req.headers)
+              println(s"Forwarding headers: $headerValues")
+              RequestStore.update[ForwardedHeaders] { old =>
+                ForwardedHeaders {
+                  old.map(_.headers).getOrElse(Headers.empty) ++
+                    Headers.fromIterable(headerValues)
+                }
+              } *> h(req)
+            }
+          }
+        }
+    }
+
   def forwardHeaders(header: Header.HeaderType, headers: Header.HeaderType*)(implicit
     trace: Trace,
   ): Middleware[Any] = {
