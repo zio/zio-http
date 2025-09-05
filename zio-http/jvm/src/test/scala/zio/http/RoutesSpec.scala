@@ -137,5 +137,104 @@ object RoutesSpec extends ZIOHttpSpec {
         )
       }
     },
+    test("trailing path matchers are checked last regardless of registration order") {
+      // Test case 1: Trailing route registered first
+      val appTrailingFirst = Routes(
+        Method.GET / "api" / string("version") / SegmentCodec.trailing -> handler(
+          (version: String, path: Path, _: Request) => Response.text(s"trailing-first-v$version-${path.encode}"),
+        ),
+        Method.GET / "api" / string("version") / "users"               -> handler((version: String, _: Request) =>
+          Response.text(s"users-v$version"),
+        ),
+      )
+
+      // Test case 2: Trailing route registered in the middle
+      val appTrailingMiddle = Routes(
+        Method.GET / "api" / string("version") / "users"               -> handler((version: String, _: Request) =>
+          Response.text(s"users-v$version"),
+        ),
+        Method.GET / "api" / string("version") / SegmentCodec.trailing -> handler(
+          (version: String, path: Path, _: Request) => Response.text(s"trailing-middle-v$version-${path.encode}"),
+        ),
+        Method.GET / "api" / string("version") / "posts"               -> handler((version: String, _: Request) =>
+          Response.text(s"posts-v$version"),
+        ),
+      )
+
+      // Test case 3: Trailing route registered last
+      val appTrailingLast = Routes(
+        Method.GET / "api" / string("version") / "users"               -> handler((version: String, _: Request) =>
+          Response.text(s"users-v$version"),
+        ),
+        Method.GET / "api" / string("version") / SegmentCodec.trailing -> handler(
+          (version: String, path: Path, _: Request) => Response.text(s"trailing-last-v$version-${path.encode}"),
+        ),
+      )
+
+      // Test case 4: Multiple trailing routes (should use the last one)
+      val appMultipleTrailing = Routes(
+        Method.GET / "api" / string("version") / SegmentCodec.trailing -> handler(
+          (version: String, path: Path, _: Request) => Response.text(s"trailing-first-v$version-${path.encode}"),
+        ),
+        Method.GET / "api" / string("version") / "users"               -> handler((version: String, _: Request) =>
+          Response.text(s"users-v$version"),
+        ),
+        Method.GET / "api" / string("version") / SegmentCodec.trailing -> handler(
+          (version: String, path: Path, _: Request) => Response.text(s"trailing-second-v$version-${path.encode}"),
+        ),
+      )
+
+      for {
+        // Test exact matches - these should always match specific routes
+        usersFirst    <- appTrailingFirst.runZIO(Request.get("/api/v1/users"))
+        trailingFirst <- appTrailingFirst.runZIO(Request.get("/api/v1/unknown/path"))
+
+        usersMiddle    <- appTrailingMiddle.runZIO(Request.get("/api/v2/users"))
+        postsMiddle    <- appTrailingMiddle.runZIO(Request.get("/api/v2/posts"))
+        trailingMiddle <- appTrailingMiddle.runZIO(Request.get("/api/v2/unknown/path"))
+
+        usersLast    <- appTrailingLast.runZIO(Request.get("/api/v3/users"))
+        trailingLast <- appTrailingLast.runZIO(Request.get("/api/v3/unknown/path"))
+
+        usersMultiple    <- appMultipleTrailing.runZIO(Request.get("/api/v4/users"))
+        trailingMultiple <- appMultipleTrailing.runZIO(Request.get("/api/v4/unknown/path"))
+
+        usersFirstBody    <- usersFirst.body.asString
+        trailingFirstBody <- trailingFirst.body.asString
+
+        usersMiddleBody    <- usersMiddle.body.asString
+        postsMiddleBody    <- postsMiddle.body.asString
+        trailingMiddleBody <- trailingMiddle.body.asString
+
+        usersLastBody    <- usersLast.body.asString
+        trailingLastBody <- trailingLast.body.asString
+
+        usersMultipleBody    <- usersMultiple.body.asString
+        trailingMultipleBody <- trailingMultiple.body.asString
+
+      } yield {
+        assertTrue(
+          // Specific routes should match correctly regardless of trailing route position
+          usersFirstBody == "users-vv1",
+          usersMiddleBody == "users-vv2",
+          postsMiddleBody == "posts-vv2",
+          usersLastBody == "users-vv3",
+          usersMultipleBody == "users-vv4",
+
+          // Trailing routes should capture both the version parameter and the remaining path
+          trailingFirstBody == "trailing-first-vv1-unknown/path",
+          trailingMiddleBody == "trailing-middle-vv2-unknown/path",
+          trailingLastBody == "trailing-last-vv3-unknown/path",
+          trailingMultipleBody == "trailing-second-vv4-unknown/path",
+
+          // All responses should be successful
+          extractStatus(usersFirst) == Status.Ok,
+          extractStatus(trailingFirst) == Status.Ok,
+          extractStatus(trailingMiddle) == Status.Ok,
+          extractStatus(trailingLast) == Status.Ok,
+          extractStatus(trailingMultiple) == Status.Ok,
+        )
+      }
+    },
   )
 }

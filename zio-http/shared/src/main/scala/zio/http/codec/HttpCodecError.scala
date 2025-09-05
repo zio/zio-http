@@ -23,7 +23,6 @@ import zio.{Cause, Chunk}
 import zio.schema.codec.DecodeError
 import zio.schema.validation.ValidationError
 
-import zio.http.Header.HeaderType
 import zio.http.{Path, Status}
 
 sealed trait HttpCodecError extends Exception with NoStackTrace with Product with Serializable {
@@ -90,6 +89,10 @@ object HttpCodecError {
 
   final case class UnsupportedContentType(contentType: String) extends HttpCodecError {
     def message = s"Unsupported content type $contentType"
+  }
+
+  case object EncodingResponseError extends HttpCodecError {
+    override def message: String = "Unexpected error happened when encoding response"
   }
 
   def asHttpCodecError(cause: Cause[Any]): Option[HttpCodecError] = {

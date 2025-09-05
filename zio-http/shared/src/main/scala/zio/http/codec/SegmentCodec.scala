@@ -132,6 +132,23 @@ sealed trait SegmentCodec[A] { self =>
 }
 object SegmentCodec          {
 
+  /**
+   * Ordering for SegmentCodec that ensures Trailing is always sorted to the
+   * end, while maintaining the existing order for all other segment codec
+   * types. We use this to ensure that Trailing segments are always matched last
+   * and more specific segments are matched first.
+   */
+  implicit val segmentCodecOrdering: Ordering[SegmentCodec[_]] = new Ordering[SegmentCodec[_]] {
+    def compare(x: SegmentCodec[_], y: SegmentCodec[_]): Int = {
+      (x, y) match {
+        case (Trailing, Trailing) => 0
+        case (Trailing, _)        => 1  // Trailing comes after everything else
+        case (_, Trailing)        => -1 // Everything else comes before Trailing
+        case _                    => 0  // All other types maintain their existing order (no change)
+      }
+    }
+  }
+
   @implicitNotFound("Segments of type ${B} cannot be appended to a multi-value segment")
   sealed trait Combinable[B, S <: SegmentCodec[B]] {
     def combine[A](self: SegmentCodec[A], that: SegmentCodec[B])(implicit

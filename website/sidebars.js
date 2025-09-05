@@ -94,11 +94,11 @@ const sidebars = {
       label: "Configs",
       items: [
         "reference/configs/introduction",
-        "reference/configs/connectionpoolconfig",
-        "reference/configs/dnsresolver-config",
-        "reference/configs/server-config",
-        "reference/configs/gen-openapi-config",
-        "reference/configs/netty-nettyconfig",
+        "reference/configs/connection-pool",
+        "reference/configs/dns-resolver",
+        "reference/configs/server",
+        "reference/configs/openapi",
+        "reference/configs/netty",
       ],
     },
   ],
@@ -125,6 +125,15 @@ const sidebars = {
   guides: [
     "guides/integration-with-zio-config",
     "guides/testing-http-apps",
+    {
+       type: "category",
+       collapsed: false,
+       label: "Authentication",
+       items: [
+          "guides/basic-authentication",
+          "guides/digest-authentication",
+       ],
+    },
     {
        type: "category",
        collapsed: false,
