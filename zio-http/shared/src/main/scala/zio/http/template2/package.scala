@@ -19,6 +19,7 @@ package zio.http
 import scala.language.implicitConversions
 
 import zio.http.template2.Dom
+import zio.http.template.{Html => OldHtml}
 
 /**
  * Package object for template2 providing all HTML elements and attributes.
@@ -45,4 +46,11 @@ private[http] trait LowPriorityTemplateImplicits {
     case None      => Dom.Empty
   }
   implicit def stringToDom(s: String): Dom           = Dom.Text(s)
+
+  // Migration utilities for backwards compatibility
+  implicit def oldHtmlToDom(oldHtml: OldHtml): Dom =
+    Dom.raw(oldHtml.encode.toString)
+
+  implicit def domToOldHtml(dom: Dom): OldHtml =
+    OldHtml.raw(dom.render)
 }
