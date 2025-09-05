@@ -111,6 +111,7 @@ object PathSpec extends ZIOHttpSpec with ExitAssertion {
         )
 
         checkAll(gen) { case (path, expected) =>
+          println(s"path: $path")
           assertTrue(expand(path).reverse == expected)
         }
       },

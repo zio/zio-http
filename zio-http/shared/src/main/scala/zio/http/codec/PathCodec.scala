@@ -16,14 +16,15 @@
 
 package zio.http.codec
 
-import scala.annotation.{nowarn, tailrec}
-import scala.collection.immutable.{HashMap, ListMap}
+import scala.annotation.tailrec
+import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.language.implicitConversions
 
 import zio._
 
 import zio.http._
+import zio.http.codec.SegmentCodec.segmentCodecOrdering
 
 /**
  * A codec for paths, which consists of segments, where each segment may be a
@@ -783,7 +784,7 @@ object PathCodec {
         )
         SegmentSubtree(
           Map(newLiterals.toList: _*),
-          ListMap(newOthers.toList: _*),
+          ListMap(newOthers.toList.sortBy(_._1): _*),
           newLiteralCollisions,
           (if (that.value == null) self.value else that.value).asInstanceOf[RequestHandler[Env1, Response]],
         )

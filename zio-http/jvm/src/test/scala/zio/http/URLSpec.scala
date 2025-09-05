@@ -62,6 +62,23 @@ object URLSpec extends ZIOHttpSpec {
 
           assertTrue(extractPath(url2) == Path.empty)
         },
+        test("add leading slash to absolute URLs without port") {
+          val url  = URL(Path("a/b/c"), URL.Location.Absolute(Scheme.HTTP, "abc.com", None), QueryParams.empty, None)
+          val url2 = url.normalize
+          val urlInterpolator         = url"https://abc.com/a/b/c"
+          val urlInterpolator2        = urlInterpolator.normalize
+          val baseUrlInterpolator     = url"https://abc.com"
+          val extendedUrlInterpolator = (baseUrlInterpolator / "a" / "b" / "c").normalize
+
+          assertTrue(
+            url2.encode == "http://abc.com/a/b/c",
+            extractPath(url2) == Path("/a/b/c"),
+            urlInterpolator2.encode == "https://abc.com/a/b/c",
+            extractPath(urlInterpolator2) == Path("/a/b/c"),
+            extendedUrlInterpolator.encode == "https://abc.com/a/b/c",
+            extractPath(extendedUrlInterpolator) == Path("/a/b/c"),
+          )
+        },
       ),
       suite("encode-decode symmetry")(
         test("url interpolator") {

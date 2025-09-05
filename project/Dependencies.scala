@@ -2,10 +2,10 @@ import sbt.*
 
 object Dependencies {
   val JwtCoreVersion               = "11.0.2"
-  val NettyVersion                 = "4.2.4.Final"
+  val NettyVersion                 = "4.2.5.Final"
   val ScalaCompatCollectionVersion = "2.13.0"
   val ZioVersion                   = "2.1.20"
-  val ZioCliVersion                = "0.7.2"
+  val ZioCliVersion                = "0.7.3"
   val ZioJsonVersion               = "0.7.44"
   val ZioParserVersion             = "0.1.10"
   val ZioSchemaVersion             = "1.7.4"
@@ -30,7 +30,7 @@ object Dependencies {
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-aarch_64",
       "io.netty" % "netty-pkitesting"                % NettyVersion,
       "io.netty" % "netty-transport-native-io_uring" % NettyVersion % "provided" classifier "linux-x86_64",
-      "com.aayushatharva.brotli4j" % "brotli4j" % "1.19.0" % "provided",
+      "com.aayushatharva.brotli4j" % "brotli4j" % "1.20.0" % "provided",
     )
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
