@@ -1,4 +1,4 @@
-//> using dep "dev.zio::zio-http:3.4.0"
+//> using dep "dev.zio::zio-http:3.4.1"
 //> using dep "dev.zio::zio-metrics-connectors-prometheus:2.3.1"
 
 package example

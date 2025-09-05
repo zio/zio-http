@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//> using dep "dev.zio::zio-http:3.4.0"
+//> using dep "dev.zio::zio-http:3.4.1"
 
 package example
 
