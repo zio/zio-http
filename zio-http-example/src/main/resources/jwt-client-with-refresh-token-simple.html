@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JWT Auth Client with Auto Refresh</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        input, button {
+            display: block;
+            margin: 10px 0;
+            padding: 5px;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        button {
+            cursor: pointer;
+        }
+        .token-display {
+            background: #e8f5e9;
+            padding: 10px;
+            margin: 10px 0;
+            word-break: break-all;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+<h1>JWT Authentication Client with Auto Refresh</h1>
+
+<div>
+    <h3>Credentials</h3>
+    <input id="username" placeholder="Username (try: john)" value="john">
+    <input id="password" type="password" placeholder="Password (try: password123)" value="password123">
+</div>
+
+<div>
+    <h3>Actions</h3>
+    <button onclick="login()">Login (Get JWT)</button>
+    <button onclick="userProfile()">User Profile (Protected Route)</button>
+    <button onclick="adminRoute()">Admin Route (Protected)</button>
+    <button onclick="refreshTokensManually()">Manual Refresh Tokens</button>
+    <button onclick="clearTokens()">Clear Tokens</button>
+</div>
+
+<div id="tokenDisplay" class="token-display" style="display:none;">
+    <strong>Current Tokens:</strong>
+    <div id="tokenInfo"></div>
+</div>
+
+<h3>Console Output</h3>
+<pre id="console">Ready to test JWT authentication with automatic token refresh...
+Test users: john/password123, jane/secret456, admin/admin123
+
+The client will automatically refresh expired tokens when making authenticated requests.</pre>
+
+<script>
+    const SERVER_URL = 'http://localhost:8080';
+    let accessToken = null;
+    let refreshToken = null;
+    let tokenExpiryTime = null;
+
+    function log(message) {
+        const console = document.getElementById('console');
+        console.textContent += '\n' + message;
+        console.scrollTop = console.scrollHeight;
+    }
+
+    function displayTokens() {
+        const tokenDisplay = document.getElementById('tokenDisplay');
+        const tokenInfo = document.getElementById('tokenInfo');
+
+        if (accessToken) {
+            tokenDisplay.style.display = 'block';
+            tokenInfo.innerHTML = `
+                Access Token: ${accessToken.substring(0, 50)}...<br>
+                Refresh Token: ${refreshToken ? refreshToken.substring(0, 50) + '...' : 'N/A'}<br>
+                Expires: ${tokenExpiryTime ? tokenExpiryTime.toLocaleString() : 'N/A'}
+            `;
+        } else {
+            tokenDisplay.style.display = 'none';
+        }
+    }
+
+    async function makeAuthenticatedRequest(url, options = {}) {
+        const attemptRequest = async (token) => {
+            return await fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+        };
+
+        const refreshAndRetry = async () => {
+            log('Access token expired, refreshing...');
+
+            const formData = new URLSearchParams();
+            formData.append('refreshToken', refreshToken);
+
+            const response = await fetch(SERVER_URL + '/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(`Token refresh failed: ${error}`);
+            }
+
+            const tokens = await response.json();
+            accessToken = tokens.accessToken;
+            refreshToken = tokens.refreshToken;
+            tokenExpiryTime = new Date(Date.now() + (tokens.expiresIn * 1000));
+            displayTokens();
+
+            log('Tokens refreshed successfully, retrying request...');
+            return await attemptRequest(accessToken);
+        };
+
+        // Check if we have tokens
+        if (!accessToken || !refreshToken) {
+            throw new Error('No authentication tokens available. Please login first.');
+        }
+
+        // First attempt with current access token
+        const response = await attemptRequest(accessToken);
+
+        // If unauthorized, refresh and retry
+        if (response.status === 401) {
+            return await refreshAndRetry();
+        }
+
+        return response;
+    }
+
+    async function login() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            log('ERROR: Please enter username and password');
+            return;
+        }
+
+        log(`\n--- Login ---`);
+        log(`POST /login`);
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            const response = await fetch(SERVER_URL + '/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
+
+            log(`Response: ${response.status} ${response.statusText}`);
+
+            if (response.ok) {
+                const tokens = await response.json();
+                accessToken = tokens.accessToken;
+                refreshToken = tokens.refreshToken;
+                tokenExpiryTime = new Date(Date.now() + (tokens.expiresIn * 1000));
+
+                log(`SUCCESS: Logged in as ${username}`);
+                log(`Token Type: ${tokens.tokenType}`);
+                log(`Expires In: ${tokens.expiresIn} seconds`);
+
+                displayTokens();
+            } else {
+                const error = await response.text();
+                log(`FAILED: ${error}`);
+                clearTokens();
+            }
+        } catch (error) {
+            log(`ERROR: ${error.message}`);
+        }
+    }
+
+    async function userProfile() {
+        log(`\n--- User Profile Route ---`);
+        log(`GET /profile/me`);
+
+        try {
+            const response = await makeAuthenticatedRequest(SERVER_URL + '/profile/me');
+            log(`Response: ${response.status} ${response.statusText}`);
+
+            if (response.ok) {
+                const data = await response.text();
+                log(`SUCCESS: ${data}`);
+            } else {
+                const error = await response.text();
+                log(`ERROR: ${error}`);
+            }
+        } catch (error) {
+            log(`ERROR: ${error.message}`);
+        }
+    }
+
+    async function adminRoute() {
+        log(`\n--- Admin Route ---`);
+        log(`GET /admin/users`);
+
+        try {
+            const response = await makeAuthenticatedRequest(SERVER_URL + '/admin/users');
+            log(`Response: ${response.status} ${response.statusText}`);
+
+            if (response.ok) {
+                const data = await response.text();
+                log(`SUCCESS: ${data}`);
+            } else if (response.status === 403) {
+                log(`FORBIDDEN: This route requires admin privileges`);
+            } else {
+                const error = await response.text();
+                log(`ERROR: ${error}`);
+            }
+        } catch (error) {
+            log(`ERROR: ${error.message}`);
+        }
+    }
+
+    async function refreshTokensManually() {
+        if (!refreshToken) {
+            log('\nERROR: No refresh token. Please login first.');
+            return;
+        }
+
+        log(`\n--- Manual Token Refresh ---`);
+        log(`POST /refresh`);
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('refreshToken', refreshToken);
+
+            const response = await fetch(SERVER_URL + '/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
+
+            log(`Response: ${response.status} ${response.statusText}`);
+
+            if (response.ok) {
+                const tokens = await response.json();
+                accessToken = tokens.accessToken;
+                refreshToken = tokens.refreshToken;
+                tokenExpiryTime = new Date(Date.now() + (tokens.expiresIn * 1000));
+
+                log(`SUCCESS: Tokens refreshed manually`);
+                log(`New token expires in: ${tokens.expiresIn} seconds`);
+
+                displayTokens();
+            } else {
+                const error = await response.text();
+                log(`FAILED: ${error}`);
+                clearTokens();
+            }
+        } catch (error) {
+            log(`ERROR: ${error.message}`);
+        }
+    }
+
+    function clearTokens() {
+        accessToken = null;
+        refreshToken = null;
+        tokenExpiryTime = null;
+        displayTokens();
+        log('\nTokens cleared');
+    }
+
+    // Add some helpful info on load
+    window.onload = () => {
+        log('Server should be running on ' + SERVER_URL);
+        log('Click "Login" to get JWT tokens');
+        log('\nNOTE: This client automatically refreshes expired tokens when making authenticated requests.');
+        log('You won\'t need to manually refresh tokens - it happens transparently!');
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JWT Authentication Demo</title>
+    <style>
+        body { font-family: monospace; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        input, button { display: block; margin: 10px 0; }
+        pre { background: #f0f0f0; padding: 10px; white-space: pre-wrap; word-wrap: break-word; }
+        .hide { display: none; }
+        h1 { text-align: center; }
+        .token-display { background: #e8f5e9; padding: 10px; margin: 10px 0; word-break: break-all; }
+        .section { margin: 20px 0; padding-top: 20px; border-top: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+<h1>JWT Authentication Demo</h1>
+
+<div id="loginForm">
+    <input name="username" id="username" placeholder="username (try: john, jane, or admin)">
+    <input name="password" id="password" type="password" placeholder="password (john: password123, jane: secret456, admin: admin123)">
+    <button onclick="login()">Login & Get JWT</button>
+</div>
+
+<div id="tokenSection" class="hide">
+    <div class="token-display">
+        <strong>JWT Token:</strong><br>
+        <span id="tokenDisplay"></span>
+    </div>
+    <button onclick="logout()">Clear Token & Logout</button>
+</div>
+
+<div class="section">
+    <h3>Endpoints:</h3>
+    <button onclick="fetchPublic()">Public Endpoint (No Auth)</button>
+    <button onclick="fetchProfile()">Get Profile (Requires JWT)</button>
+    <button onclick="fetchAllUsers()">Admin Users (Requires Admin JWT)</button>
+</div>
+
+<pre id="result">Results will appear here...</pre>
+
+<script>
+    let currentToken = null;
+
+    function setTokenState(token) {
+        if (token) {
+            currentToken = token;
+            document.getElementById('tokenDisplay').textContent = token;
+            document.getElementById('tokenSection').classList.remove('hide');
+            document.getElementById('loginForm').classList.add('hide');
+        } else {
+            currentToken = null;
+            document.getElementById('tokenSection').classList.add('hide');
+            document.getElementById('loginForm').classList.remove('hide');
+        }
+    }
+
+    async function login() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            document.getElementById('result').textContent = 'Please enter username and password';
+            return;
+        }
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ username, password })
+                });
+
+                const text = await res.text();
+
+                if (res.ok) {
+                    document.getElementById('result').textContent = `Login successful! User: ${username}`;
+                    setTokenState(text);
+                } else {
+                    document.getElementById('result').textContent = `Login failed: ${text}`;
+                    setTokenState(null);
+                }
+            } catch(e) {
+                document.getElementById('result').textContent = `Error: ${e.message}`;
+                setTokenState(null);
+            }
+        }
+
+    function logout() {
+        setTokenState(null);
+        document.getElementById('result').textContent = 'Logged out - Token cleared';
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+    }
+
+    async function fetchPublic() {
+        try {
+            const res = await fetch('/public');
+            const text = await res.text();
+            document.getElementById('result').textContent = `Public endpoint (${res.status}):\n${text}`;
+        } catch(e) {
+            document.getElementById('result').textContent = `Error: ${e.message}`;
+        }
+    }
+
+    async function fetchProfile() {
+        if (!currentToken) {
+            document.getElementById('result').textContent = 'Please login first to get a JWT token';
+            return;
+        }
+
+        try {
+            const res = await fetch('/profile/me', {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+            const text = await res.text();
+            document.getElementById('result').textContent = `Profile endpoint (${res.status}):\n${text}`;
+        } catch(e) {
+            document.getElementById('result').textContent = `Error: ${e.message}`;
+        }
+    }
+
+    async function fetchAllUsers() {
+        if (!currentToken) {
+            document.getElementById('result').textContent = 'Please login first to get a JWT token';
+            return;
+        }
+
+        try {
+            const res = await fetch('/admin/users', {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+            const text = await res.text();
+            document.getElementById('result').textContent = `Admin endpoint (${res.status}):\n${text}`;
+        } catch(e) {
+            document.getElementById('result').textContent = `Error: ${e.message}`;
+        }
+    }
+</script>
+</body>
+</html>

@@ -131,7 +131,11 @@ const sidebars = {
        label: "Authentication",
        items: [
           "guides/basic-authentication",
+          "guides/cookie-based-authentication",
           "guides/digest-authentication",
+          "guides/authentication-with-opaque-bearer-tokens",
+          "guides/authentication-with-jwt-bearer-tokens",
+          "guides/authentication-with-jwt-bearer-and-refresh-tokens"
        ],
     },
     {
