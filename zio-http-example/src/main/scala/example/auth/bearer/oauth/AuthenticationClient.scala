@@ -1,6 +1,6 @@
 package example.auth.bearer.oauth
 
-import example.auth.bearer.oauth.models._
+import example.auth.bearer.oauth.core._
 import zio._
 import zio.http._
 import zio.http.template.Html
@@ -13,8 +13,8 @@ import java.net.URI
 object AuthenticationClient extends ZIOAppDefault {
 
   /**
-   * OAuth 2.0 Authentication Client using GitHub. This client implements the
-   * OAuth 2.0 authorization code flow.
+   * OAuth Authentication Client using GitHub. This client implements the OAuth
+   * authorization code flow.
    *
    * Flow:
    *   1. Start a local callback server
@@ -43,7 +43,7 @@ object AuthenticationClient extends ZIOAppDefault {
 
         (accessToken, refreshToken, tokenType, expiresIn) match {
           case (Some(at), Some(rt), Some(tt), Some(exp)) =>
-            val tokens = TokenResponse(at, tt, exp, rt)
+            val tokens = TokenResponse(at, rt, tt, exp)
             tokenPromise
               .succeed(tokens)
               .as(
@@ -64,7 +64,8 @@ object AuthenticationClient extends ZIOAppDefault {
                   ),
                 ),
               )
-          case _                                         =>
+
+          case _ =>
             val error            = queryParams.queryParams("error").headOption.getOrElse("Unknown error")
             val errorDescription = queryParams.queryParams("error_description").headOption.getOrElse("")
 
@@ -123,30 +124,28 @@ object AuthenticationClient extends ZIOAppDefault {
     }
   }
 
-  def performOAuthFlow(): ZIO[Any, Throwable, TokenResponse] = {
-    for {
-      tokenPromise <- Promise.make[Throwable, TokenResponse]
+  def performOAuthFlow(): ZIO[Any, Throwable, TokenResponse] = for {
+    tokenPromise <- Promise.make[Throwable, TokenResponse]
 
-      // Start callback server
-      serverFiber <- startCallbackServer(tokenPromise).fork
+    // Start callback server
+    serverFiber <- startCallbackServer(tokenPromise).fork
 
-      // Build OAuth URL
-      oauthUrl = s"$serverUrl/auth/github?redirect_uri=$callbackUrl"
+    // Build OAuth URL
+    oauthUrl = s"$serverUrl/auth/github?redirect_uri=$callbackUrl"
 
-      // Open browser for OAuth flow
-      _ <- Console.printLine("Starting OAuth flow...")
-      _ <- Console.printLine(s"Opening browser to: $oauthUrl")
-      _ <- openBrowser(oauthUrl)
+    // Open browser for OAuth flow
+    _ <- Console.printLine("Starting OAuth flow...")
+    _ <- Console.printLine(s"Opening browser to: $oauthUrl")
+    _ <- openBrowser(oauthUrl)
 
-      // Wait for callback
-      _      <- Console.printLine("Waiting for OAuth callback...")
-      tokens <- tokenPromise.await.timeoutFail(new RuntimeException("OAuth flow timed out"))(5.minutes)
+    // Wait for callback
+    _      <- Console.printLine("Waiting for OAuth callback...")
+    tokens <- tokenPromise.await.timeoutFail(new RuntimeException("OAuth flow timed out"))(5.minutes)
 
-      // Stop callback server
-      _ <- serverFiber.interrupt
+    // Stop callback server
+    _ <- serverFiber.interrupt
 
-    } yield tokens
-  }
+  } yield tokens
 
   def refreshToken(token: String): ZIO[Client, Throwable, TokenResponse] =
     for {
@@ -198,7 +197,7 @@ object AuthenticationClient extends ZIOAppDefault {
   val program: ZIO[Client, Throwable, Unit] =
     for {
       // Step 1: Perform OAuth flow
-      _      <- Console.printLine("=== GitHub OAuth 2.0 Authentication ===")
+      _      <- Console.printLine("=== GitHub OAuth Authentication ===")
       tokens <- performOAuthFlow()
       _      <- Console.printLine("OAuth flow completed successfully!")
       _      <- Console.printLine(s"Access token expires in: ${tokens.expiresIn} seconds")

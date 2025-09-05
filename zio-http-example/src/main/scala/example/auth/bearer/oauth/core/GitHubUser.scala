@@ -1,4 +1,4 @@
-package example.auth.bearer.oauth.models
+package example.auth.bearer.oauth.core
 
 import zio.json.{DeriveJsonCodec, JsonCodec}
 

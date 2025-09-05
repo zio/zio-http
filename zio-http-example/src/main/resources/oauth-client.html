@@ -331,8 +331,8 @@
             currentTokens = {
                 accessToken: accessToken,
                 refreshToken: refreshToken,
-                tokenType: urlParams.get('token_type') || 'Bearer',
-                expiresIn: parseInt(urlParams.get('expires_in')) || 3600
+                tokenType: urlParams.get('token_type'),
+                expiresIn: parseInt(urlParams.get('expires_in'))
             };
 
             // Clean URL
