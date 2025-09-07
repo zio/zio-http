@@ -354,31 +354,31 @@
         window.location.href = authUrl;
     }
 
-    async function fetchUserProfile() {
-        if (!currentTokens) return;
+async function fetchUserProfile() {
+    if (!currentTokens) return;
 
-        try {
-            showLoading(true);
+    try {
+        showLoading(true);
 
-            const response = await fetch('/profile/me', {
-                headers: {
-                    'Authorization': `${currentTokens.tokenType} ${currentTokens.accessToken}`
-                }
-            });
-
-            if (response.ok) {
-                const user = await response.json();
-                displayUserInfo(user);
-                showAuthenticatedState();
-            } else {
-                throw new Error(`Failed to fetch profile: ${response.status}`);
+        const response = await fetch('/profile/me', {
+            headers: {
+                'Authorization': `${currentTokens.tokenType} ${currentTokens.accessToken}`
             }
-        } catch (error) {
-            showStatus(`Error fetching profile: ${error.message}`, 'error');
-        } finally {
-            showLoading(false);
+        });
+
+        if (response.ok) {
+            const user = await response.json();
+            displayUserInfo(user);
+            showAuthenticatedState();
+        } else {
+            throw new Error(`Failed to fetch profile: ${response.status}`);
         }
+    } catch (error) {
+        showStatus(`Error fetching profile: ${error.message}`, 'error');
+    } finally {
+        showLoading(false);
     }
+}
 
     async function refreshToken() {
         if (!currentTokens) return;
