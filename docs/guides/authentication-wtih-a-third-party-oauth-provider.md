@@ -307,7 +307,7 @@ val response =
 
 In the next step, the client extracts the tokens from the URL and stores them securely; then the client can use them to make authenticated requests to the server.
 
-#### 3. Authentication Middleware
+### Authentication Middleware
 
 The implementation of authentication middleware is the same as we discussed in the previous guide:
 
