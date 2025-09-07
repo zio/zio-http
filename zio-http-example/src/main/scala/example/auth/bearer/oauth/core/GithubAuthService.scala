@@ -35,8 +35,8 @@ class GithubAuthService private (
       // Protected route - requires valid JWT token
       Method.GET / "profile" / "me" -> handler { (_: Request) =>
         ZIO.service[UserInfo].flatMap { userInfo =>
-          users.get.map { users =>
-            users.get(userInfo.username) match {
+          users.get.map {
+            _.get(userInfo.username) match {
               case Some(user) =>
                 Response(body = Body.from(user))
               case None       =>
@@ -58,19 +58,22 @@ class GithubAuthService private (
       Method.GET / "auth" / "github" -> handler { (request: Request) =>
         for {
           state         <- generateRandomString()
-          redirectUri   <- ZIO.succeed(
-            URI.create(
-              request.url.queryParams.queryParams("redirect_uri").headOption.getOrElse("http://localhost:3000"),
-            ),
-          )
-          _             <- redirectUris.update(_.updated(state, redirectUri))
+          redirectUri   <- ZIO
+            .fromOption(request.url.queryParams.queryParams("redirect_uri").headOption)
+            .orElseFail(
+              Response.badRequest("Missing redirect_uri parameter"),
+            )
+          _             <- redirectUris.update(_.updated(state, URI.create(redirectUri)))
           githubAuthUrl <- ZIO
             .fromEither(
               URL.decode(
-                s"$GITHUB_AUTHORIZE_URL?client_id=$clientID&redirect_uri=$REDIRECT_URI&scope=user:email&state=$state",
+                s"$GITHUB_AUTHORIZE_URL" +
+                  s"?client_id=$clientID" +
+                  s"&redirect_uri=$REDIRECT_URI" +
+                  s"&scope=user:email" +
+                  s"&state=$state",
               ),
             )
-            .orDie
         } yield Response.status(Status.Found).addHeader(Header.Location(githubAuthUrl))
       },
 
@@ -89,7 +92,7 @@ class GithubAuthService private (
 
         error match {
           case Some(err) =>
-            ZIO.succeed(Response.badRequest(s"OAuth error: $err"))
+            ZIO.succeed(Response.unauthorized(s"OAuth error: $err"))
           case None      =>
             (code, state) match {
               case (Some(authCode), Some(stateParam)) =>
@@ -145,6 +148,17 @@ class GithubAuthService private (
 
         } yield Response(body = Body.from(token))
       },
+      Method.POST / "logout"  ->
+        handler { (request: Request) =>
+          for {
+            form         <- request.body.asURLEncodedForm.orElseFail(Response.badRequest("Expected form-encoded data"))
+            refreshToken <- ZIO
+              .fromOption(form.get("refreshToken").flatMap(_.stringValue))
+              .orElseFail(Response.badRequest("Missing refreshToken"))
+            tokenService <- ZIO.service[JwtTokenService]
+            _            <- tokenService.revokeRefreshToken(refreshToken)
+          } yield Response.text("Logged out successfully")
+        },
     ).sandbox @@ Middleware.debug
 
   private def generateRandomString(): ZIO[Any, Nothing, String] = {
@@ -155,7 +169,7 @@ class GithubAuthService private (
     }
   }
 
-  private def exchangeCodeForToken(code: String): ZIO[Client, Throwable, GitHubTokenResponse] = {
+  private def exchangeCodeForToken(code: String): ZIO[Client, Throwable, GitHubToken] = {
     for {
       response      <- ZClient.batched(
         Request
@@ -174,12 +188,12 @@ class GithubAuthService private (
           .addHeader(Header.Accept(MediaType.application.json)),
       )
       _             <- ZIO
-        .fail(new RuntimeException(s"GitHub token exchange failed: ${response.status}"))
+        .fail(new Exception(s"GitHub token exchange failed: ${response.status}"))
         .when(!response.status.isSuccess)
       body          <- response.body.asString
       tokenResponse <- ZIO
-        .fromEither(body.fromJson[GitHubTokenResponse])
-        .mapError(error => new RuntimeException(s"Failed to parse GitHub token response: $error"))
+        .fromEither(body.fromJson[GitHubToken])
+        .mapError(error => new Exception(s"Failed to parse GitHub token response: $error"))
     } yield tokenResponse
   }
 
@@ -192,27 +206,24 @@ class GithubAuthService private (
           .addHeader(Header.Accept(MediaType.application.json)),
       )
       _        <- ZIO
-        .fail(new RuntimeException(s"GitHub user API failed: ${response.status}"))
+        .fail(new Exception(s"GitHub user API failed: ${response.status}"))
         .when(!response.status.isSuccess)
       body     <- response.body.asString
       user     <- ZIO
         .fromEither(body.fromJson[GitHubUser])
-        .mapError(error => new RuntimeException(s"Failed to parse GitHub user response: $error"))
+        .mapError(error => new Exception(s"Failed to parse GitHub user response: $error"))
     } yield user
   }
 
 }
 
 object GithubAuthService {
-  def make(ghClientID: String, ghClientSecret: Secret): UIO[GithubAuthService] = for {
+  def make(ghClientID: String, ghClientSecret: Secret): UIO[GithubAuthService] =
+    for {
       redirects <- Ref.make(Map.empty[String, URI])
       users     <- Ref.make(Map.empty[String, GitHubUser])
-    } yield (new GithubAuthService(redirects, users, ghClientID, ghClientSecret))
+    } yield new GithubAuthService(redirects, users, ghClientID, ghClientSecret)
 
   def live(ghClientID: String, ghClientSecret: Secret): ZLayer[Any, Nothing, GithubAuthService] =
-    ZLayer.scoped {
-      for {
-        service <- make(ghClientID, ghClientSecret)
-      } yield service
-    }
+    ZLayer.fromZIO(make(ghClientID, ghClientSecret))
 }

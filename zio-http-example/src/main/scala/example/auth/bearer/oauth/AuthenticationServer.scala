@@ -23,11 +23,17 @@ object AuthenticationServer extends ZIOAppDefault {
 
   override val run = {
     for {
-      githubClientId <- System.env("GH_CLIENT_ID").map(_.getOrElse("Ov23lifH6xxgP5e6CVWz"))
-      githubSecret   <- System
-        .env("GH_CLIENT_SECRET")
-        .map(_.getOrElse("c2f97cb81ee6d4549453f580e8d06f625a17ea78"))
-        .map(Secret(_))
+      githubClientId <-
+        System
+          .env("GH_CLIENT_ID")
+          .flatMap(ZIO.fromOption(_))
+          .orDieWith(_ => new Exception("GH_CLIENT_ID environment variable not set"))
+      githubSecret   <-
+        System
+          .env("GH_CLIENT_SECRET")
+          .flatMap(ZIO.fromOption(_))
+          .orDieWith(_ => new Exception("GH_CLIENT_SECRET environment variable not set"))
+          .map(Secret(_))
       authService    <- GithubAuthService.make(githubClientId, githubSecret)
     } yield authService
   }.flatMap(authService =>
@@ -39,7 +45,7 @@ object AuthenticationServer extends ZIOAppDefault {
         JwtTokenService.live(
           secretKey = Secret("secret"),
           accessTokenTTL = 300.seconds,
-          refreshTokenTTL = 300.seconds
+          refreshTokenTTL = 5.minutes,
         ),
       ),
   )

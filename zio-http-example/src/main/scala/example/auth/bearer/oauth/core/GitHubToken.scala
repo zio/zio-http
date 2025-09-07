@@ -1,13 +1,13 @@
 package example.auth.bearer.oauth.core
 import zio.json._
 
-case class GitHubTokenResponse(
+case class GitHubToken(
   access_token: String,
   token_type: String,
   scope: String,
 )
 
-object GitHubTokenResponse {
-  implicit val decoder: JsonDecoder[GitHubTokenResponse] =
+object GitHubToken {
+  implicit val decoder: JsonDecoder[GitHubToken] =
     DeriveJsonDecoder.gen
 }

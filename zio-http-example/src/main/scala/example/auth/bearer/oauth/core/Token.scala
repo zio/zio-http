@@ -2,13 +2,13 @@ package example.auth.bearer.oauth.core
 
 import zio.json._
 
-case class TokenResponse(
+case class Token(
   accessToken: String,
   refreshToken: String,
   tokenType: String = "Bearer",
   expiresIn: Long = 300L,
 )
 
-object TokenResponse {
-  implicit val codec: JsonCodec[TokenResponse] = DeriveJsonCodec.gen
+object Token {
+  implicit val codec: JsonCodec[Token] = DeriveJsonCodec.gen
 }

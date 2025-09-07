@@ -9,9 +9,9 @@ import java.security.SecureRandom
 import java.time.Clock
 
 trait JwtTokenService {
-  def issueTokens(username: String, email: String, roles: Set[String]): UIO[TokenResponse]
+  def issueTokens(username: String, email: String, roles: Set[String]): UIO[Token]
   def verifyAccessToken(token: String): Task[UserInfo]
-  def refreshTokens(refreshToken: String): Task[TokenResponse]
+  def refreshTokens(refreshToken: String): Task[Token]
   def revokeRefreshToken(refreshToken: String): UIO[Unit]
 }
 
@@ -26,11 +26,11 @@ case class JwtTokenServiceLive(
 ) extends JwtTokenService {
   implicit val clock: Clock = Clock.systemUTC
 
-  override def issueTokens(username: String, email: String, roles: Set[String]): UIO[TokenResponse] =
+  override def issueTokens(username: String, email: String, roles: Set[String]): UIO[Token] =
     for {
       accessToken  <- ZIO.succeed(generateAccessToken(username, email, roles))
       refreshToken <- generateRefreshToken(username, email, roles)
-    } yield TokenResponse(
+    } yield Token(
       accessToken = accessToken,
       refreshToken = refreshToken,
       tokenType = "Bearer",
@@ -45,7 +45,7 @@ case class JwtTokenServiceLive(
       .map(UserInfo.codec.decodeJson(_).toOption)
       .someOrFail(new Exception("Invalid token"))
 
-  override def refreshTokens(refreshToken: String): Task[TokenResponse] =
+  override def refreshTokens(refreshToken: String): Task[Token] =
     for {
       store     <- refreshTokenStore.get
       tokenData <- ZIO
@@ -88,7 +88,6 @@ case class JwtTokenServiceLive(
       random.nextBytes(bytes)
       java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(bytes)
     }
-
 }
 
 object JwtTokenService {
@@ -99,8 +98,8 @@ object JwtTokenService {
     algorithm: JwtHmacAlgorithm = JwtAlgorithm.HS512,
   ): ZLayer[Any, Nothing, JwtTokenService] =
     ZLayer.fromZIO {
-      for {
-        store <- Ref.make(Map.empty[String, RefreshTokenData])
-      } yield JwtTokenServiceLive(secretKey, accessTokenTTL, refreshTokenTTL, algorithm, store)
+      Ref
+        .make(Map.empty[String, RefreshTokenData])
+        .map(store => JwtTokenServiceLive(secretKey, accessTokenTTL, refreshTokenTTL, algorithm, store))
     }
 }
