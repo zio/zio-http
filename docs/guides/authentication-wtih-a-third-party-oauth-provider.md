@@ -55,14 +55,14 @@ Here's how the authorization flow works:
 As you can see, the flow involves several steps:
 1. The user initiates the login process by clicking a button.
 2. The browser redirects the user to [GitHub's authorization endpoint](https://github.com/login/oauth/authorize) and passes the `client_id`, `redirect_uri`, `scope`, and a random `state` parameter for CSRF protection. 
-3. The user logs in to GitHub, and GitHub displays an authorization prompt with requested scopes. For example, if the app requests `user:email` scope, GitHub will show that the app wants access to the user's email addresses.
+3. The user logs in to GitHub, and GitHub displays an authorization prompt with the requested scopes. For example, if the app requests the `user:email` scope, GitHub will show that the app wants access to the user's email addresses.
 4. Upon user approval, GitHub redirects back to the application's `redirect_uri` with an authorization `code` and the original `state`.
 5. The application server verifies the `state` to prevent CSRF attacks, then exchanges the authorization `code` for an access token and a refresh token by making a POST request to [GitHub's token endpoint](https://github.com/login/oauth/access_token).
 6. The server receives the tokens and can now use the access token to make authenticated requests to GitHub's API on behalf of the user. For example, we can fetch the [user's profile](https://api.github.com/user) information and email addresses, which can be used to create a session in our application. In this guide, we issue our own JWT tokens for session management.
 
-## Creating GitHub OAuth App
+## Creating a GitHub OAuth App
 
-To get started, you need to create a GitHub OAuth App to obtain the `Client ID` and `Client Secret`. Follow these steps:
+To get started, we need to create a GitHub OAuth App to obtain the `Client ID` and `Client Secret`. Follow these steps:
 
 1. Navigate to GitHub Developer Settings at https://github.com/settings/developers
 2. In the developer settings page, locate and click the "New OAuth App" button.
@@ -74,7 +74,7 @@ To get started, you need to create a GitHub OAuth App to obtain the `Client ID` 
 
 ## Configuring Environment Variables
 
-After creating the OAuth app, you need to configure your application with the obtained credentials. Add the following environment variables to your system:
+After creating the OAuth app, we need to configure our application with the obtained credentials. Add the following environment variables to your system:
 
 ```bash
 export GH_CLIENT_ID="your_client_id_here"
@@ -82,6 +82,8 @@ export GH_CLIENT_SECRET="your_client_secret_here"
 ```
 
 ## Server Implementation
+
+In this section, we first implement the OAuth authentication service that handles the OAuth flow, and then we implement authentication middleware to protect specific routes.
 
 ### OAuth Authentication Service
 
@@ -99,18 +101,18 @@ class GithubAuthService private (
 ```
 
 It maintains two in-memory states:
-1. **Redirect URIs**: It maintains a mapping of OAuth state parameters to redirect URIs.
-2. **User Information**: It stores GitHub user information indexed by user ID.
+1. **Redirect URIs**: Maps OAuth state parameters to redirect URIs.
+2. **User Information**: Stores GitHub user information indexed by user ID.
 
-You may ask: what is the purpose of maintaining state parameters and their respective URIs? The `state` parameter is for CSRF protection. 
+You may ask: what is the purpose of maintaining state parameters and their respective URIs? The `state` parameter provides CSRF protection. 
 
 When using OAuth 2.0, a client app redirects the user to the authorization server for login/consent. After login, the authorization server redirects the user back to the client with an authorization code.
 
-Without the state parameter, an attacker could trick the user into visiting a malicious link that points back to your app's redirect endpoint but with an authorization code that belongs to the attacker's account. If your app accepts that code blindly (without checking the state parameter), it might link the attacker's account to the victim's session. Thus, the victim is funneled into the attacker's account. From now on, the attacker can log into their account and see anything the victim did while "logged as attacker".
+Without the state parameter, an attacker could trick the user into visiting a malicious link that points back to your app's redirect endpoint but with an authorization code that belongs to the attacker's account. If your app accepts that code blindly (without checking the state parameter), it might link the attacker's account to the victim's session. As a result, the victim is logged into the attacker's account. From that point on, the attacker can log into their account and see anything the victim did while "logged in as the attacker."
 
-To prevent this, the client app generates a cryptographically strong random `state` value when initiating the OAuth flow and stores it (e.g., in memory or database) along with the intended redirect URI. The client passes this `state` to the authorization server. After the user logs in and authorizes, the authorization server redirects back to the client with both the authorization code and the original `state`. When handling the callback, the app verifies that the returned `state` matches the stored value. If they don't match, the request is rejected. The attacker cannot guess the valid `state` bound to the victim's session, so their forged callback is rejected. Therefore, only OAuth responses that your app actually initiated can complete successfully, neutralizing login CSRF.
+To prevent this, the client app generates a cryptographically strong random `state` value when initiating the OAuth flow and stores it (e.g., in memory or a database) along with the intended redirect URI. The client passes this `state` to the authorization server. After the user logs in and authorizes, the authorization server redirects back to the client with both the authorization code and the original `state`. When handling the callback, the app verifies that the returned `state` matches the stored value. If they don't match, the request is rejected. The attacker cannot guess the valid `state` bound to the victim's session, so their forged callback is rejected. Therefore, only OAuth responses that your app actually initiated can complete successfully, neutralizing login CSRF.
 
-To keep the implementation simple, we added another functionality to this service - storing user information. After exchanging the authorization code for an access token, we fetch the user's profile from GitHub and store it in memory. This allows us to associate our own JWT tokens with GitHub user data.
+To keep the implementation simple, we've added another functionality to this service - storing user information. After exchanging the authorization code for an access token, we fetch the user's profile from GitHub and store it in memory. This allows us to associate our own JWT tokens with GitHub user data.
 
 Let's start by implementing these two core functionalities:
 
@@ -147,7 +149,7 @@ class GithubAuthService private (
 }
 ```
 
-The `GET /auth/github` is a redirection route that redirects the user to GitHub's authorization URL, passing the `client_id`, `redirect_uri`, `scope`, and finally the `state` parameter. The `state` is generated using the following cryptographically secure function:
+The `GET /auth/github` route redirects the user to GitHub's authorization URL, passing the `client_id`, `redirect_uri`, `scope`, and finally the `state` parameter. We generate the `state` using the following cryptographically secure function:
 
 ```scala
 def generateRandomString(): ZIO[Any, Nothing, String] = 
@@ -236,31 +238,31 @@ After receiving the authorization code, we use it to get the access token from G
 private val GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 
 def exchangeCodeForToken(code: String): ZIO[Client, Throwable, GitHubToken] =
- for {
-   response      <- ZClient.batched(
-     Request
-       .post(
-         GITHUB_TOKEN_URL,
-         Body.from(
-           Map(
-             "client_id"     -> clientID,
-             "client_secret" -> clientSecret.stringValue,
-             "code"          -> code,
-             "redirect_uri"  -> REDIRECT_URI,
-           ),
-         ),
-       )
-       .addHeader(Header.ContentType(MediaType.application.json))
-       .addHeader(Header.Accept(MediaType.application.json)),
-   )
-   _             <- ZIO
-     .fail(new Exception(s"GitHub token exchange failed: ${response.status}"))
-     .when(!response.status.isSuccess)
-   body          <- response.body.asString
-   token <- ZIO
-     .fromEither(body.fromJson[GitHubToken])
-     .mapError(error => new Exception(s"Failed to parse GitHub token response: $error"))
- } yield token
+  for {
+    response      <- ZClient.batched(
+      Request
+        .post(
+          path = GITHUB_TOKEN_URL,
+          body = Body.from(
+            Map(
+              "client_id"     -> clientID,
+              "client_secret" -> clientSecret.stringValue,
+              "code"          -> code,
+              "redirect_uri"  -> REDIRECT_URI,
+            ),
+          ),
+        )
+        .addHeader(Header.ContentType(MediaType.application.json))
+        .addHeader(Header.Accept(MediaType.application.json)),
+    )
+    _             <- ZIO
+      .fail(new Exception(s"GitHub token exchange failed: ${response.status}"))
+      .when(!response.status.isSuccess)
+    body          <- response.body.asString
+    token <- ZIO
+      .fromEither(body.fromJson[GitHubToken])
+      .mapError(error => new Exception(s"Failed to parse GitHub token response: $error"))
+  } yield token
 ```
 
 Now, using this access token, we can access GitHub's protected user API to fetch the user's profile information:
@@ -286,9 +288,9 @@ def fetchGitHubUser(accessToken: String): ZIO[Client, Throwable, GitHubUser] =
   } yield user
 ```
 
-Now that we have the user's profile, we can issue our own JWT and refresh tokens and return them to the user. We use the same `JwtTokenService` that we implemented in the previous [guide](authentication-with-jwt-bearer-and-refresh-tokens.md).
+With the user's profile in hand, we can issue our own JWT and refresh tokens and return them to the user. We use the same `JwtTokenService` that we implemented in the previous [guide](authentication-with-jwt-bearer-and-refresh-tokens.md).
 
-There is one step remaining. We need to pass the generated tokens (JWT token and refresh token) back to the client. Since this is a server-side application, we cannot return the tokens in the response body. Instead, we redirect the user back to the original `redirect_uri` with the tokens as query parameters:
+One step remains. We need to pass the generated tokens (JWT token and refresh token) back to the client. Since this is a server-side application, we cannot return the tokens in the response body. Instead, we redirect the user back to the original `redirect_uri` with the tokens as query parameters:
 
 ```scala
 val response = 
@@ -305,7 +307,9 @@ val response =
   }
 ```
 
-In the next step, the client extracts the tokens from the URL and stores them securely; then the client can use them to make authenticated requests to the server.
+In the next step, the client extracts the tokens from the URL and stores them securely; then the client can use them to make authenticated requests to the server. We will discuss the client-side implementation later in this guide.
+
+Let's move on to the middleware implementation, which enables us to protect certain routes.
 
 ### Authentication Middleware
 
@@ -336,9 +340,11 @@ object AuthMiddleware {
 }
 ```
 
+It extracts the Bearer token from the `Authorization` header, verifies it using the `JwtTokenService`, and injects the user information into the request context if the token is valid. If the token is missing or invalid, it responds with a 401 Unauthorized status.
+
 ### Protected Routes
 
-Let's protect an example route using the authentication middleware:
+Using the authentication middleware, we can protect certain routes. For example, let's protect the `/profile/me` endpoint, which returns the user's profile:
 
 ```scala
 val profile = 
@@ -362,14 +368,14 @@ val profile =
         }
       }
     }
-  } @@ AuthMiddleware.bearerAuth(realm = "User Profile")
+  } @@ AuthMiddleware.jwtAuth(realm = "User Profile")
 ```
 
 In this example, the `/profile/me` endpoint is protected by the `jwtAuth` middleware. Only requests with a valid JWT token will be able to access this endpoint. After successful authentication, the user info is injected into the handler, allowing us to fetch the user's profile from the in-memory store.
 
 ## Client Implementation
 
-In this section, we are going to implement the client-side logic to interact with the OAuth-protected server. We will demonstrate both a web client using JavaScript and a Scala client using ZIO HTTP.
+In this section, we implement the client-side logic to interact with the OAuth-protected server. We will demonstrate both a web client using JavaScript and a Scala client using ZIO HTTP.
 
 ### Web Client
 
@@ -433,15 +439,40 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 ```
 
-After extracting the tokens from the URL, we have to clean up the URL from sensitive data. Having sensitive tokens in the URL is a security risk because URLs can be logged in browser history or can be shared or bookmarked accidentally.
+After extracting the tokens from the URL, we must clean up the URL to remove sensitive data. Having sensitive tokens in the URL is a security risk because URLs can be logged in browser history or can be shared or bookmarked accidentally.
 
 We use the `window.history.replaceState()` method to modify the current history entry, replacing the URL with a clean version. This is a security best practice to prevent token exposure while maintaining the user's current session in memory.
 
-Now, we are ready to call the server to fetch the user's profile with the retrieved access token.
+Now, we are ready to call the server to fetch the user's profile with the retrieved access token:
+
+```javascript
+async function fetchUserProfile() {
+  if (!currentTokens) return;
+
+  try {
+    const response = await fetch('/profile/me', {
+      headers: {
+          'Authorization': `${currentTokens.tokenType} ${currentTokens.accessToken}`
+      }
+    });
+
+    if (response.ok) {
+      const user = await response.json();
+      displayUserInfo(user);
+    } else {
+      throw new Error(`Failed to fetch profile: ${response.status}`);
+    }
+  } catch (error) {
+    showStatus(`Error fetching profile: ${error.message}`, 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+```
 
 ### ZIO HTTP Client
 
-To write a client application in Scala that interacts with the OAuth-protected server, we can use ZIO HTTP's client capabilities. Below is a simple interface of an OAuth client that handles login, logout, and making authenticated requests:
+To write a client application in Scala that interacts with the OAuth-protected server, we can use ZIO HTTP's client capabilities. Below is a simple interface for an OAuth client that handles login, logout, and making authenticated requests:
 
 ```scala
 trait OAuthClient {
@@ -452,7 +483,6 @@ trait OAuthClient {
 ```
 
 Let's start by writing the `login` method:
-
 
 ```scala
 case class GithubOAuthClient(
@@ -567,7 +597,7 @@ private def startCallbackServer(tokenPromise: Promise[Throwable, Token]): ZIO[An
 }
 ```
 
-It takes a `Promise` parameter that will be completed with the OAuth tokens when they arrive. It creates an HTTP route that listens to GET requests containing either successful authentication tokens (access token, refresh token, token type, and expiration) or error information in the query parameters. On successful authentication, it fulfills the promise with the token information and returns an HTML success page that automatically closes after 5 seconds. On failure, it fails the promise with the error details and returns an HTML error page.
+It takes a `Promise` parameter that will be completed with the OAuth tokens when they arrive. It creates an HTTP route that listens for GET requests containing either successful authentication tokens (access token, refresh token, token type, and expiration) or error information in the query parameters. On successful authentication, it fulfills the promise with the token information and returns an HTML success page that automatically closes after 5 seconds. On failure, it fails the promise with the error details and returns an HTML error page.
 
 After the client receives the tokens using the `performOAuthFlow`, it can store them (`tokenStore.set(Some(tokens))`) and use them to perform authenticated requests.
 
@@ -610,7 +640,7 @@ case class GithubOAuthClient(
 
 When making a request, the `makeAuthenticatedRequest` first checks for stored tokens and attaches the access token as a Bearer token in the Authorization header. If the request returns an Unauthorized status (401), indicating an expired access token, it automatically attempts to refresh the token using the stored refresh token and retries the original request with the new access token. If no tokens are available, it initiates the login flow before retrying the request. This implementation provides a seamless authentication experience by handling token expiration and renewal transparently to the calling code.
 
-The final step is to implement the `logout` method. The implementation is straightforward: we have to call the `/logout` endpoint and remove the stored tokens:
+The final step is to implement the `logout` method. The implementation is straightforward - we call the `/logout` endpoint and remove the stored tokens:
 
 ```scala
 case class GithubOAuthClient(
@@ -642,7 +672,7 @@ case class GithubOAuthClient(
 }
 ```
 
-## Running the Server
+## Running the Server and Client
 
 To run the server, first set the following environment variables after creating a GitHub OAuth App:
 
@@ -652,8 +682,9 @@ export GH_CLIENT_ID="your_client_id"
 export GH_CLIENT_SECRET="your_client_secret"
 ```
 
-Now, you can run the server by running the following sbt command:
-```
+Now, we can run the server using the following sbt command:
+
+```bash
 # Run the server
 sbt "zioHttpExample/runMain example.auth.bearer.oauth.AuthenticationServer"
 ```
@@ -662,7 +693,7 @@ Running this command also serves the web client at http://localhost:8080.
 
 Open http://localhost:8080 in your browser and click the "Sign in with GitHub" button. You'll be redirected to GitHub where you can authorize the application. After authorization, you'll be redirected back to confirm successful authentication. Finally, test the protected endpoints to verify everything is working correctly.
 
-To test the Scala client, first run the server and on another terminal run the following sbt command:
+To test the Scala client, first run the server, and in another terminal run the following sbt command:
 
 ```bash
 # Run the client
