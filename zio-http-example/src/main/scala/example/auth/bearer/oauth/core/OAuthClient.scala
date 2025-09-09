@@ -212,7 +212,7 @@ case class GithubOAuthClient(
           }
           _        <- tokenStore.set(None)
         } yield ()
-      case None                =>
+      case None               =>
         ZIO.unit
     }
 
