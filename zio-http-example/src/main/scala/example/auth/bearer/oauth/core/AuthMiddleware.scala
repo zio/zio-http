@@ -1,5 +1,6 @@
 package example.auth.bearer.oauth.core
 import zio._
+
 import zio.http._
 
 object AuthMiddleware {

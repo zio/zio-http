@@ -1,13 +1,15 @@
 package example.auth.bearer.oauth.core
 
-import zio._
-import zio.http._
-import zio.http.template.Html
-import zio.json._
-import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
-
 import java.awt.Desktop
 import java.net.URI
+
+import zio._
+import zio.json._
+
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+import zio.http._
+import zio.http.template.Html
 
 /**
  * OAuth Authentication Client using GitHub. This client implements the OAuth

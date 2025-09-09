@@ -1,11 +1,13 @@
 package example.auth.bearer.oauth
 
-import example.auth.bearer.oauth.core._
+import java.time.Clock
+
 import zio.Config.Secret
 import zio._
+
 import zio.http._
 
-import java.time.Clock
+import example.auth.bearer.oauth.core._
 
 /**
  * OAuth 2.0 Authentication Server using GitHub as the identity provider. This
