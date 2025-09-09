@@ -73,6 +73,7 @@ object EndpointGen {
         ),
       ),
       errorsCode = Nil,
+      authTypeCode = None,
     )
     endpoint
   }
