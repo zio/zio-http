@@ -135,7 +135,8 @@ const sidebars = {
           "guides/digest-authentication",
           "guides/authentication-with-opaque-bearer-tokens",
           "guides/authentication-with-jwt-bearer-tokens",
-          "guides/authentication-with-jwt-bearer-and-refresh-tokens"
+          "guides/authentication-with-jwt-bearer-and-refresh-tokens",
+          "guides/authentication-with-a-third-party-oauth-provider",
        ],
     },
     {
