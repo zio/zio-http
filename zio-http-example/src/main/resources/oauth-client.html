@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub OAuth Authentication</title>
+    <title>GitHub OAuth Authentication with Automatic Token Management</title>
     <style>
         * {
             margin: 0;
@@ -15,22 +15,28 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
         }
 
         .container {
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
-            max-width: 500px;
+            max-width: 900px;
             width: 100%;
-            text-align: center;
             position: relative;
             overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .container::before {
@@ -43,7 +49,12 @@
             background: linear-gradient(90deg, #667eea, #764ba2);
         }
 
-        .github-logo {
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
             font-size: 48px;
             margin-bottom: 20px;
             color: #333;
@@ -53,7 +64,7 @@
             color: #333;
             margin-bottom: 10px;
             font-size: 28px;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .subtitle {
@@ -62,62 +73,141 @@
             font-size: 16px;
         }
 
-        .auth-section {
+        .section {
             margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
         }
 
-        .btn {
-            display: inline-flex;
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
             align-items: center;
             gap: 10px;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            margin: 8px;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .section p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-secondary {
-            background: #f8f9fa;
-            color: #333;
-            border: 1px solid #dee2e6;
-        }
-
-        .btn-secondary:hover {
-            background: #e9ecef;
-            transform: translateY(-1px);
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        .user-info {
+        /* Token Timer Styles */
+        .token-timer {
             display: none;
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 20px;
             margin-top: 20px;
-            text-align: left;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border-radius: 15px;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            text-align: center;
+            transition: all 0.3s ease;
         }
 
-        .user-info.show {
+        .token-timer.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .token-timer.warning {
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.1));
+            border-color: rgba(255, 193, 7, 0.5);
+        }
+
+        .token-timer.expired {
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(255, 107, 107, 0.1));
+            border-color: rgba(220, 53, 69, 0.5);
+        }
+
+        .timer-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .timer-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .timer-display {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            font-family: 'SF Mono', Monaco, monospace;
+            margin-bottom: 10px;
+        }
+
+        .timer-display.warning {
+            color: #ff9800;
+            animation: pulse 1s infinite;
+        }
+
+        .timer-display.expired {
+            color: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .timer-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .timer-progress {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+
+        .timer-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .timer-progress-bar.warning {
+            background: linear-gradient(90deg, #ff9800, #ff6b00);
+        }
+
+        .timer-progress-bar.expired {
+            background: linear-gradient(90deg, #dc3545, #c82333);
+        }
+
+        /* GitHub User Profile Display */
+        .user-profile {
+            display: none;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .user-profile.show {
             display: block;
             animation: fadeIn 0.5s ease;
         }
@@ -127,54 +217,338 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        .profile-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+        }
+
         .user-avatar {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
-            margin-bottom: 15px;
             border: 3px solid #667eea;
+            margin-right: 20px;
+        }
+
+        .user-info-header {
+            flex: 1;
+        }
+
+        .user-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-login {
+            font-size: 16px;
+            color: #666;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+
+        .user-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
         }
 
         .user-detail {
-            margin-bottom: 8px;
-            font-size: 14px;
+            background: white;
+            padding: 12px 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
         }
 
-        .user-detail strong {
+        .user-detail-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .user-detail-value {
+            font-size: 14px;
             color: #333;
-            min-width: 80px;
+            font-weight: 600;
+        }
+
+        .user-detail-value a {
+            color: #667eea;
+            text-decoration: none;
+            word-break: break-all;
             display: inline-block;
         }
 
-        .status {
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            margin: 10px 0;
-            display: inline-block;
+        .user-detail-value a:hover {
+            text-decoration: underline;
         }
 
-        .status.success {
-            background: #d4edda;
+        .token-display {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            word-break: break-all;
+            color: #495057;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .token-display.has-token {
+            background: rgba(40, 167, 69, 0.05);
+            border-color: rgba(40, 167, 69, 0.3);
             color: #155724;
-            border: 1px solid #c3e6cb;
+            display: block;
         }
 
-        .status.error {
-            background: #f8d7da;
+        .jwt-decoded {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .jwt-decoded.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .jwt-part {
+            margin-bottom: 20px;
+        }
+
+        .jwt-part-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .jwt-part-label {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .jwt-part-content {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+
+        .jwt-json {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .jwt-raw {
+            color: #6c757d;
+            font-size: 10px;
+            word-break: break-all;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #dee2e6;
+        }
+
+        .jwt-field {
+            margin: 4px 0;
+        }
+
+        .jwt-field-name {
+            color: #6f42c1;
+            font-weight: bold;
+        }
+
+        .jwt-field-value {
+            color: #495057;
+        }
+
+        .jwt-field-timestamp {
+            color: #28a745;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            color: #333;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #FF6B6B, #ee5a52);
+            color: white;
+        }
+
+        .btn-github {
+            background: linear-gradient(135deg, #24292e 0%, #040d21 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .response.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .response.success {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #155724;
+        }
+
+        .response.error {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
             color: #721c24;
-            border: 1px solid #f5c6cb;
         }
 
-        .status.loading {
-            background: #e2e3e5;
-            color: #383d41;
-            border: 1px solid #d6d8db;
+        .response-header {
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: white;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: inherit;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.connected {
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #dc3545;
+        }
+
+        .auto-refresh-notice {
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 10px;
+            color: #004085;
+            margin-top: 15px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auto-refresh-icon {
+            font-size: 20px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         .loading {
             display: none;
+            text-align: center;
             margin: 20px 0;
         }
 
@@ -186,57 +560,159 @@
             border: 3px solid #f3f3f3;
             border-top: 3px solid #667eea;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
             margin: 0 auto 10px;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .token-info {
-            background: #e9ecef;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 15px 0;
-            font-family: monospace;
-            font-size: 12px;
-            text-align: left;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .actions {
+        .transaction-details {
+            display: none;
             margin-top: 20px;
         }
 
-        .hidden {
-            display: none;
+        .transaction-details.visible {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .http-message {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .http-message-header {
+            background: linear-gradient(45deg, #495057, #6c757d);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .http-message-content {
+            padding: 20px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: white;
+        }
+
+        .http-message-content pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            margin: 0;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .http-request {
+            border-left: 4px solid #007bff;
+        }
+
+        .http-request .http-message-header {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+
+        .http-response-200 {
+            border-left: 4px solid #28a745;
+        }
+
+        .http-response-200 .http-message-header {
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+        }
+
+        .http-response-401 {
+            border-left: 4px solid #ffc107;
+        }
+
+        .http-response-401 .http-message-header {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+        }
+
+        .http-method { color: #007bff; font-weight: bold; }
+        .http-status-200 { color: #28a745; font-weight: bold; }
+        .http-status-401 { color: #ffc107; font-weight: bold; }
+        .http-header-name { color: #6f42c1; font-weight: bold; }
+        .http-header-value { color: #495057; }
+
+        .transaction-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            font-size: 24px;
+            color: #6c757d;
+        }
+
+        .transaction-step {
+            padding: 15px;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 10px;
+            margin: 15px 0;
+            color: #856404;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
         }
 
         .footer {
             margin-top: 30px;
             padding-top: 20px;
-            border-top: 1px solid #e9ecef;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
             color: #666;
             font-size: 14px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .section {
+                padding: 20px;
+            }
+
+            .user-details {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="github-logo">🐙</div>
-    <h1>GitHub OAuth Demo</h1>
-    <p class="subtitle">Authenticate with GitHub to access your profile</p>
+    <div class="header">
+        <div class="auth-logo">🐙</div>
+        <h1>GitHub OAuth Demo</h1>
+        <p class="subtitle">OAuth 2.0 with Automatic Token Refresh Management</p>
+    </div>
 
-    <div class="auth-section">
-        <div id="loginSection">
-            <button id="loginBtn" class="btn btn-primary">
+    <!-- Authentication Section -->
+    <div class="section">
+        <h2><span class="status-indicator" id="authStatus"></span>Authentication</h2>
+        <p>Authenticate with GitHub to access your profile and protected endpoints</p>
+
+        <div id="loginSection" style="text-align: center;">
+            <button id="loginBtn" class="btn btn-github">
                 <span>🔐</span>
                 Sign in with GitHub
+            </button>
+        </div>
+
+        <div id="authenticatedActions" style="display: none; text-align: center;">
+            <button class="btn btn-danger" onclick="logout()">
+                <span>🚪</span>
+                Logout
             </button>
         </div>
 
@@ -245,81 +721,544 @@
             <div>Processing authentication...</div>
         </div>
 
-        <div id="statusMessage"></div>
-    </div>
+        <div id="authResponse" class="response">
+            <span class="response-header">Response</span>
+        </div>
 
-    <div id="userInfo" class="user-info">
-        <div style="display: flex; align-items: center; margin-bottom: 15px;">
-            <img id="userAvatar" src="" alt="User Avatar" class="user-avatar">
-            <div style="margin-left: 15px;">
-                <h3 id="userName" style="margin-bottom: 5px; color: #333;"></h3>
-                <div id="userLogin" style="color: #666; font-size: 14px;"></div>
+        <!-- Token Timer Display -->
+        <div id="tokenTimer" class="token-timer">
+            <div class="timer-icon" id="timerIcon">⏱️</div>
+            <div class="timer-label">Access Token Expires In</div>
+            <div class="timer-display" id="timerDisplay">--:--</div>
+            <div class="timer-details" id="timerDetails">
+                Expires at: <span id="expiryTime">--:--:--</span>
+            </div>
+            <div class="timer-progress">
+                <div class="timer-progress-bar" id="timerProgressBar"></div>
             </div>
         </div>
 
-        <div class="user-detail">
-            <strong>ID:</strong> <span id="userId"></span>
+        <!-- GitHub User Profile -->
+        <div id="userProfile" class="user-profile">
+            <div class="profile-header">
+                <img id="userAvatar" src="" alt="User Avatar" class="user-avatar">
+                <div class="user-info-header">
+                    <div id="userName" class="user-name"></div>
+                    <div id="userLogin" class="user-login"></div>
+                </div>
+            </div>
+            <div class="user-details">
+                <div class="user-detail">
+                    <div class="user-detail-label">User ID</div>
+                    <div class="user-detail-value" id="userId"></div>
+                </div>
+                <div class="user-detail">
+                    <div class="user-detail-label">Email</div>
+                    <div class="user-detail-value" id="userEmail"></div>
+                </div>
+                <div class="user-detail" style="grid-column: 1 / -1;">
+                    <div class="user-detail-label">GitHub Profile</div>
+                    <div class="user-detail-value"><a id="userHtmlUrl" href="#" target="_blank">View on GitHub</a></div>
+                </div>
+            </div>
         </div>
-        <div class="user-detail">
-            <strong>Email:</strong> <span id="userEmail"></span>
+
+        <div class="token-display" id="tokenDisplay">
+            <span style="color: #999;">No access token yet. Sign in with GitHub to receive tokens.</span>
         </div>
-        <div class="user-detail">
-            <strong>Profile:</strong> <a id="userHtmlUrl" href="" target="_blank" style="color: #667eea;"></a>
+
+        <div class="auto-refresh-notice">
+            <span class="auto-refresh-icon">🔄</span>
+            <span><strong>Automatic Token Refresh Enabled:</strong> When your access token expires, the client will automatically use your refresh token to get new tokens and retry the request seamlessly.</span>
+        </div>
+
+        <div class="jwt-decoded" id="jwtDecoded">
+            <h3 style="margin-bottom: 20px; color: #333; font-size: 18px;">🔍 Decoded JWT Access Token</h3>
+
+            <div class="jwt-part">
+                <div class="jwt-part-header">
+                    <span class="jwt-part-label">HEADER</span>
+                    <span>Algorithm & Token Type</span>
+                </div>
+                <div class="jwt-part-content">
+                    <div class="jwt-json" id="jwtHeader"></div>
+                    <div class="jwt-raw" id="jwtHeaderRaw"></div>
+                </div>
+            </div>
+
+            <div class="jwt-part">
+                <div class="jwt-part-header">
+                    <span class="jwt-part-label">PAYLOAD</span>
+                    <span>Data & Claims</span>
+                </div>
+                <div class="jwt-part-content">
+                    <div class="jwt-json" id="jwtPayload"></div>
+                    <div class="jwt-raw" id="jwtPayloadRaw"></div>
+                </div>
+            </div>
+
+            <div class="jwt-part">
+                <div class="jwt-part-header">
+                    <span class="jwt-part-label">SIGNATURE</span>
+                    <span>Verification</span>
+                </div>
+                <div class="jwt-part-content">
+                    <div style="color: #6c757d; font-size: 12px;">
+                        <strong>Signature (Base64Url Encoded):</strong><br>
+                        <span id="jwtSignature" style="word-break: break-all; color: #495057;"></span>
+                        <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; border: 1px solid #ffeeba;">
+                            <strong style="color: #856404;">⚠️ Note:</strong> The signature verifies the token's authenticity and integrity.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="tokenSection" class="hidden">
-        <h3 style="margin-bottom: 10px; color: #333;">Token Information</h3>
-        <div class="token-info" id="tokenInfo"></div>
-    </div>
-
-    <div id="authenticatedSection" class="actions hidden">
-        <button id="refreshBtn" class="btn btn-secondary">
+    <!-- Protected Route Section -->
+    <div class="section">
+        <h2>🛡️ Protected Route Access</h2>
+        <p>These endpoints require JWT authentication. Tokens will be automatically refreshed when expired!</p>
+        <button class="btn btn-success" onclick="accessProtectedRoute()" id="protectedBtn">
+            <span>👤</span>
+            Access My Profile
+        </button>
+        <button class="btn btn-secondary" onclick="refreshTokensManually()" id="refreshBtn">
             <span>🔄</span>
-            Refresh Token
+            Manual Token Refresh
         </button>
-        <button id="testApiBtn" class="btn btn-secondary">
-            <span>🧪</span>
-            Test API Call
+        <div id="protectedResponse" class="response">
+            <span class="response-header">Response</span>
+        </div>
+    </div>
+
+    <!-- HTTP Transaction Details Section -->
+    <div class="section">
+        <h2>📊 HTTP Transaction Details</h2>
+        <p>View detailed HTTP request and response messages (including automatic refresh flow)</p>
+        <button class="btn btn-secondary" onclick="clearTransactions()" style="margin-bottom: 15px;">
+            <span>🗑️</span>
+            Clear Transactions
         </button>
-        <button id="toggleTokenBtn" class="btn btn-secondary">
-            <span>👁️</span>
-            Show Tokens
-        </button>
-        <button id="logoutBtn" class="btn btn-secondary">
-            <span>🚪</span>
-            Logout
-        </button>
+        <div id="transactionDetails" class="transaction-details">
+            <p style="text-align: center; color: #6c757d; font-style: italic; padding: 20px;">
+                Click any endpoint button to see detailed HTTP request/response messages
+            </p>
+        </div>
     </div>
 
     <div class="footer">
-        <p>This demo showcases OAuth 2.0 authentication flow with GitHub</p>
+        <p>This demo showcases GitHub OAuth 2.0 authentication with automatic token refresh capabilities</p>
     </div>
 </div>
 
 <script>
     let currentTokens = null;
+    let tokenExpiryTime = null;
+    let initialTokenDuration = null;
+    let tokenTimerInterval = null;
+    let transactionHistory = [];
     let tokenVisible = false;
+    let currentUser = null;
+
+    // Token Timer Management
+    const TokenTimer = {
+        start(expiryTime, initialDuration) {
+            this.stop(); // Clear any existing timer
+
+            const timerElement = document.getElementById('tokenTimer');
+            const timerDisplay = document.getElementById('timerDisplay');
+            const timerDetails = document.getElementById('timerDetails');
+            const expiryTimeElement = document.getElementById('expiryTime');
+            const progressBar = document.getElementById('timerProgressBar');
+            const timerIcon = document.getElementById('timerIcon');
+
+            timerElement.classList.add('active');
+            timerElement.classList.remove('warning', 'expired');
+            timerDisplay.classList.remove('warning', 'expired');
+            progressBar.classList.remove('warning', 'expired');
+
+            // Set expiry time display
+            expiryTimeElement.textContent = expiryTime.toLocaleTimeString();
+
+            tokenTimerInterval = setInterval(() => {
+                const now = new Date();
+                const remainingMs = expiryTime - now;
+
+                if (remainingMs <= 0) {
+                    // Token has expired
+                    timerDisplay.textContent = 'EXPIRED';
+                    timerDisplay.classList.add('expired');
+                    timerElement.classList.add('expired');
+                    progressBar.classList.add('expired');
+                    progressBar.style.width = '0%';
+                    timerIcon.textContent = '❌';
+                    this.stop();
+                    return;
+                }
+
+                // Calculate time components
+                const totalSeconds = Math.floor(remainingMs / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+
+                // Format display
+                const displayMinutes = String(minutes).padStart(2, '0');
+                const displaySeconds = String(seconds).padStart(2, '0');
+                timerDisplay.textContent = `${displayMinutes}:${displaySeconds}`;
+
+                // Calculate progress percentage
+                const progressPercent = (remainingMs / (initialDuration * 1000)) * 100;
+                progressBar.style.width = `${progressPercent}%`;
+
+                // Warning state when less than 30 seconds remaining
+                if (totalSeconds <= 30) {
+                    if (!timerElement.classList.contains('warning')) {
+                        timerElement.classList.add('warning');
+                        timerDisplay.classList.add('warning');
+                        progressBar.classList.add('warning');
+                        timerIcon.textContent = '⚠️';
+                    }
+                } else {
+                    timerIcon.textContent = '⏱️';
+                }
+            }, 100); // Update every 100ms for smooth countdown
+        },
+
+        stop() {
+            if (tokenTimerInterval) {
+                clearInterval(tokenTimerInterval);
+                tokenTimerInterval = null;
+            }
+        },
+
+        hide() {
+            this.stop();
+            const timerElement = document.getElementById('tokenTimer');
+            timerElement.classList.remove('active', 'warning', 'expired');
+        }
+    };
+
+    // JWT Decoder Module
+    const JWTDecoder = {
+        base64UrlDecode(str) {
+            const padding = '='.repeat((4 - str.length % 4) % 4);
+            const base64 = (str + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+
+            try {
+                const decoded = atob(base64);
+                return decodeURIComponent(escape(decoded));
+            } catch (e) {
+                console.error('Error decoding base64:', e);
+                return null;
+            }
+        },
+
+        decode(token) {
+            if (!token) return null;
+
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+                console.error('Invalid JWT format');
+                return null;
+            }
+
+            try {
+                const header = this.base64UrlDecode(parts[0]);
+                const payload = this.base64UrlDecode(parts[1]);
+
+                return {
+                    header: JSON.parse(header),
+                    payload: JSON.parse(payload),
+                    signature: parts[2],
+                    headerRaw: parts[0],
+                    payloadRaw: parts[1]
+                };
+            } catch (e) {
+                console.error('Error parsing JWT:', e);
+                return null;
+            }
+        },
+
+        formatTimestamp(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleString();
+        },
+
+        formatJSON(obj, isPayload = false) {
+            let formatted = '';
+            for (const [key, value] of Object.entries(obj)) {
+                formatted += `<div class="jwt-field">`;
+                formatted += `<span class="jwt-field-name">${key}:</span> `;
+
+                if (typeof value === 'object' && value !== null) {
+                    formatted += `<span class="jwt-field-value">${JSON.stringify(value)}</span>`;
+                } else {
+                    formatted += `<span class="jwt-field-value">${value}</span>`;
+                }
+
+                if (isPayload && ['exp', 'iat', 'nbf'].includes(key) && typeof value === 'number') {
+                    formatted += `<span class="jwt-field-timestamp">(${this.formatTimestamp(value)})</span>`;
+                }
+
+                formatted += `</div>`;
+            }
+            return formatted;
+        },
+
+        display(token) {
+            const decoded = this.decode(token);
+            if (!decoded) {
+                document.getElementById('jwtDecoded').classList.remove('show');
+                return;
+            }
+
+            document.getElementById('jwtHeader').innerHTML = this.formatJSON(decoded.header);
+            document.getElementById('jwtHeaderRaw').innerHTML = `<strong>Raw:</strong> ${decoded.headerRaw}`;
+            document.getElementById('jwtPayload').innerHTML = this.formatJSON(decoded.payload, true);
+            document.getElementById('jwtPayloadRaw').innerHTML = `<strong>Raw:</strong> ${decoded.payloadRaw}`;
+            document.getElementById('jwtSignature').textContent = decoded.signature;
+            document.getElementById('jwtDecoded').classList.add('show');
+        },
+
+        hide() {
+            document.getElementById('jwtDecoded').classList.remove('show');
+        }
+    };
+
+    // HTTP Transaction Module
+    const HTTPTransaction = {
+        formatHeaders(headers) {
+            let formatted = '';
+            if (headers && typeof headers === 'object') {
+                Object.entries(headers).forEach(([name, value]) => {
+                    if (value) {  // Only show headers with values
+                        formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
+                    }
+                });
+            }
+            return formatted;
+        },
+
+        formatRequest(method, url, headers, body) {
+            const urlObj = new URL(url, window.location.origin);
+            let request = `<span class="http-method">${method}</span> ${urlObj.pathname}${urlObj.search} HTTP/1.1\n`;
+            request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${urlObj.host}</span>\n`;
+            request += this.formatHeaders(headers);
+            if (body) {
+                request += `\n${body}`;
+            }
+            return request;
+        },
+
+        formatResponse(status, statusText, headers, body) {
+            const statusClass = status === 200 ? 'http-status-200' : 'http-status-401';
+            let formatted = `HTTP/1.1 <span class="${statusClass}">${status} ${statusText}</span>\n`;
+            if (headers) {
+                formatted += this.formatHeaders(headers);
+            }
+            if (body) {
+                formatted += `\n${body}`;
+            }
+            return formatted;
+        }
+    };
+
+    // Core function that implements automatic token refresh with complete transaction logging
+    async function makeAuthenticatedRequest(url, options = {}) {
+        // Clear previous transactions for this request flow
+        transactionHistory = [];
+
+        const attemptRequest = async (token, isRetry = false) => {
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+
+            const requestDetails = {
+                method: options.method || 'GET',
+                url: url,
+                headers: headers,
+                body: options.body || null,
+                isRetry: isRetry
+            };
+
+            const response = await fetch(url, {
+                ...options,
+                headers: headers
+            });
+
+            const responseText = await response.text();
+
+            // Log this transaction
+            transactionHistory.push({
+                request: requestDetails,
+                response: {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'WWW-Authenticate': response.headers.get('WWW-Authenticate') || '',
+                        'Content-Length': responseText.length
+                    },
+                    body: responseText
+                }
+            });
+
+            return {
+                response: response,
+                text: responseText
+            };
+        };
+
+        const refreshAndRetry = async () => {
+            console.log('Access token expired, refreshing...');
+
+            const refreshResponse = await fetch('/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    refreshToken: currentTokens.refreshToken
+                })
+            });
+
+            const refreshText = await refreshResponse.text();
+
+            // Log the refresh transaction
+            transactionHistory.push({
+                request: {
+                    method: 'POST',
+                    url: '/refresh',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken: currentTokens.refreshToken }),
+                    isRefresh: true
+                },
+                response: {
+                    status: refreshResponse.status,
+                    statusText: refreshResponse.statusText,
+                    headers: {
+                        'Content-Type': refreshResponse.headers.get('Content-Type') || 'text/plain',
+                        'Content-Length': refreshText.length
+                    },
+                    body: refreshText
+                }
+            });
+
+            if (!refreshResponse.ok) {
+                throw new Error(`Token refresh failed: ${refreshText}`);
+            }
+
+            const tokens = JSON.parse(refreshText);
+            updateTokenDisplay(tokens);
+
+            // Now retry the original request with the new token
+            return await attemptRequest(tokens.accessToken, true);
+        };
+
+        // Check if we have tokens
+        if (!currentTokens || !currentTokens.accessToken) {
+            throw new Error('No authentication tokens available. Please login first.');
+        }
+
+        // First attempt with current access token
+        const result = await attemptRequest(currentTokens.accessToken);
+
+        // If unauthorized, refresh and retry
+        if (result.response.status === 401) {
+            const retryResult = await refreshAndRetry();
+            displayCompleteTransactionFlow();
+            return {
+                ok: retryResult.response.ok,
+                status: retryResult.response.status,
+                text: () => Promise.resolve(retryResult.text),
+                headers: retryResult.response.headers
+            };
+        }
+
+        displayCompleteTransactionFlow();
+        return {
+            ok: result.response.ok,
+            status: result.response.status,
+            text: () => Promise.resolve(result.text),
+            headers: result.response.headers
+        };
+    }
+
+    // Display complete transaction flow including all steps
+    function displayCompleteTransactionFlow() {
+        const detailsContainer = document.getElementById('transactionDetails');
+        if (!detailsContainer || transactionHistory.length === 0) return;
+
+        let html = '';
+
+        transactionHistory.forEach((transaction, index) => {
+            const isRefreshRequest = transaction.request.isRefresh;
+            const isRetryRequest = transaction.request.isRetry;
+            const responseClass = transaction.response.status === 200 ? 'http-response-200' : 'http-response-401';
+
+            // Add step indicator for multi-step flows
+            if (transactionHistory.length > 1) {
+                if (index === 0) {
+                    html += '<div class="transaction-step">Step 1: Initial Request (with expired token)</div>';
+                } else if (isRefreshRequest) {
+                    html += '<div class="transaction-step">Step 2: Automatic Token Refresh</div>';
+                } else if (isRetryRequest) {
+                    html += '<div class="transaction-step">Step 3: Retry Original Request (with new token)</div>';
+                }
+            }
+
+            // Format the request
+            const requestFormatted = HTTPTransaction.formatRequest(
+                transaction.request.method,
+                transaction.request.url,
+                transaction.request.headers,
+                transaction.request.body
+            );
+
+            // Format the response
+            const responseFormatted = HTTPTransaction.formatResponse(
+                transaction.response.status,
+                transaction.response.statusText,
+                transaction.response.headers,
+                transaction.response.body
+            );
+
+            html += `
+                <div class="http-message http-request">
+                    <div class="http-message-header">
+                        🌐 HTTP Request ${isRefreshRequest ? '(Token Refresh)' : isRetryRequest ? '(Retry with New Token)' : ''}
+                    </div>
+                    <div class="http-message-content"><pre>${requestFormatted}</pre></div>
+                </div>
+                <div class="transaction-flow">⬇️</div>
+                <div class="http-message ${responseClass}">
+                    <div class="http-message-header">
+                        📨 HTTP Response ${transaction.response.status === 401 ? '(Token Expired)' : ''}
+                    </div>
+                    <div class="http-message-content"><pre>${responseFormatted}</pre></div>
+                </div>
+            `;
+
+            if (index < transactionHistory.length - 1) {
+                html += '<div class="transaction-flow">⬇️</div>';
+            }
+        });
+
+        detailsContainer.innerHTML = html;
+        detailsContainer.classList.add('visible');
+    }
 
     // DOM elements
     const loginBtn = document.getElementById('loginBtn');
     const loadingSection = document.getElementById('loadingSection');
-    const statusMessage = document.getElementById('statusMessage');
-    const userInfo = document.getElementById('userInfo');
-    const authenticatedSection = document.getElementById('authenticatedSection');
-    const loginSection = document.getElementById('loginSection');
-    const tokenSection = document.getElementById('tokenSection');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const testApiBtn = document.getElementById('testApiBtn');
-    const toggleTokenBtn = document.getElementById('toggleTokenBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
 
     // Event listeners
     loginBtn.addEventListener('click', startAuth);
-    refreshBtn.addEventListener('click', refreshToken);
-    testApiBtn.addEventListener('click', testApiCall);
-    toggleTokenBtn.addEventListener('click', toggleTokenDisplay);
-    logoutBtn.addEventListener('click', logout);
 
     // Check for tokens in URL on page load
     window.addEventListener('DOMContentLoaded', () => {
@@ -338,54 +1277,101 @@
             // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
 
-            showStatus('Authentication successful!', 'success');
+            displayResponse('authResponse', 'Authentication successful!', false);
+            updateTokenDisplay(currentTokens);
             fetchUserProfile();
         }
+
+        updateAuthStatus();
     });
 
     function startAuth() {
-        const redirectUri = encodeURIComponent(window.location.origin);
+        const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
         const authUrl = `/auth/github?redirect_uri=${redirectUri}`;
 
         showLoading(true);
-        showStatus('Redirecting to GitHub...', 'loading');
+        displayResponse('authResponse', 'Redirecting to GitHub...', false);
 
         // Redirect to GitHub OAuth
         window.location.href = authUrl;
     }
 
-async function fetchUserProfile() {
-    if (!currentTokens) return;
-
-    try {
-        showLoading(true);
-
-        const response = await fetch('/profile/me', {
-            headers: {
-                'Authorization': `${currentTokens.tokenType} ${currentTokens.accessToken}`
-            }
-        });
-
-        if (response.ok) {
-            const user = await response.json();
-            displayUserInfo(user);
-            showAuthenticatedState();
-        } else {
-            throw new Error(`Failed to fetch profile: ${response.status}`);
-        }
-    } catch (error) {
-        showStatus(`Error fetching profile: ${error.message}`, 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-    async function refreshToken() {
+    async function fetchUserProfile() {
         if (!currentTokens) return;
 
         try {
             showLoading(true);
-            refreshBtn.disabled = true;
+
+            const response = await fetch('/profile/me', {
+                headers: {
+                    'Authorization': `${currentTokens.tokenType} ${currentTokens.accessToken}`
+                }
+            });
+
+            if (response.ok) {
+                const user = await response.json();
+                currentUser = user;
+                displayUserProfile(user);
+            } else {
+                throw new Error(`Failed to fetch profile: ${response.status}`);
+            }
+        } catch (error) {
+            displayResponse('authResponse', `Error fetching profile: ${error.message}`, true);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    function displayUserProfile(user) {
+        // Set avatar
+        if (user.avatar_url) {
+            document.getElementById('userAvatar').src = user.avatar_url;
+        }
+
+        // Set name and login
+        document.getElementById('userName').textContent = user.name || user.login || 'GitHub User';
+        document.getElementById('userLogin').textContent = user.login ? `@${user.login}` : '';
+
+        // Set user details
+        document.getElementById('userId').textContent = user.id || 'N/A';
+        document.getElementById('userEmail').textContent = user.email || 'Not provided';
+
+        // Fix GitHub profile link
+        const githubUrl = user.html_url || `https://github.com/${user.login}`;
+        const linkElement = document.getElementById('userHtmlUrl');
+        if (linkElement && githubUrl) {
+            linkElement.href = githubUrl;
+            linkElement.textContent = githubUrl;
+        }
+
+        document.getElementById('userProfile').classList.add('show');
+    }
+
+    async function accessProtectedRoute() {
+        try {
+            const response = await makeAuthenticatedRequest('/profile/me');
+            const text = await response.text();
+
+            if (response.ok) {
+                displayResponse('protectedResponse', text, false);
+            } else {
+                displayResponse('protectedResponse', `Error: ${text}`, true);
+            }
+        } catch (error) {
+            displayResponse('protectedResponse', error.message, true);
+        }
+    }
+
+    async function refreshTokensManually() {
+        if (!currentTokens) {
+            displayResponse('protectedResponse', 'No refresh token available. Please login first.', true);
+            return;
+        }
+
+        try {
+            // Clear transaction history for manual refresh
+            transactionHistory = [];
+            showLoading(true);
 
             const response = await fetch('/refresh', {
                 method: 'POST',
@@ -397,109 +1383,135 @@ async function fetchUserProfile() {
                 })
             });
 
-            if (response.ok) {
-                const newTokens = await response.json();
-                currentTokens = newTokens;
-                updateTokenDisplay();
-                showStatus('Token refreshed successfully!', 'success');
-            } else {
-                throw new Error(`Refresh failed: ${response.status}`);
-            }
-        } catch (error) {
-            showStatus(`Error refreshing token: ${error.message}`, 'error');
-        } finally {
-            showLoading(false);
-            refreshBtn.disabled = false;
-        }
-    }
+            const text = await response.text();
 
-    async function testApiCall() {
-        if (!currentTokens) return;
-
-        try {
-            showLoading(true);
-            testApiBtn.disabled = true;
-
-            const response = await fetch('/profile/me', {
-                headers: {
-                    'Authorization': `${currentTokens.tokenType} ${currentTokens.accessToken}`
+            // Log refresh transaction
+            transactionHistory.push({
+                request: {
+                    method: 'POST',
+                    url: '/refresh',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken: currentTokens.refreshToken })
+                },
+                response: {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'Content-Length': text.length
+                    },
+                    body: text
                 }
             });
 
+            displayCompleteTransactionFlow();
+
             if (response.ok) {
-                const result = await response.json();
-                showStatus('API call successful!', 'success');
-                console.log('API Response:', result);
+                const newTokens = JSON.parse(text);
+                updateTokenDisplay(newTokens);
+                displayResponse('protectedResponse', 'Token refreshed successfully!', false);
             } else {
-                throw new Error(`API call failed: ${response.status}`);
+                displayResponse('protectedResponse', `Refresh failed: ${text}`, true);
+                clearTokens();
             }
         } catch (error) {
-            showStatus(`API call error: ${error.message}`, 'error');
+            displayResponse('protectedResponse', `Network error: ${error.message}`, true);
         } finally {
             showLoading(false);
-            testApiBtn.disabled = false;
         }
     }
 
-    function displayUserInfo(user) {
-        document.getElementById('userAvatar').src = user.avatar_url;
-        document.getElementById('userName').textContent = user.name || 'N/A';
-        document.getElementById('userLogin').textContent = `@${user.login}`;
-        document.getElementById('userId').textContent = user.id;
-        document.getElementById('userEmail').textContent = user.email || 'N/A';
-        document.getElementById('userHtmlUrl').href = user.html_url;
-        document.getElementById('userHtmlUrl').textContent = user.html_url;
+    async function logout() {
+        if (!currentTokens || !currentTokens.refreshToken) {
+            displayResponse('authResponse', 'No refresh token available. Cannot logout properly.', true);
+            // Still clear local state
+            clearLocalState();
+            return;
+        }
 
-        userInfo.classList.add('show');
-    }
+        try {
+            // Clear transaction history for logout
+            transactionHistory = [];
+            showLoading(true);
 
-    function showAuthenticatedState() {
-        loginSection.classList.add('hidden');
-        authenticatedSection.classList.remove('hidden');
-        updateTokenDisplay();
-    }
+            const formData = new URLSearchParams();
+            formData.append('refreshToken', currentTokens.refreshToken);
 
-    function updateTokenDisplay() {
-        if (currentTokens && tokenVisible) {
-            const tokenInfo = document.getElementById('tokenInfo');
-            tokenInfo.innerHTML = `
-                <strong>Access Token:</strong><br>
-                ${currentTokens.accessToken.substring(0, 50)}...<br><br>
-                <strong>Refresh Token:</strong><br>
-                ${currentTokens.refreshToken.substring(0, 50)}...<br><br>
-                <strong>Token Type:</strong> ${currentTokens.tokenType}<br>
-                <strong>Expires In:</strong> ${currentTokens.expiresIn} seconds
-            `;
+            const response = await fetch('/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
+
+            const text = await response.text();
+
+            // Log logout transaction
+            transactionHistory.push({
+                request: {
+                    method: 'POST',
+                    url: '/logout',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                },
+                response: {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'Content-Length': text.length
+                    },
+                    body: text
+                }
+            });
+
+            displayCompleteTransactionFlow();
+
+            if (response.ok) {
+                displayResponse('authResponse', text, false);
+                clearLocalState();
+            } else {
+                displayResponse('authResponse', `Logout failed: ${text}`, true);
+            }
+        } catch (error) {
+            displayResponse('authResponse', `Network error: ${error.message}`, true);
+        } finally {
+            showLoading(false);
         }
     }
 
-    function toggleTokenDisplay() {
-        tokenVisible = !tokenVisible;
-        if (tokenVisible) {
-            tokenSection.classList.remove('hidden');
-            toggleTokenBtn.innerHTML = '<span>🙈</span> Hide Tokens';
-            updateTokenDisplay();
-        } else {
-            tokenSection.classList.add('hidden');
-            toggleTokenBtn.innerHTML = '<span>👁️</span> Show Tokens';
-        }
-    }
-
-    function logout() {
+    function clearLocalState() {
         currentTokens = null;
+        currentUser = null;
         tokenVisible = false;
+        tokenExpiryTime = null;
+        initialTokenDuration = null;
 
         // Reset UI
-        loginSection.classList.remove('hidden');
-        authenticatedSection.classList.add('hidden');
-        userInfo.classList.remove('show');
-        tokenSection.classList.add('hidden');
-        statusMessage.innerHTML = '';
+        document.getElementById('userProfile').classList.remove('show');
+        document.getElementById('protectedResponse').classList.remove('show');
 
-        showStatus('Logged out successfully', 'success');
+        updateTokenDisplay(null);
+
         setTimeout(() => {
-            statusMessage.innerHTML = '';
+            document.getElementById('authResponse').classList.remove('show');
         }, 2000);
+    }
+
+    function clearTransactions() {
+        transactionHistory = [];
+        const detailsContainer = document.getElementById('transactionDetails');
+        if (detailsContainer) {
+            detailsContainer.classList.remove('visible');
+            setTimeout(() => {
+                detailsContainer.innerHTML = `
+                    <p style="text-align: center; color: #6c757d; font-style: italic; padding: 20px;">
+                        Click any endpoint button to see detailed HTTP request/response messages
+                    </p>
+                `;
+            }, 300);
+        }
     }
 
     function showLoading(show) {
@@ -510,8 +1522,80 @@ async function fetchUserProfile() {
         }
     }
 
-    function showStatus(message, type) {
-        statusMessage.innerHTML = `<div class="status ${type}">${message}</div>`;
+    function displayResponse(elementId, response, isError = false) {
+        const element = document.getElementById(elementId);
+
+        const header = element.querySelector('.response-header');
+        element.innerHTML = '';
+        if (header) {
+            element.appendChild(header);
+        }
+
+        const textNode = document.createTextNode(response);
+        element.appendChild(textNode);
+
+        element.className = `response ${isError ? 'error' : 'success'}`;
+        element.classList.add('show');
+    }
+
+    function updateTokenDisplay(tokens) {
+        const tokenDisplay = document.getElementById('tokenDisplay');
+
+        if (tokens && tokens.accessToken) {
+            currentTokens = tokens;
+            tokenExpiryTime = new Date(Date.now() + (tokens.expiresIn * 1000));
+            initialTokenDuration = tokens.expiresIn;
+
+            // Always show truncated tokens for security
+            tokenDisplay.innerHTML = `
+                <strong>Access Token:</strong><br>${tokens.accessToken.substring(0, 50)}...<br><br>
+                <strong>Refresh Token:</strong><br>${tokens.refreshToken.substring(0, 50)}...<br><br>
+                <strong>Token Type:</strong> ${tokens.tokenType}<br>
+                <strong>Expires In:</strong> ${tokens.expiresIn} seconds
+            `;
+
+            tokenDisplay.classList.add('has-token');
+
+            JWTDecoder.display(tokens.accessToken);
+            updateAuthStatus();
+
+            // Start the countdown timer
+            TokenTimer.start(tokenExpiryTime, initialTokenDuration);
+        } else {
+            currentTokens = null;
+            tokenExpiryTime = null;
+            initialTokenDuration = null;
+            tokenVisible = false; // Reset visibility when clearing tokens
+
+            tokenDisplay.innerHTML = '<span style="color: #999;">No access token yet. Sign in with GitHub to receive tokens.</span>';
+            tokenDisplay.classList.remove('has-token');
+
+            JWTDecoder.hide();
+            updateAuthStatus();
+
+            // Hide the timer
+            TokenTimer.hide();
+        }
+    }
+
+    function updateAuthStatus() {
+        const statusIndicator = document.getElementById('authStatus');
+        const loginBtn = document.getElementById('loginBtn');
+        const authenticatedActions = document.getElementById('authenticatedActions');
+
+        if (currentTokens && currentTokens.accessToken) {
+            statusIndicator.classList.remove('disconnected');
+            statusIndicator.classList.add('connected');
+            // Hide login button, show authenticated actions
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (authenticatedActions) authenticatedActions.style.display = 'block';
+        } else {
+            statusIndicator.classList.remove('connected');
+            statusIndicator.classList.add('disconnected');
+            // Show login button, hide authenticated actions
+            if (loginBtn) loginBtn.style.display = 'inline-flex';
+            if (authenticatedActions) authenticatedActions.style.display = 'none';
+        }
     }
 </script>
 </body>
