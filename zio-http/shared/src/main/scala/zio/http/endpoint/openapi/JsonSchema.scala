@@ -1083,7 +1083,7 @@ object JsonSchema {
         Chunk(Predicate.Str.MaxLength(l).asInstanceOf[Predicate[_]])
       case Bool.Leaf(Predicate.Str.MinLength(l))                                                                =>
         Chunk(Predicate.Str.MinLength(l).asInstanceOf[Predicate[_]])
-      case Bool.Leaf(Predicate.Str.Matches(r)) if not                                                           =>
+      case Bool.Leaf(Predicate.Str.Matches(r))                                                                  =>
         Chunk(Predicate.Str.Matches(r).asInstanceOf[Predicate[_]])
       case Bool.Leaf(Predicate.Num.GreaterThan(num, v)) if not && num.isInstanceOf[NumType.IntType.type]        =>
         Chunk(
