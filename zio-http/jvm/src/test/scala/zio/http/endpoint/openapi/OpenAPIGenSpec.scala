@@ -154,7 +154,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     age: Int,
   )
 
-  object AgeParam      {
+  object AgeParam {
     implicit val schema: Schema[AgeParam] = DeriveSchema.gen
   }
 
@@ -163,6 +163,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     @validate(Validation.regex(Regex.letter.atLeast(1)))
     userName: String,
   )
+
   object UserNameParam {
     implicit val schema: Schema[UserNameParam] = DeriveSchema.gen
   }
