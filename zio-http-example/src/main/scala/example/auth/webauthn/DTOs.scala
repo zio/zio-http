@@ -36,6 +36,7 @@ object FinishRegistrationRequest {
 case class FinishRegistrationResponse(
   success: Boolean,
   credentialId: String,
+  username: String, // Added username field
   message: String,
 )
 

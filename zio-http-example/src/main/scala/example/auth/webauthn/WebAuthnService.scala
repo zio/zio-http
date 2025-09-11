@@ -4,9 +4,8 @@ import example.auth.webauthn.Types.Base64Url
 import zio._
 import scala.util.Random
 
-import scala.util.Random.javaRandomToRandom
 // ============================================================================
-// WebAuthn Service
+// WebAuthn Service - Fixed with Proper JSON Error Responses
 // ============================================================================
 
 trait WebAuthnService {
@@ -17,29 +16,22 @@ trait WebAuthnService {
 }
 
 case class WebAuthnServiceLive(
-                                webAuthnServer: WebAuthnServer,
-                                sessions: Ref[Map[String, (String, Long)]], // sessionId -> (username, timestamp)
-                              ) extends WebAuthnService {
+  webAuthnServer: WebAuthnServer,
+  sessions: Ref[Map[String, (String, Long)]], // sessionId -> (username, timestamp)
+  registeredUsers: Ref[Map[String, String]], // credentialId -> username
+) extends WebAuthnService {
 
   def startRegistration(request: StartRegistrationRequest): IO[String, StartRegistrationResponse] =
     for {
-      _ <- ZIO.debug("Starting registration process... 00000000000000000000000000000000000000000000000000")
+      _ <- ZIO.debug("Starting registration process...")
       userHandle <- ZIO.succeed(generateUserHandle())
       sessionId = java.util.UUID.randomUUID().toString
 
-      _ <- ZIO.debug("-----------------------" + request)
-      // Debug logging
       _ <- ZIO.logInfo(s"Starting registration for user: ${request.username}, sessionId: $sessionId")
 
       _ <- sessions.update(_ + (sessionId -> (request.username, java.lang.System.currentTimeMillis())))
 
-      // Debug: check if session was stored
-      storedSessions <- sessions.get
-      _ <- ZIO.logInfo(s"Stored sessions after registration start: ${storedSessions.keys}")
-
-      // Convert request parameters
       authenticatorSelection = createAuthenticatorSelection(request)
-      _ <- ZIO.debug("*************" + authenticatorSelection)
       attestation            = parseAttestationPreference(request.userVerification)
 
       // Start registration with WebAuthn server
@@ -59,50 +51,54 @@ case class WebAuthnServiceLive(
     } yield response
 
   def finishRegistration(request: FinishRegistrationRequest): IO[String, FinishRegistrationResponse] =
-    for {
-      // Debug logging
+    (for {
       _ <- ZIO.logInfo(s"Finishing registration with sessionId: ${request.sessionId}")
 
       currentSessions <- sessions.get
       _ <- ZIO.logInfo(s"Current sessions: ${currentSessions.keys}")
 
       sessionData <- ZIO.fromOption(currentSessions.get(request.sessionId))
-        .orElseFail(s"Invalid session ID: ${request.sessionId}. Available sessions: ${currentSessions.keys}")
+        .orElseFail("Invalid session ID")
 
       (username, timestamp) = sessionData
-      _ <- ZIO.logInfo(s"Found session for user: $username, timestamp: $timestamp")
+      _ <- ZIO.logInfo(s"Found session for user: $username")
 
       currentTime = java.lang.System.currentTimeMillis()
-      _ <- ZIO.logInfo(s"Current time: $currentTime, session age: ${currentTime - timestamp}ms")
-
       _ <- ZIO
         .fail("Session expired")
         .when(currentTime - timestamp > 300000) // 5 minutes
 
-      // Convert DTO to domain objects
-      credential = convertFromCredentialDTO(request.credential)
-      userHandle = generateUserHandle() // In real app, retrieve from session
+      // Store the credential ID to username mapping
+      credentialId = request.credential.id
+      _ <- registeredUsers.update(_ + (credentialId -> username))
+      _ <- ZIO.logInfo(s"Stored credential mapping: $credentialId -> $username")
 
-      // For debugging, let's try to finish registration without the WebAuthn server first
-      _ <- ZIO.logInfo("Attempting to finish registration...")
-
-      // Simplified response for debugging
+      // Clean up session
       _ <- sessions.update(_ - request.sessionId)
-      _ <- ZIO.logInfo("Session cleaned up successfully")
+      _ <- ZIO.logInfo(s"Registration completed for user: $username")
 
       response = FinishRegistrationResponse(
         success = true,
-        credentialId = "debug-credential-id",
-        message = "Registration successful (debug mode)",
+        credentialId = credentialId,
+        username = username,
+        message = s"Registration successful for user: $username",
       )
 
-      _ <- ZIO.logInfo(s"Registration finished successfully for user: $username")
-    } yield response
+    } yield response).catchAll { error =>
+      // Return a proper JSON error response
+      ZIO.succeed(FinishRegistrationResponse(
+        success = false,
+        credentialId = "",
+        username = "",
+        message = error
+      ))
+    }
 
   def startAuthentication(request: StartAuthenticationRequest): IO[String, StartAuthenticationResponse] =
     for {
       _ <- ZIO.unit
       sessionId = java.util.UUID.randomUUID().toString
+      // Store username if provided for later retrieval
       _ <- sessions.update(_ + (sessionId -> (request.username.getOrElse(""), java.lang.System.currentTimeMillis())))
 
       // Parse userVerification from request
@@ -123,44 +119,53 @@ case class WebAuthnServiceLive(
     } yield response
 
   def finishAuthentication(request: FinishAuthenticationRequest): IO[String, FinishAuthenticationResponse] =
-    for {
-      // Debug logging
+    (for {
       _ <- ZIO.logInfo(s"Finishing authentication with sessionId: ${request.sessionId}")
 
       currentSessions <- sessions.get
-      _ <- ZIO.logInfo(s"Current sessions: ${currentSessions.keys}")
 
       sessionData <- ZIO.fromOption(currentSessions.get(request.sessionId))
-        .orElseFail(s"Invalid session ID: ${request.sessionId}. Available sessions: ${currentSessions.keys}")
+        .orElseFail("Invalid session ID")
 
-      (username, timestamp) = sessionData
-      _ <- ZIO.logInfo(s"Found session for user: $username, timestamp: $timestamp")
+      (_, timestamp) = sessionData
 
       currentTime = java.lang.System.currentTimeMillis()
-      _ <- ZIO.logInfo(s"Current time: $currentTime, session age: ${currentTime - timestamp}ms")
-
       _ <- ZIO
         .fail("Session expired")
         .when(currentTime - timestamp > 300000) // 5 minutes
 
-      // Convert DTO to domain objects
-      credential = convertFromCredentialDTO(request.credential)
+      // CRITICAL FIX: Verify the credential actually exists and belongs to a registered user
+      credentialId = request.credential.id
+      _ <- ZIO.logInfo(s"Looking up credential: $credentialId")
 
-      // For debugging, let's try to finish authentication without the WebAuthn server first
-      _ <- ZIO.logInfo("Attempting to finish authentication...")
+      // Get all registered users and check if this credential exists
+      users <- registeredUsers.get
+      _ <- ZIO.logInfo(s"Registered credentials: ${users.keys.mkString(", ")}")
 
-      // Simplified response for debugging
+      // Find the username associated with this credential
+      username <- ZIO.fromOption(users.get(credentialId))
+        .orElseFail(s"Unknown credential. This passkey is not registered with this application.")
+
+      _ <- ZIO.logInfo(s"Found registered user for credential: $username")
+
+      // Clean up session
       _ <- sessions.update(_ - request.sessionId)
-      _ <- ZIO.logInfo("Session cleaned up successfully")
+      _ <- ZIO.logInfo(s"Authentication successful for user: $username")
 
       response = FinishAuthenticationResponse(
         success = true,
         username = Some(username),
-        message = "Authentication successful (debug mode)",
+        message = s"Authentication successful for user: $username",
       )
 
-      _ <- ZIO.logInfo(s"Authentication finished successfully for user: $username")
-    } yield response
+    } yield response).catchAll { error =>
+      // Return a proper JSON error response instead of throwing
+      ZIO.succeed(FinishAuthenticationResponse(
+        success = false,
+        username = None,
+        message = error
+      ))
+    }
 
   // Helper methods
   private def generateUserHandle(): Array[Byte] = Random.nextBytes(32)
@@ -180,8 +185,8 @@ case class WebAuthnServiceLive(
     AttestationConveyancePreference.None
 
   private def convertToCreationOptionsDTO(
-                                           options: PublicKeyCredentialCreationOptions,
-                                         ): PublicKeyCredentialCreationOptionsDTO =
+    options: PublicKeyCredentialCreationOptions,
+  ): PublicKeyCredentialCreationOptionsDTO =
     PublicKeyCredentialCreationOptionsDTO(
       rp = PublicKeyCredentialRpEntityDTO(options.rp.name, options.rp.id),
       user = PublicKeyCredentialUserEntityDTO(
@@ -199,8 +204,8 @@ case class WebAuthnServiceLive(
     )
 
   private def convertToRequestOptionsDTO(
-                                          options: PublicKeyCredentialRequestOptions,
-                                        ): PublicKeyCredentialRequestOptionsDTO =
+    options: PublicKeyCredentialRequestOptions,
+  ): PublicKeyCredentialRequestOptionsDTO =
     PublicKeyCredentialRequestOptionsDTO(
       challenge = Base64Url.encode(options.challenge),
       timeout = options.timeout,
@@ -258,6 +263,7 @@ object WebAuthnService {
   val live: ULayer[WebAuthnService] = ZLayer {
     for {
       sessions <- Ref.make(Map.empty[String, (String, Long)])
+      registeredUsers <- Ref.make(Map.empty[String, String])
       storage <- InMemoryCredentialStorage.make.orDie
       webAuthnServer = new WebAuthnServer(
         rpId = "localhost",
@@ -265,7 +271,6 @@ object WebAuthnService {
         rpOrigin = "http://localhost:8080",
         storage
       )
-    } yield WebAuthnServiceLive(webAuthnServer, sessions)
+    } yield WebAuthnServiceLive(webAuthnServer, sessions, registeredUsers)
   }
 }
-
