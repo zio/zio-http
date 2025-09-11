@@ -5,7 +5,7 @@ import zio.test._
 import zio.{Chunk, NonEmptyChunk, Scope, ZIO}
 
 import zio.schema.annotation._
-import zio.schema.validation.Validation
+import zio.schema.validation.{Regex, Validation}
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Method.{GET, POST}
@@ -158,6 +158,15 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit val schema: Schema[AgeParam] = DeriveSchema.gen
   }
 
+  case class UserNameParam(
+    @description("The username of the user. Should contain only letters and be at least 1 character long.")
+    @validate(Validation.regex(Regex.letter.atLeast(1)))
+    userName: String,
+  )
+  object UserNameParam {
+    implicit val schema: Schema[UserNameParam] = DeriveSchema.gen
+  }
+
   case class WithGenericPayload[A](a: A)
 
   object WithGenericPayload {
@@ -209,6 +218,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     Endpoint(GET / "withQuery")
       .in[SimpleInputBody]
       .query(HttpCodec.query[AgeParam])
+      .query(HttpCodec.query[UserNameParam])
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
@@ -1008,6 +1018,18 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |              "type" : "integer",
                              |              "format" : "int32",
                              |              "exclusiveMinimum" : 17
+                             |            },
+                             |            "allowReserved" : false,
+                             |            "style" : "form"
+                             |          },
+                             |          {
+                             |            "name" : "userName",
+                             |            "in" : "query",
+                             |            "description" : "The username of the user. Should contain only letters and be at least 1 character long.\n\n",
+                             |            "required" : true,
+                             |            "schema" : {
+                             |              "type" : "string",
+                             |              "pattern" : "([a-zA-Z])+"
                              |            },
                              |            "allowReserved" : false,
                              |            "style" : "form"
