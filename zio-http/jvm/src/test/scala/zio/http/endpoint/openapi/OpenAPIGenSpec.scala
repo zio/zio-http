@@ -5,7 +5,7 @@ import zio.test._
 import zio.{Chunk, NonEmptyChunk, Scope, ZIO}
 
 import zio.schema.annotation._
-import zio.schema.validation.Validation
+import zio.schema.validation.{Regex, Validation}
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Method.{GET, POST}
@@ -158,6 +158,16 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit val schema: Schema[AgeParam] = DeriveSchema.gen
   }
 
+  case class UserNameParam(
+    @description("The username of the user. Should contain only letters and be at least 1 character long.")
+    @validate(Validation.regex(Regex.letter.atLeast(1)))
+    userName: String,
+  )
+
+  object UserNameParam {
+    implicit val schema: Schema[UserNameParam] = DeriveSchema.gen
+  }
+
   case class WithGenericPayload[A](a: A)
 
   object WithGenericPayload {
@@ -209,6 +219,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     Endpoint(GET / "withQuery")
       .in[SimpleInputBody]
       .query(HttpCodec.query[AgeParam])
+      .query(HttpCodec.query[UserNameParam])
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
@@ -989,111 +1000,124 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
       test("with query parameter with validation") {
         val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", queryParamValidationEndpoint)
         val json         = toJsonAst(generated)
-        val expectedJson = """{
-                             |  "openapi" : "3.1.0",
-                             |  "info" : {
-                             |    "title" : "Simple Endpoint",
-                             |    "version" : "1.0"
-                             |  },
-                             |  "paths" : {
-                             |    "/withQuery" : {
-                             |      "get" : {
-                             |        "parameters" : [
-                             |          {
-                             |            "name" : "age",
-                             |            "in" : "query",
-                             |            "description" : "The age of the user. Must be greater than 17.\n\n",
-                             |            "required" : true,
-                             |            "schema" : {
-                             |              "type" : "integer",
-                             |              "format" : "int32",
-                             |              "exclusiveMinimum" : 17
-                             |            },
-                             |            "allowReserved" : false,
-                             |            "style" : "form"
-                             |          }
-                             |        ],
-                             |        "requestBody" : {
-                             |          "content" : {
-                             |            "application/json" : {
-                             |              "schema" : {
-                             |                "$ref" : "#/components/schemas/SimpleInputBody"
-                             |              }
-                             |            }
-                             |          },
-                             |          "required" : true
-                             |        },
-                             |        "responses" : {
-                             |          "200" : {
-                             |            "content" : {
-                             |              "application/json" : {
-                             |                "schema" : {
-                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
-                             |                }
-                             |              }
-                             |            }
-                             |          },
-                             |          "404" : {
-                             |            "content" : {
-                             |              "application/json" : {
-                             |                "schema" : {
-                             |                  "$ref" : "#/components/schemas/NotFoundError"
-                             |                }
-                             |              }
-                             |            }
-                             |          }
-                             |        }
-                             |      }
-                             |    }
-                             |  },
-                             |  "components" : {
-                             |    "schemas" : {
-                             |      "NotFoundError" : {
-                             |        "type" : "object",
-                             |        "properties" : {
-                             |          "message" : {
-                             |            "type" : "string"
-                             |          }
-                             |        },
-                             |        "required" : [
-                             |          "message"
-                             |        ]
-                             |      },
-                             |      "SimpleInputBody" : {
-                             |        "type" : "object",
-                             |        "properties" : {
-                             |          "name" : {
-                             |            "type" : "string"
-                             |          },
-                             |          "age" : {
-                             |            "type" : "integer",
-                             |            "format" : "int32"
-                             |          }
-                             |        },
-                             |        "required" : [
-                             |          "name",
-                             |          "age"
-                             |        ]
-                             |      },
-                             |      "SimpleOutputBody" : {
-                             |        "type" : "object",
-                             |        "properties" : {
-                             |          "userName" : {
-                             |            "type" : "string"
-                             |          },
-                             |          "score" : {
-                             |            "type" : "integer",
-                             |            "format" : "int32"
-                             |          }
-                             |        },
-                             |        "required" : [
-                             |          "userName",
-                             |          "score"
-                             |        ]
-                             |      }
-                             |    }
-                             |  }
-                             |}""".stripMargin
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/withQuery" : {
+            |      "get" : {
+            |        "parameters" : [
+            |          {
+            |            "name" : "age",
+            |            "in" : "query",
+            |            "description" : "The age of the user. Must be greater than 17.\n\n",
+            |            "required" : true,
+            |            "schema" : {
+            |              "type" : "integer",
+            |              "format" : "int32",
+            |              "exclusiveMinimum" : 17
+            |            },
+            |            "allowReserved" : false,
+            |            "style" : "form"
+            |          },
+            |          {
+            |            "name" : "userName",
+            |            "in" : "query",
+            |            "description" : "The username of the user. Should contain only letters and be at least 1 character long.\n\n",
+            |            "required" : true,
+            |            "schema" : {
+            |              "type" : "string",
+            |              "pattern" : "([a-zA-Z])+"
+            |            },
+            |            "allowReserved" : false,
+            |            "style" : "form"
+            |          }
+            |        ],
+            |        "requestBody" : {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" : {
+            |                "$ref" : "#/components/schemas/SimpleInputBody"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        },
+            |        "responses" : {
+            |          "200" : {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" : {
+            |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+            |                }
+            |              }
+            |            }
+            |          },
+            |          "404" : {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" : {
+            |                  "$ref" : "#/components/schemas/NotFoundError"
+            |                }
+            |              }
+            |            }
+            |          }
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "NotFoundError" : {
+            |        "type" : "object",
+            |        "properties" : {
+            |          "message" : {
+            |            "type" : "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "message"
+            |        ]
+            |      },
+            |      "SimpleInputBody" : {
+            |        "type" : "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" : "string"
+            |          },
+            |          "age" : {
+            |            "type" : "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name",
+            |          "age"
+            |        ]
+            |      },
+            |      "SimpleOutputBody" : {
+            |        "type" : "object",
+            |        "properties" : {
+            |          "userName" : {
+            |            "type" : "string"
+            |          },
+            |          "score" : {
+            |            "type" : "integer",
+            |            "format" : "int32"
+            |          }
+            |        },
+            |        "required" : [
+            |          "userName",
+            |          "score"
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
       test("optional header") {
