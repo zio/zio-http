@@ -376,6 +376,11 @@ object Response {
       Body.fromString("<!DOCTYPE html>" + data.encode),
     )
 
+  /**
+   * Note: Template2 Dom support is provided through implicit conversions in template2 package.
+   * Existing html method works with both old Html and template2 Dom types automatically.
+   */
+
   def httpVersionNotSupported: Response = error(Status.HttpVersionNotSupported)
 
   def httpVersionNotSupported(message: String): Response = error(Status.HttpVersionNotSupported, message)
