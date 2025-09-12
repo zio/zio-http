@@ -309,4 +309,4 @@ Key takeaways:
 - Production certificates should come from recognized CAs
 - Private CAs are excellent for development and internal services
 
-In the [next article](implementing-tls-with-intermediate-ca-signed-server-certificate), we'll explore certificate chains with intermediate CAs, which provide additional security and flexibility in certificate management.
+In the [next article](implementing-tls-with-intermediate-ca-signed-server-certificate.md), we'll explore certificate chains with intermediate CAs, which provide additional security and flexibility in certificate management.
