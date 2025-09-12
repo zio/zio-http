@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cookie-Based Authentication Demo</title>
+    <style>
+        body { font-family: monospace; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        input, button { display: block; margin: 10px 0; }
+        pre { background: #f0f0f0; padding: 10px; }
+        .hide { display: none; }
+        h1 { text-align: center; }
+    </style>
+</head>
+<body>
+<h1>Cookie-Based Authentication Demo</h1>
+<div id="loginForm">
+    <input id="user" placeholder="username (try: john)">
+    <input id="password" type="password" placeholder="password (try: password123)">
+    <button onclick="login()">Login</button>
+</div>
+<div id="loggedIn" class="hide">
+    <button onclick="getProfile()">Get Profile</button>
+    <button onclick="logout()">Logout</button>
+</div>
+<pre id="result">Results will appear here...</pre>
+<script>
+    function setLoginState(isLoggedIn) {
+        loginForm.classList.toggle('hide', isLoggedIn);
+        loggedIn.classList.toggle('hide', !isLoggedIn);
+    }
+
+    async function login() {
+        try {
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `username=${user.value}&password=${password.value}`
+            });
+            result.textContent = await res.text();
+            setLoginState(res.ok);
+        } catch(e) {
+            result.textContent = `Error: ${e.message}`;
+            setLoginState(false);
+        }
+    }
+
+    async function logout() {
+        try {
+            const res = await fetch('/logout');
+            result.textContent = await res.text();
+            setLoginState(!res.ok);
+        } catch(e) {
+            result.textContent = `Error: ${e.message}`;
+        }
+    }
+
+    async function getProfile() {
+        try {
+            const res = await fetch('/profile/me');
+            result.textContent = await res.text();
+        } catch(e) {
+            result.textContent = `error: ${e.message}`;
+        }
+    }
+
+        // Check session on load
+    window.onload = async () => {
+        try {
+            const res = await fetch('/profile/me');
+            const text = await res.text();
+            if (res.ok) {
+                result.textContent = 'Session is active!';
+                setLoginState(true);
+            } else {
+                result.textContent = text;
+                setLoginState(false);
+            }
+        } catch(e) {
+            result.textContent = `Error: ${e.message}`;
+            setLoginState(false);
+        }
+    };
+</script>
+</body>
+</html>
