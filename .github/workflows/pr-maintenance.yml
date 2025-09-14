@@ -1,0 +1,153 @@
+name: PR Maintenance Automation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+  schedule:
+    # Run daily at 12:00 UTC to check for stale PRs
+    - cron: '0 12 * * *'
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    types: [completed]
+
+jobs:
+  check-pr-format:
+    name: Check PR Format
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    steps:
+      - name: Check for fixes reference
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            // Check if PR title or body contains "fixes #XXX" pattern (case insensitive)
+            const fixesPattern = /(fixes|closes|resolves)\s+#\d+/i;
+            const hasFixesInTitle = fixesPattern.test(pr.title);
+            const hasFixesInBody = fixesPattern.test(pr.body || '');
+            
+            if (!hasFixesInTitle && !hasFixesInBody) {
+              const message = "👋 Hi @" + pr.user.login + "! \n\n" +
+                "Thanks for your contribution! 🎉\n\n" +
+                "Please remember to reference the issue this PR addresses by including `fixes #XXX` (or `closes #XXX`, `resolves #XXX`) in your PR title or description, where XXX is the issue number.\n\n" +
+                "This helps us automatically link your PR to the relevant issue and close it when the PR is merged.\n\n" +
+                "Examples:\n" +
+                "- `fixes #123`\n" +
+                "- `closes #456`\n" +
+                "- `resolves #789`\n\n" +
+                "You can edit your PR title or description to add this reference.";
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: message
+              });
+            }
+
+  cleanup-stale-prs:
+    name: Cleanup Stale PRs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Close stale PRs without successful builds
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+            
+            // Get all open PRs
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'asc'
+            });
+            
+            for (const pr of prs) {
+              // Skip draft PRs
+              if (pr.draft) {
+                console.log(`Skipping draft PR #${pr.number}`);
+                continue;
+              }
+              
+              const prUpdated = new Date(pr.updated_at);
+              
+              // Skip PRs updated within the last 5 days
+              if (prUpdated > fiveDaysAgo) {
+                continue;
+              }
+              
+              // Check if PR has any successful CI runs in the last 5 days
+              const { data: checkRuns } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: pr.head.sha,
+                status: 'completed'
+              });
+              
+              const hasSuccessfulBuild = checkRuns.check_runs.some(run => 
+                run.conclusion === 'success' && 
+                run.name.includes('Build and Test') &&
+                new Date(run.completed_at) > fiveDaysAgo
+              );
+              
+              // Also check workflow runs for the "Continuous Integration" workflow
+              const { data: workflowRuns } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head_sha: pr.head.sha,
+                status: 'completed'
+              });
+              
+              const hasSuccessfulWorkflow = workflowRuns.workflow_runs.some(run =>
+                run.conclusion === 'success' &&
+                run.name === 'Continuous Integration' &&
+                new Date(run.updated_at) > fiveDaysAgo
+              );
+              
+              if (!hasSuccessfulBuild && !hasSuccessfulWorkflow) {
+                console.log(`Closing stale PR #${pr.number} - no successful builds in 5 days`);
+                
+                // Comment before closing
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: "This PR is being automatically closed due to lack of activity and no successful builds for 5 days.\n\n" +
+                    "If you'd like to continue working on this PR, please:\n" +
+                    "1. Fix any failing tests or builds\n" +
+                    "2. Reopen the PR\n" + 
+                    "3. We'll be happy to review it again!\n\n" +
+                    "Thank you for your contribution! 🙏"
+                });
+                
+                // Close the PR
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  state: 'closed'
+                });
+              }
+            }
+
+  update-pr-after-ci:
+    name: Update PR after CI completion
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Update PR tracking
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // This job helps track CI completion for PRs
+            // The actual cleanup logic runs on schedule
+            console.log(`CI workflow ${github.event.workflow_run.name} completed with status: ${github.event.workflow_run.conclusion}`);
+            console.log(`For head SHA: ${github.event.workflow_run.head_sha}`);
