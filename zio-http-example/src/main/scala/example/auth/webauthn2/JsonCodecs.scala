@@ -1,0 +1,37 @@
+package example.auth.webauthn2
+
+import example.auth.webauthn2.models._
+import zio.json._
+
+/**
+ * JSON codecs for WebAuthn DTOs
+ */
+object JsonCodecs {
+  // Base64 URL encoding/decoding for byte arrays
+  implicit val byteArrayEncoder: JsonEncoder[Array[Byte]] =
+    JsonEncoder.string.contramap(java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(_))
+
+  implicit val byteArrayDecoder: JsonDecoder[Array[Byte]] =
+    JsonDecoder.string.map(java.util.Base64.getUrlDecoder.decode(_))
+
+  // Request decoders
+  implicit val registrationStartRequestDecoder: JsonDecoder[RegistrationStartRequest] = DeriveJsonDecoder.gen
+  implicit val attestationResponseDecoder: JsonDecoder[AttestationResponse] = DeriveJsonDecoder.gen
+  implicit val registrationFinishRequestDecoder: JsonDecoder[RegistrationFinishRequest] = DeriveJsonDecoder.gen
+
+  implicit val authenticationStartRequestDecoder: JsonDecoder[AuthenticationStartRequest] = DeriveJsonDecoder.gen
+  implicit val assertionResponseDecoder: JsonDecoder[AssertionResponse] = DeriveJsonDecoder.gen
+  implicit val authenticationFinishRequestDecoder: JsonDecoder[AuthenticationFinishRequest] = DeriveJsonDecoder.gen
+
+  implicit val clientDataDecoder: JsonDecoder[ClientData] = DeriveJsonDecoder.gen
+
+  // Response encoders
+  implicit val rpInfoEncoder: JsonEncoder[RpInfo] = DeriveJsonEncoder.gen
+  implicit val userInfoEncoder: JsonEncoder[UserInfo] = DeriveJsonEncoder.gen
+  implicit val credParamEncoder: JsonEncoder[CredParam] = DeriveJsonEncoder.gen
+  implicit val authSelectionEncoder: JsonEncoder[AuthSelection] = DeriveJsonEncoder.gen
+  implicit val registrationStartResponseEncoder: JsonEncoder[RegistrationStartResponse] = DeriveJsonEncoder.gen
+
+  implicit val allowedCredentialEncoder: JsonEncoder[AllowedCredential] = DeriveJsonEncoder.gen
+  implicit val authenticationStartResponseEncoder: JsonEncoder[AuthenticationStartResponse] = DeriveJsonEncoder.gen
+}
