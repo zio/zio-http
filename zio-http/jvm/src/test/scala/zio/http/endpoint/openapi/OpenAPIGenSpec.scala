@@ -179,6 +179,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit val schema: Schema[WithOptionalAdtPayload] = DeriveSchema.gen
   }
 
+  final case class WithNonEmptyPayload(items: NonEmptyChunk[String])
+  object WithNonEmptyPayload {
+    implicit val schema: Schema[WithNonEmptyPayload] = DeriveSchema.gen
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
@@ -3896,6 +3901,55 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        },
             |        "required" : [
             |          "name"
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("Non empty payload") {
+        val endpoint     = Endpoint(GET / "static").in[WithNonEmptyPayload]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" : {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" : {
+            |                "$ref" : "#/components/schemas/WithNonEmptyPayload"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "WithNonEmptyPayload" : {
+            |        "type" : "object",
+            |        "properties" : {
+            |          "items" : {
+            |            "type" : "array",
+            |            "items" : {
+            |              "type" : "string"
+            |            },
+            |            "minItems" : 1
+            |          }
+            |        },
+            |        "required" : [
+            |          "items"
             |        ]
             |      }
             |    }

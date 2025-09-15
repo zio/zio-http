@@ -698,7 +698,7 @@ object JsonSchema {
           case Schema.NonEmptySequence(elementSchema, _, _, _, identity) =>
             JsonSchema.ArrayType(
               Some(fromZSchema(elementSchema, refType)),
-              None,
+              Some(1),
               uniqueItems = identity == "NonEmptySet",
             )
           case Schema.Map(keySchema, valueSchema, _)                     =>
