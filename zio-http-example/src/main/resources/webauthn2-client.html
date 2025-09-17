@@ -1103,7 +1103,6 @@
 
             // Log the WebAuthn API call
             logDebug('auth-webauthn-call', {
-                type: 'navigator.credentials.get',
                 publicKey: {
                     ...publicKeyCredentialRequestOptions,
                     challenge: arrayBufferToBase64url(publicKeyCredentialRequestOptions.challenge),
@@ -1130,7 +1129,6 @@
                     userHandle: assertion.response.userHandle ?
                         arrayBufferToBase64url(assertion.response.userHandle) : null
                 },
-                type: assertion.type
             };
 
             logDebug('auth-finish-request', assertionForServer);
@@ -1217,7 +1215,6 @@
 
             // Log the WebAuthn API call
             logDebug('reg-webauthn-call', {
-                type: 'navigator.credentials.create',
                 publicKey: {
                     ...publicKeyCredentialCreationOptions,
                     challenge: arrayBufferToBase64url(publicKeyCredentialCreationOptions.challenge),
@@ -1244,7 +1241,6 @@
                     clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
                     attestationObject: arrayBufferToBase64url(credential.response.attestationObject)
                 },
-                type: credential.type
             };
 
             logDebug('reg-finish-request', credentialForServer);

@@ -1,6 +1,6 @@
 package example.auth.webauthn2
 
-import example.auth.webauthn2.JsonCodecs._
+import example.auth.webauthn2.models.JsonCodecs._
 import example.auth.webauthn2.models._
 import zio._
 import zio.http._

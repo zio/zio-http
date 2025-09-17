@@ -12,7 +12,6 @@ case class RegistrationFinishRequest(
   id: String,
   rawId: String,
   response: AttestationResponse,
-  `type`: String,
 )
 
 case class AttestationResponse(
@@ -28,7 +27,6 @@ case class AuthenticationFinishRequest(
   id: String,
   rawId: String,
   response: AssertionResponse,
-  `type`: String,
 )
 
 case class AssertionResponse(

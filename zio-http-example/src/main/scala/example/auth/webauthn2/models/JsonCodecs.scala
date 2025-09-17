@@ -1,6 +1,5 @@
-package example.auth.webauthn2
+package example.auth.webauthn2.models
 
-import example.auth.webauthn2.models._
 import zio.json._
 
 /**

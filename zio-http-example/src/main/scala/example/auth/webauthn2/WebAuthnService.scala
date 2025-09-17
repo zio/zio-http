@@ -3,10 +3,9 @@ package example.auth.webauthn2
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
 import com.yubico.webauthn.exception.{AssertionFailedException, RegistrationFailedException}
-import example.auth.webauthn2.JsonCodecs._
-import example.auth.webauthn2.models._
-import example.auth.webauthn2.InMemoryCredentialRepository
+import example.auth.webauthn2.models.JsonCodecs._
 import example.auth.webauthn2.WebAuthnUtils._
+import example.auth.webauthn2.models._
 import zio._
 import zio.json._
 
@@ -48,33 +47,34 @@ class WebAuthnService {
       .id(userHandle) // Use unique handle instead of username bytes
       .build()
 
-    val creationOptions: PublicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions
-      .builder()
-      .rp(
-        RelyingPartyIdentity
-          .builder()
-          .id("localhost")
-          .name("WebAuthn Demo - Discoverable Passkeys")
-          .build(),
-      )
-      .user(userIdentity)
-      .challenge(generateChallenge())
-      .pubKeyCredParams(
-        List(
-          PublicKeyCredentialParameters.ES256,
-          PublicKeyCredentialParameters.RS256,
-        ).asJava,
-      )
-      .authenticatorSelection(
-        AuthenticatorSelectionCriteria
-          .builder()
-          .residentKey(ResidentKeyRequirement.REQUIRED)           // Changed to REQUIRED for discoverable passkeys
-          .userVerification(UserVerificationRequirement.REQUIRED) // Changed to REQUIRED for better security
-          .build(),
-      )
-      .attestation(AttestationConveyancePreference.NONE)
-      .timeout(60000L)
-      .build()
+    val creationOptions: PublicKeyCredentialCreationOptions =
+      PublicKeyCredentialCreationOptions
+        .builder()
+        .rp(
+          RelyingPartyIdentity
+            .builder()
+            .id("localhost")
+            .name("WebAuthn Demo - Discoverable Passkeys")
+            .build(),
+        )
+        .user(userIdentity)
+        .challenge(generateChallenge())
+        .pubKeyCredParams(
+          List(
+            PublicKeyCredentialParameters.ES256,
+            PublicKeyCredentialParameters.RS256,
+          ).asJava,
+        )
+        .authenticatorSelection(
+          AuthenticatorSelectionCriteria
+            .builder()
+            .residentKey(ResidentKeyRequirement.REQUIRED) // TODO: Changed to REQUIRED for discoverable passkeys
+            .userVerification(UserVerificationRequirement.REQUIRED) // TODO: Changed to REQUIRED for better security
+            .build(),
+        )
+        .attestation(AttestationConveyancePreference.NONE)
+        .timeout(60000L)
+        .build()
 
     registrationRequests.put(username, creationOptions)
 
