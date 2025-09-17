@@ -1,11 +1,11 @@
 package example.auth.webauthn2.models
 
-import com.yubico.webauthn.data.{
-  AuthenticatorAttestationResponse,
-  ClientRegistrationExtensionOutputs,
-  PublicKeyCredential,
-}
+import com.yubico.webauthn.data.{AuthenticatorAssertionResponse, AuthenticatorAttestationResponse, ClientAssertionExtensionOutputs, ClientRegistrationExtensionOutputs, PublicKeyCredential}
+import zio.Chunk
 import zio.json.ast.{Json, JsonCursor}
+import zio.schema.Schema
+import zio.schema.codec.{BinaryCodec, DecodeError}
+import zio.stream.ZPipeline
 
 /**
  * Request DTOs for WebAuthn operations
@@ -43,10 +43,22 @@ case class AuthenticationStartRequest(username: Option[String])
 
 case class AuthenticationFinishRequest(
   username: Option[String], // Optional for discoverable passkeys
-  id: String,
-  rawId: String,
-  response: AssertionResponse,
+  publicKeyCredential: PublicKeyCredential[AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs],
 )
+
+object AuthenticationFinishRequest {
+  import zio.json._
+  implicit val decoder: JsonDecoder[AuthenticationFinishRequest] =
+    JsonDecoder[Json].mapOrFail { o =>
+      for {
+        u   <- o.get(JsonCursor.field("username")).flatMap(_.as[Option[String]])
+        pkc <- o
+          .get(JsonCursor.field("publicKeyCredential"))
+          .map(_.toString())
+          .map(PublicKeyCredential.parseAssertionResponseJson)
+      } yield AuthenticationFinishRequest(u, pkc)
+    }
+}
 
 case class AssertionResponse(
   clientDataJSON: String,

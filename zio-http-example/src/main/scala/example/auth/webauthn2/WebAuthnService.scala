@@ -23,18 +23,19 @@ class WebAuthnService {
   private val registrationRequests   = new ConcurrentHashMap[String, PublicKeyCredentialCreationOptions]()
   private val authenticationRequests = new ConcurrentHashMap[String, AssertionRequest]()
 
-  private val rp = RelyingParty
-    .builder()
-    .identity(
-      RelyingPartyIdentity
-        .builder()
-        .id("localhost")
-        .name("WebAuthn Demo")
-        .build(),
-    )
-    .credentialRepository(credentialRepository)
-    .origins(Set("http://localhost:8080").asJava)
-    .build()
+  private val rp =
+    RelyingParty
+      .builder()
+      .identity(
+        RelyingPartyIdentity
+          .builder()
+          .id("localhost")
+          .name("WebAuthn Demo")
+          .build(),
+      )
+      .credentialRepository(credentialRepository)
+      .origins(Set("http://localhost:8080").asJava)
+      .build()
 
   def startRegistration(username: String): Task[RegistrationStartResponse] = ZIO.attempt {
     // Generate a unique user handle for discoverable passkeys
@@ -105,30 +106,26 @@ class WebAuthnService {
   }
 
   def finishRegistration(
-    request: PublicKeyCredential[AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs],
-    username: String,
+    request: RegistrationFinishRequest,
   ): Task[String] = ZIO.attempt {
-    val creationOptions = registrationRequests.get(username)
+    val creationOptions = registrationRequests.get(request.username)
 
     if (creationOptions == null) {
       println("No registration request found for user")
       throw new Exception("No registration request found for user")
     }
 
-    println("aaaaaaaaaaaaaaaaaa")
     // Verify the registration
     val result = rp.finishRegistration(
       FinishRegistrationOptions
         .builder()
         .request(creationOptions)
-        .response(request)
+        .response(request.publicKeyCredential)
         .build(),
     )
 
-    println("bbbbbbbbbbbbbbbbbbbbb")
     if (result.isUserVerified) {
 
-      println("ccccccccccccccccccccc")
       // Get the user handle from the creation options
       val userHandle = creationOptions.getUser.getId
 
@@ -137,15 +134,13 @@ class WebAuthnService {
         credentialId = result.getKeyId.getId,
         publicKeyCose = result.getPublicKeyCose,
         signatureCount = result.getSignatureCount,
-        username = username,
+        username = request.username,
         userHandle = userHandle,
       )
 
-      println("jjjjjjjjjjjjjjjjjjjjjjjjjjjj")
       credentialRepository.addCredential(storedCredential)
-      registrationRequests.remove(username)
+      registrationRequests.remove(request.username)
 
-      println("rrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
       "Registration successful - Discoverable passkey created!"
     } else {
       throw new RegistrationFailedException(new IllegalArgumentException("User verification failed"))
@@ -214,14 +209,13 @@ class WebAuthnService {
       case Some(user) if user.nonEmpty => user
       case _                           =>
         // Extract username from userHandle in the response
-        request.response.userHandle match {
-          case Some(handleStr) =>
-            val userHandle = new ByteArray(base64UrlDecode(handleStr))
+        request.publicKeyCredential.getResponse.getUserHandle.toScala match {
+          case Some(userHandle) =>
             credentialRepository
               .getUsernameForUserHandle(userHandle)
               .toScala
               .getOrElse(throw new Exception("User not found for provided handle"))
-          case None            =>
+          case None             =>
             throw new Exception("No username or userHandle provided")
         }
     }
@@ -234,30 +228,15 @@ class WebAuthnService {
           .getOrElse(throw new Exception(s"No authentication request found for user: $user"))
       case None       =>
         // Usernameless flow - need to find by matching challenge
-        val clientDataJSON = new String(base64UrlDecode(request.response.clientDataJSON))
+        val clientDataJSON = request.publicKeyCredential.getResponse.getClientDataJSON.getBase64
         findAssertionRequestByClientData(clientDataJSON)
           .getOrElse(throw new Exception("No matching authentication request found"))
     }
 
+    // TODO: is it important?
     val storedCred = credentialRepository
       .getStoredCredential(actualUsername)
       .getOrElse(throw new Exception(s"User not registered: $actualUsername"))
-
-    // Create the credential from the client response
-    val credential = PublicKeyCredential
-      .builder()
-      .id(new ByteArray(base64UrlDecode(request.rawId)))
-      .response(
-        AuthenticatorAssertionResponse
-          .builder()
-          .authenticatorData(new ByteArray(base64UrlDecode(request.response.authenticatorData)))
-          .clientDataJSON(new ByteArray(base64UrlDecode(request.response.clientDataJSON)))
-          .signature(new ByteArray(base64UrlDecode(request.response.signature)))
-          .userHandle(request.response.userHandle.map(uh => new ByteArray(base64UrlDecode(uh))).toJava)
-          .build(),
-      )
-      .clientExtensionResults(ClientAssertionExtensionOutputs.builder().build())
-      .build()
 
     // Verify the assertion
     val result =
@@ -266,7 +245,7 @@ class WebAuthnService {
           FinishAssertionOptions
             .builder()
             .request(assertionRequest)
-            .response(credential)
+            .response(request.publicKeyCredential)
             .build(),
         )
       } catch {

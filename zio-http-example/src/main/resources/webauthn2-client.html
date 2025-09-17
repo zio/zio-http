@@ -1136,7 +1136,7 @@
           // Send to server (add username field for compatibility)
           const assertionForServer = {
             username: null,
-            ...assertionJSON,
+            publicKeyCredential: assertionJSON,
           };
 
           logDebug("auth-finish-request", assertionForServer);
@@ -1368,7 +1368,7 @@
           // Send to server
           const assertionForServer = {
             username: username,
-            ...assertionJSON,
+            publicKeyCredential: assertionJSON,
           };
 
           logDebug("auth-finish-request", assertionForServer);

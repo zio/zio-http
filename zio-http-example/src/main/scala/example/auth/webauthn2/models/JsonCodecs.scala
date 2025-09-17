@@ -20,7 +20,7 @@ object JsonCodecs {
 
   implicit val authenticationStartRequestDecoder: JsonDecoder[AuthenticationStartRequest] = DeriveJsonDecoder.gen
   implicit val assertionResponseDecoder: JsonDecoder[AssertionResponse] = DeriveJsonDecoder.gen
-  implicit val authenticationFinishRequestDecoder: JsonDecoder[AuthenticationFinishRequest] = DeriveJsonDecoder.gen
+//  implicit val authenticationFinishRequestDecoder: JsonDecoder[AuthenticationFinishRequest] = DeriveJsonDecoder.gen
 
   implicit val clientDataDecoder: JsonDecoder[ClientData] = DeriveJsonDecoder.gen
 

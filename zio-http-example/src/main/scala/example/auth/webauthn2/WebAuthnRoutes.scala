@@ -1,7 +1,9 @@
 package example.auth.webauthn2
 
 import com.yubico.webauthn.data.{
+  AuthenticatorAssertionResponse,
   AuthenticatorAttestationResponse,
+  ClientAssertionExtensionOutputs,
   ClientRegistrationExtensionOutputs,
   PublicKeyCredential,
 }
@@ -27,16 +29,16 @@ object WebAuthnRoutes {
       // Registration endpoints
       Method.POST / "api" / "webauthn" / "registration" / "start"  -> handler { (req: Request) =>
         for {
-          body     <- req.body.asString.debug("1")
-          request  <- ZIO.fromEither(body.fromJson[RegistrationStartRequest]).debug("2")
+          body     <- req.body.asString
+          request  <- ZIO.fromEither(body.fromJson[RegistrationStartRequest])
           response <- service.startRegistration(request.username)
         } yield Response.json(response.toJson)
       },
       Method.POST / "api" / "webauthn" / "registration" / "finish" -> handler { (req: Request) =>
         for {
-          body <- req.body.asString
-          req  <- ZIO.fromEither(body.fromJson[RegistrationFinishRequest]).flatMapError(x => ZIO.debug("error: "  + x))
-          result <- service.finishRegistration(req.publicKeyCredential, req.username)
+          body    <- req.body.asString
+          request <- ZIO.fromEither(body.fromJson[RegistrationFinishRequest])
+          result  <- service.finishRegistration(request)
         } yield Response.text(result)
       },
 
@@ -50,9 +52,9 @@ object WebAuthnRoutes {
       },
       Method.POST / "api" / "webauthn" / "authentication" / "finish" -> handler { (req: Request) =>
         for {
-          body    <- req.body.asString.debug("a")
-          request <- ZIO.fromEither(body.fromJson[AuthenticationFinishRequest]).debug("b")
-          result  <- service.finishAuthentication(request).debug("3")
+          body    <- req.body.asString
+          request <- ZIO.fromEither(body.fromJson[AuthenticationFinishRequest])
+          result  <- service.finishAuthentication(request)
         } yield Response.text(result)
       },
     ).sandbox @@ Middleware.cors
