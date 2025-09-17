@@ -104,34 +104,31 @@ class WebAuthnService {
     )
   }
 
-  def finishRegistration(request: RegistrationFinishRequest): Task[String] = ZIO.attempt {
-    val creationOptions = registrationRequests.get(request.username)
-    if (creationOptions == null) throw new Exception("No registration request found for user")
+  def finishRegistration(
+    request: PublicKeyCredential[AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs],
+    username: String,
+  ): Task[String] = ZIO.attempt {
+    val creationOptions = registrationRequests.get(username)
 
-    // Create the credential from the client response
-    val credential = PublicKeyCredential
-      .builder()
-      .id(new ByteArray(base64UrlDecode(request.rawId)))
-      .response(
-        AuthenticatorAttestationResponse
-          .builder()
-          .attestationObject(new ByteArray(base64UrlDecode(request.response.attestationObject)))
-          .clientDataJSON(new ByteArray(base64UrlDecode(request.response.clientDataJSON)))
-          .build(),
-      )
-      .clientExtensionResults(ClientRegistrationExtensionOutputs.builder().build())
-      .build()
+    if (creationOptions == null) {
+      println("No registration request found for user")
+      throw new Exception("No registration request found for user")
+    }
 
+    println("aaaaaaaaaaaaaaaaaa")
     // Verify the registration
     val result = rp.finishRegistration(
       FinishRegistrationOptions
         .builder()
         .request(creationOptions)
-        .response(credential)
+        .response(request)
         .build(),
     )
 
+    println("bbbbbbbbbbbbbbbbbbbbb")
     if (result.isUserVerified) {
+
+      println("ccccccccccccccccccccc")
       // Get the user handle from the creation options
       val userHandle = creationOptions.getUser.getId
 
@@ -140,13 +137,15 @@ class WebAuthnService {
         credentialId = result.getKeyId.getId,
         publicKeyCose = result.getPublicKeyCose,
         signatureCount = result.getSignatureCount,
-        username = request.username,
+        username = username,
         userHandle = userHandle,
       )
 
+      println("jjjjjjjjjjjjjjjjjjjjjjjjjjjj")
       credentialRepository.addCredential(storedCredential)
-      registrationRequests.remove(request.username)
+      registrationRequests.remove(username)
 
+      println("rrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
       "Registration successful - Discoverable passkey created!"
     } else {
       throw new RegistrationFailedException(new IllegalArgumentException("User verification failed"))

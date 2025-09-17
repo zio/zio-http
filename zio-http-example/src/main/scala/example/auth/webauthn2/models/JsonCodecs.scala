@@ -16,7 +16,7 @@ object JsonCodecs {
   // Request decoders
   implicit val registrationStartRequestDecoder: JsonDecoder[RegistrationStartRequest] = DeriveJsonDecoder.gen
   implicit val attestationResponseDecoder: JsonDecoder[AttestationResponse] = DeriveJsonDecoder.gen
-  implicit val registrationFinishRequestDecoder: JsonDecoder[RegistrationFinishRequest] = DeriveJsonDecoder.gen
+//  implicit val registrationFinishRequestDecoder: JsonDecoder[RegistrationFinishRequest] = DeriveJsonDecoder.gen
 
   implicit val authenticationStartRequestDecoder: JsonDecoder[AuthenticationStartRequest] = DeriveJsonDecoder.gen
   implicit val assertionResponseDecoder: JsonDecoder[AssertionResponse] = DeriveJsonDecoder.gen

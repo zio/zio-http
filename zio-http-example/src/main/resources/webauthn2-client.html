@@ -1,1409 +1,1482 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAuthn Demo - Passkeys vs Username Authentication (Debug Edition)</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      WebAuthn Demo - Passkeys vs Username Authentication (Debug Edition)
+    </title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
 
+      .main-container {
+        max-width: 1400px;
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+      }
+
+      @media (max-width: 768px) {
         .main-container {
-            max-width: 1400px;
-            width: 100%;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-
-        @media (max-width: 768px) {
-            .main-container {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .container {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .container.passkey-section {
-            border-top: 4px solid #a855f7;
-        }
-
-        .container.username-section {
-            border-top: 4px solid #3b82f6;
-        }
-
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 24px;
-        }
-
-        h2 {
-            color: #555;
-            font-size: 20px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 30px;
-            line-height: 1.5;
-        }
-
-        .feature-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            background: linear-gradient(135deg, #667eea 0%, #a855f7 100%);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
-
-        .username-badge {
-            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
-        }
-
-        .section {
-            margin-bottom: 25px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .input-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .username-section input:focus {
-            border-color: #3b82f6;
-        }
-
-        button {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            margin-bottom: 10px;
-        }
-
-        .passkey-register-btn {
-            background: linear-gradient(135deg, #667eea 0%, #a855f7 100%);
-            color: white;
-        }
-
-        .passkey-register-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
-        }
-
-        .passkey-login-btn {
-            background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-            color: white;
-        }
-
-        .passkey-login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.4);
-        }
-
-        .username-register-btn {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .username-register-btn:hover {
-            background: #2563eb;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-        }
-
-        .username-login-btn {
-            background: #10b981;
-            color: white;
-        }
-
-        .username-login-btn:hover {
-            background: #059669;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        .message {
-            margin-top: 20px;
-            padding: 12px;
-            border-radius: 8px;
-            text-align: center;
-            font-size: 14px;
-            display: none;
-        }
-
-        .message.success {
-            background: #c6f6d5;
-            color: #22543d;
-            border: 1px solid #9ae6b4;
-            display: block;
-        }
-
-        .message.error {
-            background: #fed7d7;
-            color: #742a2a;
-            border: 1px solid #fc8181;
-            display: block;
-        }
-
-        .message.info {
-            background: #bee3f8;
-            color: #2c5282;
-            border: 1px solid #90cdf4;
-            display: block;
-        }
-
-        .divider {
-            position: relative;
-            text-align: center;
-            margin: 20px 0;
-        }
-
-        .divider::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: #e0e0e0;
-        }
-
-        .divider span {
-            position: relative;
-            padding: 0 15px;
-            background: #f8f9fa;
-            color: #999;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .info-box {
-            background: #f0f4ff;
-            border: 1px solid #d0d8ff;
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 13px;
-            color: #4a5568;
-            line-height: 1.5;
-        }
-
-        .info-box.username-info {
-            background: #eff6ff;
-            border-color: #bfdbfe;
-        }
-
-        .info-box strong {
-            color: #2d3748;
-        }
-
-        .feature-list {
-            list-style: none;
-            padding: 0;
-            margin: 15px 0;
-        }
-
-        .feature-list li {
-            padding: 8px 0;
-            color: #4a5568;
-            font-size: 14px;
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-        }
-
-        .feature-list li::before {
-            content: '✔';
-            color: #10b981;
-            font-weight: bold;
-            flex-shrink: 0;
-        }
-
-        .header-title {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-            margin-bottom: 30px;
-            text-align: center;
-            grid-column: 1 / -1;
-        }
-
-        .header-title h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
-        .header-title p {
-            color: #666;
-            font-size: 16px;
-        }
-
-        /* Debug Panel Styles */
-        .debug-container {
-            grid-column: 1 / -1;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            margin-top: 30px;
-            overflow: hidden;
-        }
-
-        .debug-header {
-            background: linear-gradient(135deg, #495057 0%, #343a40 100%);
-            color: white;
-            padding: 20px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .debug-header h2 {
-            color: white;
-            font-size: 1.3em;
-            margin: 0;
-        }
-
-        .clear-debug-btn {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-
-        .clear-debug-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .debug-content {
-            padding: 30px;
-        }
-
-        .debug-flow {
-            margin-bottom: 30px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .flow-header {
-            background: #f8f9fa;
-            padding: 15px 20px;
-            border-bottom: 2px solid #e0e0e0;
-            font-weight: 600;
-            color: #495057;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .flow-type-badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.75em;
-            font-weight: 600;
-            color: white;
-        }
-
-        .badge-passkey-flow {
-            background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-        }
-
-        .badge-username-flow {
-            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
-        }
-
-        .debug-step {
-            border-bottom: 1px solid #e0e0e0;
-            background: white;
-        }
-
-        .debug-step:last-child {
-            border-bottom: none;
-        }
-
-        .step-header {
-            padding: 12px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-            transition: background 0.2s;
-        }
-
-        .step-header:hover {
-            background: #f8f9fa;
-        }
-
-        .step-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .step-number {
-            background: #667eea;
-            color: white;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-
-        .step-title {
-            font-weight: 500;
-            color: #495057;
-        }
-
-        .step-meta {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .timestamp {
-            color: #6c757d;
-            font-size: 0.85em;
-        }
-
-        .expand-icon {
-            color: #6c757d;
-            transition: transform 0.3s;
-        }
-
-        .step-header.expanded .expand-icon {
-            transform: rotate(90deg);
-        }
-
-        .step-content {
-            display: none;
-            background: #f8f9fa;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .step-content.active {
-            display: block;
-        }
-
-        .debug-data {
-            padding: 15px 20px;
-            font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 0.85em;
-            white-space: pre-wrap;
-            word-break: break-all;
-            max-height: 400px;
-            overflow-y: auto;
-            color: #212529;
-            line-height: 1.5;
-        }
-
-        .debug-data.empty {
-            color: #6c757d;
-            font-style: italic;
-        }
-
-        .method-badge {
-            padding: 2px 8px;
-            border-radius: 3px;
-            font-size: 0.75em;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .method-post {
-            background: #28a745;
-            color: white;
-        }
-
-        .method-api {
-            background: #ffc107;
-            color: #000;
-        }
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .container.passkey-section {
+        border-top: 4px solid #a855f7;
+      }
+
+      .container.username-section {
+        border-top: 4px solid #3b82f6;
+      }
+
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 24px;
+      }
+
+      h2 {
+        color: #555;
+        font-size: 20px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 30px;
+        line-height: 1.5;
+      }
+
+      .feature-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: linear-gradient(135deg, #667eea 0%, #a855f7 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 20px;
+      }
+
+      .username-badge {
+        background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+      }
+
+      .section {
+        margin-bottom: 25px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+      }
+
+      .input-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        color: #555;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .username-section input:focus {
+        border-color: #3b82f6;
+      }
+
+      button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      .passkey-register-btn {
+        background: linear-gradient(135deg, #667eea 0%, #a855f7 100%);
+        color: white;
+      }
+
+      .passkey-register-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+      }
+
+      .passkey-login-btn {
+        background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+        color: white;
+      }
+
+      .passkey-login-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(236, 72, 153, 0.4);
+      }
+
+      .username-register-btn {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .username-register-btn:hover {
+        background: #2563eb;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      }
+
+      .username-login-btn {
+        background: #10b981;
+        color: white;
+      }
+
+      .username-login-btn:hover {
+        background: #059669;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+
+      .message {
+        margin-top: 20px;
+        padding: 12px;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 14px;
+        display: none;
+      }
+
+      .message.success {
+        background: #c6f6d5;
+        color: #22543d;
+        border: 1px solid #9ae6b4;
+        display: block;
+      }
+
+      .message.error {
+        background: #fed7d7;
+        color: #742a2a;
+        border: 1px solid #fc8181;
+        display: block;
+      }
+
+      .message.info {
+        background: #bee3f8;
+        color: #2c5282;
+        border: 1px solid #90cdf4;
+        display: block;
+      }
+
+      .divider {
+        position: relative;
+        text-align: center;
+        margin: 20px 0;
+      }
+
+      .divider::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #e0e0e0;
+      }
+
+      .divider span {
+        position: relative;
+        padding: 0 15px;
+        background: #f8f9fa;
+        color: #999;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .info-box {
+        background: #f0f4ff;
+        border: 1px solid #d0d8ff;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 13px;
+        color: #4a5568;
+        line-height: 1.5;
+      }
+
+      .info-box.username-info {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+      }
+
+      .info-box strong {
+        color: #2d3748;
+      }
+
+      .feature-list {
+        list-style: none;
+        padding: 0;
+        margin: 15px 0;
+      }
+
+      .feature-list li {
+        padding: 8px 0;
+        color: #4a5568;
+        font-size: 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .feature-list li::before {
+        content: "✔";
+        color: #10b981;
+        font-weight: bold;
+        flex-shrink: 0;
+      }
+
+      .header-title {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+        margin-bottom: 30px;
+        text-align: center;
+        grid-column: 1 / -1;
+      }
+
+      .header-title h1 {
+        font-size: 32px;
+        margin-bottom: 10px;
+      }
+
+      .header-title p {
+        color: #666;
+        font-size: 16px;
+      }
+
+      /* Debug Panel Styles */
+      .debug-container {
+        grid-column: 1 / -1;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        margin-top: 30px;
+        overflow: hidden;
+      }
+
+      .debug-header {
+        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .debug-header h2 {
+        color: white;
+        font-size: 1.3em;
+        margin: 0;
+      }
+
+      .clear-debug-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+      }
+
+      .clear-debug-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      .debug-content {
+        padding: 30px;
+      }
+
+      .debug-flow {
+        margin-bottom: 30px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .flow-header {
+        background: #f8f9fa;
+        padding: 15px 20px;
+        border-bottom: 2px solid #e0e0e0;
+        font-weight: 600;
+        color: #495057;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .flow-type-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: white;
+      }
+
+      .badge-passkey-flow {
+        background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      }
+
+      .badge-username-flow {
+        background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+      }
+
+      .debug-step {
+        border-bottom: 1px solid #e0e0e0;
+        background: white;
+      }
+
+      .debug-step:last-child {
+        border-bottom: none;
+      }
+
+      .step-header {
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s;
+      }
+
+      .step-header:hover {
+        background: #f8f9fa;
+      }
+
+      .step-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .step-number {
+        background: #667eea;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85em;
+        font-weight: 600;
+      }
+
+      .step-title {
+        font-weight: 500;
+        color: #495057;
+      }
+
+      .step-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .timestamp {
+        color: #6c757d;
+        font-size: 0.85em;
+      }
+
+      .expand-icon {
+        color: #6c757d;
+        transition: transform 0.3s;
+      }
+
+      .step-header.expanded .expand-icon {
+        transform: rotate(90deg);
+      }
+
+      .step-content {
+        display: none;
+        background: #f8f9fa;
+        border-top: 1px solid #e0e0e0;
+      }
+
+      .step-content.active {
+        display: block;
+      }
+
+      .debug-data {
+        padding: 15px 20px;
+        font-family: "Monaco", "Courier New", monospace;
+        font-size: 0.85em;
+        white-space: pre-wrap;
+        word-break: break-all;
+        max-height: 400px;
+        overflow-y: auto;
+        color: #212529;
+        line-height: 1.5;
+      }
+
+      .debug-data.empty {
+        color: #6c757d;
+        font-style: italic;
+      }
+
+      .method-badge {
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 0.75em;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .method-post {
+        background: #28a745;
+        color: white;
+      }
+
+      .method-api {
+        background: #ffc107;
+        color: #000;
+      }
     </style>
-</head>
-<body>
-<div class="main-container">
-    <div class="header-title">
+  </head>
+  <body>
+    <div class="main-container">
+      <div class="header-title">
         <h1>🔐 WebAuthn Authentication Demo</h1>
-        <p>Compare discoverable passkeys vs traditional username-based authentication with debug logging</p>
-    </div>
+        <p>
+          Compare discoverable passkeys vs traditional username-based
+          authentication with debug logging
+        </p>
+      </div>
 
-    <!-- Passkey Section (No Username Required) -->
-    <div class="container passkey-section">
+      <!-- Passkey Section (No Username Required) -->
+      <div class="container passkey-section">
         <h2>✨ Discoverable Passkeys</h2>
-        <p class="subtitle">Modern passwordless authentication - no username needed!</p>
+        <p class="subtitle">
+          Modern passwordless authentication - no username needed!
+        </p>
 
-        <div class="feature-badge">
-            <span>🚀</span> RECOMMENDED
-        </div>
+        <div class="feature-badge"><span>🚀</span> RECOMMENDED</div>
 
         <ul class="feature-list">
-            <li>No username or password to remember</li>
-            <li>One-click sign in after setup</li>
-            <li>Passkey stored on your device</li>
-            <li>Works across all your devices (with sync)</li>
+          <li>No username or password to remember</li>
+          <li>One-click sign in after setup</li>
+          <li>Passkey stored on your device</li>
+          <li>Works across all your devices (with sync)</li>
         </ul>
 
         <!-- Registration Section -->
         <div class="section">
-            <h3 style="font-size: 16px; margin-bottom: 15px;">Step 1: Create Your Passkey</h3>
-            <div class="input-group">
-                <label for="passkey-username">Choose a Username</label>
-                <input type="text" id="passkey-username" placeholder="e.g., alice" autocomplete="username">
-            </div>
-            <button class="passkey-register-btn" onclick="registerPasskey()">
-                <span>🔑</span> Create Passkey
-            </button>
+          <h3 style="font-size: 16px; margin-bottom: 15px">
+            Step 1: Create Your Passkey
+          </h3>
+          <div class="input-group">
+            <label for="passkey-username">Choose a Username</label>
+            <input
+              type="text"
+              id="passkey-username"
+              placeholder="e.g., alice"
+              autocomplete="username"
+            />
+          </div>
+          <button class="passkey-register-btn" onclick="registerPasskey()">
+            <span>🔑</span> Create Passkey
+          </button>
         </div>
 
         <div class="divider">
-            <span>THEN</span>
+          <span>THEN</span>
         </div>
 
         <!-- Authentication Section -->
         <div class="section">
-            <h3 style="font-size: 16px; margin-bottom: 15px;">Step 2: Sign In Without Username</h3>
-            <button class="passkey-login-btn" onclick="authenticatePasskey()">
-                <span>✨</span> Sign In with Passkey
-            </button>
-            <div class="info-box" style="margin-top: 15px;">
-                <strong>How it works:</strong> Click the button above and your browser will show all passkeys for this site. Select yours to sign in instantly - no username needed!
-            </div>
+          <h3 style="font-size: 16px; margin-bottom: 15px">
+            Step 2: Sign In Without Username
+          </h3>
+          <button class="passkey-login-btn" onclick="authenticatePasskey()">
+            <span>✨</span> Sign In with Passkey
+          </button>
+          <div class="info-box" style="margin-top: 15px">
+            <strong>How it works:</strong> Click the button above and your
+            browser will show all passkeys for this site. Select yours to sign
+            in instantly - no username needed!
+          </div>
         </div>
 
         <div id="passkey-message" class="message"></div>
-    </div>
+      </div>
 
-    <!-- Username Section (Traditional Flow) -->
-    <div class="container username-section">
+      <!-- Username Section (Traditional Flow) -->
+      <div class="container username-section">
         <h2>👤 Username-Based Authentication</h2>
         <p class="subtitle">Traditional WebAuthn with username requirement</p>
 
         <div class="feature-badge username-badge">
-            <span>🔒</span> CLASSIC METHOD
+          <span>🔒</span> CLASSIC METHOD
         </div>
 
         <ul class="feature-list">
-            <li>Requires username for sign in</li>
-            <li>Passkey linked to specific username</li>
-            <li>Good for shared devices</li>
-            <li>Familiar authentication flow</li>
+          <li>Requires username for sign in</li>
+          <li>Passkey linked to specific username</li>
+          <li>Good for shared devices</li>
+          <li>Familiar authentication flow</li>
         </ul>
 
         <!-- Registration Section -->
         <div class="section">
-            <h3 style="font-size: 16px; margin-bottom: 15px;">Step 1: Register with Username</h3>
-            <div class="input-group">
-                <label for="username-register">Choose a Username</label>
-                <input type="text" id="username-register" placeholder="e.g., bob" autocomplete="username">
-            </div>
-            <button class="username-register-btn" onclick="registerWithUsername()">
-                <span>📝</span> Register Username
-            </button>
+          <h3 style="font-size: 16px; margin-bottom: 15px">
+            Step 1: Register with Username
+          </h3>
+          <div class="input-group">
+            <label for="username-register">Choose a Username</label>
+            <input
+              type="text"
+              id="username-register"
+              placeholder="e.g., bob"
+              autocomplete="username"
+            />
+          </div>
+          <button
+            class="username-register-btn"
+            onclick="registerWithUsername()"
+          >
+            <span>📝</span> Register Username
+          </button>
         </div>
 
         <div class="divider">
-            <span>THEN</span>
+          <span>THEN</span>
         </div>
 
         <!-- Authentication Section -->
         <div class="section">
-            <h3 style="font-size: 16px; margin-bottom: 15px;">Step 2: Sign In with Username</h3>
-            <div class="input-group">
-                <label for="username-login">Enter Your Username</label>
-                <input type="text" id="username-login" placeholder="Enter your username" autocomplete="username">
-            </div>
-            <button class="username-login-btn" onclick="authenticateWithUsername()">
-                <span>🔓</span> Sign In
-            </button>
-            <div class="info-box username-info" style="margin-top: 15px;">
-                <strong>Note:</strong> You must enter your username first, then authenticate with your device's biometric or PIN.
-            </div>
+          <h3 style="font-size: 16px; margin-bottom: 15px">
+            Step 2: Sign In with Username
+          </h3>
+          <div class="input-group">
+            <label for="username-login">Enter Your Username</label>
+            <input
+              type="text"
+              id="username-login"
+              placeholder="Enter your username"
+              autocomplete="username"
+            />
+          </div>
+          <button
+            class="username-login-btn"
+            onclick="authenticateWithUsername()"
+          >
+            <span>🔓</span> Sign In
+          </button>
+          <div class="info-box username-info" style="margin-top: 15px">
+            <strong>Note:</strong> You must enter your username first, then
+            authenticate with your device's biometric or PIN.
+          </div>
         </div>
 
         <div id="username-message" class="message"></div>
-    </div>
+      </div>
 
-    <!-- Debug Panel -->
-    <div class="debug-container">
+      <!-- Debug Panel -->
+      <div class="debug-container">
         <div class="debug-header">
-            <h2>🔍 Debug Information</h2>
-            <button class="clear-debug-btn" onclick="clearAllDebug()">Clear All</button>
+          <h2>🔍 Debug Information</h2>
+          <button class="clear-debug-btn" onclick="clearAllDebug()">
+            Clear All
+          </button>
         </div>
 
         <div class="debug-content">
-            <!-- Registration Flow Debug -->
-            <div class="debug-flow" id="registration-flow">
-                <div class="flow-header">
-                    📝 Registration Flow
-                    <span id="reg-flow-type" class="flow-type-badge"></span>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="reg-start-request">
-                        <div class="step-info">
-                            <span class="step-number">1</span>
-                            <span class="method-badge method-post">POST</span>
-                            <span class="step-title">/api/webauthn/registration/start - Request</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="reg-start-request-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="reg-start-request-content">
-                        <div class="debug-data empty" id="reg-start-request">No data yet</div>
-                    </div>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="reg-start-response">
-                        <div class="step-info">
-                            <span class="step-number">2</span>
-                            <span class="step-title">/api/webauthn/registration/start - Response</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="reg-start-response-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="reg-start-response-content">
-                        <div class="debug-data empty" id="reg-start-response">No data yet</div>
-                    </div>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="reg-webauthn-call">
-                        <div class="step-info">
-                            <span class="step-number">3</span>
-                            <span class="method-badge method-api">API</span>
-                            <span class="step-title">navigator.credentials.create()</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="reg-webauthn-call-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="reg-webauthn-call-content">
-                        <div class="debug-data empty" id="reg-webauthn-call">No data yet</div>
-                    </div>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="reg-authenticator-response">
-                        <div class="step-info">
-                            <span class="step-number">4</span>
-                            <span class="step-title">Authenticator Response</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="reg-authenticator-response-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="reg-authenticator-response-content">
-                        <div class="debug-data empty" id="reg-authenticator-response">No data yet</div>
-                    </div>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="reg-finish-request">
-                        <div class="step-info">
-                            <span class="step-number">5</span>
-                            <span class="method-badge method-post">POST</span>
-                            <span class="step-title">/api/webauthn/registration/finish - Request</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="reg-finish-request-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="reg-finish-request-content">
-                        <div class="debug-data empty" id="reg-finish-request">No data yet</div>
-                    </div>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="reg-finish-response">
-                        <div class="step-info">
-                            <span class="step-number">6</span>
-                            <span class="step-title">/api/webauthn/registration/finish - Response</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="reg-finish-response-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="reg-finish-response-content">
-                        <div class="debug-data empty" id="reg-finish-response">No data yet</div>
-                    </div>
-                </div>
+          <!-- Registration Flow Debug -->
+          <div class="debug-flow" id="registration-flow">
+            <div class="flow-header">
+              📝 Registration Flow
+              <span id="reg-flow-type" class="flow-type-badge"></span>
             </div>
 
-            <!-- Authentication Flow Debug -->
-            <div class="debug-flow" id="authentication-flow">
-                <div class="flow-header">
-                    🔐 Authentication Flow
-                    <span id="auth-flow-type" class="flow-type-badge"></span>
+            <div class="debug-step">
+              <div class="step-header" data-step="reg-start-request">
+                <div class="step-info">
+                  <span class="step-number">1</span>
+                  <span class="method-badge method-post">POST</span>
+                  <span class="step-title"
+                    >/api/webauthn/registration/start - Request</span
+                  >
                 </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="auth-start-request">
-                        <div class="step-info">
-                            <span class="step-number">1</span>
-                            <span class="method-badge method-post">POST</span>
-                            <span class="step-title">/api/webauthn/authentication/start - Request</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="auth-start-request-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="auth-start-request-content">
-                        <div class="debug-data empty" id="auth-start-request">No data yet</div>
-                    </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="reg-start-request-time"></span>
+                  <span class="expand-icon">▶</span>
                 </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="auth-start-response">
-                        <div class="step-info">
-                            <span class="step-number">2</span>
-                            <span class="step-title">/api/webauthn/authentication/start - Response</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="auth-start-response-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="auth-start-response-content">
-                        <div class="debug-data empty" id="auth-start-response">No data yet</div>
-                    </div>
+              </div>
+              <div class="step-content" id="reg-start-request-content">
+                <div class="debug-data empty" id="reg-start-request">
+                  No data yet
                 </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="auth-webauthn-call">
-                        <div class="step-info">
-                            <span class="step-number">3</span>
-                            <span class="method-badge method-api">API</span>
-                            <span class="step-title">navigator.credentials.get()</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="auth-webauthn-call-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="auth-webauthn-call-content">
-                        <div class="debug-data empty" id="auth-webauthn-call">No data yet</div>
-                    </div>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="auth-authenticator-response">
-                        <div class="step-info">
-                            <span class="step-number">4</span>
-                            <span class="step-title">Authenticator Response</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="auth-authenticator-response-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="auth-authenticator-response-content">
-                        <div class="debug-data empty" id="auth-authenticator-response">No data yet</div>
-                    </div>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="auth-finish-request">
-                        <div class="step-info">
-                            <span class="step-number">5</span>
-                            <span class="method-badge method-post">POST</span>
-                            <span class="step-title">/api/webauthn/authentication/finish - Request</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="auth-finish-request-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="auth-finish-request-content">
-                        <div class="debug-data empty" id="auth-finish-request">No data yet</div>
-                    </div>
-                </div>
-
-                <div class="debug-step">
-                    <div class="step-header" data-step="auth-finish-response">
-                        <div class="step-info">
-                            <span class="step-number">6</span>
-                            <span class="step-title">/api/webauthn/authentication/finish - Response</span>
-                        </div>
-                        <div class="step-meta">
-                            <span class="timestamp" id="auth-finish-response-time"></span>
-                            <span class="expand-icon">▶</span>
-                        </div>
-                    </div>
-                    <div class="step-content" id="auth-finish-response-content">
-                        <div class="debug-data empty" id="auth-finish-response">No data yet</div>
-                    </div>
-                </div>
+              </div>
             </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="reg-start-response">
+                <div class="step-info">
+                  <span class="step-number">2</span>
+                  <span class="step-title"
+                    >/api/webauthn/registration/start - Response</span
+                  >
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="reg-start-response-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="reg-start-response-content">
+                <div class="debug-data empty" id="reg-start-response">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="reg-webauthn-call">
+                <div class="step-info">
+                  <span class="step-number">3</span>
+                  <span class="method-badge method-api">API</span>
+                  <span class="step-title">navigator.credentials.create()</span>
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="reg-webauthn-call-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="reg-webauthn-call-content">
+                <div class="debug-data empty" id="reg-webauthn-call">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="reg-authenticator-response">
+                <div class="step-info">
+                  <span class="step-number">4</span>
+                  <span class="step-title">Authenticator Response</span>
+                </div>
+                <div class="step-meta">
+                  <span
+                    class="timestamp"
+                    id="reg-authenticator-response-time"
+                  ></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="reg-authenticator-response-content">
+                <div class="debug-data empty" id="reg-authenticator-response">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="reg-finish-request">
+                <div class="step-info">
+                  <span class="step-number">5</span>
+                  <span class="method-badge method-post">POST</span>
+                  <span class="step-title"
+                    >/api/webauthn/registration/finish - Request</span
+                  >
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="reg-finish-request-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="reg-finish-request-content">
+                <div class="debug-data empty" id="reg-finish-request">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="reg-finish-response">
+                <div class="step-info">
+                  <span class="step-number">6</span>
+                  <span class="step-title"
+                    >/api/webauthn/registration/finish - Response</span
+                  >
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="reg-finish-response-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="reg-finish-response-content">
+                <div class="debug-data empty" id="reg-finish-response">
+                  No data yet
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Authentication Flow Debug -->
+          <div class="debug-flow" id="authentication-flow">
+            <div class="flow-header">
+              🔓 Authentication Flow
+              <span id="auth-flow-type" class="flow-type-badge"></span>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="auth-start-request">
+                <div class="step-info">
+                  <span class="step-number">1</span>
+                  <span class="method-badge method-post">POST</span>
+                  <span class="step-title"
+                    >/api/webauthn/authentication/start - Request</span
+                  >
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="auth-start-request-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="auth-start-request-content">
+                <div class="debug-data empty" id="auth-start-request">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="auth-start-response">
+                <div class="step-info">
+                  <span class="step-number">2</span>
+                  <span class="step-title"
+                    >/api/webauthn/authentication/start - Response</span
+                  >
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="auth-start-response-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="auth-start-response-content">
+                <div class="debug-data empty" id="auth-start-response">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="auth-webauthn-call">
+                <div class="step-info">
+                  <span class="step-number">3</span>
+                  <span class="method-badge method-api">API</span>
+                  <span class="step-title">navigator.credentials.get()</span>
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="auth-webauthn-call-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="auth-webauthn-call-content">
+                <div class="debug-data empty" id="auth-webauthn-call">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="auth-authenticator-response">
+                <div class="step-info">
+                  <span class="step-number">4</span>
+                  <span class="step-title">Authenticator Response</span>
+                </div>
+                <div class="step-meta">
+                  <span
+                    class="timestamp"
+                    id="auth-authenticator-response-time"
+                  ></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div
+                class="step-content"
+                id="auth-authenticator-response-content"
+              >
+                <div class="debug-data empty" id="auth-authenticator-response">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="auth-finish-request">
+                <div class="step-info">
+                  <span class="step-number">5</span>
+                  <span class="method-badge method-post">POST</span>
+                  <span class="step-title"
+                    >/api/webauthn/authentication/finish - Request</span
+                  >
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="auth-finish-request-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="auth-finish-request-content">
+                <div class="debug-data empty" id="auth-finish-request">
+                  No data yet
+                </div>
+              </div>
+            </div>
+
+            <div class="debug-step">
+              <div class="step-header" data-step="auth-finish-response">
+                <div class="step-info">
+                  <span class="step-number">6</span>
+                  <span class="step-title"
+                    >/api/webauthn/authentication/finish - Response</span
+                  >
+                </div>
+                <div class="step-meta">
+                  <span class="timestamp" id="auth-finish-response-time"></span>
+                  <span class="expand-icon">▶</span>
+                </div>
+              </div>
+              <div class="step-content" id="auth-finish-response-content">
+                <div class="debug-data empty" id="auth-finish-response">
+                  No data yet
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
-</div>
 
-<script>
-    // Helper function to convert base64url to ArrayBuffer
-    function base64urlToArrayBuffer(base64url) {
-        const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-        const padding = (4 - base64.length % 4) % 4;
-        const padded = base64 + '='.repeat(padding);
-        const binary = atob(padded);
-        const buffer = new ArrayBuffer(binary.length);
-        const bytes = new Uint8Array(buffer);
-        for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-        }
-        return buffer;
-    }
+    <script>
+      // ==================== MODERN WEBAUTHN HELPER FUNCTIONS ====================
 
-    // Helper function to convert ArrayBuffer to base64url
-    function arrayBufferToBase64url(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        const base64 = btoa(binary);
-        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    }
-
-    // Helper function to convert ArrayBuffer to hex string for debug display
-    function arrayBufferToHex(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let hex = '';
-        for (let i = 0; i < bytes.length && i < 32; i++) {
-            hex += bytes[i].toString(16).padStart(2, '0');
-        }
-        if (bytes.length > 32) {
-            hex += '...';
-        }
-        return hex;
-    }
-
-    function showMessage(elementId, text, type) {
+      // Helper function to show messages
+      function showMessage(elementId, text, type) {
         const messageEl = document.getElementById(elementId);
         messageEl.textContent = text;
-        messageEl.className = 'message ' + type;
-        if (type !== 'info') {
-            setTimeout(() => {
-                messageEl.className = 'message';
-            }, 5000);
+        messageEl.className = "message " + type;
+        if (type !== "info") {
+          setTimeout(() => {
+            messageEl.className = "message";
+          }, 5000);
         }
-    }
+      }
 
-    // Debug functions
-    function logDebug(elementId, data) {
+      // Debug functions
+      function logDebug(elementId, data) {
         const element = document.getElementById(elementId);
-        const timeElement = document.getElementById(elementId + '-time');
+        const timeElement = document.getElementById(elementId + "-time");
 
         element.textContent = JSON.stringify(data, null, 2);
-        element.classList.remove('empty');
+        element.classList.remove("empty");
 
         if (timeElement) {
-            const now = new Date();
-            timeElement.textContent = now.toLocaleTimeString();
+          const now = new Date();
+          timeElement.textContent = now.toLocaleTimeString();
         }
-    }
+      }
 
-    function clearDebugFlow(flow) {
-        const prefix = flow === 'registration' ? 'reg-' : 'auth-';
+      function clearDebugFlow(flow) {
+        const prefix = flow === "registration" ? "reg-" : "auth-";
         const steps = [
-            'start-request', 'start-response',
-            'webauthn-call', 'authenticator-response',
-            'finish-request', 'finish-response'
+          "start-request",
+          "start-response",
+          "webauthn-call",
+          "authenticator-response",
+          "finish-request",
+          "finish-response",
         ];
 
-        steps.forEach(step => {
-            const elementId = prefix + step;
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.textContent = 'No data yet';
-                element.classList.add('empty');
-            }
-            const timeElement = document.getElementById(elementId + '-time');
-            if (timeElement) {
-                timeElement.textContent = '';
-            }
+        steps.forEach((step) => {
+          const elementId = prefix + step;
+          const element = document.getElementById(elementId);
+          if (element) {
+            element.textContent = "No data yet";
+            element.classList.add("empty");
+          }
+          const timeElement = document.getElementById(elementId + "-time");
+          if (timeElement) {
+            timeElement.textContent = "";
+          }
         });
-    }
+      }
 
-    function clearAllDebug() {
-        clearDebugFlow('registration');
-        clearDebugFlow('authentication');
-        document.getElementById('reg-flow-type').innerHTML = '';
-        document.getElementById('auth-flow-type').innerHTML = '';
-    }
+      function clearAllDebug() {
+        clearDebugFlow("registration");
+        clearDebugFlow("authentication");
+        document.getElementById("reg-flow-type").innerHTML = "";
+        document.getElementById("auth-flow-type").innerHTML = "";
+      }
 
-    function formatCredentialForDebug(credential) {
-        const response = {
-            ...credential,
-            id: credential.id,
-            rawId: arrayBufferToBase64url(credential.rawId),
-            response: {
-                clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
-                clientDataJSON_decoded: JSON.parse(new TextDecoder().decode(credential.response.clientDataJSON))
-            },
-        };
+      // ==================== PASSKEY FUNCTIONS (Using Modern API) ====================
 
-        if (credential.response.attestationObject) {
-            response.response.attestationObject = arrayBufferToBase64url(credential.response.attestationObject);
-        }
-        if (credential.response.authenticatorData) {
-            response.response.authenticatorData = arrayBufferToBase64url(credential.response.authenticatorData);
-        }
-        if (credential.response.signature) {
-            response.response.signature = arrayBufferToBase64url(credential.response.signature);
-        }
-        if (credential.response.userHandle) {
-            response.response.userHandle = arrayBufferToBase64url(credential.response.userHandle);
-        }
-
-        return response;
-    }
-
-    // ==================== PASSKEY FUNCTIONS (No Username Required) ====================
-
-    async function registerPasskey() {
-        const username = document.getElementById('passkey-username').value;
+      async function registerPasskey() {
+        const username = document.getElementById("passkey-username").value;
         if (!username) {
-            showMessage('passkey-message', 'Please enter a username to create your passkey', 'error');
-            return;
+          showMessage(
+            "passkey-message",
+            "Please enter a username to create your passkey",
+            "error"
+          );
+          return;
         }
 
-        clearDebugFlow('registration');
-        document.getElementById('reg-flow-type').innerHTML = '<span class="flow-type-badge badge-passkey-flow">Passkey</span>';
+        clearDebugFlow("registration");
+        document.getElementById("reg-flow-type").innerHTML =
+          '<span class="flow-type-badge badge-passkey-flow">Passkey</span>';
 
         try {
-            showMessage('passkey-message', '🔄 Creating your discoverable passkey...', 'info');
+          showMessage(
+            "passkey-message",
+            "🔄 Creating your discoverable passkey...",
+            "info"
+          );
 
-            // Step 1: Log request
-            const requestBody = { username };
-            logDebug('reg-start-request', requestBody);
+          // Step 1: Log request
+          const requestBody = { username };
+          logDebug("reg-start-request", requestBody);
 
-            // Step 2: Ask server for options
-            const startRes = await fetch('/api/webauthn/registration/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-            if (!startRes.ok) throw new Error('Failed to start registration');
+          // Step 2: Ask server for options
+          const startRes = await fetch("/api/webauthn/registration/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          });
 
-            const opts = await startRes.json();
-            logDebug('reg-start-response', opts);
-            console.log('reg-start-response', opts);
+          if (!startRes.ok) throw new Error("Failed to start registration");
 
-            // Step 3: Prepare publicKey options
-            const publicKey = {
-                challenge: base64urlToArrayBuffer(opts.challenge),
-                rp: {
-                    name: opts.rp?.name || 'Local App',
-                },
-                user: {
-                    id: base64urlToArrayBuffer(opts.user.id),
-                    name: opts.user.name,
-                    displayName: opts.user.displayName
-                },
-                pubKeyCredParams: opts.pubKeyCredParams,
-                authenticatorSelection: {
-                    residentKey: 'preferred',
-                    userVerification: 'preferred'
-                },
-                excludeCredentials: opts.excludeCredentials,
-                timeout: opts.timeout || 60000,
-                attestation: opts.attestation || 'none',
-                extensions: opts.extensions
-            };
+          const publicKeyOptions = await startRes.json();
+          logDebug("reg-start-response", publicKeyOptions);
+          console.log("reg-start-response", publicKeyOptions);
 
-            // Log the WebAuthn API call
-            logDebug('reg-webauthn-call', {
-                publicKey: {
-                    ...publicKey,
-                    challenge: arrayBufferToBase64url(publicKey.challenge),
-                    user: {
-                        ...publicKey.user,
-                        id: arrayBufferToBase64url(publicKey.user.id),
-                    }
-                }
-            });
+          // Log the WebAuthn API call
+          logDebug("reg-webauthn-call", publicKeyOptions);
 
-            // Step 4: Create credential
-            const credential = await navigator.credentials.create({ publicKey });
-            console.log('reg-webauthn-call', publicKey);
-            logDebug('reg-authenticator-response', formatCredentialForDebug(credential));
-            console.log('reg-authenticator-response', credential);
+          // Step 3: Use the modern API to parse and create credential
+          const credential = await navigator.credentials.create({
+            publicKey:
+              PublicKeyCredential.parseCreationOptionsFromJSON(
+                publicKeyOptions
+              ),
+          });
 
-            // Step 5: Send attestation to server
-            const credentialForServer = {
-                username,
-                id: credential.id,
-                rawId: arrayBufferToBase64url(credential.rawId),
-                response: {
-                    clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
-                    attestationObject: arrayBufferToBase64url(credential.response.attestationObject)
-                },
-                type: credential.type
-            };
+          console.log("Created credential:", credential);
 
-            logDebug('reg-finish-request', credentialForServer);
-            console.log('reg-finish-request', credentialForServer);
+          // Step 4: Use toJSON() to serialize the credential
+          const credentialJSON = credential.toJSON();
+          logDebug("reg-authenticator-response", credentialJSON);
+          console.log("reg-authenticator-response", credentialJSON);
 
-            const finishRes = await fetch('/api/webauthn/registration/finish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(credentialForServer)
-            });
+          // Step 5: Send to server (add username to the JSON)
+          const credentialForServer = {
+            username: username,
+            publicKeyCredential: credentialJSON,
+          };
 
-            const finishText = await finishRes.text();
-            logDebug('reg-finish-response', { success: finishRes.ok, message: finishText });
-            console.log('reg-finish-response', finishText );
+          logDebug("reg-finish-request", credentialForServer);
+          console.log("reg-finish-request", credentialForServer);
 
-            if (!finishRes.ok) throw new Error('Failed to finish registration');
+          const finishRes = await fetch("/api/webauthn/registration/finish", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(credentialForServer),
+          });
 
-            showMessage(
-                'passkey-message',
-                '✅ Passkey created successfully! Now try signing in without entering your username.',
-                'success'
-            );
-            document.getElementById('passkey-username').value = '';
+          const finishText = await finishRes.text();
+          logDebug("reg-finish-response", {
+            success: finishRes.ok,
+            message: finishText,
+          });
+          console.log("reg-finish-response", finishText);
 
+          if (!finishRes.ok) throw new Error("Failed to finish registration");
+
+          showMessage(
+            "passkey-message",
+            "✅ Passkey created successfully! Now try signing in without entering your username.",
+            "success"
+          );
+          document.getElementById("passkey-username").value = "";
         } catch (err) {
-            console.error('Passkey registration error:', err);
-            showMessage('passkey-message', '❌ Failed to create passkey: ' + err.message, 'error');
+          console.error("Passkey registration error:", err);
+          showMessage(
+            "passkey-message",
+            "❌ Failed to create passkey: " + err.message,
+            "error"
+          );
         }
-    }
+      }
 
-    async function authenticatePasskey() {
-        clearDebugFlow('authentication');
-        document.getElementById('auth-flow-type').innerHTML = '<span class="flow-type-badge badge-passkey-flow">Passkey</span>';
+      async function authenticatePasskey() {
+        clearDebugFlow("authentication");
+        document.getElementById("auth-flow-type").innerHTML =
+          '<span class="flow-type-badge badge-passkey-flow">Passkey</span>';
 
         try {
-            showMessage('passkey-message', '🔄 Looking for your passkeys...', 'info');
+          showMessage(
+            "passkey-message",
+            "🔄 Looking for your passkeys...",
+            "info"
+          );
 
-            // Step 1: Log request
-            const requestBody = { username: null };
-            logDebug('auth-start-request', requestBody);
+          // Step 1: Log request
+          const requestBody = { username: null };
+          logDebug("auth-start-request", requestBody);
 
-            // Start authentication without username
-            const startResponse = await fetch('/api/webauthn/authentication/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-
-            console.log("start request", requestBody)
-
-            if (!startResponse.ok) {
-                throw new Error('Failed to start authentication');
+          // Start authentication without username
+          const startResponse = await fetch(
+            "/api/webauthn/authentication/start",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
             }
+          );
 
-            const options = await startResponse.json();
-            logDebug('auth-start-response', options);
-            console.log("start response", options);
+          console.log("start request", requestBody);
 
-            // Convert for WebAuthn API
-            const publicKeyCredentialRequestOptions = {
-                challenge: base64urlToArrayBuffer(options.challenge),
-                rpId: options.rpId,
-                allowCredentials: [],  // Empty for discoverable passkeys
-                userVerification: 'required',
-                timeout: options.timeout || 60000
-            };
+          if (!startResponse.ok) {
+            throw new Error("Failed to start authentication");
+          }
 
-            // Log the WebAuthn API call
-            logDebug('auth-webauthn-call', {
-                publicKey: {
-                    ...publicKeyCredentialRequestOptions,
-                    challenge: arrayBufferToBase64url(publicKeyCredentialRequestOptions.challenge),
-                }
-            });
-            console.log("auth-wevauthn-call", publicKeyCredentialRequestOptions)
+          const serverOptions = await startResponse.json();
+          logDebug("auth-start-response", serverOptions);
+          console.log("start response", serverOptions);
 
-            // Get assertion - browser will show available passkeys
-            const assertion = await navigator.credentials.get({
-                publicKey: publicKeyCredentialRequestOptions
-            });
+          // Log the WebAuthn API call
+          logDebug("auth-webauthn-call", serverOptions);
+          console.log("auth-webauthn-call", serverOptions);
 
-            logDebug('auth-authenticator-response', formatCredentialForDebug(assertion));
+          // Use the modern API to parse and get credential
+          const assertion = await navigator.credentials.get({
+            publicKey:
+              PublicKeyCredential.parseRequestOptionsFromJSON(serverOptions),
+          });
 
-            // Send to server for verification
-            const assertionForServer = {
-                username: null,
-                id: assertion.id,
-                rawId: arrayBufferToBase64url(assertion.rawId),
-                response: {
-                    clientDataJSON: arrayBufferToBase64url(assertion.response.clientDataJSON),
-                    authenticatorData: arrayBufferToBase64url(assertion.response.authenticatorData),
-                    signature: arrayBufferToBase64url(assertion.response.signature),
-                    userHandle: assertion.response.userHandle ?
-                        arrayBufferToBase64url(assertion.response.userHandle) : null
-                },
-            };
+          // Use toJSON() to serialize the assertion
+          const assertionJSON = assertion.toJSON();
+          logDebug("auth-authenticator-response", assertionJSON);
+          console.log("auth-authenticator-response", assertionJSON);
 
-            logDebug('auth-finish-request', assertionForServer);
+          // Send to server (add username field for compatibility)
+          const assertionForServer = {
+            username: null,
+            ...assertionJSON,
+          };
 
-            const finishResponse = await fetch('/api/webauthn/authentication/finish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(assertionForServer)
-            });
-            console.log("authentication/finish req", assertionForServer)
+          logDebug("auth-finish-request", assertionForServer);
 
-            const result = await finishResponse.text();
-            logDebug('auth-finish-response', { success: finishResponse.ok, message: result });
-
-            console.log("authentication/finish res", result)
-
-            if (!finishResponse.ok) {
-                throw new Error('Failed to finish authentication');
+          const finishResponse = await fetch(
+            "/api/webauthn/authentication/finish",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(assertionForServer),
             }
+          );
+          console.log("authentication/finish req", assertionForServer);
 
-            showMessage('passkey-message', '✅ ' + result + ' - No username needed!', 'success');
+          const result = await finishResponse.text();
+          logDebug("auth-finish-response", {
+            success: finishResponse.ok,
+            message: result,
+          });
+          console.log("authentication/finish res", result);
 
+          if (!finishResponse.ok) {
+            throw new Error("Failed to finish authentication");
+          }
+
+          showMessage(
+            "passkey-message",
+            "✅ " + result + " - No username needed!",
+            "success"
+          );
         } catch (error) {
-            console.error('Passkey authentication error:', error);
-            if (error.name === 'NotAllowedError') {
-                showMessage('passkey-message', '❌ Authentication cancelled', 'error');
-            } else {
-                showMessage('passkey-message', '❌ Authentication failed: ' + error.message, 'error');
-            }
+          console.error("Passkey authentication error:", error);
+          if (error.name === "NotAllowedError") {
+            showMessage(
+              "passkey-message",
+              "❌ Authentication cancelled",
+              "error"
+            );
+          } else {
+            showMessage(
+              "passkey-message",
+              "❌ Authentication failed: " + error.message,
+              "error"
+            );
+          }
         }
-    }
+      }
 
-    // ==================== USERNAME FUNCTIONS (Traditional Flow) ====================
+      // ==================== USERNAME FUNCTIONS (Using Modern API) ====================
 
-    async function registerWithUsername() {
-        const username = document.getElementById('username-register').value;
+      async function registerWithUsername() {
+        const username = document.getElementById("username-register").value;
         if (!username) {
-            showMessage('username-message', 'Please enter a username to register', 'error');
-            return;
+          showMessage(
+            "username-message",
+            "Please enter a username to register",
+            "error"
+          );
+          return;
         }
 
-        clearDebugFlow('registration');
-        document.getElementById('reg-flow-type').innerHTML = '<span class="flow-type-badge badge-username-flow">Username-Based</span>';
+        clearDebugFlow("registration");
+        document.getElementById("reg-flow-type").innerHTML =
+          '<span class="flow-type-badge badge-username-flow">Username-Based</span>';
 
         try {
-            showMessage('username-message', '🔄 Registering username-based credential...', 'info');
+          showMessage(
+            "username-message",
+            "🔄 Registering username-based credential...",
+            "info"
+          );
 
-            // Step 1: Log request
-            const requestBody = { username: username };
-            logDebug('reg-start-request', requestBody);
+          // Step 1: Log request
+          const requestBody = { username: username };
+          logDebug("reg-start-request", requestBody);
 
-            // Get registration options
-            const startResponse = await fetch('/api/webauthn/registration/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!startResponse.ok) {
-                throw new Error('Failed to start registration');
+          // Get registration options
+          const startResponse = await fetch(
+            "/api/webauthn/registration/start",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
             }
+          );
 
-            const options = await startResponse.json();
-            logDebug('reg-start-response', options);
+          if (!startResponse.ok) {
+            throw new Error("Failed to start registration");
+          }
 
-            // Convert for WebAuthn API - less strict for username-based flow
-            const publicKeyCredentialCreationOptions = {
-                challenge: base64urlToArrayBuffer(options.challenge),
-                rp: options.rp,
-                user: {
-                    id: base64urlToArrayBuffer(options.user.id),
-                    name: options.user.name,
-                    displayName: options.user.displayName
-                },
-                pubKeyCredParams: options.pubKeyCredParams,
-                authenticatorSelection: {
-                    residentKey: 'discouraged',  // Don't require discoverable for username flow
-                    requireResidentKey: false,
-                    userVerification: 'preferred'
-                },
-                timeout: options.timeout || 60000,
-                attestation: options.attestation
-            };
+          const serverOptions = await startResponse.json();
+          logDebug("reg-start-response", serverOptions);
 
-            // Log the WebAuthn API call
-            logDebug('reg-webauthn-call', {
-                publicKey: {
-                    ...publicKeyCredentialCreationOptions,
-                    challenge: arrayBufferToBase64url(publicKeyCredentialCreationOptions.challenge),
-                    user: {
-                        ...publicKeyCredentialCreationOptions.user,
-                        id: arrayBufferToBase64url(publicKeyCredentialCreationOptions.user.id),
-                    }
-                }
-            });
+          // Adjust options for username-based flow
+          const publicKeyOptions = {
+            challenge: serverOptions.challenge,
+            rp: serverOptions.rp,
+            user: serverOptions.user,
+            pubKeyCredParams: serverOptions.pubKeyCredParams,
+            authenticatorSelection: {
+              ...serverOptions.authenticatorSelection,
+              residentKey: "discouraged", // Don't require discoverable for username flow
+              requireResidentKey: false,
+              userVerification: "preferred",
+            },
+            attestation: serverOptions.attestation,
+            timeout: serverOptions.timeout || 60000,
+          };
 
-            // Create credentials
-            const credential = await navigator.credentials.create({
-                publicKey: publicKeyCredentialCreationOptions
-            });
+          // Log the WebAuthn API call
+          logDebug("reg-webauthn-call", publicKeyOptions);
 
-            logDebug('reg-authenticator-response', formatCredentialForDebug(credential));
+          // Use modern API to create credentials
+          const credential = await navigator.credentials.create({
+            publicKey:
+              PublicKeyCredential.parseCreationOptionsFromJSON(
+                publicKeyOptions
+              ),
+          });
 
-            // Send to server
-            const credentialForServer = {
-                username: username,
-                id: credential.id,
-                rawId: arrayBufferToBase64url(credential.rawId),
-                response: {
-                    clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
-                    attestationObject: arrayBufferToBase64url(credential.response.attestationObject)
-                },
-            };
+          // Use toJSON() to serialize
+          const credentialJSON = credential.toJSON();
+          logDebug("reg-authenticator-response", credentialJSON);
 
-            logDebug('reg-finish-request', credentialForServer);
+          // Send to server
+          const credentialForServer = {
+            username: username,
+            publicKeyCredential: credentialJSON,
+          };
 
-            const finishResponse = await fetch('/api/webauthn/registration/finish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(credentialForServer)
-            });
+          logDebug("reg-finish-request", credentialForServer);
 
-            const result = await finishResponse.text();
-            logDebug('reg-finish-response', { success: finishResponse.ok, message: result });
-
-            if (!finishResponse.ok) {
-                throw new Error('Failed to finish registration');
+          const finishResponse = await fetch(
+            "/api/webauthn/registration/finish",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(credentialForServer),
             }
+          );
 
-            showMessage('username-message',
-                '✅ Registered successfully! Now sign in with your username.',
-                'success');
-            document.getElementById('username-register').value = '';
+          const result = await finishResponse.text();
+          logDebug("reg-finish-response", {
+            success: finishResponse.ok,
+            message: result,
+          });
 
+          if (!finishResponse.ok) {
+            throw new Error("Failed to finish registration");
+          }
+
+          showMessage(
+            "username-message",
+            "✅ Registered successfully! Now sign in with your username.",
+            "success"
+          );
+          document.getElementById("username-register").value = "";
         } catch (error) {
-            console.error('Username registration error:', error);
-            showMessage('username-message', '❌ Registration failed: ' + error.message, 'error');
+          console.error("Username registration error:", error);
+          showMessage(
+            "username-message",
+            "❌ Registration failed: " + error.message,
+            "error"
+          );
         }
-    }
+      }
 
-    async function authenticateWithUsername() {
-        const username = document.getElementById('username-login').value;
+      async function authenticateWithUsername() {
+        const username = document.getElementById("username-login").value;
         if (!username) {
-            showMessage('username-message', 'Please enter your username to sign in', 'error');
-            return;
+          showMessage(
+            "username-message",
+            "Please enter your username to sign in",
+            "error"
+          );
+          return;
         }
 
-        clearDebugFlow('authentication');
-        document.getElementById('auth-flow-type').innerHTML = '<span class="flow-type-badge badge-username-flow">Username-Based</span>';
+        clearDebugFlow("authentication");
+        document.getElementById("auth-flow-type").innerHTML =
+          '<span class="flow-type-badge badge-username-flow">Username-Based</span>';
 
         try {
-            showMessage('username-message', '🔄 Authenticating...', 'info');
+          showMessage("username-message", "🔄 Authenticating...", "info");
 
-            // Step 1: Log request
-            const requestBody = { username: username };
-            logDebug('auth-start-request', requestBody);
+          // Step 1: Log request
+          const requestBody = { username: username };
+          logDebug("auth-start-request", requestBody);
 
-            // Start authentication with username
-            const startResponse = await fetch('/api/webauthn/authentication/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!startResponse.ok) {
-                throw new Error('Failed to start authentication');
+          // Start authentication with username
+          const startResponse = await fetch(
+            "/api/webauthn/authentication/start",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
             }
+          );
 
-            const options = await startResponse.json();
-            logDebug('auth-start-response', options);
+          if (!startResponse.ok) {
+            throw new Error("Failed to start authentication");
+          }
 
-            // Convert for WebAuthn API
-            const publicKeyCredentialRequestOptions = {
-                challenge: base64urlToArrayBuffer(options.challenge),
-                rpId: options.rpId,
-                allowCredentials: options.allowCredentials.map(cred => ({
-                    type: cred.type,
-                    id: base64urlToArrayBuffer(cred.id)
-                })),
-                userVerification: options.userVerification || 'preferred',
-                timeout: options.timeout || 60000
-            };
+          const serverOptions = await startResponse.json();
+          logDebug("auth-start-response", serverOptions);
 
-            // Log the WebAuthn API call
-            logDebug('auth-webauthn-call', {
-                type: 'navigator.credentials.get',
-                publicKey: {
-                    ...publicKeyCredentialRequestOptions,
-                    challenge: arrayBufferToBase64url(publicKeyCredentialRequestOptions.challenge),
-                    allowCredentials: publicKeyCredentialRequestOptions.allowCredentials.map(cred => ({
-                        ...cred,
-                        id: arrayBufferToBase64url(cred.id),
-                    }))
-                }
-            });
+          // Convert to WebAuthn format
+          const publicKeyOptions = {
+            challenge: serverOptions.challenge,
+            rpId: serverOptions.rpId,
+            allowCredentials: serverOptions.allowCredentials,
+            userVerification: serverOptions.userVerification || "preferred",
+            timeout: serverOptions.timeout || 60000,
+          };
 
-            // Get assertion
-            const assertion = await navigator.credentials.get({
-                publicKey: publicKeyCredentialRequestOptions
-            });
+          // Log the WebAuthn API call
+          logDebug("auth-webauthn-call", publicKeyOptions);
 
-            logDebug('auth-authenticator-response', formatCredentialForDebug(assertion));
+          // Use modern API to get assertion
+          const assertion = await navigator.credentials.get({
+            publicKey:
+              PublicKeyCredential.parseRequestOptionsFromJSON(publicKeyOptions),
+          });
 
-            // Send to server
-            const assertionForServer = {
-                username: username,
-                id: assertion.id,
-                rawId: arrayBufferToBase64url(assertion.rawId),
-                response: {
-                    clientDataJSON: arrayBufferToBase64url(assertion.response.clientDataJSON),
-                    authenticatorData: arrayBufferToBase64url(assertion.response.authenticatorData),
-                    signature: arrayBufferToBase64url(assertion.response.signature),
-                    userHandle: assertion.response.userHandle ?
-                        arrayBufferToBase64url(assertion.response.userHandle) : null
-                },
-                type: assertion.type
-            };
+          // Use toJSON() to serialize
+          const assertionJSON = assertion.toJSON();
+          logDebug("auth-authenticator-response", assertionJSON);
 
-            logDebug('auth-finish-request', assertionForServer);
+          // Send to server
+          const assertionForServer = {
+            username: username,
+            ...assertionJSON,
+          };
 
-            const finishResponse = await fetch('/api/webauthn/authentication/finish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(assertionForServer)
-            });
+          logDebug("auth-finish-request", assertionForServer);
 
-            const result = await finishResponse.text();
-            logDebug('auth-finish-response', { success: finishResponse.ok, message: result });
-
-            if (!finishResponse.ok) {
-                throw new Error('Failed to finish authentication');
+          const finishResponse = await fetch(
+            "/api/webauthn/authentication/finish",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(assertionForServer),
             }
+          );
 
-            showMessage('username-message', '✅ ' + result, 'success');
-            document.getElementById('username-login').value = '';
+          const result = await finishResponse.text();
+          logDebug("auth-finish-response", {
+            success: finishResponse.ok,
+            message: result,
+          });
 
+          if (!finishResponse.ok) {
+            throw new Error("Failed to finish authentication");
+          }
+
+          showMessage("username-message", "✅ " + result, "success");
+          document.getElementById("username-login").value = "";
         } catch (error) {
-            console.error('Username authentication error:', error);
-            if (error.name === 'NotAllowedError') {
-                showMessage('username-message', '❌ Authentication cancelled', 'error');
-            } else {
-                showMessage('username-message', '❌ Authentication failed: ' + error.message, 'error');
-            }
+          console.error("Username authentication error:", error);
+          if (error.name === "NotAllowedError") {
+            showMessage(
+              "username-message",
+              "❌ Authentication cancelled",
+              "error"
+            );
+          } else {
+            showMessage(
+              "username-message",
+              "❌ Authentication failed: " + error.message,
+              "error"
+            );
+          }
         }
-    }
+      }
 
-    // Setup collapsible debug sections
-    document.querySelectorAll('.step-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const step = header.dataset.step;
-            const content = document.getElementById(step + '-content');
-            content.classList.toggle('active');
-            header.classList.toggle('expanded');
+      // Setup collapsible debug sections
+      document.querySelectorAll(".step-header").forEach((header) => {
+        header.addEventListener("click", () => {
+          const step = header.dataset.step;
+          const content = document.getElementById(step + "-content");
+          content.classList.toggle("active");
+          header.classList.toggle("expanded");
         });
-    });
+      });
 
-    // Check WebAuthn support on load
-    window.onload = function() {
+      // Check WebAuthn support on load
+      window.onload = function () {
         if (!window.PublicKeyCredential) {
-            showMessage('passkey-message', '⚠️ WebAuthn is not supported in this browser', 'error');
-            showMessage('username-message', '⚠️ WebAuthn is not supported in this browser', 'error');
-            document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+          showMessage(
+            "passkey-message",
+            "⚠️ WebAuthn is not supported in this browser",
+            "error"
+          );
+          showMessage(
+            "username-message",
+            "⚠️ WebAuthn is not supported in this browser",
+            "error"
+          );
+          document
+            .querySelectorAll("button")
+            .forEach((btn) => (btn.disabled = true));
         } else {
-            console.log('WebAuthn is supported!');
+          console.log("WebAuthn is supported!");
 
-            // Check for conditional mediation support
-            if (window.PublicKeyCredential.isConditionalMediationAvailable) {
-                window.PublicKeyCredential.isConditionalMediationAvailable().then(available => {
-                    if (available) {
-                        console.log('Conditional mediation (autofill for passkeys) is available');
-                    }
-                });
-            }
+          // Check for modern API support
+          if (
+            !PublicKeyCredential.parseCreationOptionsFromJSON ||
+            !PublicKeyCredential.parseRequestOptionsFromJSON
+          ) {
+            console.warn(
+              "Modern WebAuthn JSON API not fully supported. Please update your browser."
+            );
+            showMessage(
+              "passkey-message",
+              "⚠️ Please update your browser for the best experience",
+              "info"
+            );
+            showMessage(
+              "username-message",
+              "⚠️ Please update your browser for the best experience",
+              "info"
+            );
+          } else {
+            console.log("Modern WebAuthn JSON API is supported!");
+          }
+
+          // Check for conditional mediation support
+          if (window.PublicKeyCredential.isConditionalMediationAvailable) {
+            window.PublicKeyCredential.isConditionalMediationAvailable().then(
+              (available) => {
+                if (available) {
+                  console.log(
+                    "Conditional mediation (autofill for passkeys) is available"
+                  );
+                }
+              }
+            );
+          }
         }
-    };
-</script>
-</body>
+      };
+    </script>
+  </body>
 </html>

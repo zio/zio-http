@@ -1,5 +1,12 @@
 package example.auth.webauthn2.models
 
+import com.yubico.webauthn.data.{
+  AuthenticatorAttestationResponse,
+  ClientRegistrationExtensionOutputs,
+  PublicKeyCredential,
+}
+import zio.json.ast.{Json, JsonCursor}
+
 /**
  * Request DTOs for WebAuthn operations
  */
@@ -9,10 +16,22 @@ case class RegistrationStartRequest(username: String)
 
 case class RegistrationFinishRequest(
   username: String,
-  id: String,
-  rawId: String,
-  response: AttestationResponse,
+  publicKeyCredential: PublicKeyCredential[AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs],
 )
+
+object RegistrationFinishRequest {
+  import zio.json._
+  implicit val decoder: JsonDecoder[RegistrationFinishRequest] =
+    JsonDecoder[Json].mapOrFail { o =>
+      for {
+        u   <- o.get(JsonCursor.field("username")).flatMap(_.as[String])
+        pkc <- o
+          .get(JsonCursor.field("publicKeyCredential"))
+          .map(_.toString())
+          .map(PublicKeyCredential.parseRegistrationResponseJson)
+      } yield RegistrationFinishRequest(u, pkc)
+    }
+}
 
 case class AttestationResponse(
   clientDataJSON: String,
