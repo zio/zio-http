@@ -1,6 +1,12 @@
 package example.auth.webauthn2.models
 
-import com.yubico.webauthn.data.{AuthenticatorAssertionResponse, AuthenticatorAttestationResponse, ClientAssertionExtensionOutputs, ClientRegistrationExtensionOutputs, PublicKeyCredential}
+import com.yubico.webauthn.data.{
+  AuthenticatorAssertionResponse,
+  AuthenticatorAttestationResponse,
+  ClientAssertionExtensionOutputs,
+  ClientRegistrationExtensionOutputs,
+  PublicKeyCredential,
+}
 import zio.Chunk
 import zio.json.ast.{Json, JsonCursor}
 import zio.schema.Schema
@@ -51,7 +57,11 @@ object AuthenticationFinishRequest {
   implicit val decoder: JsonDecoder[AuthenticationFinishRequest] =
     JsonDecoder[Json].mapOrFail { o =>
       for {
-        u   <- o.get(JsonCursor.field("username")).flatMap(_.as[Option[String]])
+        u   <- Right(o.get(JsonCursor.field("username")).toOption.flatMap { x =>
+          val u = x.as[String].toOption
+          println("username:" + u)
+          u
+        })
         pkc <- o
           .get(JsonCursor.field("publicKeyCredential"))
           .map(_.toString())

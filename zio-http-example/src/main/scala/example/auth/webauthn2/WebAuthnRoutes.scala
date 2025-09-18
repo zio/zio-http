@@ -1,18 +1,10 @@
 package example.auth.webauthn2
 
-import com.yubico.webauthn.data.{
-  AuthenticatorAssertionResponse,
-  AuthenticatorAttestationResponse,
-  ClientAssertionExtensionOutputs,
-  ClientRegistrationExtensionOutputs,
-  PublicKeyCredential,
-}
 import example.auth.webauthn2.models.JsonCodecs._
 import example.auth.webauthn2.models._
 import zio._
 import zio.http._
 import zio.json._
-import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
 /**
  * HTTP routes for WebAuthn endpoints
@@ -54,7 +46,7 @@ object WebAuthnRoutes {
         for {
           body    <- req.body.asString
           request <- ZIO.fromEither(body.fromJson[AuthenticationFinishRequest])
-          result  <- service.finishAuthentication(request)
+          result  <- service.finishAuthentication(request).flatMapError(e => ZIO.debug("error: " + e))
         } yield Response.text(result)
       },
     ).sandbox @@ Middleware.cors

@@ -1,20 +1,10 @@
 package example.auth.webauthn2.models
 
+import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions
+
 /**
  * Response DTOs for WebAuthn operations
  */
-
-// Registration response DTOs
-case class RegistrationStartResponse(
-  challenge: String,
-  rp: RpInfo,
-  user: UserInfo,
-  pubKeyCredParams: List[CredParam],
-  authenticatorSelection: AuthSelection,
-  attestation: String,
-  timeout: Long,
-)
-
 case class RpInfo(id: String, name: String)
 
 case class UserInfo(id: String, name: String, displayName: String)

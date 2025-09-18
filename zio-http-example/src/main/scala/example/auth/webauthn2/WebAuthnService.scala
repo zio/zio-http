@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 import scala.util.Try
+import java.util.Base64
 
 /**
  * WebAuthn Service implementation - Discoverable passkey authentication
@@ -79,30 +80,7 @@ class WebAuthnService {
 
     registrationRequests.put(username, creationOptions)
 
-    RegistrationStartResponse(
-      challenge = base64UrlEncode(creationOptions.getChallenge.getBytes),
-      rp = RpInfo(
-        "localhost",
-        "WebAuthn Demo - Discoverable Passkeys",
-      ),
-      user = UserInfo(
-        base64UrlEncode(userIdentity.getId.getBytes),
-        userIdentity.getName,
-        userIdentity.getDisplayName,
-      ),
-      pubKeyCredParams = List(
-        CredParam("public-key", -7),  // ES256
-        CredParam("public-key", -257), // RS256
-      ),
-      authenticatorSelection = AuthSelection(
-        authenticatorAttachment = None,
-        requireResidentKey = true,    // Changed to true
-        residentKey = "required",     // Changed to "required"
-        userVerification = "required", // Changed to "required"
-      ),
-      attestation = "none",
-      timeout = 60000L,
-    )
+    creationOptions
   }
 
   def finishRegistration(
@@ -172,7 +150,7 @@ class WebAuthnService {
     // Store the assertion request - use username as key if available, otherwise use challenge
     val storageKey = username.filter(_.nonEmpty).getOrElse {
       // For usernameless flow, use challenge as key
-      base64UrlEncode(assertionRequestResult.getPublicKeyCredentialRequestOptions.getChallenge.getBytes)
+      assertionRequestResult.getPublicKeyCredentialRequestOptions.getChallenge.getBase64Url
     }
     authenticationRequests.put(storageKey, assertionRequestResult)
 
@@ -228,7 +206,7 @@ class WebAuthnService {
           .getOrElse(throw new Exception(s"No authentication request found for user: $user"))
       case None       =>
         // Usernameless flow - need to find by matching challenge
-        val clientDataJSON = request.publicKeyCredential.getResponse.getClientDataJSON.getBase64
+        val clientDataJSON = request.publicKeyCredential.getResponse.getClientDataJSON.getBase64Url
         findAssertionRequestByClientData(clientDataJSON)
           .getOrElse(throw new Exception("No matching authentication request found"))
     }
@@ -270,15 +248,25 @@ class WebAuthnService {
   }
 
   private def findAssertionRequestByClientData(clientDataJSON: String): Option[AssertionRequest] = {
-    // Parse the clientDataJSON to extract the challenge
-    val challengeOpt = Try(clientDataJSON.fromJson[ClientData].toOption.map(_.challenge)).toOption.flatten
+    // First decode the base64url-encoded clientDataJSON to get the actual JSON string
+    val decodedJsonOpt = Try {
+      // Decode base64url to get the JSON string
+      val decoder = Base64.getUrlDecoder
+      val decodedBytes = decoder.decode(clientDataJSON)
+      new String(decodedBytes, "UTF-8")
+    }.toOption
 
-    challengeOpt.flatMap { challenge =>
-      // Look for an assertion request with this challenge
-      authenticationRequests.asScala.find { case (key, request) =>
-        val requestChallenge = base64UrlEncode(request.getPublicKeyCredentialRequestOptions.getChallenge.getBytes)
-        requestChallenge == challenge || key == challenge
-      }.map(_._2)
+    decodedJsonOpt.flatMap { decodedJson =>
+      // Now parse the decoded JSON to extract the challenge
+      val challengeOpt = decodedJson.fromJson[ClientData].toOption.map(_.challenge)
+
+      challengeOpt.flatMap { challenge =>
+        // Look for an assertion request with this challenge
+        authenticationRequests.asScala.find { case (key, request) =>
+          val requestChallenge = base64UrlEncode(request.getPublicKeyCredentialRequestOptions.getChallenge.getBytes)
+          requestChallenge == challenge || key == challenge
+        }.map(_._2)
+      }
     }
   }
 

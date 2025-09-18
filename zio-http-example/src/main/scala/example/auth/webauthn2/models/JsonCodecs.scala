@@ -29,7 +29,7 @@ object JsonCodecs {
   implicit val userInfoEncoder: JsonEncoder[UserInfo] = DeriveJsonEncoder.gen
   implicit val credParamEncoder: JsonEncoder[CredParam] = DeriveJsonEncoder.gen
   implicit val authSelectionEncoder: JsonEncoder[AuthSelection] = DeriveJsonEncoder.gen
-  implicit val registrationStartResponseEncoder: JsonEncoder[RegistrationStartResponse] = DeriveJsonEncoder.gen
+//  implicit val registrationStartResponseEncoder: JsonEncoder[RegistrationStartResponse] = DeriveJsonEncoder.gen
 
   implicit val allowedCredentialEncoder: JsonEncoder[AllowedCredential] = DeriveJsonEncoder.gen
   implicit val authenticationStartResponseEncoder: JsonEncoder[AuthenticationStartResponse] = DeriveJsonEncoder.gen
