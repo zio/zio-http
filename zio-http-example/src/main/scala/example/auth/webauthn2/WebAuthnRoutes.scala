@@ -33,7 +33,6 @@ object WebAuthnRoutes {
           result  <- service.finishRegistration(request)
         } yield Response.text(result)
       },
-
       // Authentication endpoints
       Method.POST / "api" / "webauthn" / "authentication" / "start"  -> handler { (req: Request) =>
         for {
@@ -46,8 +45,8 @@ object WebAuthnRoutes {
         for {
           body    <- req.body.asString
           request <- ZIO.fromEither(body.fromJson[AuthenticationFinishRequest])
-          result  <- service.finishAuthentication(request).flatMapError(e => ZIO.debug("error: " + e))
-        } yield Response.text(result)
+          result  <- service.finishAuthentication(request)
+        } yield Response.json(result.toJson) // TODO: model failure response
       },
-    ).sandbox @@ Middleware.cors
+    ).sandbox @@ Middleware.cors @@ Middleware.debug
 }

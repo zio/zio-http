@@ -1,91 +1,105 @@
 package example.auth.webauthn2
 
+import com.yubico.webauthn._
 import com.yubico.webauthn.data._
-import com.yubico.webauthn.{CredentialRepository, RegisteredCredential}
 import example.auth.webauthn2.models.StoredCredential
-
+import java.util
 import java.util.Optional
-import java.util.concurrent.ConcurrentHashMap
+import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters.RichOption
 
 /**
  * In-memory implementation of Yubico's CredentialRepository
- * Supports both username-based and usernameless authentication flows
+ * Uses a Multi-Key Map pattern to support both username-based and usernameless authentication flows
  */
 class InMemoryCredentialRepository extends CredentialRepository {
-  private val users = new ConcurrentHashMap[String, StoredCredential]()
-  private val credentialsByHandle = new ConcurrentHashMap[ByteArray, StoredCredential]()
+
+  // Unified key system for different lookup patterns
+  sealed trait CredentialKey
+  case class UsernameKey(username: String) extends CredentialKey
+  case class UserHandleKey(userHandle: ByteArray) extends CredentialKey
+  case class CredentialIdKey(credentialId: ByteArray) extends CredentialKey
+  case class CompositeKey(credentialId: ByteArray, userHandle: ByteArray) extends CredentialKey
+
+  // Single unified storage - all keys point to credential instances
+  private val credentialStore = TrieMap.empty[CredentialKey, StoredCredential]
 
   def addCredential(credential: StoredCredential): Unit = {
-    users.put(credential.username, credential)
-    credentialsByHandle.put(credential.userHandle, credential).asInstanceOf[Unit]
+    // Store with multiple keys pointing to the same credential object
+    credentialStore.put(UsernameKey(credential.username), credential)
+    credentialStore.put(UserHandleKey(credential.userHandle), credential)
+    credentialStore.put(CredentialIdKey(credential.credentialId), credential)
+    credentialStore.put(
+      CompositeKey(credential.credentialId, credential.userHandle),
+      credential
+    ).asInstanceOf[Unit]
   }
 
   def updateSignatureCount(username: String, signatureCount: Long): Unit = {
-    Option(users.get(username)).foreach { cred =>
-      val updated = cred.copy(signatureCount = signatureCount)
-      users.put(username, updated)
-      credentialsByHandle.put(updated.userHandle, updated)
+    credentialStore.get(UsernameKey(username)).foreach { oldCred =>
+      val updatedCred = oldCred.copy(signatureCount = signatureCount)
+
+      // Remove old entries
+      credentialStore.remove(UsernameKey(oldCred.username))
+      credentialStore.remove(UserHandleKey(oldCred.userHandle))
+      credentialStore.remove(CredentialIdKey(oldCred.credentialId))
+      credentialStore.remove(CompositeKey(oldCred.credentialId, oldCred.userHandle))
+
+      // Add updated credential with all keys
+      addCredential(updatedCred)
     }
   }
 
   def getStoredCredential(username: String): Option[StoredCredential] =
-    Option(users.get(username))
+    credentialStore.get(UsernameKey(username))
 
-  override def getCredentialIdsForUsername(username: String): java.util.Set[PublicKeyCredentialDescriptor] =
-    Option(users.get(username)) match {
-      case Some(cred) =>
-        Set(
-          PublicKeyCredentialDescriptor
-            .builder()
-            .id(cred.credentialId)
-            .build()
-        ).asJava
-      case None => Set.empty[PublicKeyCredentialDescriptor].asJava
-    }
+  override def getCredentialIdsForUsername(username: String): util.Set[PublicKeyCredentialDescriptor] =
+    credentialStore
+      .get(UsernameKey(username))
+      .map { cred =>
+        PublicKeyCredentialDescriptor
+          .builder()
+          .id(cred.credentialId)
+          .build()
+      }
+      .toSet
+      .asJava
 
   override def getUserHandleForUsername(username: String): Optional[ByteArray] =
-    Option(users.get(username)) match {
-      case Some(cred) => Optional.of(cred.userHandle)
-      case None => Optional.empty()
-    }
+    credentialStore
+      .get(UsernameKey(username))
+      .map(_.userHandle)
+      .toJava
 
   override def getUsernameForUserHandle(userHandle: ByteArray): Optional[String] =
-    Option(credentialsByHandle.get(userHandle)) match {
-      case Some(cred) => Optional.of(cred.username)
-      case None => Optional.empty()
-    }
+    credentialStore
+      .get(UserHandleKey(userHandle))
+      .map(_.username)
+      .toJava
 
   override def lookup(credentialId: ByteArray, userHandle: ByteArray): Optional[RegisteredCredential] =
-    Option(credentialsByHandle.get(userHandle)) match {
-      case Some(cred) if cred.credentialId.equals(credentialId) =>
-        Optional.of(
-          RegisteredCredential
-            .builder()
-            .credentialId(cred.credentialId)
-            .userHandle(userHandle)
-            .publicKeyCose(cred.publicKeyCose)
-            .signatureCount(cred.signatureCount)
-            .build()
-        )
-      case _ => Optional.empty()
-    }
+    credentialStore
+      .get(CompositeKey(credentialId, userHandle))
+      .map(toRegisteredCredential)
+      .toJava
 
-  override def lookupAll(credentialId: ByteArray): java.util.Set[RegisteredCredential] =
-    users
-      .values()
-      .asScala
-      .find(_.credentialId.equals(credentialId))
+  override def lookupAll(credentialId: ByteArray): util.Set[RegisteredCredential] =
+    credentialStore
+      .get(CredentialIdKey(credentialId))
       .map { cred =>
-        Set(
-          RegisteredCredential
-            .builder()
-            .credentialId(cred.credentialId)
-            .userHandle(cred.userHandle)
-            .publicKeyCose(cred.publicKeyCose)
-            .signatureCount(cred.signatureCount)
-            .build()
-        ).asJava
+        Set(toRegisteredCredential(cred))
       }
-      .getOrElse(Set.empty[RegisteredCredential].asJava)
+      .getOrElse(Set.empty[RegisteredCredential])
+      .asJava
+
+  // Helper method to convert StoredCredential to RegisteredCredential
+  private def toRegisteredCredential(cred: StoredCredential): RegisteredCredential =
+    RegisteredCredential
+      .builder()
+      .credentialId(cred.credentialId)
+      .userHandle(cred.userHandle)
+      .publicKeyCose(cred.publicKeyCose)
+      .signatureCount(cred.signatureCount)
+      .build()
 }

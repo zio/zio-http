@@ -2,18 +2,18 @@ package example.auth.webauthn2
 
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
-import com.yubico.webauthn.exception.{AssertionFailedException, RegistrationFailedException}
-import example.auth.webauthn2.models.JsonCodecs._
+import com.yubico.webauthn.exception.RegistrationFailedException
 import example.auth.webauthn2.WebAuthnUtils._
+import example.auth.webauthn2.models.JsonCodecs._
 import example.auth.webauthn2.models._
 import zio._
 import zio.json._
 
+import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 import scala.util.Try
-import java.util.Base64
 
 /**
  * WebAuthn Service implementation - Discoverable passkey authentication
@@ -21,7 +21,7 @@ import java.util.Base64
  */
 class WebAuthnService {
   private val credentialRepository   = new InMemoryCredentialRepository()
-  private val registrationRequests   = new ConcurrentHashMap[String, PublicKeyCredentialCreationOptions]()
+  private val registrationRequests   = new ConcurrentHashMap[String, RegistrationStartResponse]()
   private val authenticationRequests = new ConcurrentHashMap[String, AssertionRequest]()
 
   private val rp =
@@ -154,34 +154,10 @@ class WebAuthnService {
     }
     authenticationRequests.put(storageKey, assertionRequestResult)
 
-    // Get the request options from the assertion request
-    val requestOptions = assertionRequestResult.getPublicKeyCredentialRequestOptions
-
-    // Prepare response for client
-    val allowCredentials = requestOptions.getAllowCredentials.toScala
-      .map(_.asScala)
-      .toList
-      .flatten
-      .map { cred =>
-        AllowedCredential(
-          "public-key",
-          base64UrlEncode(cred.getId.getBytes),
-        )
-      }
-
-    AuthenticationStartResponse(
-      challenge = base64UrlEncode(requestOptions.getChallenge.getBytes),
-      rpId = requestOptions.getRpId,
-      allowCredentials = allowCredentials, // Empty for usernameless flow
-      userVerification = requestOptions.getUserVerification.toScala
-        .getOrElse(UserVerificationRequirement.REQUIRED)
-        .toString
-        .toLowerCase,
-      timeout = requestOptions.getTimeout.toScala.getOrElse(60000L).asInstanceOf[Long],
-    )
+    assertionRequestResult
   }
 
-  def finishAuthentication(request: AuthenticationFinishRequest): Task[String] = ZIO.attempt {
+  def finishAuthentication(request: AuthenticationFinishRequest): Task[AuthenticationFinishResponse] = ZIO.attempt {
     // For discoverable passkeys, we need to identify the user from userHandle
     val actualUsername = request.username match {
       case Some(user) if user.nonEmpty => user
@@ -212,25 +188,19 @@ class WebAuthnService {
     }
 
     // TODO: is it important?
-    val storedCred = credentialRepository
+    credentialRepository
       .getStoredCredential(actualUsername)
       .getOrElse(throw new Exception(s"User not registered: $actualUsername"))
 
     // Verify the assertion
     val result =
-      try {
-        rp.finishAssertion(
-          FinishAssertionOptions
-            .builder()
-            .request(assertionRequest)
-            .response(request.publicKeyCredential)
-            .build(),
-        )
-      } catch {
-        case e: Exception =>
-          println(s"Assertion verification failed: ${e.getMessage}")
-          throw new AssertionFailedException(s"Authentication verification failed: ${e.getMessage}")
-      }
+      rp.finishAssertion(
+        FinishAssertionOptions
+          .builder()
+          .request(assertionRequest)
+          .response(request.publicKeyCredential)
+          .build(),
+      )
 
     if (result.isSuccess) {
       // Update signature count
@@ -238,20 +208,19 @@ class WebAuthnService {
 
       // Clean up authentication request
       request.username.filter(_.nonEmpty).foreach(authenticationRequests.remove)
-      cleanupAuthenticationRequests()
-
-      s"Authentication successful for user: $actualUsername"
-    } else {
-      println(s"Authentication result not successful for user: $actualUsername")
-      throw new AssertionFailedException("Authentication verification failed")
     }
+
+    AuthenticationFinishResponse(
+      success = result.isSuccess,
+      username = actualUsername,
+    )
   }
 
   private def findAssertionRequestByClientData(clientDataJSON: String): Option[AssertionRequest] = {
     // First decode the base64url-encoded clientDataJSON to get the actual JSON string
     val decodedJsonOpt = Try {
       // Decode base64url to get the JSON string
-      val decoder = Base64.getUrlDecoder
+      val decoder      = Base64.getUrlDecoder
       val decodedBytes = decoder.decode(clientDataJSON)
       new String(decodedBytes, "UTF-8")
     }.toOption
@@ -270,10 +239,4 @@ class WebAuthnService {
     }
   }
 
-  private def cleanupAuthenticationRequests(): Unit = {
-    // Clean up old requests (simplified - in production, use proper cleanup with timestamps)
-    if (authenticationRequests.size() > 100) {
-      authenticationRequests.clear()
-    }
-  }
 }

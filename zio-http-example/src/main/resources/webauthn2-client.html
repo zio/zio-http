@@ -1125,7 +1125,7 @@
           // Use the modern API to parse and get credential
           const assertion = await navigator.credentials.get({
             publicKey:
-              PublicKeyCredential.parseRequestOptionsFromJSON(serverOptions),
+              PublicKeyCredential.parseRequestOptionsFromJSON(serverOptions.publicKeyCredentialRequestOptions),
           });
 
           // Use toJSON() to serialize the assertion
@@ -1151,20 +1151,22 @@
           );
           console.log("authentication/finish req", assertionForServer);
 
-          const result = await finishResponse.text();
-          logDebug("auth-finish-response", {
-            success: finishResponse.ok,
-            message: result,
-          });
+          const result = await finishResponse.json();
+          logDebug("auth-finish-response", result);
           console.log("authentication/finish res", result);
 
-          if (!finishResponse.ok) {
-            throw new Error("Failed to finish authentication");
+          if (!finishResponse.ok || !result.success) {
+            throw new Error(
+              result.message || "Failed to finish authentication"
+            );
           }
+
+          // Extract username from the result
+          const username = result.username || "User";
 
           showMessage(
             "passkey-message",
-            "✅ " + result + " - No username needed!",
+            `✅ Welcome back, ${username}! Authentication successful - No password needed!`,
             "success"
           );
         } catch (error) {
@@ -1184,7 +1186,6 @@
           }
         }
       }
-
       // ==================== USERNAME FUNCTIONS (Using Modern API) ====================
 
       async function registerWithUsername() {
@@ -1304,114 +1305,107 @@
         }
       }
 
-      async function authenticateWithUsername() {
-        const username = document.getElementById("username-login").value;
-        if (!username) {
-          showMessage(
-            "username-message",
-            "Please enter your username to sign in",
-            "error"
-          );
-          return;
-        }
+async function authenticateWithUsername() {
+  const username = document.getElementById("username-login").value;
+  if (!username) {
+    showMessage(
+      "username-message",
+      "Please enter your username to sign in",
+      "error"
+    );
+    return;
+  }
 
-        clearDebugFlow("authentication");
-        document.getElementById("auth-flow-type").innerHTML =
-          '<span class="flow-type-badge badge-username-flow">Username-Based</span>';
+  clearDebugFlow("authentication");
+  document.getElementById("auth-flow-type").innerHTML =
+    '<span class="flow-type-badge badge-username-flow">Username-Based</span>';
 
-        try {
-          showMessage("username-message", "🔄 Authenticating...", "info");
+  try {
+    showMessage("username-message", "🔄 Authenticating...", "info");
 
-          // Step 1: Log request
-          const requestBody = { username: username };
-          logDebug("auth-start-request", requestBody);
+    // Step 1: Log request
+    const requestBody = { username: username };
+    logDebug("auth-start-request", requestBody);
 
-          // Start authentication with username
-          const startResponse = await fetch(
-            "/api/webauthn/authentication/start",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(requestBody),
-            }
-          );
-
-          if (!startResponse.ok) {
-            throw new Error("Failed to start authentication");
-          }
-
-          const serverOptions = await startResponse.json();
-          logDebug("auth-start-response", serverOptions);
-
-          // Convert to WebAuthn format
-          const publicKeyOptions = {
-            challenge: serverOptions.challenge,
-            rpId: serverOptions.rpId,
-            allowCredentials: serverOptions.allowCredentials,
-            userVerification: serverOptions.userVerification || "preferred",
-            timeout: serverOptions.timeout || 60000,
-          };
-
-          // Log the WebAuthn API call
-          logDebug("auth-webauthn-call", publicKeyOptions);
-
-          // Use modern API to get assertion
-          const assertion = await navigator.credentials.get({
-            publicKey:
-              PublicKeyCredential.parseRequestOptionsFromJSON(publicKeyOptions),
-          });
-
-          // Use toJSON() to serialize
-          const assertionJSON = assertion.toJSON();
-          logDebug("auth-authenticator-response", assertionJSON);
-
-          // Send to server
-          const assertionForServer = {
-            username: username,
-            publicKeyCredential: assertionJSON,
-          };
-
-          logDebug("auth-finish-request", assertionForServer);
-
-          const finishResponse = await fetch(
-            "/api/webauthn/authentication/finish",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(assertionForServer),
-            }
-          );
-
-          const result = await finishResponse.text();
-          logDebug("auth-finish-response", {
-            success: finishResponse.ok,
-            message: result,
-          });
-
-          if (!finishResponse.ok) {
-            throw new Error("Failed to finish authentication");
-          }
-
-          showMessage("username-message", "✅ " + result, "success");
-          document.getElementById("username-login").value = "";
-        } catch (error) {
-          console.error("Username authentication error:", error);
-          if (error.name === "NotAllowedError") {
-            showMessage(
-              "username-message",
-              "❌ Authentication cancelled",
-              "error"
-            );
-          } else {
-            showMessage(
-              "username-message",
-              "❌ Authentication failed: " + error.message,
-              "error"
-            );
-          }
-        }
+    // Start authentication with username
+    const startResponse = await fetch(
+      "/api/webauthn/authentication/start",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       }
+    );
 
+    if (!startResponse.ok) {
+      throw new Error("Failed to start authentication");
+    }
+
+    const serverOptions = await startResponse.json();
+    logDebug("auth-start-response", serverOptions);
+
+    // Use modern API to get assertion
+    // Note: Check if serverOptions has nested structure or is direct
+    const publicKeyOptions = serverOptions.publicKeyCredentialRequestOptions || serverOptions;
+    const assertion = await navigator.credentials.get({
+      publicKey:
+        PublicKeyCredential.parseRequestOptionsFromJSON(publicKeyOptions),
+    });
+
+    // Use toJSON() to serialize
+    const assertionJSON = assertion.toJSON();
+    logDebug("auth-authenticator-response", assertionJSON);
+
+    // Send to server
+    const assertionForServer = {
+      username: username,
+      publicKeyCredential: assertionJSON,
+    };
+
+    logDebug("auth-finish-request", assertionForServer);
+
+    const finishResponse = await fetch(
+      "/api/webauthn/authentication/finish",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(assertionForServer),
+      }
+    );
+
+    const result = await finishResponse.json();
+    logDebug("auth-finish-response", result);
+
+    if (!finishResponse.ok || !result.success) {
+      throw new Error(result.message || "Failed to finish authentication");
+    }
+
+    // Extract username from result for confirmation (might be different from input)
+    const authenticatedUser = result.credential?.username || username;
+
+    showMessage(
+      "username-message",
+      `✅ Welcome back, ${authenticatedUser}! Authentication successful`,
+      "success"
+    );
+    document.getElementById("username-login").value = "";
+  } catch (error) {
+    console.error("Username authentication error:", error);
+    if (error.name === "NotAllowedError") {
+      showMessage(
+        "username-message",
+        "❌ Authentication cancelled",
+        "error"
+      );
+    } else {
+      showMessage(
+        "username-message",
+        "❌ Authentication failed: " + error.message,
+        "error"
+      );
+    }
+  }
+}
       // Setup collapsible debug sections
       document.querySelectorAll(".step-header").forEach((header) => {
         header.addEventListener("click", () => {
