@@ -5,5 +5,5 @@ sealed abstract case class Js(value: String) {
 }
 
 object Js {
-  private[template2] def apply(value: String): Js = new Js(value) {}
+  def apply(value: String): Js = new Js(value) {}
 }
