@@ -246,10 +246,20 @@ object CodeGen {
     case Code.Primitive.ScalaTime      => List(Code.Import("java.time.LocalTime")) -> "LocalTime"
     case Code.ScalaType.Inferred       => Nil                                      -> ""
 
-    case Code.EndpointCode(method, pathPatternCode, queryParamsCode, headersCode, inCode, outCodes, errorsCode) =>
+    case Code.EndpointCode(
+          method,
+          pathPatternCode,
+          queryParamsCode,
+          headersCode,
+          inCode,
+          outCodes,
+          errorsCode,
+          authTypeCode,
+        ) =>
       val (queryImports, queryContent) = queryParamsCode.map(renderQueryCode).unzip
       val (segments, pathImports)      = pathPatternCode.segments.map(renderSegment).unzip
       val allImports                   = (pathImports ++ queryImports).flatten.distinct
+      val authCode                     = authTypeCode.map(renderAuthCode).getOrElse("")
       val content                      =
         s"""Endpoint(Method.$method / ${segments.mkString(" / ")})
            |  ${queryContent.mkString("\n")}
@@ -257,6 +267,7 @@ object CodeGen {
            |  ${renderInCode(inCode)}
            |  ${outCodes.map(renderOutCode).mkString("\n")}
            |  ${errorsCode.map(renderOutErrorCode).mkString("\n")}
+           |  $authCode
            |""".stripMargin
       allImports -> content
 
@@ -440,4 +451,16 @@ object CodeGen {
     }
   }
 
+  def renderAuthCode(authCode: Code.AuthTypeCode): String = {
+    authCode match {
+      case Code.AuthTypeCode("Bearer") =>
+        s""".auth(AuthType.Bearer)"""
+      case Code.AuthTypeCode("Basic")  =>
+        s""".auth(AuthType.Basic)"""
+      case Code.AuthTypeCode("Digest") =>
+        s""".auth(AuthType.Digest)"""
+      case _                           =>
+        s""
+    }
+  }
 }

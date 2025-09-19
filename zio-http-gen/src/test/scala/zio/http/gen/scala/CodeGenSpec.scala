@@ -22,8 +22,8 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec._
-import zio.http.endpoint.Endpoint
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPI, OpenAPIGen}
+import zio.http.endpoint.{AuthType, Endpoint}
 import zio.http.gen.model._
 import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.gen.openapi.{Config, EndpointGen}
@@ -160,6 +160,17 @@ object CodeGenSpec extends ZIOSpecDefault {
 
         codeGenFromOpenAPI(openAPI) { testDir =>
           fileShouldBe(testDir, "api/v1/Users.scala", "/EndpointWithHeaders.scala")
+        }
+      },
+      test("Endpoint with auth") {
+        val endpoint =
+          Endpoint(Method.GET / "api" / "v1" / "users")
+            .auth(AuthType.Bearer)
+
+        val openAPI = OpenAPIGen.fromEndpoints(endpoint)
+
+        codeGenFromOpenAPI(openAPI) { testDir =>
+          fileShouldBe(testDir, "api/v1/Users.scala", "/EndpointWithAuth.scala")
         }
       },
       test("Endpoint with request body") {

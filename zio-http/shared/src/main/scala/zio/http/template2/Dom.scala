@@ -154,6 +154,22 @@ object Dom {
 
   def boolAttr(name: String, enabled: Boolean = true): BooleanAttribute = BooleanAttribute(name, enabled)
 
+  def multiAttr(name: String): PartialMultiAttribute =
+    PartialMultiAttribute(name, AttributeSeparator.Space)
+
+  def multiAttr(name: String, separator: AttributeSeparator): PartialMultiAttribute =
+    PartialMultiAttribute(name, separator)
+
+  def multiAttr(
+    name: String,
+    values: Iterable[String],
+    separator: AttributeSeparator = AttributeSeparator.Space,
+  ): CompleteAttribute =
+    CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
+
+  def multiAttr(name: String, separator: AttributeSeparator, values: String*): CompleteAttribute =
+    CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
+
   private def htmlEscape(text: String): String = {
     text
       .replace("&", "&amp;")
@@ -212,6 +228,11 @@ object Dom {
         attributes.foreach {
           case (name, AttributeValue.StringValue(v))                     =>
             sb.append(s""" $name="${htmlEscape(v)}"""")
+          case (name, AttributeValue.MultiValue(values, separator))      =>
+            if (values.nonEmpty) {
+              val joinedValues = values.mkString(separator.render)
+              sb.append(s""" $name="${htmlEscape(joinedValues)}"""")
+            }
           case (name, value: AttributeValue.BooleanValue) if value.value =>
             sb.append(s""" $name""")
           case _                                                         =>
@@ -301,6 +322,21 @@ object Dom {
    */
   final case class BooleanAttribute(name: String, enabled: Boolean = true) extends Attribute {
     def value: AttributeValue = AttributeValue.BooleanValue(enabled)
+  }
+
+  /**
+   * Partial multi-value attribute that needs values (like class := ("foo",
+   * "bar"))
+   */
+  final case class PartialMultiAttribute(name: String, separator: AttributeSeparator = AttributeSeparator.Space) {
+    def :=(values: String*): CompleteAttribute             =
+      CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
+    def :=(values: Iterable[String]): CompleteAttribute    =
+      CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
+    def apply(values: String*): CompleteAttribute          =
+      CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
+    def apply(values: Iterable[String]): CompleteAttribute =
+      CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
   }
 
   object Element {
@@ -517,12 +553,23 @@ object Dom {
 
     implicit def fromDouble(value: Double): AttributeValue = StringValue(String.valueOf(value))
 
+    implicit def fromUrl(value: zio.http.URL): AttributeValue = StringValue(value.encode)
+
+    implicit def fromUuid(value: java.util.UUID): AttributeValue = StringValue(value.toString)
+
     sealed trait BooleanValue extends AttributeValue with Serializable {
       def value: Boolean
     }
 
     final case class StringValue(value: String) extends AttributeValue {
       override def toString: String = value
+    }
+
+    /**
+     * Multi-value attribute support for attributes like class, style, etc.
+     */
+    final case class MultiValue(values: Vector[String], separator: AttributeSeparator) extends AttributeValue {
+      override def toString: String = values.mkString(separator.render)
     }
 
     object BooleanValue {
@@ -536,6 +583,36 @@ object Dom {
         def value: Boolean            = false
       }
     }
+  }
+
+}
+
+/**
+ * Attribute separator types for multi-value attributes
+ */
+sealed trait AttributeSeparator {
+  def render: String
+  override def toString: String = render
+}
+
+object AttributeSeparator {
+  case object Space extends AttributeSeparator {
+    def render: String = " "
+  }
+
+  case object Comma extends AttributeSeparator {
+    def render: String = ","
+  }
+
+  case object Semicolon extends AttributeSeparator {
+    def render: String = ";"
+  }
+
+  /**
+   * Create a custom separator
+   */
+  final case class Custom(separator: String) extends AttributeSeparator {
+    def render: String = separator
   }
 }
 
