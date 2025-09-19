@@ -42,29 +42,32 @@ class WebAuthnService {
     // Generate a unique user handle for discoverable passkeys
     val userHandle = new ByteArray(generateUserHandle(username))
 
-    val userIdentity: UserIdentity = UserIdentity
-      .builder()
-      .name(username)
-      .displayName(username)
-      .id(userHandle) // Use unique handle instead of username bytes
-      .build()
+    val userIdentity: UserIdentity =
+      UserIdentity
+        .builder()
+        .name(username)
+        .displayName(username)
+        .id(userHandle) // Use unique handle instead of username bytes
+        .build()
+
+    val relyingPartyIdentity: RelyingPartyIdentity =
+      RelyingPartyIdentity
+        .builder()
+        .id("localhost")
+        .name("WebAuthn Demo")
+        .build()
 
     val creationOptions: PublicKeyCredentialCreationOptions =
       PublicKeyCredentialCreationOptions
         .builder()
-        .rp(
-          RelyingPartyIdentity
-            .builder()
-            .id("localhost")
-            .name("WebAuthn Demo - Discoverable Passkeys")
-            .build(),
-        )
+        .rp(relyingPartyIdentity)
         .user(userIdentity)
         .challenge(generateChallenge())
         .pubKeyCredParams(
           List(
             PublicKeyCredentialParameters.ES256,
             PublicKeyCredentialParameters.RS256,
+            PublicKeyCredentialParameters.EdDSA,
           ).asJava,
         )
         .authenticatorSelection(

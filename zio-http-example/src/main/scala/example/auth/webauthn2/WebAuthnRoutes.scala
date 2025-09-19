@@ -33,6 +33,7 @@ object WebAuthnRoutes {
           result  <- service.finishRegistration(request)
         } yield Response.text(result)
       },
+
       // Authentication endpoints
       Method.POST / "api" / "webauthn" / "authentication" / "start"  -> handler { (req: Request) =>
         for {
