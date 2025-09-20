@@ -56,24 +56,6 @@ class InMemoryCredentialRepository extends CredentialRepository {
       .asInstanceOf[Unit]
   }
 
-  def updateSignatureCount(username: String, signatureCount: Long): Unit = {
-    credentialStore.get(UsernameKey(username)).foreach { oldCred =>
-      val updatedCred = oldCred.copy(signatureCount = signatureCount)
-
-      // Remove old entries
-      credentialStore.remove(UsernameKey(oldCred.username))
-      credentialStore.remove(UserHandleKey(oldCred.userHandle))
-      credentialStore.remove(CredentialIdKey(oldCred.credentialId))
-      credentialStore.remove(CompositeKey(oldCred.credentialId, oldCred.userHandle))
-
-      // Add updated credential with all keys
-      addCredential(updatedCred)
-    }
-  }
-
-  def getStoredCredential(username: String): Option[StoredCredential] =
-    credentialStore.get(UsernameKey(username))
-
   override def getCredentialIdsForUsername(username: String): util.Set[PublicKeyCredentialDescriptor] =
     credentialStore
       .get(UsernameKey(username))

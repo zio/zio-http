@@ -4,16 +4,11 @@ import com.yubico.webauthn._
 import com.yubico.webauthn.data._
 import com.yubico.webauthn.exception.RegistrationFailedException
 import example.auth.webauthn2.WebAuthnUtils._
-import example.auth.webauthn2.models.JsonCodecs._
 import example.auth.webauthn2.models._
 import zio._
-import zio.json._
 
-import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
-import scala.jdk.OptionConverters._
-import scala.util.Try
 
 /**
  * WebAuthn Service implementation - Discoverable passkey authentication
@@ -129,6 +124,7 @@ class WebAuthnService {
             .builder()
             .username(user)
             .userVerification(UserVerificationRequirement.REQUIRED)
+            .timeout(60000L)
             .build(),
         )
       case _                           =>
@@ -137,56 +133,21 @@ class WebAuthnService {
           StartAssertionOptions
             .builder()
             .userVerification(UserVerificationRequirement.REQUIRED)
+            .timeout(60000L)
             .build(),
         )
     }
 
-    // Store the assertion request - use username as key if available, otherwise use challenge
-    val storageKey = username.filter(_.nonEmpty).getOrElse {
-      // For usernameless flow, use challenge as key
-      assertionRequestResult.getPublicKeyCredentialRequestOptions.getChallenge.getBase64Url
-    }
+    val storageKey = assertionRequestResult.getPublicKeyCredentialRequestOptions.getChallenge.getBase64Url
     authenticationRequests.put(storageKey, assertionRequestResult)
 
     assertionRequestResult
   }
 
   def finishAuthentication(request: AuthenticationFinishRequest): Task[AuthenticationFinishResponse] = ZIO.attempt {
-    // For discoverable passkeys, we need to identify the user from userHandle
-    val actualUsername = request.username match {
-      case Some(user) if user.nonEmpty => user
-      case _                           =>
-        // Extract username from userHandle in the response
-        request.publicKeyCredential.getResponse.getUserHandle.toScala match {
-          case Some(userHandle) =>
-            credentialRepository
-              .getUsernameForUserHandle(userHandle)
-              .toScala
-              .getOrElse(throw new Exception("User not found for provided handle"))
-          case None             =>
-            throw new Exception("No username or userHandle provided")
-        }
-    }
+    val challenge        = request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url
+    val assertionRequest = authenticationRequests.get(challenge)
 
-    // Find the assertion request
-    val assertionRequest = request.username.filter(_.nonEmpty) match {
-      case Some(user) =>
-        // Username-based flow - look up by username
-        Option(authenticationRequests.get(user))
-          .getOrElse(throw new Exception(s"No authentication request found for user: $user"))
-      case None       =>
-        // Usernameless flow - need to find by matching challenge
-        val clientDataJSON = request.publicKeyCredential.getResponse.getClientDataJSON.getBase64Url
-        findAssertionRequestByClientData(clientDataJSON)
-          .getOrElse(throw new Exception("No matching authentication request found"))
-    }
-
-    // TODO: is it important?
-    credentialRepository
-      .getStoredCredential(actualUsername)
-      .getOrElse(throw new Exception(s"User not registered: $actualUsername"))
-
-    // Verify the assertion
     val result =
       relyingParty.finishAssertion(
         FinishAssertionOptions
@@ -197,40 +158,12 @@ class WebAuthnService {
       )
 
     if (result.isSuccess) {
-      // Update signature count
-      credentialRepository.updateSignatureCount(actualUsername, result.getSignatureCount)
-
-      // Clean up authentication request
-      request.username.filter(_.nonEmpty).foreach(authenticationRequests.remove)
+      authenticationRequests.remove(challenge)
     }
 
     AuthenticationFinishResponse(
       success = result.isSuccess,
-      username = actualUsername,
+      username = result.getUsername,
     )
   }
-
-  private def findAssertionRequestByClientData(clientDataJSON: String): Option[AssertionRequest] = {
-    // First decode the base64url-encoded clientDataJSON to get the actual JSON string
-    val decodedJsonOpt = Try {
-      // Decode base64url to get the JSON string
-      val decoder      = Base64.getUrlDecoder
-      val decodedBytes = decoder.decode(clientDataJSON)
-      new String(decodedBytes, "UTF-8")
-    }.toOption
-
-    decodedJsonOpt.flatMap { decodedJson =>
-      // Now parse the decoded JSON to extract the challenge
-      val challengeOpt = decodedJson.fromJson[ClientData].toOption.map(_.challenge)
-
-      challengeOpt.flatMap { challenge =>
-        // Look for an assertion request with this challenge
-        authenticationRequests.asScala.find { case (key, request) =>
-          val requestChallenge = base64UrlEncode(request.getPublicKeyCredentialRequestOptions.getChallenge.getBytes)
-          requestChallenge == challenge || key == challenge
-        }.map(_._2)
-      }
-    }
-  }
-
 }
