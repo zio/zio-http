@@ -838,10 +838,14 @@ object OpenAPIGen {
               description = mc.docsOpt,
               definition = Some(OpenAPI.ReferenceOr.Or(JsonSchema.String().nullable(!mc.required))),
               deprecated = mc.deprecated,
-              examples = Map.empty,
-//                mc.examples.map { case (name, value) =>
-//                name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(codec.headerType.render(value).toJsonAST.toOption.get))
-//              },
+              examples = mc.examples.map { case (name, value) =>
+                // The value should be a Header instance, so we can call renderedValue on it
+                val renderedValue = value match {
+                  case header: Header => header.renderedValue
+                  case other          => other.toString
+                }
+                name -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(Json.Str(renderedValue)))
+              },
               required = mc.required,
             ),
           )
