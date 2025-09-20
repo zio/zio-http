@@ -2,11 +2,11 @@ package example.auth.webauthn2
 
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
-import com.yubico.webauthn.exception.RegistrationFailedException
 import example.auth.webauthn2.WebAuthnUtils._
 import example.auth.webauthn2.models._
 import zio._
 
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 
@@ -14,12 +14,14 @@ import scala.jdk.CollectionConverters._
  * WebAuthn Service implementation - Discoverable passkey authentication
  * Supports both username-based and usernameless authentication flows
  */
-class WebAuthnService {
-  private val credentialRepository   = new InMemoryCredentialRepository()
-  private val registrationRequests   = new ConcurrentHashMap[String, RegistrationStartResponse]()
-  private val authenticationRequests = new ConcurrentHashMap[String, AssertionRequest]()
+class WebAuthnService(userService: UserService) {
+  private type UserHandle = String
+  private type Challenge  = String
+  private val credentialRepository   = new InMemoryCredentialRepository(userService)
+  private val registrationRequests   = new ConcurrentHashMap[UserHandle, RegistrationStartResponse]()
+  private val authenticationRequests = new ConcurrentHashMap[Challenge, AssertionRequest]()
 
-  val relyingPartyIdentity: RelyingPartyIdentity =
+  private val relyingPartyIdentity: RelyingPartyIdentity =
     RelyingPartyIdentity
       .builder()
       .id("localhost")
@@ -34,9 +36,17 @@ class WebAuthnService {
       .origins(Set("http://localhost:8080").asJava)
       .build()
 
-  def startRegistration(username: String): Task[RegistrationStartResponse] = ZIO.attempt {
+  def startRegistration(username: String): Task[RegistrationStartResponse] = {
+    userService
+      .getUser(username)
+      .orElse {
+        val user = User(UUID.randomUUID().toString, username, Set.empty)
+        userService.addUser(user).as(user)
+      }
+      .orDieWith(_ => new Exception("User service error"))
+  }.map { user =>
     // Generate a unique user handle for discoverable passkeys
-    val userHandle = new ByteArray(generateUserHandle(username))
+    val userHandle = new ByteArray(user.userHandle.getBytes())
 
     val userIdentity: UserIdentity =
       UserIdentity
@@ -70,49 +80,51 @@ class WebAuthnService {
         .timeout(60000L)
         .build()
 
-    registrationRequests.put(username, creationOptions)
+    registrationRequests.put(user.userHandle, creationOptions)
 
     creationOptions
   }
 
   def finishRegistration(
     request: RegistrationFinishRequest,
-  ): Task[RegistrationFinishResponse] = ZIO.attempt {
-    val creationOptions = registrationRequests.get(request.username)
-
-    if (creationOptions == null) {
-      println("No registration request found for user")
-      throw new Exception("No registration request found for user")
-    }
-
-    // Verify the registration
-    val result = relyingParty.finishRegistration(
-      FinishRegistrationOptions
-        .builder()
-        .request(creationOptions)
-        .response(request.publicKeyCredential)
-        .build(),
-    )
-
-    if (result.isUserVerified) {
-
-      credentialRepository.addCredential(
-        credentialId = result.getKeyId.getId,
-        publicKeyCose = result.getPublicKeyCose,
-        signatureCount = result.getSignatureCount,
-        username = request.username,
-        userHandle = creationOptions.getUser.getId,
+  ): Task[RegistrationFinishResponse] =
+    for {
+      creationOptions <- ZIO
+        .fromOption(Option(registrationRequests.get(request.userhandle)))
+        .orElseFail(NoRegistrationRequest(request.username))
+      result = relyingParty.finishRegistration(
+        FinishRegistrationOptions
+          .builder()
+          .request(creationOptions)
+          .response(request.publicKeyCredential)
+          .build(),
       )
-      registrationRequests.remove(request.username)
+      response <-
+        if (result.isUserVerified) {
+          userService
+            .addCredential(
+              userHandle = request.userhandle,
+              credential = UserCredential(
+                credentialId = result.getKeyId.getId,
+                publicKeyCose = result.getPublicKeyCose,
+                signatureCount = result.getSignatureCount,
+                username = request.username,
+                userHandle = creationOptions.getUser.getId,
+              ),
+            )
+            .orDieWith(_ => new Exception("User service error")) *>
+            ZIO.succeed {
+              registrationRequests.remove(request.username)
 
-      RegistrationFinishResponse(
-        success = true,
-        credentialId = result.getKeyId.getId.getBase64Url,
-      )
-    } else {
-      throw new RegistrationFailedException(new IllegalArgumentException("User verification failed"))
-    }
-  }
+              RegistrationFinishResponse(
+                success = true,
+                credentialId = result.getKeyId.getId.getBase64Url,
+              )
+            }
+        } else {
+          ZIO.fail(UserVerificationFailed(request.username))
+        }
+    } yield response
 
   def startAuthentication(username: Option[String]): Task[AuthenticationStartResponse] = ZIO.attempt {
     // Create assertion request - usernameless if no username provided
@@ -127,7 +139,8 @@ class WebAuthnService {
             .timeout(60000L)
             .build(),
         )
-      case _                           =>
+
+      case _ =>
         // Usernameless authentication for discoverable passkeys
         relyingParty.startAssertion(
           StartAssertionOptions

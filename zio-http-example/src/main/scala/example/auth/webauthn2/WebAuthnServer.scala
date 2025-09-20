@@ -25,5 +25,7 @@ object WebAuthnServer extends ZIOAppDefault {
       _ <- Console.printLine("- User verification required")
       _ <- Console.printLine("=" * 60)
     } yield ()
-  } *> Server.serve(WebAuthnRoutes(new WebAuthnService())).provide(Server.default)
+  } *> UserService.make().flatMap { us =>
+    Server.serve(WebAuthnRoutes(new WebAuthnService(us))).provide(Server.default)
+  }
 }

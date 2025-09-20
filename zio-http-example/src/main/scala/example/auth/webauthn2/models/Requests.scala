@@ -22,6 +22,7 @@ case class RegistrationStartRequest(username: String)
 
 case class RegistrationFinishRequest(
   username: String,
+  userhandle: String,
   publicKeyCredential: PublicKeyCredential[AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs],
 )
 
@@ -31,11 +32,12 @@ object RegistrationFinishRequest {
     JsonDecoder[Json].mapOrFail { o =>
       for {
         u   <- o.get(JsonCursor.field("username")).flatMap(_.as[String])
+        uh   <- o.get(JsonCursor.field("userhandle")).flatMap(_.as[String])
         pkc <- o
           .get(JsonCursor.field("publicKeyCredential"))
           .map(_.toString())
           .map(PublicKeyCredential.parseRegistrationResponseJson)
-      } yield RegistrationFinishRequest(u, pkc)
+      } yield RegistrationFinishRequest(u, uh, pkc)
     }
 }
 

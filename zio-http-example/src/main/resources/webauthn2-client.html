@@ -1043,9 +1043,13 @@
       logDebug("reg-authenticator-response", credentialJSON);
       console.log("reg-authenticator-response", credentialJSON);
 
+
+      console.log("************", PublicKeyCredential.parseCreationOptionsFromJSON(serverOptions).user.id)
+      
       // Step 4: Finish registration
       const credentialForServer = {
         username: username,
+        userhandle: atob(serverOptions.user.id),
         publicKeyCredential: credentialJSON,
       };
 
