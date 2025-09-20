@@ -1,6 +1,8 @@
 package example.auth.webauthn2
 
+import com.yubico.webauthn.AssertionRequest
 import example.auth.webauthn2._
+import example.auth.webauthn2.models.RegistrationStartResponse
 import zio._
 import zio.http._
 
@@ -25,7 +27,14 @@ object WebAuthnServer extends ZIOAppDefault {
       _ <- Console.printLine("- User verification required")
       _ <- Console.printLine("=" * 60)
     } yield ()
-  } *> UserService.make().flatMap { us =>
-    Server.serve(WebAuthnRoutes(new WebAuthnService(us))).provide(Server.default)
-  }
+  } *>
+    {
+      for {
+        us <- UserService.make()
+        rr <- Ref.make(Map.empty[String, RegistrationStartResponse])
+        ar <- Ref.make(Map.empty[String, AssertionRequest])
+      } yield WebAuthnRoutes(new WebAuthnService(us, rr, ar))
+    }.flatMap { routes =>
+      Server.serve(routes).provide(Server.default)
+    }
 }

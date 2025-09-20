@@ -7,19 +7,18 @@ import example.auth.webauthn2.models._
 import zio._
 
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 
 /**
  * WebAuthn Service implementation - Discoverable passkey authentication
  * Supports both username-based and usernameless authentication flows
  */
-class WebAuthnService(userService: UserService) {
-  private type UserHandle = String
-  private type Challenge  = String
-  private val credentialRepository   = new InMemoryCredentialRepository(userService)
-  private val registrationRequests   = new ConcurrentHashMap[UserHandle, RegistrationStartResponse]()
-  private val authenticationRequests = new ConcurrentHashMap[Challenge, AssertionRequest]()
+class WebAuthnService(
+  userService: UserService,
+  registrationRequests: Ref[Map[UserHandle, RegistrationStartResponse]],
+  authenticationRequests: Ref[Map[Challenge, AssertionRequest]],
+) {
+  private val credentialRepository = new InMemoryCredentialRepository(userService)
 
   private val relyingPartyIdentity: RelyingPartyIdentity =
     RelyingPartyIdentity
@@ -80,17 +79,18 @@ class WebAuthnService(userService: UserService) {
         .timeout(60000L)
         .build()
 
-    registrationRequests.put(user.userHandle, creationOptions)
-
-    creationOptions
+    (user.userHandle, creationOptions)
+  }.flatMap { case (userHandle, options) =>
+    registrationRequests.update(_.updated(userHandle, options)).as(options)
   }
 
   def finishRegistration(
     request: RegistrationFinishRequest,
-  ): Task[RegistrationFinishResponse] =
+  ): ZIO[Any, Any, RegistrationFinishResponse] =
     for {
-      creationOptions <- ZIO
-        .fromOption(Option(registrationRequests.get(request.userhandle)))
+      creationOptions <- registrationRequests.get
+        .map(_.get(request.userhandle))
+        .some
         .orElseFail(NoRegistrationRequest(request.username))
       result = relyingParty.finishRegistration(
         FinishRegistrationOptions
@@ -113,9 +113,8 @@ class WebAuthnService(userService: UserService) {
               ),
             )
             .orDieWith(_ => new Exception("User service error")) *>
+            registrationRequests.update(_.removed(request.userhandle)) *>
             ZIO.succeed {
-              registrationRequests.remove(request.username)
-
               RegistrationFinishResponse(
                 success = true,
                 credentialId = result.getKeyId.getId.getBase64Url,
@@ -152,31 +151,42 @@ class WebAuthnService(userService: UserService) {
     }
 
     val storageKey = assertionRequestResult.getPublicKeyCredentialRequestOptions.getChallenge.getBase64Url
-    authenticationRequests.put(storageKey, assertionRequestResult)
 
-    assertionRequestResult
+    (storageKey, assertionRequestResult)
+  }.flatMap { case (storageKey, assertion) =>
+    authenticationRequests.update(_.updated(storageKey, assertion)).as(assertion)
   }
 
-  def finishAuthentication(request: AuthenticationFinishRequest): Task[AuthenticationFinishResponse] = ZIO.attempt {
-    val challenge        = request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url
-    val assertionRequest = authenticationRequests.get(challenge)
-
-    val result =
-      relyingParty.finishAssertion(
-        FinishAssertionOptions
-          .builder()
-          .request(assertionRequest)
-          .response(request.publicKeyCredential)
-          .build(),
+  def finishAuthentication(request: AuthenticationFinishRequest): Task[AuthenticationFinishResponse] = {
+    authenticationRequests.get
+      .map(_.get(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url))
+      .some
+      .orElseFail(
+        NoAuthenticationRequest(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url),
       )
-
-    if (result.isSuccess) {
-      authenticationRequests.remove(challenge)
-    }
-
-    AuthenticationFinishResponse(
-      success = result.isSuccess,
-      username = result.getUsername,
-    )
+      .map { assertionRequest =>
+        relyingParty.finishAssertion(
+          FinishAssertionOptions
+            .builder()
+            .request(assertionRequest)
+            .response(request.publicKeyCredential)
+            .build(),
+        )
+      }
+      .flatMap { result =>
+        ZIO
+          .when(result.isUserVerified) {
+            authenticationRequests.get.map(
+              _.removed(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url),
+            )
+          }
+          .as(result)
+      }
+      .map { result =>
+        AuthenticationFinishResponse(
+          success = result.isUserVerified,
+          username = result.getUsername,
+        )
+      }
   }
 }
