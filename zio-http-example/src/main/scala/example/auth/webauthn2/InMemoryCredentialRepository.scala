@@ -10,16 +10,17 @@ import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters.RichOption
 
 /**
- * In-memory implementation of Yubico's CredentialRepository
- * Uses a Multi-Key Map pattern to support both username-based and usernameless authentication flows
+ * In-memory implementation of Yubico's CredentialRepository Uses a Multi-Key
+ * Map pattern to support both username-based and usernameless authentication
+ * flows
  */
 class InMemoryCredentialRepository extends CredentialRepository {
 
   // Unified key system for different lookup patterns
   sealed trait CredentialKey
-  case class UsernameKey(username: String) extends CredentialKey
-  case class UserHandleKey(userHandle: ByteArray) extends CredentialKey
-  case class CredentialIdKey(credentialId: ByteArray) extends CredentialKey
+  case class UsernameKey(username: String)                                extends CredentialKey
+  case class UserHandleKey(userHandle: ByteArray)                         extends CredentialKey
+  case class CredentialIdKey(credentialId: ByteArray)                     extends CredentialKey
   case class CompositeKey(credentialId: ByteArray, userHandle: ByteArray) extends CredentialKey
 
   // Single unified storage - all keys point to credential instances
@@ -30,10 +31,29 @@ class InMemoryCredentialRepository extends CredentialRepository {
     credentialStore.put(UsernameKey(credential.username), credential)
     credentialStore.put(UserHandleKey(credential.userHandle), credential)
     credentialStore.put(CredentialIdKey(credential.credentialId), credential)
-    credentialStore.put(
-      CompositeKey(credential.credentialId, credential.userHandle),
-      credential
-    ).asInstanceOf[Unit]
+    credentialStore.put(CompositeKey(credential.credentialId, credential.userHandle), credential).asInstanceOf[Unit]
+  }
+
+  def addCredential(
+    credentialId: ByteArray,
+    publicKeyCose: ByteArray,
+    signatureCount: Long,
+    username: String,
+    userHandle: ByteArray, // Added to support discoverable passkeys
+  ): Unit = {
+
+    val credential = StoredCredential(credentialId, publicKeyCose, signatureCount, username, userHandle)
+
+    // Store with multiple keys pointing to the same credential object
+    credentialStore.put(UsernameKey(credential.username), credential)
+    credentialStore.put(UserHandleKey(credential.userHandle), credential)
+    credentialStore.put(CredentialIdKey(credential.credentialId), credential)
+    credentialStore
+      .put(
+        CompositeKey(credential.credentialId, credential.userHandle),
+        credential,
+      )
+      .asInstanceOf[Unit]
   }
 
   def updateSignatureCount(username: String, signatureCount: Long): Unit = {

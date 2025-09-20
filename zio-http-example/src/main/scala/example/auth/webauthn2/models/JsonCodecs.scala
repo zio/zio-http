@@ -24,5 +24,4 @@ object JsonCodecs {
 
   implicit val clientDataDecoder: JsonDecoder[ClientData] = DeriveJsonDecoder.gen
 
-  implicit val allowedCredentialEncoder: JsonEncoder[AllowedCredential] = DeriveJsonEncoder.gen
 }

@@ -31,7 +31,7 @@ object WebAuthnRoutes {
           body    <- req.body.asString
           request <- ZIO.fromEither(body.fromJson[RegistrationFinishRequest])
           result  <- service.finishRegistration(request)
-        } yield Response.text(result)
+        } yield Response.json(result.toJson)
       },
 
       // Authentication endpoints

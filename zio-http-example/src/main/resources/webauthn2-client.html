@@ -514,7 +514,7 @@
     <h1>🔐 WebAuthn Authentication Demo</h1>
     <p>
       Compare discoverable passkeys vs traditional username-based
-      authentication with debug logging
+      authentication
     </p>
   </div>
 
@@ -1058,12 +1058,12 @@
         body: JSON.stringify(credentialForServer),
       });
 
-      const finishText = await finishRes.text();
       logDebug("reg-finish-response", {
         success: finishRes.ok,
-        message: finishText,
+        message: finishRes,
       });
-      console.log("reg-finish-response", finishText);
+
+      console.log("reg-finish-response", finishRes);
 
       if (!finishRes.ok) throw new Error("Failed to finish registration");
 

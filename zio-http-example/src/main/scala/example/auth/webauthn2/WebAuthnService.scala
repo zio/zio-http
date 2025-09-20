@@ -24,16 +24,17 @@ class WebAuthnService {
   private val registrationRequests   = new ConcurrentHashMap[String, RegistrationStartResponse]()
   private val authenticationRequests = new ConcurrentHashMap[String, AssertionRequest]()
 
-  private val rp =
+  val relyingPartyIdentity: RelyingPartyIdentity =
+    RelyingPartyIdentity
+      .builder()
+      .id("localhost")
+      .name("WebAuthn Demo")
+      .build()
+
+  private val relyingParty: RelyingParty =
     RelyingParty
       .builder()
-      .identity(
-        RelyingPartyIdentity
-          .builder()
-          .id("localhost")
-          .name("WebAuthn Demo")
-          .build(),
-      )
+      .identity(relyingPartyIdentity)
       .credentialRepository(credentialRepository)
       .origins(Set("http://localhost:8080").asJava)
       .build()
@@ -50,13 +51,6 @@ class WebAuthnService {
         .id(userHandle) // Use unique handle instead of username bytes
         .build()
 
-    val relyingPartyIdentity: RelyingPartyIdentity =
-      RelyingPartyIdentity
-        .builder()
-        .id("localhost")
-        .name("WebAuthn Demo")
-        .build()
-
     val creationOptions: PublicKeyCredentialCreationOptions =
       PublicKeyCredentialCreationOptions
         .builder()
@@ -65,16 +59,16 @@ class WebAuthnService {
         .challenge(generateChallenge())
         .pubKeyCredParams(
           List(
+            PublicKeyCredentialParameters.EdDSA,
             PublicKeyCredentialParameters.ES256,
             PublicKeyCredentialParameters.RS256,
-            PublicKeyCredentialParameters.EdDSA,
           ).asJava,
         )
         .authenticatorSelection(
           AuthenticatorSelectionCriteria
             .builder()
-            .residentKey(ResidentKeyRequirement.REQUIRED) // TODO: Changed to REQUIRED for discoverable passkeys
-            .userVerification(UserVerificationRequirement.REQUIRED) // TODO: Changed to REQUIRED for better security
+            .residentKey(ResidentKeyRequirement.REQUIRED)
+            .userVerification(UserVerificationRequirement.REQUIRED)
             .build(),
         )
         .attestation(AttestationConveyancePreference.NONE)
@@ -88,7 +82,7 @@ class WebAuthnService {
 
   def finishRegistration(
     request: RegistrationFinishRequest,
-  ): Task[String] = ZIO.attempt {
+  ): Task[RegistrationFinishResponse] = ZIO.attempt {
     val creationOptions = registrationRequests.get(request.username)
 
     if (creationOptions == null) {
@@ -97,7 +91,7 @@ class WebAuthnService {
     }
 
     // Verify the registration
-    val result = rp.finishRegistration(
+    val result = relyingParty.finishRegistration(
       FinishRegistrationOptions
         .builder()
         .request(creationOptions)
@@ -107,22 +101,19 @@ class WebAuthnService {
 
     if (result.isUserVerified) {
 
-      // Get the user handle from the creation options
-      val userHandle = creationOptions.getUser.getId
-
-      // Store the credential with user handle
-      val storedCredential = StoredCredential(
+      credentialRepository.addCredential(
         credentialId = result.getKeyId.getId,
         publicKeyCose = result.getPublicKeyCose,
         signatureCount = result.getSignatureCount,
         username = request.username,
-        userHandle = userHandle,
+        userHandle = creationOptions.getUser.getId,
       )
-
-      credentialRepository.addCredential(storedCredential)
       registrationRequests.remove(request.username)
 
-      "Registration successful - Discoverable passkey created!"
+      RegistrationFinishResponse(
+        success = true,
+        credentialId = result.getKeyId.getId.getBase64Url,
+      )
     } else {
       throw new RegistrationFailedException(new IllegalArgumentException("User verification failed"))
     }
@@ -133,7 +124,7 @@ class WebAuthnService {
     val assertionRequestResult = username match {
       case Some(user) if user.nonEmpty =>
         // Username-based authentication
-        rp.startAssertion(
+        relyingParty.startAssertion(
           StartAssertionOptions
             .builder()
             .username(user)
@@ -142,7 +133,7 @@ class WebAuthnService {
         )
       case _                           =>
         // Usernameless authentication for discoverable passkeys
-        rp.startAssertion(
+        relyingParty.startAssertion(
           StartAssertionOptions
             .builder()
             .userVerification(UserVerificationRequirement.REQUIRED)
@@ -197,7 +188,7 @@ class WebAuthnService {
 
     // Verify the assertion
     val result =
-      rp.finishAssertion(
+      relyingParty.finishAssertion(
         FinishAssertionOptions
           .builder()
           .request(assertionRequest)
