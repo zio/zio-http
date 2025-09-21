@@ -1,4 +1,4 @@
-package example.auth.webauthn2.models
+package example.auth.webauthn.models
 
 import com.yubico.webauthn.data._
 import zio.json._

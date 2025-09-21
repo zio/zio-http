@@ -1,4 +1,4 @@
-package example.auth.webauthn2
+package example.auth.webauthn
 
 sealed trait RegistrationError                      extends Throwable with Serializable with Product
 case class NoRegistrationRequest(username: String)  extends RegistrationError

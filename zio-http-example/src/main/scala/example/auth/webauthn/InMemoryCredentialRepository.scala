@@ -1,8 +1,8 @@
-package example.auth.webauthn2
+package example.auth.webauthn
 
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
-import example.auth.webauthn2.models.UserCredential
+import example.auth.webauthn.models.UserCredential
 import zio._
 
 import java.util

@@ -1,8 +1,8 @@
-package example.auth.webauthn2
+package example.auth.webauthn
 
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
-import example.auth.webauthn2.models._
+import example.auth.webauthn.models._
 import zio._
 
 import java.security.SecureRandom

@@ -1,4 +1,4 @@
-package example.auth.webauthn2.models
+package example.auth.webauthn.models
 
 import zio.json.{DeriveJsonCodec, JsonCodec}
 

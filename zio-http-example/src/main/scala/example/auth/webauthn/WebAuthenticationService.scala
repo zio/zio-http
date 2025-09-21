@@ -1,6 +1,6 @@
-package example.auth.webauthn2
+package example.auth.webauthn
 import zio._
-import example.auth.webauthn2.models._
+import example.auth.webauthn.models._
 
 trait WebAuthenticationService {
   def startRegistration(username: String): Task[RegistrationStartResponse]

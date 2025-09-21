@@ -1,7 +1,7 @@
-package example.auth.webauthn2
+package example.auth.webauthn
 
-import example.auth.webauthn2.UserServiceError._
-import example.auth.webauthn2.models.UserCredential
+import example.auth.webauthn.UserServiceError._
+import example.auth.webauthn.models.UserCredential
 import zio._
 
 case class User(

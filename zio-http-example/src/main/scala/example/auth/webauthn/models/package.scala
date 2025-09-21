@@ -1,4 +1,4 @@
-package example.auth.webauthn2
+package example.auth.webauthn
 
 import com.yubico.webauthn.AssertionRequest
 import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions
