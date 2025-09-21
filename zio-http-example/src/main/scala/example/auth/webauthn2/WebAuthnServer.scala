@@ -33,7 +33,7 @@ object WebAuthnServer extends ZIOAppDefault {
         us <- UserService.make()
         rr <- Ref.make(Map.empty[String, RegistrationStartResponse])
         ar <- Ref.make(Map.empty[String, AssertionRequest])
-      } yield WebAuthnRoutes(new WebAuthnService(us, rr, ar))
+      } yield WebAuthnRoutes(new WebAuthnServiceImpl(us, rr, ar))
     }.flatMap { routes =>
       Server.serve(routes).provide(Server.default)
     }

@@ -11,3 +11,4 @@ trait WebAuthenticationService {
 
   def finishAuthentication(request: AuthenticationFinishRequest): Task[AuthenticationFinishResponse]
 }
+

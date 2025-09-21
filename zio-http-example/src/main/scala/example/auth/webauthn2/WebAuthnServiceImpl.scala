@@ -2,10 +2,10 @@ package example.auth.webauthn2
 
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
-import example.auth.webauthn2.WebAuthnUtils._
 import example.auth.webauthn2.models._
 import zio._
 
+import java.security.SecureRandom
 import java.util.UUID
 import scala.jdk.CollectionConverters._
 
@@ -13,7 +13,7 @@ import scala.jdk.CollectionConverters._
  * WebAuthn Service implementation - Discoverable passkey authentication
  * Supports both username-based and usernameless authentication flows
  */
-class WebAuthnService(
+class WebAuthnServiceImpl(
   userService: UserService,
   registrationRequests: Ref[Map[UserHandle, RegistrationStartResponse]],
   authenticationRequests: Ref[Map[Challenge, AssertionRequest]],
@@ -126,7 +126,7 @@ class WebAuthnService(
     username: Option[String],
     timeout: Duration = 1.minutes,
   ): Task[AuthenticationStartResponse] = ZIO.attempt {
-    // Create assertion request - usernameless if no username provided
+    // Create assertion request
     username match {
       case Some(user) if user.nonEmpty =>
         // Username-based authentication
@@ -188,4 +188,21 @@ class WebAuthnService(
       .timeout(timeout.toMillis)
       .build()
   }
+
+  private def generateChallenge(): ByteArray = {
+    val bytes = new Array[Byte](32)
+    new SecureRandom().nextBytes(bytes)
+    new ByteArray(bytes)
+  }
+}
+
+object WebAuthnServiceImpl {
+  def layer: ZLayer[UserService, Nothing, WebAuthnServiceImpl] =
+    ZLayer {
+      for {
+        userService            <- ZIO.service[UserService]
+        registrationRequests   <- Ref.make(Map.empty[UserHandle, RegistrationStartResponse])
+        authenticationRequests <- Ref.make(Map.empty[Challenge, AssertionRequest])
+      } yield new WebAuthnServiceImpl(userService, registrationRequests, authenticationRequests)
+    }
 }

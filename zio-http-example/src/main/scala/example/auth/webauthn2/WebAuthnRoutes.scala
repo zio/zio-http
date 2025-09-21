@@ -1,6 +1,5 @@
 package example.auth.webauthn2
 
-import example.auth.webauthn2.models.JsonCodecs._
 import example.auth.webauthn2.models._
 import zio._
 import zio.http._
@@ -11,7 +10,7 @@ import zio.json._
  */
 object WebAuthnRoutes {
 
-  def apply(service: WebAuthnService): Routes[Any, Response] =
+  def apply(service: WebAuthnServiceImpl): Routes[Any, Response] =
     Routes(
       // Serve the HTML client
       Method.GET / Root -> Handler

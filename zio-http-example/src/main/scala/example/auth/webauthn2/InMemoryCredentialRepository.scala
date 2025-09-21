@@ -29,7 +29,7 @@ class InMemoryCredentialRepository(userService: UserService) extends CredentialR
             }
           }
           .map(_.toSet)
-          .map(_.asJava).debug("getCredentialIdsForUsername")
+          .map(_.asJava)
       }.getOrThrow()
     }
 
@@ -41,14 +41,14 @@ class InMemoryCredentialRepository(userService: UserService) extends CredentialR
           .map { user =>
             new ByteArray(user.userHandle.getBytes())
           }
-          .option.debug("getUserHandleForUsername")
+          .option
       }.getOrThrow()
     }.toJava
 
   override def getUsernameForUserHandle(userHandle: ByteArray): Optional[String] = {
     Unsafe.unsafe { implicit unsafe =>
       Runtime.default.unsafe.run {
-        userService.getUserByHandle(new String(userHandle.getBytes)).map(_.username).option.debug("getUsernameForUserHandle")
+        userService.getUserByHandle(new String(userHandle.getBytes)).map(_.username).option
       }.getOrThrow()
     }.toJava
   }
@@ -66,7 +66,7 @@ class InMemoryCredentialRepository(userService: UserService) extends CredentialR
             }
           }
           .map(toRegisteredCredential)
-          .option.debug("lookup")
+          .option
       }.getOrThrow()
     }.toJava
   }
@@ -74,7 +74,7 @@ class InMemoryCredentialRepository(userService: UserService) extends CredentialR
   override def lookupAll(credentialId: ByteArray): util.Set[RegisteredCredential] =
     Unsafe.unsafe { implicit unsafe =>
       Runtime.default.unsafe.run {
-        userService.getCredentialById(new String(credentialId.getBytes)).debug("lookup all")
+        userService.getCredentialById(new String(credentialId.getBytes))
       }.getOrThrow().map(toRegisteredCredential).asJava
     }
 

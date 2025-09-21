@@ -1,24 +1,16 @@
 package example.auth.webauthn2.models
 
-import com.yubico.webauthn.data.{
-  AuthenticatorAssertionResponse,
-  AuthenticatorAttestationResponse,
-  ClientAssertionExtensionOutputs,
-  ClientRegistrationExtensionOutputs,
-  PublicKeyCredential,
-}
-import zio.Chunk
-import zio.json.ast.{Json, JsonCursor}
-import zio.schema.Schema
-import zio.schema.codec.{BinaryCodec, DecodeError}
-import zio.stream.ZPipeline
+import com.yubico.webauthn.data._
+import zio.json._
+import zio.json.ast._
 
 /**
  * Request DTOs for WebAuthn operations
  */
-
-// Registration request DTOs
 case class RegistrationStartRequest(username: String)
+object RegistrationStartRequest {
+  implicit val decoder: JsonDecoder[RegistrationStartRequest] = DeriveJsonDecoder.gen
+}
 
 case class RegistrationFinishRequest(
   username: String,
@@ -27,12 +19,11 @@ case class RegistrationFinishRequest(
 )
 
 object RegistrationFinishRequest {
-  import zio.json._
   implicit val decoder: JsonDecoder[RegistrationFinishRequest] =
     JsonDecoder[Json].mapOrFail { o =>
       for {
         u   <- o.get(JsonCursor.field("username")).flatMap(_.as[String])
-        uh   <- o.get(JsonCursor.field("userhandle")).flatMap(_.as[String])
+        uh  <- o.get(JsonCursor.field("userhandle")).flatMap(_.as[String])
         pkc <- o
           .get(JsonCursor.field("publicKeyCredential"))
           .map(_.toString())
@@ -41,13 +32,11 @@ object RegistrationFinishRequest {
     }
 }
 
-case class AttestationResponse(
-  clientDataJSON: String,
-  attestationObject: String,
-)
-
-// Authentication request DTOs
 case class AuthenticationStartRequest(username: Option[String])
+
+object AuthenticationStartRequest {
+  implicit val decoder: JsonDecoder[AuthenticationStartRequest] = DeriveJsonDecoder.gen
+}
 
 case class AuthenticationFinishRequest(
   username: Option[String], // Optional for discoverable passkeys
@@ -55,15 +44,15 @@ case class AuthenticationFinishRequest(
 )
 
 object AuthenticationFinishRequest {
-  import zio.json._
   implicit val decoder: JsonDecoder[AuthenticationFinishRequest] =
     JsonDecoder[Json].mapOrFail { o =>
       for {
-        u   <- Right(o.get(JsonCursor.field("username")).toOption.flatMap { x =>
-          val u = x.as[String].toOption
-          println("username:" + u)
-          u
-        })
+        u   <-
+          Right(
+            o.get(JsonCursor.field("username"))
+              .toOption
+              .flatMap(_.as[String].toOption),
+          )
         pkc <- o
           .get(JsonCursor.field("publicKeyCredential"))
           .map(_.toString())
@@ -71,13 +60,3 @@ object AuthenticationFinishRequest {
       } yield AuthenticationFinishRequest(u, pkc)
     }
 }
-
-case class AssertionResponse(
-  clientDataJSON: String,
-  authenticatorData: String,
-  signature: String,
-  userHandle: Option[String],
-)
-
-// Client data structure for parsing authentication responses
-case class ClientData(challenge: String, origin: String, `type`: String)

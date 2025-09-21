@@ -11,15 +11,6 @@ object RegistrationFinishResponse {
   implicit val codec: JsonCodec[RegistrationFinishResponse] = DeriveJsonCodec.gen
 }
 
-// Authentication response DTOs
-//case class AuthenticationStartResponse(
-//  challenge: String,
-//  rpId: String,
-//  allowCredentials: List[AllowedCredential],
-//  userVerification: String,
-//  timeout: Long,
-//)
-
 case class AuthenticationFinishResponse(
   success: Boolean,
   username: String,
