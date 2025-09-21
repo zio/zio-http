@@ -1,4 +1,4 @@
-package example.auth.webauthn.models
+package example.auth.webauthn.model
 
 import com.yubico.webauthn.data.ByteArray
 

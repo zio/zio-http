@@ -1,8 +1,8 @@
-package example.auth.webauthn
+package example.auth.webauthn.core
 
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
-import example.auth.webauthn.models._
+import example.auth.webauthn.model._
 import zio._
 
 import java.security.SecureRandom
@@ -16,7 +16,7 @@ import scala.jdk.CollectionConverters._
 class WebAuthnServiceImpl(
   userService: UserService,
   registrationRequests: Ref[Map[UserHandle, RegistrationStartResponse]],
-  authenticationRequests: Ref[Map[Challenge, AssertionRequest]],
+  authenticationRequests: Ref[Map[Challenge, AuthenticationStartResponse]],
 ) extends WebAuthenticationService {
   private val credentialRepository = new InMemoryCredentialRepository(userService)
 
@@ -35,7 +35,7 @@ class WebAuthnServiceImpl(
       .origins(Set("http://localhost:8080").asJava)
       .build()
 
-  override def startRegistration(username: String): Task[RegistrationStartResponse] =
+  override def startRegistration(username: String): ZIO[Any, Nothing, RegistrationStartResponse] =
     for {
       user <- userService
         .getUser(username)
@@ -43,19 +43,19 @@ class WebAuthnServiceImpl(
           val user = User(UUID.randomUUID().toString, username, Set.empty)
           userService.addUser(user).as(user)
         }
-        .orDieWith(_ => new Exception("User service error"))
+        .orDieWith(_ => new Exception("Unexpected status in registration flow!"))
       creationOptions = createCreationOptions(relyingPartyIdentity, username, user.userHandle)
-      -    <- registrationRequests.update(_.updated(user.userHandle, creationOptions))
+      _    <- registrationRequests.update(_.updated(user.userHandle, creationOptions))
     } yield creationOptions
 
   override def finishRegistration(
     request: RegistrationFinishRequest,
-  ): Task[RegistrationFinishResponse] =
+  ): ZIO[Any, AuthenticationError, RegistrationFinishResponse] =
     for {
       creationOptions <- registrationRequests.get
         .map(_.get(request.userhandle))
         .some
-        .orElseFail(NoRegistrationRequest(request.username))
+        .orElseFail(NoRegistrationRequestFound(request.username))
       result = relyingParty.finishRegistration(
         FinishRegistrationOptions
           .builder()
@@ -75,8 +75,7 @@ class WebAuthnServiceImpl(
                 userHandle = creationOptions.getUser.getId,
               ),
             )
-            .orDieWith(_ => new Exception("User service error")) *>
-            registrationRequests.update(_.removed(request.userhandle)) *>
+          registrationRequests.update(_.removed(request.userhandle)) *>
             ZIO.succeed {
               RegistrationFinishResponse(
                 success = true,
@@ -88,20 +87,23 @@ class WebAuthnServiceImpl(
         }
     } yield response
 
-  override def startAuthentication(username: Option[String]): Task[AuthenticationStartResponse] =
+  override def startAuthentication(username: Option[String]): ZIO[Any, Nothing, AuthenticationStartResponse] =
     for {
-      assertion <- createAuthStartAssertion(relyingParty, username)
+      assertion <- ZIO.succeed(createAuthStartAssertion(relyingParty, username))
       _         <- authenticationRequests
         .update(_.updated(assertion.getPublicKeyCredentialRequestOptions.getChallenge.getBase64Url, assertion))
     } yield assertion
 
-  override def finishAuthentication(request: AuthenticationFinishRequest): Task[AuthenticationFinishResponse] =
+  override def finishAuthentication(
+    request: AuthenticationFinishRequest,
+  ): IO[AuthenticationError, AuthenticationFinishResponse] =
     for {
+      challenge        <- ZIO.succeed(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url)
       assertionRequest <- authenticationRequests.get
-        .map(_.get(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url))
+        .map(_.get(challenge))
         .some
         .orElseFail(
-          NoAuthenticationRequest(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url),
+          NoAuthenticationRequestFound(challenge),
         )
       assertion =
         relyingParty.finishAssertion(
@@ -113,7 +115,7 @@ class WebAuthnServiceImpl(
         )
       _ <- ZIO.when(assertion.isUserVerified) {
         authenticationRequests.get.map(
-          _.removed(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url),
+          _.removed(challenge),
         )
       }
     } yield AuthenticationFinishResponse(
@@ -125,7 +127,7 @@ class WebAuthnServiceImpl(
     relyingParty: RelyingParty,
     username: Option[String],
     timeout: Duration = 1.minutes,
-  ): Task[AuthenticationStartResponse] = ZIO.attempt {
+  ): AssertionRequest = {
     // Create assertion request
     username match {
       case Some(user) if user.nonEmpty =>
@@ -202,7 +204,7 @@ object WebAuthnServiceImpl {
       for {
         userService            <- ZIO.service[UserService]
         registrationRequests   <- Ref.make(Map.empty[UserHandle, RegistrationStartResponse])
-        authenticationRequests <- Ref.make(Map.empty[Challenge, AssertionRequest])
+        authenticationRequests <- Ref.make(Map.empty[Challenge, AuthenticationStartResponse])
       } yield new WebAuthnServiceImpl(userService, registrationRequests, authenticationRequests)
     }
 }
