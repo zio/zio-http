@@ -17,7 +17,7 @@ class WebAuthnService(
   userService: UserService,
   registrationRequests: Ref[Map[UserHandle, RegistrationStartResponse]],
   authenticationRequests: Ref[Map[Challenge, AssertionRequest]],
-) {
+) extends WebAuthenticationService {
   private val credentialRepository = new InMemoryCredentialRepository(userService)
 
   private val relyingPartyIdentity: RelyingPartyIdentity =
@@ -35,58 +35,22 @@ class WebAuthnService(
       .origins(Set("http://localhost:8080").asJava)
       .build()
 
-  def startRegistration(username: String): Task[RegistrationStartResponse] = {
-    userService
-      .getUser(username)
-      .orElse {
-        val user = User(UUID.randomUUID().toString, username, Set.empty)
-        userService.addUser(user).as(user)
-      }
-      .orDieWith(_ => new Exception("User service error"))
-  }.map { user =>
-    // Generate a unique user handle for discoverable passkeys
-    val userHandle = new ByteArray(user.userHandle.getBytes())
+  override def startRegistration(username: String): Task[RegistrationStartResponse] =
+    for {
+      user <- userService
+        .getUser(username)
+        .orElse {
+          val user = User(UUID.randomUUID().toString, username, Set.empty)
+          userService.addUser(user).as(user)
+        }
+        .orDieWith(_ => new Exception("User service error"))
+      creationOptions = createCreationOptions(relyingPartyIdentity, username, user.userHandle)
+      -    <- registrationRequests.update(_.updated(user.userHandle, creationOptions))
+    } yield creationOptions
 
-    val userIdentity: UserIdentity =
-      UserIdentity
-        .builder()
-        .name(username)
-        .displayName(username)
-        .id(userHandle) // Use unique handle instead of username bytes
-        .build()
-
-    val creationOptions: PublicKeyCredentialCreationOptions =
-      PublicKeyCredentialCreationOptions
-        .builder()
-        .rp(relyingPartyIdentity)
-        .user(userIdentity)
-        .challenge(generateChallenge())
-        .pubKeyCredParams(
-          List(
-            PublicKeyCredentialParameters.EdDSA,
-            PublicKeyCredentialParameters.ES256,
-            PublicKeyCredentialParameters.RS256,
-          ).asJava,
-        )
-        .authenticatorSelection(
-          AuthenticatorSelectionCriteria
-            .builder()
-            .residentKey(ResidentKeyRequirement.REQUIRED)
-            .userVerification(UserVerificationRequirement.REQUIRED)
-            .build(),
-        )
-        .attestation(AttestationConveyancePreference.NONE)
-        .timeout(60000L)
-        .build()
-
-    (user.userHandle, creationOptions)
-  }.flatMap { case (userHandle, options) =>
-    registrationRequests.update(_.updated(userHandle, options)).as(options)
-  }
-
-  def finishRegistration(
+  override def finishRegistration(
     request: RegistrationFinishRequest,
-  ): ZIO[Any, Any, RegistrationFinishResponse] =
+  ): Task[RegistrationFinishResponse] =
     for {
       creationOptions <- registrationRequests.get
         .map(_.get(request.userhandle))
@@ -108,7 +72,6 @@ class WebAuthnService(
                 credentialId = result.getKeyId.getId,
                 publicKeyCose = result.getPublicKeyCose,
                 signatureCount = result.getSignatureCount,
-                username = request.username,
                 userHandle = creationOptions.getUser.getId,
               ),
             )
@@ -125,9 +88,46 @@ class WebAuthnService(
         }
     } yield response
 
-  def startAuthentication(username: Option[String]): Task[AuthenticationStartResponse] = ZIO.attempt {
+  override def startAuthentication(username: Option[String]): Task[AuthenticationStartResponse] =
+    for {
+      assertion <- createAuthStartAssertion(relyingParty, username)
+      _         <- authenticationRequests
+        .update(_.updated(assertion.getPublicKeyCredentialRequestOptions.getChallenge.getBase64Url, assertion))
+    } yield assertion
+
+  override def finishAuthentication(request: AuthenticationFinishRequest): Task[AuthenticationFinishResponse] =
+    for {
+      assertionRequest <- authenticationRequests.get
+        .map(_.get(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url))
+        .some
+        .orElseFail(
+          NoAuthenticationRequest(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url),
+        )
+      assertion =
+        relyingParty.finishAssertion(
+          FinishAssertionOptions
+            .builder()
+            .request(assertionRequest)
+            .response(request.publicKeyCredential)
+            .build(),
+        )
+      _ <- ZIO.when(assertion.isUserVerified) {
+        authenticationRequests.get.map(
+          _.removed(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url),
+        )
+      }
+    } yield AuthenticationFinishResponse(
+      success = assertion.isUserVerified,
+      username = assertion.getUsername,
+    )
+
+  private def createAuthStartAssertion(
+    relyingParty: RelyingParty,
+    username: Option[String],
+    timeout: Duration = 1.minutes,
+  ): Task[AuthenticationStartResponse] = ZIO.attempt {
     // Create assertion request - usernameless if no username provided
-    val assertionRequestResult = username match {
+    username match {
       case Some(user) if user.nonEmpty =>
         // Username-based authentication
         relyingParty.startAssertion(
@@ -135,7 +135,7 @@ class WebAuthnService(
             .builder()
             .username(user)
             .userVerification(UserVerificationRequirement.REQUIRED)
-            .timeout(60000L)
+            .timeout(timeout.toMillis)
             .build(),
         )
 
@@ -145,48 +145,47 @@ class WebAuthnService(
           StartAssertionOptions
             .builder()
             .userVerification(UserVerificationRequirement.REQUIRED)
-            .timeout(60000L)
+            .timeout(timeout.toMillis)
             .build(),
         )
     }
-
-    val storageKey = assertionRequestResult.getPublicKeyCredentialRequestOptions.getChallenge.getBase64Url
-
-    (storageKey, assertionRequestResult)
-  }.flatMap { case (storageKey, assertion) =>
-    authenticationRequests.update(_.updated(storageKey, assertion)).as(assertion)
   }
 
-  def finishAuthentication(request: AuthenticationFinishRequest): Task[AuthenticationFinishResponse] = {
-    authenticationRequests.get
-      .map(_.get(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url))
-      .some
-      .orElseFail(
-        NoAuthenticationRequest(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url),
+  private def createCreationOptions(
+    relyingPartyIdentity: RelyingPartyIdentity,
+    username: String,
+    userHandle: String,
+    timeout: Duration = 1.minutes,
+  ): PublicKeyCredentialCreationOptions = {
+    val userIdentity: UserIdentity =
+      UserIdentity
+        .builder()
+        .name(username)
+        .displayName(username)
+        .id(new ByteArray(userHandle.getBytes())) // Use unique handle instead of username bytes
+        .build()
+
+    PublicKeyCredentialCreationOptions
+      .builder()
+      .rp(relyingPartyIdentity)
+      .user(userIdentity)
+      .challenge(generateChallenge())
+      .pubKeyCredParams(
+        List(
+          PublicKeyCredentialParameters.EdDSA,
+          PublicKeyCredentialParameters.ES256,
+          PublicKeyCredentialParameters.RS256,
+        ).asJava,
       )
-      .map { assertionRequest =>
-        relyingParty.finishAssertion(
-          FinishAssertionOptions
-            .builder()
-            .request(assertionRequest)
-            .response(request.publicKeyCredential)
-            .build(),
-        )
-      }
-      .flatMap { result =>
-        ZIO
-          .when(result.isUserVerified) {
-            authenticationRequests.get.map(
-              _.removed(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url),
-            )
-          }
-          .as(result)
-      }
-      .map { result =>
-        AuthenticationFinishResponse(
-          success = result.isUserVerified,
-          username = result.getUsername,
-        )
-      }
+      .authenticatorSelection(
+        AuthenticatorSelectionCriteria
+          .builder()
+          .residentKey(ResidentKeyRequirement.REQUIRED)
+          .userVerification(UserVerificationRequirement.REQUIRED)
+          .build(),
+      )
+      .attestation(AttestationConveyancePreference.NONE)
+      .timeout(timeout.toMillis)
+      .build()
   }
 }

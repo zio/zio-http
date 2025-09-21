@@ -6,6 +6,5 @@ case class UserCredential(
   credentialId: ByteArray,
   publicKeyCose: ByteArray,
   signatureCount: Long,
-  username: String,
   userHandle: ByteArray,
 )

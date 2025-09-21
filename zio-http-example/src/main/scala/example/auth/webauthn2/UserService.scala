@@ -4,7 +4,11 @@ import example.auth.webauthn2.UserServiceError._
 import example.auth.webauthn2.models.UserCredential
 import zio._
 
-case class User(userHandle: String, username: String, credentials: Set[UserCredential])
+case class User(
+  userHandle: String,
+  username: String,
+  credentials: Set[UserCredential],
+)
 
 sealed trait UserServiceError extends Throwable
 
@@ -18,6 +22,7 @@ trait UserService {
   def getUserByHandle(handle: String): IO[UserServiceError, User]
   def addUser(user: User): IO[UserServiceError, Unit]
   def addCredential(userHandle: String, credential: UserCredential): IO[UserServiceError, Unit]
+  def getCredentialById(credentialId: String): IO[UserServiceError, Set[UserCredential]]
 }
 
 case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
@@ -34,32 +39,29 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
       } *> users.update(_.updated(user.username, user))
     }
 
-  override def addCredential(userHandle: String, credential: UserCredential): IO[UserServiceError, Unit] = {
+  override def addCredential(userHandle: String, credential: UserCredential): IO[UserServiceError, Unit] =
     users.get.flatMap { userMap =>
-      ZIO.fromOption(userMap.values.find(_.userHandle == userHandle)).orElseFail(UserNotFound(userHandle)).flatMap { user =>
-        val updatedCredentials = user.credentials + credential
-        val updatedUser        = user.copy(credentials = updatedCredentials)
-        users.update(_.updated(user.username, updatedUser))
+      ZIO.fromOption(userMap.values.find(_.userHandle == userHandle)).orElseFail(UserNotFound(userHandle)).flatMap {
+        user =>
+          val updatedCredentials = user.credentials + credential
+          val updatedUser        = user.copy(credentials = updatedCredentials)
+          users.update(_.updated(user.username, updatedUser))
       }
     }
 
-//    ZIO.debug("add credential: " + credential) *>
-//      users.get.flatMap { userMap =>
-//        userMap.get(username) match {
-//          case Some(user) =>
-//            val updatedCredentials = user.credentials + credential
-//            val updatedUser        = user.copy(credentials = updatedCredentials)
-//            users.update(_.updated(username, updatedUser))
-//          case None       =>
-//            ZIO.fail(UserNotFound(username))
-//        }
-//      }
-  }
+  override def getCredentialById(credentialId: String): IO[UserServiceError, Set[UserCredential]] =
+    users.get.map { userMap =>
+      userMap.values
+        .flatMap(_.credentials)
+        .filter(_.credentialId.getBytes.sameElements(credentialId.getBytes))
+        .toSet
+    }
 
   override def getUserByHandle(handle: String): IO[UserServiceError, User] =
     users.get.flatMap { userMap =>
       ZIO.fromOption(userMap.values.find(_.userHandle == handle)).orElseFail(UserNotFound(handle))
     }
+
 }
 
 object UserService {
