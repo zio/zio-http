@@ -20,8 +20,8 @@ class InMemoryCredentialRepository(userService: UserService) extends CredentialR
         userService
           .getUser(username)
           .map(_.credentials)
-          .map { creds =>
-            creds.map { cred =>
+          .orElseSucceed(Set.empty)
+          .map { _.map { cred =>
               PublicKeyCredentialDescriptor
                 .builder()
                 .id(cred.credentialId)

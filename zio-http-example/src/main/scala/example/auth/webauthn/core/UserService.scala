@@ -10,7 +10,7 @@ case class User(
   credentials: Set[UserCredential],
 )
 
-sealed trait UserServiceError extends Throwable
+sealed trait UserServiceError
 
 object UserServiceError {
   case class UserNotFound(username: String)      extends UserServiceError
@@ -22,7 +22,7 @@ trait UserService {
   def getUserByHandle(handle: String): IO[UserServiceError, User]
   def addUser(user: User): IO[UserServiceError, Unit]
   def addCredential(userHandle: String, credential: UserCredential): IO[UserServiceError, Unit]
-  def getCredentialById(credentialId: String): IO[UserServiceError, Set[UserCredential]]
+  def getCredentialById(credentialId: String): IO[Nothing, Set[UserCredential]]
 }
 
 case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
@@ -49,7 +49,7 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
       }
     }
 
-  override def getCredentialById(credentialId: String): IO[UserServiceError, Set[UserCredential]] =
+  override def getCredentialById(credentialId: String): IO[Nothing, Set[UserCredential]] =
     users.get.map { userMap =>
       userMap.values
         .flatMap(_.credentials)
