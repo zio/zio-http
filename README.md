@@ -9,7 +9,8 @@ ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Ne
 ZIO HTTP is designed in terms of **HTTP as function**, where both server and client are a function from a request to a response, with a focus on type safety, composability, and testability.
 
 [![Production Ready](https://img.shields.io/badge/Project%20Stage-Production%20Ready-brightgreen.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/zio-http/workflows/Continuous%20Integration/badge.svg) [![Maven Central Version](https://img.shields.io/maven-central/v/dev.zio/zio-http_3)
-](https://repo1.maven.org/maven2/dev/zio/zio-http_3/) [![javadoc](https://javadoc.io/badge2/dev.zio/zio-http_3/javadoc.svg)](https://javadoc.io/doc/dev.zio/zio-http_3) [![ZIO Http](https://img.shields.io/github/stars/zio/zio-http?style=social)](https://github.com/zio/zio-http)
+](https://repo1.maven.org/maven2/dev/zio/zio-http_3/) ![Maven metadata URL](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Fdev%2Fzio%2Fzio-http_3%2Fmaven-metadata.xml)
+[![javadoc](https://javadoc.io/badge2/dev.zio/zio-http_3/javadoc.svg)](https://javadoc.io/doc/dev.zio/zio-http_3) [![ZIO Http](https://img.shields.io/github/stars/zio/zio-http?style=social)](https://github.com/zio/zio-http)
 
 Some of the key features of ZIO HTTP are:
 
