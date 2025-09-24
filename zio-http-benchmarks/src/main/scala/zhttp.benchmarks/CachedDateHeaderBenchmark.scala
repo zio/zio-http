@@ -8,7 +8,7 @@ import zio.http.internal.DateEncoding
 import org.openjdk.jmh.annotations._
 
 @State(Scope.Benchmark)
-@BenchmarkMode(Array(Mode.AverageTime))
+@BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Threads(16)
 @Fork(1)
