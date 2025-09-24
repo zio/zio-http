@@ -200,6 +200,11 @@ object ServerSentEventSpec extends ZIOHttpSpec {
               |""".stripMargin,
         )
       },
+      test("comment is encoded correctly") {
+        val event  = ServerSentEvent.heartbeat
+        val result = event.encode
+        assertTrue(result == ":heartbeat\n\n")
+      },
     )
 
   override def spec: Spec[TestEnvironment with Scope, Any] =

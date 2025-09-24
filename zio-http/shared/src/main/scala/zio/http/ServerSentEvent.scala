@@ -53,11 +53,12 @@ final case class ServerSentEvent[T](
       }
 
     val dataLines: Array[String] = dataString.split("\n")
+    val isComment                = dataString.startsWith(":")
 
     val initialCapacity: Int =
       (
         // 6 for "data: ", the data itself, and the newlines
-        (6 + dataString.length + dataLines.length)
+        ((if (isComment) 0 else 6) + dataString.length + dataLines.length)
         // 24 because 7 for "event: ", 1 for the newline, 16 for the event type itself
           + (if (eventType.isEmpty) 0 else 24)
           // 21 because 4 for "id: ", 1 for the newline, 16 for the id itself
@@ -81,7 +82,8 @@ final case class ServerSentEvent[T](
       sb.append('\n')
     }
     dataLines.foreach { line =>
-      sb.append("data: ").append(line).append('\n')
+      if (isComment) sb.append(line).append('\n')
+      else sb.append("data: ").append(line).append('\n')
     }
     id.foreach { i =>
       sb.append("id: ")
@@ -196,5 +198,5 @@ object ServerSentEvent {
     else contentCodec(JsonCodec.schemaBasedBinaryCodec, schema)
   }
 
-  val heartbeat: ServerSentEvent[String] = new ServerSentEvent("")
+  val heartbeat: ServerSentEvent[String] = new ServerSentEvent(":heartbeat")
 }

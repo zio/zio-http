@@ -656,6 +656,50 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/endpoint/GenerateEndpointFromOpenAPIExample.scala")
 ```
 
+## Generating URLs from Endpoints
+
+Endpoints can generate URLs for their path parameters without manually concatenating strings. Three helpers are available:
+
+- `endpoint.url(base, pathInput)` – absolute URL using a provided base (e.g. "https://api.example.com")
+- `endpoint.urlRelative(pathInput)` – relative URL (path only)
+- `endpoint.urlFromRequest(pathInput)(request)` – absolute URL derived from an incoming `Request` (falls back to `http://localhost` if scheme/host missing)
+
+`pathInput` is the tuple (or single value) produced by only the path segment codecs (literals are skipped, dynamic segments contribute values in left‑to‑right order). Query, header, or body codecs are not part of this tuple.
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.endpoint._
+import zio.http.Method.GET
+
+// Single path parameter
+val getUser = Endpoint(GET / "users" / int("userId"))
+val absUser: URL      = getUser.url("https://api.example.com", 42).toOption.get
+val relUser: URL      = getUser.urlRelative(42).toOption.get
+// absUser.encode == "https://api.example.com/users/42"
+// relUser.encode == "/users/42"
+
+// Multiple path parameters (tuple ordering matches definition order)
+val getPost = Endpoint(GET / "users" / int("userId") / "posts" / string("postId"))
+val absPost: URL = getPost.url("https://api.example.com", (42, "abc")).toOption.get
+// absPost.encode == "https://api.example.com/users/42/posts/abc"
+
+// Derive base (scheme/host/port) from an incoming request
+val incoming: Request = Request.get(url"https://example.org:8443/anything")
+val derived: URL      = getPost.urlFromRequest((1, "xyz"))(incoming).toOption.get
+// derived.encode == "https://example.org:8443/users/1/posts/xyz"
+
+// Relative request (no host) falls back to http://localhost
+val health = Endpoint(GET / "health")
+val local: URL = health.urlFromRequest(())(Request.get(url"/")).toOption.get
+// local.encode == "http://localhost/health"
+```
+
+### Notes on Encoding
+Query parameters are not part of these helpers; compose them separately via `URL` methods or include query codecs when building requests.
+
+These helpers make it easier to build links (e.g. in HTML responses or hypermedia) that stay consistent with your typed route definitions.
+
+
 ## Generating ZIO CLI App from Endpoint API
 
 The ZIO CLI is a ZIO library that provides a way to build command-line applications using ZIO facilities. With ZIO HTTP, we can generate a ZIO CLI client from the `Endpoint` API.

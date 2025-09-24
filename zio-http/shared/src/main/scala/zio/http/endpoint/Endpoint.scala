@@ -30,6 +30,7 @@ import zio.http._
 import zio.http.codec.HttpCodecError.EncodingResponseError
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
+import zio.http.internal.StringBuilderPool
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -56,7 +57,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   documentation: Doc,
   authType: Auth,
-) {
+) extends EndpointPlatformSpecific[PathInput, Input, Err, Output, Auth] {
   self =>
 
   val authCombiner: Combiner[Input, authType.ClientRequirement]                   =
@@ -964,6 +965,37 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     g: Err1 => Err,
   ): Endpoint[PathInput, Input, Err1, Output, Auth] =
     copy(error = self.error.transform(f)(g))
+
+  /**
+   * Generates a URL for this endpoint given the base path and the path input.
+   */
+  def url(basePath: String, values: PathInput): Either[Exception, URL] =
+    for {
+      path <- route.format(values).left.map(err => new RuntimeException(err))
+      url  <- URL.decode(basePath + path.encode)
+    } yield url
+
+  /**
+   * Generates a URL for this endpoint given the path input.
+   */
+  def urlRelative(values: PathInput): Either[Exception, URL] =
+    for {
+      path <- route.format(values).left.map(err => new RuntimeException(err))
+      url  <- URL.decode(path.encode)
+    } yield url
+
+  def urlFromRequest(values: PathInput)(request: Request): Either[Exception, URL] = {
+    val basePath = StringBuilderPool.withStringBuilder { sb =>
+      if (request.url.scheme.isEmpty) sb.append("http")
+      else sb.append(request.url.scheme.get.encode)
+      sb.append("://")
+      sb.append(request.url.host.getOrElse("localhost"))
+      if (request.url.port.nonEmpty) sb.append(s":${request.url.port.get}")
+      sb.toString()
+    }
+    url(basePath, values)
+  }
+
 }
 
 object Endpoint {

@@ -553,6 +553,10 @@ object Dom {
 
     implicit def fromDouble(value: Double): AttributeValue = StringValue(String.valueOf(value))
 
+    implicit def fromUrl(value: zio.http.URL): AttributeValue = StringValue(value.encode)
+
+    implicit def fromUuid(value: java.util.UUID): AttributeValue = StringValue(value.toString)
+
     sealed trait BooleanValue extends AttributeValue with Serializable {
       def value: Boolean
     }
