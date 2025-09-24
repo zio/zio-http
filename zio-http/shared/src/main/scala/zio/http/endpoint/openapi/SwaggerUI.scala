@@ -56,8 +56,9 @@ object SwaggerUI {
     import zio.http.template._
     val basePath   = Method.GET / path
     val jsonRoutes = (api +: apis).map { api =>
-      basePath / s"${URLEncoder.encode(api.info.title, Charsets.Utf8.name())}.json" -> handler { (_: Request) =>
-        Response.json(api.toJson)
+      basePath / s"${URLEncoder.encode(api.info.fileName.getOrElse(api.info.title), Charsets.Utf8.name())}.json" -> handler {
+        (_: Request) =>
+          Response.json(api.toJson)
       }
     }
     val jsonPaths  = jsonRoutes.map(_.routePattern.pathCodec.render)

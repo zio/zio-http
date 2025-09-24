@@ -195,6 +195,7 @@ object OpenAPI {
       termsOfService = None,
       contact = None,
       license = None,
+      fileName = None,
       version = "",
     ),
     servers = List.empty,
@@ -331,6 +332,8 @@ object OpenAPI {
    *   The contact information for the exposed API.
    * @param license
    *   The license information for the exposed API.
+   * @param fileName
+   *   The file name of the OpenAPI document.
    * @param version
    *   The version of the OpenAPI document (which is distinct from the OpenAPI
    *   Specification version or the API implementation version).
@@ -341,6 +344,7 @@ object OpenAPI {
     termsOfService: Option[URI],
     contact: Option[Contact],
     license: Option[License],
+    fileName: Option[String],
     version: String,
   )
 
