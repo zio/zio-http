@@ -3,7 +3,6 @@ package zio.http.datastar
 import zio._
 import zio.test._
 
-import zio.http.ServerSentEvent
 import zio.http.template2._
 
 object ServerSentEventGeneratorSpec extends ZIOSpecDefault {

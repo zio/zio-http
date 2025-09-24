@@ -3,12 +3,8 @@ package example.auth.basic
 import java.nio.charset.StandardCharsets
 import java.security.{MessageDigest, SecureRandom}
 
-import scala.io.Source
-
 import zio.Config.Secret
 import zio._
-
-import zio.stream.{ZPipeline, ZStream}
 
 import zio.http._
 
@@ -162,22 +158,5 @@ object AuthenticationServer extends ZIOAppDefault {
     ) @@ Middleware.debug
 
   override val run = Server.serve(routes).provide(Server.default, InMemoryUserService.live)
-
-  /**
-   * Loads HTML content from the resources directory
-   */
-  def loadHtmlFromResources(resourcePath: String): ZIO[Any, Throwable, String] = {
-    ZIO.attempt {
-      val inputStream = getClass.getResourceAsStream(resourcePath)
-      if (inputStream == null) throw new RuntimeException(s"Resource not found: $resourcePath")
-
-      val source = Source.fromInputStream(inputStream, StandardCharsets.UTF_8.name())
-      try source.mkString
-      finally {
-        source.close()
-        inputStream.close()
-      }
-    }
-  }
 
 }

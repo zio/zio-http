@@ -179,6 +179,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit val schema: Schema[WithOptionalAdtPayload] = DeriveSchema.gen
   }
 
+  final case class WithNonEmptyPayload(items: NonEmptyChunk[String])
+  object WithNonEmptyPayload {
+    implicit val schema: Schema[WithNonEmptyPayload] = DeriveSchema.gen
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
@@ -227,6 +232,18 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     Endpoint(GET / "withHeader")
       .in[SimpleInputBody]
       .header(HttpCodec.contentType.optional)
+      .out[SimpleOutputBody]
+      .outError[NotFoundError](Status.NotFound)
+
+  private val headerWithExamplesEndpoint =
+    Endpoint(GET / "withHeaderExamples")
+      .in[SimpleInputBody]
+      .header(
+        HeaderCodec.authorization.examples(
+          "basic"  -> Header.Authorization.Basic("user", "pass"),
+          "bearer" -> Header.Authorization.Bearer("mytoken"),
+        ),
+      )
       .out[SimpleOutputBody]
       .outError[NotFoundError](Status.NotFound)
 
@@ -1151,6 +1168,120 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |              "schema" : {
                              |                "$ref" : "#/components/schemas/SimpleInputBody",
                              |                "description" : ""
+                             |              }
+                             |            }
+                             |          },
+                             |          "required" : true
+                             |        },
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                             |                }
+                             |              }
+                             |            }
+                             |          },
+                             |          "404" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/NotFoundError"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "NotFoundError" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "message" : {
+                             |            "type" : "string"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "message"
+                             |        ]
+                             |      },
+                             |      "SimpleInputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "name" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "age" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "name",
+                             |          "age"
+                             |        ]
+                             |      },
+                             |      "SimpleOutputBody" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "userName" : {
+                             |            "type" : "string"
+                             |          },
+                             |          "score" : {
+                             |            "type" : "integer",
+                             |            "format" : "int32"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "userName",
+                             |          "score"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("header with examples") {
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", headerWithExamplesEndpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Simple Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/withHeaderExamples" : {
+                             |      "get" : {
+                             |        "parameters" : [
+                             |          {
+                             |            "name" : "authorization",
+                             |            "in" : "header",
+                             |            "required" : true,
+                             |            "schema" : {
+                             |              "type" : "string"
+                             |            },
+                             |            "style" : "simple",
+                             |            "examples" : {
+                             |              "basic" : {
+                             |                "value" : "Basic dXNlcjpwYXNz"
+                             |              },
+                             |              "bearer" : {
+                             |                "value" : "Bearer mytoken"
+                             |              }
+                             |            }
+                             |          }
+                             |        ],
+                             |        "requestBody" : {
+                             |          "content" : {
+                             |            "application/json" : {
+                             |              "schema" : {
+                             |                "$ref" : "#/components/schemas/SimpleInputBody"
                              |              }
                              |            }
                              |          },
@@ -3896,6 +4027,55 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        },
             |        "required" : [
             |          "name"
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("Non empty payload") {
+        val endpoint     = Endpoint(GET / "static").in[WithNonEmptyPayload]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" : {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" : {
+            |                "$ref" : "#/components/schemas/WithNonEmptyPayload"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "WithNonEmptyPayload" : {
+            |        "type" : "object",
+            |        "properties" : {
+            |          "items" : {
+            |            "type" : "array",
+            |            "items" : {
+            |              "type" : "string"
+            |            },
+            |            "minItems" : 1
+            |          }
+            |        },
+            |        "required" : [
+            |          "items"
             |        ]
             |      }
             |    }
