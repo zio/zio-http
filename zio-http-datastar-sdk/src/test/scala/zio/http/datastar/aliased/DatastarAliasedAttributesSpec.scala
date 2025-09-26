@@ -101,7 +101,7 @@ object DatastarAliasedAttributesSpec extends ZIOSpecDefault {
     },
     test("data-star-on-interval with duration and viewTransition") {
       val t        = Signal[Int]("tick")
-      val view     = div(dataOnInterval.duration(Duration.ofMillis(250), leading = true).viewTransition := js"$t++")()
+      val view     = div(dataOnInterval.duration(Duration.ofMillis(250), leading = true).viewTransition := js"$t++")
       val rendered = view.render
       val expected = """data-star-on-interval__duration.250ms.leading__viewtransition="$tick++""""
       assertTrue(rendered.contains(expected))
