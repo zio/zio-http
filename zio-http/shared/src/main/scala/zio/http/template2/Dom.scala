@@ -107,6 +107,31 @@ sealed trait Modifier extends Product with Serializable {
   def modify(element: Dom.Element): Dom.Element = element.apply(this)
 }
 
+object Modifier {
+  private[template2] final case class IterableModifier(modifiers: Iterable[Modifier]) extends Modifier {
+    override def modify(element: Dom.Element): Dom.Element = {
+      if (modifiers.isEmpty) element
+      else if (modifiers.size == 1) modifiers.head.modify(element)
+      else if (modifiers.forall(_.isInstanceOf[Dom]))
+        element.addChildren(modifiers.asInstanceOf[Iterable[Dom]])
+      else {
+        modifiers.partition(_.isInstanceOf[Dom]) match {
+          case (doms, others) if others.forall(_.isInstanceOf[Dom.Attribute]) =>
+            element
+              .addAttributes(others.asInstanceOf[Iterable[Dom.Attribute]])
+              .addChildren(doms.asInstanceOf[Iterable[Dom]])
+          case (doms, others)                                                 =>
+            others
+              .foldLeft(element) { case (el, mod) => mod.modify(el) }
+              .addChildren(doms.asInstanceOf[Iterable[Dom]])
+        }
+      }
+    }
+  }
+  implicit def iterableToModifier(modifiers: Iterable[Modifier]): Modifier =
+    IterableModifier(modifiers)
+}
+
 object Dom {
 
   val script: Element.Script                    = Element.Script()
@@ -184,10 +209,24 @@ object Dom {
     override val selector: CssSelector =
       CssSelector.element(tag)
 
+    def addAttributes(attributes: Iterable[Attribute]): Element
+
+    def addAttributes(attribute: Attribute, attributes: Attribute*): Element =
+      addAttributes(attribute +: attributes)
+
+    def addChildren(children: Iterable[Dom]): Element =
+      replaceChildren(this.children ++ children: _*)
+
+    def addChildren(child: Dom, children: Dom*): Element =
+      addChildren(child +: children)
+
     /**
      * Apply modifiers (attributes and children) to this element
      */
-    def apply(modifiers: Modifier*): Element
+    def apply(modifier: Modifier, modifiers: Modifier*): Element =
+      apply(modifier +: modifiers)
+
+    def apply(modifiers: Iterable[Modifier]): Element
 
     /**
      * Add or update an attribute
@@ -353,12 +392,23 @@ object Dom {
       children: Vector[Dom] = Vector.empty,
     ) extends Element {
 
-      def apply(modifiers: Modifier*): Generic = {
+      def addAttributes(attributes: Iterable[Attribute]): Generic =
+        copy(
+          attributes = this.attributes ++ attributes.map(attr => attr.name -> attr.value),
+        )
+
+      override def apply(modifier: Modifier, modifiers: Modifier*): Generic =
+        apply(modifier +: modifiers)
+
+      def apply(modifiers: Iterable[Modifier]): Generic = {
         val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
           case ((currentAttrs, currentChildren), modifier) =>
             modifier match {
-              case attr: Attribute => (currentAttrs + (attr.name -> attr.value), currentChildren)
-              case child: Dom      => (currentAttrs, currentChildren :+ child)
+              case attr: Attribute               => (currentAttrs + (attr.name -> attr.value), currentChildren)
+              case child: Dom                    => (currentAttrs, currentChildren :+ child)
+              case it: Modifier.IterableModifier =>
+                val applied = it.modify(copy(attributes = currentAttrs, children = currentChildren))
+                (applied.attributes, applied.children.distinct)
             }
         }
 
@@ -375,10 +425,10 @@ object Dom {
         copy(children = children.toVector)
 
       def when(condition: Boolean)(modifiers: Modifier*): Generic =
-        if (condition) apply(modifiers: _*) else this
+        if (condition) apply(modifiers) else this
 
       def whenSome[T](option: Option[T])(f: T => Seq[Modifier]): Generic =
-        option.fold(this)(value => apply(f(value): _*))
+        option.fold(this)(value => apply(f(value)))
 
       protected def shouldEscapeContent: Boolean = true
 
@@ -397,26 +447,30 @@ object Dom {
 
       def tag: String = "script"
 
-      def apply(modifiers: Modifier*): Script = {
+      def addAttributes(attributes: Iterable[Attribute]): Script =
+        copy(
+          attributes = this.attributes ++ attributes.map(attr => attr.name -> attr.value),
+        )
+
+      override def apply(modifier: Modifier, modifiers: Modifier*): Script =
+        apply(modifier +: modifiers)
+
+      override def apply(modifiers: Iterable[Modifier]): Script = {
         val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
           case ((currentAttrs, currentChildren), modifier) =>
             modifier match {
-              case attr: Attribute => (currentAttrs + (attr.name -> attr.value), currentChildren)
-              case child: Dom      => (currentAttrs, currentChildren :+ child)
+              case attr: Attribute               => (currentAttrs + (attr.name -> attr.value), currentChildren)
+              case child: Dom                    => (currentAttrs, currentChildren :+ child)
+              case it: Modifier.IterableModifier =>
+                val modified = it.modify(this.copy(attributes = currentAttrs, children = currentChildren))
+                (modified.attributes, modified.children.distinct)
             }
         }
         copy(attributes = attrs, children = kids)
       }
 
       def apply(Js: Js, modifiers: Modifier*): Script = {
-        val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
-          case ((currentAttrs, currentChildren), modifier) =>
-            modifier match {
-              case attr: Attribute => (currentAttrs + (attr.name -> attr.value), currentChildren)
-              case child: Dom      => (currentAttrs, currentChildren :+ child)
-            }
-        }
-        copy(attributes = attrs, children = kids :+ Dom.text(Js.value))
+        copy(children = children :+ Dom.text(Js.value)).apply(modifiers)
       }
 
       def async: Script = attr("async", true)
@@ -461,10 +515,10 @@ object Dom {
       def `type`(scriptType: String): Script = attr("type", scriptType)
 
       def when(condition: Boolean)(modifiers: Modifier*): Script =
-        if (condition) apply(modifiers: _*) else this
+        if (condition) apply(modifiers) else this
 
       def whenSome[T](option: Option[T])(f: T => Seq[Modifier]): Script =
-        option.fold(this)(value => apply(f(value): _*))
+        option.fold(this)(value => apply(f(value)))
 
       protected def shouldEscapeContent: Boolean = false
 
@@ -482,12 +536,23 @@ object Dom {
 
       def tag: String = "style"
 
-      def apply(modifiers: Modifier*): Style = {
+      def addAttributes(attributes: Iterable[Attribute]): Style =
+        copy(
+          attributes = this.attributes ++ attributes.map(attr => attr.name -> attr.value),
+        )
+
+      override def apply(modifier: Modifier, modifiers: Modifier*): Style =
+        apply(modifier +: modifiers)
+
+      def apply(modifiers: Iterable[Modifier]): Style = {
         val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
           case ((currentAttrs, currentChildren), modifier) =>
             modifier match {
-              case attr: Attribute => (currentAttrs + (attr.name -> attr.value), currentChildren)
-              case child: Dom      => (currentAttrs, currentChildren :+ child)
+              case attr: Attribute               => (currentAttrs + (attr.name -> attr.value), currentChildren)
+              case child: Dom                    => (currentAttrs, currentChildren :+ child)
+              case it: Modifier.IterableModifier =>
+                val applied = it.modify(copy(attributes = currentAttrs, children = currentChildren))
+                (applied.attributes, applied.children.distinct)
             }
         }
         copy(attributes = attrs, children = kids)
@@ -497,8 +562,11 @@ object Dom {
         val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
           case ((currentAttrs, currentChildren), modifier) =>
             modifier match {
-              case attr: Attribute => (currentAttrs + (attr.name -> attr.value), currentChildren)
-              case child: Dom      => (currentAttrs, currentChildren :+ child)
+              case attr: Attribute               => (currentAttrs + (attr.name -> attr.value), currentChildren)
+              case child: Dom                    => (currentAttrs, currentChildren :+ child)
+              case it: Modifier.IterableModifier =>
+                val applied = it.modify(copy(attributes = currentAttrs, children = currentChildren))
+                (applied.attributes, applied.children.distinct)
             }
         }
         copy(attributes = attrs, children = kids :+ Dom.text(Css.value))
@@ -528,10 +596,10 @@ object Dom {
       def `type`(value: String): Style = attr("type", value)
 
       def when(condition: Boolean)(modifiers: Modifier*): Style =
-        if (condition) apply(modifiers: _*) else this
+        if (condition) apply(modifiers) else this
 
       def whenSome[T](option: Option[T])(f: T => Seq[Modifier]): Style =
-        option.fold(this)(value => apply(f(value): _*))
+        option.fold(this)(value => apply(f(value)))
 
       protected def shouldEscapeContent: Boolean = false
 

@@ -95,7 +95,7 @@ object ServerSentEventGenerator {
   ): ZIO[Datastar, Nothing, Unit] = {
     val removeAttr = if (options.autoRemove) Dom.attr("data-effect", "el.remove") else Dom.empty
     patchElements(
-      script(Dom.text(script0), removeAttr)(options.attributes.map(a => Dom.attr(a._1, a._2)): _*),
+      script(Dom.text(script0), removeAttr)(options.attributes.map(a => Dom.attr(a._1, a._2))),
       PatchElementOptions(eventId = options.eventId, retryDuration = options.retryDuration),
     )
   }

@@ -215,6 +215,7 @@ trait HtmlAttributes {
   val loop: Dom.PartialAttribute                 = Dom.attr("loop")
   val max: Dom.PartialAttribute                  = Dom.attr("max")
   val maxlength: Dom.PartialAttribute            = Dom.attr("maxlength")
+  val media: Dom.PartialAttribute                = Dom.attr("media")
   val method: Dom.PartialAttribute               = Dom.attr("method")
   val min: Dom.PartialAttribute                  = Dom.attr("min")
   val minlength: Dom.PartialAttribute            = Dom.attr("minlength")
@@ -249,6 +250,7 @@ trait HtmlAttributes {
   val value: Dom.PartialAttribute                = Dom.attr("value")
   val width: Dom.PartialAttribute                = Dom.attr("width")
   val wrap: Dom.PartialAttribute                 = Dom.attr("wrap")
+  val xmlns: Dom.PartialAttribute                = Dom.attr("xmlns")
 
   def aria(name: String): Dom.PartialAttribute   = Dom.attr(s"aria-$name")
   def custom(name: String): Dom.PartialAttribute = Dom.attr(name)

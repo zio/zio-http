@@ -350,8 +350,7 @@ object Attributes {
   }
 
   final case class PartialDataOn(prefix: String, modifier: EventModifier) {
-    def :=(expression: Js): Attribute = Dom.attr(s"$prefix-on") := expression.value
-    def event(name: String)           = DataOn(prefix, name, modifier)
+    def apply(name: String): DataOn = DataOn(prefix, name, modifier)
 
     def modify(mod: EventModifier): PartialDataOn = copy(modifier = modifier && mod)
     def capture: PartialDataOn                    = modify(EventModifier.Capture)
@@ -377,66 +376,62 @@ object Attributes {
     // ---------------------------------------------------------------------------
     // Mouse Events
     // ---------------------------------------------------------------------------
-    def click: DataOn       = event("click")
-    def dblclick: DataOn    = event("dblclick")
-    def mousedown: DataOn   = event("mousedown")
-    def mouseup: DataOn     = event("mouseup")
-    def mouseover: DataOn   = event("mouseover")
-    def mouseout: DataOn    = event("mouseout")
-    def mouseenter: DataOn  = event("mouseenter")
-    def mouseleave: DataOn  = event("mouseleave")
-    def mousemove: DataOn   = event("mousemove")
-    def contextmenu: DataOn = event("contextmenu")
-    def wheel: DataOn       = event("wheel")
+    def click: DataOn       = apply("click")
+    def dblclick: DataOn    = apply("dblclick")
+    def mousedown: DataOn   = apply("mousedown")
+    def mouseup: DataOn     = apply("mouseup")
+    def mouseover: DataOn   = apply("mouseover")
+    def mouseout: DataOn    = apply("mouseout")
+    def mouseenter: DataOn  = apply("mouseenter")
+    def mouseleave: DataOn  = apply("mouseleave")
+    def mousemove: DataOn   = apply("mousemove")
+    def contextmenu: DataOn = apply("contextmenu")
+    def wheel: DataOn       = apply("wheel")
 
     // ---------------------------------------------------------------------------
     // Keyboard Events
     // ---------------------------------------------------------------------------
-    def keydown: DataOn  = event("keydown")
-    def keyup: DataOn    = event("keyup")
-    def keypress: DataOn = event("keypress")
+    def keydown: DataOn  = apply("keydown")
+    def keyup: DataOn    = apply("keyup")
+    def keypress: DataOn = apply("keypress")
 
     // ---------------------------------------------------------------------------
     // Form Events
     // ---------------------------------------------------------------------------
-    def input: DataOn   = event("input")
-    def change: DataOn  = event("change")
-    def submit: DataOn  = event("submit")
-    def reset: DataOn   = event("reset")
-    def select: DataOn  = event("select")
-    def invalid: DataOn = event("invalid")
+    def input: DataOn   = apply("input")
+    def change: DataOn  = apply("change")
+    def submit: DataOn  = apply("submit")
+    def reset: DataOn   = apply("reset")
+    def select: DataOn  = apply("select")
+    def invalid: DataOn = apply("invalid")
 
     // ---------------------------------------------------------------------------
     // Focus Events
     // ---------------------------------------------------------------------------
-    def focus: DataOn    = event("focus")
-    def blur: DataOn     = event("blur")
-    def focusin: DataOn  = event("focusin")
-    def focusout: DataOn = event("focusout")
+    def focus: DataOn    = apply("focus")
+    def blur: DataOn     = apply("blur")
+    def focusin: DataOn  = apply("focusin")
+    def focusout: DataOn = apply("focusout")
 
     // ---------------------------------------------------------------------------
     // Touch Events
     // ---------------------------------------------------------------------------
-    def touchstart: DataOn  = event("touchstart")
-    def touchend: DataOn    = event("touchend")
-    def touchmove: DataOn   = event("touchmove")
-    def touchcancel: DataOn = event("touchcancel")
+    def touchstart: DataOn  = apply("touchstart")
+    def touchend: DataOn    = apply("touchend")
+    def touchmove: DataOn   = apply("touchmove")
+    def touchcancel: DataOn = apply("touchcancel")
 
     // ---------------------------------------------------------------------------
     // Window/Document Events
     // ---------------------------------------------------------------------------
-    def load: DataOn         = event("load")
-    def unload: DataOn       = event("unload")
-    def beforeunload: DataOn = event("beforeunload")
-    def resize: DataOn       = event("resize")
-    def scroll: DataOn       = event("scroll")
-    def hashchange: DataOn   = event("hashchange")
-    def popstate: DataOn     = event("popstate")
+    def load: DataOn         = apply("load")
+    def unload: DataOn       = apply("unload")
+    def beforeunload: DataOn = apply("beforeunload")
+    def resize: DataOn       = apply("resize")
+    def scroll: DataOn       = apply("scroll")
+    def hashchange: DataOn   = apply("hashchange")
+    def popstate: DataOn     = apply("popstate")
 
-    // ---------------------------------------------------------------------------
-    // Custom Events
-    // ---------------------------------------------------------------------------
-    def custom(eventName: String): DataOn = event(eventName)
   }
 
   final case class DataOn(prefix: String, event: String, modifier: EventModifier) {

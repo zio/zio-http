@@ -42,6 +42,7 @@ object MimaSettings {
         ProblemFilters.exclude[MissingClassProblem]("zio.http.netty.NettyDateEncoding$"),
         ProblemFilters.exclude[MissingClassProblem]("zio.http.netty.NettyHeaderEncoding"),
         ProblemFilters.exclude[MissingClassProblem]("zio.http.netty.NettyHeaderEncoding$"),
+        exclude[Problem]("zio.http.template2.*"),
       ),
       mimaFailOnProblem := failOnProblem,
     )
