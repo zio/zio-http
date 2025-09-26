@@ -60,4 +60,4 @@ With more path segments, the type of the `RoutePattern` becomes a tuple of the t
 
 The `Method` data type represent an HTTP method, and it offers the following predefined HTTP methods: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `DELETE`, `TRACE`, `OPTIONS`, `HEAD`, `TRACE` and `CONNECT`.
 
-The `METHOD.ANY` is a wildcard method that matches any method.
+The `Method.ANY` is a shortcut to create routes for all default http methods.

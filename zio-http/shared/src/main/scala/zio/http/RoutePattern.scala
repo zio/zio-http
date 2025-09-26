@@ -15,10 +15,7 @@
  */
 package zio.http
 
-import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
-
-import zio._
 
 import zio.http.codec.PathCodec.Opt
 import zio.http.codec._
@@ -78,7 +75,10 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   ): Route[Env, Err] =
     Route.handledIgnoreParams(self)(handler)
 
-  def alternatives: List[RoutePattern[A]] = pathCodec.alternatives.map(RoutePattern(method, _))
+  def alternatives: List[RoutePattern[A]] = pathCodec.alternatives.flatMap { path =>
+    if (method == Method.ANY) Method.standardMethods.map(RoutePattern(_, path))
+    else List(RoutePattern(method, path))
+  }
 
   /**
    * Reinteprets the type parameter, given evidence it is equal to some other
@@ -135,7 +135,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
       case other                    => List(other)
     }
     def opts(codec: PathCodec[_]): Array[Opt]              = codec.optimize.flatMap(map)
-    method == that.method && opts(self.pathCodec).sameElements(opts(that.pathCodec))
+    (method == that.method || that.method == Method.ANY) && opts(self.pathCodec).sameElements(opts(that.pathCodec))
   }
 
   /**
@@ -175,7 +175,6 @@ object RoutePattern                                                       {
    * A tree of route patterns, indexed by method and path.
    */
   private[http] final case class Tree[Env](
-    anyRoot: SegmentSubtree[Env],
     connectRoot: SegmentSubtree[Env],
     deleteRoot: SegmentSubtree[Env],
     getRoot: SegmentSubtree[Env],
@@ -189,7 +188,6 @@ object RoutePattern                                                       {
   ) { self =>
     def ++[Env1 >: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(
-        if (self.anyRoot != null) self.anyRoot ++ that.anyRoot else that.anyRoot,
         if (self.connectRoot != null) self.connectRoot ++ that.connectRoot else that.connectRoot,
         if (self.deleteRoot != null) self.deleteRoot ++ that.deleteRoot else that.deleteRoot,
         if (self.getRoot != null) self.getRoot ++ that.getRoot else that.getRoot,
@@ -222,18 +220,16 @@ object RoutePattern                                                       {
           case Method.OPTIONS if optionsRoot != null       => optionsRoot.get(path)
           case Method.PATCH if patchRoot != null           => patchRoot.get(path)
           case Method.TRACE if traceRoot != null           => traceRoot.get(path)
-          case Method.ANY if anyRoot != null               => anyRoot.get(path)
           case m: Method.CUSTOM if customRoots.contains(m) => customRoots(m).get(path)
           case _                                           => null.asInstanceOf[RequestHandler[Env, Response]]
         }
       }
 
-      if (forMethod == null && anyRoot != null) anyRoot.get(path) else forMethod
+      forMethod
     }
 
     def map[Env1](f: RequestHandler[Env, Response] => RequestHandler[Env1, Response]): Tree[Env1] =
       Tree(
-        if (anyRoot != null) anyRoot.map(f) else null,
         if (connectRoot != null) connectRoot.map(f) else null,
         if (deleteRoot != null) deleteRoot.map(f) else null,
         if (getRoot != null) getRoot.map(f) else null,
@@ -264,7 +260,18 @@ object RoutePattern                                                       {
         case Method.OPTIONS   => empty.copy(optionsRoot = subtree)
         case Method.PATCH     => empty.copy(patchRoot = subtree)
         case Method.TRACE     => empty.copy(traceRoot = subtree)
-        case Method.ANY       => empty.copy(anyRoot = subtree)
+        case Method.ANY       =>
+          empty.copy(
+            getRoot = subtree,
+            postRoot = subtree,
+            putRoot = subtree,
+            deleteRoot = subtree,
+            connectRoot = subtree,
+            headRoot = subtree,
+            optionsRoot = subtree,
+            patchRoot = subtree,
+            traceRoot = subtree,
+          )
         case m: Method.CUSTOM => empty.copy(customRoots = Map(m -> subtree))
       }
     }
@@ -272,7 +279,6 @@ object RoutePattern                                                       {
     def empty[Env]: Tree[Env] = empty0.asInstanceOf[Tree[Env]]
 
     private val empty0: Tree[Any] = Tree(
-      null,
       null,
       null,
       null,

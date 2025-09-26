@@ -217,16 +217,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
       }
   }
 
-  /**
-   * A shortcut for `Server.install(routes) *> ZIO.never`
-   */
-  def serve[Env1 <: Env](implicit
-    ev: Err <:< Response,
-    trace: Trace,
-    tag: EnvironmentTag[Env1],
-  ): URIO[Env1 with Server, Nothing] = {
-    Server.serveRoutes[Env1](self.handleError(_.asInstanceOf[Response]))
-  }
+  private[http] def routesNoAny: Chunk[Route[Env, Err]] =
+    routes.filterNot(_.routePattern == RoutePattern.any)
 
   def run(
     method: Method = Method.GET,
@@ -249,6 +241,17 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    */
   def sandbox(implicit trace: Trace): Routes[Env, Nothing] =
     withRoutes(routes.map(_.sandbox))
+
+  /**
+   * A shortcut for `Server.install(routes) *> ZIO.never`
+   */
+  def serve[Env1 <: Env](implicit
+    ev: Err <:< Response,
+    trace: Trace,
+    tag: EnvironmentTag[Env1],
+  ): URIO[Env1 with Server, Nothing] = {
+    Server.serveRoutes[Env1](self.handleError(_.asInstanceOf[Response]))
+  }
 
   /**
    * Returns a new HTTP application whose requests will be timed out after the
