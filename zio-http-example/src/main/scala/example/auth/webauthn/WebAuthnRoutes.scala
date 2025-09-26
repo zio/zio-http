@@ -29,18 +29,11 @@ object WebAuthnRoutes {
         for {
           body    <- req.body.asString
           request <- ZIO.fromEither(body.fromJson[RegistrationFinishRequest])
-          result  <- service.finishRegistration(request).mapError {
-            case NoRegistrationRequestFound(username) =>
-              Response(
-                status = Status.NotFound,
-                body = Body.fromString(s"No registration request found for user: $username"),
-              )
-
-            case _ =>
-              Response(
-                status = Status.InternalServerError,
-                body = Body.fromString(s"Registration failed!"),
-              )
+          result  <- service.finishRegistration(request).orElseFail {
+            Response(
+              status = Status.InternalServerError,
+              body = Body.fromString(s"Registration failed!"),
+            )
           }
         } yield Response(body = Body.from(result))
       },
@@ -56,18 +49,14 @@ object WebAuthnRoutes {
         for {
           body    <- req.body.asString
           request <- ZIO.fromEither(body.fromJson[AuthenticationFinishRequest])
-          result  <- service.finishAuthentication(request).mapError {
-            case NoAuthenticationRequestFound(challenge) =>
-              Response(
-                status = Status.NotFound,
-                body = Body.fromString(s"No registration request found for challenge: $challenge"),
-              )
-            case _                                       =>
+          result  <- service
+            .finishAuthentication(request)
+            .orElseFail (
               Response(
                 status = Status.Unauthorized,
                 body = Body.fromString(s"Authentication failed!"),
               )
-          }
+            )
         } yield Response(body = Body.from(result))
       },
     ).sandbox @@ Middleware.cors @@ Middleware.debug

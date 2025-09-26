@@ -12,6 +12,7 @@ import scala.jdk.CollectionConverters._
 sealed trait AuthenticationError                           extends Throwable
 case class NoRegistrationRequestFound(username: String)    extends AuthenticationError
 case class UserVerificationFailed(username: String)        extends AuthenticationError
+case class UserNotFound(username: String)                  extends AuthenticationError
 case class NoAuthenticationRequestFound(challenge: String) extends AuthenticationError
 
 trait WebAuthenticationService {
@@ -55,8 +56,8 @@ class WebAuthnServiceImpl(
           val user = User(UUID.randomUUID().toString, username, Set.empty)
           userService.addUser(user).as(user)
         }
-        .orDieWith(_ => new Exception("Unexpected status in registration flow!"))
-      creationOptions = createCreationOptions(relyingPartyIdentity, username, user.userHandle)
+        .orDieWith(_ => new IllegalStateException("Unexpected status in registration flow!"))
+      creationOptions = createCreationOptions(relyingPartyIdentity, user.userHandle, username)
       _    <- registrationRequests.update(_.updated(user.userHandle, creationOptions))
     } yield creationOptions
 
@@ -81,13 +82,14 @@ class WebAuthnServiceImpl(
             .addCredential(
               userHandle = request.userhandle,
               credential = UserCredential(
+                userHandle = creationOptions.getUser.getId,
                 credentialId = result.getKeyId.getId,
                 publicKeyCose = result.getPublicKeyCose,
                 signatureCount = result.getSignatureCount,
-                userHandle = creationOptions.getUser.getId,
               ),
             )
-          registrationRequests.update(_.removed(request.userhandle)) *>
+            .orElseFail(UserNotFound(request.username)) *>
+            registrationRequests.update(_.removed(request.userhandle)) *>
             ZIO.succeed {
               RegistrationFinishResponse(
                 success = true,
@@ -110,7 +112,8 @@ class WebAuthnServiceImpl(
     request: AuthenticationFinishRequest,
   ): IO[AuthenticationError, AuthenticationFinishResponse] =
     for {
-      challenge        <- ZIO.succeed(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url)
+      challenge        <- ZIO
+        .succeed(request.publicKeyCredential.getResponse.getClientData.getChallenge.getBase64Url)
       assertionRequest <- authenticationRequests.get
         .map(_.get(challenge))
         .some
@@ -125,11 +128,12 @@ class WebAuthnServiceImpl(
             .response(request.publicKeyCredential)
             .build(),
         )
-      _ <- ZIO.when(assertion.isUserVerified) {
-        authenticationRequests.get.map(
-          _.removed(challenge),
-        )
-      }
+      _ <- ZIO
+        .when(assertion.isUserVerified) {
+          authenticationRequests.get.map(
+            _.removed(challenge),
+          )
+        }
     } yield AuthenticationFinishResponse(
       success = assertion.isUserVerified,
       username = assertion.getUsername,
@@ -167,8 +171,8 @@ class WebAuthnServiceImpl(
 
   private def createCreationOptions(
     relyingPartyIdentity: RelyingPartyIdentity,
+    userId: String,
     username: String,
-    userHandle: String,
     timeout: Duration = 1.minutes,
   ): PublicKeyCredentialCreationOptions = {
     val userIdentity: UserIdentity =
@@ -176,7 +180,7 @@ class WebAuthnServiceImpl(
         .builder()
         .name(username)
         .displayName(username)
-        .id(new ByteArray(userHandle.getBytes())) // Use unique handle instead of username bytes
+        .id(new ByteArray(userId.getBytes())) // Use unique handle instead of username bytes
         .build()
 
     PublicKeyCredentialCreationOptions

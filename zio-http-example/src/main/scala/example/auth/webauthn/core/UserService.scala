@@ -18,28 +18,28 @@ object UserServiceError {
 }
 
 trait UserService {
-  def getUser(username: String): IO[UserServiceError, User]
-  def getUserByHandle(handle: String): IO[UserServiceError, User]
-  def addUser(user: User): IO[UserServiceError, Unit]
-  def addCredential(userHandle: String, credential: UserCredential): IO[UserServiceError, Unit]
+  def getUser(username: String): IO[UserNotFound, User]
+  def getUserByHandle(userHandle: String): IO[UserNotFound, User]
+  def addUser(user: User): IO[UserAlreadyExists, Unit]
+  def addCredential(userHandle: String, credential: UserCredential): IO[UserNotFound, Unit]
   def getCredentialById(credentialId: String): IO[Nothing, Set[UserCredential]]
 }
 
 case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
 
-  override def getUser(username: String): IO[UserServiceError, User] =
+  override def getUser(username: String): IO[UserNotFound, User] =
     users.get.flatMap { userMap =>
       ZIO.fromOption(userMap.get(username)).orElseFail(UserNotFound(username))
     }
 
-  override def addUser(user: User): IO[UserServiceError, Unit] =
+  override def addUser(user: User): IO[UserAlreadyExists, Unit] =
     users.get.flatMap { userMap =>
       ZIO.when(userMap.contains(user.username)) {
         ZIO.fail(UserAlreadyExists(user.username))
       } *> users.update(_.updated(user.username, user))
     }
 
-  override def addCredential(userHandle: String, credential: UserCredential): IO[UserServiceError, Unit] =
+  override def addCredential(userHandle: String, credential: UserCredential): IO[UserNotFound, Unit] =
     users.get.flatMap { userMap =>
       ZIO.fromOption(userMap.values.find(_.userHandle == userHandle)).orElseFail(UserNotFound(userHandle)).flatMap {
         user =>
@@ -57,9 +57,9 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
         .toSet
     }
 
-  override def getUserByHandle(handle: String): IO[UserServiceError, User] =
+  override def getUserByHandle(userHandle: String): IO[UserNotFound, User] =
     users.get.flatMap { userMap =>
-      ZIO.fromOption(userMap.values.find(_.userHandle == handle)).orElseFail(UserNotFound(handle))
+      ZIO.fromOption(userMap.values.find(_.userHandle == userHandle)).orElseFail(UserNotFound(userHandle))
     }
 
 }
