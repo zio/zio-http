@@ -70,7 +70,7 @@ import sttp.tapir.{Endpoint => TEndpoint, endpoint => tendpoint, path => tpath, 
 // [info] EndpointBenchmark.benchmarkSmallDataZioCollect   thrpt    2   701.566          ops/s
 
 @State(Scope.Thread)
-@BenchmarkMode(Array(Mode.Throughput))
+@BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class EndpointBenchmark {
 //  implicit val actorSystem: ActorSystem     = ActorSystem("api-benchmark-actor-system")
