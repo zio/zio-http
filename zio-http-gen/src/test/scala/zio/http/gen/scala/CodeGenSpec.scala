@@ -1058,6 +1058,7 @@ object CodeGenSpec extends ZIOSpecDefault {
               termsOfService = None,
               contact = None,
               license = None,
+              fileName = None,
               version = "1.0.0",
             ),
             paths = ListMap(
@@ -1125,6 +1126,7 @@ object CodeGenSpec extends ZIOSpecDefault {
               termsOfService = None,
               contact = None,
               license = None,
+              fileName = None,
               version = "1.0.0",
             ),
             paths = ListMap(

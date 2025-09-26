@@ -1021,6 +1021,7 @@ object OpenAPIGen {
         termsOfService = None,
         contact = None,
         license = None,
+        fileName = None,
         version = "",
       ),
       servers = Nil,
