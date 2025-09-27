@@ -36,6 +36,7 @@ final case class SSLConfig(
   provider: Provider,
   clientAuth: Option[ClientAuth] = None,
   includeClientCert: Boolean = false,
+  protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2")
 )
 
 object SSLConfig {
