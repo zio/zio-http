@@ -52,6 +52,7 @@ private[netty] object SSLUtil {
       clientAuthConfig.foreach(ca => self.clientAuth(getClientAuth(ca)))
       self
         .sslProvider(toNettyProvider(sslConfig.provider))
+        .protocols(sslConfig.protocols: _*)
         .applicationProtocolConfig(
           new ApplicationProtocolConfig(
             Protocol.ALPN,
