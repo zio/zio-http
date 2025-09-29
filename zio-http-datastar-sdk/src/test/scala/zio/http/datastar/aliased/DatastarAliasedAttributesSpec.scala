@@ -7,7 +7,6 @@ import zio.test._
 
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.datastar.{Signal, SignalName}
 import zio.http.template2._
 
 object DatastarAliasedAttributesSpec extends ZIOSpecDefault {
@@ -82,9 +81,9 @@ object DatastarAliasedAttributesSpec extends ZIOSpecDefault {
       assertTrue(rendered.contains("data-star-json-signals__terse=\"{foo:1}\""))
     },
     test("data-star-ref with case modifier") {
-      val view     = div(dataRef.camel("customer-id"))
+      val view     = div(dataRef.kebab("customer-id"))
       val rendered = view.render
-      assertTrue(rendered == "<div data-star-ref-customer-id__case.camel></div>")
+      assertTrue(rendered == "<div data-star-ref-customer-id__case.kebab></div>")
     },
     test("single data-star-class with case modifier bound to signal name") {
       val a        = Signal[Boolean]("active")
