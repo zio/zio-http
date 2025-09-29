@@ -81,9 +81,9 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
       assertTrue(rendered.contains("data-json-signals__terse=\"{foo:1}\""))
     },
     test("data-ref with case modifier") {
-      val view     = div(dataRef.camel("customer-id"))
+      val view     = div(dataRef.kebab("customer-id"))
       val rendered = view.render
-      assertTrue(rendered == "<div data-ref-customer-id__case.camel></div>")
+      assertTrue(rendered == "<div data-ref-customer-id__case.kebab></div>")
     },
     test("single data-class with case modifier bound to signal name") {
       val a        = Signal[Boolean]("active")

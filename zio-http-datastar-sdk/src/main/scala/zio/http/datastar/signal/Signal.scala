@@ -1,4 +1,4 @@
-package zio.http.datastar
+package zio.http.datastar.signal
 
 import scala.language.implicitConversions
 
@@ -6,12 +6,16 @@ import zio.json._
 
 import zio.schema._
 
+import zio.http.datastar.Attributes.CaseModifier
 import zio.http.template2._
 
 final case class Signal[A](
   schema: Schema[A],
   name: SignalName,
 ) { self =>
+
+  def caseModifier(newCaseModifier: CaseModifier): Signal[A] =
+    copy(name = name.caseModifier(newCaseModifier))
 
   /** Create a nested signal by adding a property path */
   def nest(newPath: String): Signal[A] = copy(name = name.nest(newPath))
@@ -30,15 +34,17 @@ final case class Signal[A](
   }
 
   override def toString: String = ref
+
+  def update(in: A): SignalUpdate[A] = SignalUpdate(self, in)
 }
 
 object Signal {
   def apply[A: Schema](name: SignalName): Signal[A]            =
     Signal(Schema[A], name)
   def apply[A: Schema](path: String): Signal[A]                =
-    Signal(Schema[A], SignalName(path.split('.').toList.filter(!_.isBlank)))
+    Signal(Schema[A], SignalName(path.split('.').toList.filter(!_.isBlank), CaseModifier.Camel))
   def apply[A: Schema](path: String, more: String*): Signal[A] =
-    Signal(Schema[A], SignalName((path +: more).toList.flatMap(_.split('.')).filter(!_.isBlank)))
+    Signal(Schema[A], SignalName((path +: more).toList.flatMap(_.split('.')).filter(!_.isBlank), CaseModifier.Camel))
 
   def nested(path: String): NestedBuilder                =
     NestedBuilder(path.split('.').toList.filter(!_.isBlank))
@@ -46,32 +52,41 @@ object Signal {
     NestedBuilder((path +: more).toList.flatMap(_.split('.')).filter(!_.isBlank))
 
   /** Helper for building nested signals with type inference */
-  final case class NestedBuilder(path: List[String]) {
-    def apply[A: Schema](name: String): Signal[A] = Signal(Schema[A], SignalName(path :+ name))
+  final case class NestedBuilder(path: List[String], caseModifier: CaseModifier = CaseModifier.Camel) {
+    def nest(newPath: String): NestedBuilder                    = copy(path = newPath :: path)
+    def nest(newPath: String, more: String*): NestedBuilder     =
+      copy(path = ((newPath +: more) ++ path).toList.flatMap(_.split('.').toList))
+    def caseModifier(caseModifier: CaseModifier): NestedBuilder =
+      NestedBuilder(path, caseModifier)
+    def apply[A: Schema](name: String): Signal[A] = Signal(Schema[A], SignalName(path :+ name, caseModifier))
+    def apply[A: Schema](caseModifier: CaseModifier)(name: String): Signal[A] =
+      Signal(Schema[A], SignalName(path :+ name, caseModifier))
   }
 
   implicit def signalToJs[A](signal: Signal[A]): Js = js"$signal"
 }
 
-final case class SignalName(path: List[String]) { self =>
+final case class SignalName(path: List[String], caseModifier: CaseModifier) { self =>
   assert(path.exists(!_.isBlank), "Signal name cannot be empty")
   assert(!path.exists(_.contains("__")), "Signal names cannot contain double underscores '__'")
-  val name: String                                         = path.mkString(".")
-  val ref: String                                          = s"$$$name"
-  def toSignal[A: Schema]: Signal[A]                       = Signal(self)
-  def toSignalUpdate[A: Schema](value: A): SignalUpdate[A] = SignalUpdate(toSignal[A], value)
-  def nest(newPath: String): SignalName                    = copy(path = newPath :: path)
-  def nest(newPath: String, more: String*): SignalName     =
+  def caseModifier(newCaseModifier: CaseModifier): SignalName =
+    copy(caseModifier = newCaseModifier)
+  val name: String                                            = path.map(CaseModifier.Kebab.modify).mkString(".")
+  val ref: String                                             = s"$$${path.map(caseModifier.modify).mkString(".")}"
+  def toSignal[A: Schema]: Signal[A]                          = Signal(self)
+  def toSignalUpdate[A: Schema](value: A): SignalUpdate[A]    = SignalUpdate(toSignal[A], value)
+  def nest(newPath: String): SignalName                       = copy(path = newPath :: path)
+  def nest(newPath: String, more: String*): SignalName        =
     copy(path = ((newPath +: more) ++ path).toList.flatMap(_.split('.').toList))
-  private[datastar] def isRoot: Boolean                    = path.length == 1
-  override def toString: String                            = ref
+  private[datastar] def isRoot: Boolean                       = path.length == 1
+  override def toString: String                               = ref
 }
 
 object SignalName {
-  def apply(path: String): SignalName                =
-    SignalName(path.split('.').toList)
-  def apply(path: String, more: String*): SignalName =
-    SignalName((path +: more).toList.flatMap(_.split('.').toList))
+  def apply(path: String, more: String*): SignalName                             =
+    SignalName((path +: more).toList.flatMap(_.split('.').toList), CaseModifier.Camel)
+  def apply(caseModifier: CaseModifier)(path: String, more: String*): SignalName =
+    SignalName((path +: more).toList.flatMap(_.split('.').toList), caseModifier)
 
   implicit def signalNameToJs(name: SignalName): Js = js"${name.ref}"
 }
@@ -81,8 +96,8 @@ object SignalName {
  * with d-patch and other signal-updating attributes.
  */
 final case class SignalUpdate[A](signal: Signal[A], value: A) {
-  implicit val codec: JsonCodec[A] = zio.schema.codec.JsonCodec.jsonCodec(signal.schema)
-  def toExpression: Js             = {
+  private implicit val codec: JsonCodec[A] = zio.schema.codec.JsonCodec.jsonCodec(signal.schema)
+  def toExpression: Js                     = {
     val update = signal.schema match {
       case _: Schema.Primitive[_] => s"${signal.name.ref} = ${value.toJson.replace("\"", "'")}"
       case _                      =>

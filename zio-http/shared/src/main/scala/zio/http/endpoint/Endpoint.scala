@@ -273,6 +273,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): Route[Env, Nothing] =
     implementHandler(Handler.fromFunctionZIO(f))
 
+  def implementScoped[Env, Env1](f: Input => ZIO[Env, Err, Output])(implicit
+    ev: Env <:< Env1 with Scope,
+    trace: Trace,
+  ): Route[Env1, Nothing] =
+    implementHandler[Env1](
+      Handler.scoped[Env1](Handler.fromFunctionZIO(f.asInstanceOf[Input => ZIO[Env1 with Scope, Err, Output]])),
+    )
+
   def implementEither(f: Input => Either[Err, Output])(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
@@ -292,6 +300,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     trace: Trace,
   ): Route[Env, Nothing] =
     implementHandler(Handler.fromZIO(output))
+
+  def implementAsZIOScoped[Env, Env1](output: ZIO[Env, Err, Output])(implicit
+    ev: Env <:< Env1 with Scope,
+    trace: Trace,
+  ): Route[Env1, Nothing] =
+    implementHandler[Env1](
+      Handler.scoped[Env1](Handler.fromZIO(output.asInstanceOf[ZIO[Env1 with Scope, Err, Output]])),
+    )
 
   def implementAsError(err: Err)(implicit
     trace: Trace,
@@ -443,6 +459,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
     Route.handledIgnoreParams(self.route)(handler)
   }
+
+  def implementHandlerScoped[Env, Env1](original: Handler[Env, Err, Input, Output])(implicit
+    ev: Env <:< Env1 with Scope,
+    trace: Trace,
+  ): Route[Env1, Nothing] =
+    implementHandler[Env1](Handler.scoped[Env1](original.asInstanceOf[Handler[Env1 with Scope, Err, Input, Output]]))
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
