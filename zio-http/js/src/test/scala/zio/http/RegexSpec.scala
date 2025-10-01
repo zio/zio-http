@@ -19,14 +19,35 @@ object RegexSpec extends ZIOSpecDefault {
         test("ContentRange") {
           ZIO.succeed(Header.ContentRange).isSuccess.map(s => assertTrue(s))
         },
-        test("ContentSecurityPolicy.Source") {
-          ZIO.succeed(Header.ContentSecurityPolicy.Source).isSuccess.map(s => assertTrue(s))
+        test("ContentSecurityPolicy.Directive.Source") {
+          ZIO.succeed(Header.ContentSecurityPolicy.Directive.Source).isSuccess.map(s => assertTrue(s))
         },
-        test("ContentSecurityPolicy.TrustedTypesValue") {
-          ZIO.succeed(Header.ContentSecurityPolicy.TrustedTypesValue).isSuccess.map(s => assertTrue(s))
+        test("ContentSecurityPolicy.Directive.TrustedTypesValue") {
+          ZIO.succeed(Header.ContentSecurityPolicy.Directive.TrustedTypesValue).isSuccess.map(s => assertTrue(s))
+        },
+        test("ContentSecurityPolicy.Directive") {
+          ZIO.succeed(Header.ContentSecurityPolicy.Directive).isSuccess.map(s => assertTrue(s))
         },
         test("ContentSecurityPolicy") {
-          ZIO.succeed(Header.ContentSecurityPolicy).isSuccess.map(s => assertTrue(s))
+          val header = Header.ContentSecurityPolicy(
+            Header.ContentSecurityPolicy.Directive.defaultSrc(Header.ContentSecurityPolicy.Directive.Source.none),
+            Header.ContentSecurityPolicy.Directive.scriptSrc(Header.ContentSecurityPolicy.Directive.Source.Self),
+            Header.ContentSecurityPolicy.Directive.connectSrc(Header.ContentSecurityPolicy.Directive.Source.Self),
+            Header.ContentSecurityPolicy.Directive.imgSrc(Header.ContentSecurityPolicy.Directive.Source.Self),
+            Header.ContentSecurityPolicy.Directive.styleSrc(Header.ContentSecurityPolicy.Directive.Source.Self),
+            Header.ContentSecurityPolicy.Directive.SourcePolicy(
+              Header.ContentSecurityPolicy.Directive.SourcePolicyType.`base-uri`,
+              Header.ContentSecurityPolicy.Directive.Source.Self,
+            ),
+            Header.ContentSecurityPolicy.Directive.SourcePolicy(
+              Header.ContentSecurityPolicy.Directive.SourcePolicyType.`form-action`,
+              Header.ContentSecurityPolicy.Directive.Source.Self,
+            ),
+          )
+          val csp    =
+            "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self'; style-src 'self'; base-uri 'self'; form-action 'self'"
+          assertTrue(header.renderedValue == csp) &&
+          assertTrue(Header.ContentSecurityPolicy.parse(csp) == Right(header))
         },
         test("ContentTransferEncoding") {
           ZIO.succeed(Header.ContentTransferEncoding).isSuccess.map(s => assertTrue(s))
