@@ -129,7 +129,7 @@ case class GithubOAuthClient(
         throw new RuntimeException(s"Fallback browser command failed with exit code $exitCode")
     }
 
-    desktopAttempt.orElse(fallbackAttempt).catchAll { _: Throwable =>
+    desktopAttempt.orElse(fallbackAttempt).catchAll { (_: Throwable) =>
       Console.printLine(s"Unable to open browser automatically. Please open the following URL: $url")
     }
   }
@@ -169,9 +169,8 @@ case class GithubOAuthClient(
       _             <- ZIO
         .fail(new RuntimeException(s"Refresh failed: ${response.status}"))
         .when(!response.status.isSuccess)
-      body          <- response.body.asString
-      tokenResponse <- ZIO
-        .fromEither(body.fromJson[Token])
+      tokenResponse <- response.body
+        .to[Token]
         .mapError(error => new RuntimeException(s"Failed to parse refresh response: $error"))
     } yield tokenResponse
 

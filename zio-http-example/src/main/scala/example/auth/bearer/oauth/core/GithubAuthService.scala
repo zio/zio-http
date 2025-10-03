@@ -5,9 +5,7 @@ import java.time.Clock
 
 import zio.Config.Secret
 import zio._
-import zio.json._
 
-import zio.schema.DeriveSchema.gen
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
 import zio.http._
@@ -192,9 +190,8 @@ class GithubAuthService private (
       _             <- ZIO
         .fail(new Exception(s"GitHub token exchange failed: ${response.status}"))
         .when(!response.status.isSuccess)
-      body          <- response.body.asString
-      tokenResponse <- ZIO
-        .fromEither(body.fromJson[GitHubToken])
+      tokenResponse <- response.body
+        .to[GitHubToken]
         .mapError(error => new Exception(s"Failed to parse GitHub token response: $error"))
     } yield tokenResponse
   }
@@ -210,9 +207,8 @@ class GithubAuthService private (
       _        <- ZIO
         .fail(new Exception(s"GitHub user API failed: ${response.status}"))
         .when(!response.status.isSuccess)
-      body     <- response.body.asString
-      user     <- ZIO
-        .fromEither(body.fromJson[GitHubUser])
+      user     <- response.body
+        .to[GitHubUser]
         .mapError(error => new Exception(s"Failed to parse GitHub user response: $error"))
     } yield user
   }
