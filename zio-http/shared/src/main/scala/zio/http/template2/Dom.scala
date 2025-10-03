@@ -490,6 +490,15 @@ object Dom {
 
       def inlineJs(code: Js): Script = `type`("text/javascript").javascript(code)
 
+      def inlineResource(
+        file: String,
+        classLoader: ClassLoader = Thread.currentThread().getContextClassLoader,
+      ): Dom.Element.Script = {
+        val source = scala.io.Source.fromResource(file)
+        try script.inlineJs(source.mkString)
+        finally source.close()
+      }
+
       def integrity(value: String): Script = attr("integrity", value)
 
       def javascript(code: String): Script = apply(Dom.text(code))
@@ -582,6 +591,15 @@ object Dom {
       def inlineCss(code: String): Style = `type`("text/css").css(code)
 
       def inlineCss(code: Css): Style = `type`("text/css").css(code.value)
+
+      def inlineResource(
+        file: String,
+        classLoader: ClassLoader = Thread.currentThread().getContextClassLoader,
+      ): Dom.Element.Style = {
+        val source = scala.io.Source.fromResource(file)
+        try style.inlineCss(source.mkString)
+        finally source.close()
+      }
 
       def media(value: String): Style = attr("media", value)
 
