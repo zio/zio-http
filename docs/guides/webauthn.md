@@ -10,9 +10,11 @@ At the forefront of this movement are WebAuthn (Web Authentication API) and the 
 
 In this article, we are going to explore how to implement passwordless authentication. As our client will be a web browser, we don't need to interact directly with CTAP2; it's handled by the browser under the hood. So we will focus on WebAuthn, which is the web API that browsers expose to web applications, and we will call it to create and use passwordless credentials.
 
-This guide explores the implementation of WebAuthn using the Yubico WebAuthn library (https://github.com/Yubico/java-webauthn-server), demonstrating both passkey registration and authentication flows. The implementation showcases how modern web applications can eliminate passwords while enhancing both security and user experience.
+This guide explores the implementation of WebAuthn using the [Yubico WebAuthn library](https://github.com/Yubico/java-webauthn-server), demonstrating both passkey registration and authentication flows. The implementation showcases how modern web applications can eliminate passwords while enhancing both security and user experience.
 
 ## Requirements
+
+To follow along with this guide, you will need the following tools and libraries:
 
 1. Latest version of Google Chrome, Mozilla Firefox, Microsoft Edge, or Apple Safari
 2. A FIDO2-compliant authenticator (e.g., YubiKey)
@@ -34,7 +36,7 @@ Before diving into the details of how WebAuthn works and the implementation deta
 3. **Authenticator**: A device or software that proves your identity by generating or storing credentials (like cryptographic keys, passwords, or biometric data).
    - Platform authenticator: Built into the device (e.g., Touch ID, Windows Hello, Android biometrics)
    - Roaming authenticator: External devices that can be used across multiple platforms (e.g., YubiKey, FIDO2 USB Keys)
-4. **Challenge**: A unique, server-generated random value sent to the authenticator to be signed, ensuring **the freshness of each authentication attempt** (preventing replay attacks) and allowing the relying party to **confirm the response truly comes from the rightful account owner's authenticator**.
+4. **Challenge**: A unique, server-generated random value sent to the authenticator to be signed, ensuring **the freshness of each authentication attempt** (preventing replay attacks) and allowing the relying party to **confirm the response truly comes from the rightful account owner's authenticator that has the right private key**.
 5. **User Presence**: A flag that the relying party can request to ensure that the user is physically present during the authentication process (e.g., by touching the security key or using biometrics).
 6. **User Verification**: A flag that the relying party can request to ensure that the user has been verified by the authenticator (e.g., using a PIN or biometric verification). It is more stringent than user presence, which only requires a simple action like touching the authenticator.
 7. **Credential ID**: A unique identifier for a credential (public/private key pair) created by the authenticator during registration. The relying party uses this ID to look up the associated public key during authentication.
@@ -45,20 +47,19 @@ FIDO2 is an umbrella project that encompasses two main components: **WebAuthn** 
 
 WebAuthn is part of the FIDO standard, which is published by the World Wide Web Consortium (W3C). It is a JavaScript API that enables web clients to interact with authenticators. It has two main operations:
 
-- **`navigator.credentials.create()`**: Takes registration options and asks the authenticator to create a new credential (a pair of private and public keys).
-- **`navigator.credentials.get()`**: Takes authentication options and asks the authenticator to sign a given challenge with the private key.
+- **[`navigator.credentials.create()`](https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/create)**: Takes registration options and asks the authenticator to create a new credential (a pair of private and public keys).
+- **[`navigator.credentials.get()`](https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get)**: Takes authentication options and asks the authenticator to sign a given challenge with the private key.
 
 We will discuss these operations in more detail later.
 
 CTAP2 is a client-to-authenticator protocol that defines how a client (like your PC, phone, or browser) communicates with an authenticator. As we are going to write a web application, we don't need to interact directly with CTAP2; it's handled by the browser under the hood.
 
-
 ## Why and How WebAuthn is Secure
 
 WebAuthn's security architecture represents a paradigm shift from password-based authentication, addressing fundamental vulnerabilities that have plagued online security for decades. In this guide, we aren't going to cover security in depth, but the key aspects that make WebAuthn a robust and secure authentication mechanism are:
 
-1. At its core, WebAuthn employs asymmetric cryptography, where each user has a unique public/private key pair. The private key remains securely stored on the user's device (the authenticator), while the public key is registered with the service (the relying party). This design ensures that even if a service's database is compromised, attackers cannot derive the private keys, rendering stolen data useless for authentication.
-2. During authentication, the server issues a unique, random challenge that the authenticator must sign using the private key. This challenge-response mechanism ensures that only the legitimate user can authenticate, as the private key never leaves the device. Additionally, the challenge is unique for each authentication attempt, preventing replay attacks.
+1. At its core, WebAuthn uses asymmetric cryptography, where each user has a unique public/private key pair. The private key remains securely stored on the user's device (the authenticator), while the public key is registered with the service (the relying party). This design ensures that even if a service's database is compromised, attackers cannot derive the private keys, rendering stolen data useless for authentication.
+2. During authentication, the server issues a unique, random challenge that the authenticator must sign using its private key. This challenge-response mechanism ensures that only the legitimate user can authenticate, as the private key never leaves the device. Additionally, the challenge is unique for each authentication attempt, preventing replay attacks.
 3. WebAuthn is architecturally designed to be phishing-resistant through origin binding. When you want to log in with WebAuthn, the authenticator checks the website's origin against the origin you registered with. If there is a subtle difference that the human eye might not notice, the authenticator will refuse to sign the challenge. This mechanism effectively thwarts phishing attacks, as attackers cannot trick users into authenticating on fraudulent sites.
 
 ## Discoverable and Non-Discoverable Credentials
@@ -66,18 +67,15 @@ WebAuthn's security architecture represents a paradigm shift from password-based
 Let's define what discoverable and non-discoverable credentials are:
 
 1. **Non-discoverable credentials**: These credentials require the user to provide a username or identifier during the authentication process. When the user attempts to log in, they must first enter their username, which the relying party uses to look up the associated credentials. The relying party asks the browser to use them in the authentication process. In this type of credential, the authenticator may not know which credential to use until the relying party tells it. Please note that sometimes non-resident keys are also called non-discoverable credentials; this is because these types of credentials are not required to be stored on the authenticator devices. Instead, it is the responsibility of the relying party to store them. They only have an internal mechanism to derive the private key from their master secret and the credential information that the relying party provides.
-2. **Discoverable Credentials**: These credentials can be used without the user providing a username or identifier. The authenticator itself stores the user information alongside the credential, allowing it to identify and use the correct credential during authentication. This enables a more seamless and user-friendly experience, as users can authenticate without needing to remember or enter a username. During authentication, the authenticator prompts the user to select from a list of available credentials. These types of credentials are also called resident keys because they are stored on the authenticator device itself.
+2. **Discoverable Credentials**: These credentials can be used without the user providing a username or identifier. The authenticator itself stores the user information alongside the credential, allowing it to identify and use the correct credential during authentication. This enables a more seamless and user-friendly experience, as users can authenticate without needing to remember the username. During authentication, the authenticator prompts the user to select from a list of available credentials. These types of credentials are also called resident keys because they are stored on the authenticator device itself.
 
 There is another term you may hear in this context: passkey. Passkeys are discoverable credentials that can be synced across devices through providers such as Google Password Manager, iCloud Keychain, and Windows Hello. So they are not device-bound and can be used from any device.
 
 In this guide, we will cover both types of credentials and demonstrate how to implement them using the Yubico WebAuthn library.
 
-
 ## Registration and Authentication Flows
 
 After learning the key concepts, we are ready to explore the registration and authentication flows, but in the simplest form.
-
-
 
 ## Implementation Overview
 
@@ -88,8 +86,8 @@ Based on the registration and authentication flows, the client and server sides 
      - Sign challenges to prove the authenticator possesses the private key
 2. Server-side is responsible for:
    - Generating a challenge
-   - Verifying the response from the client
-   - Storing and retrieving public keys associated with users
+   - Verifying the registration and authentication responses from the client
+   - Storing and managing user credentials (public keys)
    - Managing user sessions
 
 ## Registration Flow Implementation
@@ -142,7 +140,7 @@ val registrationStartRoute =
   }
 ```
 
-It takes a `RegistrationStartRequest` object containing the username, and then it calls the `startRegistration` method of the `WebAuthnService` and returns a `PublicKeyCredentialCreationOptions` object containing the registration options:
+It takes a `RegistrationStartRequest` object containing the username, and then it calls the `startRegistration` method of the `WebAuthnService` and returns a `PublicKeyCredentialCreationOptions` object containing the registration options. The `RegistrationStartRequest` and `RegistrationStartResponse` types are defined as follows:
 
 ```scala
 case class RegistrationStartRequest(username: String)
@@ -152,7 +150,7 @@ type RegistrationStartResponse =
 ```
 
 1. **`RegistrationStartRequest`** contains the username of the user who wants to register a new credential.
-2. **`RegistrationStartResponse`** is a type alias of `PublicKeyCredentialCreationOptions` from the Yubico WebAuthn library, which contains the registration options that the client needs to create a new credential.
+2. **`RegistrationStartResponse`** is a type alias of `PublicKeyCredentialCreationOptions` from the Yubico WebAuthn library, which contains the public key credential options that the client needs to create a new credential.
 
 What are registration options? They are all the information the client needs to create a new key pair credential. It includes the challenge, relying party information, user information, and other parameters.
 
@@ -169,7 +167,7 @@ object RegistrationStartRequest {
 As the `RegistrationStartResponse` data type is a type alias of `PublicKeyCredentialCreationOptions`, it supports JSON serialization out of the box. We can directly convert it to JSON using the `PublicKeyCredentialCreationOptions#toJson` method.
 
 
-This route is responsible for generating the registration options, which are called [`PublicKeyCredentialCreationOptions`](https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialCreationOptions) and look like this:
+This route is responsible for generating the [`PublicKeyCredentialCreationOptions`](https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialCreationOptions) which looks like this:
 
 ```json
 {
@@ -303,7 +301,7 @@ It contains the public key credential created by the authenticator, along with t
 
 To be able to serialize and deserialize the `RegistrationFinishRequest` and `RegistrationFinishResponse` types to and from JSON, we need to define JSON codecs for them.
 
-For the `RegistrationFinishRequest`, we need a JSON decoder as below:
+For the `RegistrationFinishRequest`, we define a JSON decoder as below:
 
 ```scala
 object RegistrationFinishRequest {
@@ -335,7 +333,7 @@ It helps us to directly convert the `RegistrationFinishResponse` object to the J
 
 ### WebAuthn Service
 
-The `WebAuthnService` interface is responsible for handling the core logic of the WebAuthn authentication flow. In this section, we will focus on implementing the registration flow, which includes the `startRegistration` and `finishRegistration` methods:
+The `WebAuthnService` interface is responsible for handling the core logic of the registration and authentication flow. In this section, we will focus on implementing the registration flow, which includes the `startRegistration` and `finishRegistration` methods:
 
 ```scala
 trait WebAuthnService {
@@ -518,7 +516,7 @@ class WebAuthnServiceImpl(
 }
 ```
 
-The `finishRegistration` method uses the RP (Relying Party) instance. The RP instance can be created as follows:
+The `finishRegistration` method uses the RP (Relying Party) instance. It can be created as follows:
 
 ```scala
 val relyingPartyIdentity: RelyingPartyIdentity =
@@ -537,7 +535,9 @@ val relyingParty: RelyingParty =
     .build()
 ```
 
-The important part about both the registration and authentication processes is the persistence of user information and credentials. To manage users and their credentials, we have defined a `UserService` that supports the following operations:
+To create a `RelyingParty`, we need to provide the `RelyingPartyIdentity`, a `CredentialRepository`, and a set of allowed origins. The `CredentialRepository` is an interface that the Yubico WebAuthn library uses to look up credentials during the authentication process. We will implement it later. Before that, let's see how we can manage users and their credentials.
+
+The important part about both the registration and authentication processes is the persistence of user information and credentials. To manage users and their credentials, we define the `UserService` that supports the following operations:
 
 ```scala
 trait UserService {
@@ -566,7 +566,7 @@ case class UserCredential(
 )
 ```
 
-The `UserCredential` type represents a public key credential created by the authenticator during the registration ceremony. It contains the user handle, credential ID, public key in COSE format, and signature count.
+The `UserCredential` type represents a public key credential extracted from the `RegistrationResult` object returned by `RelyingParty#finishRegistration`. It contains the user handle, credential ID, public key in COSE format, and signature count and we will store it in our user service.
 
 The `UserServiceError` type is defined as follows:
 
@@ -621,7 +621,7 @@ case class UserServiceLive(users: Ref[Map[String, User]]) extends UserService {
 }
 ```
 
-These methods allow us to manage users and their credentials, and also help us to implement the `CredentialRepository` interface required by the Yubico WebAuthn library. The `CredentialRepository` interface is used by the library to look up credentials during the authentication process. Let's see how we can implement it:
+These methods allow us to manage users and their credentials, and also help us to implement the `CredentialRepository` interface required by the Yubico WebAuthn library. Let's see how we can implement it:
 
 ```scala
 import zio._
@@ -708,6 +708,8 @@ class InMemoryCredentialRepository(userService: UserService) extends CredentialR
 }
 ```
 
+In this implementation, we use the `UserService` to look up users and their credentials. As we are touching the boundary between ZIO and Java, we need to use `Unsafe.unsafe` and `Runtime.default.unsafe.run` to run ZIO effects and get the results.
+
 ### Client-Side Implementation
 
 Let's start by implementing the registration flow by writing the client-side registration form:
@@ -783,11 +785,12 @@ async function performRegistration({ username }) {
 ```
 
 The `performRegistration` function performs the following steps:
-1. It sends a `POST` request to the `/api/webauthn/registration/start` endpoint with the username to start the registration process. The server responds with the registration options.
-2. It parses the registration options using the `PublicKeyCredential.parseCreationOptionsFromJSON` method, and then calls the `navigator.credentials.create()` method to prompt the authenticator to create a new credential.
-3. It serializes the created credential to JSON format using the `toJSON()` method.
-4. It sends a `POST` request to the `/api/webauthn/registration/finish` endpoint with the username, user handle, and the serialized credential to finish the registration process.
-5. If the registration is successful, it alerts the user with a success message and returns `true`. If any step fails, it alerts the user with an error message and returns `false`.
+
+1. Sends a `POST` request to the `/api/webauthn/registration/start` endpoint with the username to initiate the registration process. The server responds with registration options.
+2. Parses the returned options using `PublicKeyCredential.parseCreationOptionsFromJSON`, then calls `navigator.credentials.create()` to prompt the authenticator to generate a new credential.
+3. Converts the created credential to JSON using the `toJSON()` method.
+4. Sends another `POST` request to the `/api/webauthn/registration/finish` endpoint with the username, user handle, and serialized credential to complete the registration.
+5. If registration succeeds, it notifies the user with a success message and returns `true`. If any step fails, it alerts the user with an error message and returns `false`.
 
 ## Authentication Flow Implementation
 
@@ -815,16 +818,16 @@ trait WebAuthnService {
 ```
 
 1. The `startAuthentication` method is responsible for generating an assertion request to be sent to the client. This request contains a challenge and other options required for authentication. The client uses this request to prompt the authenticator to sign the challenge.
-2. The `finishAuthentication` method is responsible for verifying the response from the client. It checks the signature provided by the authenticator against the stored public key associated with the user. If the signature is valid, it confirms successful authentication.
+2. The `finishAuthentication` method is responsible for verifying the authenticator response received from the client. It checks the signature provided by the authenticator against the stored public key associated with the user. If the signature is valid, it confirms successful authentication.
 
 Each of these two methods corresponds to an API endpoint:
 
 1. `POST /api/webauthn/authentication/start`: This endpoint initiates the authentication process by generating and returning the assertion request to the client.
 2. `POST /api/webauthn/authentication/finish`: This endpoint completes the authentication process by verifying the response from the client.
 
-Recall that we discussed two types of registrations and authentications: with username and without username. The username-less authentication is more user-friendly and seamless, but it requires the authenticator to support resident keys (discoverable credentials). In this guide, we will implement both types of authentication flows. However, first, we will implement the username-less authentication flow.
-
 ### Authentication Routes
+
+Recall that we discussed two types of registrations and authentications: with username and without username. The username-less authentication is more user-friendly and seamless, but it requires the authenticator to support resident keys (discoverable credentials). In this guide, we will implement the authentication flow that supports both types of authentication.
 
 #### 1. Start Route
 
@@ -858,7 +861,7 @@ object AuthenticationStartRequest {
 }
 ```
 
-The start route responds with an `AuthenticationStartResponse` object, which is a type alias for the `AssertionRequest` data type from the Yubico WebAuthn library. This contains `PublicKeyCredentialRequestOptions` and optional username and user handle. To convert the `AuthenticationStartResponse` to JSON format, we can use the built-in `AssertionRequest#toJson` method provided by the Yubico WebAuthn library. So we do not need to write a custom codec for `AuthenticationStartResponse`.
+The start route responds with an `AuthenticationStartResponse` object, which is a type alias for the `AssertionRequest` data type from the Yubico WebAuthn library. This contains `PublicKeyCredentialRequestOptions` and optional username and user handle. To convert the `AuthenticationStartResponse` to JSON format, we can use the built-in `AssertionRequest#toJson` method. So we do not need to write a custom codec for `AuthenticationStartResponse`.
 
 Here is an example response of type `AuthenticationStartResponse` from the server if no username is provided in the request:
 
@@ -1027,6 +1030,7 @@ trait WebAuthnService {
   def startRegistration(request: RegistrationStartRequest): IO[String, RegistrationStartResponse]
   def finishRegistration(request: RegistrationFinishRequest): IO[String, RegistrationFinishResponse]
 
+  // new methods
   def startAuthentication(request: AuthenticationStartRequest): IO[String, AuthenticationStartResponse]
   def finishAuthentication(request: AuthenticationFinishRequest): IO[String, AuthenticationFinishResponse]
 }
@@ -1109,11 +1113,12 @@ def generateAssertionRequest(
 }
 ```
 
-The `RelyingParty#startAssertion` generates the assertion object by running the following steps:
-1. It generates a unique challenge.
-2. It looks up the user's credentials if a username is provided and includes their credential IDs in the `allowCredentials` field of the `PublicKeyCredentialRequestOptions`.
-3. It sets the `userVerification` requirement to `REQUIRED`, meaning the authenticator must verify the user's identity.
-4. It sets the timeout for the authentication process.
+The `RelyingParty#startAssertion` method generates an assertion object by performing the following steps:
+
+1. Creates a unique challenge.
+2. If a username is provided, retrieves the user’s credentials and adds their credential IDs to the `allowCredentials` field of the `PublicKeyCredentialRequestOptions`.
+3. Sets the user verification requirement to `REQUIRED`, ensuring that the authenticator verifies the user’s identity.
+4. Defines a timeout value for the authentication process.
 
 Finally, the generated assertion request is stored in the `pendingAuthentications` map using the challenge as the key. This allows us to retrieve the original assertion request later when verifying the response from the client.
 
@@ -1275,3 +1280,12 @@ async function performAuthentication({ username, isPasskey }) {
 4. It sends a `POST` request to the `/api/webauthn/authentication/finish` endpoint with the username and the serialized assertion to finish the authentication process.
 5. If the authentication is successful, it alerts the user with the authenticated username.
 
+## Conclusion
+
+In this guide, we walked through the end-to-end flow: generating challenges, creating credentials, verifying attestation/assertions, and wiring a browser client that supports both username-based and discoverable (passkey) sign-ins. The result is phishing-resistant authentication rooted in public-key cryptography, with a smoother UX than one-time codes or SMS.
+
+We demonstrated how to implement passwordless authentication using WebAuthn and ZIO HTTP. We built a complete authentication system that handles both registration and authentication ceremonies, supporting both discoverable credentials (passkeys) and traditional username-based flows. 
+
+WebAuthn addresses fundamental weaknesses in password-based authentication by using asymmetric cryptography where private keys never leave the authenticator device. This architecture eliminates credential databases as attractive targets for attackers, prevents phishing through origin binding, and removes the burden of password management from users. The challenge-response mechanism ensures that each authentication attempt is unique and cannot be replayed and also ensures that the user possesses the private key associated with the registered credential.
+
+When deploying WebAuthn in production, remember that it requires HTTPS (except localhost during development), proper domain configuration for your `rp.id`. 
