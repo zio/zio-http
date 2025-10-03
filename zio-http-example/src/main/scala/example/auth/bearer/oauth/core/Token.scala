@@ -1,6 +1,6 @@
 package example.auth.bearer.oauth.core
 
-import zio.json._
+import zio.schema.{DeriveSchema, Schema}
 
 case class Token(
   accessToken: String,
@@ -10,5 +10,5 @@ case class Token(
 )
 
 object Token {
-  implicit val codec: JsonCodec[Token] = DeriveJsonCodec.gen
+  implicit val schema: Schema[Token] = DeriveSchema.gen
 }

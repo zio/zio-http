@@ -169,9 +169,8 @@ case class GithubOAuthClient(
       _             <- ZIO
         .fail(new RuntimeException(s"Refresh failed: ${response.status}"))
         .when(!response.status.isSuccess)
-      body          <- response.body.asString
-      tokenResponse <- ZIO
-        .fromEither(body.fromJson[Token])
+      tokenResponse <- response.body
+        .to[Token]
         .mapError(error => new RuntimeException(s"Failed to parse refresh response: $error"))
     } yield tokenResponse
 

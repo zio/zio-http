@@ -1,5 +1,5 @@
 package example.auth.bearer.oauth.core
-import zio.json._
+import zio.schema.{DeriveSchema, Schema}
 
 case class GitHubToken(
   access_token: String,
@@ -8,6 +8,6 @@ case class GitHubToken(
 )
 
 object GitHubToken {
-  implicit val decoder: JsonDecoder[GitHubToken] =
-    DeriveJsonDecoder.gen
+  implicit val decoder: Schema[GitHubToken] =
+    DeriveSchema.gen
 }

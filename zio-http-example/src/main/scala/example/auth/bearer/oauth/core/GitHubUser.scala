@@ -1,6 +1,6 @@
 package example.auth.bearer.oauth.core
 
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.schema.{DeriveSchema, Schema}
 
 case class GitHubUser(
   id: Long,
@@ -11,5 +11,5 @@ case class GitHubUser(
 )
 
 object GitHubUser {
-  implicit val codec: JsonCodec[GitHubUser] = DeriveJsonCodec.gen
+  implicit val codec: Schema[GitHubUser] = DeriveSchema.gen
 }
