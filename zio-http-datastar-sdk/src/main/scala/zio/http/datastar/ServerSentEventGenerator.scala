@@ -95,7 +95,7 @@ object ServerSentEventGenerator {
   ): ZIO[Datastar, Nothing, Unit] = {
     val removeAttr = if (options.autoRemove) Dom.attr("data-effect", "el.remove") else Dom.empty
     patchElements(
-      script(Dom.text(script0), removeAttr)(options.attributes.map(a => Dom.attr(a._1, a._2)): _*),
+      script(Dom.text(script0), removeAttr)(options.attributes.map(a => Dom.attr(a._1, a._2))),
       PatchElementOptions(eventId = options.eventId, retryDuration = options.retryDuration),
     )
   }
@@ -143,7 +143,10 @@ object ServerSentEventGenerator {
       }
 
       elements.foreach(d => {
-        sb.append("elements ").append(d.render).append('\n')
+        val rendered = d.render
+        if (rendered.contains('\n'))
+          rendered.split('\n').foreach(line => sb.append("elements ").append(line).append('\n'))
+        else sb.append("elements ").append(d.render).append('\n')
       })
 
       val retry = if (options.retryDuration != DefaultRetryDelay) Some(options.retryDuration) else None

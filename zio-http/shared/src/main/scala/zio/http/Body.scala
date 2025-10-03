@@ -432,7 +432,8 @@ object Body {
    * Helper to create Body from String
    */
   def fromString(text: String, charset: Charset = Charsets.Http): Body =
-    fromCharSequence(text, charset)
+    if (charset == Charsets.Http && text.isEmpty) EmptyBody
+    else StringBody(text, charset)
 
   /**
    * Constructs a [[zio.http.Body]] from form data using URL encoding and the
