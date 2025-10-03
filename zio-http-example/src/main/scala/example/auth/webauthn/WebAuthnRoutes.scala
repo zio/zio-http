@@ -11,7 +11,7 @@ import zio.schema.codec.JsonCodec.zioJsonBinaryCodec
  * HTTP routes for WebAuthn endpoints
  */
 object WebAuthnRoutes {
-  def apply(service: WebAuthnServiceImpl): Routes[Any, Response] =
+  def apply(webauthn: WebAuthnService): Routes[Any, Response] =
     Routes(
       // Serve the HTML client
       Method.GET / Root -> Handler
@@ -22,14 +22,14 @@ object WebAuthnRoutes {
       Method.POST / "api" / "webauthn" / "registration" / "start"  -> handler { (req: Request) =>
         for {
           request  <- req.body.to[RegistrationStartRequest]
-          response <- service.startRegistration(request.username)
+          response <- webauthn.startRegistration(request)
         } yield Response.json(response.toJson)
       },
       Method.POST / "api" / "webauthn" / "registration" / "finish" -> handler { (req: Request) =>
         for {
           body    <- req.body.asString
           request <- ZIO.fromEither(body.fromJson[RegistrationFinishRequest])
-          result  <- service.finishRegistration(request).orElseFail {
+          result  <- webauthn.finishRegistration(request).orElseFail {
             Response(
               status = Status.InternalServerError,
               body = Body.fromString(s"Registration failed!"),
@@ -42,20 +42,20 @@ object WebAuthnRoutes {
       Method.POST / "api" / "webauthn" / "authentication" / "start"  -> handler { (req: Request) =>
         for {
           request  <- req.body.to[AuthenticationStartRequest]
-          response <- service.startAuthentication(request.username)
+          response <- webauthn.startAuthentication(request)
         } yield Response.json(response.toJson)
       },
       Method.POST / "api" / "webauthn" / "authentication" / "finish" -> handler { (req: Request) =>
         for {
           body    <- req.body.asString
           request <- ZIO.fromEither(body.fromJson[AuthenticationFinishRequest])
-          result  <- service
+          result  <- webauthn
             .finishAuthentication(request)
-            .orElseFail (
+            .orElseFail(
               Response(
                 status = Status.Unauthorized,
                 body = Body.fromString(s"Authentication failed!"),
-              )
+              ),
             )
         } yield Response(body = Body.from(result))
       },

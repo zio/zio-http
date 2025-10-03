@@ -10,10 +10,6 @@ case class RegistrationFinishRequest(
   publicKeyCredential: PublicKeyCredential[AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs],
 )
 object RegistrationFinishRequest {
-
-  implicit val encoder: JsonEncoder[RegistrationFinishRequest] =
-    JsonEncoder.string.zip(JsonEncoder.string).contramap[RegistrationFinishRequest](r => (r.username, r.userhandle))
-
   implicit val decoder: JsonDecoder[RegistrationFinishRequest] =
     JsonDecoder[Json].mapOrFail { o =>
       for {
