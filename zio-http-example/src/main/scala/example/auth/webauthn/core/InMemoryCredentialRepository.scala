@@ -1,14 +1,16 @@
 package example.auth.webauthn.core
 
+import java.util
+import java.util.Optional
+
+import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters.RichOption
+
+import zio._
+
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
 import example.auth.webauthn.model.UserCredential
-import zio._
-
-import java.util
-import java.util.Optional
-import scala.jdk.CollectionConverters._
-import scala.jdk.OptionConverters.RichOption
 
 /**
  * In-memory implementation of Yubico's CredentialRepository
@@ -21,7 +23,8 @@ class InMemoryCredentialRepository(userService: UserService) extends CredentialR
           .getUser(username)
           .map(_.credentials)
           .orElseSucceed(Set.empty)
-          .map { _.map { cred =>
+          .map {
+            _.map { cred =>
               PublicKeyCredentialDescriptor
                 .builder()
                 .id(cred.credentialId)

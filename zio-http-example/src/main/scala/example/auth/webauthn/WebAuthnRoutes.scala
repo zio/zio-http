@@ -1,11 +1,14 @@
 package example.auth.webauthn
 
+import zio._
+import zio.json._
+
+import zio.schema.codec.JsonCodec.zioJsonBinaryCodec
+
+import zio.http._
+
 import example.auth.webauthn.core._
 import example.auth.webauthn.model._
-import zio._
-import zio.http._
-import zio.json._
-import zio.schema.codec.JsonCodec.zioJsonBinaryCodec
 
 /**
  * HTTP routes for WebAuthn endpoints

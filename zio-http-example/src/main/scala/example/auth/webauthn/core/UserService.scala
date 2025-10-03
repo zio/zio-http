@@ -1,8 +1,9 @@
 package example.auth.webauthn.core
 
+import zio._
+
 import example.auth.webauthn.core.UserServiceError._
 import example.auth.webauthn.model.UserCredential
-import zio._
 
 case class User(
   userHandle: String,

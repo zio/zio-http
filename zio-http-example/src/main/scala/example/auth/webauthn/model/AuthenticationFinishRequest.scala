@@ -1,8 +1,9 @@
 package example.auth.webauthn.model
 
-import com.yubico.webauthn.data._
 import zio.json._
 import zio.json.ast._
+
+import com.yubico.webauthn.data._
 
 case class AuthenticationFinishRequest(
   username: Option[String], // Optional for discoverable passkeys

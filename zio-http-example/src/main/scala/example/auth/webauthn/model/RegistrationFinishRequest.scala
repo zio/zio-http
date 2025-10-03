@@ -1,8 +1,9 @@
 package example.auth.webauthn.model
 
-import com.yubico.webauthn.data._
 import zio.json._
 import zio.json.ast.{Json, JsonCursor}
+
+import com.yubico.webauthn.data._
 
 case class RegistrationFinishRequest(
   username: String,

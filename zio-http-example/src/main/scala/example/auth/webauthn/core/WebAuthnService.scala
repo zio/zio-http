@@ -1,13 +1,15 @@
 package example.auth.webauthn.core
 
+import java.security.SecureRandom
+import java.util.UUID
+
+import scala.jdk.CollectionConverters._
+
+import zio._
+
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
 import example.auth.webauthn.model._
-import zio._
-
-import java.security.SecureRandom
-import java.util.UUID
-import scala.jdk.CollectionConverters._
 
 trait WebAuthnService {
   def startRegistration(request: RegistrationStartRequest): IO[String, RegistrationStartResponse]

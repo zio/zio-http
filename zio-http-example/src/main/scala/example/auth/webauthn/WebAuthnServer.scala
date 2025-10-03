@@ -1,9 +1,11 @@
 package example.auth.webauthn
 
+import zio._
+
+import zio.http._
+
 import example.auth.webauthn.core.{UserService, WebAuthnServiceImpl}
 import example.auth.webauthn.model._
-import zio._
-import zio.http._
 
 /**
  * WebAuthn Server application - Main entry point Supports discoverable passkey
