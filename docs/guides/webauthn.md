@@ -1280,12 +1280,24 @@ async function performAuthentication({ username, isPasskey }) {
 4. It sends a `POST` request to the `/api/webauthn/authentication/finish` endpoint with the username and the serialized assertion to finish the authentication process.
 5. If the authentication is successful, it alerts the user with the authenticated username.
 
+## Running Demo
+
+To run the demo application that uses the code we implemented above, execute the following commands in your terminal:
+
+```bash
+git clone git@github.com:zio/zio-http.git
+cd zio-http/
+sbt zioHttpExample/runMain example.auth.webauthn.WebAuthnServer
+```
+
+After running these commands, open `http://localhost:8080` in your browser. You can now test the registration and authentication flows using both username-based and discoverable passkeys.
+
 ## Conclusion
 
-In this guide, we walked through the end-to-end flow: generating challenges, creating credentials, verifying attestation/assertions, and wiring a browser client that supports both username-based and discoverable (passkey) sign-ins. The result is phishing-resistant authentication rooted in public-key cryptography, with a smoother UX than one-time codes or SMS.
+In this guide, we explored the full WebAuthn flow: generating challenges, creating credentials, verifying attestations and assertions, and integrating a browser client that supports both username-based and discoverable (passkey) sign-ins. The result is a phishing-resistant authentication system built on public-key cryptography, offering a smoother user experience than one-time codes or SMS.
 
-We demonstrated how to implement passwordless authentication using WebAuthn and ZIO HTTP. We built a complete authentication system that handles both registration and authentication ceremonies, supporting both discoverable credentials (passkeys) and traditional username-based flows. 
+Using **WebAuthn with ZIO HTTP**, we implemented a complete passwordless authentication solution that supports both registration and authentication ceremonies, handling discoverable credentials (passkeys) as well as traditional username-based flows.
 
-WebAuthn addresses fundamental weaknesses in password-based authentication by using asymmetric cryptography where private keys never leave the authenticator device. This architecture eliminates credential databases as attractive targets for attackers, prevents phishing through origin binding, and removes the burden of password management from users. The challenge-response mechanism ensures that each authentication attempt is unique and cannot be replayed and also ensures that the user possesses the private key associated with the registered credential.
+WebAuthn mitigates the fundamental weaknesses of password-based authentication by leveraging asymmetric cryptography. Private keys never leave the authenticator device, eliminating credential databases as high-value targets. Origin binding prevents phishing, while the challenge–response mechanism ensures each authentication attempt is unique, non-replayable, and tied to the legitimate credential owner.
 
-When deploying WebAuthn in production, remember that it requires HTTPS (except localhost during development), proper domain configuration for your `rp.id`. 
+Finally, when transitioning from development to production, ensure that your WebAuthn setup is correctly configured. WebAuthn requires **HTTPS** for all communications (with the exception of `localhost` during development) and a properly configured relying party identifier (`rp.id`) that matches your production domain.
