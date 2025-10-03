@@ -129,7 +129,7 @@ case class GithubOAuthClient(
         throw new RuntimeException(s"Fallback browser command failed with exit code $exitCode")
     }
 
-    desktopAttempt.orElse(fallbackAttempt).catchAll { _: Throwable =>
+    desktopAttempt.orElse(fallbackAttempt).catchAll { (_: Throwable) =>
       Console.printLine(s"Unable to open browser automatically. Please open the following URL: $url")
     }
   }
