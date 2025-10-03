@@ -2,9 +2,12 @@ package example.auth.bearer.oauth
 
 import zio._
 import zio.json._
-import zio.http._
-import example.auth.bearer.oauth.core._
+
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+import zio.http._
+
+import example.auth.bearer.oauth.core._
 
 object AuthenticationClient extends ZIOAppDefault {
 

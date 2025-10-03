@@ -2,10 +2,13 @@ package example.auth.bearer.oauth.core
 
 import java.net.URI
 import java.time.Clock
+
 import zio.Config.Secret
 import zio._
-import zio.http._
+
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+import zio.http._
 
 /**
  * Authentication Service that handles OAuth flow and JWT token management
