@@ -143,7 +143,10 @@ object ServerSentEventGenerator {
       }
 
       elements.foreach(d => {
-        sb.append("elements ").append(d.render).append('\n')
+        val rendered = d.render
+        if (rendered.contains('\n'))
+          rendered.split('\n').foreach(line => sb.append("elements ").append(line).append('\n'))
+        else sb.append("elements ").append(d.render).append('\n')
       })
 
       val retry = if (options.retryDuration != DefaultRetryDelay) Some(options.retryDuration) else None
