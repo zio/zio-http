@@ -698,7 +698,7 @@ object JsonSchema {
           case Schema.NonEmptySequence(elementSchema, _, _, _, identity) =>
             JsonSchema.ArrayType(
               Some(fromZSchema(elementSchema, refType)),
-              None,
+              Some(1),
               uniqueItems = identity == "NonEmptySet",
             )
           case Schema.Map(keySchema, valueSchema, _)                     =>
@@ -1083,7 +1083,7 @@ object JsonSchema {
         Chunk(Predicate.Str.MaxLength(l).asInstanceOf[Predicate[_]])
       case Bool.Leaf(Predicate.Str.MinLength(l))                                                                =>
         Chunk(Predicate.Str.MinLength(l).asInstanceOf[Predicate[_]])
-      case Bool.Leaf(Predicate.Str.Matches(r)) if not                                                           =>
+      case Bool.Leaf(Predicate.Str.Matches(r))                                                                  =>
         Chunk(Predicate.Str.Matches(r).asInstanceOf[Predicate[_]])
       case Bool.Leaf(Predicate.Num.GreaterThan(num, v)) if not && num.isInstanceOf[NumType.IntType.type]        =>
         Chunk(

@@ -1,6 +1,6 @@
 //> using dep "dev.zio::zio-http:3.4.0"
 //> using dep "dev.zio::zio-schema:1.7.2"
-//> using dep "dev.zio::zio-schema-derivation:1.7.4"
+//> using dep "dev.zio::zio-schema-derivation:1.7.5"
 
 package example.codecs
 
