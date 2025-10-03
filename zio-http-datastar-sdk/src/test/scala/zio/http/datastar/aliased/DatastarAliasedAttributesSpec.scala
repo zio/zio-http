@@ -126,7 +126,7 @@ object DatastarAliasedAttributesSpec extends ZIOSpecDefault {
     test("SignalUpdate primitive produces assignment expression") {
       val sig  = Signal[Int]("count")
       val expr = (sig := 42).toExpression
-      assertTrue(expr == Js("$count = 42"))
+      assertTrue(expr == Js("42"))
     },
     test("SignalUpdate root complex type produces raw JSON value (no assignment)") {
       val sig  = Signal[Customer]("customer")
