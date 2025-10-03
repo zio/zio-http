@@ -25,16 +25,11 @@ object AuthenticationClient extends ZIOAppDefault {
           for {
             user <- response.body.to[GitHubUser]
             _    <- Console.printLine("User Profile:")
-            _    <- user match {
-              case gitHubUser: GitHubUser =>
-                Console.printLine(s"  ID: ${gitHubUser.id}") *>
-                  Console.printLine(s"  Username: ${gitHubUser.login}") *>
-                  Console.printLine(s"  Name: ${gitHubUser.name.getOrElse("N/A")}") *>
-                  Console.printLine(s"  Email: ${gitHubUser.email.getOrElse("N/A")}") *>
-                  Console.printLine(s"  Avatar: ${gitHubUser.avatar_url}")
-              case other                  =>
-                Console.printLine(s"  Raw response: $other")
-            }
+            _    <- Console.printLine(s"  ID: ${user.id}")
+            _    <- Console.printLine(s"  Username: ${user.login}")
+            _    <- Console.printLine(s"  Name: ${user.name.getOrElse("N/A")}")
+            _    <- Console.printLine(s"  Email: ${user.email.getOrElse("N/A")}")
+            _    <- Console.printLine(s"  Avatar: ${user.avatar_url}")
           } yield ()
         case _         =>
           for {
