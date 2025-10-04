@@ -32,7 +32,6 @@ object WebSocketSimpleClientAdvanced extends ZIOAppDefault {
       } yield ()
     }.connect("ws://localhost:8080/subscriptions")
 
-  @nowarn("msg=dead code")
   override val run =
     ZIO
       .scoped(for {

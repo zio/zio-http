@@ -1,15 +1,13 @@
 package example.auth.bearer.oauth.core
 
-import java.awt.Desktop
-import java.net.URI
-
 import zio._
-import zio.json._
-
-import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
-
 import zio.http._
 import zio.http.template.Html
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+import java.awt.Desktop
+import java.net.URI
+import scala.util.Try
 
 /**
  * OAuth Authentication Client using GitHub. This client implements the OAuth
@@ -49,7 +47,7 @@ case class GithubOAuthClient(
         val accessToken  = queryParams.queryParams("access_token").headOption
         val refreshToken = queryParams.queryParams("refresh_token").headOption
         val tokenType    = queryParams.queryParams("token_type").headOption
-        val expiresIn    = queryParams.queryParams("expires_in").headOption.flatMap(_.toLongOption)
+        val expiresIn    = queryParams.queryParams("expires_in").headOption.flatMap(s => Try(s.toLong).toOption)
 
         (accessToken, refreshToken, tokenType, expiresIn) match {
           case (Some(at), Some(rt), Some(tt), Some(exp)) =>

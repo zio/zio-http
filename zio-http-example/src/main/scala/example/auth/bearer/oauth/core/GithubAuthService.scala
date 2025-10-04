@@ -112,7 +112,7 @@ class GithubAuthService private (
                   )
 
                   // Clean up state, store user info, and store refresh token
-                  _ <- redirectUris.update(_.removed(stateParam))
+                  _ <- redirectUris.update(_ - stateParam)
                   _ <- users.update(_.updated(githubUser.id.toString, githubUser))
 
                   // Redirect back to the client with tokens
