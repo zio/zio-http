@@ -32,16 +32,13 @@ object WebSocketSimpleClientAdvanced extends ZIOAppDefault {
       } yield ()
     }.connect("ws://localhost:8080/subscriptions")
 
-  override val run =
-    ZIO
-      .scoped(for {
-        _ <- webSocketHandler
-        _ <- Console.readLine.flatMap(sendChatMessage).forever.forkDaemon
-        _ <- ZIO.never
-      } yield ())
-      .provide(
-        Client.default,
-        ZLayer(Queue.bounded[String](100)),
-      )
+  override val run = {
+    ZIO.scoped(webSocketHandler) *>
+      Console.readLine.flatMap(sendChatMessage).forever.forkDaemon *>
+      ZIO.never
+  }.provide(
+    Client.default,
+    ZLayer(Queue.bounded[String](100)),
+  )
 
 }
