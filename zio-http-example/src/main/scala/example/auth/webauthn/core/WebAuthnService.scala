@@ -90,7 +90,7 @@ class WebAuthnServiceImpl(
           ),
         )
         .orElseFail(s"${request.username} user not found!")
-      _ <- pendingRegistrations.update(_.removed(request.userhandle))
+      _ <- pendingRegistrations.update(_ - request.userhandle)
     } yield {
       RegistrationFinishResponse(
         success = true,
@@ -124,7 +124,7 @@ class WebAuthnServiceImpl(
             .response(request.publicKeyCredential)
             .build(),
         )
-      _ <- pendingAuthentications.update(_.removed(challenge))
+      _ <- pendingAuthentications.update(_ - challenge)
     } yield AuthenticationFinishResponse(
       success = assertion.isSuccess,
       username = assertion.getUsername,
