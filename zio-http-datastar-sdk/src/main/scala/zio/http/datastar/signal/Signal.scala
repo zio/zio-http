@@ -99,7 +99,7 @@ final case class SignalUpdate[A](signal: Signal[A], value: A) {
   private implicit val codec: JsonCodec[A] = zio.schema.codec.JsonCodec.jsonCodec(signal.schema)
   def toExpression: Js                     = {
     val update = signal.schema match {
-      case _: Schema.Primitive[_] => s"${signal.name.ref} = ${value.toJson.replace("\"", "'")}"
+      case _: Schema.Primitive[_] => value.toJson.replace("\"", "'")
       case _                      =>
         val ast    = value.toJsonAST.getOrElse(throw new RuntimeException("Failed to convert value to JSON AST"))
         val nested = signal.name.path.foldRight(ast) { (key, acc) =>

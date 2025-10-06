@@ -7,6 +7,7 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
+import zio.http.codec.HttpCodec
 import zio.http.template2._
 
 trait DatastarPackageBase extends Attributes {
@@ -22,6 +23,14 @@ trait DatastarPackageBase extends Attributes {
   type Signal[A]       = zio.http.datastar.signal.Signal[A]
   type SignalUpdate[A] = zio.http.datastar.signal.SignalUpdate[A]
   type SignalName      = zio.http.datastar.signal.SignalName
+
+  val datastarCodec =
+    HttpCodec.contentStream[ServerSentEvent[String]] ++
+      HttpCodec
+        .header(Header.ContentType)
+        .const(Header.ContentType(MediaType.text.`event-stream`)) ++
+      HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache) ++
+      HttpCodec.header(Header.Connection).const(Header.Connection.KeepAlive)
 
   implicit def signalUpdateToModifier[A](signalUpdate: SignalUpdate[A]): Modifier =
     dataSignals(signalUpdate.signal)(signalUpdate.signal.schema) := signalUpdate.toExpression
