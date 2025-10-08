@@ -253,7 +253,7 @@ object Body {
     charSequence: CharSequence,
     charset: Charset = Charsets.Http,
   ): Body =
-    if (charset == Charsets.Http && charSequence.isEmpty) EmptyBody
+    if (charset == Charsets.Http && charSequence.length() == 0) EmptyBody
     else StringBody(charSequence.toString, charset)
 
   /**
