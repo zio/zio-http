@@ -119,6 +119,50 @@ val body = Body.from(person)
 
 In the above example, we used a JSON codec to encode the person object into a body. Similarly, we can use other codecs like Avro, Protobuf, etc.
 
+### From JSON
+
+ZIO HTTP provides convenient methods for creating a `Body` from JSON data using either **zio-schema** or **zio-json** libraries.
+
+#### Using ZIO Schema
+
+To create a JSON body using zio-schema, use the `Body.json` method with an implicit `Schema`:
+
+```scala mdoc:compile-only
+import zio.schema.{DeriveSchema, Schema}
+
+case class Person(name: String, age: Int)
+implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+
+val person = Person("John", 42)
+val body = Body.json(person)
+```
+
+This method automatically:
+- Encodes the value to JSON using zio-schema's JSON codec
+- Sets the `Content-Type` header to `application/json`
+
+#### Using ZIO JSON
+
+Alternatively, you can create a JSON body using zio-json with the `Body.jsonCodec` method:
+
+```scala mdoc:compile-only
+import zio.json.{DeriveJsonEncoder, JsonEncoder}
+
+case class Person(name: String, age: Int)
+implicit val encoder: JsonEncoder[Person] = DeriveJsonEncoder.gen[Person]
+
+val person = Person("John", 42)
+val body = Body.jsonCodec(person)
+```
+
+This method:
+- Encodes the value to JSON using zio-json's encoder
+- Sets the `Content-Type` header to `application/json`
+
+**When to use which?**
+- Use `Body.json` (zio-schema) when you're already using zio-schema in your project or need advanced schema features
+- Use `Body.jsonCodec` (zio-json) when you prefer zio-json's dedicated JSON library or need fine-grained control over JSON encoding
+
 ### From ZIO Streams
 
 There are several ways to create a `Body` from a ZIO Stream:
@@ -344,6 +388,70 @@ implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
 val person        = Person("John", 42)
 val body          = Body.from(person)
 val decodedPerson = body.to[Person]
+```
+
+### Decoding JSON Body Content
+
+ZIO HTTP provides convenient methods for decoding JSON body content using either **zio-schema** or **zio-json** libraries.
+
+#### Using ZIO Schema
+
+To decode a JSON body using zio-schema, use the `Body#asJson` method with an implicit `Schema`:
+
+```scala mdoc:compile-only
+import zio.schema.{DeriveSchema, Schema}
+
+case class Person(name: String, age: Int)
+implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+
+val jsonBody = Body.fromString("""{"name":"John","age":42}""")
+val decodedPerson: Task[Person] = jsonBody.asJson[Person]
+```
+
+This method:
+- Decodes the JSON body content using zio-schema's JSON codec
+- Returns a `Task[A]` that will fail if the JSON is invalid or doesn't match the schema
+
+#### Using ZIO JSON
+
+Alternatively, you can decode a JSON body using zio-json with the `Body#asJsonFromCodec` method:
+
+```scala mdoc:compile-only
+import zio.json.{DeriveJsonDecoder, JsonDecoder}
+
+case class Person(name: String, age: Int)
+implicit val decoder: JsonDecoder[Person] = DeriveJsonDecoder.gen[Person]
+
+val jsonBody = Body.fromString("""{"name":"John","age":42}""")
+val decodedPerson: Task[Person] = jsonBody.asJsonFromCodec[Person]
+```
+
+This method:
+- Decodes the JSON body content using zio-json's decoder
+- Returns a `Task[A]` that will fail if the JSON is invalid or cannot be decoded
+
+**When to use which?**
+- Use `asJson` (zio-schema) when you're already using zio-schema in your project or need schema validation
+- Use `asJsonFromCodec` (zio-json) when you prefer zio-json's dedicated JSON library or need fine-grained control over JSON decoding
+
+**Round-trip Example:**
+
+Here's a complete example showing encoding and decoding with zio-schema:
+
+```scala mdoc:compile-only
+import zio.schema.{DeriveSchema, Schema}
+
+case class Person(name: String, age: Int)
+implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+
+val program = for {
+  // Create a JSON body
+  person <- ZIO.succeed(Person("Alice", 30))
+  body = Body.json(person)
+  
+  // Decode it back
+  decoded <- body.asJson[Person]
+} yield decoded
 ```
 
 ### Retrieving Raw Body Content
