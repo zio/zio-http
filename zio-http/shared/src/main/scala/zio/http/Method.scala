@@ -51,6 +51,8 @@ sealed trait Method { self =>
 }
 
 object Method {
+  private[http] val standardMethods: Set[Method] =
+    Set(OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE, TRACE, CONNECT)
 
   def fromString(method: String): Method =
     method.toUpperCase match {

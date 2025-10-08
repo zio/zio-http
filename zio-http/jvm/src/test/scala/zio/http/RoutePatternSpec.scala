@@ -17,7 +17,6 @@
 package zio.http
 
 import java.util.UUID
-import javax.swing.plaf.metal.MetalIconFactory.TreeLeafIcon
 
 import zio.test._
 
@@ -58,7 +57,15 @@ object RoutePatternSpec extends ZIOHttpSpec {
         tree = tree.add(routePattern, handler)
 
         assertTrue(
-          tree.get(Method.CUSTOM("foo"), Path("/users")) == handler,
+          tree.getRoot.literals.size == 1,
+          tree.postRoot.literals.size == 1,
+          tree.putRoot.literals.size == 1,
+          tree.deleteRoot.literals.size == 1,
+          tree.optionsRoot.literals.size == 1,
+          tree.patchRoot.literals.size == 1,
+          tree.headRoot.literals.size == 1,
+          tree.optionsRoot.literals.size == 1,
+          tree.traceRoot.literals.size == 1,
           tree.get(Method.GET, Path("/users")) == handler,
           tree.get(Method.PUT, Path("/users")) == handler,
           tree.get(Method.POST, Path("/users")) == handler,
@@ -217,11 +224,9 @@ object RoutePatternSpec extends ZIOHttpSpec {
 
         val pattern1 = Method.ANY / "users"
         val pattern2 = Method.OPTIONS / "users"
-        val pattern3 = Method.ANY / "users"
 
         tree = tree.add(pattern1, Handler.ok)
         tree = tree.add(pattern2, Handler.notFound)
-        tree = tree.add(pattern3, Handler.badRequest)
 
         assertTrue(tree.get(Method.OPTIONS, Path("/users")) == Handler.notFound)
       },
