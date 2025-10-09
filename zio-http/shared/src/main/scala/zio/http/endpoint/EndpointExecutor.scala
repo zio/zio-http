@@ -111,8 +111,14 @@ object EndpointExecutor {
   def apply[ReqEnv](
     client: ZClient[Any, ReqEnv, Body, Throwable, Response],
     url: URL,
-  ): EndpointExecutor[Any, Unit, ReqEnv] =
-    EndpointExecutor(client, EndpointLocator.fromURL(url), ZIO.unit)
+  ): EndpointExecutor[Any, Unit, ReqEnv] = {
+    implicit val trace0: Trace = Trace.empty
+    val locator: EndpointLocator = new EndpointLocator {
+      def locate[P, A, E, B](api: Endpoint[P, A, E, B, _ <: AuthType])(implicit trace: Trace): IO[EndpointNotFound, URL] =
+        ZIO.succeed(url)
+    }
+    EndpointExecutor(client, locator, ZIO.unit)
+  }
 
   /** Preferred constructor with explicit auth. */
   def apply[Auth, ReqEnv](
@@ -121,8 +127,26 @@ object EndpointExecutor {
     auth: Auth,
   )(implicit
     trace: Trace,
-  ): EndpointExecutor[Any, Auth, ReqEnv] =
-    EndpointExecutor(client, EndpointLocator.fromURL(url), ZIO.succeed(auth))
+  ): EndpointExecutor[Any, Auth, ReqEnv] = {
+    val locator: EndpointLocator = new EndpointLocator {
+      def locate[P, A, E, B](api: Endpoint[P, A, E, B, _ <: AuthType])(implicit trace: Trace): IO[EndpointNotFound, URL] =
+        ZIO.succeed(url)
+    }
+    EndpointExecutor(client, locator, ZIO.succeed(auth))
+  }
+
+  /** Preferred constructor with an auth provider effect. */
+  def apply[R, Auth, ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
+    url: URL,
+    authProvider: URIO[R, Auth],
+  )(implicit trace: Trace): EndpointExecutor[R, Auth, ReqEnv] = {
+    val locator: EndpointLocator = new EndpointLocator {
+      def locate[P, A, E, B](api: Endpoint[P, A, E, B, _ <: AuthType])(implicit trace: Trace): IO[EndpointNotFound, URL] =
+        ZIO.succeed(url)
+    }
+    EndpointExecutor(client, locator, authProvider)
+  }
 
   final case class Config(url: URL)
   object Config {
