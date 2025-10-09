@@ -78,11 +78,9 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
   implicit val outsSchema: Schema[Outs] = DeriveSchema.gen[Outs]
 
   def makeExecutor(client: Client, port: Int) = {
-    val locator = EndpointLocator.fromURL(
-      URL.decode(s"http://localhost:$port").toOption.get,
-    )
+    val baseUrl = URL.decode(s"http://localhost:$port").toOption.get
 
-    EndpointExecutor(client, locator)
+    EndpointExecutor(client, baseUrl)
   }
 
   def testEndpoint[P, In, Err, Out](

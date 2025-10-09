@@ -95,11 +95,9 @@ object RoundtripSpec extends ZIOHttpSpec {
   implicit val nameSchema: Schema[Name] = DeriveSchema.gen[Name]
 
   def makeExecutor(client: ZClient[Any, Any, Body, Throwable, Response], port: Int) = {
-    val locator = EndpointLocator.fromURL(
-      URL.decode(s"http://localhost:$port").toOption.get,
-    )
+    val baseUrl = URL.decode(s"http://localhost:$port").toOption.get
 
-    EndpointExecutor(client, locator)
+    EndpointExecutor(client, baseUrl)
   }
 
   def testEndpoint[P, In, Err, Out](

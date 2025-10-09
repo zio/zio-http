@@ -24,6 +24,7 @@ import zio.http.URL
 /**
  * An endpoint locator is responsible for locating endpoints.
  */
+@deprecated("EndpointLocator is deprecated; pass a base URL directly to EndpointExecutor.", since = "4.0.0")
 trait EndpointLocator { self =>
 
   /**
@@ -41,7 +42,9 @@ trait EndpointLocator { self =>
       self.locate(api).orElse(that.locate(api))
   }
 }
+@deprecated("EndpointLocator is deprecated; pass a base URL directly to EndpointExecutor.", since = "4.0.0")
 object EndpointLocator {
+  @deprecated("Use EndpointExecutor(client, url) instead of EndpointLocator.fromURL(url)", since = "4.0.0")
   def fromURL(url: URL)(implicit trace: Trace): EndpointLocator = new EndpointLocator {
     private val effect = ZIO.succeed(url)
 

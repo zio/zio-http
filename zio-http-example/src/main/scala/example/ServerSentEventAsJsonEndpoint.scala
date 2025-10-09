@@ -41,7 +41,7 @@ object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
 }
 
 object ServerSentEventAsJsonEndpointClient extends ZIOAppDefault {
-  val locator: EndpointLocator = EndpointLocator.fromURL(url"http://localhost:8080")
+  val baseUrl: URL = url"http://localhost:8080"
 
   private val invocation = ServerSentEventAsJsonEndpoint.sseEndpoint(())
 
@@ -49,7 +49,7 @@ object ServerSentEventAsJsonEndpointClient extends ZIOAppDefault {
     (
       for {
         client <- ZIO.service[Client]
-        executor = EndpointExecutor(client, locator)
+        executor = EndpointExecutor(client, baseUrl)
         stream <- executor(invocation)
         _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))
       } yield ()

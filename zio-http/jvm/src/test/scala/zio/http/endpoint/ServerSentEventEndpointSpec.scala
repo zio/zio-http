@@ -36,7 +36,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     val server: ZIO[Server, Throwable, Nothing] =
       Server.serveRoutes(routes)
 
-    def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
+    def baseUrl(port: Int): URL = url"http://localhost:$port"
 
     private val invocation
       : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
@@ -45,7 +45,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     def client(port: Int): ZIO[Client, Throwable, Chunk[ServerSentEvent[String]]] = ZIO.scoped {
       for {
         client <- ZIO.service[Client]
-        executor = EndpointExecutor(client, locator(port))
+        executor = EndpointExecutor(client, baseUrl(port))
         stream <- executor(invocation)
         events <- stream.take(5).runCollect
       } yield events
@@ -74,7 +74,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     val server: URIO[Server, Nothing] =
       Server.serveRoutes(routes)
 
-    def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
+    def baseUrl(port: Int): URL = url"http://localhost:$port"
 
     private val invocation
       : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
@@ -83,7 +83,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     def client(port: Int): ZIO[Client, Throwable, Chunk[ServerSentEvent[Payload]]] = ZIO.scoped {
       for {
         client <- ZIO.service[Client]
-        executor = EndpointExecutor(client, locator(port))
+        executor = EndpointExecutor(client, baseUrl(port))
         stream <- executor(invocation)
         events <- stream.take(5).runCollect
       } yield events
@@ -103,7 +103,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     val server: URIO[Server, Nothing] =
       Server.serveRoutes(routes)
 
-    def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
+    def baseUrl(port: Int): URL = url"http://localhost:$port"
 
     private val invocation: Invocation[Unit, Unit, ZNothing, ServerSentEvent[String], AuthType.None] =
       sseEndpoint(())
@@ -111,7 +111,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     def client(port: Int): ZIO[Client, Nothing, ServerSentEvent[String]] = ZIO.scoped {
       for {
         client <- ZIO.service[Client]
-        executor = EndpointExecutor(client, locator(port))
+        executor = EndpointExecutor(client, baseUrl(port))
         event <- executor(invocation)
       } yield event
     }

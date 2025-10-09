@@ -90,12 +90,14 @@ final case class EndpointExecutor[R, Auth, ReqEnv](
   }
 }
 object EndpointExecutor {
+  @deprecated("Use EndpointExecutor(client, url) instead.", since = "4.0.0")
   def apply[ReqEnv](
     client: ZClient[Any, ReqEnv, Body, Throwable, Response],
     locator: EndpointLocator,
   ): EndpointExecutor[Any, Unit, ReqEnv] =
     EndpointExecutor(client, locator, ZIO.unit)
 
+  @deprecated("Use EndpointExecutor(client, url, auth) instead.", since = "4.0.0")
   def apply[Auth, ReqEnv](
     client: ZClient[Any, ReqEnv, Body, Throwable, Response],
     locator: EndpointLocator,
@@ -104,6 +106,23 @@ object EndpointExecutor {
     trace: Trace,
   ): EndpointExecutor[Any, Auth, ReqEnv] =
     EndpointExecutor(client, locator, ZIO.succeed(auth))
+
+  /** Preferred constructor: provide base URL directly. */
+  def apply[ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
+    url: URL,
+  ): EndpointExecutor[Any, Unit, ReqEnv] =
+    EndpointExecutor(client, EndpointLocator.fromURL(url), ZIO.unit)
+
+  /** Preferred constructor with explicit auth. */
+  def apply[Auth, ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
+    url: URL,
+    auth: Auth,
+  )(implicit
+    trace: Trace,
+  ): EndpointExecutor[Any, Auth, ReqEnv] =
+    EndpointExecutor(client, EndpointLocator.fromURL(url), ZIO.succeed(auth))
 
   final case class Config(url: URL)
   object Config {
@@ -126,7 +145,7 @@ object EndpointExecutor {
       for {
         client <- ZIO.service[Client]
         config <- ZIO.config(Config.config.nested(serviceName))
-      } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url), authProvider)
+      } yield EndpointExecutor(client, config.url, authProvider)
     }
 
   def make(
@@ -136,6 +155,6 @@ object EndpointExecutor {
       for {
         client <- ZIO.service[Client]
         config <- ZIO.config(Config.config.nested(serviceName))
-      } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url))
+      } yield EndpointExecutor(client, config.url)
     }
 }
