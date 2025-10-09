@@ -112,7 +112,6 @@ object EndpointExecutor {
     client: ZClient[Any, ReqEnv, Body, Throwable, Response],
     url: URL,
   ): EndpointExecutor[Any, Unit, ReqEnv] = {
-    implicit val trace0: Trace = Trace.empty
     val locator: EndpointLocator = new EndpointLocator {
       def locate[P, A, E, B](api: Endpoint[P, A, E, B, _ <: AuthType])(implicit trace: Trace): IO[EndpointNotFound, URL] =
         ZIO.succeed(url)
