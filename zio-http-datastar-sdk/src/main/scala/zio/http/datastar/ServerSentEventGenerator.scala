@@ -87,7 +87,7 @@ object ExecuteScriptOptions {
 
 object ServerSentEventGenerator {
 
-  private val DefaultRetryDelay: Duration = 1000.millis
+  private[datastar] val DefaultRetryDelay: Duration = 1000.millis
 
   def executeScript(script0: Js): ZIO[Datastar, Nothing, Unit] =
     executeScript(script(script0), ExecuteScriptOptions.default)

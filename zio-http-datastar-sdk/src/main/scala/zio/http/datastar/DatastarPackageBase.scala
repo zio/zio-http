@@ -58,7 +58,13 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
-  def eventStream[R, R1, In](
+  @deprecated("Use events instead", "3.6.0")
+  def eventStream[R, R1](
+    e: ZIO[R, Nothing, Unit],
+  )(implicit ev: R <:< R1 with Datastar): ZIO[R1 with Scope, Nothing, ZStream[Any, Nothing, ServerSentEvent[String]]] =
+    events[R, R1](e)
+
+  def events[R, R1](
     e: ZIO[R, Nothing, Unit],
   )(implicit ev: R <:< R1 with Datastar): ZIO[R1 with Scope, Nothing, ZStream[Any, Nothing, ServerSentEvent[String]]] =
     for {
@@ -68,4 +74,26 @@ trait DatastarPackageBase extends Attributes {
         _.add[Datastar](datastar).asInstanceOf[ZEnvironment[R with Scope]],
       ) *> queue.offer(Datastar.done)).forkScoped
     } yield ZStream.fromQueue(queue).takeWhile(_ ne Datastar.done)
+
+  def events[R](
+    e: ZStream[R, Nothing, DatastarEvent],
+  ): ZIO[R, Nothing, ZStream[Any, Nothing, ServerSentEvent[String]]] =
+    ZIO.environmentWith[R](e.map(_.toServerSentEvent).provideEnvironment(_))
+
+  def events[R, R1, In](
+    h: Handler[R, Nothing, In, ZStream[R1, Nothing, DatastarEvent]],
+  ): Handler[R with R1, Nothing, In, Response] =
+    Handler.scoped[R with R1] {
+      handler { (in: In) =>
+        for {
+          r      <- ZIO.environment[Scope & R]
+          r1     <- ZIO.environment[R1]
+          stream <- h(in).provideEnvironment(r)
+          sseStream: ZStream[Any, Nothing, ServerSentEvent[String]] =
+            stream.map(_.toServerSentEvent).provideEnvironment(r1)
+        } yield Response
+          .fromServerSentEvents(sseStream)
+          .addHeaders(headers)
+      }
+    }
 }

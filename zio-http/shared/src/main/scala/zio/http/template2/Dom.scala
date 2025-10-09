@@ -494,7 +494,7 @@ object Dom {
         file: String,
         classLoader: ClassLoader = Thread.currentThread().getContextClassLoader,
       ): Dom.Element.Script = {
-        val source = scala.io.Source.fromResource(file)
+        val source = scala.io.Source.fromResource(file, classLoader)
         try script.inlineJs(source.mkString)
         finally source.close()
       }
@@ -596,7 +596,7 @@ object Dom {
         file: String,
         classLoader: ClassLoader = Thread.currentThread().getContextClassLoader,
       ): Dom.Element.Style = {
-        val source = scala.io.Source.fromResource(file)
+        val source = scala.io.Source.fromResource(file, classLoader)
         try style.inlineCss(source.mkString)
         finally source.close()
       }
