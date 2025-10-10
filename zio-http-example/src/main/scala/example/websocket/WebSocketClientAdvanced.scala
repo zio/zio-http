@@ -1,5 +1,4 @@
 package example.websocket
-import scala.annotation.nowarn
 
 import zio._
 
