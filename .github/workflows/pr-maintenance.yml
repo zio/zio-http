@@ -24,11 +24,11 @@ env:
 
 jobs:
   pr_closing_keyword_reminder:
-    name: Remind missing closing keyword
+    name: PR keyword reminder
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check PR for closing keywords and remind if missing
+      - name: Check PR keyword
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
@@ -36,20 +36,14 @@ jobs:
             const pr = context.payload.pull_request;
             // Ignore drafts explicitly
             if (!pr || pr.draft) {
-              core.info('Draft PR or no PR context; skipping reminder.');
               return;
             }
 
             const body = (pr.body || '').toLowerCase();
-            // Match common GitHub auto-closing keywords and forms:
-            // close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved
-            // followed by #123 or full issue URL owner/repo#123
-            const keywordRe = /(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:#[0-9]+|https?:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(?:issues|pull)\/[0-9]+|[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#[0-9]+)/i;
+            // Accept close/fix/resolve variants followed by: #123, owner/repo#123, or a full issues URL
+            const keywordRe = /(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:#[0-9]+|https?:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/issues\/[0-9]+|[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#[0-9]+)/i;
 
-            if (keywordRe.test(body)) {
-              core.info('PR body contains a closing keyword reference.');
-              return;
-            }
+            if (keywordRe.test(body)) return;
 
             // Avoid duplicate reminders by checking existing bot comments
             const { data: comments } = await github.rest.issues.listComments({
@@ -61,10 +55,7 @@ jobs:
 
             const marker = '<!-- pr-maintenance:missing-closing-keyword -->';
             const alreadyCommented = comments.some(c => (c.body || '').includes(marker));
-            if (alreadyCommented) {
-              core.info('Reminder already posted.');
-              return;
-            }
+            if (alreadyCommented) return;
 
             const msg = `${marker}\nHi @${pr.user.login} — please add a closing keyword to the PR description so the linked issue closes on merge.\n\nExamples: Fixes #123 · Closes owner/repo#123 · Resolves https://github.com/${context.repo.owner}/${context.repo.repo}/issues/123`;
 
@@ -76,11 +67,11 @@ jobs:
             });
 
   auto_close_stale_failing_prs:
-    name: Auto-close PRs failing > THRESHOLD_DAYS
+    name: Close stale failing PRs
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Close PRs with no successful build past threshold
+      - name: Close stale failing PRs
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
@@ -118,14 +109,11 @@ jobs:
               try {
                 const { data: runs } = await github.rest.checks.listForRef({ owner, repo, ref: sha, per_page: 100 });
                 const ghaRuns = runs.check_runs?.filter(r => r.app?.slug === 'github-actions') || [];
-                if (ghaRuns.length === 0) {
-                  core.info('No GitHub Actions check runs found for this ref.');
-                }
                 if (ghaRuns.length > 0 && ghaRuns.every(r => r.conclusion === 'success')) {
                   return true;
                 }
               } catch (e) {
-                core.info(`checks.listForRef failed: ${e.message}`);
+                core.warning(`checks.listForRef failed: ${e.message}`);
               }
 
               // Also check Actions workflow runs for the commit
@@ -136,7 +124,7 @@ jobs:
                   return true;
                 }
               } catch (e) {
-                core.info(`actions.listWorkflowRunsForCommit failed: ${e.message}`);
+                core.warning(`actions.listWorkflowRunsForCommit failed: ${e.message}`);
               }
 
               // Fallback to check suites (success indicates all runs in the suite succeeded)
@@ -147,7 +135,7 @@ jobs:
                   return true;
                 }
               } catch (e) {
-                core.info(`checks.listSuitesForRef failed: ${e.message}`);
+                core.warning(`checks.listSuitesForRef failed: ${e.message}`);
               }
 
               // Legacy statuses combined API
@@ -155,43 +143,28 @@ jobs:
                 const { data: combined } = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: sha });
                 if (combined.state === 'success') return true;
               } catch (e) {
-                core.info(`repos.getCombinedStatusForRef failed: ${e.message}`);
+                core.warning(`repos.getCombinedStatusForRef failed: ${e.message}`);
               }
 
               return false;
             }
 
-            // Optional: label to ignore auto-close if maintainers set it
+            // label to ignore auto-close if maintainers set it
             const IGNORE_LABEL = 'do-not-autoclose';
 
-            // Ensure optional ignore label exists (create if missing)
+            // Check if opt-out label exists (do not auto-create)
             try {
               await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: IGNORE_LABEL });
-              core.info(`Label '${IGNORE_LABEL}' exists.`);
             } catch (e) {
-              if (e.status === 404) {
-                try {
-                  await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: IGNORE_LABEL, color: '9e9e9e', description: 'Exclude this PR from auto-close maintenance' });
-                  core.info(`Created label '${IGNORE_LABEL}'.`);
-                } catch (e2) {
-                  core.info(`Could not create label '${IGNORE_LABEL}': ${e2.message}`);
-                }
-              }
+              if (e.status !== 404) core.warning(`Label check failed: ${e.message}`);
             }
 
             const prs = await listAllOpenPRs();
-            core.info(`Found ${prs.length} open PRs.`);
 
             for (const pr of prs) {
               try {
-                if (pr.draft) {
-                  core.info(`#${pr.number} is draft; skipping.`);
-                  continue;
-                }
-                if (Array.isArray(pr.labels) && pr.labels.some(l => (l.name || '').toLowerCase() === IGNORE_LABEL)) {
-                  core.info(`#${pr.number} has ${IGNORE_LABEL}; skipping.`);
-                  continue;
-                }
+                if (pr.draft) continue;
+                if (Array.isArray(pr.labels) && pr.labels.some(l => (l.name || '').toLowerCase() === IGNORE_LABEL)) continue;
 
                 const head = pr.head;
                 const sha = head?.sha;
@@ -203,8 +176,6 @@ jobs:
                 const commitDate = await latestCommitDate(owner, repo, sha);
                 const ageDays = daysBetween(now, commitDate);
                 const success = await hasSuccessfulChecks(owner, repo, sha);
-
-                core.info(`#${pr.number}: age ${ageDays.toFixed(2)} days, success=${success}`);
 
                 if (!success && ageDays >= thresholdDays) {
                   const closeMessage = `Closing as the latest commit (sha: ${sha.slice(0,7)}) hasn't had a successful build for over ${thresholdDays} days. Push a new commit to rerun CI and re-open if needed.`;
@@ -222,7 +193,6 @@ jobs:
                     pull_number: pr.number,
                     state: 'closed',
                   });
-                  core.info(`Closed PR #${pr.number}.`);
                 }
               } catch (e) {
                 core.warning(`Failed processing PR #${pr.number}: ${e.message}`);
