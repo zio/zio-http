@@ -1,4 +1,4 @@
-import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{HeaderLicense, headerLicense}
+import sbtheader.HeaderPlugin.autoImport.{HeaderLicense, headerLicense}
 import sbt.*
 import sbt.Keys.*
 import scalafix.sbt.ScalafixPlugin.autoImport.*

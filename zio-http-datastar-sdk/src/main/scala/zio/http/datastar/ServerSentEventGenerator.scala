@@ -87,16 +87,36 @@ object ExecuteScriptOptions {
 
 object ServerSentEventGenerator {
 
-  private val DefaultRetryDelay: Duration = 1000.millis
+  private[datastar] val DefaultRetryDelay: Duration = 1000.millis
+
+  def executeScript(script0: Js): ZIO[Datastar, Nothing, Unit] =
+    executeScript(script(script0), ExecuteScriptOptions.default)
+
+  def executeScript(script0: Js, options: ExecuteScriptOptions): ZIO[Datastar, Nothing, Unit] =
+    executeScript(script(script0), options)
+
+  def executeScript(script0: String): ZIO[Datastar, Nothing, Unit] =
+    executeScript(script0, ExecuteScriptOptions.default)
+
+  def executeScript(script0: String, options: ExecuteScriptOptions): ZIO[Datastar, Nothing, Unit] =
+    executeScript(script(script0), options)
+
+  def executeScript(script0: Dom.Element.Script): ZIO[Datastar, Nothing, Unit] =
+    executeScript(script0, ExecuteScriptOptions.default)
 
   def executeScript(
-    script0: String,
-    options: ExecuteScriptOptions = ExecuteScriptOptions(),
+    script0: Dom.Element.Script,
+    options: ExecuteScriptOptions,
   ): ZIO[Datastar, Nothing, Unit] = {
     val removeAttr = if (options.autoRemove) Dom.attr("data-effect", "el.remove") else Dom.empty
     patchElements(
-      script(Dom.text(script0), removeAttr)(options.attributes.map(a => Dom.attr(a._1, a._2))),
-      PatchElementOptions(eventId = options.eventId, retryDuration = options.retryDuration),
+      script0(removeAttr)(options.attributes.map(a => Dom.attr(a._1, a._2))),
+      PatchElementOptions(
+        eventId = options.eventId,
+        retryDuration = options.retryDuration,
+        selector = Some(body),
+        mode = ElementPatchMode.Append,
+      ),
     )
   }
 
@@ -180,9 +200,7 @@ object ServerSentEventGenerator {
         sb.append("onlyIfMissing true\n")
       }
 
-      signals.foreach(s => {
-        sb.append("signals ").append(s).append('\n')
-      })
+      signals.foreach(s => sb.append("signals ").append(s).append('\n'))
 
       val retry = if (options.retryDuration != DefaultRetryDelay) Some(options.retryDuration) else None
       send(EventType.PatchSignals, sb.toString(), options.eventId, retry)

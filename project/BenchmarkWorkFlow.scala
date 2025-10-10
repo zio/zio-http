@@ -73,7 +73,7 @@ object BenchmarkWorkFlow {
           ),
         ),
         WorkflowStep.Use(
-          ref = UseRef.Public("peter-evans", "commit-comment", "v2"),
+          ref = UseRef.Public("peter-evans", "commit-comment", "v4"),
           cond = Some(
             "${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}",
           ),
