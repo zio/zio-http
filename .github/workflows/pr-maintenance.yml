@@ -1,0 +1,138 @@
+name: PR Maintenance
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - ready_for_review
+      - synchronize
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      stale_days:
+        description: Days before closing a PR without a successful build
+        required: false
+        default: "5"
+
+permissions:
+  contents: read
+
+jobs:
+  issue-reference-reminder:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Ensure PR references an issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            const closingReferencePattern = /\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)(?:\s*[:\-]?\s+)(?:#\d+|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/\d+|[\w.-]+\/[\w.-]+#\d+)/i;
+            const marker = '<!-- issue-reference-reminder -->';
+            const { owner, repo } = context.repo;
+            const issue_number = pr.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            const existingReminder = comments.find(
+              (comment) => comment.body && comment.body.includes(marker) && comment.user?.type === 'Bot'
+            );
+
+            if (closingReferencePattern.test(body)) {
+              if (existingReminder) {
+                await github.rest.issues.deleteComment({
+                  owner,
+                  repo,
+                  comment_id: existingReminder.id,
+                });
+              }
+              return;
+            }
+
+            if (existingReminder) {
+              return;
+            }
+
+            const reminderBody = `${marker}
+Hi @${pr.user.login}, please add a closing issue reference (e.g. \`Fixes #123\`) to this pull request description so the linked issue closes automatically when merged.`;
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: reminderBody,
+            });
+
+  close-stale-prs:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      issues: write
+      pull-requests: write
+    env:
+      STALE_DAYS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.stale_days || '5' }}
+    steps:
+      - name: Close PRs without successful build
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const staleDays = parseInt(process.env.STALE_DAYS, 10);
+            const cutoffMs = staleDays * 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            const { owner, repo } = context.repo;
+
+            const openPulls = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            for (const pr of openPulls) {
+              if (pr.draft) {
+                continue;
+              }
+
+              const ageMs = now - new Date(pr.created_at).getTime();
+              if (ageMs < cutoffMs) {
+                continue;
+              }
+
+              const combinedStatus = await github.rest.repos.getCombinedStatusForRef({
+                owner,
+                repo,
+                ref: pr.head.sha,
+              });
+
+              if (combinedStatus.data.state === 'success') {
+                continue;
+              }
+
+              const notice = `<!-- pr-build-stale -->\nHi @${pr.user.login}, this pull request is being closed because it has been open for more than ${staleDays} days without a successful build. Feel free to reopen once the checks pass.`;
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pr.number,
+                body: notice,
+              });
+
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: pr.number,
+                state: 'closed',
+              });
+            }
