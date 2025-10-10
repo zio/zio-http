@@ -94,6 +94,17 @@ object DatastarEvent {
     }
   }
 
+  final case class SetHTML(selector: String, html: String) extends DatastarEvent {
+    override val eventType: EventType = EventType.PatchElements
+
+    override def toServerSentEvent: ServerSentEvent[String] = {
+      val sb = new StringBuilder()
+      sb.append("selector ").append(selector).append('\n')
+      sb.append("elements ").append(html).append('\n')
+      ServerSentEvent(sb.toString(), Some(eventType.render))
+    }
+  }
+
   def executeScript(script0: Js): ExecuteScript =
     executeScript(script0, ExecuteScriptOptions.default)
 
