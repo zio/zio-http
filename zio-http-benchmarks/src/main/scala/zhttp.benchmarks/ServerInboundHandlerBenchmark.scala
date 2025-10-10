@@ -10,7 +10,7 @@ import org.openjdk.jmh.annotations._
 import sttp.client3.{HttpURLConnectionBackend, UriContext, basicRequest}
 
 @State(org.openjdk.jmh.annotations.Scope.Thread)
-@BenchmarkMode(Array(Mode.Throughput))
+@BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class ServerInboundHandlerBenchmark {
   private val random      = scala.util.Random
