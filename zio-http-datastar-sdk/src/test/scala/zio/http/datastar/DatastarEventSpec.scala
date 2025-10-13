@@ -243,7 +243,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
       },
       test("patchElements with all parameters") {
         val event = DatastarEvent.patchElements(
-          List(div("Content1"), div("Content2")),
+          Dom.fragment(div("Content1"), div("Content2")),
           Some(selector"#target"),
           ElementPatchMode.Append,
           useViewTransition = true,
@@ -256,7 +256,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         assertTrue(
           sse.id.contains("event-id"),
           sse.retry.contains(3000.millis),
-          sse.data == "selector #target\nmode append\nuseViewTransition true\nelements <div>Content1</div>\nelements <div>Content2</div>\n",
+          sse.data == "selector #target\nmode append\nuseViewTransition true\nelements <div>Content1</div><div>Content2</div>\n",
         )
       },
       test("patchSignals with onlyIfMissing parameter") {

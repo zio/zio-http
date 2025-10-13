@@ -2,8 +2,11 @@ package zio.http.datastar
 
 import zio._
 
+import zio.schema.Schema
+
 import zio.http.ServerSentEvent
 import zio.http.internal.StringBuilderPool
+import zio.http.template2.Dom.AttributeValue
 import zio.http.template2._
 
 sealed trait EventType extends Product with Serializable {
@@ -50,6 +53,30 @@ object ElementPatchMode {
 
   /** Remove target element from DOM */
   case object Remove extends ElementPatchMode
+
+  implicit val schema: Schema[ElementPatchMode] = Schema[String].transformOrFail(
+    {
+      case "outer"   => Right(Outer)
+      case "inner"   => Right(Inner)
+      case "replace" => Right(Replace)
+      case "prepend" => Right(Prepend)
+      case "append"  => Right(Append)
+      case "before"  => Right(Before)
+      case "after"   => Right(After)
+      case "remove"  => Right(Remove)
+      case other     => Left(s"Invalid ElementPatchMode: $other")
+    },
+    {
+      case Outer   => Right("outer")
+      case Inner   => Right("inner")
+      case Replace => Right("replace")
+      case Prepend => Right("prepend")
+      case Append  => Right("append")
+      case Before  => Right("before")
+      case After   => Right("after")
+      case Remove  => Right("remove")
+    },
+  )
 }
 
 final case class PatchElementOptions(
@@ -108,9 +135,10 @@ object ServerSentEventGenerator {
     script0: Dom.Element.Script,
     options: ExecuteScriptOptions,
   ): ZIO[Datastar, Nothing, Unit] = {
-    val removeAttr = if (options.autoRemove) Dom.attr("data-effect", "el.remove") else Dom.empty
+    val removeAttr =
+      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove")) else Dom.empty
     patchElements(
-      script0(removeAttr)(options.attributes.map(a => Dom.attr(a._1, a._2))),
+      script0(removeAttr)(options.attributes.map(a => Dom.attr(a._1, AttributeValue.StringValue(a._2)))),
       PatchElementOptions(
         eventId = options.eventId,
         retryDuration = options.retryDuration,
@@ -124,7 +152,7 @@ object ServerSentEventGenerator {
     elements: String,
     options: PatchElementOptions,
   ): ZIO[Datastar, Nothing, Unit] =
-    patchElements(elements.split('\n').map(Dom.raw).toList, options)
+    patchElements(Dom.raw(elements), options)
 
   def patchElements(
     elements: String,
@@ -132,22 +160,7 @@ object ServerSentEventGenerator {
     patchElements(elements, PatchElementOptions.default)
 
   def patchElements(
-    element: Dom,
-    options: PatchElementOptions,
-  ): ZIO[Datastar, Nothing, Unit] = patchElements(List(element), options)
-
-  def patchElements(
-    element: Dom,
-  ): ZIO[Datastar, Nothing, Unit] =
-    patchElements(List(element), PatchElementOptions.default)
-
-  def patchElements(
-    elements: Iterable[Dom],
-  ): ZIO[Datastar, Nothing, Unit] =
-    patchElements(elements, PatchElementOptions.default)
-
-  def patchElements(
-    elements: Iterable[Dom],
+    elements: Dom,
     options: PatchElementOptions,
   ): ZIO[Datastar, Nothing, Unit] = {
 
@@ -162,17 +175,28 @@ object ServerSentEventGenerator {
         sb.append("useViewTransition true\n")
       }
 
-      elements.foreach(d => {
-        val rendered = d.render
-        if (rendered.contains('\n'))
-          rendered.split('\n').foreach(line => sb.append("elements ").append(line).append('\n'))
-        else sb.append("elements ").append(d.render).append('\n')
-      })
+      sb.append("elements ").append(elements.renderMinified).append('\n')
 
       val retry = if (options.retryDuration != DefaultRetryDelay) Some(options.retryDuration) else None
       send(EventType.PatchElements, sb.toString(), options.eventId, retry)
     }
   }
+
+  def patchElements(
+    element: Dom,
+  ): ZIO[Datastar, Nothing, Unit] =
+    patchElements(element, PatchElementOptions.default)
+
+  def patchElements(
+    elements: Iterable[Dom],
+  ): ZIO[Datastar, Nothing, Unit] =
+    patchElements(elements, PatchElementOptions.default)
+
+  def patchElements(
+    elements: Iterable[Dom],
+    options: PatchElementOptions,
+  ): ZIO[Datastar, Nothing, Unit] =
+    patchElements(Dom.Fragment(elements), options)
 
   def patchSignals(
     signal: String,
@@ -210,8 +234,8 @@ object ServerSentEventGenerator {
   private def send(
     eventType: EventType,
     dataLines: String,
-    eventId: Option[String] = None,
-    retry: Option[Duration] = None,
+    eventId: Option[String],
+    retry: Option[Duration],
   ): ZIO[Datastar, Nothing, Unit] =
     ZIO.serviceWithZIO[Datastar] { `d*` =>
       val retry0 = if (retry.contains(DefaultRetryDelay)) None else retry

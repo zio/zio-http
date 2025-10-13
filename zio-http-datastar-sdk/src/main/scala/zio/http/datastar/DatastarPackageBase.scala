@@ -7,7 +7,8 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
-import zio.http.codec.HttpCodec
+import zio.http.codec.{Doc, HttpCodec, HttpContentCodec}
+import zio.http.endpoint.{AuthType, Endpoint}
 import zio.http.template2._
 
 trait DatastarPackageBase extends Attributes {
@@ -31,6 +32,64 @@ trait DatastarPackageBase extends Attributes {
         .const(Header.ContentType(MediaType.text.`event-stream`)) ++
       HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache) ++
       HttpCodec.header(Header.Connection).const(Header.Connection.KeepAlive)
+
+  val datastarEventCodec =
+    HttpCodec.content[Dom] ++
+      HttpCodec
+        .header(Header.ContentType)
+        .const(Header.ContentType(MediaType.text.`html`)) ++
+      HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache) ++
+      HttpCodec.headerAs[CssSelector]("datastar-selector").optional ++
+      HttpCodec.headerAs[ElementPatchMode]("datastar-mode").optional ++
+      HttpCodec.headerAs[Boolean]("datastar-use-view-transition").optional
+
+  implicit class EndpointExtensions(endpoint: Endpoint.type) {
+    def datastarEvents[Input](
+      route: RoutePattern[Input],
+    ): Endpoint[Input, Input, ZNothing, ZStream[Any, Nothing, DatastarEvent], AuthType.None.type] =
+      Endpoint(
+        route,
+        route.toHttpCodec,
+        datastarCodec.transformOrFailLeft(_ => Left("Not implemented"))(_.map(_.toServerSentEvent)),
+        HttpCodec.unused,
+        HttpContentCodec.responseErrorCodec,
+        Doc.empty,
+        AuthType.None,
+      )
+
+    def datastarEvent[Input](
+      route: RoutePattern[Input],
+    ): Endpoint[Input, Input, ZNothing, DatastarEvent.PatchElements, AuthType.None.type] =
+      Endpoint(
+        route,
+        route.toHttpCodec,
+        datastarEventCodec.transformOrFailLeft[DatastarEvent.PatchElements](_ => Left("Not implemented"))(event =>
+          (
+            event.elements,
+            event.selector,
+            if (event.mode == ElementPatchMode.Outer) None else Some(event.mode),
+            if (event.useViewTransition) Some(true) else None,
+          ),
+        ),
+        HttpCodec.unused,
+        HttpContentCodec.responseErrorCodec,
+        Doc.empty,
+        AuthType.None,
+      )
+
+    def datastar[Input](
+      route: RoutePattern[Input],
+    ): Endpoint[Input, Input, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None.type] =
+      Endpoint(
+        route,
+        route.toHttpCodec,
+        datastarCodec,
+        HttpCodec.unused,
+        HttpContentCodec.responseErrorCodec,
+        Doc.empty,
+        AuthType.None,
+      )
+  }
 
   implicit def signalUpdateToModifier[A](signalUpdate: SignalUpdate[A]): Modifier =
     dataSignals(signalUpdate.signal)(signalUpdate.signal.schema) := signalUpdate.toExpression
