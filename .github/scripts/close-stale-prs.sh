@@ -73,3 +73,13 @@ If you're still working on this, please:
 3. Reopen this PR once the build passes
 
 Thank you for your contribution! 🙏"
+
+  # Close the PR
+  gh pr close "$PR_NUMBER"
+
+  echo "Closed PR #$PR_NUMBER"
+done
+
+echo "Done checking PRs"
+
+
