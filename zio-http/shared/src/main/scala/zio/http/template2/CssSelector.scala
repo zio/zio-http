@@ -2,6 +2,8 @@ package zio.http.template2
 
 import scala.language.implicitConversions
 
+import zio.schema.Schema
+
 trait CssSelectable {
   self =>
   val selector: CssSelector
@@ -109,6 +111,12 @@ object CssSelector {
 
   def universal: Universal.type = Universal
 
+  implicit val schema: Schema[CssSelector] =
+    Schema[String].transform(
+      str => CssSelector.raw(str),
+      css => css.render,
+    )
+
   sealed trait AttributeMatch extends Product with Serializable
 
   object AttributeMatch {
@@ -131,7 +139,7 @@ object CssSelector {
   final case class Attribute(inner: CssSelector, attribute: String, matcher: Option[AttributeMatch])
       extends CssSelector {
     def render: String = {
-      val base     = if (inner.toString.nonEmpty) inner.toString else ""
+      val base     = if (inner.toString != "") inner.toString else ""
       val attrPart = matcher match {
         case None                                           => s"[$attribute]"
         case Some(AttributeMatch.Contains(value))           => s"""[$attribute*="$value"]"""

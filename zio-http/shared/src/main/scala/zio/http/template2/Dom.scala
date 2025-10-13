@@ -32,22 +32,15 @@ import zio.http.internal.ThreadLocals
 sealed trait Dom extends Modifier with Product with Serializable { self =>
 
   /**
-   * Render the DOM to HTML string without indentation
+   * Collect all elements matching the predicate
    */
-  def render: String = render(indentation = false)
-
-  /**
-   * Render the DOM to HTML string with optional indentation
-   */
-  def render(indentation: Boolean): String = {
-    val state = if (indentation) RenderState.withIndentation else RenderState.noIndentation
-    renderInternal(state).toString
+  def collect(predicate: PartialFunction[Dom, Dom]): List[Dom] = {
+    val current = if (predicate.isDefinedAt(self)) List(self) else Nil
+    self match {
+      case element: Dom.Element => current ++ element.children.flatMap(_.collect(predicate))
+      case _                    => current
+    }
   }
-
-  /**
-   * Transform this DOM node by applying a function
-   */
-  def transform(f: Dom => Dom): Dom = f(self)
 
   /**
    * Filter children recursively based on a predicate
@@ -77,15 +70,23 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
       }
   }
 
+  def isEmpty: Boolean = self match {
+    case Dom.Empty          => true
+    case Dom.Fragment(kids) => kids.forall(_.isEmpty)
+    case _                  => false
+  }
+
   /**
-   * Collect all elements matching the predicate
+   * Render the DOM to HTML string without indentation
    */
-  def collect(predicate: PartialFunction[Dom, Dom]): List[Dom] = {
-    val current = if (predicate.isDefinedAt(self)) List(self) else Nil
-    self match {
-      case element: Dom.Element => current ++ element.children.flatMap(_.collect(predicate))
-      case _                    => current
-    }
+  def render: String = render(indentation = false)
+
+  /**
+   * Render the DOM to HTML string with optional indentation
+   */
+  def render(indentation: Boolean): String = {
+    val state = if (indentation) RenderState.withIndentation else RenderState.noIndentation
+    renderInternal(state).toString
   }
 
   private[template2] def renderInternal(state: RenderState): CharSequence
@@ -97,6 +98,20 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
     case text: Dom.Text => text.content
     case _              => renderInternal(state)
   }
+
+  /**
+   * Render the DOM to minified HTML string
+   */
+  def renderMinified: String = {
+    val state = RenderState.Minified
+    renderInternal(state).toString
+  }
+
+  /**
+   * Transform this DOM node by applying a function
+   */
+  def transform(f: Dom => Dom): Dom = f(self)
+
 }
 
 /**
@@ -478,7 +493,7 @@ object Dom {
       def attr(name: String, value: AttributeValue): Script =
         copy(attributes = attributes + (name -> value))
 
-      def crossOrigin(value: String): Script = attr("crossorigin", value)
+      def crossOrigin(value: String): Script = attr("crossorigin", AttributeValue.StringValue(value))
 
       def defer: Script = attr("defer", true)
 
@@ -499,7 +514,7 @@ object Dom {
         finally source.close()
       }
 
-      def integrity(value: String): Script = attr("integrity", value)
+      def integrity(value: String): Script = attr("integrity", AttributeValue.StringValue(value))
 
       def javascript(code: String): Script = apply(Dom.text(code))
 
@@ -511,7 +526,7 @@ object Dom {
 
       def noModule: Script = attr("nomodule", true)
 
-      def referrerPolicy(value: String): Script = attr("referrerpolicy", value)
+      def referrerPolicy(value: String): Script = attr("referrerpolicy", AttributeValue.StringValue(value))
 
       def removeAttr(name: String): Script =
         copy(attributes = attributes - name)
@@ -519,9 +534,9 @@ object Dom {
       def replaceChildren(children: Dom*): Script =
         copy(children = children.toVector)
 
-      def src(url: String): Script = attr("src", url)
+      def src(url: String): Script = attr("src", AttributeValue.StringValue(url))
 
-      def `type`(scriptType: String): Script = attr("type", scriptType)
+      def `type`(scriptType: String): Script = attr("type", AttributeValue.StringValue(scriptType))
 
       def when(condition: Boolean)(modifiers: Modifier*): Script =
         if (condition) apply(modifiers) else this
@@ -601,7 +616,7 @@ object Dom {
         finally source.close()
       }
 
-      def media(value: String): Style = attr("media", value)
+      def media(value: String): Style = attr("media", AttributeValue.StringValue(value))
 
       def removeAttr(name: String): Style =
         copy(attributes = attributes - name)
@@ -611,7 +626,7 @@ object Dom {
 
       def scoped: Style = attr("scoped", true)
 
-      def `type`(value: String): Style = attr("type", value)
+      def `type`(value: String): Style = attr("type", AttributeValue.StringValue(value))
 
       def when(condition: Boolean)(modifiers: Modifier*): Style =
         if (condition) apply(modifiers) else this
@@ -631,7 +646,7 @@ object Dom {
   }
 
   object AttributeValue {
-    implicit def fromString(value: String): AttributeValue = StringValue(value)
+    // implicit def fromString(value: String): AttributeValue = StringValue(value)
 
     implicit def fromBoolean(value: Boolean): AttributeValue = BooleanValue(value)
 
@@ -718,6 +733,11 @@ private[template2] object RenderState {
   }
 
   case object NoIndentation extends RenderState {
+    def separator: String   = ""
+    def indent: RenderState = this
+  }
+
+  case object Minified extends RenderState {
     def separator: String   = ""
     def indent: RenderState = this
   }

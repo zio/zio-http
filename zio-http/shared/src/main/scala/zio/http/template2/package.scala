@@ -18,7 +18,7 @@ package zio.http
 
 import scala.language.implicitConversions
 
-import zio.http.template2.Dom
+import zio.http.template2.{Dom, Modifier}
 
 /**
  * Package object for template2 providing all HTML elements and attributes.
