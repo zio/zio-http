@@ -21,27 +21,26 @@ sealed trait EndpointRequest {
   def onlyIfMissing: Boolean
 
   /**
-   * Returns the Datastar action expression for this request.
-   * Example: @get('/api/users')
+   * Returns the Datastar action expression for this request. Example: @get('/api/users')
    */
   def toActionExpression: Js
 
   /**
-   * Returns the full Datastar fetch expression with all options.
-   * Example: @get('/api/users', headers: {})
+   * Returns the full Datastar fetch expression with all options. Example: @get('/api/users',
+   * headers: {})
    */
   def toFetchExpression: Js = {
     val parts = scala.collection.mutable.ListBuffer[String]()
-    
+
     if (headers.nonEmpty) {
       val headerStr = headers.map { case (k, v) => s"'$k': '$v'" }.mkString("{", ", ", "}")
       parts += s"headers: $headerStr"
     }
-    
+
     if (includeHeaders) {
       parts += "includeHeaders: true"
     }
-    
+
     if (onlyIfMissing) {
       parts += "onlyIfMissing: true"
     }
@@ -145,8 +144,8 @@ object EndpointRequest {
   ) {
 
     /**
-     * Builds the request with path and query parameters substituted.
-     * Path parameters are extracted from the endpoint's route pattern.
+     * Builds the request with path and query parameters substituted. Path
+     * parameters are extracted from the endpoint's route pattern.
      */
     def build(pathParams: PathInput = null.asInstanceOf[PathInput]): EndpointRequest = {
       val method = extractMethod(endpoint.route)
@@ -162,7 +161,8 @@ object EndpointRequest {
     }
 
     /**
-     * Builds the request with path parameters as signals (for dynamic substitution).
+     * Builds the request with path parameters as signals (for dynamic
+     * substitution).
      */
     def buildWithSignals(pathParams: String => String = identity): EndpointRequest = {
       val method = extractMethod(endpoint.route)
@@ -208,15 +208,14 @@ object EndpointRequest {
     private def buildPath(route: RoutePattern[_], pathParams: PathInput): String = {
       if (pathParams == null) {
         // Build path without parameter substitution (will use placeholder format)
-        "/" + route.pathCodec.segments
-          .map { segment =>
-            val segmentStr = segment.toString
-            if (segmentStr.startsWith("Literal(")) {
-              extractLiteralValue(segmentStr)
-            } else {
-              s"{${extractSegmentName(segmentStr)}}"
-            }
+        "/" + route.pathCodec.segments.map { segment =>
+          val segmentStr = segment.toString
+          if (segmentStr.startsWith("Literal(")) {
+            extractLiteralValue(segmentStr)
+          } else {
+            s"{${extractSegmentName(segmentStr)}}"
           }
+        }
           .mkString("/")
       } else {
         // Build path with actual parameter values
@@ -229,16 +228,15 @@ object EndpointRequest {
     }
 
     private def buildPathWithSignals(route: RoutePattern[_], signalMapper: String => String): String = {
-      "/" + route.pathCodec.segments
-        .map { segment =>
-          val segmentStr = segment.toString
-          if (segmentStr.startsWith("Literal(")) {
-            extractLiteralValue(segmentStr)
-          } else {
-            val name = extractSegmentName(segmentStr)
-            s"$${${signalMapper(name)}}"
-          }
+      "/" + route.pathCodec.segments.map { segment =>
+        val segmentStr = segment.toString
+        if (segmentStr.startsWith("Literal(")) {
+          extractLiteralValue(segmentStr)
+        } else {
+          val name = extractSegmentName(segmentStr)
+          s"$${${signalMapper(name)}}"
         }
+      }
         .mkString("/")
     }
 
@@ -263,4 +261,3 @@ object EndpointRequest {
   implicit def endpointRequestToJs(request: EndpointRequest): Js =
     request.toActionExpression
 }
-

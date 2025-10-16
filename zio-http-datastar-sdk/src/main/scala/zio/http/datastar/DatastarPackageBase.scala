@@ -94,10 +94,12 @@ trait DatastarPackageBase extends Attributes {
   implicit class EndpointRequestExtensions[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
   ) {
+
     /**
      * Creates a builder for Datastar request expressions from this endpoint.
      */
-    def toDatastarRequest: zio.http.datastar.EndpointRequest.EndpointRequestBuilder[PathInput, Input, Err, Output, Auth] =
+    def toDatastarRequest
+      : zio.http.datastar.EndpointRequest.EndpointRequestBuilder[PathInput, Input, Err, Output, Auth] =
       zio.http.datastar.EndpointRequest.fromEndpoint(endpoint)
   }
 

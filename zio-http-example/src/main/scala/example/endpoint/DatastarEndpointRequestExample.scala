@@ -1,25 +1,24 @@
 package example.endpoint
 
 import zio._
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.http.codec.PathCodec
 
 /**
- * This example demonstrates building Datastar fetch expressions from ZIO HTTP Endpoint definitions.
+ * This example demonstrates building Datastar fetch expressions from ZIO HTTP
+ * Endpoint definitions.
  *
- * Run this example from the root project:
- * {{{
- * sbt "zioHttpExample/runMain example.endpoint.DatastarEndpointRequestExample"
- * }}}
+ * Run this example from the root project: {{{ sbt "zioHttpExample/runMain
+ * example.endpoint.DatastarEndpointRequestExample" }}}
  *
  * Then visit: http://localhost:8080/
  */
 object DatastarEndpointRequestExample extends ZIOAppDefault {
 
   // Home page with examples
-  def renderHomePage(): String = {
+  def renderHomePage(): String =
     s"""<!DOCTYPE html>
        |<html>
        |<head>
@@ -99,10 +98,14 @@ object DatastarEndpointRequestExample extends ZIOAppDefault {
        |</body>
        |</html>
        |""".stripMargin
-  }
 
   val homeRoute = Routes(
-    Method.GET / "" -> handler(Response(body = Body.fromString(renderHomePage()), headers = Headers(Header.ContentType(MediaType.text.html)))),
+    Method.GET / "" -> handler(
+      Response(
+        body = Body.fromString(renderHomePage()),
+        headers = Headers(Header.ContentType(MediaType.text.html)),
+      ),
+    ),
   )
 
   def run = Server.serve(homeRoute).provide(Server.default)

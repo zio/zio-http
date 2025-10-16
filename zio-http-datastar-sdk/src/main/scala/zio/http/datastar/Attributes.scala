@@ -806,6 +806,7 @@ object Attributes {
    * Helper for creating Datastar fetch actions.
    */
   final case class PartialDataFetch(prefix: String) {
+
     /**
      * Creates a GET request action.
      */
