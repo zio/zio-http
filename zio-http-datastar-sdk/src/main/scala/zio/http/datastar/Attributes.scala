@@ -6,6 +6,7 @@ import scala.language.implicitConversions
 
 import zio.schema._
 
+import zio.http.datastar.{EndpointRequest => ER}
 import zio.http.template2.Dom.AttributeValue
 import zio.http.template2._
 
@@ -216,6 +217,11 @@ trait Attributes {
    * [[https://data-star.dev/reference/attributes#data-text]]
    */
   final def dataText: DatastarAttribute = DatastarAttribute(s"$prefix-text")
+
+  /**
+   * Helper for creating Datastar fetch actions from endpoint definitions.
+   */
+  final def dataFetch: PartialDataFetch = PartialDataFetch(prefix)
 
 }
 
@@ -794,5 +800,35 @@ object Attributes {
     case object Kebab  extends CaseModifier
     case object Snake  extends CaseModifier
     case object Pascal extends CaseModifier
+  }
+
+  /**
+   * Helper for creating Datastar fetch actions.
+   */
+  final case class PartialDataFetch(prefix: String) {
+    /**
+     * Creates a GET request action.
+     */
+    def get(url: String): ER = ER.get(url)
+
+    /**
+     * Creates a POST request action.
+     */
+    def post(url: String): ER = ER.post(url)
+
+    /**
+     * Creates a PUT request action.
+     */
+    def put(url: String): ER = ER.put(url)
+
+    /**
+     * Creates a PATCH request action.
+     */
+    def patch(url: String): ER = ER.patch(url)
+
+    /**
+     * Creates a DELETE request action.
+     */
+    def delete(url: String): ER = ER.delete(url)
   }
 }
