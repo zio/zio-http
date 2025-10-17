@@ -7,7 +7,7 @@ import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.20"
   val Scala213         = "2.13.16"
-  val Scala3           = "3.3.6"
+  val Scala3           = "3.3.7"
   val ScoverageVersion = "2.3.0"
   val JmhVersion       = "0.4.7"
 
@@ -39,10 +39,10 @@ object BuildHelper extends ScalaSettings {
 
   def publishSetting(publishArtifacts: Boolean) = {
     val publishSettings = Seq(
-      organization           := "dev.zio",
-      organizationName       := "zio",
-      licenses               := Seq("Apache-2.0" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
-      publishMavenStyle      := true,
+      organization      := "dev.zio",
+      organizationName  := "zio",
+      licenses          := Seq("Apache-2.0" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
+      publishMavenStyle := true,
       credentials ++=
         (for {
           username <- Option(System.getenv().get("SONATYPE_USERNAME"))
