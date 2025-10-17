@@ -1,5 +1,5 @@
 ---
-id: ctxout
+id: zio-environment
 title: "Request-scoped Context via ZIO Environment"
 sidebar_label: "ZIO Environment"
 ---
