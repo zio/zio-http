@@ -72,7 +72,7 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
           event <- queue.take
         } yield assertTrue(
           event.eventType.contains("datastar-patch-elements"),
-          event.data == "elements <div id=\"feed1\"><span>1</span></div>\nelements <div id=\"feed2\"><span>2</span></div>\n",
+          event.data == "elements <div id=\"feed1\"><span>1</span></div><div id=\"feed2\"><span>2</span></div>\n",
           event.id.isEmpty,
           event.retry.isEmpty,
         )

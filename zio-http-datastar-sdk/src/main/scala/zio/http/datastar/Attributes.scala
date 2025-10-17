@@ -6,6 +6,7 @@ import scala.language.implicitConversions
 
 import zio.schema._
 
+import zio.http.template2.Dom.AttributeValue
 import zio.http.template2._
 
 trait Attributes {
@@ -165,14 +166,14 @@ trait Attributes {
    * [[https://data-star.dev/reference/attributes#data-preserve-attr]]
    */
   final def dataPreserveAttr(attribute: Dom.Attribute, attributes: Dom.Attribute*): Dom.Attribute =
-    Dom.attr(s"$prefix-preserve-attr", (attribute +: attributes).map(_.name).mkString(" "))
+    Dom.attr(s"$prefix-preserve-attr", AttributeValue.StringValue((attribute +: attributes).map(_.name).mkString(" ")))
 
   /**
    * data-preserve-attr – Preserve attributes during morphing. Doc:
    * [[https://data-star.dev/reference/attributes#data-preserve-attr]]
    */
   final def dataPreserveAttr(attribute: String, attributes: String*): Dom.Attribute =
-    Dom.attr(s"$prefix-preserve-attr", (attribute +: attributes).mkString(" "))
+    Dom.attr(s"$prefix-preserve-attr", AttributeValue.StringValue((attribute +: attributes).mkString(" ")))
 
   /**
    * data-ref – Assign a local reference. Doc:
@@ -237,7 +238,7 @@ object Attributes {
 
     final case class Single(prefix: String, className: String, caseModifier: CaseModifier = defaultCaseModifier)
         extends DataClass {
-      assert(className.nonEmpty, "Class name cannot be empty")
+      assert(!className.isBlank, "Class name cannot be empty")
       private[datastar] val full = s"$prefix-class-$className${caseModifier.suffix(defaultCaseModifier)}"
 
       def :=(signal: Signal[_]): CompleteAttribute = Dom.attr(full) := signal.ref

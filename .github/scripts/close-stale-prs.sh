@@ -50,22 +50,22 @@ gh pr list --state open --json number,isDraft,updatedAt,headRefOid --limit 100 |
     continue
   fi
 
-  # Check if there's at least one successful build
-  HAS_SUCCESSFUL_CHECK=$(echo "$CHECK_RUNS" | jq 'any(.[]; .conclusion == "success")')
-  HAS_SUCCESSFUL_STATUS=false
-  if [ "$COMMIT_STATUS" = "success" ]; then
-    HAS_SUCCESSFUL_STATUS=true
+  # Check if there's at least one failed build
+  HAS_FAILED_CHECK=$(echo "$CHECK_RUNS" | jq 'any(.[]; .conclusion == "failure")')
+  HAS_FAILED_STATUS=false
+  if [ "$COMMIT_STATUS" = "failure" ]; then
+    HAS_FAILED_STATUS=true
   fi
 
-  if [ "$HAS_SUCCESSFUL_CHECK" = "true" ] || [ "$HAS_SUCCESSFUL_STATUS" = "true" ]; then
-    echo "PR #$PR_NUMBER has a successful build, keeping open"
+  if [ "$HAS_FAILED_CHECK" = "false" ] && [ "$HAS_FAILED_STATUS" = "false" ]; then
+    echo "PR #$PR_NUMBER has no failed builds, keeping open"
     continue
   fi
 
-  echo "PR #$PR_NUMBER has no successful build, closing..."
+  echo "PR #$PR_NUMBER has a failed build, closing..."
 
   # Post comment explaining why we're closing
-  gh pr comment "$PR_NUMBER" --body "👋 This PR is being automatically closed because it hasn't had a successful CI build in over 3 days.
+  gh pr comment "$PR_NUMBER" --body "👋 This PR is being automatically closed because it has had a failed CI build for over 3 days.
 
 If you're still working on this, please:
 1. Fix any failing tests or build issues
@@ -81,4 +81,5 @@ Thank you for your contribution! 🙏"
 done
 
 echo "Done checking PRs"
+
 
