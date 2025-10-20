@@ -162,7 +162,7 @@ const sidebars = {
       type: "category",
       collapsed: false,
       label: "Concepts",
-      items: ["concepts/routing", "concepts/middleware", "concepts/endpoint"],
+      items: ["concepts/routing", "concepts/middleware", "concepts/endpoint", "concepts/dev-mode"],
     },
   ],
 

@@ -423,7 +423,7 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= netty ++ Seq(
       `zio`,
-      `zio-test`,
+      "dev.zio" %% "zio-test" % ZioVersion,
       `zio-test-sbt`,
     ),
   )

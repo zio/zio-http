@@ -12,7 +12,7 @@ import org.openjdk.jmh.annotations._
 
 @nowarn
 @State(org.openjdk.jmh.annotations.Scope.Benchmark)
-@BenchmarkMode(Array(Mode.Throughput))
+@BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Warmup(iterations = 3, time = 3)
 @Measurement(iterations = 3, time = 3)
