@@ -116,7 +116,7 @@ object AuthenticationServer extends ZIOAppDefault {
     Routes(
       // Serve the web client interface from resources
       Method.GET / Root -> Handler
-        .fromResource("basic-auth-client.html")
+        .fromResource("basic-auth-client-simple.html")
         .orElse(
           Handler.internalServerError("Failed to load HTML file"),
         ),

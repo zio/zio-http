@@ -145,6 +145,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
       zioHttpExample,
+      zioHttpExampleBasicAuth,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -469,3 +470,6 @@ Global / excludeLintKeys ++= Set(
   sbtZioHttpGrpcTests / autoAPIMappings,
   ideSkipProject,
 )
+
+lazy val zioHttpExampleBasicAuth =
+  RootProject(file("zio-http-example-basic-auth"))
