@@ -145,6 +145,16 @@ object URLSpec extends ZIOHttpSpec {
           val expected = Right("/users?a=1&b=2")
           assertTrue(actual == expected)
         },
+        test("relative root") {
+          val actual   = URL(Path.root, URL.Location.Relative)
+          val expected = "/"
+          assertTrue(actual.encode == expected)
+        },
+        test("relative empty") {
+          val actual   = URL(Path.empty, URL.Location.Relative)
+          val expected = ""
+          assertTrue(actual.encode == expected)
+        },
       ),
       suite("path")(
         test("updates the path without needed to know the host") {
