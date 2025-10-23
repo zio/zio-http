@@ -1144,15 +1144,92 @@ Let's discuss each call in detail:
 
 This design provides transparent handling of digest authentication, allowing clients to make requests normally without manually managing the challenge-response handshake. The method efficiently addresses both cold-start scenarios, where the first request triggers a challenge, and challenge-refresh situations, where server nonces expire, while maintaining authentication state between requests for optimal performance.
 
-## Web Client Demo
+## Source Code
 
-Similar to the client we wrote in the previous section, we can write a web client. The overall structure of the web client is similar, but since the implementation details go beyond the scope of this guide, we will not cover them here. However, by running the `DigestAuthenticationServer`, the server will host the `digest-auth-client.html` at `http://localhost:8080`:
+The complete source code for this Digest Authentication example is available in the ZIO HTTP examples repository.
 
-```scala
-sbt "zioHttpExample/runMain example.auth.digest.DigestAuthenticationServer"
+To clone the example:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/zio/zio-http.git
+cd zio-http
+git sparse-checkout set zio-http-example-digest-auth
 ```
 
-Now you can open your browser and navigate to `http://localhost:8080` to see the web client in action. The web client allows you to enter your username and password, and it will handle the digest authentication flow automatically, sending requests to the server and displaying the responses.
+## Running the Server
+
+To run the authentication server:
+
+```bash
+cd zio-http/zio-http-example-digest-auth
+sbt "runMain example.auth.digest.AuthenticationServer"
+```
+
+The server starts on `http://localhost:8080` with these test users:
+
+| Username | Password      | Email                |
+|----------|---------------|----------------------|
+| `john`   | `password123` | john@example.com     |
+| `jane`   | `secret456`   | jane@example.com     |
+| `admin`  | `admin123`    | admin@company.com    |
+
+Available endpoints:
+
+- **GET /** - Serves the web client interface
+- **GET /profile/me** - Protected endpoint returning user profile (requires digest auth with `qop=auth`)
+- **PUT /profile/email** - Protected endpoint for updating email (requires digest auth with `qop=auth-int`)
+- **GET /admin** - Protected admin endpoint (requires digest auth, admin user only)
+- **GET /public** - Public endpoint (no authentication required)
+
+## Running the Client
+
+### ZIO HTTP Client
+
+Run the command-line client (ensure server is running):
+
+```bash
+cd zio-http/zio-http-example-digest-auth
+sbt "runMain example.auth.digest.AuthenticationClient"
+```
+
+The client executes four sequential HTTP calls demonstrating the digest authentication flow.
+
+### Web-Based Client
+
+Navigate to `http://localhost:8080` to access the interactive web interface.
+
+The web client allows you to:
+
+- Enter username and password (defaults to john/password123)
+- Test public endpoints (no authentication)
+- Test protected endpoints (profile, admin)
+- View console output showing the authentication flow
+- Observe automatic handling of digest challenges and responses
+
+The client automatically handles:
+
+- Initial unauthenticated requests
+- Parsing WWW-Authenticate challenges
+- Computing MD5 digest responses
+- Including Authorization headers in subsequent requests
+- Managing nonce counts for replay protection
+
+To use the simple version (useful for learning the basics), modify `AuthenticationServer.scala`:
+
+```scala
+Method.GET / Root ->
+  Handler
+    .fromResource("digest-auth-client-simple.html")
+    .orElse(Handler.internalServerError("Failed to load HTML file"))
+```
+
+**Note:** The web client uses `credentials: 'omit'` in fetch requests to prevent the browser's built-in authentication popup. Without this, when the server returns 401 with a WWW-Authenticate header, the browser automatically shows its native login dialog, bypassing the custom form.
+
+## Demo
+
+We have deployed a live demo at: [https://digest-auth-demo.ziohttp.com/](https://digest-auth-demo.ziohttp.com/).
+
+It includes a section that demonstrates transaction details and displays the request and response headers for each API call. This can help you understand how Digest Authentication works under the hood. You can also use the browser’s developer tools to inspect network requests and responses, including the Authorization headers and nonce values.
 
 ## Conclusion
 

@@ -45,7 +45,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 <script>
-    const SERVER_URL = 'http://localhost:8080';
     let authCache = null; // Store auth params for reuse
 
     // IMPORTANT: We use credentials: 'omit' in fetch() to prevent the browser's
@@ -106,7 +105,7 @@
         try {
             // First request (expect 401 with challenge)
             log(`GET ${endpoint}`);
-            let response = await fetch(SERVER_URL + endpoint, {
+            let response = await fetch(endpoint, {
                 credentials: 'omit'  // Prevent browser auth popup
             });
             log(`Response: ${response.status} ${response.statusText}`);
@@ -175,7 +174,7 @@
 
                 // Second request with auth
                 log(`Sending authenticated request...`);
-                response = await fetch(SERVER_URL + endpoint, {
+                response = await fetch(endpoint, {
                     headers: {
                         'Authorization': authHeader
                     },
@@ -208,7 +207,6 @@
 
     // Add some helpful info on load
     window.onload = () => {
-        log('Server should be running on http://localhost:8080');
         log('Test users: john/password123, jane/secret456, admin/admin123');
         log('Click buttons above to test endpoints');
     };

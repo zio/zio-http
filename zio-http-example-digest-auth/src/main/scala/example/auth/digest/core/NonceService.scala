@@ -1,4 +1,5 @@
 package example.auth.digest.core
+
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
@@ -9,7 +10,7 @@ import scala.math.Ordering.Implicits.infixOrderingOps
 import zio.Config.Secret
 import zio._
 
-import example.auth.digest.core.NonceError._
+import NonceError._
 
 sealed trait NonceError extends Throwable
 object NonceError {

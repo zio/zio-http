@@ -10,12 +10,13 @@ import zio.http._
 import example.auth.digest.core.QualityOfProtection.AuthInt
 import example.auth.digest.core._
 
-object DigestAuthenticationServer extends ZIOAppDefault {
+object AuthenticationServer extends ZIOAppDefault {
   def routes: Routes[DigestAuthService & UserService, Nothing] =
     Routes(
       Method.GET / Root ->
         Handler
           .fromResource("digest-auth-client.html")
+//          .fromResource("digest-auth-client-simple.html")
           .orElse(
             Handler.internalServerError("Failed to load HTML file"),
           ),

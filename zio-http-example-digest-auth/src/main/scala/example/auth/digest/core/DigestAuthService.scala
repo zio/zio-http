@@ -2,12 +2,9 @@ package example.auth.digest.core
 
 import java.security.MessageDigest
 import java.util.Base64
-
 import zio.Config.Secret
 import zio._
-
 import zio.http._
-
 import example.auth.digest.core.DigestAlgorithm._
 import example.auth.digest.core.DigestAuthError._
 import example.auth.digest.core.QualityOfProtection.Auth

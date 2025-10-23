@@ -133,7 +133,7 @@ object DigestAuthClient {
     }
 }
 
-object DigestAuthenticationClient extends ZIOAppDefault {
+object AuthenticationClient extends ZIOAppDefault {
   private val url      = "http://localhost:8080"
   private val USERNAME = "john"
   private val PASSWORD = Secret("password123")

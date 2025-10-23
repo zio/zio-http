@@ -526,7 +526,6 @@
         // Configuration Module
         // ============================================================================
         const Config = {
-            SERVER_URL: 'http://localhost:8080',
             DIGEST_ALGORITHMS: {
                 'MD5': CryptoJS.MD5,
                 'MD5-sess': CryptoJS.MD5,
@@ -827,10 +826,10 @@
                 return formatted;
             },
 
-            formatRequest(method, url, headers, body) {
-                const urlObj = new URL(url);
-                let request = `<span class="http-method">${method}</span> ${urlObj.pathname}${urlObj.search} HTTP/1.1\n`;
-                request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${urlObj.host}</span>\n`;
+            formatRequest(method, endpoint, headers, body) {
+                // For relative URLs, just use the endpoint path directly
+                let request = `<span class="http-method">${method}</span> ${endpoint} HTTP/1.1\n`;
+                request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${window.location.host}</span>\n`;
                 request += this.formatHeaders(headers);
                 if (body) {
                     request += `\n${body}`;
@@ -896,7 +895,6 @@
                 }
 
                 const { username, password } = CredentialManager.getCurrent();
-                const url = `${Config.SERVER_URL}${endpoint}`;
 
                 Logger.info(`${method} ${endpoint}`);
                 if (body) Logger.info(`Request Body: ${body}`);
@@ -914,7 +912,7 @@
                         Logger.warning('Existing auth state expired, getting new challenge');
                     }
 
-                    return await this._performAuthFlow(url, endpoint, method, body, username, password, transactions);
+                    return await this._performAuthFlow(endpoint, method, body, username, password, transactions);
                 } catch (error) {
                     Logger.error(`Error: ${error.message}`);
                     if (transactions.length > 0) {
@@ -969,12 +967,12 @@
                     authOptions.body = body;
                 }
 
-                const authResponse = await fetch(`${Config.SERVER_URL}${endpoint}`, authOptions);
+                const authResponse = await fetch(endpoint, authOptions);
                 const authResponseBody = await authResponse.text();
 
                 transactions.push({
                     type: 'Authenticated Request (Reused Nonce)',
-                    request: HTTPTransaction.formatRequest(method, `${Config.SERVER_URL}${endpoint}`, authOptions.headers, body),
+                    request: HTTPTransaction.formatRequest(method, endpoint, authOptions.headers, body),
                     response: authResponse,
                     responseType: authResponse.status === 200 ? 'Success Response' : 'Auth Failed Response',
                     responseText: HTTPTransaction.formatResponse(authResponse, authResponseBody)
@@ -1007,7 +1005,7 @@
                 return success;
             },
 
-            async _performAuthFlow(url, endpoint, method, body, username, password, transactions) {
+            async _performAuthFlow(endpoint, method, body, username, password, transactions) {
                 const options = { method, credentials: 'omit' };
                 const requestHeaders = {};
 
@@ -1017,12 +1015,12 @@
                     options.body = body;
                 }
 
-                const response = await fetch(url, options);
+                const response = await fetch(endpoint, options);
                 const responseBody = await response.text();
 
                 transactions.push({
                     type: 'Initial Request',
-                    request: HTTPTransaction.formatRequest(method, url, requestHeaders, body),
+                    request: HTTPTransaction.formatRequest(method, endpoint, requestHeaders, body),
                     response: response,
                     responseType: 'Challenge Response (401)',
                     responseText: HTTPTransaction.formatResponse(response, responseBody)
@@ -1104,12 +1102,12 @@
                     authOptions.body = body;
                 }
 
-                const authResponse = await fetch(`${Config.SERVER_URL}${endpoint}`, authOptions);
+                const authResponse = await fetch(endpoint, authOptions);
                 const authResponseBody = await authResponse.text();
 
                 transactions.push({
                     type: 'Authenticated Request (New Challenge)',
-                    request: HTTPTransaction.formatRequest(method, `${Config.SERVER_URL}${endpoint}`, authOptions.headers, body),
+                    request: HTTPTransaction.formatRequest(method, endpoint, authOptions.headers, body),
                     response: authResponse,
                     responseType: authResponse.status === 200 ? 'Success Response' : 'Auth Failed Response',
                     responseText: HTTPTransaction.formatResponse(authResponse, authResponseBody)
@@ -1210,7 +1208,7 @@
 
             _initializeConsole() {
                 Logger.clear();
-                Logger.info('Server running on http://localhost:8080');
+                Logger.info('Digest Authentication Client initialized');
                 Logger.info('Users: john/password123, jane/secret456, admin/admin123');
             },
 

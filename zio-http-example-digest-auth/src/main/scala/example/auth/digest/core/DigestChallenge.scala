@@ -1,8 +1,7 @@
 package example.auth.digest.core
+
 import zio._
-
 import zio.http.Header
-
 import example.auth.digest.core.DigestAlgorithm.MD5
 import example.auth.digest.core.DigestAuthError.MissingRequiredField
 import example.auth.digest.core.QualityOfProtection.Auth
