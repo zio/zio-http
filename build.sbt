@@ -146,6 +146,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpHtmx,
       zioHttpExample,
       zioHttpExampleBasicAuth,
+      zioHttpExampleCookieAuth,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -473,3 +474,6 @@ Global / excludeLintKeys ++= Set(
 
 lazy val zioHttpExampleBasicAuth =
   RootProject(file("zio-http-example-basic-auth"))
+
+lazy val zioHttpExampleCookieAuth =
+  RootProject(file("zio-http-example-cookie-auth"))

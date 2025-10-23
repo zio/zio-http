@@ -469,7 +469,6 @@ cd zio-http
 git sparse-checkout set zio-http-example-basic-auth
 ```
 
-
 The example contains the following files:
 
 - **AuthenticationServer.scala** - The server implementation with secure password hashing

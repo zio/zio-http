@@ -679,6 +679,113 @@ Session management requires careful attention to multiple security consideration
 
 Infrastructure security completes the authentication security triad. Implement rate limiting on authentication endpoints to prevent brute force and denial-of-service attacks. For password security, always use secure password hashing algorithms like bcrypt, scrypt, or Argon2 instead of storing raw passwords, which would be a critical vulnerability.
 
+## Source Code
+
+The complete source code for this Cookie-Based Authentication example is available in the ZIO HTTP examples repository.
+
+To clone the example:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/zio/zio-http.git
+cd zio-http
+git sparse-checkout set zio-http-example-cookie-auth
+```
+
+The example contains the following files:
+
+- **SessionService.scala** - Session management with UUID-based identifiers
+- **UserService.scala** - User account management necessary for authentication
+- **AuthMiddleware.scala** - Authentication middleware for protecting routes
+- **AuthenticationServer.scala** - Main server with login, profile, and logout endpoints
+- **AuthenticationClient.scala** - ZIO HTTP client demonstrating API calls
+- **cookie-based-auth-client.html** - Advanced interactive web interface (in resources)
+- **cookie-based-auth-client-simple.html** - Simplified web interface useful for learning the basics (in resources)
+
+## Running the Server
+
+To run the authentication server:
+
+```bash
+cd zio-http/zio-http-example-cookie-auth
+sbt "runMain example.auth.session.cookie.AuthenticationServer"
+```
+
+The server starts on `http://localhost:8080` with these test users:
+
+| Username | Password      | Email                |
+|----------|---------------|----------------------|
+| `john`   | `password123` | john@example.com     |
+| `jane`   | `secret456`   | jane@example.com     |
+| `admin`  | `admin123`    | admin@company.com    |
+
+Available endpoints:
+
+- **GET /** - Serves the web client interface
+- **POST /login** - Authenticates users and creates sessions (accepts form data: `username`, `password`)
+- **GET /profile/me** - Protected endpoint returning user profile (requires cookie)
+- **GET /logout** - Destroys session and clears cookie
+
+## Running the Client
+
+### ZIO HTTP Client
+
+Run the command-line client (ensure server is running):
+
+```bash
+cd zio-http/zio-http-example-cookie-auth
+sbt "runMain example.auth.session.cookie.AuthenticationClient"
+```
+
+Example output:
+
+```
+Making login request...
+Login response: Login successful! Session created for john
+Accessing protected route...
+Protected route response: Welcome john! This is your profile: 
+ Username: john 
+ Email: john@example.com
+Logging out...
+Logout response: Logged out successfully!
+Trying to access protected route after logout...
+Final response: Invalid or expired session!
+Final response status: Unauthorized
+```
+
+### Web-Based Client
+
+Navigate to `http://localhost:8080` to access the interactive web interface.
+
+The advanced client (default) includes:
+
+- User selection cards with pre-configured credentials
+- Real-time session status indicator
+- HTTP transaction viewer showing requests/responses
+- Cookie information display
+
+To use the simple version, modify `AuthenticationServer.scala`:
+
+```scala
+Method.GET / Root ->
+  Handler
+    .fromResource("cookie-based-auth-client-simple.html")
+    .orElse(Handler.internalServerError("Failed to load HTML file"))
+```
+
+## Demo
+
+We have deployed a live demo at: [https://cookie-auth-demo.ziohttp.com/](https://cookie-auth-demo.ziohttp.com/)
+
+
+**Try these scenarios:**
+
+1. **Normal Login Flow** - Log in and observe Set-Cookie header, then access profile to see Cookie header automatically sent
+2. **Session Persistence** - Log in, refresh the page, notice you remain logged in
+3. **Session Expiration** - Log in, wait 5 minutes, try accessing profile (fails with "Invalid or expired session")
+4. **Proper Logout** - Log in, click Logout, observe cookie clearing, then try accessing profile (fails)
+
+Use your browser's developer tools (Network tab) to examine cookie behavior and attributes in detail.
+
 ## Conclusion
 
 In this guide, we've implemented a complete cookie-based authentication system in ZIO HTTP, demonstrating how to build secure session management for web applications. We covered the essential components: creating a session service for managing active sessions, implementing a user service for account management, building a login endpoint that generates secure session cookies, and developing authentication middleware to protect routes.
