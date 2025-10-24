@@ -364,7 +364,7 @@ val logout =
 As we don't require the returned user context for the logout operation, we convert the `HandlerAspect[TokenService & UserService, User]` to `HandlerAspect[TokenService & UserService, Unit]` using `as[Unit](())`. This allows us to focus solely on the token revocation logic without requiring user details from the context.
 
 
-## Writing the Client
+## Client
 
 The following ZIO HTTP client demonstrates how to interact with the authentication server we just built. It performs the login operation to obtain a token, then uses that token to access the protected profile route:
 
