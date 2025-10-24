@@ -658,6 +658,66 @@ We can do the same for all protected routes, such as the admin users endpoint.
 
 To improve usability, we can handle token expiration by implementing a refresh token mechanism on both the server and client.
 
+## Source Code
+
+The complete source code for this JWT Bearer Token Authentication example is available in the ZIO HTTP repository.
+
+To clone the example:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/zio/zio-http.git
+cd zio-http
+git sparse-checkout set zio-http-example-jwt-bearer-token-auth
+```
+
+### Running the Server
+
+To run the authentication server:
+
+```bash
+cd zio-http/zio-http-example-jwt-bearer-token-auth
+sbt "runMain example.auth.bearer.jwt.AuthenticationServer"
+```
+
+The server starts on `http://localhost:8080` with these test users:
+
+| Username | Password      | Email                |
+|----------|---------------|----------------------|
+| `john`   | `password123` | john@example.com     |
+| `jane`   | `secret456`   | jane@example.com     |
+| `admin`  | `admin123`    | admin@company.com    |
+
+### Running the Client
+
+#### ZIO HTTP Client
+
+Run the command-line client (ensure server is running):
+
+```bash
+cd zio-http/zio-http-example-opaque-bearer-token-auth
+sbt "runMain example.auth.bearer.jwt.AuthenticationClient"
+```
+
+#### Web-Based Client
+
+To demonstrate the authentication flow in a web client, we've created a simple HTML page where users can log in, view their profile, and log out.
+
+First, start the `AuthenticationServer`, which provides the authentication API and serves the HTML client (`jwt-bearer-token-auth-client.html`) located in the resource folder:
+
+```scala
+sbt "runMain example.auth.bearer.jwt.AuthenticationServer"
+```
+
+Then open [http://localhost:8080](http://localhost:8080) in your browser to interact with the system using predefined credentials. You can log in, view your profile, and log out, showcasing the full JWT bearer token authentication flow.
+
+The HTML file's source code can be found in the example project's resource folder.
+
+## Demo
+
+We have deployed a live demo the server and the web client at: [https://jwt-bearer-token-auth-demo.ziohttp.com/](https://jwt-bearer-token-auth-demo.ziohttp.com/)
+
+The demo allows you to experience the authentication flow firsthand. You can log in using the predefined users, access their profiles, and log out to see how token revocation works in practice. All HTTP transactions can be inspected at the bottom of the page, so you can see the requests and responses in detail.
+
 ## Conclusion
 
 JSON Web Tokens have revolutionized API authentication by providing a stateless, scalable solution that aligns perfectly with modern architectural patterns. Throughout this guide, we've explored the journey from traditional session-based authentication to the token-based approach that dominates today's distributed systems. Here are some key takeaways:

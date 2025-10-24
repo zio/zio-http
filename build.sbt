@@ -145,6 +145,11 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
       zioHttpExample,
+      zioHttpExampleBasicAuth,
+      zioHttpExampleCookieAuth,
+      zioHttpExampleDigestAuth,
+      zioHttpExampleOpaqueBearerTokenAuth,
+      zioHttpExampleJwtBearerTokenAuth,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -469,3 +474,18 @@ Global / excludeLintKeys ++= Set(
   sbtZioHttpGrpcTests / autoAPIMappings,
   ideSkipProject,
 )
+
+lazy val zioHttpExampleBasicAuth =
+  RootProject(file("zio-http-example-basic-auth"))
+
+lazy val zioHttpExampleCookieAuth =
+  RootProject(file("zio-http-example-cookie-auth"))
+
+lazy val zioHttpExampleDigestAuth =
+  RootProject(file("zio-http-example-digest-auth"))
+
+lazy val zioHttpExampleOpaqueBearerTokenAuth =
+  RootProject(file("zio-http-example-opaque-bearer-token-auth"))
+
+lazy val zioHttpExampleJwtBearerTokenAuth =
+  RootProject(file("zio-http-example-jwt-bearer-token-auth"))
