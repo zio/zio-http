@@ -1,9 +1,8 @@
-package example.auth.bearer.jwt.symmetric.core
+package example.auth.bearer.jwt.core
 
 import zio.Config._
 import zio._
-
-import example.auth.session.cookie.core.UserServiceError._
+import UserServiceError._
 
 case class User(username: String, password: Secret, email: String, roles: Set[String])
 

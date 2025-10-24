@@ -149,6 +149,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpExampleCookieAuth,
       zioHttpExampleDigestAuth,
       zioHttpExampleOpaqueBearerTokenAuth,
+      zioHttpExampleJwtBearerTokenAuth,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -485,3 +486,6 @@ lazy val zioHttpExampleDigestAuth =
 
 lazy val zioHttpExampleOpaqueBearerTokenAuth =
   RootProject(file("zio-http-example-opaque-bearer-token-auth"))
+
+lazy val zioHttpExampleJwtBearerTokenAuth =
+  RootProject(file("zio-http-example-jwt-bearer-token-auth"))

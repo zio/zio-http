@@ -431,7 +431,7 @@ After logging out, the client attempts to access the profile route again, which 
 
 ## Source Code
 
-The complete source code for this Opaque Bearer Token Authentication example is available in the ZIO HTTP examples repository.
+The complete source code for this Opaque Bearer Token Authentication example is available in the ZIO HTTP repository.
 
 To clone the example:
 

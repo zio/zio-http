@@ -1,4 +1,4 @@
-package example.auth.bearer.jwt.symmetric
+package example.auth.bearer.jwt
 
 import zio._
 

@@ -1,4 +1,4 @@
-package example.auth.bearer.jwt.symmetric.core
+package example.auth.bearer.jwt.core
 
 import java.time.Clock
 

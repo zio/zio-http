@@ -1,12 +1,12 @@
-package example.auth.bearer.jwt.symmetric
+package example.auth.bearer.jwt
 
 import zio.Config.Secret
 import zio._
 
 import zio.http._
 
-import example.auth.bearer.jwt.symmetric.core.AuthMiddleware.jwtAuth
-import example.auth.bearer.jwt.symmetric.core._
+import example.auth.bearer.jwt.core.AuthMiddleware.jwtAuth
+import example.auth.bearer.jwt.core._
 import pdi.jwt.JwtAlgorithm
 
 object AuthenticationServer extends ZIOAppDefault {
@@ -15,7 +15,8 @@ object AuthenticationServer extends ZIOAppDefault {
       // Serve the web client interface from resources
       Method.GET / Root ->
         Handler
-          .fromResource("symmetric-jwt-client.html")
+          .fromResource("jwt-bearer-token-auth-client.html")
+//          .fromResource("jwt-bearer-token-auth-client-simple.html")
           .orElse(
             Handler.internalServerError("Failed to load HTML file"),
           ),
