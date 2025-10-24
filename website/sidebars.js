@@ -81,6 +81,17 @@ const sidebars = {
       ],
     },
 
+    // Contextual Data Types
+    {
+      type: "category",
+      label: "Request-scoped Context",
+      link: { type: 'doc', id: "reference/contextual/index" },
+      items: [
+        "reference/contextual/request-store",
+        "reference/contextual/zio-environment",
+      ],
+    },
+
     // WebSocket subsection
     {
       type: "category",
