@@ -109,7 +109,8 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * Formats a value of type `A` into a path. This is useful for embedding paths
    * into HTML that is rendered by the server.
    */
-  def format(value: A): Either[String, Path] = pathCodec.format(value)
+  def format(value: A): Either[String, Path] =
+    pathCodec.format(value).map(_.addLeadingSlash)
 
   /**
    * Determines if this pattern matches the specified method and path. Rather
