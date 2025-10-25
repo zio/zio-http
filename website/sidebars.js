@@ -81,6 +81,17 @@ const sidebars = {
       ],
     },
 
+    // Contextual Data Types
+    {
+      type: "category",
+      label: "Request-scoped Context",
+      link: { type: 'doc', id: "reference/contextual/index" },
+      items: [
+        "reference/contextual/request-store",
+        "reference/contextual/zio-environment",
+      ],
+    },
+
     // WebSocket subsection
     {
       type: "category",
@@ -94,11 +105,11 @@ const sidebars = {
       label: "Configs",
       items: [
         "reference/configs/introduction",
-        "reference/configs/connectionpoolconfig",
-        "reference/configs/dnsresolver-config",
-        "reference/configs/server-config",
-        "reference/configs/gen-openapi-config",
-        "reference/configs/netty-nettyconfig",
+        "reference/configs/connection-pool",
+        "reference/configs/dns-resolver",
+        "reference/configs/server",
+        "reference/configs/openapi",
+        "reference/configs/netty",
       ],
     },
   ],
@@ -122,7 +133,38 @@ const sidebars = {
     "examples/multipart-form-data",
     "examples/server-sent-events-in-endpoints",
   ],
-  guides: ["guides/integration-with-zio-config", "guides/testing-http-apps"],
+  guides: [
+    "guides/integration-with-zio-config",
+    "guides/testing-http-apps",
+    {
+       type: "category",
+       collapsed: false,
+       label: "Authentication",
+       items: [
+          "guides/basic-authentication",
+          "guides/cookie-based-authentication",
+          "guides/digest-authentication",
+          "guides/authentication-with-opaque-bearer-tokens",
+          "guides/authentication-with-jwt-bearer-tokens",
+          "guides/authentication-with-jwt-bearer-and-refresh-tokens",
+          "guides/authentication-with-a-third-party-oauth-provider",
+          "guides/passwordless-authentication-with-webauthn",
+       ],
+    },
+    {
+       type: "category",
+       collapsed: false,
+       label: "SSL/TLS",
+       link: { type: 'doc', id: "guides/securing-communication-with-ssl-tls" },
+       items: [
+          "guides/implementing-tls-with-self-signed-server-certificate",
+          "guides/implementing-tls-with-root-ca-signed-server-certificate",
+          "guides/implementing-tls-with-intermediate-ca-signed-server-certificate",
+          "guides/implementing-mutual-tls",
+       ],
+    }
+
+   ],
 
   sidebar: [
     "index",

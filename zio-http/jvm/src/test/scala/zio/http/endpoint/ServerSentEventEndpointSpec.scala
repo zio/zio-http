@@ -14,13 +14,14 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.HttpCodec
+import zio.http.endpoint.AuthType.None
 import zio.http.netty.NettyConfig
 
 object ServerSentEventEndpointSpec extends ZIOHttpSpec {
 
   object StringPayload {
     val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
-      Endpoint(Method.GET / "sse")
+      Endpoint(Method.GET / "sse" / "stream")
         .outStream[ServerSentEvent[String]](MediaType.text.`event-stream`)
         .inCodec(HttpCodec.header(Header.Accept).const(Header.Accept(MediaType.text.`event-stream`)))
 
@@ -62,7 +63,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
       ZStream.repeatWithSchedule(ServerSentEvent(Payload(Instant.now(), "message")), Schedule.spaced(1.second))
 
     val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
-      Endpoint(Method.GET / "sse")
+      Endpoint(Method.GET / "sse" / "json-stream")
         .outStream[ServerSentEvent[Payload]]
         .inCodec(HttpCodec.header(Header.Accept).const(Header.Accept(MediaType.text.`event-stream`)))
 
@@ -89,6 +90,33 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     }
   }
 
+  object NonStreaming {
+    val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ServerSentEvent[String], AuthType.None] =
+      Endpoint(Method.GET / "sse" / "non-streaming")
+        .out[ServerSentEvent[String]]
+        .outHeader(HttpCodec.contentType.const(Header.ContentType(MediaType.text.`event-stream`)))
+
+    val sseRoute: Route[Any, Nothing] = sseEndpoint.implementHandler(Handler.succeed(ServerSentEvent("Hello World")))
+
+    val routes: Routes[Any, Response] = sseRoute.toRoutes
+
+    val server: URIO[Server, Nothing] =
+      Server.serveRoutes(routes)
+
+    def locator(port: Int): EndpointLocator = EndpointLocator.fromURL(url"http://localhost:$port")
+
+    private val invocation: Invocation[Unit, Unit, ZNothing, ServerSentEvent[String], AuthType.None] =
+      sseEndpoint(())
+
+    def client(port: Int): ZIO[Client, Nothing, ServerSentEvent[String]] = ZIO.scoped {
+      for {
+        client <- ZIO.service[Client]
+        executor = EndpointExecutor(client, locator(port))
+        event <- executor(invocation)
+      } yield event
+    }
+  }
+
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("ServerSentEventSpec")(
       test("Send and receive ServerSentEvent with string payload") {
@@ -106,6 +134,14 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
           port   <- ZIO.serviceWithZIO[Server](_.port)
           events <- client(port)
         } yield assertTrue(events.size == 5 && events.forall(event => Try(event.data.timeStamp).isSuccess))
+      },
+      test("Send and receive ServerSentEvent with non-streaming endpoint") {
+        import NonStreaming._
+        for {
+          _     <- server.fork
+          port  <- ZIO.serviceWithZIO[Server](_.port)
+          event <- client(port)
+        } yield assertTrue(event.data == "Hello World")
       },
     )
       .provideSomeLayer[Client & Server.Config & NettyConfig](

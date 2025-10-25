@@ -16,8 +16,6 @@
 
 package zio.http
 
-import scala.util.Try
-
 import zio._
 
 import zio.stream.ZPipeline
@@ -48,15 +46,55 @@ final case class ServerSentEvent[T](
 ) {
 
   def encode(implicit binaryCodec: BinaryCodec[T]): String = {
-    val sb = new StringBuilder
-    binaryCodec.encode(data).asString(Charsets.Utf8).linesIterator.foreach { line =>
-      sb.append("data: ").append(line).append('\n')
-    }
+    val dataString: String =
+      data match {
+        case s: String => s
+        case _         => binaryCodec.encode(data).asString(Charsets.Utf8)
+      }
+
+    val dataLines: Array[String] = dataString.split("\n")
+    val isComment                = dataString.startsWith(":")
+
+    val initialCapacity: Int =
+      (
+        // 6 for "data: ", the data itself, and the newlines
+        ((if (isComment) 0 else 6) + dataString.length + dataLines.length)
+        // 24 because 7 for "event: ", 1 for the newline, 16 for the event type itself
+          + (if (eventType.isEmpty) 0 else 24)
+          // 21 because 4 for "id: ", 1 for the newline, 16 for the id itself
+          + (if (id.isEmpty) 0 else 21)
+          // 24 because 7 for "retry: ", 1 for the newline, 16 for the retry value
+          + (if (retry.isEmpty) 0 else 24)
+          // for the final newline
+          + 1
+      )
+
+    val sb = new java.lang.StringBuilder(initialCapacity)
     eventType.foreach { et =>
-      sb.append("event: ").append(et.linesIterator.mkString(" ")).append('\n')
+      sb.append("event: ")
+      val iterator = et.linesIterator
+      var hasNext  = iterator.hasNext
+      while (hasNext) {
+        sb.append(iterator.next())
+        hasNext = iterator.hasNext
+        if (hasNext) sb.append(' ')
+      }
+      sb.append('\n')
+    }
+    dataLines.foreach { line =>
+      if (isComment) sb.append(line).append('\n')
+      else sb.append("data: ").append(line).append('\n')
     }
     id.foreach { i =>
-      sb.append("id: ").append(i.linesIterator.mkString(" ")).append('\n')
+      sb.append("id: ")
+      val iterator = i.linesIterator
+      var hasNext  = iterator.hasNext
+      while (hasNext) {
+        sb.append(iterator.next())
+        hasNext = iterator.hasNext
+        if (hasNext) sb.append(' ')
+      }
+      sb.append('\n')
     }
     retry.foreach { r =>
       sb.append("retry: ").append(r.toMillis).append('\n')
@@ -125,13 +163,8 @@ object ServerSentEvent {
               event.copy(eventType = Some(line.replaceFirst("event: ?", "")).filter(_.nonEmpty))
             case Some("event")  => event.copy(eventType = None)
             case Some("retry:") =>
-              event.copy(retry =
-                Some(line.replaceFirst("retry: ?", ""))
-                  .filter(_.nonEmpty)
-                  .flatMap(retry => Try(retry.toInt).toOption)
-                  .filter(_ >= 0)
-                  .map(_.milliseconds),
-              )
+              import scala.collection.compat._
+              event.copy(retry = line.replaceFirst("retry: ?", "").toIntOption.filter(_ >= 0).map(_.milliseconds))
             case Some("retry")  => event.copy(retry = None)
             case Some("id:")    => event.copy(id = Some(line.replaceFirst("id: ?", "")).filter(_.nonEmpty))
             case Some("id")     => event.copy(id = None)
@@ -165,5 +198,5 @@ object ServerSentEvent {
     else contentCodec(JsonCodec.schemaBasedBinaryCodec, schema)
   }
 
-  def heartbeat: ServerSentEvent[String] = new ServerSentEvent("")
+  val heartbeat: ServerSentEvent[String] = new ServerSentEvent(":heartbeat")
 }

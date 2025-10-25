@@ -22,26 +22,25 @@ import zio.Chunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Cookie.SameSite
-import zio.http.internal.CookieEncoding
 import zio.http.{Cookie, Path}
 
 import io.netty.handler.codec.http.{cookie => jCookie}
 
-private[http] object NettyCookieEncoding extends CookieEncoding {
-  override final def encodeRequestCookie(cookie: Cookie.Request, validate: Boolean): String = {
+private[http] object NettyCookieEncoding {
+  final def encodeRequestCookie(cookie: Cookie.Request, validate: Boolean): String = {
     val encoder = if (validate) jCookie.ClientCookieEncoder.STRICT else jCookie.ClientCookieEncoder.LAX
     val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
     encoder.encode(builder)
   }
 
-  override final def decodeRequestCookie(header: String, validate: Boolean): Chunk[Cookie.Request] = {
+  final def decodeRequestCookie(header: String, validate: Boolean): Chunk[Cookie.Request] = {
     val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
     Chunk.fromJavaIterable(decoder.decodeAll(header)).map { cookie =>
       Cookie.Request(cookie.name(), cookie.value())
     }
   }
 
-  override final def encodeResponseCookie(cookie: Cookie.Response, validate: Boolean): String = {
+  final def encodeResponseCookie(cookie: Cookie.Response, validate: Boolean): String = {
     val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
 
     val encoder = if (validate) jCookie.ServerCookieEncoder.STRICT else jCookie.ServerCookieEncoder.LAX
@@ -61,7 +60,7 @@ private[http] object NettyCookieEncoding extends CookieEncoding {
     encoder.encode(builder)
   }
 
-  override final def decodeResponseCookie(header: String, validate: Boolean): Cookie.Response = {
+  final def decodeResponseCookie(header: String, validate: Boolean): Cookie.Response = {
     val decoder = if (validate) jCookie.ClientCookieDecoder.STRICT else jCookie.ClientCookieDecoder.LAX
 
     val cookie = decoder.decode(header).asInstanceOf[jCookie.DefaultCookie]

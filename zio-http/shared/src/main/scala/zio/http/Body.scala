@@ -44,23 +44,6 @@ trait Body { self =>
   def ++(that: Body): Body = if (that.isEmpty) self else that
 
   /**
-   * Decodes the content of the body as a value based on a zio-schema
-   * [[zio.schema.codec.BinaryCodec]].<br>
-   *
-   * Example for json:
-   * {{{
-   * import zio.schema.json.codec._
-   * case class Person(name: String, age: Int)
-   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
-   * val person = Person("John", 42)
-   * val body = ???
-   * val decodedPerson = body.to[Person]
-   * }}}
-   */
-  def to[A](implicit codec: BinaryCodec[A], trace: Trace): Task[A] =
-    asChunk.flatMap(bytes => ZIO.fromEither(codec.decode(bytes)))
-
-  /**
    * Returns an effect that decodes the content of the body as array of bytes.
    * Note that attempting to decode a large stream of bytes into an array could
    * result in an out of memory error.
@@ -73,6 +56,47 @@ trait Body { self =>
    * result in an out of memory error.
    */
   def asChunk(implicit trace: Trace): Task[Chunk[Byte]]
+
+  /**
+   * Decodes the content of the body as JSON using zio-schema.
+   *
+   * Example:
+   * {{{
+   * import zio.schema.{DeriveSchema, Schema}
+   * case class Person(name: String, age: Int)
+   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * val body = ???
+   * val decodedPerson: Task[Person] = body.asJson[Person]
+   * }}}
+   */
+  def asJson[A](implicit schema: Schema[A], trace: Trace): Task[A] = {
+    import zio.schema.codec.JsonCodec
+    asString.flatMap { str =>
+      ZIO
+        .fromEither(JsonCodec.schemaBasedBinaryCodec[A].decode(Chunk.fromArray(str.getBytes(Charsets.Http))))
+        .mapError(err => new RuntimeException(s"Failed to decode JSON: $err"))
+    }
+  }
+
+  /**
+   * Decodes the content of the body as JSON using zio-json.
+   *
+   * Example:
+   * {{{
+   * import zio.json._
+   * case class Person(name: String, age: Int)
+   * implicit val decoder: JsonDecoder[Person] = DeriveJsonDecoder.gen[Person]
+   * val body = ???
+   * val decodedPerson: Task[Person] = body.asJsonZio[Person]
+   * }}}
+   */
+  def asJsonFromCodec[A](implicit decoder: zio.json.JsonDecoder[A], trace: Trace): Task[A] = {
+    asString.flatMap { str =>
+      ZIO
+        .fromEither(decoder.decodeJson(str))
+        .mapError(err => new RuntimeException(s"Failed to decode JSON: $err"))
+    }
+  }
 
   /**
    * Returns an effect that decodes the content of the body as a multipart form.
@@ -158,37 +182,9 @@ trait Body { self =>
   def asURLEncodedForm(implicit trace: Trace): Task[Form] =
     asString.flatMap(string => ZIO.fromEither(Form.fromURLEncoded(string, Charsets.Http)))
 
-  /**
-   * Returns whether or not the bytes of the body have been fully read.
-   */
-  def isComplete: Boolean
-
-  /**
-   * Returns whether or not the content length is known
-   */
-  def knownContentLength: Option[Long]
-
-  /**
-   * Returns whether or not the body is known to be empty. Note that some bodies
-   * may not be known to be empty until an attempt is made to consume them.
-   */
-  def isEmpty: Boolean
-
   def contentType: Option[Body.ContentType]
 
   def contentType(newContentType: Body.ContentType): Body
-
-  /**
-   * Materializes the body of the request into memory
-   */
-  def materialize(implicit trace: Trace): UIO[Body] =
-    asArray.foldCause(Body.ErrorBody(_), Body.ArrayBody(_, self.contentType))
-
-  /**
-   * Returns the media type for this Body
-   */
-  final def mediaType: Option[MediaType] =
-    contentType.map(_.mediaType)
 
   /**
    * Updates the media type attached to this body, returning a new Body with the
@@ -205,6 +201,51 @@ trait Body { self =>
     contentType(
       Body.ContentType(newMediaType, Some(newBoundary)),
     )
+
+  /**
+   * Returns whether or not the bytes of the body have been fully read.
+   */
+  def isComplete: Boolean
+
+  /**
+   * Returns whether or not the body is known to be empty. Note that some bodies
+   * may not be known to be empty until an attempt is made to consume them.
+   */
+  def isEmpty: Boolean
+
+  /**
+   * Returns whether or not the content length is known
+   */
+  def knownContentLength: Option[Long]
+
+  /**
+   * Materializes the body of the request into memory
+   */
+  def materialize(implicit trace: Trace): UIO[Body] =
+    asArray.foldCause(Body.ErrorBody(_), Body.ArrayBody(_, self.contentType))
+
+  /**
+   * Returns the media type for this Body
+   */
+  final def mediaType: Option[MediaType] =
+    contentType.map(_.mediaType)
+
+  /**
+   * Decodes the content of the body as a value based on a zio-schema
+   * [[zio.schema.codec.BinaryCodec]].<br>
+   *
+   * Example for json:
+   * {{{
+   * import zio.schema.json.codec._
+   * case class Person(name: String, age: Int)
+   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * val person = Person("John", 42)
+   * val body = ???
+   * val decodedPerson = body.to[Person]
+   * }}}
+   */
+  def to[A](implicit codec: BinaryCodec[A], trace: Trace): Task[A] =
+    asChunk.flatMap(bytes => ZIO.fromEither(codec.decode(bytes)))
 
   private[zio] final def boundary: Option[Boundary] =
     contentType.flatMap(_.boundary)
@@ -247,6 +288,13 @@ object Body {
     fromChunk(codec.encode(a))
 
   /**
+   * Constructs a [[zio.http.Body]] from an array of bytes.
+   *
+   * WARNING: The array must not be mutated after creating the body.
+   */
+  def fromArray(data: Array[Byte]): Body = ArrayBody(data)
+
+  /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
   def fromCharSequence(
@@ -255,6 +303,34 @@ object Body {
   ): Body =
     if (charset == Charsets.Http && charSequence.isEmpty) EmptyBody
     else StringBody(charSequence.toString, charset)
+
+  /**
+   * Constructs a [[zio.http.Body]] from a stream of text with known length,
+   * using the specified character set, which defaults to the HTTP character
+   * set.
+   */
+  def fromCharSequenceStream(
+    stream: ZStream[Any, Throwable, CharSequence],
+    contentLength: Long,
+    charset: Charset = Charsets.Http,
+  )(implicit
+    trace: Trace,
+  ): Body =
+    fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks, contentLength)
+
+  /**
+   * Constructs a [[zio.http.Body]] from a stream of text with known length that
+   * depends on `R`, using the specified character set, which defaults to the
+   * HTTP character set.
+   */
+  def fromCharSequenceStreamEnv[R](
+    stream: ZStream[R, Throwable, CharSequence],
+    contentLength: Long,
+    charset: Charset = Charsets.Http,
+  )(implicit
+    trace: Trace,
+  ): RIO[R, Body] =
+    fromStreamEnv(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks, contentLength)
 
   /**
    * Constructs a [[zio.http.Body]] from a chunk of bytes.
@@ -270,13 +346,6 @@ object Body {
 
   def fromChunk(data: Chunk[Byte], contentType: Body.ContentType): Body =
     ChunkBody(data, Some(contentType))
-
-  /**
-   * Constructs a [[zio.http.Body]] from an array of bytes.
-   *
-   * WARNING: The array must not be mutated after creating the body.
-   */
-  def fromArray(data: Array[Byte]): Body = ArrayBody(data)
 
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
@@ -329,13 +398,6 @@ object Body {
     StreamBody(stream, knownContentLength = Some(contentLength))
 
   /**
-   * Constructs a [[zio.http.Body]] from a stream of bytes with a known length
-   * that depends on `R`.
-   */
-  def fromStreamEnv[R](stream: ZStream[R, Throwable, Byte], contentLength: Long)(implicit trace: Trace): RIO[R, Body] =
-    ZIO.environmentWith[R][Body](r => fromStream(stream.provideEnvironment(r), contentLength))
-
-  /**
    * Constructs a [[zio.http.Body]] from stream of values based on a zio-schema
    * [[zio.schema.codec.BinaryCodec]].<br>
    *
@@ -352,15 +414,6 @@ object Body {
     StreamBody(stream >>> codec.streamEncoder, knownContentLength = None)
 
   /**
-   * Constructs a [[zio.http.Body]] from stream of values based on a zio-schema
-   * [[zio.schema.codec.BinaryCodec]] and depends on `R`<br>
-   */
-  def fromStreamEnv[A, R](
-    stream: ZStream[R, Throwable, A],
-  )(implicit codec: BinaryCodec[A], trace: Trace): RIO[R, Body] =
-    ZIO.environmentWith[R][Body](r => fromStream(stream.provideEnvironment(r)))
-
-  /**
    * Constructs a [[zio.http.Body]] from a stream of bytes of unknown length,
    * using chunked transfer encoding.
    */
@@ -375,32 +428,20 @@ object Body {
     ZIO.environmentWith[R][Body](r => fromStreamChunked(stream.provideEnvironment(r)))
 
   /**
-   * Constructs a [[zio.http.Body]] from a stream of text with known length,
-   * using the specified character set, which defaults to the HTTP character
-   * set.
+   * Constructs a [[zio.http.Body]] from a stream of bytes with a known length
+   * that depends on `R`.
    */
-  def fromCharSequenceStream(
-    stream: ZStream[Any, Throwable, CharSequence],
-    contentLength: Long,
-    charset: Charset = Charsets.Http,
-  )(implicit
-    trace: Trace,
-  ): Body =
-    fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks, contentLength)
+  def fromStreamEnv[R](stream: ZStream[R, Throwable, Byte], contentLength: Long)(implicit trace: Trace): RIO[R, Body] =
+    ZIO.environmentWith[R][Body](r => fromStream(stream.provideEnvironment(r), contentLength))
 
   /**
-   * Constructs a [[zio.http.Body]] from a stream of text with known length that
-   * depends on `R`, using the specified character set, which defaults to the
-   * HTTP character set.
+   * Constructs a [[zio.http.Body]] from stream of values based on a zio-schema
+   * [[zio.schema.codec.BinaryCodec]] and depends on `R`<br>
    */
-  def fromCharSequenceStreamEnv[R](
-    stream: ZStream[R, Throwable, CharSequence],
-    contentLength: Long,
-    charset: Charset = Charsets.Http,
-  )(implicit
-    trace: Trace,
-  ): RIO[R, Body] =
-    fromStreamEnv(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks, contentLength)
+  def fromStreamEnv[A, R](
+    stream: ZStream[R, Throwable, A],
+  )(implicit codec: BinaryCodec[A], trace: Trace): RIO[R, Body] =
+    ZIO.environmentWith[R][Body](r => fromStream(stream.provideEnvironment(r)))
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of text with unknown length
@@ -428,11 +469,15 @@ object Body {
   ): RIO[R, Body] =
     fromStreamChunkedEnv(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
 
+  def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
+    WebsocketBody(app)
+
   /**
    * Helper to create Body from String
    */
   def fromString(text: String, charset: Charset = Charsets.Http): Body =
-    fromCharSequence(text, charset)
+    if (charset == Charsets.Http && text.isEmpty) EmptyBody
+    else StringBody(text, charset)
 
   /**
    * Constructs a [[zio.http.Body]] from form data using URL encoding and the
@@ -442,8 +487,40 @@ object Body {
     fromString(form.urlEncoded(charset), charset).contentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
-  def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
-    WebsocketBody(app)
+  /**
+   * Constructs a [[zio.http.Body]] from a value as JSON using zio-schema.
+   *
+   * Example:
+   * {{{
+   * import zio.schema.{DeriveSchema, Schema}
+   * case class Person(name: String, age: Int)
+   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * val person = Person("John", 42)
+   * val body = Body.json(person)
+   * }}}
+   */
+  def json[A](a: A)(implicit schema: Schema[A]): Body = {
+    import zio.schema.codec.JsonCodec
+    val bytes = JsonCodec.schemaBasedBinaryCodec[A].encode(a)
+    fromChunk(bytes, MediaType.application.json)
+  }
+
+  /**
+   * Constructs a [[zio.http.Body]] from a value as JSON using zio-json.
+   *
+   * Example:
+   * {{{
+   * import zio.json._
+   * case class Person(name: String, age: Int)
+   * implicit val encoder: JsonEncoder[Person] = DeriveJsonEncoder.gen[Person]
+   * val person = Person("John", 42)
+   * val body = Body.jsonZio(person)
+   * }}}
+   */
+  def jsonCodec[A](a: A)(implicit encoder: zio.json.JsonEncoder[A]): Body = {
+    val jsonString = encoder.encodeJson(a, None).toString
+    fromString(jsonString, Charsets.Http).contentType(MediaType.application.json)
+  }
 
   private[zio] abstract class UnsafeBytes extends Body { self =>
     private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte]
@@ -656,8 +733,6 @@ object Body {
     override val contentType: Option[Body.ContentType] = None,
   ) extends UnsafeBytes {
 
-    var bytes: Array[Byte] = null
-
     override def asArray(implicit trace: Trace): Task[Array[Byte]] =
       ZIO.succeed(data.getBytes(charset))
 
@@ -677,19 +752,13 @@ object Body {
     /**
      * Returns the length of the body in bytes, if known.
      */
-    override def knownContentLength: Option[Long] = {
-      if (bytes == null) bytes = data.getBytes(charset)
-      Some(bytes.length.toLong)
-    }
+    override def knownContentLength: Option[Long] =
+      Some(data.getBytes(charset).length.toLong)
 
     override def toString: String = s"StringBody($data)"
 
-    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = {
-      if (bytes == null) {
-        bytes = data.getBytes(charset)
-      }
-      bytes
-    }
+    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
+      data.getBytes(charset)
 
   }
 

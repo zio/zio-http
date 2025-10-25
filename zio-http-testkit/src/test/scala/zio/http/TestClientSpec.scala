@@ -6,7 +6,6 @@ import zio.test._
 import zio.http.ChannelEvent.Read
 
 object TestClientSpec extends ZIOHttpSpec {
-  def extractStatus(response: Response): Status = response.status
 
   def spec =
     suite("TestClient")(
@@ -23,10 +22,10 @@ object TestClientSpec extends ZIOHttpSpec {
             goodResponse2 <- client(request)
             badResponse2  <- client(request2)
           } yield assertTrue(
-            extractStatus(goodResponse) == Status.Ok,
-            extractStatus(badResponse) == Status.NotFound,
-            extractStatus(goodResponse2) == Status.Ok,
-            extractStatus(badResponse2) == Status.Ok,
+            goodResponse.status == Status.Ok,
+            badResponse.status == Status.NotFound,
+            goodResponse2.status == Status.Ok,
+            badResponse2.status == Status.Ok,
           )
         },
       ),
@@ -36,14 +35,14 @@ object TestClientSpec extends ZIOHttpSpec {
             client   <- ZIO.service[Client]
             _        <- TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
             response <- client(Request.get(URL.root))
-          } yield assertTrue(extractStatus(response) == Status.Ok),
+          } yield assertTrue(response.status == Status.Ok),
         ),
         test("partial")(
           for {
             client   <- ZIO.service[Client]
             _        <- TestClient.addRoute { Method.GET / trailing -> handler(Response.ok) }
             response <- client(Request.get(URL.root))
-          } yield assertTrue(extractStatus(response) == Status.Ok),
+          } yield assertTrue(response.status == Status.Ok),
         ),
         test("addHandler advanced")(
           for {
@@ -52,7 +51,7 @@ object TestClientSpec extends ZIOHttpSpec {
             _ <- TestClient.addRoute { Method.ANY / trailing -> handler(requestCount.update(_ + 1).as(Response.ok)) }
             response   <- client(Request.get(URL.root))
             finalCount <- requestCount.get
-          } yield assertTrue(extractStatus(response) == Status.Ok) && assertTrue(finalCount == 1),
+          } yield assertTrue(response.status == Status.Ok, finalCount == 1),
         ),
       ),
       test("addRoutes") {
@@ -70,12 +69,35 @@ object TestClientSpec extends ZIOHttpSpec {
           fallbackBody     <- fallbackResponse.body.asString
         } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
       },
+      test("setFallbackHandler") {
+        for {
+          client <- ZIO.service[Client]
+          ref    <- Ref.Synchronized.make[List[Request]](Nil)
+          _      <- TestClient.setFallbackHandler(req => ref.update(_ :+ req).as(Response.notFound))
+          _      <- TestClient.addRoute(
+            Method.GET / "test" -> handler { Response.text("ok") },
+          )
+
+          successResponse1 <- client(Request.get(URL.root / "test")).flatMap(_.body.asString)
+          failResponse1    <- client(Request.get(URL.root / "foo"))
+          successResponse2 <- client(Request.get(URL.root / "test")).flatMap(_.body.asString)
+          failResponse2    <- client(Request.post(URL.root / "xyzzy", Body.empty))
+          failedRequests   <- ref.get.map(_.map(req => (req.method, req.url)))
+        } yield assertTrue(
+          successResponse1 == "ok",
+          successResponse2 == "ok",
+          failResponse1 == Response.notFound,
+          failResponse2 == Response.notFound,
+          failedRequests == List((Method.GET, URL.root / "foo"), (Method.POST, URL.root / "xyzzy")),
+        )
+
+      },
       suite("sad paths")(
         test("error when submitting a request to a blank TestServer")(
           for {
             client   <- ZIO.service[Client]
             response <- client(Request.get(URL.root))
-          } yield assertTrue(extractStatus(response) == Status.NotFound),
+          } yield assertTrue(response.status == Status.NotFound),
         ),
       ),
       suite("socket ops")(
@@ -104,7 +126,7 @@ object TestClientSpec extends ZIOHttpSpec {
           for {
             _        <- TestClient.installSocketApp(socketServer)
             response <- ZIO.serviceWithZIO[Client](_.socket(socketClient))
-          } yield assertTrue(extractStatus(response) == Status.SwitchingProtocols)
+          } yield assertTrue(response.status == Status.SwitchingProtocols)
         },
       ),
     ).provide(TestClient.layer, Scope.default)

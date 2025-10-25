@@ -1,3 +1,5 @@
+//> using dep "dev.zio::zio-http:3.4.0"
+
 package example
 
 import zio._
@@ -44,7 +46,7 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
   private val nettyConfigLayer         = ZLayer.succeed(nettyConfig)
   private val serverRuntimeConfigLayer = configLayer.flatMap(env => ZLayer.succeed(ServerRuntimeConfig(env.get)))
 
-  val run: UIO[ExitCode] =
-    Server.serve(routes).provide(serverRuntimeConfigLayer, nettyConfigLayer, Server.customized).exitCode
+  override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
+    Server.serve(routes).provide(serverRuntimeConfigLayer, nettyConfigLayer, Server.customized)
 
 }

@@ -5,7 +5,10 @@ import java.nio.file._
 import zio._
 import zio.test._
 
+import zio.http.Method.GET
 import zio.http._
+import zio.http.codec.HttpCodec.Metadata
+import zio.http.codec.HttpCodecType.Query
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
@@ -70,6 +73,40 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
+                  ),
+                ),
+              ),
+            ),
+            Nil,
+            Nil,
+          )
+          assertTrue(scala.files.head == expected)
+        },
+        test("empty request and response with auth") {
+          val endpoint =
+            Endpoint(Method.GET / "api" / "v1" / "users").auth(AuthType.Bearer)
+          val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
+          val scala    = EndpointGen.fromOpenAPI(openAPI)
+          val expected = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                    authTypeCode = Some(Code.AuthTypeCode("Bearer")),
                   ),
                 ),
               ),
@@ -106,6 +143,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -143,6 +181,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       inCode = Code.InCode("Unit"),
                       outCodes = Nil,
                       errorsCode = Nil,
+                      authTypeCode = None,
                     ),
                 ),
               ),
@@ -180,6 +219,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       inCode = Code.InCode("Unit"),
                       outCodes = Nil,
                       errorsCode = Nil,
+                      authTypeCode = None,
                     ),
                 ),
               ),
@@ -217,6 +257,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       inCode = Code.InCode("Unit"),
                       outCodes = Nil,
                       errorsCode = Nil,
+                      authTypeCode = None,
                     ),
                 ),
               ),
@@ -254,6 +295,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       inCode = Code.InCode("Unit"),
                       outCodes = Nil,
                       errorsCode = Nil,
+                      authTypeCode = None,
                     ),
                 ),
               ),
@@ -285,6 +327,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -318,6 +361,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -356,6 +400,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -401,6 +446,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -432,6 +478,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("User"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -468,6 +515,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("User"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -510,6 +558,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("User"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -554,6 +603,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("User"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -585,6 +635,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = List(Code.OutCode.json("User", Status.Ok)),
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -616,6 +667,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Chunk[User]"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -647,6 +699,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = List(Code.OutCode.json("Chunk[User]", Status.Ok)),
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -679,6 +732,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -709,6 +763,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
               ),
@@ -927,6 +982,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("POST.RequestBody"),
                     outCodes = Nil,
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
                 objects = List(
@@ -985,6 +1041,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Unit"),
                     outCodes = List(Code.OutCode.json("GET.ResponseBody", Status.Ok)),
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
                 objects = List(
@@ -1043,6 +1100,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("POST.RequestBody"),
                     outCodes = List(Code.OutCode.json("POST.ResponseBody", Status.Ok)),
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
                 objects = List(
@@ -1083,6 +1141,19 @@ object EndpointGenSpec extends ZIOSpecDefault {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "data").out[Chunk[Data]](status = Status.Ok)
           assertTrue(OpenAPIGen.fromEndpoints("", "", Compact, endpoint).components.get.schemas.size == 4)
         },
+        test("generates openapi without empty request body when there are optional query params") {
+          val name: HttpCodec[Query, String]     =
+            HttpCodec.query[String]("name").annotate(Metadata.Documented(Doc.p("the name"))).examples("name" -> "bla")
+          val age: HttpCodec[Query, Option[Int]] =
+            HttpCodec.query[Int]("age").annotate(Metadata.Documented(Doc.p("the age"))).examples("age" -> 80).optional
+          val endpoint                           =
+            Endpoint(GET / "example").query(name ++ age).out[Unit](Status.Ok).outError[String](Status.BadRequest) ?? Doc
+              .p("Example GET endpoint")
+          val result                             = OpenAPIGen.fromEndpoints("", "", Compact, endpoint)
+          val path                               = OpenAPI.Path.fromString("/example").get
+          val pathItemGetMethod                  = result.paths(path).get.get
+          assertTrue(pathItemGetMethod.requestBody.isEmpty)
+        },
         test("generates case class with seq field for request") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[UserNameArray].out[User]
           val openAPI  = OpenAPIGen.fromEndpoints("", "", endpoint)
@@ -1107,6 +1178,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("UserNameArray"),
                     outCodes = List(Code.OutCode.json("User", Status.Ok)),
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
                 objects = Nil,
@@ -1182,6 +1254,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     inCode = Code.InCode("Bar"),
                     outCodes = List(Code.OutCode.json("Unit", Status.Ok)),
                     errorsCode = Nil,
+                    authTypeCode = None,
                   ),
                 ),
                 objects = Nil,

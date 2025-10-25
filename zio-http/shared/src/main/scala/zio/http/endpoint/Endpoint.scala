@@ -27,8 +27,10 @@ import zio.schema.Schema
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
+import zio.http.codec.HttpCodecError.EncodingResponseError
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
+import zio.http.internal.StringBuilderPool
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -55,7 +57,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   documentation: Doc,
   authType: Auth,
-) { self =>
+) extends EndpointPlatformSpecific[PathInput, Input, Err, Output, Auth] {
+  self =>
 
   val authCombiner: Combiner[Input, authType.ClientRequirement]                   =
     implicitly[Combiner[Input, authType.ClientRequirement]]
@@ -270,6 +273,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): Route[Env, Nothing] =
     implementHandler(Handler.fromFunctionZIO(f))
 
+  def implementScoped[Env, Env1](f: Input => ZIO[Env, Err, Output])(implicit
+    ev: Env <:< Env1 with Scope,
+    trace: Trace,
+  ): Route[Env1, Nothing] =
+    implementHandler[Env1](
+      Handler.scoped[Env1](Handler.fromFunctionZIO(f.asInstanceOf[Input => ZIO[Env1 with Scope, Err, Output]])),
+    )
+
   def implementEither(f: Input => Either[Err, Output])(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
@@ -289,6 +300,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     trace: Trace,
   ): Route[Env, Nothing] =
     implementHandler(Handler.fromZIO(output))
+
+  def implementAsZIOScoped[Env, Env1](output: ZIO[Env, Err, Output])(implicit
+    ev: Env <:< Env1 with Scope,
+    trace: Trace,
+  ): Route[Env1, Nothing] =
+    implementHandler[Env1](
+      Handler.scoped[Env1](Handler.fromZIO(output.asInstanceOf[ZIO[Env1 with Scope, Err, Output]])),
+    )
 
   def implementAsError(err: Err)(implicit
     trace: Trace,
@@ -334,7 +353,31 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       case _             => Some(Handler.succeed(Response.unauthorized))
     }
 
-    def handlers(config: CodecConfig): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] =
+    def handlers(
+      config: CodecConfig,
+    ): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] = {
+      def handleEncodingBodyErrorHandling(request: Request) =
+        codecError.encodeResponse(
+          EncodingResponseError,
+          (
+            request.headers
+              .getAll(Header.Accept)
+              .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
+          ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn),
+          config,
+        )
+
+      def encodeWithFallback(encode: => Response, fallback: => Response) = {
+        try {
+          val result = encode
+          Exit.succeed(result)
+        } catch {
+          case t: Throwable =>
+            ZIO.logErrorCause("Encoding failed", Cause.fail(t)) *>
+              Exit.succeed(fallback)
+        }
+      }
+
       self.alternatives.map { case (endpoint, condition) =>
         Handler.fromFunctionZIO { (request: zio.http.Request) =>
           val outputMediaTypes =
@@ -347,12 +390,21 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
             original(value)
               .asInstanceOf[ZIO[Env, Err, Output]]
               .foldZIO(
-                success = output => Exit.succeed(endpoint.output.encodeResponse(output, outputMediaTypes, config)),
-                failure = error => Exit.succeed(endpoint.error.encodeResponse(error, outputMediaTypes, config)),
+                success = output =>
+                  encodeWithFallback(
+                    endpoint.output.encodeResponse(output, outputMediaTypes, config),
+                    handleEncodingBodyErrorHandling(request),
+                  ),
+                failure = error =>
+                  encodeWithFallback(
+                    endpoint.error.encodeResponse(error, outputMediaTypes, config),
+                    handleEncodingBodyErrorHandling(request),
+                  ),
               )
           }
         } -> condition
       }
+    }
 
     // TODO: What to do if there are no endpoints??
     def handlers2(
@@ -407,6 +459,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
     Route.handledIgnoreParams(self.route)(handler)
   }
+
+  def implementHandlerScoped[Env, Env1](original: Handler[Env, Err, Input, Output])(implicit
+    ev: Env <:< Env1 with Scope,
+    trace: Trace,
+  ): Route[Env1, Nothing] =
+    implementHandler[Env1](Handler.scoped[Env1](original.asInstanceOf[Handler[Env1 with Scope, Err, Input, Output]]))
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
@@ -929,6 +987,37 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     g: Err1 => Err,
   ): Endpoint[PathInput, Input, Err1, Output, Auth] =
     copy(error = self.error.transform(f)(g))
+
+  /**
+   * Generates a URL for this endpoint given the base path and the path input.
+   */
+  def url(basePath: String, values: PathInput): Either[Exception, URL] =
+    for {
+      path <- route.format(values).left.map(err => new RuntimeException(err))
+      url  <- URL.decode(basePath + path.encode)
+    } yield url
+
+  /**
+   * Generates a URL for this endpoint given the path input.
+   */
+  def urlRelative(values: PathInput): Either[Exception, URL] =
+    for {
+      path <- route.format(values).left.map(err => new RuntimeException(err))
+      url  <- URL.decode(path.encode)
+    } yield url
+
+  def urlFromRequest(values: PathInput)(request: Request): Either[Exception, URL] = {
+    val basePath = StringBuilderPool.withStringBuilder { sb =>
+      if (request.url.scheme.isEmpty) sb.append("http")
+      else sb.append(request.url.scheme.get.encode)
+      sb.append("://")
+      sb.append(request.url.host.getOrElse("localhost"))
+      if (request.url.port.nonEmpty) sb.append(s":${request.url.port.get}")
+      sb.toString()
+    }
+    url(basePath, values)
+  }
+
 }
 
 object Endpoint {

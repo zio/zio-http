@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -63,7 +63,7 @@ jobs:
 
       - name: Setup Java (temurin@17)
         if: matrix.java == 'temurin@17'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -71,7 +71,7 @@ jobs:
 
       - name: Setup Java (temurin@21)
         if: matrix.java == 'temurin@21'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -109,7 +109,7 @@ jobs:
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
 
       - name: Compress target directories
-        run: tar cf targets.tar sbt-zio-http-grpc/target zio-http-cli/target target zio-http/jvm/target zio-http-docs/target sbt-zio-http-grpc-tests/target zio-http-gen/target zio-http-benchmarks/target zio-http-tools/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
+        run: tar cf targets.tar zio-http-datastar-sdk/target sbt-zio-http-grpc/target zio-http-cli/target target zio-http/jvm/target zio-http-docs/target sbt-zio-http-grpc-tests/target zio-http-gen/target zio-http-benchmarks/target zio-http-tools/target zio-http-example/target zio-http-testkit/target zio-http/js/target zio-http-htmx/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v4
@@ -129,7 +129,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -155,7 +155,7 @@ jobs:
 
       - name: Setup Java (temurin@17)
         if: matrix.java == 'temurin@17'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -163,7 +163,7 @@ jobs:
 
       - name: Setup Java (temurin@21)
         if: matrix.java == 'temurin@21'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -173,7 +173,7 @@ jobs:
         uses: sbt/setup-sbt@v1
 
       - name: Download target directories (2.12.20)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: target-${{ matrix.os }}-2.12.20-${{ matrix.java }}
 
@@ -183,7 +183,7 @@ jobs:
           rm targets.tar
 
       - name: Download target directories (2.13.16)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: target-${{ matrix.os }}-2.13.16-${{ matrix.java }}
 
@@ -193,7 +193,7 @@ jobs:
           rm targets.tar
 
       - name: Download target directories (3.3.6)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: target-${{ matrix.os }}-3.3.6-${{ matrix.java }}
 
@@ -214,7 +214,7 @@ jobs:
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
+          CI_RELEASE_MODE: 1
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
         run: sbt ci-release
@@ -224,7 +224,7 @@ jobs:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           PUBLISH_SHADED: true
-          CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
+          CI_RELEASE_MODE: 1
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
         run: sbt ci-release
@@ -249,7 +249,7 @@ jobs:
 
       - name: Setup Java (temurin@21)
         if: matrix.java == 'temurin@21'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -313,7 +313,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -351,7 +351,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -389,7 +389,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -405,6 +405,44 @@ jobs:
         with:
           name: Jmh_Main_CookieDecodeBenchmark
           path: Main_CookieDecodeBenchmark.txt
+
+  Jmh_DateEncodingBenchmark:
+    name: Jmh DateEncodingBenchmark
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.16]
+        java: [temurin@17]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: coursier/setup-action@v1
+        with:
+          apps: sbt
+
+      - uses: actions/checkout@v4
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")' project/plugins.sbt
+          cat > Main_DateEncodingBenchmark.txt
+          sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 DateEncodingBenchmark" | grep -e "thrpt" -e "avgt" >> ../Main_DateEncodingBenchmark.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jmh_Main_DateEncodingBenchmark
+          path: Main_DateEncodingBenchmark.txt
 
   Jmh_EndpointBenchmark:
     name: Jmh EndpointBenchmark
@@ -427,7 +465,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -465,7 +503,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -503,7 +541,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -541,7 +579,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -579,7 +617,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -617,7 +655,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -655,7 +693,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -693,7 +731,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -731,7 +769,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -769,7 +807,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -807,7 +845,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -845,7 +883,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -883,7 +921,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -921,7 +959,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -940,7 +978,7 @@ jobs:
 
   Jmh_cache:
     name: Cache Jmh benchmarks
-    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_EndpointBenchmark, Jmh_FormToQueryBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_MethodLookupBenchmark, Jmh_ProbeContentTypeBenchmark, Jmh_QueryEncodingBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
+    needs: [Jmh_CachedDateHeaderBenchmark, Jmh_ClientBenchmark, Jmh_CookieDecodeBenchmark, Jmh_DateEncodingBenchmark, Jmh_EndpointBenchmark, Jmh_FormToQueryBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_MethodLookupBenchmark, Jmh_ProbeContentTypeBenchmark, Jmh_QueryEncodingBenchmark, Jmh_RoundtripBenchmark, Jmh_RoutesBenchmark, Jmh_SchemeDecodeBenchmark, Jmh_ServerInboundHandlerBenchmark, Jmh_UtilBenchmark]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     strategy:
       matrix:
@@ -969,6 +1007,13 @@ jobs:
 
       - name: Format_Main_CookieDecodeBenchmark
         run: cat Main_CookieDecodeBenchmark.txt >> Main_benchmarks.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Jmh_Main_DateEncodingBenchmark
+
+      - name: Format_Main_DateEncodingBenchmark
+        run: cat Main_DateEncodingBenchmark.txt >> Main_benchmarks.txt
 
       - uses: actions/download-artifact@v4
         with:
@@ -1137,7 +1182,7 @@ jobs:
           echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
-        uses: peter-evans/commit-comment@v2
+        uses: peter-evans/commit-comment@v4
         with:
           sha: ${{github.event.pull_request.head.sha}}
           body: |
@@ -1216,7 +1261,7 @@ jobs:
           echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
-        uses: peter-evans/commit-comment@v2
+        uses: peter-evans/commit-comment@v4
         with:
           sha: ${{github.event.pull_request.head.sha}}
           body: |

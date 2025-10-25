@@ -364,6 +364,58 @@ for {
 } yield ()
 ```
 
+### Curl Logger
+
+The `ZClientAspect.curlLogger` aspect converts HTTP requests into equivalent curl commands and logs them. This is particularly useful for debugging, documentation, and testing, as it allows you to see the exact curl command that corresponds to each HTTP request made by your client.
+
+The aspect takes two optional parameters:
+- `verbose: Boolean` - Whether to include the `--verbose` flag in the curl command (default: `true`)
+- `logEffect: String => UIO[Unit]` - A custom logging function (default: `ZIO.log`)
+
+Here's a basic example:
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/CurlLoggerExample.scala")
+```
+
+This will log a curl command similar to:
+
+```bash
+curl \
+  --verbose \
+  --request POST \
+  --header 'user-agent:Zio-Http-Client/2.1.21 (Scala 2.13.16)' \
+  --header 'content-type:application/json' \
+  --header 'authorization:Bearer <YOUR_GOREST_ACCESS_TOKEN>' \
+  --data '{
+  "name": "John Doe",
+  "gender": "male",
+  "email": "john.doe.unique123@example.com",
+  "status": "active"
+}' \
+  'https://gorest.co.in/public/v2/users'
+```
+
+You can customize the logging behavior by providing your own logging function. For example, to write curl commands to a file.
+
+You can also use the `CurlLogger.formatCurlCommand` helper directly without applying it as an aspect to the client:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
+val program =
+  for {
+    request     <- ZIO.succeed(Request.get("https://example.com/"))
+    curlCommand <- ZClientAspect.CurlLogger.formatCurlCommand(request, verbose = true)
+    _           <- Console.printLine(curlCommand)
+  } yield ()
+```
+
+The curl logger is useful when you want to generate curl commands for documentation or testing purposes without actually executing the requests.
+
 ## Configuring ZIO HTTP Client
 
 The ZIO HTTP Client provides a flexible configuration mechanism through the `ZClient.Config` class. This class allows us to customize various aspects of the HTTP client, including SSL settings, proxy configuration, connection pool size, timeouts, and more. The `ZClient.Config.default` provides a default configuration that can be customized using `copy` method or by using the utility methods provided by the `ZClient.Config` class.

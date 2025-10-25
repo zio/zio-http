@@ -237,6 +237,33 @@ object Response {
     )
   }
 
+  def fromServerSentEvents[T: Schema](
+    data: Iterable[ServerSentEvent[T]],
+  )(implicit trace: Trace): Response = {
+    val codec = ServerSentEvent.defaultBinaryCodec[T]
+    val sb    = new StringBuilder
+
+    data.foreach { event =>
+      sb.append(codec.encode(event).asString)
+      sb.append("\n")
+    }
+
+    Response(
+      Status.Ok,
+      contentTypeEventStream,
+      Body.fromCharSequence(sb.toString()),
+    )
+  }
+
+  def fromServerSentEvent[T: Schema](data: ServerSentEvent[T])(implicit trace: Trace): Response = {
+    val codec = ServerSentEvent.defaultBinaryCodec[T]
+    Response(
+      Status.Ok,
+      contentTypeEventStream,
+      Body.fromCharSequence(codec.encode(data).asString),
+    )
+  }
+
   /**
    * Creates a new response for the provided socket app
    */
@@ -330,6 +357,10 @@ object Response {
       case ErrorResponseConfig.ErrorFormat.Json => jsonMessage.contentType(config.errorFormat.mediaType)
     }
   }
+
+  def badGateway: Response = error(Status.BadGateway)
+
+  def badGateway(message: String): Response = error(Status.BadGateway, message)
 
   def gatewayTimeout: Response = error(Status.GatewayTimeout)
 

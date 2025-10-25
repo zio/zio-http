@@ -1,0 +1,46 @@
+name: PR Automation
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+  schedule:
+    # Run daily at 00:00 UTC to check for stale PRs
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  check-issue-reference:
+    name: Check for Issue Reference
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Check for issue reference in PR body or title
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          chmod +x .github/scripts/check-issue-reference.sh
+          .github/scripts/check-issue-reference.sh ${{ github.event.pull_request.number }}
+
+  close-stale-prs:
+    name: Close PRs Without Successful Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Close PRs without successful build after 3 days
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          chmod +x .github/scripts/close-stale-prs.sh
+          .github/scripts/close-stale-prs.sh
+
