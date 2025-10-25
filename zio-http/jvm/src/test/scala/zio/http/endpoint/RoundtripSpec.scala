@@ -39,6 +39,7 @@ import zio.http.netty.NettyConfig
 object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
     ZLayer.make[Server & Client & Scope](
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get)),
@@ -731,6 +732,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       }
 
     }.provide(
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)) >>>

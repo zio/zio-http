@@ -198,6 +198,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
       DynamicServer.live,
       ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
       testNettyServerConfig,
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
     ) @@ withLiveClock
   } + test("idle timeout is refreshed on each request") {
@@ -215,6 +216,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
     DynamicServer.live,
     ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
     testNettyServerConfig,
+    ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
     Server.customized,
     Client.live,
     ZLayer.succeed(Client.Config.default.idleTimeout(500.millis)),

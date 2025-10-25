@@ -42,10 +42,11 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
   private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)
 
-  private val configLayer      = ZLayer.succeed(config)
-  private val nettyConfigLayer = ZLayer.succeed(nettyConfig)
+  private val configLayer              = ZLayer.succeed(config)
+  private val nettyConfigLayer         = ZLayer.succeed(nettyConfig)
+  private val serverRuntimeConfigLayer = configLayer.flatMap(env => ZLayer.succeed(ServerRuntimeConfig(env.get)))
 
   override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
-    Server.serve(routes).provide(configLayer, nettyConfigLayer, Server.customized)
+    Server.serve(routes).provide(serverRuntimeConfigLayer, nettyConfigLayer, Server.customized)
 
 }
