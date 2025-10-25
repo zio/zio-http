@@ -49,34 +49,34 @@ object DocSpec extends ZIOHttpSpec {
           )
       ).toCommonMark
       val expected   = """# Awesome Test!
-                       |
-                       |This is a test
-                       |
-                       |## Subsection
-                       |
-                       |This is a subsection
-                       |
-                       |### Subsubsection
-                       |
-                       |This is a subsubsection
-                       |
-                       |[https://www.google.com](https://www.google.com)
-                       |
-                       |<span style="color: red">This is an error</span>
-                       |
-                       |`ZIO.succeed(1)`
-                       |
-                       |**This is strong**
-                       |
-                       |*This is italic*
-                       |
-                       |This is a description list item:
-                       |This is the description
-                       |
-                       |1. This is an enumeration item
-                       |2. This is another enumeration item
-                       |  -   This is a nested enumeration item
-                       |  -   This is another nested enumeration item""".stripMargin
+                         |
+                         |This is a test
+                         |
+                         |## Subsection
+                         |
+                         |This is a subsection
+                         |
+                         |### Subsubsection
+                         |
+                         |This is a subsubsection
+                         |
+                         |[https://www.google.com](https://www.google.com)
+                         |
+                         |<span style="color: red">This is an error</span>
+                         |
+                         |`ZIO.succeed(1)`
+                         |
+                         |**This is strong**
+                         |
+                         |*This is italic*
+                         |
+                         |This is a description list item:
+                         |This is the description
+                         |
+                         |1. This is an enumeration item
+                         |2. This is another enumeration item
+                         |  -   This is a nested enumeration item
+                         |  -   This is another nested enumeration item""".stripMargin
       assertTrue(complexDoc == expected)
     },
     test("html rendering") {
@@ -105,48 +105,48 @@ object DocSpec extends ZIOHttpSpec {
           )
       ).toHtmlSnippet
       val expected   = """|<h1>Awesome Test!</h1>
-                        |<p>This is a test</p>
-                        |<h2>Subsection</h2>
-                        |<p>This is a subsection</p>
-                        |<h3>Subsubsection</h3>
-                        |<p>This is a subsubsection</p>
-                        |<p>
-                        |  <a href="https://www.google.com">https://www.google.com</a>
-                        |</p>
-                        |<p>
-                        |  <span style="color: red">This is an error</span>
-                        |</p>
-                        |<p>
-                        |  <code>ZIO.succeed(1)</code>
-                        |</p>
-                        |<p>
-                        |  <b>This is strong</b>
-                        |</p>
-                        |<p>
-                        |  <i>This is italic</i>
-                        |</p>
-                        |<dl>
-                        |  <dt>This is a description list item</dt>
-                        |  <dd>
-                        |    <p>This is the description</p>
-                        |  </dd>
-                        |</dl>
-                        |<ol>
-                        |  <li>
-                        |    <p>This is an enumeration item</p>
-                        |  </li>
-                        |  <li>
-                        |    <p>This is another enumeration item</p>
-                        |    <ul>
-                        |      <li>
-                        |        <p>This is a nested enumeration item</p>
-                        |      </li>
-                        |      <li>
-                        |        <p>This is another nested enumeration item</p>
-                        |      </li>
-                        |    </ul>
-                        |  </li>
-                        |</ol>""".stripMargin
+                          |<p>This is a test</p>
+                          |<h2>Subsection</h2>
+                          |<p>This is a subsection</p>
+                          |<h3>Subsubsection</h3>
+                          |<p>This is a subsubsection</p>
+                          |<p>
+                          |  <a href="https://www.google.com">https://www.google.com</a>
+                          |</p>
+                          |<p>
+                          |  <span style="color: red">This is an error</span>
+                          |</p>
+                          |<p>
+                          |  <code>ZIO.succeed(1)</code>
+                          |</p>
+                          |<p>
+                          |  <b>This is strong</b>
+                          |</p>
+                          |<p>
+                          |  <i>This is italic</i>
+                          |</p>
+                          |<dl>
+                          |  <dt>This is a description list item</dt>
+                          |  <dd>
+                          |    <p>This is the description</p>
+                          |  </dd>
+                          |</dl>
+                          |<ol>
+                          |  <li>
+                          |    <p>This is an enumeration item</p>
+                          |  </li>
+                          |  <li>
+                          |    <p>This is another enumeration item</p>
+                          |    <ul>
+                          |      <li>
+                          |        <p>This is a nested enumeration item</p>
+                          |      </li>
+                          |      <li>
+                          |        <p>This is another nested enumeration item</p>
+                          |      </li>
+                          |    </ul>
+                          |  </li>
+                          |</ol>""".stripMargin
       assertTrue(complexDoc == expected)
     },
     test("plain text rendering") {
@@ -175,36 +175,36 @@ object DocSpec extends ZIOHttpSpec {
           )
       ).toPlaintext(color = false)
       val expected   = """
-                       |AWESOME TEST!
-                       |
-                       |  This is a test
-                       |
-                       |SUBSECTION
-                       |
-                       |  This is a subsection
-                       |
-                       |SUBSUBSECTION
-                       |
-                       |  This is a subsubsection
-                       |
-                       |  https://www.google.com
-                       |
-                       |  This is an error
-                       |
-                       |  ZIO.succeed(1)
-                       |
-                       |  This is strong
-                       |
-                       |  This is italic
-                       |
-                       |  This is a description list item
-                       |    This is the description
-                       |
-                       |  1. This is an enumeration item
-                       |  2. This is another enumeration item
-                       |    - This is a nested enumeration item
-                       |    - This is another nested enumeration item
-                       |""".stripMargin
+                         |AWESOME TEST!
+                         |
+                         |  This is a test
+                         |
+                         |SUBSECTION
+                         |
+                         |  This is a subsection
+                         |
+                         |SUBSUBSECTION
+                         |
+                         |  This is a subsubsection
+                         |
+                         |  https://www.google.com
+                         |
+                         |  This is an error
+                         |
+                         |  ZIO.succeed(1)
+                         |
+                         |  This is strong
+                         |
+                         |  This is italic
+                         |
+                         |  This is a description list item
+                         |    This is the description
+                         |
+                         |  1. This is an enumeration item
+                         |  2. This is another enumeration item
+                         |    - This is a nested enumeration item
+                         |    - This is another nested enumeration item
+                         |""".stripMargin
       assertTrue(complexDoc == expected)
     },
     test("md interpolator") {

@@ -39,10 +39,10 @@ object BuildHelper extends ScalaSettings {
 
   def publishSetting(publishArtifacts: Boolean) = {
     val publishSettings = Seq(
-      organization           := "dev.zio",
-      organizationName       := "zio",
-      licenses               := Seq("Apache-2.0" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
-      publishMavenStyle      := true,
+      organization      := "dev.zio",
+      organizationName  := "zio",
+      licenses          := Seq("Apache-2.0" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
+      publishMavenStyle := true,
       credentials ++=
         (for {
           username <- Option(System.getenv().get("SONATYPE_USERNAME"))

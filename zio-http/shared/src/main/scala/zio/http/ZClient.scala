@@ -701,7 +701,7 @@ object ZClient extends ZClientPlatformSpecific {
                     }
                 } yield ()
               }.forkDaemon // Needs to live as long as the channel is alive, as the response body may be streaming
-              _        <- ZIO.addFinalizer(onComplete.interrupt)
+              _ <- ZIO.addFinalizer(onComplete.interrupt)
               response <- restore(onResponse.await.onInterrupt {
                 ZIO.unlessZIO(connectionAcquired.get)(channelFiber.interrupt) *>
                   onComplete.interrupt *>

@@ -162,7 +162,7 @@ object DomRenderingSpec extends ZIOSpecDefault {
         assertTrue(
           rendered.contains("\n") &&
             rendered.contains("  <h1>") && // Indented child
-            rendered.contains("  <p>"),    // Indented child
+            rendered.contains("  <p>"), // Indented child
         )
       },
       test("nested elements should have proper indentation levels") {
@@ -176,7 +176,7 @@ object DomRenderingSpec extends ZIOSpecDefault {
         assertTrue(
           rendered.contains("  <section>") && // Level 1
             rendered.contains("    <h1>") &&  // Level 2
-            rendered.contains("    <p>"),     // Level 2
+            rendered.contains("    <p>"), // Level 2
         )
       },
       test("single text content should not add extra newlines") {
