@@ -676,35 +676,63 @@ case class GithubOAuthClient(
 }
 ```
 
-## Running the Server and Client
+## Source Code
 
-To run the server, first set the following environment variables after creating a GitHub OAuth App:
+The complete source code for this OAuth 2.0 Authentication with GitHub example is available in the ZIO HTTP repository.
+
+To clone the example:
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/zio/zio-http.git
+cd zio-http
+git sparse-checkout set zio-http-example-oauth-bearer-token-auth
+```
+
+### Setting Up Environment Variables
+
+First, create a GitHub OAuth App following the instructions in the "Creating a GitHub OAuth App" section. Then, set the required environment variables:
 
 ```bash
 # Set environment variables
 export GH_CLIENT_ID="your_client_id"
 export GH_CLIENT_SECRET="your_client_secret"
+export BASE_URL="http://localhost:8080"
 ```
 
-Now, we can run the server using the following sbt command:
+### Running the Server
 
+To run the authentication server:
 ```bash
-# Run the server
-sbt "zioHttpExample/runMain example.auth.bearer.oauth.AuthenticationServer"
+cd zio-http/zio-http-example-oauth-bearer-token-auth
+sbt "runMain example.auth.bearer.oauth.AuthenticationServer"
 ```
 
-Running this command also serves the web client at http://localhost:8080.
+The server starts on `http://localhost:8080` and handles the complete GitHub OAuth authentication flow.
 
-Open http://localhost:8080 in your browser and click the "Sign in with GitHub" button. You'll be redirected to GitHub where you can authorize the application. After authorization, you'll be redirected back to confirm successful authentication. Finally, test the protected endpoints to verify everything is working correctly.
+### Running the Clients
 
-To test the Scala client, first run the server, and in another terminal run the following sbt command:
+#### Web-Based Client
 
+The `AuthenticationServer` automatically serves the HTML client (`oauth-bearer-token-auth-client.html`) located in the resource folder.
+
+After starting the server, open [http://localhost:8080](http://localhost:8080) in your browser and click the "Sign in with GitHub" button. You'll be redirected to GitHub where you can authorize the application. After authorization, you'll be redirected back to confirm successful authentication. Finally, test the protected endpoints to verify everything is working correctly.
+
+The HTML file's source code can be found in the example project's resource folder.
+
+#### ZIO HTTP Client
+
+Run the command-line client in a separate terminal (ensure the server is running):
 ```bash
-# Run the client
-sbt "zioHttpExample/runMain example.auth.bearer.oauth.AuthenticationClient"
+cd zio-http/zio-http-example-oauth-bearer-token-auth
+sbt "runMain example.auth.bearer.oauth.AuthenticationClient"
 ```
 
-The client application will initiate the OAuth flow by starting a local callback server and opening your default browser for GitHub authentication. Once you authorize the application, the client captures the callback containing the tokens and can proceed to make authenticated requests to the protected endpoints.
+The client application will initiate the OAuth flow by starting a local callback server on port 3000 and opening your default browser for GitHub authentication. Once you authorize the application, the client captures the callback containing the tokens and can proceed to make authenticated requests to the protected endpoints.
+
+## Demo
+
+We have deployed a live demo of the server and web client at: [https://oauth-bearer-token-auth-demo.ziohttp.com/](https://oauth-bearer-token-auth-demo.ziohttp.com/)
+
+The demo allows you to experience the complete OAuth 2.0 authentication flow with GitHub. You can sign in with your GitHub account, view your profile information, and see how the token exchange process works. HTTP transactions can be inspected to understand the OAuth flow in detail.
 
 ## Conclusion
 
