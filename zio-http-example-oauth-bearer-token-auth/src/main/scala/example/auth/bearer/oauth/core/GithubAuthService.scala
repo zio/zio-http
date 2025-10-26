@@ -1,14 +1,13 @@
 package example.auth.bearer.oauth.core
 
-import java.net.URI
-import java.time.Clock
-
+import example.auth.bearer.oauth.AuthMiddleware
 import zio.Config.Secret
 import zio._
-
+import zio.http._
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
-import zio.http._
+import java.net.URI
+import java.time.Clock
 
 /**
  * Authentication Service that handles OAuth flow and JWT token management
@@ -18,10 +17,11 @@ class GithubAuthService private (
   private val users: Ref[Map[String, GitHubUser]], // userId -> GitHubUser
   private val clientID: String,
   private val clientSecret: Secret,
+  private val baseUrl: String,
 ) {
 
   // GitHub OAuth Configuration
-  private val REDIRECT_URI         = "http://localhost:8080/auth/github/callback"
+  private val REDIRECT_URI         = s"$baseUrl/auth/github/callback"
   private val GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
   private val GITHUB_TOKEN_URL     = "https://github.com/login/oauth/access_token"
   private val GITHUB_USER_API      = "https://api.github.com/user"
@@ -216,12 +216,20 @@ class GithubAuthService private (
 }
 
 object GithubAuthService {
-  def make(ghClientID: String, ghClientSecret: Secret): UIO[GithubAuthService] =
+  def make(
+    ghClientID: String,
+    ghClientSecret: Secret,
+    baseUrl: String,
+  ): UIO[GithubAuthService] =
     for {
       redirects <- Ref.make(Map.empty[String, URI])
       users     <- Ref.make(Map.empty[String, GitHubUser])
-    } yield new GithubAuthService(redirects, users, ghClientID, ghClientSecret)
+    } yield new GithubAuthService(redirects, users, ghClientID, ghClientSecret, baseUrl)
 
-  def live(ghClientID: String, ghClientSecret: Secret): ZLayer[Any, Nothing, GithubAuthService] =
-    ZLayer.fromZIO(make(ghClientID, ghClientSecret))
+  def live(
+    ghClientID: String,
+    ghClientSecret: Secret,
+    baseUrl: String,
+  ): ZLayer[Any, Nothing, GithubAuthService] =
+    ZLayer.fromZIO(make(ghClientID, ghClientSecret, baseUrl))
 }

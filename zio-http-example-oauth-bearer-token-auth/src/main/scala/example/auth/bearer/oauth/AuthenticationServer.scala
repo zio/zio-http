@@ -1,13 +1,11 @@
 package example.auth.bearer.oauth
 
-import java.time.Clock
-
+import example.auth.bearer.oauth.core._
 import zio.Config.Secret
 import zio._
-
 import zio.http._
 
-import example.auth.bearer.oauth.core._
+import java.time.Clock
 
 /**
  * OAuth 2.0 Authentication Server using GitHub as the identity provider. This
@@ -36,7 +34,12 @@ object AuthenticationServer extends ZIOAppDefault {
           .flatMap(ZIO.fromOption(_))
           .orDieWith(_ => new Exception("GH_CLIENT_SECRET environment variable not set"))
           .map(Secret(_))
-      authService    <- GithubAuthService.make(githubClientId, githubSecret)
+      baseUrl        <-
+        System
+          .env("BASE_URL")
+          .flatMap(ZIO.fromOption(_))
+          .orDieWith(_ => new Exception("BASE_URL environment variable not set"))
+      authService    <- GithubAuthService.make(githubClientId, githubSecret, baseUrl)
     } yield authService
   }.flatMap(authService =>
     Server

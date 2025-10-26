@@ -79,6 +79,7 @@ After creating the OAuth app, we need to configure our application with the obta
 ```bash
 export GH_CLIENT_ID="your_client_id_here"
 export GH_CLIENT_SECRET="your_client_secret_here"
+export BASE_URL="http://localhost:8080"
 ```
 
 ## Server Implementation
@@ -95,6 +96,7 @@ class GithubAuthService private (
   private val users: Ref[Map[String, GitHubUser]], // userId -> GitHubUser
   private val clientID: String,
   private val clientSecret: Secret,
+  private val baseUrl: String,
 ) {
   // Key methods for handling OAuth flow  
 }
@@ -122,8 +124,9 @@ class GithubAuthService private (
   private val users: Ref[Map[String, GitHubUser]], // userId -> GitHubUser
   private val clientID: String,
   private val clientSecret: Secret,
+  private val baseUrl: String,
 ) {
-  private val REDIRECT_URI         = "http://localhost:8080/auth/github/callback"
+  private val REDIRECT_URI         = s"$baseUrl/auth/github/callback"
   private val GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
   
   val authorize =
@@ -168,8 +171,9 @@ class GithubAuthService private (
   private val users: Ref[Map[String, GitHubUser]], // userId -> GitHubUser
   private val clientID: String,
   private val clientSecret: Secret,
+  private val baseUrl: String,
 ) {
-  private val REDIRECT_URI         = "http://localhost:8080/auth/github/callback"
+  private val REDIRECT_URI         = s"$baseUrl/auth/github/callback"
   private val GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
   private val GITHUB_USER_API      = "https://api.github.com/user"
   
