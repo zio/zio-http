@@ -402,7 +402,7 @@ The `addCookie` method adds the cookie to the request's `Cookie` header, authent
 Here's a complete example that demonstrates the full authentication lifecycle:
 
 ```scala mdoc:passthrough
-utils.printSource("zio-http-example/src/main/scala/example/auth/session/cookie/CookieAuthenticationClient.scala")
+utils.printSource("zio-http-example-cookie-auth/src/main/scala/example/auth/session/cookie/AuthenticationClient.scala")
 ```
 
 ## Writing a Web Client
