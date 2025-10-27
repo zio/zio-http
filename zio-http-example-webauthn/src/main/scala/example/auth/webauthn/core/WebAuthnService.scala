@@ -2,13 +2,11 @@ package example.auth.webauthn.core
 
 import java.security.SecureRandom
 import java.util.UUID
-
 import scala.jdk.CollectionConverters._
-
 import zio._
-
 import com.yubico.webauthn._
 import com.yubico.webauthn.data._
+import example.auth.webauthn.config.WebAuthnConfig
 import example.auth.webauthn.model._
 
 trait WebAuthnService {
@@ -26,12 +24,14 @@ class WebAuthnServiceImpl(
   userService: UserService,
   pendingRegistrations: Ref[Map[UserHandle, RegistrationStartResponse]],
   pendingAuthentications: Ref[Map[Challenge, AuthenticationStartResponse]],
+  config: WebAuthnConfig,
 ) extends WebAuthnService {
+
   private val relyingPartyIdentity: RelyingPartyIdentity =
     RelyingPartyIdentity
       .builder()
-      .id("localhost")
-      .name("WebAuthn Demo")
+      .id(config.rpId)
+      .name(config.rpName)
       .build()
 
   private val relyingParty: RelyingParty =
@@ -39,7 +39,7 @@ class WebAuthnServiceImpl(
       .builder()
       .identity(relyingPartyIdentity)
       .credentialRepository(new InMemoryCredentialRepository(userService))
-      .origins(Set("http://localhost:8080").asJava)
+      .origins(Set(config.rpOrigin).asJava)
       .build()
 
   private def userIdentity(userId: String, username: String): UserIdentity =
@@ -201,12 +201,13 @@ class WebAuthnServiceImpl(
 }
 
 object WebAuthnServiceImpl {
-  def layer: ZLayer[UserService, Nothing, WebAuthnServiceImpl] =
+  val layer: ZLayer[UserService, Config.Error, WebAuthnServiceImpl] =
     ZLayer {
       for {
+        config                 <- ZIO.config(WebAuthnConfig.config)
         userService            <- ZIO.service[UserService]
         registrationRequests   <- Ref.make(Map.empty[UserHandle, RegistrationStartResponse])
         authenticationRequests <- Ref.make(Map.empty[Challenge, AuthenticationStartResponse])
-      } yield new WebAuthnServiceImpl(userService, registrationRequests, authenticationRequests)
+      } yield new WebAuthnServiceImpl(userService, registrationRequests, authenticationRequests, config)
     }
 }

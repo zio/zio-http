@@ -152,6 +152,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpExampleJwtBearerTokenAuth,
       zioHttpExampleJwtBearerRefreshTokenAuth,
       zioHttpExampleOauthBearerTokenAuth,
+      zioHttpExampleWebauthn,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -321,8 +322,6 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `jwt-core`,
       `jwt-zio-json`,
       `zio-schema-json`,
-      "com.yubico" % "webauthn-server-core"        % "2.7.0",
-      "com.yubico" % "webauthn-server-attestation" % "2.7.0",
     ),
   )
   .settings(
@@ -497,3 +496,6 @@ lazy val zioHttpExampleJwtBearerRefreshTokenAuth =
 
 lazy val zioHttpExampleOauthBearerTokenAuth =
   RootProject(file("zio-http-example-oauth-bearer-token-auth"))
+
+lazy val zioHttpExampleWebauthn =
+  RootProject(file("zio-http-example-webauthn"))

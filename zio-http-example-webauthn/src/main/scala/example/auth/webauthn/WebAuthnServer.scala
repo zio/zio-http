@@ -1,11 +1,10 @@
 package example.auth.webauthn
 
 import zio._
-
 import zio.http._
 
+import example.auth.webauthn.config.WebAuthnConfig
 import example.auth.webauthn.core.{UserService, WebAuthnServiceImpl}
-import example.auth.webauthn.model._
 
 /**
  * WebAuthn Server application - Main entry point Supports discoverable passkey
@@ -14,21 +13,29 @@ import example.auth.webauthn.model._
 object WebAuthnServer extends ZIOAppDefault {
 
   override val run = {
-    for {
-      _  <- printBanner
-      us <- UserService.make()
-      rr <- Ref.make(Map.empty[String, RegistrationStartResponse])
-      ar <- Ref.make(Map.empty[String, AuthenticationStartResponse])
-    } yield WebAuthnRoutes(new WebAuthnServiceImpl(us, rr, ar))
-  }.flatMap(Server.serve(_).provide(Server.default))
+    val program = for {
+      config  <- ZIO.config(WebAuthnConfig.config)
+      _       <- printBanner(config)
+      service <- ZIO.service[WebAuthnServiceImpl]
+      routes = WebAuthnRoutes(service)
+      _ <- Server.serve(routes)
+    } yield ()
 
-  private def printBanner = {
+    program.provide(
+      UserService.live,
+      WebAuthnServiceImpl.layer,
+      Server.default
+    )
+  }
+
+  private def printBanner(config: WebAuthnConfig) = {
     for {
       _ <- Console.printLine("=" * 60)
-      _ <- Console.printLine("Webauthn Server")
+      _ <- Console.printLine("WebAuthn Server")
       _ <- Console.printLine("=" * 60)
-      _ <- Console.printLine("Server started on http://localhost:8080")
-      _ <- Console.printLine("Open your browser and navigate to http://localhost:8080")
+      _ <- Console.printLine(s"Relying Party ID: ${config.rpId}")
+      _ <- Console.printLine(s"Relying Party Name: ${config.rpName}")
+      _ <- Console.printLine(s"Origin: ${config.rpOrigin}")
       _ <- Console.printLine("")
       _ <- Console.printLine("Supports both:")
       _ <- Console.printLine("- Username-based authentication")

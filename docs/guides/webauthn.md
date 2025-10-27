@@ -1280,17 +1280,54 @@ async function performAuthentication({ username, isPasskey }) {
 4. It sends a `POST` request to the `/api/webauthn/authentication/finish` endpoint with the username and the serialized assertion to finish the authentication process.
 5. If the authentication is successful, it alerts the user with the authenticated username.
 
-## Running Demo
+## Source Code
 
-To run the demo application that uses the code we implemented above, execute the following commands in your terminal:
+The complete source code for this WebAuthn passwordless authentication example is available in the ZIO HTTP repository.
 
+To clone the example:
 ```bash
-git clone git@github.com:zio/zio-http.git
-cd zio-http/
-sbt zioHttpExample/runMain example.auth.webauthn.WebAuthnServer
+git clone --depth 1 --filter=blob:none --sparse https://github.com/zio/zio-http.git
+cd zio-http
+git sparse-checkout set zio-http-example-webauthn
 ```
 
-After running these commands, open `http://localhost:8080` in your browser. You can now test the registration and authentication flows using both username-based and discoverable passkeys.
+### Running the Server
+
+To run the WebAuthn authentication server:
+```bash
+cd zio-http/zio-http-example-webauthn
+sbt "runMain example.auth.webauthn.WebAuthnServer"
+```
+
+The server starts on `http://localhost:8080` and provides endpoints for both registration and authentication ceremonies.
+
+### Using the Web Client
+
+The `WebAuthnServer` automatically serves the HTML client located in the resource folder.
+
+After starting the server, open [http://localhost:8080](http://localhost:8080) in your browser. The interface provides two main authentication flows:
+
+#### Discoverable Credentials (Passkeys)
+
+1. Click "Create Passkey" and enter a username
+2. Follow your browser/device prompts to create a passkey
+3. Use "Sign In with Passkey" for username-less authentication
+4. Your authenticator will prompt you to select and verify your identity
+
+#### Username-based Authentication
+
+1. Click "Create Passkey" and enter a username
+2. Create your credential following the prompts
+3. Enter your username and click "Sign In"
+4. Authenticate using the credential associated with that username
+
+The HTML client file (`webauthn-client.html`) can be found in the example project's resource folder.
+
+## Demo
+
+We have deployed a live demo of the WebAuthn authentication server at: [https://webauthn-demo.ziohttp.com/](https://webauthn-demo.ziohttp.com/)
+
+At the bottom of the page, there is a debug section where you can view detailed requests and responses for each step in the registration and authentication processes.
 
 ## Conclusion
 
