@@ -493,7 +493,7 @@ The server will start on `http://localhost:8080` with the following test users:
 | `jane`   | `password456` | user  | Standard user account                  |
 | `admin`  | `admin123`    | admin | Admin account with elevated privileges |
 
-### Running the Client (ZIO HTTP Client)
+### ZIO HTTP Client
 
 To run the command-line client (make sure the server is running first):
 
@@ -531,7 +531,7 @@ admin (admin@example.com) - Role: admin
 === All requests completed ===
 ```
 
-### Testing with the Web Interface
+### Web-based Client
 
 After starting the server, open your web browser and navigate to:
 

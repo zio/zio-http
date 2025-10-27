@@ -1156,7 +1156,7 @@ cd zio-http
 git sparse-checkout set zio-http-example-digest-auth
 ```
 
-## Running the Server
+### Running the Server
 
 To run the authentication server:
 
@@ -1172,16 +1172,6 @@ The server starts on `http://localhost:8080` with these test users:
 | `john`   | `password123` | john@example.com     |
 | `jane`   | `secret456`   | jane@example.com     |
 | `admin`  | `admin123`    | admin@company.com    |
-
-Available endpoints:
-
-- **GET /** - Serves the web client interface
-- **GET /profile/me** - Protected endpoint returning user profile (requires digest auth with `qop=auth`)
-- **PUT /profile/email** - Protected endpoint for updating email (requires digest auth with `qop=auth-int`)
-- **GET /admin** - Protected admin endpoint (requires digest auth, admin user only)
-- **GET /public** - Public endpoint (no authentication required)
-
-## Running the Client
 
 ### ZIO HTTP Client
 

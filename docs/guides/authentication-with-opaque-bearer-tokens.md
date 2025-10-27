@@ -458,9 +458,7 @@ The server starts on `http://localhost:8080` with these test users:
 | `jane`   | `secret456`   | jane@example.com     |
 | `admin`  | `admin123`    | admin@company.com    |
 
-### Running the Client
-
-#### ZIO HTTP Client
+### ZIO HTTP Client
 
 Run the command-line client (ensure server is running):
 
@@ -481,7 +479,7 @@ Trying to access protected route after logout...
 Protected route response after logout: Invalid or expired token!
 ```
 
-#### Web-Based Client
+### Web-Based Client
 
 To demonstrate the authentication flow in a web client, we've created a simple HTML page where users can log in, view their profile, and log out.
 
@@ -497,7 +495,7 @@ The HTML file's source code can be found in the example project's resource folde
 
 ## Demo
 
-We have deployed a live demo the server and the web client at: [https://opaque-bearer-token-auth-demo.ziohttp.com/](https://opaque-bearer-token-auth-demo.ziohttp.com/)
+We have deployed a live demo of the server and the web client at: [https://opaque-bearer-token-auth-demo.ziohttp.com/](https://opaque-bearer-token-auth-demo.ziohttp.com/)
 
 The demo allows you to experience the authentication flow firsthand. You can log in using the predefined users, access their profiles, and log out to see how token revocation works in practice. All HTTP transactions can be inspected at the bottom of the page, so you can see the requests and responses in detail.
 

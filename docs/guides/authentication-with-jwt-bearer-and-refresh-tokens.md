@@ -572,7 +572,7 @@ case class RefreshTokenData(
   roles: Set[String],
   expiresAt: Long,
   deviceId: String,
-  deviceName: String  // "John's iPhone", "Chrome on Windows"
+  deviceName: String
 )
 ```
 
@@ -607,9 +607,7 @@ The server starts on `http://localhost:8080` with these test users:
 | `jane`   | `secret456`   | jane@example.com     | user         |
 | `admin`  | `admin123`    | admin@company.com    | admin, user  |
 
-### Running the Client
-
-#### ZIO HTTP Client
+### ZIO HTTP Client
 
 Run the command-line client (ensure server is running):
 
@@ -618,7 +616,7 @@ cd zio-http/zio-http-example-jwt-bearer-refresh-token-auth
 sbt "runMain example.auth.bearer.jwt.refresh.AuthenticationClient"
 ```
 
-#### Web-Based Client
+### Web-Based Client
 
 To demonstrate the refresh token authentication flow in a web client, we've created a simple HTML page where users can log in, view their profile, refresh tokens, and log out.
 

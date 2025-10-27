@@ -708,17 +708,7 @@ sbt "runMain example.auth.bearer.oauth.AuthenticationServer"
 
 The server starts on `http://localhost:8080` and handles the complete GitHub OAuth authentication flow.
 
-### Running the Clients
-
-#### Web-Based Client
-
-The `AuthenticationServer` automatically serves the HTML client (`oauth-bearer-token-auth-client.html`) located in the resource folder.
-
-After starting the server, open [http://localhost:8080](http://localhost:8080) in your browser and click the "Sign in with GitHub" button. You'll be redirected to GitHub where you can authorize the application. After authorization, you'll be redirected back to confirm successful authentication. Finally, test the protected endpoints to verify everything is working correctly.
-
-The HTML file's source code can be found in the example project's resource folder.
-
-#### ZIO HTTP Client
+### ZIO HTTP Client
 
 Run the command-line client in a separate terminal (ensure the server is running):
 ```bash
@@ -727,6 +717,14 @@ sbt "runMain example.auth.bearer.oauth.AuthenticationClient"
 ```
 
 The client application will initiate the OAuth flow by starting a local callback server on port 3000 and opening your default browser for GitHub authentication. Once you authorize the application, the client captures the callback containing the tokens and can proceed to make authenticated requests to the protected endpoints.
+
+### Web-Based Client
+
+The `AuthenticationServer` automatically serves the HTML client (`oauth-bearer-token-auth-client.html`) located in the resource folder.
+
+After starting the server, open [http://localhost:8080](http://localhost:8080) in your browser and click the "Sign in with GitHub" button. You'll be redirected to GitHub where you can authorize the application. After authorization, you'll be redirected back to confirm successful authentication. Finally, test the protected endpoints to verify everything is working correctly.
+
+The HTML file's source code can be found in the example project's resource folder.
 
 ## Demo
 

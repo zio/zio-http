@@ -691,17 +691,7 @@ cd zio-http
 git sparse-checkout set zio-http-example-cookie-auth
 ```
 
-The example contains the following files:
-
-- **SessionService.scala** - Session management with UUID-based identifiers
-- **UserService.scala** - User account management necessary for authentication
-- **AuthMiddleware.scala** - Authentication middleware for protecting routes
-- **AuthenticationServer.scala** - Main server with login, profile, and logout endpoints
-- **AuthenticationClient.scala** - ZIO HTTP client demonstrating API calls
-- **cookie-based-auth-client.html** - Advanced interactive web interface (in resources)
-- **cookie-based-auth-client-simple.html** - Simplified web interface useful for learning the basics (in resources)
-
-## Running the Server
+### Running the Server
 
 To run the authentication server:
 
@@ -718,14 +708,6 @@ The server starts on `http://localhost:8080` with these test users:
 | `jane`   | `secret456`   | jane@example.com     |
 | `admin`  | `admin123`    | admin@company.com    |
 
-Available endpoints:
-
-- **GET /** - Serves the web client interface
-- **POST /login** - Authenticates users and creates sessions (accepts form data: `username`, `password`)
-- **GET /profile/me** - Protected endpoint returning user profile (requires cookie)
-- **GET /logout** - Destroys session and clears cookie
-
-## Running the Client
 
 ### ZIO HTTP Client
 
