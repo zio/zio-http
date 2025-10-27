@@ -13,7 +13,6 @@ enablePlugins(JavaAppPackaging)
 enablePlugins(DockerPlugin)
 
 Compile / mainClass := Some("example.auth.basic.AuthenticationServer")
-Docker / mainClass := Some("example.auth.basic.AuthenticationServer")
 
 dockerBaseImage := "eclipse-temurin:21-jre"
 dockerExposedPorts := Seq(8080)
