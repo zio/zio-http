@@ -901,38 +901,293 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File], charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] = {
-    Handler.fromZIO[R, Throwable, Response](
-      ZIO.blocking {
-        getFile.flatMap { file =>
-          if (!file.exists()) {
-            ZIO.fail(new FileNotFoundException())
-          } else if (file.isFile && !file.canRead) {
-            ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
-          } else {
-            if (file.isFile) {
-              Body.fromFile(file).flatMap { body =>
-                val response = http.Response(body = body)
-                val pathName = file.toPath.toString
+    new Handler[R, Throwable, Any, Response] {
+      override def apply(input: Any): ZIO[Scope & R, Throwable, Response] = {
+        // Extract Request from input if possible, otherwise create a simple GET request
+        val request = input match {
+          case req: Request => req
+          case _ => Request.get("/") // Fallback for legacy usage
+        }
+        
+        executeFileHandler(request, getFile, charset)
+      }
+    }
+  }
 
-                // Set MIME type in the response headers. This is only relevant in
-                // case of RandomAccessFile transfers as browsers use the MIME type,
-                // not the file extension, to determine how to process a URL.
-                // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-                determineMediaType(pathName) match {
-                  case Some(mediaType) =>
-                    val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
-                    ZIO.succeed(response.addHeader(Header.ContentType(mediaType, charset = charset0)))
-                  case None            => ZIO.succeed(response)
+  private def executeFileHandler[R](
+    request: Request, 
+    getFile: ZIO[R, Throwable, File], 
+    charset: Charset
+  )(implicit trace: Trace): ZIO[Scope & R, Throwable, Response] =
+    ZIO.blocking {
+      getFile.flatMap { file =>
+        if (!file.exists()) {
+          ZIO.fail(new FileNotFoundException())
+        } else if (file.isFile && !file.canRead) {
+          ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
+        } else if (!file.isFile) {
+          ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
+        } else {
+          val pathName = file.toPath.toString
+          val mediaType = determineMediaType(pathName)
+          
+          // Check for Range header and handle range requests natively
+          request.header(Header.Range) match {
+            case Some(rangeHeader) =>
+              // Handle range request using native range support
+              handleRangeRequest(file, rangeHeader, mediaType, charset)
+              
+            case None =>
+              // Normal file response without range
+              Body.fromFile(file).flatMap { body =>
+                val response = http.Response(
+                  body = body,
+                  headers = Headers(Header.AcceptRanges.Bytes)
+                )
+                
+                mediaType match {
+                  case Some(mt) =>
+                    val charset0 = if (mt.mainType == "text" || !mt.binary) Some(charset) else None
+                    ZIO.succeed(response.addHeader(Header.ContentType(mt, charset = charset0)))
+                  case None => 
+                    ZIO.succeed(response)
                 }
               }
-            } else {
-              ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
-            }
           }
         }
-      },
-    )
+      }
+    }
+
+  // Internal range handling logic (moved from RangeSupport for native integration)
+  private case class ByteRange(start: Long, end: Long, total: Long) {
+    def length: Long = end - start + 1
+    def contentRange: Header.ContentRange.EndTotal = 
+      Header.ContentRange.EndTotal("bytes", start.toInt, end.toInt, total.toInt)
   }
+
+  private def mergeOverlappingRanges(ranges: List[ByteRange]): List[ByteRange] = {
+    if (ranges.isEmpty) {
+      ranges
+    } else {
+      val sorted = ranges.sortBy(_.start)
+      sorted.tail.foldLeft(List(sorted.head)) { (acc, range) =>
+        val last = acc.head
+        if (range.start <= last.end + 1) {
+          // Ranges overlap or are adjacent, merge them
+          ByteRange(last.start, range.end.max(last.end), range.total) :: acc.tail
+        } else {
+          range :: acc
+        }
+      }.reverse
+    }
+  }
+
+  private def validateSingleRange(start: Long, endOpt: Option[Long], fileSize: Long): Either[String, ByteRange] = {
+    if (start < 0) {
+      // Suffix range: last N bytes
+      val suffixLength = -start
+      if (suffixLength >= fileSize) {
+        Right(ByteRange(0, fileSize - 1, fileSize))
+      } else {
+        Right(ByteRange(fileSize - suffixLength, fileSize - 1, fileSize))
+      }
+    } else if (start >= fileSize) {
+      Left(s"Range start $start is beyond file size $fileSize")
+    } else {
+      val end = endOpt.getOrElse(fileSize - 1).min(fileSize - 1)
+      if (end < start) {
+        Left(s"Range end $end is before start $start")
+      } else {
+        Right(ByteRange(start, end, fileSize))
+      }
+    }
+  }
+
+  private def streamFileRange(file: File, range: ByteRange, chunkSize: Int = 8192)(implicit trace: Trace): ZStream[Any, Throwable, Byte] = {
+    ZStream.unwrapScoped {
+      for {
+        raf <- ZIO.acquireRelease(
+          ZIO.attemptBlocking(new java.io.RandomAccessFile(file, "r"))
+        )(raf => ZIO.attemptBlocking(raf.close()).ignoreLogged)
+        _   <- ZIO.attemptBlocking(raf.seek(range.start))
+      } yield {
+        val totalBytes = range.length
+        ZStream.unfoldZIO(0L) { bytesRead =>
+          if (bytesRead >= totalBytes) {
+            ZIO.succeed(None)
+          } else {
+            val remaining = totalBytes - bytesRead
+            val bufferSize = chunkSize.toLong.min(remaining).toInt
+            ZIO.attemptBlocking {
+              val buffer = Array.ofDim[Byte](bufferSize)
+              val read = raf.read(buffer)
+              if (read == -1) {
+                None
+              } else {
+                Some((Chunk.fromArray(buffer.take(read)), bytesRead + read))
+              }
+            }
+          }
+        }.flattenChunks
+      }
+    }
+  }
+
+  private def createMultipartBody(
+    file: File, 
+    ranges: List[ByteRange], 
+    boundary: Boundary,
+    mediaType: Option[MediaType]
+  )(implicit trace: Trace): Body = {
+    val stream = ZStream
+      .fromIterable(ranges)
+      .flatMap { range =>
+        val headerBytes = createMultipartHeader(range, boundary, mediaType)
+        val headerStream = ZStream.fromChunk(Chunk.fromArray(headerBytes.getBytes(Charsets.Utf8)))
+        val contentStream = streamFileRange(file, range)
+        headerStream ++ contentStream
+      } ++ ZStream.fromChunk(
+        Chunk.fromArray(s"\\r\\n--${boundary.id}--\\r\\n".getBytes(Charsets.Utf8))
+      )
+
+    Body.fromStreamChunked(stream).contentType(Body.ContentType(MediaType.multipart.byteranges, Some(boundary)))
+  }
+
+  private def createMultipartHeader(
+    range: ByteRange,
+    boundary: Boundary,
+    mediaType: Option[MediaType]
+  ): String = {
+    val contentType = mediaType.map(mt => s"Content-Type: ${mt.fullType}\\r\\n").getOrElse("")
+    s"\\r\\n--${boundary.id}\\r\\n" +
+    contentType +
+    s"Content-Range: bytes ${range.start}-${range.end}/${range.total}\\r\\n\\r\\n"
+  }
+
+  private def handleRangeRequest(
+    file: File,
+    rangeHeader: Header.Range,
+    mediaType: Option[MediaType],
+    charset: Charset
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    ZIO.attemptBlocking(file.length()).flatMap { fileSize =>
+      rangeHeader match {
+        case Header.Range.Single(unit, start, endOpt) if unit == "bytes" =>
+          validateSingleRange(start, endOpt, fileSize) match {
+            case Right(range) =>
+              val body = Body.fromStream(
+                streamFileRange(file, range),
+                range.length
+              ).contentType(mediaType.map(Body.ContentType(_, None)).getOrElse(Body.ContentType(MediaType.application.`octet-stream`)))
+              ZIO.succeed(
+                Response(
+                  status = Status.PartialContent,
+                  body = body,
+                  headers = Headers(
+                    range.contentRange,
+                    Header.AcceptRanges.Bytes
+                  )
+                )
+              )
+            case Left(_) =>
+              ZIO.succeed(
+                Response(
+                  status = Status.RequestedRangeNotSatisfiable,
+                  headers = Headers(
+                    Header.ContentRange.RangeTotal("bytes", fileSize.toInt)
+                  )
+                )
+              )
+          }
+          
+        case Header.Range.Multiple(unit, ranges) if unit == "bytes" =>
+          val validated = ranges.map { case (start, endOpt) => validateSingleRange(start, endOpt, fileSize) }
+          val errors = validated.collect { case Left(e) => e }
+          if (errors.nonEmpty) {
+            ZIO.succeed(
+              Response(
+                status = Status.RequestedRangeNotSatisfiable,
+                headers = Headers(
+                  Header.ContentRange.RangeTotal("bytes", fileSize.toInt)
+                )
+              )
+            )
+          } else {
+            val validRanges = validated.collect { case Right(r) => r }
+            val mergedRanges = mergeOverlappingRanges(validRanges)
+            if (mergedRanges.length == 1) {
+              val range = mergedRanges.head
+              val body = Body.fromStream(
+                streamFileRange(file, range),
+                range.length
+              ).contentType(mediaType.map(Body.ContentType(_, None)).getOrElse(Body.ContentType(MediaType.application.`octet-stream`)))
+              ZIO.succeed(
+                Response(
+                  status = Status.PartialContent,
+                  body = body,
+                  headers = Headers(
+                    range.contentRange,
+                    Header.AcceptRanges.Bytes
+                  )
+                )
+              )
+            } else {
+              val boundary = Boundary(java.util.UUID.randomUUID().toString)
+              val body = createMultipartBody(file, mergedRanges, boundary, mediaType)
+              ZIO.succeed(
+                Response(
+                  status = Status.PartialContent,
+                  body = body,
+                  headers = Headers(
+                    Header.ContentType(MediaType.multipart.byteranges, Some(boundary)),
+                    Header.AcceptRanges.Bytes
+                  )
+                )
+              )
+            }
+          }
+          
+        case Header.Range.Suffix(unit, suffixLength) if unit == "bytes" =>
+          val start = (fileSize - suffixLength).max(0)
+          val range = ByteRange(start, fileSize - 1, fileSize)
+          val body = Body.fromStream(
+            streamFileRange(file, range),
+            range.length
+          ).contentType(mediaType.map(Body.ContentType(_, None)).getOrElse(Body.ContentType(MediaType.application.`octet-stream`)))
+          ZIO.succeed(
+            Response(
+              status = Status.PartialContent,
+              body = body,
+              headers = Headers(
+                range.contentRange,
+                Header.AcceptRanges.Bytes
+              )
+            )
+          )
+          
+        case Header.Range.Prefix(unit, startByte) if unit == "bytes" =>
+          val range = ByteRange(startByte, fileSize - 1, fileSize)
+          val body = Body.fromStream(
+            streamFileRange(file, range),
+            range.length
+          ).contentType(mediaType.map(Body.ContentType(_, None)).getOrElse(Body.ContentType(MediaType.application.`octet-stream`)))
+          ZIO.succeed(
+            Response(
+              status = Status.PartialContent,
+              body = body,
+              headers = Headers(
+                range.contentRange,
+                Header.AcceptRanges.Bytes
+              )
+            )
+          )
+          
+        case _ =>
+          ZIO.succeed(Response.status(Status.BadRequest))
+      }
+    }
+  }
+
 
   /**
    * Creates a Handler that always succeeds with a 200 status code and the

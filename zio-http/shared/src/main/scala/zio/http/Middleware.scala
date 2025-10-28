@@ -438,7 +438,7 @@ object Middleware extends HandlerAspects {
         override def run(path: Path, request: Request) = f(path, request)
       }
 
-    def fromDirectory(docRoot: File)(implicit trace: Trace): StaticServe[Any, Throwable] = make { (path, _) =>
+    def fromDirectory(docRoot: File)(implicit trace: Trace): StaticServe[Any, Throwable] = make { (path, request) =>
       val target = new File(docRoot.getAbsolutePath + path.encode)
       if (target.getCanonicalPath.startsWith(docRoot.getCanonicalPath))
         Handler.fromFile(target, Charset.defaultCharset())
