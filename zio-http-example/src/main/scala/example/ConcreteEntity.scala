@@ -23,7 +23,7 @@ object ConcreteEntity extends ZIOAppDefault {
 
   val routes: Routes[Any, Response] =
     user
-      .contramap[Request](req => CreateUser(req.path.encode))     // Http[Any, Nothing, Request, UserCreated]
+      .contramap[Request](req => CreateUser(req.path.encode)) // Http[Any, Nothing, Request, UserCreated]
       .map(userCreated => Response.text(userCreated.id.toString)) // Http[Any, Nothing, Request, Response]
       .toRoutes
 
