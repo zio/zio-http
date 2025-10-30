@@ -205,6 +205,14 @@ object Server extends ServerPlatformSpecific {
     def tcpNoDelay(value: Boolean): Config =
       self.copy(tcpNoDelay = value)
 
+    /**
+     * Configure the server to enable/disable HTTP header validation. When
+     * enabled, the server will validate incoming headers such as the Host
+     * header.
+     */
+    def validateHeaders(value: Boolean): ServerRuntimeConfig =
+      ServerRuntimeConfig(self, value)
+
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
@@ -227,7 +235,6 @@ object Server extends ServerPlatformSpecific {
         zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching) ++
         zio.Config.int("so-backlog").withDefault(Config.default.soBacklog) ++
         zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay)
-
     }.map {
       case (
             sslConfig,
@@ -577,4 +584,19 @@ object Server extends ServerPlatformSpecific {
     override def port: UIO[Int] = serverStarted.await.orDie
 
   }
+}
+
+final case class ServerRuntimeConfig(
+  config: Server.Config,
+  validateHeaders: Boolean = false,
+)
+
+object ServerRuntimeConfig {
+  def config: zio.Config[ServerRuntimeConfig] =
+    (Server.Config.config ++ zio.Config.boolean("validate-headers").withDefault(false)).map { case (cfg, validate) =>
+      ServerRuntimeConfig(cfg, validate)
+    }
+
+  val layer: ZLayer[Server.Config, Nothing, ServerRuntimeConfig] =
+    ZLayer.fromFunction(cfg => ServerRuntimeConfig(cfg, false))
 }

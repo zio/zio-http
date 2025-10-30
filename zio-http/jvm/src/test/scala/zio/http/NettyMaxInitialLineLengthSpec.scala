@@ -55,6 +55,7 @@ object NettyMaxInitialLineLength extends ZIOHttpSpec {
       } yield assertTrue(extractStatus(res) == Status.InternalServerError, data == "")
     }.provide(
       Client.default,
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(serverConfig),

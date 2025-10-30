@@ -527,6 +527,7 @@ object ServerSpec extends RoutesRunnableSpec {
       Scope.default,
       DynamicServer.live,
       ZLayer.succeed(configApp),
+      ZLayer.fromFunction((c: Server.Config) => ServerRuntimeConfig(c)),
       Server.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Client.default,
