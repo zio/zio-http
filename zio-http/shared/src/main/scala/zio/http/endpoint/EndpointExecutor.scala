@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -28,6 +30,7 @@ import zio.http.endpoint.internal.EndpointClient
  * endpoint invocation, and executing the invocation, returning the final
  * result, or failing with a pre-defined RPC error.
  */
+@nowarn("msg=deprecated")
 final case class EndpointExecutor[R, Auth, ReqEnv](
   client: ZClient[Any, ReqEnv, Body, Throwable, Response],
   locator: EndpointLocator,
@@ -90,12 +93,15 @@ final case class EndpointExecutor[R, Auth, ReqEnv](
   }
 }
 object EndpointExecutor {
+
+  @deprecated("Use apply overload with URL parameter", "3.6.0")
   def apply[ReqEnv](
     client: ZClient[Any, ReqEnv, Body, Throwable, Response],
     locator: EndpointLocator,
   ): EndpointExecutor[Any, Unit, ReqEnv] =
     EndpointExecutor(client, locator, ZIO.unit)
 
+  @deprecated("Use apply overload with URL parameter", "3.6.0")
   def apply[Auth, ReqEnv](
     client: ZClient[Any, ReqEnv, Body, Throwable, Response],
     locator: EndpointLocator,
@@ -104,6 +110,25 @@ object EndpointExecutor {
     trace: Trace,
   ): EndpointExecutor[Any, Auth, ReqEnv] =
     EndpointExecutor(client, locator, ZIO.succeed(auth))
+
+  @nowarn("msg=deprecated")
+  def apply[ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
+    location: URL,
+  )(implicit
+    trace: Trace,
+  ): EndpointExecutor[Any, Unit, ReqEnv] =
+    EndpointExecutor(client, EndpointLocator.fromURL(location), ZIO.unit)
+
+  @nowarn("msg=deprecated")
+  def apply[Auth, ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
+    location: URL,
+    auth: Auth,
+  )(implicit
+    trace: Trace,
+  ): EndpointExecutor[Any, Auth, ReqEnv] =
+    EndpointExecutor(client, EndpointLocator.fromURL(location), ZIO.succeed(auth))
 
   final case class Config(url: URL)
   object Config {
@@ -119,6 +144,7 @@ object EndpointExecutor {
         .map(Config(_))
   }
 
+  @nowarn("msg=deprecated")
   def make[R: Tag, Auth: Tag](serviceName: String, authProvider: URIO[R, Auth])(implicit
     trace: Trace,
   ): ZLayer[Client, zio.Config.Error, EndpointExecutor[R, Auth, Scope]] =
@@ -129,6 +155,7 @@ object EndpointExecutor {
       } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url), authProvider)
     }
 
+  @nowarn("msg=deprecated")
   def make(
     serviceName: String,
   )(implicit trace: Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor[Any, Unit, Scope]] =
@@ -136,6 +163,6 @@ object EndpointExecutor {
       for {
         client <- ZIO.service[Client]
         config <- ZIO.config(Config.config.nested(serviceName))
-      } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url))
+      } yield EndpointExecutor(client, config.url)
     }
 }

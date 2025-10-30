@@ -43,9 +43,7 @@ val routes =
 
 /* CLIENT */
 
-val locator = EndpointLocator.fromURL(url"http://localhost:8080")
-
-def endpointExecutor(client: Client) = EndpointExecutor(client, locator)
+def endpointExecutor(client: Client) = EndpointExecutor(client, url"http://localhost:8080")
 
 val clientApp: ZIO[Scope with Client, Nothing, Dom] = for {
   client <- ZIO.service[Client]

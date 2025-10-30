@@ -138,8 +138,11 @@ object AuthSpec extends ZIOSpecDefault {
 
           val response = for {
             client <- ZIO.service[Client]
-            locator    = EndpointLocator.fromURL(url"http://localhost:8080")
-            executor   = EndpointExecutor(client, locator, Header.Authorization.Basic("admin", "admin".reverse))
+            executor   = EndpointExecutor(
+              client,
+              url"http://localhost:8080",
+              Header.Authorization.Basic("admin", "admin".reverse),
+            )
             invocation = endpoint(())
             response <- ZIO.scoped(executor(invocation))
           } yield response
@@ -164,16 +167,18 @@ object AuthSpec extends ZIOSpecDefault {
 
           val responseBasic = for {
             client <- ZIO.service[Client]
-            locator    = EndpointLocator.fromURL(url"http://localhost:8080")
-            executor   = EndpointExecutor(client, locator, Left(Header.Authorization.Basic("admin", "admin".reverse)))
+            executor   = EndpointExecutor(
+              client,
+              url"http://localhost:8080",
+              Left(Header.Authorization.Basic("admin", "admin".reverse)),
+            )
             invocation = endpoint(())
             response <- ZIO.scoped(executor(invocation))
           } yield response
 
           val responseBearer = for {
             client <- ZIO.service[Client]
-            locator    = EndpointLocator.fromURL(url"http://localhost:8080")
-            executor   = EndpointExecutor(client, locator, Right(Header.Authorization.Bearer("admin")))
+            executor = EndpointExecutor(client, url"http://localhost:8080", Right(Header.Authorization.Bearer("admin")))
             invocation = endpoint(())
             response <- ZIO.scoped(executor(invocation))
           } yield response
@@ -198,8 +203,7 @@ object AuthSpec extends ZIOSpecDefault {
 
           val response = for {
             client <- ZIO.service[Client]
-            locator    = EndpointLocator.fromURL(url"http://localhost:8080")
-            executor   = EndpointExecutor(client, locator, "admin")
+            executor   = EndpointExecutor(client, url"http://localhost:8080", "admin")
             invocation = endpoint(())
             response <- ZIO.scoped(executor(invocation))
           } yield response
@@ -222,8 +226,11 @@ object AuthSpec extends ZIOSpecDefault {
 
           val response = for {
             client <- ZIO.service[Client]
-            locator    = EndpointLocator.fromURL(url"http://localhost:8080")
-            executor   = EndpointExecutor(client, locator, Header.Authorization.Basic("admin", "admin".reverse))
+            executor   = EndpointExecutor(
+              client,
+              url"http://localhost:8080",
+              Header.Authorization.Basic("admin", "admin".reverse),
+            )
             invocation = endpoint(1)
             response <- ZIO.scoped(executor(invocation))
           } yield response
