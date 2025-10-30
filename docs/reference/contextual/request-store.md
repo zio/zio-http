@@ -8,7 +8,7 @@ sidebar_label: "RequestStore"
 
 ## Overview
 
-RequestStore uses ZIO's `[FiberRef](https://zio.dev/reference/state-management/fiberref/)` under the hood to ensure that data is isolated per request and automatically cleaned up when the request completes. This makes it ideal for storing contextual information that needs to be accessed at various points during request processing without leaking memory. Automatic cleanup is built-in, so there's no manual cleanup needed—data is cleared when the fiber completes.
+RequestStore uses ZIO's [`FiberRef`](https://zio.dev/reference/state-management/fiberref/) under the hood to ensure that data is isolated per request and automatically cleaned up when the request completes. This makes it ideal for storing contextual information that needs to be accessed at various points during request processing without leaking memory. Automatic cleanup is built-in, so there's no manual cleanup needed—data is cleared when the fiber completes.
 
 RequestStore excels at managing request-scoped context throughout your application. A common use case is request context tracking, where you store user IDs, session IDs, timestamps, IP addresses, correlation IDs, trace IDs, and other contextual information extracted from headers or authentication tokens. This makes the data available to all layers of your application without explicit parameter passing.
 
