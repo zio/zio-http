@@ -9,7 +9,7 @@ import zio.http.netty.NettyQueryParamEncoding
 import org.openjdk.jmh.annotations._
 
 @State(org.openjdk.jmh.annotations.Scope.Thread)
-@BenchmarkMode(Array(Mode.Throughput))
+@BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class QueryEncodingBenchmark {
 
