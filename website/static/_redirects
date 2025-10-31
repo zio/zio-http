@@ -1,0 +1,2 @@
+https://zio-http.netlify.app/*   https://ziohttp.com/:splat       301!
+http://zio-http.netlify.app/*    https://ziohttp.com/:splat       301!
