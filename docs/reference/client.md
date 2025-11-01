@@ -386,7 +386,7 @@ This will log a curl command similar to:
 curl \
   --verbose \
   --request POST \
-  --header 'user-agent:Zio-Http-Client/2.1.21 (Scala 2.13.16)' \
+  --header 'user-agent:Zio-Http-Client/2.1.21 (Scala 2.13.17)' \
   --header 'content-type:application/json' \
   --header 'authorization:Bearer <YOUR_GOREST_ACCESS_TOKEN>' \
   --data '{
