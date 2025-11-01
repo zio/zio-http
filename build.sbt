@@ -325,8 +325,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.0",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.0",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.5.2",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.2",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen)
