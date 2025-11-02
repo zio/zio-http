@@ -9,7 +9,7 @@ import io.netty.handler.codec.http.DefaultHttpHeaders
 import org.openjdk.jmh.annotations._
 
 @State(Scope.Thread)
-@BenchmarkMode(Array(Mode.AverageTime))
+@BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(1)
 @Warmup(iterations = 3, time = 3)

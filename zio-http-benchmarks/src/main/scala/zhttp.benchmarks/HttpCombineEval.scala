@@ -7,7 +7,7 @@ import zio.http._
 import org.openjdk.jmh.annotations._
 
 @State(Scope.Thread)
-@BenchmarkMode(Array(Mode.Throughput))
+@BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpCombineEval {
   private val req  = Request.get("/foo")

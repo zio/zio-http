@@ -6,10 +6,10 @@ import zio._
 
 import zio.http._
 
-import org.openjdk.jmh.annotations.{Scope => JScope, _}
+import org.openjdk.jmh.annotations.{Mode, Scope => JScope, _}
 
 @State(JScope.Thread)
-@BenchmarkMode(Array(Mode.Throughput))
+@BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpRouteTextPerf {
 
