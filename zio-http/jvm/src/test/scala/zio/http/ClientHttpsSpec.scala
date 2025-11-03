@@ -18,9 +18,8 @@ package zio.http
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{ignore, nonFlaky}
+import zio.test.TestAspect.{flaky, ignore, nonFlaky}
 import zio.test.{Spec, TestAspect, TestEnvironment, assertZIO}
-
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
@@ -48,7 +47,7 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
     test("respond Ok with sslConfig") {
       val actual = Client.batched(Request.get(zioDev))
       assertZIO(actual)(anything)
-    },
+    } @@ flaky,
     test("should respond as Bad Request") {
       val actual = Client.batched(Request.get(badRequest)).map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
