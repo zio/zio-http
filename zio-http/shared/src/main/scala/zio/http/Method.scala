@@ -21,7 +21,7 @@ import zio.http.codec.PathCodec
 /**
  * Represents an HTTP method, such as GET, PUT, POST, or DELETE.
  */
-sealed trait Method { self =>
+sealed trait Method { self: Product =>
 
   /**
    * A right-biased way of combining two methods. If either method is default,

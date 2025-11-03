@@ -11,7 +11,7 @@ object Mode {
     val env  = java.lang.System.getenv("ZIO_HTTP_MODE")
     if (prop != null) fromString(prop)
     else if (env != null) fromString(env)
-    else Dev
+    else Prod
   }
 
   private def fromString(str: String): Mode =
