@@ -1,18 +1,17 @@
 package zio.http.internal
 
-import scala.scalajs.js.typedarray.Uint8Array
-
 import zio._
 
 import zio.stream.ZStream
 
 import zio.http._
 
-import org.scalajs.dom.ReadableStream
+import org.scalajs.dom.Response
 
 case class FetchBody(
-  content: ReadableStream[Uint8Array],
+  result: Response,
   contentType: Option[Body.ContentType],
+  contentLength: Option[Header.ContentLength],
 ) extends Body {
 
   /**
@@ -21,11 +20,7 @@ case class FetchBody(
    * result in an out of memory error.
    */
   override def asArray(implicit trace: Trace): Task[Array[Byte]] =
-    ZIO.fromFuture { implicit ec =>
-      content.getReader().read().toFuture.map { value =>
-        value.value.map(_.toByte).toArray
-      }
-    }
+    asChunk.map(_.toArray)
 
   /**
    * Returns an effect that decodes the content of the body as a chunk of bytes.
@@ -33,7 +28,7 @@ case class FetchBody(
    * result in an out of memory error.
    */
   override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-    asArray.map(Chunk.fromArray)
+    asStream.runCollect
 
   /**
    * Returns a stream that contains the bytes of the body. This method is safe
@@ -41,24 +36,38 @@ case class FetchBody(
    * lazily produced from the body.
    */
   override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-    ZStream.fromIterableZIO(asChunk)
+    ZStream.unfoldChunkZIO(result.body.getReader()) { reader =>
+      ZIO.fromFuture { implicit ec =>
+        reader.read().toFuture
+      }.map { result =>
+        if (result.done) {
+          None
+        } else {
+          Some((Chunk.fromIterable(result.value.map(_.toByte)), reader))
+        }
+      }
+    }
 
   /**
    * Returns whether or not the bytes of the body have been fully read.
    */
-  override def isComplete: Boolean =
-    false // Seems to not be possible to check this with Fetch API
+  override def isComplete: Boolean = result.bodyUsed
 
   /**
    * Returns whether or not the content length is known
    */
-  override def knownContentLength: Option[Long] = None
+  override def knownContentLength: Option[Long] = contentLength.map(_.length)
 
   /**
    * Returns whether or not the body is known to be empty. Note that some bodies
    * may not be known to be empty until an attempt is made to consume them.
    */
-  override def isEmpty: Boolean = false
+  override def isEmpty: Boolean =
+    contentLength match {
+      case None                          => false
+      case Some(Header.ContentLength(0)) => true
+      case _                             => false
+    }
 
   /**
    * Updates the media type attached to this body, returning a new Body with the
@@ -69,7 +78,12 @@ case class FetchBody(
 
 object FetchBody {
 
-  def fromResponse(result: org.scalajs.dom.Response, contentType: Option[Body.ContentType]): Body = {
-    FetchBody(result.body, contentType)
+  def fromResponse(result: Response, contentType: Option[Body.ContentType]): Body = {
+    val contentLength = if (result.headers.has(Header.ContentLength.name)) {
+      Header.ContentLength.parse(result.headers.get(Header.ContentLength.name)).toOption
+    } else {
+      None
+    }
+    FetchBody(result, contentType, contentLength)
   }
 }
