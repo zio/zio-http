@@ -21,11 +21,7 @@ case class FetchBody(
    * result in an out of memory error.
    */
   override def asArray(implicit trace: Trace): Task[Array[Byte]] =
-    ZIO.fromFuture { implicit ec =>
-      content.getReader().read().toFuture.map { value =>
-        value.value.map(_.toByte).toArray
-      }
-    }
+    asChunk.map(_.toArray)
 
   /**
    * Returns an effect that decodes the content of the body as a chunk of bytes.
@@ -33,7 +29,7 @@ case class FetchBody(
    * result in an out of memory error.
    */
   override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-    asArray.map(Chunk.fromArray)
+    asStream.runCollect
 
   /**
    * Returns a stream that contains the bytes of the body. This method is safe
@@ -41,7 +37,17 @@ case class FetchBody(
    * lazily produced from the body.
    */
   override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-    ZStream.fromIterableZIO(asChunk)
+    ZStream.unfoldChunkZIO(content.getReader()) { reader =>
+      ZIO.fromFuture { implicit ec =>
+        reader.read().toFuture
+      }.map { result =>
+        if (result.done) {
+          None
+        } else {
+          Some((Chunk.fromIterable(result.value.map(_.toByte)), reader))
+        }
+      }
+    }
 
   /**
    * Returns whether or not the bytes of the body have been fully read.
