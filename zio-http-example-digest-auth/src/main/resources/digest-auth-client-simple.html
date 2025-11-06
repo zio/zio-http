@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Digest Auth Client</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        input, button {
+            display: block;
+            margin: 10px 0;
+            padding: 5px;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<h1>Digest Authentication Client</h1>
+
+<div>
+    <h3>Credentials</h3>
+    <input id="username" placeholder="Username (try: john)" value="john">
+    <input id="password" type="password" placeholder="Password (try: password123)" value="password123">
+</div>
+
+<div>
+    <h3>Test Endpoints</h3>
+    <button onclick="testEndpoint('/public')">Test Public</button>
+    <button onclick="testEndpoint('/profile/me')">Test Profile (Protected)</button>
+    <button onclick="testEndpoint('/admin')">Test Admin (Protected)</button>
+</div>
+
+<h3>Console Output</h3>
+<pre id="console">Ready to test digest authentication...</pre>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script>
+    let authCache = null; // Store auth params for reuse
+
+    // IMPORTANT: We use credentials: 'omit' in fetch() to prevent the browser's
+    // built-in authentication popup. Without this, when the server returns 401
+    // with WWW-Authenticate header, the browser automatically shows its native
+    // login dialog, bypassing our custom form.
+
+    function log(message) {
+        const console = document.getElementById('console');
+        console.textContent += '\n' + message;
+        console.scrollTop = console.scrollHeight;
+    }
+
+    function parseAuthHeader(headerValue) {
+        const params = {};
+        const regex = /(\w+)=("([^"]+)"|([^,\s]+))/g;
+        let match;
+        while ((match = regex.exec(headerValue)) !== null) {
+            params[match[1]] = match[3] || match[4];
+        }
+        return params;
+    }
+
+    function generateNonce() {
+        return Math.random().toString(36).substring(2, 15);
+    }
+
+    function calculateDigest(method, uri, username, password, realm, nonce, nc, cnonce, qop) {
+        // Calculate HA1
+        const ha1 = CryptoJS.MD5(`${username}:${realm}:${password}`).toString();
+
+        // Calculate HA2
+        const ha2 = CryptoJS.MD5(`${method}:${uri}`).toString();
+
+        // Calculate response based on whether qop is present
+        let response;
+        if (qop) {
+            response = CryptoJS.MD5(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).toString();
+        } else {
+            // When qop is not present, use simpler format
+            response = CryptoJS.MD5(`${ha1}:${nonce}:${ha2}`).toString();
+        }
+
+        return response;
+    }
+
+    async function testEndpoint(endpoint) {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            log('ERROR: Please enter username and password');
+            return;
+        }
+
+        log(`\n--- Testing ${endpoint} ---`);
+
+        try {
+            // First request (expect 401 with challenge)
+            log(`GET ${endpoint}`);
+            let response = await fetch(endpoint, {
+                credentials: 'omit'  // Prevent browser auth popup
+            });
+            log(`Response: ${response.status} ${response.statusText}`);
+
+            if (response.status === 200) {
+                const body = await response.text();
+                log(`Success: ${body}`);
+                return;
+            }
+
+            if (response.status === 401) {
+                // Get auth challenge
+                const wwwAuth = response.headers.get('WWW-Authenticate');
+                if (!wwwAuth || !wwwAuth.startsWith('Digest')) {
+                    log('ERROR: No Digest auth challenge received');
+                    return;
+                }
+
+                // Parse auth parameters
+                const authParams = parseAuthHeader(wwwAuth);
+                log(`Challenge received: realm="${authParams.realm}"`);
+
+                // Handle qop - server might send "auth,auth-int" or just "auth"
+                let qop = null;
+                if (authParams.qop) {
+                    // Remove quotes if present and select 'auth' if available
+                    const qopOptions = authParams.qop.replace(/"/g, '').split(',');
+                    qop = qopOptions.includes('auth') ? 'auth' : qopOptions[0];
+                    log(`Using qop: ${qop}`);
+                }
+
+                // Generate client nonce and counter
+                const cnonce = generateNonce();
+                const nc = '00000001';
+
+                // Calculate digest response
+                const digestResponse = calculateDigest(
+                    'GET',
+                    endpoint,
+                    username,
+                    password,
+                    authParams.realm,
+                    authParams.nonce,
+                    nc,
+                    cnonce,
+                    qop
+                );
+
+                // Build authorization header
+                let authHeader = `Digest username="${username}", ` +
+                                `realm="${authParams.realm}", ` +
+                                `nonce="${authParams.nonce}", ` +
+                                `uri="${endpoint}", ` +
+                                `algorithm="MD5", ` +
+                                `response="${digestResponse}"`;
+
+                if (qop) {
+                    authHeader += `, qop="${qop}", nc=${nc}, cnonce="${cnonce}"`;
+                }
+
+                if (authParams.opaque) {
+                    authHeader += `, opaque="${authParams.opaque}"`;
+                }
+
+                log(`Authorization header: ${authHeader}`);
+
+                // Second request with auth
+                log(`Sending authenticated request...`);
+                response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': authHeader
+                    },
+                    credentials: 'omit'  // Prevent browser auth popup
+                });
+
+                const body = await response.text();
+                log(`Response: ${response.status} ${response.statusText}`);
+                if (body) log(`Body: ${body}`);
+
+                if (response.status === 200) {
+                    log('SUCCESS: Authentication successful!');
+                    // Cache auth params for potential reuse
+                    authCache = {
+                        realm: authParams.realm,
+                        nonce: authParams.nonce,
+                        opaque: authParams.opaque,
+                        nc: 1
+                    };
+                } else {
+                    log('FAILED: Authentication failed');
+                    authCache = null;
+                }
+            }
+
+        } catch (error) {
+            log(`ERROR: ${error.message}`);
+        }
+    }
+
+    // Add some helpful info on load
+    window.onload = () => {
+        log('Test users: john/password123, jane/secret456, admin/admin123');
+        log('Click buttons above to test endpoints');
+    };
+</script>
+</body>
+</html>

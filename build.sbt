@@ -145,6 +145,14 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
       zioHttpExample,
+      zioHttpExampleBasicAuth,
+      zioHttpExampleCookieAuth,
+      zioHttpExampleDigestAuth,
+      zioHttpExampleOpaqueBearerTokenAuth,
+      zioHttpExampleJwtBearerTokenAuth,
+      zioHttpExampleJwtBearerRefreshTokenAuth,
+      zioHttpExampleOauthBearerTokenAuth,
+      zioHttpExampleWebauthn,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -314,8 +322,6 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `jwt-core`,
       `jwt-zio-json`,
       `zio-schema-json`,
-      "com.yubico" % "webauthn-server-core"        % "2.7.0",
-      "com.yubico" % "webauthn-server-attestation" % "2.7.0",
     ),
   )
   .settings(
@@ -469,3 +475,27 @@ Global / excludeLintKeys ++= Set(
   sbtZioHttpGrpcTests / autoAPIMappings,
   ideSkipProject,
 )
+
+lazy val zioHttpExampleBasicAuth =
+  RootProject(file("zio-http-example-basic-auth"))
+
+lazy val zioHttpExampleCookieAuth =
+  RootProject(file("zio-http-example-cookie-auth"))
+
+lazy val zioHttpExampleDigestAuth =
+  RootProject(file("zio-http-example-digest-auth"))
+
+lazy val zioHttpExampleOpaqueBearerTokenAuth =
+  RootProject(file("zio-http-example-opaque-bearer-token-auth"))
+
+lazy val zioHttpExampleJwtBearerTokenAuth =
+  RootProject(file("zio-http-example-jwt-bearer-token-auth"))
+
+lazy val zioHttpExampleJwtBearerRefreshTokenAuth =
+  RootProject(file("zio-http-example-jwt-bearer-refresh-token-auth"))
+
+lazy val zioHttpExampleOauthBearerTokenAuth =
+  RootProject(file("zio-http-example-oauth-bearer-token-auth"))
+
+lazy val zioHttpExampleWebauthn =
+  RootProject(file("zio-http-example-webauthn"))

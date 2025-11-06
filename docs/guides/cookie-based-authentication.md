@@ -402,7 +402,7 @@ The `addCookie` method adds the cookie to the request's `Cookie` header, authent
 Here's a complete example that demonstrates the full authentication lifecycle:
 
 ```scala mdoc:passthrough
-utils.printSource("zio-http-example/src/main/scala/example/auth/session/cookie/CookieAuthenticationClient.scala")
+utils.printSource("zio-http-example-cookie-auth/src/main/scala/example/auth/session/cookie/AuthenticationClient.scala")
 ```
 
 ## Writing a Web Client
@@ -678,6 +678,95 @@ Additionally, configure the `SameSite` attribute with either `Strict` or `Lax` s
 Session management requires careful attention to multiple security considerations. Implement both idle timeout and absolute timeout for sessions to balance security and user experience, and provide secure session renewal mechanisms before expiration to maintain user sessions without requiring re-authentication. Ensure proper session destruction on logout by clearing both server-side session data and client-side cookies.
 
 Infrastructure security completes the authentication security triad. Implement rate limiting on authentication endpoints to prevent brute force and denial-of-service attacks. For password security, always use secure password hashing algorithms like bcrypt, scrypt, or Argon2 instead of storing raw passwords, which would be a critical vulnerability.
+
+## Source Code
+
+The complete source code for this Cookie-Based Authentication example is available in the ZIO HTTP examples repository.
+
+To clone the example:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/zio/zio-http.git
+cd zio-http
+git sparse-checkout set zio-http-example-cookie-auth
+```
+
+### Running the Server
+
+To run the authentication server:
+
+```bash
+cd zio-http/zio-http-example-cookie-auth
+sbt "runMain example.auth.session.cookie.AuthenticationServer"
+```
+
+The server starts on `http://localhost:8080` with these test users:
+
+| Username | Password      | Email                |
+|----------|---------------|----------------------|
+| `john`   | `password123` | john@example.com     |
+| `jane`   | `secret456`   | jane@example.com     |
+| `admin`  | `admin123`    | admin@company.com    |
+
+
+### ZIO HTTP Client
+
+Run the command-line client (ensure server is running):
+
+```bash
+cd zio-http/zio-http-example-cookie-auth
+sbt "runMain example.auth.session.cookie.AuthenticationClient"
+```
+
+Example output:
+
+```
+Making login request...
+Login response: Login successful! Session created for john
+Accessing protected route...
+Protected route response: Welcome john! This is your profile: 
+ Username: john 
+ Email: john@example.com
+Logging out...
+Logout response: Logged out successfully!
+Trying to access protected route after logout...
+Final response: Invalid or expired session!
+Final response status: Unauthorized
+```
+
+### Web-Based Client
+
+Navigate to `http://localhost:8080` to access the interactive web interface.
+
+The advanced client (default) includes:
+
+- User selection cards with pre-configured credentials
+- Real-time session status indicator
+- HTTP transaction viewer showing requests/responses
+- Cookie information display
+
+To use the simple version, modify `AuthenticationServer.scala`:
+
+```scala
+Method.GET / Root ->
+  Handler
+    .fromResource("cookie-based-auth-client-simple.html")
+    .orElse(Handler.internalServerError("Failed to load HTML file"))
+```
+
+## Demo
+
+We have deployed a live demo at: [https://cookie-auth-demo.ziohttp.com/](https://cookie-auth-demo.ziohttp.com/)
+
+
+**Try these scenarios:**
+
+1. **Normal Login Flow** - Log in and observe Set-Cookie header, then access profile to see Cookie header automatically sent
+2. **Session Persistence** - Log in, refresh the page, notice you remain logged in
+3. **Session Expiration** - Log in, wait 5 minutes, try accessing profile (fails with "Invalid or expired session")
+4. **Proper Logout** - Log in, click Logout, observe cookie clearing, then try accessing profile (fails)
+
+Use your browser's developer tools (Network tab) to examine cookie behavior and attributes in detail.
 
 ## Conclusion
 

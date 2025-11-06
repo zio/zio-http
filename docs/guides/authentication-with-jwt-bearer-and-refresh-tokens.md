@@ -572,11 +572,69 @@ case class RefreshTokenData(
   roles: Set[String],
   expiresAt: Long,
   deviceId: String,
-  deviceName: String  // "John's iPhone", "Chrome on Windows"
+  deviceName: String
 )
 ```
 
 Users can revoke access to specific devices without affecting others. Lost phone? Revoke its tokens without logging out everywhere.
+
+## Source Code
+
+The complete source code for this JWT Bearer and Refresh Token Authentication example is available in the ZIO HTTP repository.
+
+To clone the example:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/zio/zio-http.git
+cd zio-http
+git sparse-checkout set zio-http-example-jwt-bearer-refresh-token-auth
+```
+
+### Running the Server
+
+To run the authentication server:
+
+```bash
+cd zio-http/zio-http-example-jwt-bearer-refresh-token-auth
+sbt "runMain example.auth.bearer.jwt.refresh.AuthenticationServer"
+```
+
+The server starts on `http://localhost:8080` with these test users:
+
+| Username | Password      | Email                | Roles        |
+|----------|---------------|----------------------|--------------|
+| `john`   | `password123` | john@example.com     | user         |
+| `jane`   | `secret456`   | jane@example.com     | user         |
+| `admin`  | `admin123`    | admin@company.com    | admin, user  |
+
+### ZIO HTTP Client
+
+Run the command-line client (ensure server is running):
+
+```bash
+cd zio-http/zio-http-example-jwt-bearer-refresh-token-auth
+sbt "runMain example.auth.bearer.jwt.refresh.AuthenticationClient"
+```
+
+### Web-Based Client
+
+To demonstrate the refresh token authentication flow in a web client, we've created a simple HTML page where users can log in, view their profile, refresh tokens, and log out.
+
+First, start the `AuthenticationServer`, which provides the authentication API and serves the HTML client (`jwt-client-with-refresh-token.html`) located in the resource folder:
+
+```bash
+sbt "runMain example.auth.bearer.jwtrefresh.AuthenticationServer"
+```
+
+Then open [http://localhost:8080](http://localhost:8080) in your browser to interact with the system using predefined credentials. You can log in, view your profile, manually refresh tokens, and log out, showcasing the full JWT bearer and refresh token authentication flow with automatic token refresh on expired access tokens.
+
+The HTML file's source code can be found in the example project's resource folder.
+
+## Demo
+
+We have deployed a live demo of the server and the web client at: [http://jwt-bearer-refresh-token-auth-demo.ziohttp.com/](http://jwt-bearer-refresh-token-auth-demo.ziohttp.com/)
+
+The demo allows you to experience the refresh token authentication flow firsthand. You can log in using the predefined users, access their profiles, observe automatic token refresh when access tokens expire, and log out to see how token revocation works in practice. HTTP transactions can be inspected at the bottom of the page, so you can see the requests and responses in detail, including the token refresh mechanism in action.
 
 ## Conclusion
 
