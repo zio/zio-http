@@ -7,6 +7,8 @@ import zio.test._
 
 import zio.schema.{DeriveSchema, Schema}
 
+import zio.http._
+import zio.http.endpoint._
 import zio.http.template2._
 
 object DatastarAttributesSpec extends ZIOSpecDefault {
@@ -138,6 +140,23 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
       val update = sig := Customer("Bob", 25)
       val expr   = update.toExpression
       assertTrue(expr == Js("{state: {customer: {name: 'Bob', age: 25}}}"))
+    },
+    test("Request from endpoint as attribute value") {
+      val getCustomer = Endpoint(Method.GET / "customer" / int("customer-id")).out[Customer]
+      val req         = getCustomer.datastarRequest(123)
+      val view        = div(dataOnLoad := req)
+      val rendered    = view.render
+      val expected    = """data-on-load="@get('/customer/123')""""
+      assertTrue(rendered.contains(expected))
+    },
+    test("Request from endpoint as attribute value and signal") {
+      val getCustomer = Endpoint(Method.GET / "customer" / int("customer-id")).out[Customer]
+      val signal      = Signal[Int]("customerId")
+      val req         = getCustomer.datastarRequest(signal)
+      val view        = div(dataOnLoad := req)
+      val rendered    = view.render
+      val expected    = """data-on-load="@get('/customer/$customerId')""""
+      assertTrue(rendered.contains(expected))
     },
   )
 }

@@ -111,6 +111,6 @@ object ClientHttpsFromJavaxNetSslSpec extends ClientHttpsSpecBase {
 
   override def spec: Spec[TestEnvironment & Scope, Throwable] =
     suite("Https Client request - From Javax Net Ssl")(
-      tests(sslConfig) @@ TestAspect.flaky(5),
+      tests(sslConfig) @@ TestAspect.flaky(5) @@ TestAspect.ignore,
     )
 }

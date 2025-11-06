@@ -18,7 +18,7 @@ package zio.http
 
 import zio.{Chunk, ChunkBuilder}
 
-import zio.http.internal.ThreadLocals
+import zio.http.internal.{QueryParamEncoding, ThreadLocals}
 
 /**
  * Path is an immutable representation of the path of a URL. Internally it
@@ -134,7 +134,7 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
     var idx     = 0
     val lastIdx = segments.length - 1
     while (idx <= lastIdx) {
-      sb.append(segments(idx))
+      QueryParamEncoding.encodeComponentInto(segments(idx), Charsets.Http, sb, "%20")
       if (hasTrailingSlash || idx != lastIdx) sb.append('/')
       idx += 1
     }

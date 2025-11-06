@@ -212,7 +212,12 @@ private[http] object QueryParamEncoding {
    * Encodes a URL component according to HTML/URL encoding rules. Spaces become
    * '+', and special characters become percent-encoded.
    */
-  private def encodeComponentInto(component: String, charset: Charset, target: java.lang.StringBuilder): Unit = {
+  private[http] def encodeComponentInto(
+    component: String,
+    charset: Charset,
+    target: java.lang.StringBuilder,
+    spaceEncode: String = "+",
+  ): Unit = {
     if (component.isEmpty) return
 
     // Fast path for strings that don't need encoding
@@ -247,7 +252,7 @@ private[http] object QueryParamEncoding {
         target.append(unsignedByte.toChar)
       } else if (unsignedByte == ' ') {
         // Space becomes '+'
-        target.append('+')
+        target.append(spaceEncode)
       } else {
         // Percent encoding
         target.append('%')

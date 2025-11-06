@@ -280,15 +280,17 @@ object Dom {
       val attributeString = if (attributes.nonEmpty) {
         val sb = ThreadLocals.stringBuilder
         attributes.foreach {
-          case (name, AttributeValue.StringValue(v))                     =>
-            sb.append(s""" $name="${htmlEscape(v)}"""")
-          case (name, AttributeValue.MultiValue(values, separator))      =>
-            if (values.nonEmpty) {
-              val joinedValues = values.mkString(separator.render)
+          case (name, s: AttributeValue.StringValue)                     =>
+            sb.append(s""" $name="${htmlEscape(s.value)}"""")
+          case (name, m: AttributeValue.MultiValue)                      =>
+            if (m.values.nonEmpty) {
+              val joinedValues = m.values.mkString(m.separator.render)
               sb.append(s""" $name="${htmlEscape(joinedValues)}"""")
             }
           case (name, value: AttributeValue.BooleanValue) if value.value =>
             sb.append(s""" $name""")
+          case (name, value: AttributeValue.JsValue)                     =>
+            sb.append(s""" $name="$value"""")
           case _                                                         =>
         }
         sb.toString
@@ -322,8 +324,6 @@ object Dom {
     def name: String
     def value: AttributeValue
   }
-
-  sealed trait AttributeValue extends Product with Serializable
 
   final case class Text(content: String) extends Dom {
     private[template2] def renderInternal(state: RenderState): CharSequence =
@@ -359,10 +359,11 @@ object Dom {
    */
   final case class PartialAttribute(name: String) {
     def :=(value: AttributeValue): CompleteAttribute = CompleteAttribute(name, value)
-    def :=(value: String): CompleteAttribute         = CompleteAttribute(name, AttributeValue.StringValue(value))
     def :=(value: Boolean): CompleteAttribute        = CompleteAttribute(name, AttributeValue.BooleanValue(value))
-    def :=(value: Int): CompleteAttribute    = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
     def :=(value: Double): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
+    def :=(value: Int): CompleteAttribute    = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
+    def :=(value: Js): CompleteAttribute     = CompleteAttribute(name, AttributeValue.JsValue(value))
+    def :=(value: String): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value))
 
     def apply(value: AttributeValue): CompleteAttribute = CompleteAttribute(name, value)
     def apply(value: String): CompleteAttribute         = CompleteAttribute(name, AttributeValue.StringValue(value))
@@ -645,8 +646,9 @@ object Dom {
     private[template2] def renderInternal(state: RenderState): CharSequence = ""
   }
 
+  sealed trait AttributeValue extends Product with Serializable
+
   object AttributeValue {
-    // implicit def fromString(value: String): AttributeValue = StringValue(value)
 
     implicit def fromBoolean(value: Boolean): AttributeValue = BooleanValue(value)
 
@@ -662,17 +664,6 @@ object Dom {
       def value: Boolean
     }
 
-    final case class StringValue(value: String) extends AttributeValue {
-      override def toString: String = value
-    }
-
-    /**
-     * Multi-value attribute support for attributes like class, style, etc.
-     */
-    final case class MultiValue(values: Vector[String], separator: AttributeSeparator) extends AttributeValue {
-      override def toString: String = values.mkString(separator.render)
-    }
-
     object BooleanValue {
       def apply(value: Boolean): BooleanValue = if (value) True else False
       private[template2] case object True  extends BooleanValue {
@@ -683,6 +674,21 @@ object Dom {
         override def toString: String = "false"
         def value: Boolean            = false
       }
+    }
+
+    final case class JsValue(js: Js) extends AttributeValue {
+      override def toString: String = js.value
+    }
+
+    /**
+     * Multi-value attribute support for attributes like class, style, etc.
+     */
+    final case class MultiValue(values: Vector[String], separator: AttributeSeparator) extends AttributeValue {
+      override def toString: String = values.mkString(separator.render)
+    }
+
+    final case class StringValue(value: String) extends AttributeValue {
+      override def toString: String = value
     }
   }
 
