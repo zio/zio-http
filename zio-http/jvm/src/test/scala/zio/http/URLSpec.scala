@@ -94,6 +94,11 @@ object URLSpec extends ZIOHttpSpec {
             URL.decode(urlSpacesPlus.encode) == Right(urlSpacesPlus),
           )
         },
+        test("url with space in path") {
+          val urlWithSpace = URL(Path("/my folder/file.txt"))
+          val expected     = urlWithSpace.encode
+          assertTrue(expected == "/my%20folder/file.txt")
+        },
         test("auto-gen") {
           check(HttpGen.url) { url =>
             val expected        = url.copy(path = url.path.addLeadingSlash)

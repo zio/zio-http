@@ -653,6 +653,24 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
     loop(self)
   }
 
+  private[http] def segmentsWithTransformEncode: Chunk[(SegmentCodec[_], Option[Any => Either[String, Any]])] = {
+    def loop(path: PathCodec[_]): Chunk[(SegmentCodec[_], Option[Any => Either[String, Any]])] = path match {
+      case PathCodec.Annotated(codec, _)                              =>
+        loop(codec)
+      case PathCodec.Segment(segment: SegmentCodec.Combined[_, _, _]) =>
+        Chunk.fromIterable(segment.flattened.map(seg => (seg, None)))
+      case PathCodec.Segment(segment)                                 =>
+        Chunk((segment, None))
+      case PathCodec.Concat(left, right, _)                           =>
+        loop(left) ++ loop(right)
+      case PathCodec.TransformOrFail(api, _, g)                       =>
+        loop(api).map { case (seg, _) => (seg, Some(g.asInstanceOf[Any => Either[String, Any]])) }
+      case PathCodec.Fallback(left, _)                                =>
+        loop(left)
+    }
+    loop(self)
+  }
+
   override def toString: String = render
 
   final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =

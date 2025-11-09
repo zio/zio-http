@@ -577,7 +577,7 @@ object Attributes {
   final case class DataOnLoad(prefix: String, modifier: LoadModifier) {
     private val full = s"$prefix-on-load${modifier.render}"
 
-    def :=(expression: Js): Attribute = Dom.attr(full) := expression.value
+    def :=(expression: Js): Attribute = Dom.attr(full) := expression
 
     def delay(duration: Duration): DataOnLoad = copy(modifier = modifier && LoadModifier.Delay(duration))
     def viewTransition: DataOnLoad            = copy(modifier = modifier && LoadModifier.ViewTransition)

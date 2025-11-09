@@ -16,6 +16,8 @@
 
 package zio.http
 
+import zio.schema.Schema
+
 final case class MediaType(
   mainType: String,
   subType: String,
@@ -42,6 +44,11 @@ object MediaType extends MediaTypes {
       text.all.flatMap(m => m.fileExtensions.map(_ -> m)).toMap
   private[http] val contentTypeMap: Map[String, MediaType] = allMediaTypes.map(m => m.fullType -> m).toMap
   val mainTypeMap                                          = allMediaTypes.map(m => m.mainType -> m).toMap
+
+  implicit val schema: zio.schema.Schema[MediaType] = Schema[String].transformOrFail(
+    str => MediaType.forContentType(str).toRight(s"Invalid media type: $str"),
+    mediaType => Right(mediaType.fullType),
+  )
 
   def forContentType(contentType: String): Option[MediaType] = {
     val index = contentType.indexOf(';')
