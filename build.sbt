@@ -144,6 +144,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpc,
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
+      zioHttpStomp,
       zioHttpExample,
       zioHttpExampleBasicAuth,
       zioHttpExampleCookieAuth,
@@ -311,6 +312,23 @@ lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
     ),
   )
   .dependsOn(zioHttpJVM)
+  .settings(MimaSettings.mimaSettings(failOnProblem = true))
+
+lazy val zioHttpStomp = (project in file("zio-http-stomp"))
+  .settings(
+    stdSettings("zio-http-stomp"),
+    publishSetting(true),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-schema`,
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
+  .dependsOn(zioHttpJVM)
+  .dependsOn(zioHttpTestkit % Test)
   .settings(MimaSettings.mimaSettings(failOnProblem = true))
 
 lazy val zioHttpExample = (project in file("zio-http-example"))

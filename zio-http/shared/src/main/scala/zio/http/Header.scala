@@ -4327,11 +4327,13 @@ object Header {
     def render(upgrade: Upgrade): String =
       upgrade match {
         case Multiple(protocols)         => protocols.map(render).mkString(", ")
+        case Protocol("websocket", "")   => "websocket"
         case Protocol(protocol, version) => s"$protocol/$version"
       }
 
     private def parseProtocol(value: String): Either[String, Protocol] =
       Chunk.fromArray(value.split("/")).map(_.trim) match {
+        case Chunk("websocket")       => Right(Protocol("websocket", ""))
         case Chunk(protocol, version) => Right(Protocol(protocol, version))
         case _                        => Left("Invalid Upgrade header")
       }
