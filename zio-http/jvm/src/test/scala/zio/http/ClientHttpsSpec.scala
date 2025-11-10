@@ -44,7 +44,10 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
     test("respond Ok") {
       val actual = Client.batched(Request.get(zioDev))
       assertZIO(actual)(anything)
-    }.provide(ZLayer.succeed(ZClient.Config.default), partialClientLayer) @@ ignore /* External service (zio.dev) causes flaky failures in CI due to network timing, SSL handshake timeouts, and IPv6 issues. See #2280, #2400. */,
+    }.provide(
+      ZLayer.succeed(ZClient.Config.default),
+      partialClientLayer,
+    ) @@ ignore /* External service (zio.dev) causes flaky failures in CI due to network timing, SSL handshake timeouts, and IPv6 issues. See #2280, #2400. */,
     test("respond Ok with sslConfig") {
       val actual = Client.batched(Request.get(zioDev))
       assertZIO(actual)(anything)
