@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ * Copyright 2021 - 2025 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ private[http] object StompChannel {
       }
 
       def send(frame: ZStompFrame)(implicit trace: Trace): Task[Unit] =
-        NettyStompFrameCodec.toNettyFrame(frame).flatMap { nettyFrame =>
+        ZIO.attempt(NettyStompFrameCodec.toNettyFrame(frame)).flatMap { nettyFrame =>
           nettyChannel.writeAndFlush(nettyFrame)
         }
 

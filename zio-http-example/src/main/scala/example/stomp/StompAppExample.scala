@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ * Copyright 2021 - 2025 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@
 package example.stomp
 
 import zio._
-import zio.http._
+
 import zio.http.ChannelEvent.Read
+import zio.http._
 
 /**
  * Example demonstrating StompApp usage pattern.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ * Copyright 2021 - 2025 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,25 +37,19 @@ private[netty] final class StompAppHandler(
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   private def dispatch(event: ChannelEvent[JStompFrame]): Unit = {
-    // Convert Netty frame to zio-http frame
-    val stompEvent: ChannelEvent[ZStompFrame] = event match {
-      case ChannelEvent.Read(nettyFrame)      =>
-        // Convert synchronously to avoid losing frames
-        try {
-          val frame = zExec.unsafeRunSync(NettyStompFrameCodec.fromNettyFrame(nettyFrame))
-          ChannelEvent.Read(frame)
-        } catch {
-          case err: Throwable => ChannelEvent.ExceptionCaught(err)
-        }
-      case ChannelEvent.Registered            => ChannelEvent.Registered
-      case ChannelEvent.Unregistered          => ChannelEvent.Unregistered
-      case ChannelEvent.ExceptionCaught(err)  => ChannelEvent.ExceptionCaught(err)
-      case ChannelEvent.UserEventTriggered(e) => ChannelEvent.UserEventTriggered(e)
-    }
-
-    // Offer to queue synchronously (queue is unbounded, won't block)
-    val _ = zExec.unsafeRunSync(queue.offer(stompEvent))
+    // IMPORTANT: Offering to the queue must be run synchronously to avoid messages being added in the wrong order
+    // Since the queue is unbounded, this will not block the event loop
+    val _ = zExec.unsafeRunSync(queue.offer(event.map(frameFromNetty)))
   }
+
+  private def frameFromNetty(jFrame: JStompFrame): ZStompFrame =
+    try {
+      NettyStompFrameCodec.fromNettyFrame(jFrame)
+    } catch {
+      case err: Throwable =>
+        // Conversion errors will be caught and dispatched as ExceptionCaught events
+        throw err
+    }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JStompFrame): Unit =
     dispatch(ChannelEvent.read(msg))

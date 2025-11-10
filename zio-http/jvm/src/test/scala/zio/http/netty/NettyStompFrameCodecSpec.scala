@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ * Copyright 2021 - 2025 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,15 @@ package zio.http.netty
 
 import zio._
 import zio.test._
+
 import zio.http.{StompCommand => ZStompCommand, StompFrame => ZStompFrame, _}
 
 import io.netty.handler.codec.stomp.{
   DefaultStompFrame,
   DefaultStompHeaders,
   StompCommand,
-  StompHeaders,
   StompFrame => JStompFrame,
+  StompHeaders,
 }
 
 object NettyStompFrameCodecSpec extends ZIOSpecDefault {
@@ -33,43 +34,37 @@ object NettyStompFrameCodecSpec extends ZIOSpecDefault {
   def spec = suite("NettyStompFrameCodec")(
     suite("toNettyFrame")(
       test("converts Connect frame") {
-        for {
-          zioFrame   <- ZIO.succeed(ZStompFrame.Connect().withHeader("host", "localhost"))
-          nettyFrame <- NettyStompFrameCodec.toNettyFrame(zioFrame)
-        } yield assertTrue(
+        val zioFrame   = ZStompFrame.Connect().withHeader("host", "localhost")
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
           nettyFrame.command() == StompCommand.CONNECT,
           nettyFrame.headers().getAsString("host") == "localhost",
         )
       },
       test("converts Send frame with destination") {
-        for {
-          body       <- ZIO.succeed(Chunk.fromArray("test message".getBytes("UTF-8")))
-          zioFrame   <- ZIO.succeed(ZStompFrame.Send("/queue/test").withBody(body))
-          nettyFrame <- NettyStompFrameCodec.toNettyFrame(zioFrame)
-        } yield assertTrue(
+        val body       = Chunk.fromArray("test message".getBytes("UTF-8"))
+        val zioFrame   = ZStompFrame.Send("/queue/test").withBody(body)
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
           nettyFrame.command() == StompCommand.SEND,
           nettyFrame.headers().getAsString(StompHeaders.DESTINATION) == "/queue/test",
           nettyFrame.content().readableBytes() == body.length,
         )
       },
       test("converts Subscribe frame with id") {
-        for {
-          zioFrame   <- ZIO.succeed(ZStompFrame.Subscribe("/topic/events", "sub-1"))
-          nettyFrame <- NettyStompFrameCodec.toNettyFrame(zioFrame)
-        } yield assertTrue(
+        val zioFrame   = ZStompFrame.Subscribe("/topic/events", "sub-1")
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
           nettyFrame.command() == StompCommand.SUBSCRIBE,
           nettyFrame.headers().getAsString(StompHeaders.DESTINATION) == "/topic/events",
           nettyFrame.headers().getAsString(StompHeaders.ID) == "sub-1",
         )
       },
       test("converts Message frame") {
-        for {
-          body       <- ZIO.succeed(Chunk.fromArray("message body".getBytes("UTF-8")))
-          zioFrame   <- ZIO.succeed(
-            ZStompFrame.Message("/queue/test", "msg-1", "sub-1").withBody(body),
-          )
-          nettyFrame <- NettyStompFrameCodec.toNettyFrame(zioFrame)
-        } yield assertTrue(
+        val body       = Chunk.fromArray("message body".getBytes("UTF-8"))
+        val zioFrame   = ZStompFrame.Message("/queue/test", "msg-1", "sub-1").withBody(body)
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
           nettyFrame.command() == StompCommand.MESSAGE,
           nettyFrame.headers().getAsString(StompHeaders.DESTINATION) == "/queue/test",
           nettyFrame.headers().getAsString(StompHeaders.MESSAGE_ID) == "msg-1",
@@ -77,46 +72,70 @@ object NettyStompFrameCodecSpec extends ZIOSpecDefault {
         )
       },
       test("converts Error frame") {
-        for {
-          zioFrame   <- ZIO.succeed(ZStompFrame.Error("Test error"))
-          nettyFrame <- NettyStompFrameCodec.toNettyFrame(zioFrame)
-        } yield assertTrue(
+        val zioFrame   = ZStompFrame.Error("Test error")
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
           nettyFrame.command() == StompCommand.ERROR,
           nettyFrame.headers().getAsString(StompHeaders.MESSAGE) == "Test error",
+        )
+      },
+      test("filters duplicate well-known headers") {
+        // User tries to override destination via withHeader (should be ignored)
+        val zioFrame   = ZStompFrame
+          .Send("/queue/test")
+          .withHeader("destination", "/queue/wrong")
+          .withHeader("custom-header", "custom-value")
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
+          // Constructor value takes precedence
+          nettyFrame.headers().getAsString(StompHeaders.DESTINATION) == "/queue/test",
+          // Custom header is preserved
+          nettyFrame.headers().getAsString("custom-header") == "custom-value",
+          // Only one destination header exists
+          nettyFrame.headers().getAll(StompHeaders.DESTINATION).size() == 1,
+        )
+      },
+      test("adds content-length header for frames with bodies") {
+        val body       = Chunk.fromArray("test message".getBytes("UTF-8"))
+        val zioFrame   = ZStompFrame.Send("/queue/test").withBody(body)
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
+          nettyFrame.headers().getAsString(StompHeaders.CONTENT_LENGTH) == body.length.toString,
+        )
+      },
+      test("omits content-length header for frames without bodies") {
+        val zioFrame   = ZStompFrame.Connect()
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
+          nettyFrame.headers().getAsString(StompHeaders.CONTENT_LENGTH) == null,
         )
       },
     ),
     suite("fromNettyFrame")(
       test("converts Netty Connect frame") {
-        for {
-          nettyFrame <- ZIO.attempt {
-            val headers = new DefaultStompHeaders()
-            headers.set("accept-version", "1.2")
-            headers.set("host", "localhost")
-            val frame   = new DefaultStompFrame(StompCommand.CONNECT)
-            frame.headers().set(headers)
-            frame
-          }
-          zioFrame   <- NettyStompFrameCodec.fromNettyFrame(nettyFrame)
-        } yield assertTrue(
+        val headers    = new DefaultStompHeaders()
+        headers.set("accept-version", "1.2")
+        headers.set("host", "localhost")
+        val nettyFrame = new DefaultStompFrame(StompCommand.CONNECT)
+        nettyFrame.headers().set(headers)
+
+        val zioFrame = NettyStompFrameCodec.fromNettyFrame(nettyFrame)
+        assertTrue(
           zioFrame.command == ZStompCommand.CONNECT,
           zioFrame.header("accept-version").contains("1.2"),
           zioFrame.header("host").contains("localhost"),
         )
       },
       test("converts Netty Send frame") {
-        for {
-          body       <- ZIO.succeed("test".getBytes("UTF-8"))
-          nettyFrame <- ZIO.attempt {
-            val headers = new DefaultStompHeaders()
-            headers.set(StompHeaders.DESTINATION, "/queue/test")
-            val content = io.netty.buffer.Unpooled.wrappedBuffer(body)
-            val frame   = new DefaultStompFrame(StompCommand.SEND, content)
-            frame.headers().set(headers)
-            frame
-          }
-          zioFrame   <- NettyStompFrameCodec.fromNettyFrame(nettyFrame)
-        } yield assertTrue(
+        val body       = "test".getBytes("UTF-8")
+        val headers    = new DefaultStompHeaders()
+        headers.set(StompHeaders.DESTINATION, "/queue/test")
+        val content    = io.netty.buffer.Unpooled.wrappedBuffer(body)
+        val nettyFrame = new DefaultStompFrame(StompCommand.SEND, content)
+        nettyFrame.headers().set(headers)
+
+        val zioFrame = NettyStompFrameCodec.fromNettyFrame(nettyFrame)
+        assertTrue(
           zioFrame.command == ZStompCommand.SEND,
           zioFrame.isInstanceOf[ZStompFrame.Send],
           zioFrame.asInstanceOf[ZStompFrame.Send].destination == "/queue/test",
@@ -124,18 +143,15 @@ object NettyStompFrameCodecSpec extends ZIOSpecDefault {
         )
       },
       test("converts Netty Message frame") {
-        for {
-          nettyFrame <- ZIO.attempt {
-            val headers = new DefaultStompHeaders()
-            headers.set(StompHeaders.DESTINATION, "/topic/test")
-            headers.set(StompHeaders.MESSAGE_ID, "msg-123")
-            headers.set(StompHeaders.SUBSCRIPTION, "sub-1")
-            val frame   = new DefaultStompFrame(StompCommand.MESSAGE)
-            frame.headers().set(headers)
-            frame
-          }
-          zioFrame   <- NettyStompFrameCodec.fromNettyFrame(nettyFrame)
-        } yield assertTrue(
+        val headers    = new DefaultStompHeaders()
+        headers.set(StompHeaders.DESTINATION, "/topic/test")
+        headers.set(StompHeaders.MESSAGE_ID, "msg-123")
+        headers.set(StompHeaders.SUBSCRIPTION, "sub-1")
+        val nettyFrame = new DefaultStompFrame(StompCommand.MESSAGE)
+        nettyFrame.headers().set(headers)
+
+        val zioFrame = NettyStompFrameCodec.fromNettyFrame(nettyFrame)
+        assertTrue(
           zioFrame.command == ZStompCommand.MESSAGE,
           zioFrame.isInstanceOf[ZStompFrame.Message],
           zioFrame.asInstanceOf[ZStompFrame.Message].destination == "/topic/test",
@@ -146,33 +162,27 @@ object NettyStompFrameCodecSpec extends ZIOSpecDefault {
     ),
     suite("roundtrip")(
       test("Connect frame survives roundtrip") {
-        for {
-          original   <- ZIO.succeed(
-            ZStompFrame
-              .Connect()
-              .withHeader("accept-version", "1.2")
-              .withHeader("host", "localhost"),
-          )
-          nettyFrame <- NettyStompFrameCodec.toNettyFrame(original)
-          converted  <- NettyStompFrameCodec.fromNettyFrame(nettyFrame)
-        } yield assertTrue(
+        val original   = ZStompFrame
+          .Connect()
+          .withHeader("accept-version", "1.2")
+          .withHeader("host", "localhost")
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(original)
+        val converted  = NettyStompFrameCodec.fromNettyFrame(nettyFrame)
+        assertTrue(
           converted.command == original.command,
           converted.header("accept-version") == original.header("accept-version"),
           converted.header("host") == original.header("host"),
         )
       },
       test("Send frame with body survives roundtrip") {
-        for {
-          body       <- ZIO.succeed(Chunk.fromArray("Hello, STOMP!".getBytes("UTF-8")))
-          original   <- ZIO.succeed(
-            ZStompFrame
-              .Send("/queue/test")
-              .withHeader("content-type", "text/plain")
-              .withBody(body),
-          )
-          nettyFrame <- NettyStompFrameCodec.toNettyFrame(original)
-          converted  <- NettyStompFrameCodec.fromNettyFrame(nettyFrame)
-        } yield assertTrue(
+        val body       = Chunk.fromArray("Hello, STOMP!".getBytes("UTF-8"))
+        val original   = ZStompFrame
+          .Send("/queue/test")
+          .withHeader("content-type", "text/plain")
+          .withBody(body)
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(original)
+        val converted  = NettyStompFrameCodec.fromNettyFrame(nettyFrame)
+        assertTrue(
           converted.command == original.command,
           converted.asInstanceOf[ZStompFrame.Send].destination == original.destination,
           converted.header("content-type") == original.header("content-type"),
@@ -180,15 +190,12 @@ object NettyStompFrameCodecSpec extends ZIOSpecDefault {
         )
       },
       test("Subscribe frame survives roundtrip") {
-        for {
-          original   <- ZIO.succeed(
-            ZStompFrame
-              .Subscribe("/topic/events", "sub-1")
-              .withHeader("ack", "client"),
-          )
-          nettyFrame <- NettyStompFrameCodec.toNettyFrame(original)
-          converted  <- NettyStompFrameCodec.fromNettyFrame(nettyFrame)
-        } yield assertTrue(
+        val original   = ZStompFrame
+          .Subscribe("/topic/events", "sub-1")
+          .withHeader("ack", "client")
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(original)
+        val converted  = NettyStompFrameCodec.fromNettyFrame(nettyFrame)
+        assertTrue(
           converted.command == original.command,
           converted.asInstanceOf[ZStompFrame.Subscribe].destination == original.destination,
           converted.asInstanceOf[ZStompFrame.Subscribe].id == original.id,
