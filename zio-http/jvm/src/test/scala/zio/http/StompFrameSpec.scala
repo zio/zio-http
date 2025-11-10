@@ -44,6 +44,30 @@ object StompFrameSpec extends ZIOSpecDefault {
 
         assertTrue(frame.body == body)
       },
+      test("defaults to CONNECT command") {
+        val frame = StompFrame.Connect()
+        assertTrue(frame.command == StompCommand.CONNECT)
+      },
+      test("can create STOMP command for STOMP 1.1+") {
+        val frame = StompFrame.Connect
+          .stomp()
+          .withHeader("accept-version", "1.1,1.2")
+          .withHeader("host", "localhost")
+
+        assertTrue(
+          frame.command == StompCommand.STOMP,
+          frame.header("accept-version").contains("1.1,1.2"),
+        )
+      },
+      test("preserves command when copying") {
+        val stompFrame = StompFrame.Connect.stomp()
+        val withHeader = stompFrame.withHeader("host", "localhost")
+
+        assertTrue(
+          withHeader.command == StompCommand.STOMP,
+          stompFrame.command == StompCommand.STOMP,
+        )
+      },
     ),
     suite("Send")(
       test("requires destination") {

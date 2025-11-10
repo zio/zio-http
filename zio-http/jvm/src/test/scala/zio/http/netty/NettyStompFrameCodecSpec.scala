@@ -41,6 +41,14 @@ object NettyStompFrameCodecSpec extends ZIOSpecDefault {
           nettyFrame.headers().getAsString("host") == "localhost",
         )
       },
+      test("converts STOMP command frame (STOMP 1.1+)") {
+        val zioFrame   = ZStompFrame.Connect.stomp().withHeader("accept-version", "1.1,1.2")
+        val nettyFrame = NettyStompFrameCodec.toNettyFrame(zioFrame)
+        assertTrue(
+          nettyFrame.command() == StompCommand.STOMP,
+          nettyFrame.headers().getAsString("accept-version") == "1.1,1.2",
+        )
+      },
       test("converts Send frame with destination") {
         val body       = Chunk.fromArray("test message".getBytes("UTF-8"))
         val zioFrame   = ZStompFrame.Send("/queue/test").withBody(body)
@@ -124,6 +132,19 @@ object NettyStompFrameCodecSpec extends ZIOSpecDefault {
           zioFrame.command == ZStompCommand.CONNECT,
           zioFrame.header("accept-version").contains("1.2"),
           zioFrame.header("host").contains("localhost"),
+        )
+      },
+      test("converts Netty STOMP frame (STOMP 1.1+)") {
+        val headers    = new DefaultStompHeaders()
+        headers.set("accept-version", "1.1,1.2")
+        headers.set("host", "localhost")
+        val nettyFrame = new DefaultStompFrame(StompCommand.STOMP)
+        nettyFrame.headers().set(headers)
+
+        val zioFrame = NettyStompFrameCodec.fromNettyFrame(nettyFrame)
+        assertTrue(
+          zioFrame.command == ZStompCommand.STOMP,
+          zioFrame.header("accept-version").contains("1.1,1.2"),
         )
       },
       test("converts Netty Send frame") {

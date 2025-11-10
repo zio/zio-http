@@ -54,9 +54,12 @@ private[netty] object NettyStompFrameCodec {
     }
 
     command match {
-      case StompCommand.CONNECT | StompCommand.STOMP =>
-        // STOMP is the STOMP 1.0 alias for CONNECT
-        ZStompFrame.Connect(headers, body)
+      case StompCommand.CONNECT =>
+        ZStompFrame.Connect(ZStompCommand.CONNECT, headers, body)
+
+      case StompCommand.STOMP =>
+        // STOMP is the STOMP 1.1+ command (preferred over CONNECT)
+        ZStompFrame.Connect(ZStompCommand.STOMP, headers, body)
 
       case StompCommand.SEND =>
         val destination = Option(nettyFrame.headers().getAsString(StompHeaders.DESTINATION))

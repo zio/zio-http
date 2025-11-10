@@ -40,16 +40,31 @@ object StompFrame {
 
   /** Client frame: Initiates connection */
   final case class Connect(
+    command: StompCommand = StompCommand.CONNECT,
     headers: Headers = Headers.empty,
     body: Chunk[Byte] = Chunk.empty,
   ) extends StompFrame {
-    val command: StompCommand = StompCommand.CONNECT
+    require(
+      command == StompCommand.CONNECT || command == StompCommand.STOMP,
+      s"Connect frame command must be CONNECT or STOMP, got: ${command.name}",
+    )
 
     def withHeader(name: CharSequence, value: CharSequence): Connect =
       copy(headers = headers ++ Headers(name, value))
 
     def withBody(body: Chunk[Byte]): Connect =
       copy(body = body)
+  }
+
+  object Connect {
+
+    /** Creates a CONNECT frame (STOMP 1.0 style) */
+    def apply(headers: Headers, body: Chunk[Byte]): Connect =
+      new Connect(StompCommand.CONNECT, headers, body)
+
+    /** Creates a STOMP frame (STOMP 1.1+ style) */
+    def stomp(headers: Headers = Headers.empty, body: Chunk[Byte] = Chunk.empty): Connect =
+      new Connect(StompCommand.STOMP, headers, body)
   }
 
   /** Client frame: Sends a message to a destination */
