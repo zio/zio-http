@@ -23,6 +23,8 @@ import zio.Chunk
  *
  * STOMP (Simple Text Oriented Messaging Protocol) is a frame-based protocol for
  * asynchronous message passing between clients via mediating servers.
+ *
+ * This implementation supports STOMP 1.0, 1.1, and 1.2 specifications.
  */
 sealed trait StompFrame {
   def command: StompCommand
