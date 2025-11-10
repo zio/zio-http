@@ -54,7 +54,8 @@ private[netty] object NettyStompFrameCodec {
     }
 
     command match {
-      case StompCommand.CONNECT =>
+      case StompCommand.CONNECT | StompCommand.STOMP =>
+        // STOMP is the STOMP 1.0 alias for CONNECT
         ZStompFrame.Connect(headers, body)
 
       case StompCommand.SEND =>
@@ -86,6 +87,21 @@ private[netty] object NettyStompFrameCodec {
 
       case StompCommand.DISCONNECT =>
         ZStompFrame.Disconnect(headers, body)
+
+      case StompCommand.BEGIN =>
+        val transaction = Option(nettyFrame.headers().getAsString(StompHeaders.TRANSACTION))
+          .getOrElse(throw new IllegalArgumentException("BEGIN frame missing transaction header"))
+        ZStompFrame.Begin(transaction, headers, body)
+
+      case StompCommand.COMMIT =>
+        val transaction = Option(nettyFrame.headers().getAsString(StompHeaders.TRANSACTION))
+          .getOrElse(throw new IllegalArgumentException("COMMIT frame missing transaction header"))
+        ZStompFrame.Commit(transaction, headers, body)
+
+      case StompCommand.ABORT =>
+        val transaction = Option(nettyFrame.headers().getAsString(StompHeaders.TRANSACTION))
+          .getOrElse(throw new IllegalArgumentException("ABORT frame missing transaction header"))
+        ZStompFrame.Abort(transaction, headers, body)
 
       case StompCommand.CONNECTED =>
         ZStompFrame.Connected(headers, body)
@@ -122,11 +138,15 @@ private[netty] object NettyStompFrameCodec {
   def toNettyFrame(frame: ZStompFrame): DefaultStompFrame = {
     val nettyCommand = frame.command match {
       case ZStompCommand.CONNECT     => StompCommand.CONNECT
+      case ZStompCommand.STOMP       => StompCommand.STOMP
       case ZStompCommand.SEND        => StompCommand.SEND
       case ZStompCommand.SUBSCRIBE   => StompCommand.SUBSCRIBE
       case ZStompCommand.UNSUBSCRIBE => StompCommand.UNSUBSCRIBE
       case ZStompCommand.ACK         => StompCommand.ACK
       case ZStompCommand.NACK        => StompCommand.NACK
+      case ZStompCommand.BEGIN       => StompCommand.BEGIN
+      case ZStompCommand.COMMIT      => StompCommand.COMMIT
+      case ZStompCommand.ABORT       => StompCommand.ABORT
       case ZStompCommand.DISCONNECT  => StompCommand.DISCONNECT
       case ZStompCommand.CONNECTED   => StompCommand.CONNECTED
       case ZStompCommand.MESSAGE     => StompCommand.MESSAGE
@@ -155,6 +175,12 @@ private[netty] object NettyStompFrameCodec {
         nettyHeaders.set(StompHeaders.SUBSCRIPTION, f.subscription)
       case f: ZStompFrame.Receipt     =>
         nettyHeaders.set(StompHeaders.RECEIPT_ID, f.receiptId)
+      case f: ZStompFrame.Begin       =>
+        nettyHeaders.set(StompHeaders.TRANSACTION, f.transaction)
+      case f: ZStompFrame.Commit      =>
+        nettyHeaders.set(StompHeaders.TRANSACTION, f.transaction)
+      case f: ZStompFrame.Abort       =>
+        nettyHeaders.set(StompHeaders.TRANSACTION, f.transaction)
       case f: ZStompFrame.Error       =>
         nettyHeaders.set(StompHeaders.MESSAGE, f.message)
       case _                          => // No required headers
@@ -165,9 +191,10 @@ private[netty] object NettyStompFrameCodec {
     frame.headers.foreach { header =>
       val headerName  = header.headerName.toString.toLowerCase
       val isWellKnown = headerName match {
-        case "destination" | "id" | "message-id" | "subscription" | "receipt-id" | "message" | "content-length" =>
+        case "destination" | "id" | "message-id" | "subscription" | "receipt-id" | "message" | "transaction" |
+            "content-length" =>
           true
-        case _                                                                                                  => false
+        case _ => false
       }
       if (!isWellKnown) {
         nettyHeaders.add(header.headerName, header.renderedValue)

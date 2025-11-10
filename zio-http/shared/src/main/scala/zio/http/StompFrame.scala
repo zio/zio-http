@@ -202,6 +202,51 @@ object StompFrame {
     def withBody(body: Chunk[Byte]): Error =
       copy(body = body)
   }
+
+  /** Client frame: Starts a transaction */
+  final case class Begin(
+    transaction: String,
+    headers: Headers = Headers.empty,
+    body: Chunk[Byte] = Chunk.empty,
+  ) extends StompFrame {
+    val command: StompCommand = StompCommand.BEGIN
+
+    def withHeader(name: CharSequence, value: CharSequence): Begin =
+      copy(headers = headers ++ Headers(name, value))
+
+    def withBody(body: Chunk[Byte]): Begin =
+      copy(body = body)
+  }
+
+  /** Client frame: Commits a transaction */
+  final case class Commit(
+    transaction: String,
+    headers: Headers = Headers.empty,
+    body: Chunk[Byte] = Chunk.empty,
+  ) extends StompFrame {
+    val command: StompCommand = StompCommand.COMMIT
+
+    def withHeader(name: CharSequence, value: CharSequence): Commit =
+      copy(headers = headers ++ Headers(name, value))
+
+    def withBody(body: Chunk[Byte]): Commit =
+      copy(body = body)
+  }
+
+  /** Client frame: Aborts a transaction */
+  final case class Abort(
+    transaction: String,
+    headers: Headers = Headers.empty,
+    body: Chunk[Byte] = Chunk.empty,
+  ) extends StompFrame {
+    val command: StompCommand = StompCommand.ABORT
+
+    def withHeader(name: CharSequence, value: CharSequence): Abort =
+      copy(headers = headers ++ Headers(name, value))
+
+    def withBody(body: Chunk[Byte]): Abort =
+      copy(body = body)
+  }
 }
 
 /**
@@ -214,11 +259,15 @@ sealed trait StompCommand {
 object StompCommand {
   // Client commands
   case object CONNECT     extends StompCommand { val name = "CONNECT"     }
+  case object STOMP       extends StompCommand { val name = "STOMP"       } // STOMP 1.0 alias for CONNECT
   case object SEND        extends StompCommand { val name = "SEND"        }
   case object SUBSCRIBE   extends StompCommand { val name = "SUBSCRIBE"   }
   case object UNSUBSCRIBE extends StompCommand { val name = "UNSUBSCRIBE" }
   case object ACK         extends StompCommand { val name = "ACK"         }
   case object NACK        extends StompCommand { val name = "NACK"        }
+  case object BEGIN       extends StompCommand { val name = "BEGIN"       }
+  case object COMMIT      extends StompCommand { val name = "COMMIT"      }
+  case object ABORT       extends StompCommand { val name = "ABORT"       }
   case object DISCONNECT  extends StompCommand { val name = "DISCONNECT"  }
 
   // Server commands
@@ -229,11 +278,15 @@ object StompCommand {
 
   def fromString(str: String): Option[StompCommand] = str match {
     case "CONNECT"     => Some(CONNECT)
+    case "STOMP"       => Some(STOMP)
     case "SEND"        => Some(SEND)
     case "SUBSCRIBE"   => Some(SUBSCRIBE)
     case "UNSUBSCRIBE" => Some(UNSUBSCRIBE)
     case "ACK"         => Some(ACK)
     case "NACK"        => Some(NACK)
+    case "BEGIN"       => Some(BEGIN)
+    case "COMMIT"      => Some(COMMIT)
+    case "ABORT"       => Some(ABORT)
     case "DISCONNECT"  => Some(DISCONNECT)
     case "CONNECTED"   => Some(CONNECTED)
     case "MESSAGE"     => Some(MESSAGE)

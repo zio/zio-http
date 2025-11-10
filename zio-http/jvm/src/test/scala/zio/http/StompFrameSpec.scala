@@ -211,12 +211,46 @@ object StompFrameSpec extends ZIOSpecDefault {
         )
       },
     ),
+    suite("Begin")(
+      test("requires transaction id") {
+        val frame = StompFrame.Begin(transaction = "tx-1")
+
+        assertTrue(
+          frame.command == StompCommand.BEGIN,
+          frame.transaction == "tx-1",
+        )
+      },
+    ),
+    suite("Commit")(
+      test("requires transaction id") {
+        val frame = StompFrame.Commit(transaction = "tx-1")
+
+        assertTrue(
+          frame.command == StompCommand.COMMIT,
+          frame.transaction == "tx-1",
+        )
+      },
+    ),
+    suite("Abort")(
+      test("requires transaction id") {
+        val frame = StompFrame.Abort(transaction = "tx-1")
+
+        assertTrue(
+          frame.command == StompCommand.ABORT,
+          frame.transaction == "tx-1",
+        )
+      },
+    ),
     suite("StompCommand")(
       test("fromString parses valid commands") {
         assertTrue(
           StompCommand.fromString("CONNECT") == Some(StompCommand.CONNECT),
+          StompCommand.fromString("STOMP") == Some(StompCommand.STOMP),
           StompCommand.fromString("SEND") == Some(StompCommand.SEND),
           StompCommand.fromString("SUBSCRIBE") == Some(StompCommand.SUBSCRIBE),
+          StompCommand.fromString("BEGIN") == Some(StompCommand.BEGIN),
+          StompCommand.fromString("COMMIT") == Some(StompCommand.COMMIT),
+          StompCommand.fromString("ABORT") == Some(StompCommand.ABORT),
           StompCommand.fromString("MESSAGE") == Some(StompCommand.MESSAGE),
           StompCommand.fromString("ERROR") == Some(StompCommand.ERROR),
         )
