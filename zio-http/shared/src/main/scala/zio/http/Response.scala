@@ -376,6 +376,26 @@ object Response {
       Body.fromString("<!DOCTYPE html>" + data.encode),
     )
 
+  /**
+   * Creates a response with content-type set to text/html
+   */
+  def html(data: zio.http.template2.Dom): Response =
+    Response(
+      Status.Ok,
+      contentTypeHtml,
+      Body.fromString("<!DOCTYPE html>" + data.render),
+    )
+
+  /**
+   * Creates a response with content-type set to text/html
+   */
+  def html(data: zio.http.template2.Dom, status: Status): Response =
+    Response(
+      status,
+      contentTypeHtml,
+      Body.fromString("<!DOCTYPE html>" + data.render),
+    )
+
   def httpVersionNotSupported: Response = error(Status.HttpVersionNotSupported)
 
   def httpVersionNotSupported(message: String): Response = error(Status.HttpVersionNotSupported, message)

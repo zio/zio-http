@@ -767,6 +767,19 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * message))`
    */
   def error(status: => Status.Error, message: => String): Handler[Any, Nothing, Any, Response] =
+    error(status, message, Routes.empty)
+
+  /**
+   * Creates a handler with an error and the specified error message. The error
+   * message will be returned as HTML, JSON or plain text depending on the
+   * `Accept` header of the request, defaulting to
+   * [[ErrorResponseConfig.errorFormat]]. If
+   * [[ErrorResponseConfig.withErrorBody]] is `false`, the error message will
+   * not be included in the response. If the error message should always be
+   * included in the response, use `Handler.fromResponse(Response.error(status,
+   * message))`
+   */
+  def error(status: => Status.Error, message: => String, routes: Routes[_, _]): Handler[Any, Nothing, Any, Response] =
     (fromResponse(Response.status(status)) @@ Middleware.interceptHandlerStateful(
       handler((req: Request) => (req.header(Header.Accept), (req, ()))),
     ) {
@@ -780,19 +793,21 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
               })
               .getOrElse(cfg.errorFormat.mediaType)
             mediaType match {
-              case MediaType.application.`json` =>
+              case MediaType.application.`json`                                                               =>
                 Response(status = status, body = Body.fromString(s"""{"status": "$status", "error": "$message"}"""))
                   .contentType(MediaType.application.json)
-              case MediaType.text.`html`        =>
+              case MediaType.text.`html` if Mode.isDev && status == Status.NotFound && routes.routes.nonEmpty =>
+                Response.html(RoutesOverview(routes.routes.map(_.routePattern)), Status.NotFound)
+              case MediaType.text.`html`                                                                      =>
                 Response(
                   status = status,
                   body = Body.fromString(
                     s"""<!DOCTYPE html><html><head><title>$status</title></head><body><h1>$status</h1><p>$message</p></body></html>""",
                   ),
                 ).contentType(MediaType.text.html)
-              case MediaType.text.`plain`       =>
+              case MediaType.text.`plain`                                                                     =>
                 Response(status = status, body = Body.fromString(message)).contentType(MediaType.text.plain)
-              case _                            => throw new Exception("Unsupported media type")
+              case _ => throw new Exception("Unsupported media type")
             }
           } else {
             res
@@ -1041,6 +1056,12 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   def notFound(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.NotFound, message)
+
+  def notFound(routes: Routes[_, _]): Handler[Any, Nothing, Request, Response] =
+    Handler
+      .fromFunctionHandler[Request] { request =>
+        error(Status.NotFound, request.url.path.encode)
+      }
 
   /**
    * Creates a handler which always responds with a 200 status code.
