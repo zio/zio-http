@@ -23,11 +23,16 @@ import zio._
  *
  * Similar to WebSocketApp but for STOMP protocol.
  *
+ * Supports STOMP 1.0, 1.1, and 1.2 specifications.
+ *
  * Example usage:
  * {{{
  * val app = StompApp(
  *   Handler.webSocket { channel =>
- *     channel.send(StompFrame.Connect()) *>
+ *     // Use Connect.stomp() for STOMP 1.1+ servers
+ *     channel.send(StompFrame.Connect.stomp()
+ *       .withHeader("accept-version", "1.1,1.2")
+ *       .withHeader("host", "localhost")) *>
  *     channel.receiveAll {
  *       case ChannelEvent.Read(frame) => handleFrame(frame)
  *       case _ => ZIO.unit
