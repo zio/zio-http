@@ -5,6 +5,8 @@ import zio.test._
 
 import zio.schema.{DeriveSchema, Schema}
 
+import zio.http.Flash.Setter
+
 object FlashSpec extends ZIOHttpSpec {
 
   case class Article(name: String, price: Double)
@@ -100,11 +102,11 @@ object FlashSpec extends ZIOHttpSpec {
         val routeUserSave     = routeUserSavePath -> handler {
           for {
             flashBackend <- ZIO.service[Flash.Backend]
-            respose      <- flashBackend.addFlash(
+            response     <- flashBackend.addFlash(
               Response.seeOther(URL.empty / "users"),
               Flash.setNotice("user saved successfully"),
             )
-          } yield respose
+          } yield response
         }
 
         val routeConfirmPath = Method.GET / "users"
@@ -133,6 +135,50 @@ object FlashSpec extends ZIOHttpSpec {
           )
           bodyString <- response2.body.asString
         } yield assertTrue(bodyString.contains("successfully") && bodyString.contains("green"))
+      }.provide(Scope.default, Flash.Backend.inMemory),
+      test("try accessing first value of given type when flash is empty") {
+
+        /*
+          A flash cookie might be set but the flash store might not contain any value,
+          this can happen for the InMemory backend, when the application is restarted between requests.
+          This situation is reproduced here by using Flash.setEmpty
+         */
+
+        val routeUserSavePath = Method.POST / "users" / "save"
+        val routeUserSave     = routeUserSavePath -> handler {
+          for {
+            flashBackend <- ZIO.service[Flash.Backend]
+            response     <- flashBackend.addFlash(
+              Response.seeOther(URL.empty / "users"),
+              Flash.setEmpty, // no value set in flash
+            )
+          } yield response
+        }
+
+        val routeConfirmPath = Method.GET / "users"
+        val routeConfirm     = routeConfirmPath -> handler { (req: Request) =>
+          for {
+            flashBackend <- ZIO.service[Flash.Backend]
+            value        <- flashBackend
+              .flash(req, Flash.get[Int])
+              .orElseSucceed(-1)
+          } yield Response.text(value.toString)
+        }
+
+        val app = Routes(routeUserSave, routeConfirm)
+
+        for {
+          response1 <- app.runZIO(Request.post(URL(routeUserSavePath.format(()).toOption.get), Body.empty))
+          flashString = response1.header(Header.SetCookie).get.value.content
+          cookie      = Cookie.Request(Flash.COOKIE_NAME, flashString)
+          response2 <- app.runZIO(
+            Request(
+              method = Method.GET,
+              url = URL(routeConfirmPath.format(()).toOption.get),
+              headers = Headers(Header.Cookie(NonEmptyChunk(cookie))),
+            ),
+          )
+        } yield assertTrue(response2 == Response.text("-1"))
       }.provide(Scope.default, Flash.Backend.inMemory),
     )
 
