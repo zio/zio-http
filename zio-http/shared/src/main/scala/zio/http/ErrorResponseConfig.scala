@@ -37,7 +37,7 @@ object ErrorResponseConfig {
     ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0)
 
   private[http] val configRef: FiberRef[ErrorResponseConfig] =
-    FiberRef.unsafe.make(default)(Unsafe)
+    FiberRef.unsafe.make(if (Mode.isDev) debugConfig else default)(Unsafe)
 
   val debug: HandlerAspect[Any, Unit] =
     Middleware.runBefore(setConfig(debugConfig))

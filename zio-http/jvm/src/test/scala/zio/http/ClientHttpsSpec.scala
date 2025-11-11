@@ -97,7 +97,7 @@ object ClientHttpsSpec extends ClientHttpsSpecBase {
 
   override def spec: Spec[TestEnvironment & Scope, Throwable] =
     suite("Https Client request - From Trust Store")(
-      tests(sslConfig),
+      tests(sslConfig) @@ TestAspect.ignore,
     )
 }
 

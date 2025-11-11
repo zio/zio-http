@@ -20,6 +20,7 @@ import java.io.File
 
 import zio._
 
+import zio.http.Mode.Dev
 import zio.http.Routes.ApplyContextAspect
 import zio.http.codec.PathCodec
 
@@ -37,7 +38,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   private var _handler: Handler[Any, Nothing, Request, Response] =
     null.asInstanceOf[Handler[Any, Nothing, Request, Response]]
 
-  var notFound: Handler[Any, Nothing, Request, Response] = Handler.notFound
+  var notFound: Handler[Any, Nothing, Request, Response] =
+    Handler.notFound(self)
 
   def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)

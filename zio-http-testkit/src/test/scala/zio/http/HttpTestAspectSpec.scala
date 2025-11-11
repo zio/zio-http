@@ -10,5 +10,8 @@ object HttpTestAspectSpec extends ZIOSpecDefault {
     test("Prod is enabled via test aspect") {
       assertTrue(Mode.current == Mode.Prod)
     } @@ HttpTestAspect.prodMode,
+    test("Dev is enabled via test aspect") {
+      assertTrue(Mode.current == Mode.Dev)
+    } @@ HttpTestAspect.devMode,
   ) @@ TestAspect.sequential
 }
