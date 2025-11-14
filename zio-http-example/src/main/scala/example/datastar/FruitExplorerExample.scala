@@ -154,16 +154,18 @@ object FruitExplorerExample extends ZIOAppDefault {
       body(
         div(
           className := "container",
-          h1("\uD83D\uDD0E Fruit Explorer \uD83C\uDF47"),
-          input(
-            `type`                               := "text",
-            placeholder                          := "Search ...",
-            name                                 := "query",
-            dataSignals(Signal[String]("query")) := "",
-            dataBind("query"),
-            dataOn.input.debounce(300.millis)    := Js("@get('/search?q=' + $query)"),
-            autofocus,
-          ),
+          h1("\uD83D\uDD0E Fruit Explorer \uD83C\uDF47"), {
+            val $query                            = Signal[String]("query")
+            input(
+              `type`                            := "text",
+              placeholder                       := "Search ...",
+              name                              := "query",
+              dataSignals($query)               := "",
+              dataBind($query.name),
+              dataOn.input.debounce(300.millis) := Js("@get('/search?q=' + $query)"),
+              autofocus,
+            )
+          },
           div(id("result")),
         ),
       ),

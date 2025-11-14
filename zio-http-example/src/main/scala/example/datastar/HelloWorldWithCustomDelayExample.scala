@@ -65,16 +65,18 @@ object HelloWorldWithCustomDelayExample extends ZIOAppDefault {
       body(
         div(
           className := "container",
-          h1("Hello World Example"),
-          div(
-            dataSignals(Signal[Int]("delay")) := js"100",
-            label("Delay (ms): ", `for` := "delay"),
-            input(
-              `type`                    := "number",
-              step                      := "100",
-              dataBind("delay"),
-            ),
-          ),
+          h1("Hello World Example"), {
+            val $delay = Signal[Int]("delay")
+            div(
+              dataSignals($delay) := js"100",
+              dataBind($delay.name),
+              label("Delay (ms): ", `for` := "delay"),
+              input(
+                `type`                    := "number",
+                step                      := "100",
+              ),
+            )
+          },
           button(
             dataOn.click := Js("@get('/hello-world')"),
           )("Start Animation"),
