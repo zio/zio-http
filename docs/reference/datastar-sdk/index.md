@@ -187,7 +187,7 @@ val route =
       val message = "Hello, world!"
       ZIO.foreachDiscard(message.indices) { i =>
         for {
-          _ <- ServerSentEventGenerator.executeScript("console.log('Sending character index: ' + " + i + ");")
+          _ <- ServerSentEventGenerator.executeScript(s"console.log('Sending substring(0, ${i + 1})')")
           _ <- ServerSentEventGenerator.patchElements(div(id("message"), message.substring(0, i + 1)))
           _ <- ZIO.sleep(delay.value.millis)
         } yield ()
@@ -465,7 +465,7 @@ Here is an example of generating console log scripts from the server and sending
 val message = "Hello, world!"
 ZIO.foreachDiscard(message.indices) { i =>
  for {
-   _ <- ServerSentEventGenerator.executeScript(s"console.log('Sending character index: $i');")
+   _ <- ServerSentEventGenerator.executeScript(s"console.log('Sending substring(0, ${i + 1})')")
    _ <- ZIO.sleep(100.millis)
  } yield ()
 }
@@ -477,19 +477,19 @@ We will end up sending the following SSE events to the client:
 event: datastar-patch-elements
 data: selector body
 data: mode append
-data: elements <script data-effect="el.remove">console.log('Sending character index: 0');</script>
+data: elements <script data-effect="el.remove">console.log('Sending substring(0, 1)')</script>
 
 event: datastar-patch-elements
 data: selector body
 data: mode append
-data: elements <script data-effect="el.remove">console.log('Sending character index: 1');</script>
+data: elements <script data-effect="el.remove">console.log('Sending substring(0, 2)')</script>
 
 ...
 
 event: datastar-patch-elements
 data: selector body
 data: mode append
-data: elements <script data-effect="el.remove">console.log('Sending character index: 12');</script>
+data: elements <script data-effect="el.remove">console.log('Sending substring(0, 3)')</script>
 ```
 
 With this, the client will execute each script and log the messages to the console. Datastar finds the `<body>` element, appends the `<script>` tag to it, and the script executes immediately (logging to console). The `data-effect=el.remove` directive causes the script to remove itself from the DOM after execution, because the `autoRemove` is enabled by default.
@@ -499,7 +499,7 @@ With this, the client will execute each script and log the messages to the conso
 
 ### Simple Hello World Example
 
-This example demonstrates the most basic use of Datastar with ZIO HTTP by streaming a "Hello, world!" message character by character to the browser. It's an excellent starting point for understanding how Server-Sent Events work with Datastar:
+This example demonstrates the most basic use of Datastar with ZIO HTTP by streaming a "Hello, world!" message to the browser. It's an excellent starting point for understanding how Server-Sent Events work with Datastar:
 
 ```scala mdoc:passthrough
 utils.printSource("zio-http-example/src/main/scala/example/datastar/SimpleHelloWorldExample.scala")
