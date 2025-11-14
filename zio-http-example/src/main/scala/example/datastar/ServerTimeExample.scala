@@ -74,13 +74,15 @@ object ServerTimeExample extends ZIOAppDefault {
     ),
     body(
       div(className := "container")(
-        h1("Live Server Time"),
-        span(
-          dataText                                   := Js("$currentTime"),
-          className                                  := "time-display",
-          dataSignals(Signal[String]("currentTime")) := js"",
-          dataOn.load                                := Js("@get('/server-time')"),
-        ),
+        h1("Live Server Time"), {
+          val $currentTime = Signal[String]("currentTime")
+          span(
+            dataSignals($currentTime) := js"'--:--:--'",
+            dataText                  := $currentTime,
+            className                 := "time-display",
+            dataOn.load               := Js("@get('/server-time')"),
+          )
+        },
       ),
     ),
   )
