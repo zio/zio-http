@@ -6,7 +6,7 @@ title: Integration of Datastar with ZIO HTTP
 
 [Datastar](https://data-star.dev/) is a hypermedia-driven framework for building reactive web applications using Server-Sent Events (SSE) and minimal JavaScript. The `zio-http-datastar-sdk` integrates Datastar with ZIO HTTP, bringing these capabilities to the ZIO ecosystem and allowing developers to create server-driven UIs with minimal frontend complexity.
 
-In Datastar, the server doesn't just send data — it sends HTML fragments and actions that tell the browser what to represent or what to do next. Instead of building a separate frontend API and wiring everything manually, the server emits responses that already include hypermedia controls (links, forms, or attributes like data-signal, data-patch, etc.).
+In Datastar the server sends HTML elements that are integrated into the web page. Instead of building a data based API (json, xml, etc) and rendering HTML in the client, the rendering is happening server side and build HTML elements include hypermedia controls are send to the browser.
 
 This matters because it solves a critical problem in modern web development: building interactive, real-time applications traditionally requires heavy frontend frameworks and complex state synchronization. The Datastar integration provides a simpler alternative for server-driven applications where state lives on the backend, updates flow via SSE or HTTP transactions, and the frontend remains lightweight (about 10.7 KB). 
 
