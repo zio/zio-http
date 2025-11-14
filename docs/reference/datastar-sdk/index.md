@@ -190,7 +190,7 @@ val route =
       val message = "Hello, world!"
       ZIO.foreachDiscard(message.indices) { i =>
         for {
-          _ <- ServerSentEventGenerator.executeScript(s"console.log('Sending substring(0, ${i + 1})')")
+          _ <- ServerSentEventGenerator.executeScript(js"console.log('Sending substring(0, ${i + 1})')")
           _ <- ServerSentEventGenerator.patchElements(div(id("message"), message.substring(0, i + 1)))
           _ <- ZIO.sleep(delay.value.millis)
         } yield ()
@@ -468,7 +468,7 @@ Here is an example of generating console log scripts from the server and sending
 val message = "Hello, world!"
 ZIO.foreachDiscard(message.indices) { i =>
  for {
-   _ <- ServerSentEventGenerator.executeScript(s"console.log('Sending substring(0, ${i + 1})')")
+   _ <- ServerSentEventGenerator.executeScript(js"console.log('Sending substring(0, ${i + 1})')")
    _ <- ZIO.sleep(100.millis)
  } yield ()
 }

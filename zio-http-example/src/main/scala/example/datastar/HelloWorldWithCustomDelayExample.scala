@@ -39,7 +39,7 @@ object HelloWorldWithCustomDelayExample extends ZIOAppDefault {
 
         ZIO.foreachDiscard(message.indices) { i =>
           for {
-            _ <- ServerSentEventGenerator.executeScript("console.log('Sending character index: ' + " + i + ");")
+            _ <- ServerSentEventGenerator.executeScript(js"console.log('Sending substring(0, $i)')")
             _ <- ServerSentEventGenerator.patchElements(
               div(id("message"), message.substring(0, i + 1)),
             )
