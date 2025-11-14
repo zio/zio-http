@@ -641,7 +641,7 @@ object OpenAPIGen {
     referenceStyle: SchemaStyle = SchemaStyle.Compact,
     genExamples: Boolean,
   ): OpenAPI = {
-    val schemaPath = "#/components/schemas/"
+    val schemaPath    = "#/components/schemas/"
     val referenceType = SchemaRef(schemaPath, referenceStyle)
     val inAtoms       = AtomizedMetaCodecs.flatten(endpoint.input)
     val outs: Map[OpenAPI.StatusOrDefault, Map[MediaType, (JsonSchema, AtomizedMetaCodecs)]] =
@@ -898,23 +898,26 @@ object OpenAPIGen {
       codec.lookup(MediaType.application.json).map(_._2.schema)
 
     def componentSchemas: Map[OpenAPI.Key, OpenAPI.ReferenceOr[JsonSchema]] =
-      (endpoint.input.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)
-        ++ endpoint.error.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)
-        ++ endpoint.output.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)).flatMap {
+      (endpoint.input.alternatives ++ endpoint.error.alternatives ++ endpoint.output.alternatives).flatMap {
+        case (codec, _) => AtomizedMetaCodecs.flatten(codec).content
+      }.flatMap {
         case MetaCodec(HttpCodec.Content(codec, _, _), _) =>
-          jsonSchemaFromCodec(codec).filter(nominal(_, referenceStyle).isDefined).map {
-            case s: Schema.Set[_] => s.elementSchema
-            case s: Schema.Sequence[_, _, _] => s.elementSchema
-            case s: Schema.Map[_, _] => s.valueSchema
-            case s => s
-          }.map { schema =>
-            val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
-            schemas.children.map { case (key, schema) =>
-              OpenAPI.Key.fromString(key.replace(schemaPath, "")).get -> OpenAPI.ReferenceOr.Or(schema)
-            } + (OpenAPI.Key.fromString(nominal(schema, referenceStyle).get).get ->
-              OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
-          }
-        case _ => None
+          jsonSchemaFromCodec(codec)
+            .filter(nominal(_, referenceStyle).isDefined)
+            .map {
+              case s: Schema.Set[_]            => s.elementSchema
+              case s: Schema.Sequence[_, _, _] => s.elementSchema
+              case s: Schema.Map[_, _]         => s.valueSchema
+              case s                           => s
+            }
+            .map { schema =>
+              val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+              schemas.children.map { case (key, schema) =>
+                OpenAPI.Key.fromString(key.replace(schemaPath, "")).get -> OpenAPI.ReferenceOr.Or(schema)
+              } + (OpenAPI.Key.fromString(nominal(schema, referenceStyle).get).get ->
+                OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
+            }
+        case _                                            => None
       }.flatten.toMap
 
     def httpSecuritySchemes(
