@@ -1,17 +1,14 @@
 package zio.http.endpoint.openapi
 
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
 import zio.json.ast.Json
 import zio.test._
-
-import zio.schema.Schema
-
-import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
+import zio.schema.{DeriveSchema, Schema}
+import zio.http.endpoint.openapi.JsonSchema.{SchemaRef, SchemaStyle}
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme._
+import zio.schema.annotation.discriminatorName
 
 object OpenAPISpec extends ZIOSpecDefault {
 
@@ -20,6 +17,17 @@ object OpenAPISpec extends ZIOSpecDefault {
 
   def toJsonAst(api: OpenAPI): Json =
     toJsonAst(api.toJson)
+
+
+  @discriminatorName("type") sealed trait SchemaTestChild
+  object SchemaTestChild {
+    case class A(set: Set[String]) extends   SchemaTestChild
+    case class B(list: List[String]) extends  SchemaTestChild
+  }
+
+  case class SchemaTest(number: Int, string: String, child: Option[SchemaTestChild])
+  implicit val schemaTestSchema: Schema[SchemaTest] =
+    DeriveSchema.gen[SchemaTest]
 
   val spec = suite("OpenAPISpec")(
     test("auth schema serialization") {
@@ -66,7 +74,7 @@ object OpenAPISpec extends ZIOSpecDefault {
     },
     test("JsonSchema.fromZSchemaMulti correctly handles Map schema with List as Value") {
       val schema           = Schema.map[String, List[String]]
-      val sch: JsonSchemas = JsonSchema.fromZSchemaMulti(schema, SchemaStyle.Reference)
+      val sch: JsonSchemas = JsonSchema.fromZSchemaMulti(schema, SchemaRef("", SchemaStyle.Reference))
 
       val isSchemaProperlyGenerated = if (sch.root.isCollection) sch.root match {
         case JsonSchema.Object(_, additionalProperties, _) =>
@@ -117,5 +125,87 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |}""".stripMargin
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
+    test("json") {
+      val jsonSchema = JsonSchema.root(schemaTestSchema)
+      val json = jsonSchema.toJsonPretty
+      val expected = """{
+                       |  "type" : "object",
+                       |  "properties" : {
+                       |    "number" : {
+                       |      "type" : "integer",
+                       |      "format" : "int32"
+                       |    },
+                       |    "string" : {
+                       |      "type" : "string"
+                       |    },
+                       |    "child" : {
+                       |      "anyOf" : [
+                       |        {
+                       |          "type" : "null"
+                       |        },
+                       |        {
+                       |          "$ref" : "#/$defs/SchemaTestChild"
+                       |        }
+                       |      ]
+                       |    }
+                       |  },
+                       |  "required" : [
+                       |    "number",
+                       |    "string"
+                       |  ],
+                       |  "$defs" : {
+                       |    "A" : {
+                       |      "type" : "object",
+                       |      "properties" : {
+                       |        "set" : {
+                       |          "type" : "array",
+                       |          "items" : {
+                       |            "type" : "string"
+                       |          },
+                       |          "uniqueItems" : true
+                       |        }
+                       |      },
+                       |      "required" : [
+                       |        "set"
+                       |      ]
+                       |    },
+                       |    "B" : {
+                       |      "type" : "object",
+                       |      "properties" : {
+                       |        "list" : {
+                       |          "type" : "array",
+                       |          "items" : {
+                       |            "type" : "string"
+                       |          }
+                       |        }
+                       |      },
+                       |      "required" : [
+                       |        "list"
+                       |      ]
+                       |    },
+                       |    "SchemaTestChild" : {
+                       |      "oneOf" : [
+                       |        {
+                       |          "$ref" : "#/$defs/A"
+                       |        },
+                       |        {
+                       |          "$ref" : "#/$defs/B"
+                       |        }
+                       |      ],
+                       |      "discriminator" : {
+                       |        "propertyName" : "type",
+                       |        "mapping" : {
+                       |          "A" : "#/$defs/A",
+                       |          "B" : "#/$defs/B"
+                       |        }
+                       |      }
+                       |    }
+                       |  }
+                       |}""".stripMargin
+
+      println(json)
+
+      assertTrue(toJsonAst(json) == toJsonAst(expected))
+    }
   )
 }
