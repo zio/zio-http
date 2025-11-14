@@ -460,9 +460,9 @@ object JsonSchema {
   }
 
   def root(schema: Schema[_]) = {
-    val prefix = "#/$defs/"
-    val s      = fromZSchemaMulti(schema, SchemaRef(prefix, SchemaStyle.Compact))
-    JsonSchemaRoot(s.root, s.children.map { case (key, schema) => key.replace(prefix, "") -> schema })
+    val path = "#/$defs/"
+    val s    = fromZSchemaMulti(schema, SchemaRef(path, SchemaStyle.Compact))
+    JsonSchemaRoot(s.root, s.children.map { case (key, schema) => key.replace(path, "") -> schema })
   }
 
   def fromZSchemaMulti(
@@ -477,17 +477,17 @@ object JsonSchema {
       val seenWithCurrent = seen ++ ref
       schema match {
         case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]]) =>
-          JsonSchemas(fromZSchema(enum0, refType.withStyle(SchemaStyle.Inline)), ref, Map.empty)
+          JsonSchemas(fromZSchema(enum0, refType.inline), ref, Map.empty)
         case enum0: Schema.Enum[_]                                                             =>
           JsonSchemas(
-            fromZSchema(enum0, refType.withStyle(SchemaStyle.Inline)),
+            fromZSchema(enum0, refType.inline),
             ref,
             enum0.cases
               .filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
               .flatMap { c =>
                 val key    =
                   nominal(c.schema, refType)
-                    .orElse(nominal(c.schema, refType.withStyle(SchemaStyle.Compact)))
+                    .orElse(nominal(c.schema, refType.inline))
                 val nested = fromZSchemaMulti(
                   c.schema,
                   refType,
@@ -509,7 +509,7 @@ object JsonSchema {
               nested.rootRef.fold(ifEmpty = nested.children)(k => nested.children + (k -> nested.root))
             }
             .toMap
-          JsonSchemas(fromZSchema(record, refType.withStyle(SchemaStyle.Inline)), ref, children)
+          JsonSchemas(fromZSchema(record, refType.inline), ref, children)
         case collection: Schema.Collection[_, _]                                               =>
           collection match {
             case Schema.Sequence(elementSchema, _, _, _, _)                =>
@@ -533,7 +533,7 @@ object JsonSchema {
         case Schema.Transform(schema, _, _, _, _)                                              =>
           fromZSchemaMulti(schema, refType, seen)
         case Schema.Primitive(_, _)                                                            =>
-          JsonSchemas(fromZSchema(schema, refType.withStyle(SchemaStyle.Inline)), ref, Map.empty)
+          JsonSchemas(fromZSchema(schema, refType.inline), ref, Map.empty)
         case Schema.Optional(schema, _)                                                        =>
           fromZSchemaMulti(schema, refType, seenWithCurrent)
         case Schema.Fail(_, _)                                                                 =>
@@ -682,17 +682,17 @@ object JsonSchema {
         val nonTransientCases  = enum0.cases.filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
         if (noDiscriminator) {
           JsonSchema
-            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, refType.withStyle(SchemaStyle.Compact))))
+            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, refType.compact)))
         } else if (discriminatorName0.isDefined) {
           JsonSchema
-            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, refType.withStyle(SchemaStyle.Compact))))
+            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, refType.compact)))
             .discriminator(
               OpenAPI.Discriminator(
                 propertyName = discriminatorName0.get,
                 mapping = nonTransientCases.map { c =>
                   val name = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
                   name -> nominal(c.schema, refType)
-                    .orElse(nominal(c.schema, refType.withStyle(SchemaStyle.Compact)))
+                    .orElse(nominal(c.schema, refType.compact))
                     .get
                 }.toMap,
               ),
@@ -702,7 +702,7 @@ object JsonSchema {
             .OneOfSchema(nonTransientCases.map { c =>
               val name = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
               Object(
-                Map(name -> fromZSchema(c.schema, refType.withStyle(SchemaStyle.Compact))),
+                Map(name -> fromZSchema(c.schema, refType.compact)),
                 Left(false),
                 Chunk(name),
               )
@@ -729,7 +729,7 @@ object JsonSchema {
             field.name ->
               fromZSchema(
                 field.annotations.foldLeft(field.schema)((schema, annotation) => schema.annotate(annotation)),
-                refType.withStyle(SchemaStyle.Compact),
+                refType.compact,
               )
                 .deprecated(deprecated(field.schema))
                 .description(fieldDoc(field))
@@ -860,10 +860,6 @@ object JsonSchema {
     }
   }
 
-  case class SchemaRef(prefix: java.lang.String, style: SchemaStyle) {
-    def withStyle(style: SchemaStyle): SchemaRef = copy(style = style)
-  }
-
   sealed trait SchemaStyle extends Product with Serializable
   object SchemaStyle {
 
@@ -871,21 +867,24 @@ object JsonSchema {
     case object Inline extends SchemaStyle
 
     /**
-     * Generates references to json schemas under #/components/schemas/{schema}
-     * and uses the full package path to help to generate unique schema names.
+     * Generates unique schema names using the full package path
      * @see
      *   SchemaStyle.Compact for compact schema names.
      */
     case object Reference extends SchemaStyle
 
     /**
-     * Generates references to json schemas under #/components/schemas/{schema}
-     * and uses the type name to help to generate schema names.
+     * Generates schema names using the type name
      * @see
      *   SchemaStyle.Reference for full package path schema names to avoid name
      *   collisions.
      */
     case object Compact extends SchemaStyle
+  }
+
+  case class SchemaRef(path: java.lang.String, style: SchemaStyle) {
+    def inline: SchemaRef  = copy(style = SchemaStyle.Inline)
+    def compact: SchemaRef = copy(style = SchemaStyle.Compact)
   }
 
   private def deprecated(schema: Schema[_]): Boolean =
@@ -920,9 +919,9 @@ object JsonSchema {
   private def refForTypeId(id: TypeId, referenceType: SchemaRef): Option[java.lang.String] =
     id match {
       case nominal: TypeId.Nominal if referenceType.style == SchemaStyle.Reference =>
-        Some(s"${referenceType.prefix}${nominal.fullyQualified.replace(".", "_")}")
+        Some(s"${referenceType.path}${nominal.fullyQualified.replace(".", "_")}")
       case nominal: TypeId.Nominal if referenceType.style == SchemaStyle.Compact   =>
-        Some(s"${referenceType.prefix}${nominal.typeName}")
+        Some(s"${referenceType.path}${nominal.typeName}")
       case _                                                                       =>
         None
     }
