@@ -1,11 +1,12 @@
 package example.datastar
 
+import java.time.format.DateTimeFormatter
+
 import zio._
+
 import zio.http._
 import zio.http.datastar._
 import zio.http.template2._
-
-import java.time.format.DateTimeFormatter
 
 object ServerTimeExample extends ZIOAppDefault {
 
@@ -88,23 +89,23 @@ object ServerTimeExample extends ZIOAppDefault {
   val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
 
   // Server time streaming endpoint
-val serverTimeHandler =
-  events {
-    handler {
-ZIO.clock
-  .flatMap(_.currentDateTime)
-  .map(_.toLocalTime.format(timeFormatter))
-  .flatMap { currentTime =>
-    ZIO.logInfo(s"Sending time: $currentTime") *>
-      ServerSentEventGenerator.patchSignals(
-        s"{ 'currentTime': '$currentTime' }",
-        PatchSignalOptions(retryDuration = 5.seconds),
-      )
-  }
-  .schedule(Schedule.spaced(1.second))
-  .unit
+  val serverTimeHandler =
+    events {
+      handler {
+        ZIO.clock
+          .flatMap(_.currentDateTime)
+          .map(_.toLocalTime.format(timeFormatter))
+          .flatMap { currentTime =>
+            ZIO.logInfo(s"Sending time: $currentTime") *>
+              ServerSentEventGenerator.patchSignals(
+                s"{ 'currentTime': '$currentTime' }",
+                PatchSignalOptions(retryDuration = 5.seconds),
+              )
+          }
+          .schedule(Schedule.spaced(1.second))
+          .unit
+      }
     }
-  }
 
   val routes = Routes(
     Method.GET / Root          -> handler(

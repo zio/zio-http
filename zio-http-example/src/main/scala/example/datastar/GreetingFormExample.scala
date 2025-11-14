@@ -1,9 +1,10 @@
 package example.datastar
 
 import zio._
+
 import zio.http._
-import zio.http.template2._
 import zio.http.datastar._
+import zio.http.template2._
 
 object GreetingFormExample extends ZIOAppDefault {
 

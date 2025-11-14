@@ -1,10 +1,11 @@
 package example.datastar
 
 import zio._
+import zio.json._
+
 import zio.http._
 import zio.http.datastar._
 import zio.http.template2._
-import zio.json._
 
 case class Delay(value: Int) extends AnyVal
 
