@@ -4,7 +4,7 @@ sidebar_label: Datastar SDK
 title: Integration of Datastar with ZIO HTTP
 ---
 
-[Datastar](https://data-star.dev/) is a hypermedia-driven framework for building reactive web applications using Server-Sent Events (SSE) and minimal JavaScript. The `zio-http-datastar-sdk` integrates Datastar with ZIO HTTP, bringing these capabilities to the ZIO ecosystem and allowing developers to create server-driven UIs with minimal frontend complexity.
+[Datastar](https://data-star.dev/) is a hypermedia-driven framework for building reactive web applications with minimal JavaScript. The `zio-http-datastar-sdk` integrates Datastar with ZIO HTTP, bringing these capabilities to the ZIO ecosystem and allowing developers to create server-driven UIs with minimal frontend complexity.
 
 In Datastar the server sends HTML elements that are integrated into the web page. Instead of building a data based API (json, xml, etc) and rendering HTML in the client, the rendering is happening server side and build HTML elements include hypermedia controls are send to the browser.
 
@@ -12,14 +12,17 @@ This matters because it solves a critical problem in modern web development: bui
 
 ## Datastar Overview
 
-Datastar uses declarative `data-*` HTML attributes to define reactive behavior, while the server streams updates via Server-Sent Events. The framework centers on signals, reactive variables prefixed with `$` (like `$username`, `$count`) that automatically synchronize between frontend and backend. 
+Datastar uses declarative `data-*` HTML attributes to define the application state and behavior on the client side.
 
-For example, when a user types into an input field bound with `data-bind:email`, the `$email` signal updates locally and gets transmitted to the server with subsequent requests. The server can then push signal updates back using JSON Merge Patch (RFC 7396), or send HTML fragments that morph into the DOM. This bidirectional flow happens over SSE connections, which unlike traditional AJAX polling, maintain long-lived HTTP responses that can stream multiple events efficiently.
+Datastar uses signals to represent reactive state variables that can be updated both on the client and server sides. Signals are prefixed with `$` (like `$username`, `$count`). These signals are automatically sent to the backend with each request, and the server can patch them by sending signal patches back to the client.
+
+For example, when a user types into an input field bound with `data-bind:email`, the `$email` signal updates locally and gets transmitted to the server with subsequent requests. The server can then push signal updates back using JSON Merge Patch (RFC 7396), or send HTML fragments that morph into the DOM. This flow can happen over SSE connections or regular HTTP transactions.
 
 Datastar shines in scenarios where you want to build dynamic, real-time web applications without the overhead of heavy frontend frameworks. Here are some common use cases:
+
 - Chat messages appearing live.
 - Monitoring logs, metrics, or notifications.
-- Live search results update as you type.
+- Live search results that update as you type.
 - Real-time dashboard panels updating from streaming endpoints.
 
 ## Reactive Hypermedia with ZIO HTTP
