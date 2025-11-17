@@ -23,7 +23,7 @@ object SimpleHelloWorldExample extends ZIOAppDefault {
       handler {
         ZIO.foreachDiscard(message.indices) { i =>
           for {
-            _ <- ServerSentEventGenerator.executeScript(s"console.log('Sending substring(0, ${i + 1})')")
+            _ <- ServerSentEventGenerator.executeScript(js"console.log('Sending substring(0, ${i + 1})')")
             _ <- ServerSentEventGenerator.patchElements(div(id("message"), message.substring(0, i + 1)))
             _ <- ZIO.sleep(100.millis)
           } yield ()
