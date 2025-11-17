@@ -220,9 +220,9 @@ In the above example, we defined a WebSocket client that connects to a mirror se
 
 ## Configuring Headers
 
-By default, the client adds the `User-Agent` header to all requests. Additionally, as the `ZClient` extends the `HeaderOps` trait, we have access to all operations that can be performed on headers inside the client.
+As the `ZClient` extends the `HeaderOps` trait, we have access to all operations that can be performed on headers inside the client.
 
-For example, to add a custom header we can use the `Client#addHeader` method:
+For example, to add a custom header, we can use the `Client#addHeader` method:
 
 ```scala mdoc:compile-only
 import zio._
@@ -234,6 +234,8 @@ val program = for {
   res    <- client.request(Request.get("http://localhost:8080/users"))
 } yield ()
 ```
+
+By default, the client adds the `User-Agent` header to all requests. Please note that it also automatically calculates and sets the `Content-Length` header, disregarding any `Content-Length` value manually configured by the user.
 
 :::note
 To learn more about headers and how they work, check out our dedicated section called [Header Operations](headers/headers.md#headers-operations) on the headers page.
