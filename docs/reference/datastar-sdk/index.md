@@ -105,12 +105,29 @@ import zio.http.template2._
 import zio.http.endpoint.Endpoint
 
 body(
+  dataOnLoad := Js("@get('/hello-world')"),
   dataOn.load := Endpoint(Method.GET / "hello-world").out[String].datastarRequest(()),
   div(
     className := "container",
     h1("Hello World Example"),
     div(id("message"))
   )
+)
+```
+
+If you want a type-safe DSL, we recommend using the `Endpoint` API instead of a JavaScript expression when using the `dataOn` attribute to define a Datastar server request:
+
+```scala
+import zio.http.datastar._
+import zio.http.endpoint.Endpoint
+
+body(
+   dataOn.load := Endpoint(Method.GET / "hello-world").out[String].datastarRequest(()),
+   div(
+      className := "container",
+      h1("Hello World Example"),
+      div(id("message"))
+   )
 )
 ```
 
@@ -144,16 +161,6 @@ span(
 ```
 
 In this example, the `dataText` attribute binds the text content of the `span` element to the `currentTime` signal, and the `dataOn.load` attribute triggers a server request to update the signal when the page loads.
-
-:::note
-Instead of `dataOn.load := Endpoint(...).datastarRequest(())`, you can also use the JavaScript expression as bellow:
-
-```scala
-dataOn.load := Js"@get('/server-time')"
-```
-
-We recommend using the `Endpoint` approach as it provides type safety and better integration with ZIO HTTP.
-:::
 
 We will discuss later how the server sends updates to the signals using the [`ServerSentEventGenerator#patchSignals`](#patching-signals) method.
 
