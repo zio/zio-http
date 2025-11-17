@@ -2,6 +2,7 @@ package example.datastar
 
 import zio._
 import zio.json._
+
 import zio.http._
 import zio.http.datastar._
 import zio.http.endpoint.Endpoint
