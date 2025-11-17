@@ -1,11 +1,10 @@
 package example.datastar
 
 import java.time.format.DateTimeFormatter
-
 import zio._
-
 import zio.http._
 import zio.http.datastar._
+import zio.http.endpoint.Endpoint
 import zio.http.template2._
 
 object ServerTimeExample extends ZIOAppDefault {
@@ -80,7 +79,7 @@ object ServerTimeExample extends ZIOAppDefault {
             dataSignals($currentTime) := js"'--:--:--'",
             dataText                  := $currentTime,
             className                 := "time-display",
-            dataOn.load               := Js("@get('/server-time')"),
+            dataOn.load               := Endpoint(Method.GET / "server-time").out[String].datastarRequest(()),
           )
         },
       ),

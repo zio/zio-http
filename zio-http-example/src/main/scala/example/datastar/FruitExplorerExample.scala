@@ -1,7 +1,6 @@
 package example.datastar
 
 import zio._
-
 import zio.http._
 import zio.http.datastar._
 import zio.http.template2._
@@ -220,9 +219,4 @@ object FruitExplorerExample extends ZIOAppDefault {
     Server
       .serve(routes)
       .provide(Server.default)
-}
-
-object ABC extends App {
-  dataOnLoad  := js"abc"
-  dataOn.load := Js("@get('/abc')")
 }

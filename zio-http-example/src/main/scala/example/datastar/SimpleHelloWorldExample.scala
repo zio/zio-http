@@ -1,9 +1,9 @@
 package example.datastar
 
 import zio._
-
 import zio.http._
 import zio.http.datastar._
+import zio.http.endpoint.Endpoint
 import zio.http.template2._
 
 object SimpleHelloWorldExample extends ZIOAppDefault {
@@ -32,28 +32,26 @@ object SimpleHelloWorldExample extends ZIOAppDefault {
     },
   )
 
-  def indexPage = {
-    html(
-      head(
-        meta(charset("UTF-8")),
-        meta(name("viewport"), content("width=device-width, initial-scale=1.0")),
-        title("Datastar Hello World - ZIO HTTP Datastar"),
-        script(
-          `type` := "module",
-          src    := "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-RC.5/bundles/datastar.js",
-        ),
-        style.inlineCss(css),
+  def indexPage = html(
+    head(
+      meta(charset("UTF-8")),
+      meta(name("viewport"), content("width=device-width, initial-scale=1.0")),
+      title("Datastar Hello World - ZIO HTTP Datastar"),
+      script(
+        `type` := "module",
+        src    := "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-RC.5/bundles/datastar.js",
       ),
-      body(
-        dataOn.load := Js("@get('/hello-world')"),
-        div(
-          className := "container",
-          h1("Hello World Example"),
-          div(id("message")),
-        ),
+      style.inlineCss(css),
+    ),
+    body(
+      dataOn.load := Endpoint(Method.GET / "hello-world").out[String].datastarRequest(()),
+      div(
+        className := "container",
+        h1("Hello World Example"),
+        div(id("message")),
       ),
-    )
-  }
+    ),
+  )
 
   override def run: ZIO[Any, Throwable, Unit] =
     Server

@@ -137,7 +137,7 @@ This declares a signal named `currentTime` of type `String` with an initial valu
 span(
   dataSignals($currentTime) := js"'--:--:--'",
   dataText                  := $currentTime,
-  dataOn.load               := Js("@get('/server-time')"),
+  dataOn.load               := Endpoint(Method.GET / "server-time").out[String].datastarRequest(()),
 )
 ```
 
@@ -157,12 +157,11 @@ body(
     val $delay = Signal[Int]("delay")
     div(
       dataSignals($delay) := js"100",
-      dataBind($delay.name),
       label("Delay (ms): ", `for` := "delay"),
-      input(`type`:= "number", step := "100"),
+      input(dataBind($delay.name), name := "delay", `type` := "number", step := "100"),
     )
   },
-  button(dataOn.click := Js("@get('/hello-world')"))("Start Animation"),
+  button(dataOn.click := Endpoint(Method.GET / "server-time").out[String].datastarRequest(()))("Start Animation"),
   div(id("message")),
 )
 ```

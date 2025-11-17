@@ -2,12 +2,12 @@ package example.datastar
 
 import zio._
 import zio.json._
-
 import zio.http._
 import zio.http.datastar._
+import zio.http.endpoint.Endpoint
 import zio.http.template2._
 
-case class Delay(value: Int) extends AnyVal
+case class Delay(delay: Int) extends AnyVal
 
 object Delay {
   implicit val jsonCodec: JsonCodec[Delay] = DeriveJsonCodec.gen
@@ -43,14 +43,14 @@ object HelloWorldWithCustomDelayExample extends ZIOAppDefault {
             _ <- ServerSentEventGenerator.patchElements(
               div(id("message"), message.substring(0, i + 1)),
             )
-            _ <- ZIO.sleep(delay.value.millis)
+            _ <- ZIO.sleep(delay.delay.millis)
           } yield ()
         }
       }
     },
   )
 
-  def indexPage = {
+  def indexPage =
     html(
       head(
         meta(charset("UTF-8")),
@@ -69,22 +69,17 @@ object HelloWorldWithCustomDelayExample extends ZIOAppDefault {
             val $delay = Signal[Int]("delay")
             div(
               dataSignals($delay) := js"100",
-              dataBind($delay.name),
-              label("Delay (ms): ", `for` := "delay"),
-              input(
-                `type`                    := "number",
-                step                      := "100",
-              ),
+              label("Delay (ms): ", `for`       := "delay"),
+              input(dataBind($delay.name), name := "delay", `type` := "number", step := "100"),
             )
           },
-          button(
-            dataOn.click := Js("@get('/hello-world')"),
-          )("Start Animation"),
+          button(dataOn.click := Endpoint(Method.GET / "hello-world").out[String].datastarRequest(()))(
+            "Start Animation",
+          ),
           div(id("message")),
         ),
       ),
     )
-  }
 
   override def run: ZIO[Any, Throwable, Unit] =
     Server
