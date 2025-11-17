@@ -2,6 +2,7 @@ name         := "zio-http-example-jwt-bearer-token-auth"
 version      := "0.1.0"
 scalaVersion := "2.13.17"
 
+publish / skip := true
 run / fork := true
 
 libraryDependencies ++= Seq(
