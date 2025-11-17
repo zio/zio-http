@@ -144,6 +144,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpc,
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
+      zioHttpStomp,
       zioHttpExample,
       zioHttpExampleBasicAuth,
       zioHttpExampleCookieAuth,
@@ -262,8 +263,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.49",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.49",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.50",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.50",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -311,6 +312,23 @@ lazy val zioHttpHtmx = (project in file("zio-http-htmx"))
     ),
   )
   .dependsOn(zioHttpJVM)
+  .settings(MimaSettings.mimaSettings(failOnProblem = true))
+
+lazy val zioHttpStomp = (project in file("zio-http-stomp"))
+  .settings(
+    stdSettings("zio-http-stomp"),
+    publishSetting(true),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-schema`,
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
+  .dependsOn(zioHttpJVM)
+  .dependsOn(zioHttpTestkit % Test)
   .settings(MimaSettings.mimaSettings(failOnProblem = true))
 
 lazy val zioHttpExample = (project in file("zio-http-example"))

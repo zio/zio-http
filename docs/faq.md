@@ -12,7 +12,7 @@ If you are new to ZIO, you can start by reading the [ZIO documentation](https://
 
 ZIO HTTP is built on top of [Netty](https://netty.io/) for networking operations. It also leverages [ZIO Core](https://zio.dev/reference/core/zio/), [ZIO Schema](https://zio.dev/zio-schema/), and [ZIO Stream](https://zio.dev/reference/stream/) for concurrency, encoding/decoding, and streaming, respectively.
 
-### I Love ZIO‌, But Don't Want to Use ZIO HTTP. What Alternatives Do I Have?
+### I Love ZIO, But Don't Want to Use ZIO HTTP. What Alternatives Do I Have?
 
 If you prefer not to use ZIO HTTP but still want to build HTTP applications using ZIO, you can consider using [Http4s](https://http4s.org/), a functional HTTP library for Scala that can be integrated with ZIO effects ([link](https://github.com/zio/zio-json/tree/series/2.x/examples/interop-http4s)). Additionally, if you are looking for a declarative approach to building HTTP applications, similar to ZIO HTTP's `Endpoint` API, you can explore [Tapir](https://tapir.softwaremill.com/). It's easy to integrate Tapir with ZIO using [tapir-zio-http-server](https://tapir.softwaremill.com/en/latest/server/ziohttp.html) module.
 
@@ -35,6 +35,13 @@ We have the same thing at the route level. Let's say we have a `Routes[-Env, +Er
 ### Is ZIO HTTP Suitable for Building High-performance HTTP Servers?
 
 Yes, ZIO HTTP is designed for performance, leveraging non-blocking I/O and asynchronous concurrency to handle high loads efficiently.
+
+1. It is [Netty](https://netty.io/)-based, which is a proven, high-performance, asynchronous, event-driven network application framework. You can optimize Netty's performance by tuning various parameters, such as changing leak detection levels, adjusting the [channel type](reference/server.md#netty-configuration) (NIO, Epoll, KQueue, or io_uring), and configuring the number of threads.
+2. It uses [ZIO's fiber-based concurrency model](https://zio.dev/reference/fiber/), which allows for lightweight and efficient handling of concurrent requests.
+3. It has streaming support using [ZIO Stream](https://zio.dev/reference/stream/), enabling efficient handling of large data transfers without consuming excessive memory.
+4. You can compare its performance with other Scala HTTP frameworks using benchmarks like the [TechEmpower Framework Benchmarks](https://www.techempower.com/benchmarks/). It is listed in  two benchmark categories of TechEmpower:
+   - [JSON Serialization](https://www.techempower.com/benchmarks/#section=data-r23&test=json)
+   - [Plaintext](https://www.techempower.com/benchmarks/#section=data-r23&test=plaintext)
 
 ### Can I integrate ZIO HTTP with Existing Scala/Java Libraries?
 

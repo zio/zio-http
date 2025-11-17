@@ -348,7 +348,9 @@ object Flash {
    * Gets the first flash value of type `A` regardless of any key.
    */
   def get[A: Schema]: Flash[A] = withInput { map =>
-    map.keys.map(a => Flash.get(a)(Schema[A])).reduce(_ <> _)
+    map.keys.map(a => Flash.get(a)(Schema[A])).foldLeft[Flash[A]](Flash.fail("no flash set")) { case (lhs, rhs) =>
+      lhs <> rhs
+    }
   }
 
   private[http] def run[A](flash: Flash[A], sourceRequest: Request): Either[Throwable, A] =
