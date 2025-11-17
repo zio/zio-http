@@ -99,11 +99,13 @@ Most of these attributes have a `:=` dsl method that takes a `Js` value represen
 For example, you can use the `dataOnLoad` attribute to trigger a server request when the page loads:
 
 ```scala mdoc:silent
+import zio.http._
 import zio.http.datastar._
 import zio.http.template2._
+import zio.http.endpoint.Endpoint
 
 body(
-  dataOnLoad := Js("@get('/hello-world')"),
+  dataOn.load := Endpoint(Method.GET / "hello-world").out[String].datastarRequest(()),
   div(
     className := "container",
     h1("Hello World Example"),
@@ -125,7 +127,7 @@ dataOn.input.debounce(300.millis) := Js("@get('/search?q=' + $query)")
 
 Another important attribute is `dataSignals`, which allows you to declare signals that can be used in the Datastar expressions. You can declare a signal using the `dataSignals` attribute as follows:
 
-```scala mdoc:compile-only
+```scala mdoc:silent
 val $currentTime = Signal[String]("currentTime")
 
 dataSignals($currentTime) := js"'--:--:--'"
@@ -141,7 +143,17 @@ span(
 )
 ```
 
-In this example, the `dataText` attribute binds the text content of the `span` element to the `currentTime` signal, and the `dataOn.load` attribute triggers a server request to update the signal when the page loads. 
+In this example, the `dataText` attribute binds the text content of the `span` element to the `currentTime` signal, and the `dataOn.load` attribute triggers a server request to update the signal when the page loads.
+
+:::note
+Instead of `dataOn.load := Endpoint(...).datastarRequest(())`, you can also use the JavaScript expression as bellow:
+
+```scala
+dataOn.load := Js"@get('/server-time')"
+```
+
+We recommend using the `Endpoint` approach as it provides type safety and better integration with ZIO HTTP.
+:::
 
 We will discuss later how the server sends updates to the signals using the [`ServerSentEventGenerator#patchSignals`](#patching-signals) method.
 
