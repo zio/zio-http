@@ -126,16 +126,18 @@ dataOn.input.debounce(300.millis) := Js("@get('/search?q=' + $query)")
 Another important attribute is `dataSignals`, which allows you to declare signals that can be used in the Datastar expressions. You can declare a signal using the `dataSignals` attribute as follows:
 
 ```scala mdoc:compile-only
-dataSignals(Signal[String]("currentTime")) := js"00:00:00"
+val $currentTime = Signal[String]("currentTime")
+
+dataSignals($currentTime) := js"'--:--:--'"
 ```
 
 This declares a signal named `currentTime` of type `String` with an initial value of `00:00:00`. You can then use this signal in other Datastar attributes. For example, you can use `dataText` to display the current time:
 
 ```scala mdoc:compile-only
 span(
-   dataSignals(Signal[String]("currentTime")) := js"",
-   dataText := Js("$currentTime"),
-   dataOn.load := Js("@get('/server-time')"),
+  dataSignals($currentTime) := js"'--:--:--'",
+  dataText                  := $currentTime,
+  dataOn.load               := Js("@get('/server-time')"),
 )
 ```
 
@@ -151,14 +153,17 @@ For example, the following HTML form binds an input field to a signal named `del
 
 ```scala mdoc:compile-only
 body(
-  h1("Hello World Example"),
-  div(
-    dataSignals(Signal[Int]("delay")) := js"100",
-    label("Delay (ms): ", `for` := "delay"),
-    input(`type` := "number", step := "100", dataBind("delay")),
-  ),
+  h1("Hello World Example"), {
+    val $delay = Signal[Int]("delay")
+    div(
+      dataSignals($delay) := js"100",
+      dataBind($delay.name),
+      label("Delay (ms): ", `for` := "delay"),
+      input(`type`:= "number", step := "100"),
+    )
+  },
   button(dataOn.click := Js("@get('/hello-world')"))("Start Animation"),
-  div(id("message"))
+  div(id("message")),
 )
 ```
 
