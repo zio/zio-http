@@ -353,7 +353,7 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.0",
     ),
   )
-  .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen)
+  .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
 
 lazy val zioHttpTools = (project in file("zio-http-tools"))
   .settings(stdSettings("zio-http-tools"))
@@ -485,7 +485,7 @@ lazy val docs = project
       "JWT_CORE_VERSION"   -> JwtCoreVersion,
     ),
   )
-  .dependsOn(zioHttpJVM, zioHttpGen)
+  .dependsOn(zioHttpJVM, zioHttpGen, zioHttpDatastarSdk)
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioHttpTestkit)
 

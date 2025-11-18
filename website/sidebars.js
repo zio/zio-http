@@ -112,6 +112,7 @@ const sidebars = {
         "reference/configs/netty",
       ],
     },
+    "reference/datastar-sdk/index"
   ],
 
   examples: [
