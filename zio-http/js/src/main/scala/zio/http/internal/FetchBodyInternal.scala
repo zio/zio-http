@@ -1,11 +1,8 @@
 package zio.http.internal
 
 import zio._
-
-import zio.stream.ZStream
-
+import zio.stream.{ZChannel, ZStream}
 import zio.http._
-
 import org.scalajs.dom.Response
 
 private[http] final case class FetchBodyInternal(
@@ -36,16 +33,16 @@ private[http] final case class FetchBodyInternal(
    * lazily produced from the body.
    */
   override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-    ZStream.unfoldChunkZIO(result.body.getReader()) { reader =>
-      ZIO.fromFuture { implicit ec =>
-        reader.read().toFuture
-      }.map { result =>
-        if (result.done) {
-          None
-        } else {
-          Some((Chunk.fromIterable(result.value.map(_.toByte)), reader))
+    ZStream.fromZIO { ZIO.attempt { result.body.getReader() } }.flatMap { reader =>
+      lazy val loop: ZChannel[Any, Any, Any, Any, Throwable, Chunk[Byte], Unit] =
+        ZChannel.fromZIO { ZIO.fromPromiseJS { reader.read() } }.flatMap { result =>
+          val out: Chunk[Byte] = Chunk.fromIterable(result.value.map(_.toByte))
+
+          if (result.done) ZChannel.write(out) *> ZChannel.unit
+          else ZChannel.write(out) *> loop
         }
-      }
+
+      ZStream.fromChannel(loop)
     }
 
   /**
