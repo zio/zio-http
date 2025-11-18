@@ -356,7 +356,7 @@ final case class PatchElementOptions(
 )
 ```
 
-1. The `selector` is an optional CSS selector to specify where in the DOM the patch should be applied. 
+1. The `selector` is an optional CSS selector to specify where in the DOM the patch should be applied. If omitted the id of the returned element is used.
 2. The `mode` specifies how the patch should be applied. It has 8 different modes:
     - **Outer**: Morph entire element, preserving state
     - **Inner**: Morph inner HTML only, preserving state
