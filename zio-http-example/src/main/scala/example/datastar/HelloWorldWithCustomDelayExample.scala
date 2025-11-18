@@ -8,7 +8,7 @@ import zio.http.datastar._
 import zio.http.endpoint.Endpoint
 import zio.http.template2._
 
-case class Delay(delay: Int) extends AnyVal
+case class Delay(delay: Int)
 
 object Delay {
   implicit val jsonCodec: JsonCodec[Delay] = DeriveJsonCodec.gen
