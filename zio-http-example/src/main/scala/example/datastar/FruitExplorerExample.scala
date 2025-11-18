@@ -160,7 +160,7 @@ object FruitExplorerExample extends ZIOAppDefault {
               `type`                            := "text",
               placeholder                       := "Search ...",
               name                              := "query",
-              dataSignals($query)               := "",
+              dataSignals($query),
               dataBind($query.name),
               dataOn.input.debounce(300.millis) := Js("@get('/search?q=' + $query)"),
               autofocus,
