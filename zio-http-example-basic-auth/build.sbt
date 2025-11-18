@@ -2,6 +2,7 @@ name := "zio-http-example-basic-auth"
 version := "0.1.0"
 scalaVersion := "2.13.17"
 
+publish / skip := true
 run / fork := true
 
 libraryDependencies ++= Seq(
@@ -16,4 +17,3 @@ Compile / mainClass := Some("example.auth.basic.AuthenticationServer")
 
 dockerBaseImage := "eclipse-temurin:21-jre"
 dockerExposedPorts := Seq(8080)
-
