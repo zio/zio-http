@@ -301,6 +301,16 @@ object Middleware extends HandlerAspects {
         }
     }
 
+  def logAnnotateZIO[Env](
+    logAnnotations: => URIO[Env, Set[LogAnnotation]],
+  )(implicit trace: Trace): Middleware[Env] =
+    new Middleware[Env] {
+      def apply[Env1 <: Env, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        routes.transform[Env1] { h =>
+          Handler.scoped[Env1](handler((req: Request) => logAnnotations.flatMap(ZIO.logAnnotate(_)(h(req)))))
+        }
+    }
+
   /**
    * Creates a middleware that will annotate log messages that are logged while
    * a request is handled with log annotations derived from the request.

@@ -6,6 +6,13 @@ import zio.test._
 import zio.http.Header.UserAgent
 import zio.http.Header.UserAgent.ProductOrComment
 
+case class Auth(email: String)
+
+object AuthMiddleware {
+  val middleware: HandlerAspect[Any, Auth] =
+    Middleware.customAuthProvidingZIO { _ => ZIO.succeed(Some(Auth("test@example.com"))) }
+}
+
 object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("LogAnnotationMiddlewareSpec")(
@@ -23,6 +30,29 @@ object LogAnnotationMiddlewareSpec extends ZIOSpecDefault {
           log = logs.filter(_.message() == "Oh!").head
         } yield assertTrue(log.annotations.get("label").contains("value"))
 
+      },
+      test("add annotation from auth") {
+        val response = Routes
+          .singleton(
+            handler(
+              ZIO.logWarning("Oh!") *> ZIO
+                .service[Auth]
+                .flatMap(auth => ZIO.succeed(Response.text(s"Hello ${auth.email}!"))),
+            ),
+          )
+          .@@(
+            Middleware.logAnnotateZIO(
+              ZIO.service[Auth].flatMap(auth => ZIO.succeed(Set(LogAnnotation("email", auth.email)))),
+            ),
+          )
+          .@@(AuthMiddleware.middleware)
+          .runZIO(Request.get("/"))
+
+        for {
+          _    <- response
+          logs <- ZTestLogger.logOutput
+          log = logs.filter(_.message() == "Oh!").head
+        } yield assertTrue(log.annotations.get("email").contains("test@example.com"))
       },
       test("add request method and path as annotation") {
         val response = Routes
