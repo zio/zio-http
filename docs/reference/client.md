@@ -416,6 +416,225 @@ val program =
 
 The curl logger is useful when you want to generate curl commands for documentation or testing purposes without actually executing the requests.
 
+### Forwarding Headers
+
+This is essential when your application acts as an intermediary (proxy, API gateway, or microservice) and needs to forward specific headers from the original request to downstream services.
+
+Assume you have an API gateway that handles incoming requests and forwards them to various backend services. You want to ensure that certain headers, such as authentication tokens or tracing information, are preserved during this forwarding process.
+
+To achieve this, you can use the `ZClientAspect.forwardHeaders` aspect. This aspect works in conjunction with the `Middleware.forwardHeaders` middleware.
+
+The Two-Part System:
+
+- **Server Middleware** (`Middleware.forwardHeaders`) - Extracts specified headers from incoming requests and stores them in request-scoped storage (`RequestStore`)
+- **Client Aspect** (`ZClientAspect.forwardHeaders`) - Retrieves headers from the request-scoped storage and automatically adds them to outgoing requests
+
+The process begins when an external client makes a request to your API gateway. For example, a client might send a GET request to retrieve order information, including an authorization bearer token and a request ID for distributed tracing. When this request arrives at your server, the `Middleware.forwardHeaders` middleware immediately goes to work. You configure this middleware by specifying which headers you want to forward—for instance, the `Authorization` header and a custom `X-Request-ID` header. The middleware extracts these headers from the incoming request and creates a request-scoped storage container. This storage uses ZIO's `FiberRef` mechanism under the hood, ensuring that the headers are available throughout the entire request handling process but are completely isolated from other concurrent requests.
+
+The beauty of this approach is that the storage is request-scoped, meaning it lives only for the duration of that specific request and is automatically cleaned up when the request completes. You don't need to worry about memory leaks or manual cleanup. More about `RequestStore` can be found in the [dedicated section](contextual/request-store.md).
+
+Once the middleware has stored the headers, your request handler executes normally. In your handler, you make HTTP requests to various backend services using a ZIO HTTP Client that has been configured with the `ZClientAspect.forwardHeaders` aspect. This is where the magic happens—you don't need to manually add the forwarded headers to each outgoing request. Instead, you simply make your HTTP calls as you normally would.
+
+Behind the scenes, the client aspect intercepts each outgoing request before it's sent. It reads the forwarded headers from the request-scoped storage and automatically merges them with the outgoing request. So when you make a request to your order service or user service, the aspect ensures that the `Authorization` token and `X-Request-ID` are automatically included in those requests.
+
+Here is an example demonstrating this flow:
+
+```scala mdoc:invisible
+import zio.schema._
+import zio.json.JsonEncoder.fromCodec
+import zio.json.{DeriveJsonCodec, JsonCodec}
+
+case class Order(id: String, item: String, quantity: Int)
+object Order        {
+  implicit val schema                      = zio.schema.DeriveSchema.gen[Order]
+  implicit val jsonCodec: JsonCodec[Order] = DeriveJsonCodec.gen
+}
+
+case class User(id: String, name: String, email: String)
+object User         {
+  implicit val schema                     = zio.schema.DeriveSchema.gen[User]
+  implicit val jsonCodec: JsonCodec[User] = DeriveJsonCodec.gen
+}
+
+case class Inventory(item: String, available: Int)
+object Inventory    {
+  implicit val schema                          = zio.schema.DeriveSchema.gen[Inventory]
+  implicit val jsonCodec: JsonCodec[Inventory] = DeriveJsonCodec.gen
+}
+
+case class OrderDetails(
+  order: Order,
+  user: User,
+  inventory: Inventory,
+)
+object OrderDetails {
+  implicit val schema                             = zio.schema.DeriveSchema.gen[OrderDetails]
+  implicit val jsonCodec: JsonCodec[OrderDetails] = DeriveJsonCodec.gen
+}
+```
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.codec.TextBinaryCodec.fromSchema
+
+object ApiGateway extends ZIOAppDefault {
+
+  // Backend service URLs
+  val userServiceUrl      = "http://user-service:8081"
+  val orderServiceUrl     = "http://order-service:8082"
+  val inventoryServiceUrl = "http://inventory-service:8083"
+
+  val routes = Routes(
+    Method.GET / "api" / "orders" / string("orderId") -> handler { (orderId: String, req: Request) =>
+      for {
+        client <- ZIO.serviceWith[Client](_ @@ ZClientAspect.forwardHeaders)
+
+        order <- client
+          .request(Request.get(s"$orderServiceUrl/orders/$orderId"))
+          .flatMap(_.body.to[Order])
+
+        user <- client
+          .request(Request.get(s"$userServiceUrl/users/me"))
+          .flatMap(_.body.to[User])
+
+        inventory <- client
+          .request(Request.get(s"$inventoryServiceUrl/stock/$orderId"))
+          .flatMap(_.body.to[Inventory])
+
+      } yield Response(
+        headers = Headers(Header.ContentType(MediaType.application.json)),
+        body = Body.from[OrderDetails](OrderDetails(order, user, inventory)),
+      )
+    } @@ Middleware.forwardHeaders(Header.Authorization) ,
+  ).sandbox
+
+  def run = Server.serve(routes).provide(Server.default, Client.default)
+}
+```
+
+The result is that all your downstream services receive the necessary headers without any manual header manipulation in your code. Here is the visual flow:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. INCOMING CLIENT REQUEST                                                  │
+│                                                                             │
+│    curl -H "Authorization: Bearer token123" \                               │
+│         -H "X-Request-ID: req-456" \                                        │
+│         http://api-gateway/api/orders/123                                   │
+│                                                                             │
+│    ┌──────────────────────────────────────────────┐                         │
+│    │  GET /api/orders/123                         │                         │
+│    │  Authorization: Bearer token123              │                         │
+│    │  X-Request-ID: req-456                       │                         │
+│    └──────────────────────────────────────────────┘                         │
+└─────────────────────────────────┬───────────────────────────────────────────┘
+                                  │
+                                  ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 2. SERVER MIDDLEWARE: Middleware.forwardHeaders(...)                      ┃
+┃    ─────────────────────────────────────────────────────────────────      ┃
+┃                                                                           ┃
+┃    YOU WRITE:                                                             ┃
+┃    ═════════                                                              ┃
+┃    routes @@ Middleware.forwardHeaders(                                   ┃
+┃                Header.Authorization,                                      ┃
+┃                Header.Custom("X-Request-ID")                              ┃
+┃              )                                                            ┃
+┃                                                                           ┃
+┃    AUTOMATICALLY HAPPENS:                                                 ┃
+┃    ════════════════════                                                   ┃
+┃    ┌────────────────────────────────────────────────────────┐             ┃
+┃    │ a) Extract specified headers from incoming request:    │             ┃
+┃    │    • Authorization: Bearer token123                    │             ┃
+┃    │    • X-Request-ID: req-456                             │             ┃
+┃    │                                                        │             ┃
+┃    │ b) Create request-scoped storage (FiberRef-based):     │             ┃
+┃    │    RequestStore[ForwardedHeaders] = {                  │             ┃
+┃    │      headers: Headers(                                 │             ┃
+┃    │        Authorization: Bearer token123,                 │             ┃
+┃    │        X-Request-ID: req-456                           │             ┃
+┃    │      )                                                 │             ┃
+┃    │    }                                                   │             ┃
+┃    │                                                        │             ┃
+┃    │ c) Storage scope: Lives only for this request          │             ┃
+┃    │    Automatically cleaned up when request completes     │             ┃
+┃    └────────────────────────────────────────────────────────┘             ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                                 │
+                       ╔═════════╧════════════════════════════════╗
+                       ║  REQUEST-SCOPED CONTEXT CREATED          ║
+                       ║  ┌────────────────────────────────────┐  ║
+                       ║  │ RequestStore[ForwardedHeaders]     │  ║
+                       ║  │ • Authorization: Bearer token123   │  ║
+                       ║  │ • X-Request-ID: req-456            │  ║
+                       ║  └────────────────────────────────────┘  ║
+                       ║  (Available to entire request lifecycle) ║
+                       ╚═══════════════════╤══════════════════════╝
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 3. YOUR HANDLER EXECUTES                                                    │
+│    ─────────────────────                                                    │
+│                                                                             │
+│    YOU WRITE:                                                               │
+│    ═════════                                                                │
+│    for {                                                                    │
+│      client <- ZIO.serviceWith[Client](_ @@ ZClientAspect.forwardHeaders)   │
+│                                                                             │
+│      order <- client.request(                                               │
+│        Request.get("http://order-service:8082/orders/123")                  │
+│      ).flatMap(_.body.to[Order])                                            │
+│                                                                             │
+│      user <- client.request(                                                │
+│        Request.get("http://user-service:8081/users/me")                     │
+│      ).flatMap(_.body.to[User])                                             │
+│    } yield Response(...)                                                    │
+│                                                                             │
+│    NOTE: You don't manually add headers - that's the whole point!           │
+└─────────────────────────────────┬───────────────────────────────────────────┘
+                                  │
+                                  ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 4. CLIENT ASPECT: ZClientAspect.forwardHeaders                            ┃
+┃    ───────────────────────────────────────────────────────────            ┃
+┃                                                                           ┃
+┃    YOU WRITE:                                                             ┃
+┃    ═════════                                                              ┃
+┃    @@ ZClientAspect.forwardHeaders                                        ┃
+┃                                                                           ┃
+┃    AUTOMATICALLY HAPPENS (for EACH outgoing request):                     ┃
+┃    ═════════════════════════════════════════════════                      ┃
+┃    ┌────────────────────────────────────────────────────────┐             ┃
+┃    │ a) Read from RequestStore[ForwardedHeaders]:           │             ┃
+┃    │    headers = {                                         │             ┃
+┃    │      Authorization: Bearer token123,                   │             ┃
+┃    │      X-Request-ID: req-456                             │             ┃
+┃    │    }                                                   │             ┃
+┃    │                                                        │             ┃
+┃    │ b) Merge with outgoing request:                        │             ┃
+┃    │    Original: Request.get("http://order-service/...")   │             ┃
+┃    │    Enhanced: Request.get("http://order-service/...")   │             ┃
+┃    │              + Authorization: Bearer token123          │             ┃
+┃    │              + X-Request-ID: req-456                   │             ┃
+┃    │                                                        │             ┃
+┃    │ c) Send enhanced request to backend service            │             ┃
+┃    └────────────────────────────────────────────────────────┘             ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                                 │
+               ┌─────────────────┴─────────────────┐
+               │                                   │
+               ▼                                   ▼
+  ┌────────────────────────────────┐   ┌────────────────────────────────┐
+  │ 5a. ORDER SERVICE RECEIVES     │   │ 5b. USER SERVICE RECEIVES      │
+  │                                │   │                                │
+  │  GET /orders/123               │   │  GET /users/me                 │
+  │  Authorization: Bearer token123│   │  Authorization: Bearer token123│
+  │  X-Request-ID: req-456         │   │  X-Request-ID: req-456         │
+  │  ✓ Forwarded automatically!    │   │  ✓ Forwarded automatically!    │
+  └────────────────────────────────┘   └────────────────────────────────┘
+```
+
 ## Configuring ZIO HTTP Client
 
 The ZIO HTTP Client provides a flexible configuration mechanism through the `ZClient.Config` class. This class allows us to customize various aspects of the HTTP client, including SSL settings, proxy configuration, connection pool size, timeouts, and more. The `ZClient.Config.default` provides a default configuration that can be customized using `copy` method or by using the utility methods provided by the `ZClient.Config` class.
