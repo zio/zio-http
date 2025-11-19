@@ -72,6 +72,7 @@ object Server extends ServerPlatformSpecific {
     avoidContextSwitching: Boolean,
     soBacklog: Int,
     tcpNoDelay: Boolean,
+    autoGenerateHeadRoutes: Boolean,
   ) { self =>
 
     /**
@@ -205,6 +206,15 @@ object Server extends ServerPlatformSpecific {
     def tcpNoDelay(value: Boolean): Config =
       self.copy(tcpNoDelay = value)
 
+    /**
+     * Configure the server to automatically generate HEAD routes for all GET
+     * routes. When enabled, any GET route will also respond to HEAD requests
+     * with the same headers but no body. Explicit HEAD routes always take
+     * precedence.
+     */
+    def autoGenerateHeadRoutes(value: Boolean): Config =
+      self.copy(autoGenerateHeadRoutes = value)
+
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
@@ -226,7 +236,8 @@ object Server extends ServerPlatformSpecific {
         zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
         zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching) ++
         zio.Config.int("so-backlog").withDefault(Config.default.soBacklog) ++
-        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay)
+        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay) ++
+        zio.Config.boolean("auto-generate-head-routes").withDefault(Config.default.autoGenerateHeadRoutes)
 
     }.map {
       case (
@@ -246,6 +257,7 @@ object Server extends ServerPlatformSpecific {
             avoidCtxSwitch,
             soBacklog,
             tcpNoDelay,
+            autoGenerateHeadRoutes,
           ) =>
         default.copy(
           sslConfig = sslConfig,
@@ -263,6 +275,7 @@ object Server extends ServerPlatformSpecific {
           avoidContextSwitching = avoidCtxSwitch,
           soBacklog = soBacklog,
           tcpNoDelay = tcpNoDelay,
+          autoGenerateHeadRoutes = autoGenerateHeadRoutes,
         )
     }
 
@@ -283,6 +296,7 @@ object Server extends ServerPlatformSpecific {
       avoidContextSwitching = false,
       soBacklog = 100,
       tcpNoDelay = true,
+      autoGenerateHeadRoutes = false,
     )
 
     final case class ResponseCompressionConfig(

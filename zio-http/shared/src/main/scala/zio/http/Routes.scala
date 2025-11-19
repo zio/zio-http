@@ -177,8 +177,10 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    * This method only checks for the presence of a handler that handles the
    * method and path of the specified request.
    */
-  def isDefinedAt(request: Request)(implicit ev: Err <:< Response): Boolean =
-    tree(Trace.empty, ev).get(request.method, request.path) != null
+  def isDefinedAt(request: Request)(implicit ev: Err <:< Response): Boolean = {
+    implicit val trace: Trace = Trace.empty
+    tree().get(request.method, request.path) != null
+  }
 
   def provide[Env1 <: Env](env: Env1)(implicit tag: Tag[Env1]): Routes[Any, Err] =
     provideEnvironment(ZEnvironment(env))
@@ -265,18 +267,65 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   /**
    * Converts the HTTP application into a request handler.
    */
-  def toHandler(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] = {
+  def toHandler(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] =
+    toHandler(false)
+
+  /**
+   * Converts the HTTP application into a request handler with optional
+   * auto-generation of HEAD routes.
+   */
+  def toHandler(
+    autoGenerateHeadRoutes: Boolean,
+  )(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] = {
     if (_handler eq null) {
       _handler = {
         implicit val trace: Trace = Trace.empty
         val (unique, duplicates)  = uniqueRoutes
-        val tree                  = Routes(unique).tree[Env]
+        val tree                  = Routes(unique).tree[Env](autoGenerateHeadRoutes)
         val h                     = Handler
-          .fromFunctionHandler[Request] { req =>
+          .fromFunctionZIO[Request] { req =>
             val handler = tree.get(req.method, req.path)
-            if (handler eq null) notFound else handler
+            if (handler eq null) {
+              notFound(req)
+            } else {
+              // For auto-generated HEAD routes, we need to call the handler with a GET request
+              // because the handler was originally designed for GET
+              val requestForHandler = if (req.method == Method.HEAD && autoGenerateHeadRoutes) {
+                req.copy(method = Method.GET)
+              } else {
+                req
+              }
+
+              handler(requestForHandler).foldZIO(
+                error => ZIO.succeed(error), // Error channel contains Response
+                response => {
+                  // For HEAD requests, strip the body but preserve Content-Length
+                  // When autoGenerateHeadRoutes is enabled, also add Content-Length to GET responses
+                  // so that GET and HEAD have matching Content-Length headers
+                  val finalResponse = if (req.method == Method.HEAD) {
+                    val contentLength = response.body.knownContentLength
+                    val emptyResponse = response.copy(body = Body.empty)
+                    contentLength match {
+                      case Some(length) if !response.headers.contains(Header.ContentLength.name) =>
+                        emptyResponse.addHeader(Header.ContentLength(length))
+                      case _                                                                     => emptyResponse
+                    }
+                  } else if (autoGenerateHeadRoutes && req.method == Method.GET) {
+                    // Add Content-Length to GET responses when autoGenerateHeadRoutes is enabled
+                    // so that GET and HEAD have matching headers
+                    response.body.knownContentLength match {
+                      case Some(length) if !response.headers.contains(Header.ContentLength.name) =>
+                        response.addHeader(Header.ContentLength(length))
+                      case _                                                                     => response
+                    }
+                  } else {
+                    response
+                  }
+                  ZIO.succeed(finalResponse)
+                },
+              )
+            }
           }
-          .merge
           .asInstanceOf[Handler[Any, Nothing, Request, Response]]
         if (duplicates.nonEmpty) {
           val duplicateRoutes       = duplicates.map(_.routePattern)
@@ -319,9 +368,12 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   /**
    * Accesses the underlying tree that provides fast dispatch to handlers.
    */
-  def tree[Env1 <: Env](implicit trace: Trace, ev: Err <:< Response): Routes.Tree[Env1] = {
+  def tree[Env1 <: Env](
+    autoGenerateHeadRoutes: Boolean = false,
+  )(implicit trace: Trace, ev: Err <:< Response): Routes.Tree[Env1] = {
     if (_tree eq null) {
-      _tree = Routes.Tree.fromRoutes(routes.asInstanceOf[Chunk[Route[Env1, Response]]])
+      val baseTree = Routes.Tree.fromRoutes(routes.asInstanceOf[Chunk[Route[Env1, Response]]])
+      _tree = if (autoGenerateHeadRoutes) baseTree.withAutoGeneratedHeadRoutes else baseTree
     }
     _tree.asInstanceOf[Routes.Tree[Env1]]
   }
@@ -417,6 +469,9 @@ object Routes extends RoutesCompanionVersionSpecific {
 
     final def get(method: Method, path: Path): RequestHandler[Env, Response] =
       tree.get(method, path)
+
+    final def withAutoGeneratedHeadRoutes: Tree[Env] =
+      Tree(tree.withAutoGeneratedHeadRoutes)
   }
   private[http] object Tree                                              {
     val empty: Tree[Any] = Tree(RoutePattern.Tree.empty)

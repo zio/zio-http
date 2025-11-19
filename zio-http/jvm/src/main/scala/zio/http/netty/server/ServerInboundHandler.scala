@@ -58,7 +58,7 @@ private[zio] final case class ServerInboundHandler(
   def refreshApp(): Unit = {
     val pair = appRef.get()
 
-    this.handler = pair._1.toHandler
+    this.handler = pair._1.toHandler(config.autoGenerateHeadRoutes)
     this.runtime = new NettyRuntime(pair._2)
   }
 
@@ -194,7 +194,9 @@ private[zio] final case class ServerInboundHandler(
               }
 
             ctx.writeAndFlush(jResponse)
-            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
+            // For HEAD requests, we must not write the body
+            if (request.method == Method.HEAD) None
+            else NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
           } else {
             ctx.writeAndFlush(jResponse)
             None

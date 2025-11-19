@@ -69,7 +69,9 @@ private[netty] object NettyResponseEncoder {
 
     val jStatus = Conversions.statusToNetty(status)
 
-    val jContent = Unpooled.wrappedBuffer(bytes)
+    // For HEAD requests, we must not send a body, but we must send the Content-Length
+    // header that would have been sent for a GET request
+    val jContent = if (method == Method.HEAD) Unpooled.EMPTY_BUFFER else Unpooled.wrappedBuffer(bytes)
 
     /*
      * The content-length MUST match the length of the content we are sending,
