@@ -402,6 +402,30 @@ val endpoint3: Endpoint[Unit, Unit, ZNothing, Either[(Article, Header.Date), (Bo
     Endpoint(RoutePattern.GET / "resources")
         .outCodec(articleCodec | bookCodec)
 ```
+
+To model streaming responses, such as server-sent events or large file downloads, we can use ZIO Streams as the output type of the endpoint:
+
+```scala mdoc:compile-only
+import zio.stream._
+
+val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
+  Endpoint(Method.GET / "server-time")
+    .outStream[ServerSentEvent[String]](MediaType.text.`event-stream`)
+```
+
+This endpoint describes a server-sent events stream that sends the current server time to the client.
+
+<details>
+<summary><b>Full Implementation Showcase</b></summary>
+
+```scala mdoc:passthrough
+import utils._
+
+printSource("zio-http-example/src/main/scala/example/endpoint/SSEServerTimeExample.scala")
+```
+
+</details>
+
 ## Describing Failures
 
 For failure outputs, we can describe the output properties using the `Endpoint#outError*` methods. Let's see an example:
@@ -512,6 +536,139 @@ val endpoint: Endpoint[Int, (Int, Header.Authorization), BookNotFound | Authenti
     .orOutError[AuthenticationError](Status.Unauthorized)
 ```
 
+## Describing Authentication Types
+
+Endpoints can specify authentication requirements using the `Endpoint#auth` method. ZIO HTTP supports several built-in authentication types and allows for custom authentication schemes. It can be `AuthType.None`, `AuthType.Basic`, `AuthType.Bearer`, `AuthType.Digest`, `AuthType.Custom`, or unions of these types.
+
+For example, Basic authentication can be specified using `AuthType.Basic`:
+
+```scala mdoc:invisible
+import zio.schema.{DeriveSchema, Schema}
+
+case class Book(title: String, authors: List[String])
+object Book {
+  implicit val schema = DeriveSchema.gen[Book]
+}
+```
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.endpoint._
+
+val endpoint = Endpoint(Method.GET / "me" / "favorites" / "books")
+  .out[List[Book]]
+  .auth(AuthType.Basic)
+```
+
+This describes an endpoint that requires the client to provide HTTP Basic authentication credentials in the `Authorization` header.
+
+### Multiple Authentication Types
+
+An endpoint can accept a union of multiple authentication types, for example:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.endpoint._
+
+val endpoint = Endpoint(Method.GET / "me" / "favorites" / "books")
+  .out[List[Book]]
+  .auth(AuthType.Basic | AuthType.Bearer)
+```
+
+This endpoint accepts either `Basic` or `Bearer` authentication, providing flexibility for clients.
+
+### Custom Authentication
+
+For custom authentication schemes, use `AuthType.Custom` with an `HttpCodec`:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.endpoint._
+import zio.http.codec.HttpCodec
+
+val endpoint = Endpoint(Method.GET / PathCodec.string("user_id") / "favorites" / "books")
+  .out[List[Book]]
+  .auth(AuthType.Custom(HttpCodec.query[String]("token")))
+```
+
+This endpoint uses a custom authentication scheme that extracts the authentication token from a query parameter.
+
+### Working with Authentication Context
+
+To extract and use authentication information in your handlers, use `HandlerAspect.customAuthProviding` to provide an authentication context:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.endpoint._
+import zio.Config.Secret
+
+case class AuthContext(username: String)
+
+val authMiddleware = HandlerAspect.customAuthProviding[AuthContext] { request =>
+  request.headers.get(Header.Authorization).flatMap {
+    case Header.Authorization.Basic(username, password) if Secret(username.reverse) == password =>
+      Some(AuthContext(username))
+    case _ =>
+      None
+  }
+}
+
+val endpoint = Endpoint(Method.GET / "me" / "favorites" / "books")
+  .out[List[Book]]
+  .auth(AuthType.Basic)
+
+def favoriteBooks(username: String): Task[List[Book]] = ???
+
+val routes = Routes(
+  endpoint.implementHandler(
+    handler((_: Unit) =>
+      withContext((ctx: AuthContext) => favoriteBooks(ctx.username).orDie)
+    )
+  )
+) @@ authMiddleware
+```
+
+The `customAuthProviding` middleware extracts authentication information from the request and provides it as context that can be accessed in handlers using `withContext`.
+
+### Multiple Authentication with Context
+
+You can support multiple authentication types in your middleware:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.endpoint._
+import zio.Config.Secret
+
+case class AuthContext(username: String)
+
+val multiAuthMiddleware = HandlerAspect.customAuthProviding[AuthContext] { request =>
+  request.headers.get(Header.Authorization).flatMap {
+    case Header.Authorization.Basic(username, password)
+      if Secret(username.reverse) == password =>
+      Some(AuthContext(username))
+    case Header.Authorization.Bearer(token)
+      if token == Secret("admin-token") =>
+      Some(AuthContext("admin"))
+    case _ =>
+      None
+  }
+}
+
+def favoriteBooks(username: String): Task[List[Book]] = ???
+
+val endpoint = Endpoint(Method.GET / "me" / "favorites" / "books")
+  .out[List[Book]]
+  .auth(AuthType.Basic | AuthType.Bearer)
+
+val routes = Routes(
+  endpoint.implementHandler(
+    handler((_: Unit) =>
+      withContext((ctx: AuthContext) => favoriteBooks(ctx.username).orDie)
+    )
+  )
+) @@ multiAuthMiddleware
+```
+
 ## Transforming Endpoint Input/Output and Error Types
 
 To transform the input, output, and error types of an endpoint, we can use the `Endpoint#transformIn`, `Endpoint#transformOut`, and `Endpoint#transformError` methods, respectively. Let's see an example:
@@ -535,6 +692,7 @@ In the above example, we mapped over the input type of the `endpoint` and transf
 The `transformOut` and `transformError` methods work similarly to the `transformIn` method.
 
 ## CodecConfig
+
 The `CodecConfig` is injected when building any `Endpoint` API codecs. You can see this in the definition of `BinaryCodecWithSchema`:
 
 ```scala mdoc:compile-only
