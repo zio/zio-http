@@ -296,44 +296,33 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
                 req
               }
 
-              // Optimize for the common case: when autoGenerateHeadRoutes is false,
-              // skip all HEAD-related processing
-              if (autoGenerateHeadRoutes) {
-                handler(requestForHandler).foldZIO(
-                  error => ZIO.succeed(error), // Error channel contains Response
-                  response => {
-                    // For HEAD requests, strip the body but preserve Content-Length
-                    // When autoGenerateHeadRoutes is enabled, also add Content-Length to GET responses
-                    // so that GET and HEAD have matching Content-Length headers
-                    val finalResponse = if (req.method == Method.HEAD) {
-                      val contentLength = response.body.knownContentLength
-                      val emptyResponse = response.copy(body = Body.empty)
-                      contentLength match {
-                        case Some(length) if !response.headers.contains(Header.ContentLength.name) =>
-                          emptyResponse.addHeader(Header.ContentLength(length))
-                        case _                                                                     => emptyResponse
-                      }
-                    } else if (req.method == Method.GET) {
-                      // Add Content-Length to GET responses when autoGenerateHeadRoutes is enabled
-                      // so that GET and HEAD have matching headers
-                      response.body.knownContentLength match {
-                        case Some(length) if !response.headers.contains(Header.ContentLength.name) =>
-                          response.addHeader(Header.ContentLength(length))
-                        case _                                                                     => response
-                      }
-                    } else {
-                      response
+              handler(requestForHandler).foldZIO(
+                error => ZIO.succeed(error), // Error channel contains Response
+                response => {
+                  // ALWAYS strip body for HEAD requests (HTTP/1.1 spec requirement)
+                  // This applies to ALL routes including ANY routes
+                  val finalResponse = if (req.method == Method.HEAD) {
+                    val contentLength = response.body.knownContentLength
+                    val emptyResponse = response.copy(body = Body.empty)
+                    contentLength match {
+                      case Some(length) if !response.headers.contains(Header.ContentLength.name) =>
+                        emptyResponse.addHeader(Header.ContentLength(length))
+                      case _                                                                     => emptyResponse
                     }
-                    ZIO.succeed(finalResponse)
-                  },
-                )
-              } else {
-                // When feature is disabled, use original request and skip all processing
-                handler(req).foldZIO(
-                  error => ZIO.succeed(error),
-                  response => ZIO.succeed(response),
-                )
-              }
+                  } else if (autoGenerateHeadRoutes && req.method == Method.GET) {
+                    // Add Content-Length to GET responses when autoGenerateHeadRoutes is enabled
+                    // so that GET and HEAD have matching headers
+                    response.body.knownContentLength match {
+                      case Some(length) if !response.headers.contains(Header.ContentLength.name) =>
+                        response.addHeader(Header.ContentLength(length))
+                      case _                                                                     => response
+                    }
+                  } else {
+                    response
+                  }
+                  ZIO.succeed(finalResponse)
+                },
+              )
             }
           }
           .asInstanceOf[Handler[Any, Nothing, Request, Response]]
