@@ -440,25 +440,27 @@ Behind the scenes, the client aspect intercepts each outgoing request before it'
 Here is an example demonstrating this flow:
 
 ```scala mdoc:invisible
-import zio.schema._
-import zio.json.JsonEncoder.fromCodec
+import zio._
+import zio.http._
+import zio.http.codec.TextBinaryCodec.fromSchema
 import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.schema._
 
 case class Order(id: String, item: String, quantity: Int)
-object Order        {
-  implicit val schema                      = zio.schema.DeriveSchema.gen[Order]
+object Order {
+  implicit val schema: Schema[Order]       = zio.schema.DeriveSchema.gen[Order]
   implicit val jsonCodec: JsonCodec[Order] = DeriveJsonCodec.gen
 }
 
 case class User(id: String, name: String, email: String)
-object User         {
-  implicit val schema                     = zio.schema.DeriveSchema.gen[User]
+object User {
+  implicit val schema: Schema[User]       = zio.schema.DeriveSchema.gen[User]
   implicit val jsonCodec: JsonCodec[User] = DeriveJsonCodec.gen
 }
 
 case class Inventory(item: String, available: Int)
 object Inventory    {
-  implicit val schema                          = zio.schema.DeriveSchema.gen[Inventory]
+  implicit val schema: Schema[Inventory]       = zio.schema.DeriveSchema.gen[Inventory]
   implicit val jsonCodec: JsonCodec[Inventory] = DeriveJsonCodec.gen
 }
 
@@ -468,7 +470,7 @@ case class OrderDetails(
   inventory: Inventory,
 )
 object OrderDetails {
-  implicit val schema                             = zio.schema.DeriveSchema.gen[OrderDetails]
+  implicit val schema: Schema[OrderDetails]       = zio.schema.DeriveSchema.gen[OrderDetails]
   implicit val jsonCodec: JsonCodec[OrderDetails] = DeriveJsonCodec.gen
 }
 ```
@@ -479,35 +481,36 @@ import zio.http._
 import zio.http.codec.TextBinaryCodec.fromSchema
 
 object ApiGateway extends ZIOAppDefault {
-
-  // Backend service URLs
   val userServiceUrl      = "http://user-service:8081"
   val orderServiceUrl     = "http://order-service:8082"
   val inventoryServiceUrl = "http://inventory-service:8083"
 
   val routes = Routes(
-    Method.GET / "api" / "orders" / string("orderId") -> handler { (orderId: String, req: Request) =>
-      for {
-        client <- ZIO.serviceWith[Client](_ @@ ZClientAspect.forwardHeaders)
+    Method.GET / "api" / "orders" / string("orderId") ->
+      Handler.scoped {
+        handler { (orderId: String, req: Request) =>
+          for {
+            client <- ZIO.serviceWith[Client](_ @@ ZClientAspect.forwardHeaders)
 
-        order <- client
-          .request(Request.get(s"$orderServiceUrl/orders/$orderId"))
-          .flatMap(_.body.to[Order])
+            order <- client
+              .request(Request.get(s"$orderServiceUrl/orders/$orderId"))
+              .flatMap(_.body.to[Order])
 
-        user <- client
-          .request(Request.get(s"$userServiceUrl/users/me"))
-          .flatMap(_.body.to[User])
+            user <- client
+              .request(Request.get(s"$userServiceUrl/users/me"))
+              .flatMap(_.body.to[User])
 
-        inventory <- client
-          .request(Request.get(s"$inventoryServiceUrl/stock/$orderId"))
-          .flatMap(_.body.to[Inventory])
+            inventory <- client
+              .request(Request.get(s"$inventoryServiceUrl/stock/$orderId"))
+              .flatMap(_.body.to[Inventory])
 
-      } yield Response(
-        headers = Headers(Header.ContentType(MediaType.application.json)),
-        body = Body.from[OrderDetails](OrderDetails(order, user, inventory)),
-      )
-    } @@ Middleware.forwardHeaders(Header.Authorization) ,
-  ).sandbox
+          } yield Response(
+            headers = Headers(Header.ContentType(MediaType.application.json)),
+            body = Body.from[OrderDetails](OrderDetails(order, user, inventory)),
+          )
+        }
+      },
+  ).sandbox @@ Middleware.forwardHeaders(Header.Authorization)
 
   def run = Server.serve(routes).provide(Server.default, Client.default)
 }
