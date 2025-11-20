@@ -6,9 +6,15 @@ import zio.test._
 
 import zio.http._
 import zio.http.endpoint._
+import zio.http.template2._
 
 @nowarn
 object DatastarRequestSpec extends ZIOSpecDefault {
+
+  val testEvent: DatastarEvent                               =
+    DatastarEvent.patchSignals(Seq("signal1" -> "value1", "signal2" -> "value2"), onlyIfMissing = false)
+  val handler: Handler[Any, Response, Unit, DatastarEvent]   = Handler.succeed(testEvent)
+  val wrappedHandler: Handler[Any, Response, Unit, Response] = event(handler)
 
   override def spec = suite("DatastarRequestSpec")(
     suite("datastarRequest with no parameters")(
@@ -487,8 +493,8 @@ object DatastarRequestSpec extends ZIOSpecDefault {
         )
       },
       test("should render request with custom selector") {
-        val options = DatastarRequestOptions.default.copy(
-          selector = Some("#content"),
+        val options = DatastarRequestOptions(
+          selector = Some(id("content")),
         )
         val request = DatastarRequest(Method.POST, url"/api/submit", options)
 
@@ -551,7 +557,7 @@ object DatastarRequestSpec extends ZIOSpecDefault {
       },
       test("should render request with multiple custom options") {
         val options = DatastarRequestOptions.default.copy(
-          selector = Some("#target"),
+          selector = Some(id("target")),
           hdrs = Headers(Header.ContentType(MediaType.application.json)),
           openWhenHidden = true,
           retryMaxCount = 3,
@@ -635,6 +641,287 @@ object DatastarRequestSpec extends ZIOSpecDefault {
           request.renderUrl == "/orgs/zio/repos/$repo/issues/123",
         )
       },
+    ),
+    suite("event method tests")(
+      suite("PatchSignals")(
+        test("should encode PatchSignals event with multiple signals") {
+          for {
+            response <- wrappedHandler(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            bodyStr == """{"signal1":"value1","signal2":"value2"}""",
+          )
+        },
+        test("should encode empty PatchSignals event") {
+          val emptyEvent: DatastarEvent = DatastarEvent.patchSignals(Iterable.empty, onlyIfMissing = true)
+          val emptyHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(emptyEvent)
+          val wrappedEmpty: Handler[Any, Response, Unit, Response]      = event(emptyHandler)
+          for {
+            response <- wrappedEmpty(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            bodyStr == "{}",
+          )
+        },
+        test("should encode single signal") {
+          val singleEvent: DatastarEvent                                 = DatastarEvent.patchSignals("name" -> "John")
+          val singleHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(singleEvent)
+          val wrappedSingle: Handler[Any, Response, Unit, Response]      = event(singleHandler)
+          for {
+            response <- wrappedSingle(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            bodyStr == """{"name":"John"}""",
+          )
+        },
+        test("should encode PatchSignals with onlyIfMissing flag") {
+          val eventWithFlag: DatastarEvent                             =
+            DatastarEvent.patchSignals(Seq("flag" -> "true"), onlyIfMissing = true)
+          val flagHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(eventWithFlag)
+          val wrappedFlag: Handler[Any, Response, Unit, Response]      = event(flagHandler)
+          for {
+            response <- wrappedFlag(())
+            bodyStr  <- response.body.asString
+            hasHeader = response.header[String]("datastar-only-if-missing").isRight
+          } yield assertTrue(
+            response.status == Status.Ok,
+            hasHeader,
+            bodyStr == """{"flag":"true"}""",
+          )
+        },
+      ),
+      suite("PatchElements")(
+        test("should encode PatchElements event with simple HTML") {
+          val htmlEvent: DatastarEvent                                 =
+            DatastarEvent.patchElements(div("Hello World"))
+          val htmlHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(htmlEvent)
+          val wrappedHtml: Handler[Any, Response, Unit, Response]      = event(htmlHandler)
+          for {
+            response <- wrappedHtml(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            response.header(Header.ContentType).contains(Header.ContentType(MediaType.text.`html`)),
+            bodyStr.contains("Hello World"),
+          )
+        },
+        test("should encode PatchElements with selector") {
+          val withSelector: DatastarEvent                                  =
+            DatastarEvent.patchElements(
+              span(text("Updated")),
+              Some(id("target").selector),
+            )
+          val selectorHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(withSelector)
+          val wrappedSelector: Handler[Any, Response, Unit, Response]      = event(selectorHandler)
+          for {
+            response <- wrappedSelector(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            response.header[String]("datastar-selector").isRight,
+            bodyStr.contains("Updated"),
+          )
+        },
+        test("should encode PatchElements with Inner mode") {
+          val innerMode: DatastarEvent                                  =
+            DatastarEvent.patchElements(
+              p("Inner content"),
+              Some(selector".container"),
+              ElementPatchMode.Inner,
+            )
+          val innerHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(innerMode)
+          val wrappedInner: Handler[Any, Response, Unit, Response]      = event(innerHandler)
+          for {
+            response <- wrappedInner(())
+            bodyStr  <- response.body.asString
+            hasMode = response.header[String]("datastar-mode").isRight
+          } yield assertTrue(
+            response.status == Status.Ok,
+            hasMode,
+            bodyStr.contains("Inner content"),
+          )
+        },
+        test("should encode PatchElements with Append mode") {
+          val appendMode: DatastarEvent                                  =
+            DatastarEvent.patchElements(
+              li("New item"),
+              Some(selector"ul"),
+              ElementPatchMode.Append,
+            )
+          val appendHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(appendMode)
+          val wrappedAppend: Handler[Any, Response, Unit, Response]      = event(appendHandler)
+          for {
+            response <- wrappedAppend(())
+            bodyStr  <- response.body.asString
+            modeValue = response.header[String]("datastar-mode").toOption
+          } yield assertTrue(
+            response.status == Status.Ok,
+            modeValue.contains("append"),
+            bodyStr.contains("New item"),
+          )
+        },
+        test("should encode PatchElements with Prepend mode") {
+          val prependMode: DatastarEvent                                  =
+            DatastarEvent.patchElements(
+              li("First item"),
+              Some(selector"ul"),
+              ElementPatchMode.Prepend,
+            )
+          val prependHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(prependMode)
+          val wrappedPrepend: Handler[Any, Response, Unit, Response]      = event(prependHandler)
+          for {
+            response <- wrappedPrepend(())
+            bodyStr  <- response.body.asString
+            modeValue = response.header[String]("datastar-mode").toOption
+          } yield assertTrue(
+            response.status == Status.Ok,
+            modeValue.contains("prepend"),
+            bodyStr.contains("First item"),
+          )
+        },
+        test("should encode PatchElements with Replace mode") {
+          val replaceMode: DatastarEvent                                  =
+            DatastarEvent.patchElements(
+              div("Replacement"),
+              Some(selector"#old"),
+              ElementPatchMode.Replace,
+            )
+          val replaceHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(replaceMode)
+          val wrappedReplace: Handler[Any, Response, Unit, Response]      = event(replaceHandler)
+          for {
+            response <- wrappedReplace(())
+            bodyStr  <- response.body.asString
+            modeValue = response.header[String]("datastar-mode").toOption
+          } yield assertTrue(
+            response.status == Status.Ok,
+            modeValue.contains("replace"),
+            bodyStr.contains("Replacement"),
+          )
+        },
+        test("should encode PatchElements with useViewTransition") {
+          val withTransition: DatastarEvent                                  =
+            DatastarEvent.patchElements(
+              div("Animated"),
+              Some(selector"#animated"),
+              ElementPatchMode.Outer,
+              useViewTransition = true,
+            )
+          val transitionHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(withTransition)
+          val wrappedTransition: Handler[Any, Response, Unit, Response]      = event(transitionHandler)
+          for {
+            response <- wrappedTransition(())
+            bodyStr  <- response.body.asString
+            hasTransition = response.header[String]("datastar-use-view-transition").isRight
+          } yield assertTrue(
+            response.status == Status.Ok,
+            hasTransition,
+            bodyStr.contains("Animated"),
+          )
+        },
+        test("should encode PatchElements with complex nested HTML") {
+          val complexHtml: DatastarEvent                                  =
+            DatastarEvent.patchElements(
+              div(
+                `class` := "card",
+                h2("Title"),
+                p("Description"),
+                button("Click me"),
+              ),
+            )
+          val complexHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(complexHtml)
+          val wrappedComplex: Handler[Any, Response, Unit, Response]      = event(complexHandler)
+          for {
+            response <- wrappedComplex(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            bodyStr.contains("Title"),
+            bodyStr.contains("Description"),
+            bodyStr.contains("Click me"),
+          )
+        },
+      ),
+      suite("ExecuteScript")(
+        test("should encode ExecuteScript event with JavaScript string") {
+          val scriptEvent: DatastarEvent                                 =
+            DatastarEvent.executeScript("console.log('Hello from Datastar')")
+          val scriptHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(scriptEvent)
+          val wrappedScript: Handler[Any, Response, Unit, Response]      = event(scriptHandler)
+          for {
+            response <- wrappedScript(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            response.header(Header.ContentType).contains(Header.ContentType(MediaType.text.`javascript`)),
+            bodyStr.contains("console.log"),
+          )
+        },
+        test("should encode ExecuteScript with autoRemove enabled") {
+          val autoRemoveScript: DatastarEvent                                =
+            DatastarEvent.executeScript("alert('Temporary alert')", autoRemove = true)
+          val autoRemoveHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(autoRemoveScript)
+          val wrappedAutoRemove: Handler[Any, Response, Unit, Response]      = event(autoRemoveHandler)
+          for {
+            response <- wrappedAutoRemove(())
+            hasAttrs = response.header[String]("datastar-script-attributes").isRight
+          } yield assertTrue(
+            response.status == Status.Ok,
+            hasAttrs,
+          )
+        },
+        test("should encode ExecuteScript with Js type") {
+          val jsScript: DatastarEvent                                =
+            DatastarEvent.executeScript(Js("document.getElementById('test').textContent = 'Updated'"))
+          val jsHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(jsScript)
+          val wrappedJs: Handler[Any, Response, Unit, Response]      = event(jsHandler)
+          for {
+            response <- wrappedJs(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            bodyStr.contains("getElementById"),
+          )
+        },
+        test("should encode ExecuteScript with multiline script") {
+          val multilineScript: DatastarEvent                                =
+            DatastarEvent.executeScript(
+              """const x = 10;
+                |const y = 20;
+                |console.log(x + y);""".stripMargin,
+            )
+          val multilineHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(multilineScript)
+          val wrappedMultiline: Handler[Any, Response, Unit, Response]      = event(multilineHandler)
+          for {
+            response <- wrappedMultiline(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            bodyStr.contains("const x"),
+            bodyStr.contains("const y"),
+          )
+        },
+        test("should encode ExecuteScript with function definition") {
+          val functionScript: DatastarEvent                                =
+            DatastarEvent.executeScript(
+              """function greet(name) {
+                |  return 'Hello, ' + name;
+                |}
+                |greet('World');""".stripMargin,
+            )
+          val functionHandler: Handler[Any, Response, Unit, DatastarEvent] = Handler.succeed(functionScript)
+          val wrappedFunction: Handler[Any, Response, Unit, Response]      = event(functionHandler)
+          for {
+            response <- wrappedFunction(())
+            bodyStr  <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            bodyStr.contains("function greet"),
+          )
+        },
+      ),
     ),
   )
 }

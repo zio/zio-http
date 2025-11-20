@@ -1,15 +1,20 @@
 package zio.http.datastar
 
 import zio._
+import zio.json.ast.Json
 import zio.test._
 
 import zio.stream._
+
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.template2._
 
 object DatastarEventSpec extends ZIOSpecDefault {
-  override def spec = suite("DatastarEventSpec")(
+  case class CountUpdate(count: Int)
+  implicit val schema: Schema[CountUpdate] = DeriveSchema.gen[CountUpdate]
+  override def spec                        = suite("DatastarEventSpec")(
     suite("events from ZStream[DatastarEvent]")(
       test("should convert ZStream of PatchElements events to SSE stream") {
         val eventStream = ZStream(
@@ -30,8 +35,8 @@ object DatastarEventSpec extends ZIOSpecDefault {
       },
       test("should convert ZStream of PatchSignals events to SSE stream") {
         val eventStream = ZStream(
-          DatastarEvent.patchSignals("""{"count": 1}"""),
-          DatastarEvent.patchSignals("""{"count": 2}"""),
+          DatastarEvent.patchSignals(CountUpdate(1)),
+          DatastarEvent.patchSignals(CountUpdate(2)),
         )
 
         for {
@@ -40,9 +45,9 @@ object DatastarEventSpec extends ZIOSpecDefault {
         } yield assertTrue(
           events.length == 2,
           events.head.eventType.contains("datastar-patch-signals"),
-          events.head.data == """signals {"count": 1}""" + "\n",
+          events.head.data == """signals {"count":1}""" + "\n",
           events(1).eventType.contains("datastar-patch-signals"),
-          events(1).data == """signals {"count": 2}""" + "\n",
+          events(1).data == """signals {"count":2}""" + "\n",
         )
       },
       test("should convert ZStream of ExecuteScript events to SSE stream") {
@@ -67,7 +72,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
       test("should handle mixed DatastarEvent types in stream") {
         val eventStream = ZStream(
           DatastarEvent.patchElements(div("Element")),
-          DatastarEvent.patchSignals("""{"signal": "value"}"""),
+          DatastarEvent.patchSignals("signal" -> "value"),
           DatastarEvent.executeScript("console.log('script')"),
         )
 
@@ -79,7 +84,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
           events(0).eventType.contains("datastar-patch-elements"),
           events(0).data == "elements <div>Element</div>\n",
           events(1).eventType.contains("datastar-patch-signals"),
-          events(1).data == """signals {"signal": "value"}""" + "\n",
+          events(1).data == """signals {"signal":"value"}""" + "\n",
           events(2).eventType.contains("datastar-patch-elements"),
           events(
             2,
@@ -167,7 +172,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
           ZIO.succeed(
             ZStream(
               DatastarEvent.patchElements(div("Step 1")),
-              DatastarEvent.patchSignals("""{"progress": 50}"""),
+              DatastarEvent.patchSignals("progress" -> "50"),
               DatastarEvent.patchElements(div("Step 2")),
               DatastarEvent.executeScript("console.log('done')"),
             ),
@@ -184,7 +189,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
           sseEvents(0).eventType.contains("datastar-patch-elements"),
           sseEvents(0).data == "elements <div>Step 1</div>",
           sseEvents(1).eventType.contains("datastar-patch-signals"),
-          sseEvents(1).data == """signals {"progress": 50}""",
+          sseEvents(1).data == """signals {"progress":"50"}""",
           sseEvents(2).eventType.contains("datastar-patch-elements"),
           sseEvents(2).data == "elements <div>Step 2</div>",
           sseEvents(3).eventType.contains("datastar-patch-elements"),
@@ -261,19 +266,19 @@ object DatastarEventSpec extends ZIOSpecDefault {
       },
       test("patchSignals with onlyIfMissing parameter") {
         val event = DatastarEvent.patchSignals(
-          """{"key": "value"}""",
+          "key" -> "value",
           onlyIfMissing = true,
         )
 
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == """onlyIfMissing true""" + "\n" + """signals {"key": "value"}""" + "\n",
+          sse.data == """onlyIfMissing true""" + "\n" + """signals {"key":"value"}""" + "\n",
         )
       },
       test("patchSignals with multiple signals and options") {
         val event = DatastarEvent.patchSignals(
-          List("""{"a": 1}""", """{"b": 2}"""),
+          Seq("a" -> "1", "b" -> "2"),
           onlyIfMissing = true,
           Some("sig-123"),
           2000.millis,
@@ -284,7 +289,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         assertTrue(
           sse.id.contains("sig-123"),
           sse.retry.contains(2000.millis),
-          sse.data == """onlyIfMissing true""" + "\n" + """signals {"a": 1}""" + "\n" + """signals {"b": 2}""" + "\n",
+          sse.data == """onlyIfMissing true""" + "\n" + """signals {"a":"1","b":"2"}""" + "\n",
         )
       },
       test("executeScript with Js parameter") {
@@ -358,17 +363,17 @@ object DatastarEventSpec extends ZIOSpecDefault {
       },
       test("PatchSignals handles multiple signals correctly") {
         val event = DatastarEvent.patchSignals(
-          List(
-            """{"user": {"id": 1}}""",
-            """{"count": 42}""",
-            """{"status": "active"}""",
+          Json.Obj(
+            "user"   -> Json.Obj("id" -> Json.Num(1)),
+            "count"  -> Json.Num(42),
+            "status" -> Json.Str("active"),
           ),
         )
 
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == """signals {"user": {"id": 1}}""" + "\n" + """signals {"count": 42}""" + "\n" + """signals {"status": "active"}""" + "\n",
+          sse.data == """signals {"user":{"id":1},"count":42,"status":"active"}""" + "\n",
         )
       },
       test("ExecuteScript handles script with special characters") {

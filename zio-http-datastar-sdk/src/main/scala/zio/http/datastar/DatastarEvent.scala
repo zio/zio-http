@@ -1,13 +1,17 @@
 package zio.http.datastar
 
 import zio._
+import zio.json._
+import zio.json.ast.Json
+
+import zio.schema.Schema
 
 import zio.http.ServerSentEvent
 import zio.http.datastar.ServerSentEventGenerator.DefaultRetryDelay
 import zio.http.template2.Dom.AttributeValue
 import zio.http.template2._
 
-sealed trait DatastarEvent {
+sealed trait DatastarEvent extends Product with Serializable {
   def eventType: EventType
 
   def toServerSentEvent: ServerSentEvent[String]
@@ -15,7 +19,7 @@ sealed trait DatastarEvent {
 
 object DatastarEvent {
 
-  final case class PatchElements(
+  private[http] final case class PatchElements(
     elements: Dom,
     selector: Option[CssSelector] = None,
     mode: ElementPatchMode = ElementPatchMode.Outer,
@@ -48,8 +52,8 @@ object DatastarEvent {
     }
   }
 
-  final case class PatchSignals(
-    signals: Iterable[String],
+  private[http] final case class PatchSignals(
+    signals: String,
     onlyIfMissing: Boolean = false,
     eventId: Option[String] = None,
     retryDuration: Duration = 1000.millis,
@@ -63,14 +67,14 @@ object DatastarEvent {
         sb.append("onlyIfMissing true\n")
       }
 
-      signals.foreach(s => sb.append("signals ").append(s).append('\n'))
+      sb.append("signals ").append(signals).append('\n')
 
       val retry = if (retryDuration != DefaultRetryDelay) Some(retryDuration) else None
       ServerSentEvent(sb.toString(), Some(eventType.render), eventId, retry)
     }
   }
 
-  final case class ExecuteScript(
+  private[http] final case class ExecuteScript(
     script: Dom.Element.Script,
     eventId: Option[String] = None,
     retryDuration: Duration = 1000.millis,
@@ -285,46 +289,97 @@ object DatastarEvent {
   ): PatchElements =
     PatchElements(element, selector, mode, useViewTransition, eventId, retryDuration)
 
-  def patchSignals(signal: String): PatchSignals =
-    patchSignals(List(signal), PatchSignalOptions.default)
+  def patchSignals(signal: (String, String)): PatchSignals =
+    patchSignals(Seq(signal), PatchSignalOptions.default)
 
-  def patchSignals(signal: String, options: PatchSignalOptions): PatchSignals =
-    patchSignals(List(signal), options)
+  def patchSignals(signal: (String, String), options: PatchSignalOptions): PatchSignals =
+    patchSignals(Seq(signal), options)
 
-  def patchSignals(signal: String, onlyIfMissing: Boolean): PatchSignals =
+  def patchSignals(signal: (String, String), onlyIfMissing: Boolean): PatchSignals =
     patchSignals(signal, PatchSignalOptions(onlyIfMissing = onlyIfMissing))
 
-  def patchSignals(signal: String, onlyIfMissing: Boolean, eventId: Option[String]): PatchSignals =
+  def patchSignals(signal: (String, String), onlyIfMissing: Boolean, eventId: Option[String]): PatchSignals =
     patchSignals(signal, PatchSignalOptions(onlyIfMissing = onlyIfMissing, eventId = eventId))
 
   def patchSignals(
-    signal: String,
+    signal: (String, String),
     onlyIfMissing: Boolean,
     eventId: Option[String],
     retryDuration: Duration,
   ): PatchSignals =
-    patchSignals(signal, PatchSignalOptions(onlyIfMissing, eventId, retryDuration))
+    patchSignals(Json.Obj((signal._1, Json.Str(signal._2))), PatchSignalOptions(onlyIfMissing, eventId, retryDuration))
 
-  def patchSignals(signals: Iterable[String]): PatchSignals =
+  def patchSignals(signals: Json.Obj): PatchSignals =
     patchSignals(signals, PatchSignalOptions.default)
 
-  def patchSignals(signals: Iterable[String], options: PatchSignalOptions): PatchSignals = {
+  def patchSignals[T <: Product: Schema](obj: T): PatchSignals =
+    patchSignals(obj, PatchSignalOptions.default)
+
+  def patchSignals(signals: Iterable[(String, String)]): PatchSignals =
+    patchSignals(signals, PatchSignalOptions.default)
+
+  def patchSignals(signals: Json.Obj, options: PatchSignalOptions): PatchSignals =
     PatchSignals(
-      signals = signals,
+      signals = signals.toJson,
+      onlyIfMissing = options.onlyIfMissing,
+      eventId = options.eventId,
+      retryDuration = options.retryDuration,
+    )
+
+  def patchSignals[T <: Product: Schema](obj: T, options: PatchSignalOptions) =
+    PatchSignals(
+      zio.schema.codec.JsonCodec.jsonCodec(Schema[T]).encodeJson(obj, None).toString,
+      onlyIfMissing = options.onlyIfMissing,
+      eventId = options.eventId,
+      retryDuration = options.retryDuration,
+    )
+
+  def patchSignals(signals: Iterable[(String, String)], options: PatchSignalOptions): PatchSignals = {
+    val jsonObj = Json.Obj(Chunk.fromIterable(signals.map { case (k, v) => k -> Json.Str(v) }))
+    PatchSignals(
+      signals = jsonObj.toJson,
       onlyIfMissing = options.onlyIfMissing,
       eventId = options.eventId,
       retryDuration = options.retryDuration,
     )
   }
 
-  def patchSignals(signals: Iterable[String], onlyIfMissing: Boolean): PatchSignals =
+  def patchSignals(signals: Json.Obj, onlyIfMissing: Boolean): PatchSignals =
     patchSignals(signals, PatchSignalOptions(onlyIfMissing = onlyIfMissing))
 
-  def patchSignals(signals: Iterable[String], onlyIfMissing: Boolean, eventId: Option[String]): PatchSignals =
+  def patchSignals[T <: Product: Schema](obj: T, onlyIfMissing: Boolean): PatchSignals =
+    patchSignals(obj, PatchSignalOptions(onlyIfMissing = onlyIfMissing))
+
+  def patchSignals(signals: Iterable[(String, String)], onlyIfMissing: Boolean): PatchSignals =
+    patchSignals(signals, PatchSignalOptions(onlyIfMissing = onlyIfMissing))
+
+  def patchSignals(signals: Json.Obj, onlyIfMissing: Boolean, eventId: Option[String]): PatchSignals =
+    patchSignals(signals, PatchSignalOptions(onlyIfMissing = onlyIfMissing, eventId = eventId))
+
+  def patchSignals[T <: Product: Schema](obj: T, onlyIfMissing: Boolean, eventId: Option[String]): PatchSignals =
+    patchSignals(obj, PatchSignalOptions(onlyIfMissing = onlyIfMissing, eventId = eventId))
+
+  def patchSignals(signals: Iterable[(String, String)], onlyIfMissing: Boolean, eventId: Option[String]): PatchSignals =
     patchSignals(signals, PatchSignalOptions(onlyIfMissing = onlyIfMissing, eventId = eventId))
 
   def patchSignals(
-    signals: Iterable[String],
+    signals: Json.Obj,
+    onlyIfMissing: Boolean,
+    eventId: Option[String],
+    retryDuration: Duration,
+  ): PatchSignals =
+    patchSignals(signals, PatchSignalOptions(onlyIfMissing, eventId, retryDuration))
+
+  def patchSignals[T <: Product: Schema](
+    obj: T,
+    onlyIfMissing: Boolean,
+    eventId: Option[String],
+    retryDuration: Duration,
+  ): PatchSignals =
+    patchSignals(obj, PatchSignalOptions(onlyIfMissing, eventId, retryDuration))
+
+  def patchSignals(
+    signals: Iterable[(String, String)],
     onlyIfMissing: Boolean,
     eventId: Option[String],
     retryDuration: Duration,

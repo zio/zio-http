@@ -666,6 +666,7 @@ object Attributes {
   final case class PartialDataBind(prefix: String, caseModifier: CaseModifier = CaseModifier.Camel) {
     def apply(signal: String): DataBind     = DataBind(prefix, SignalName(caseModifier)(signal), caseModifier)
     def apply(signal: SignalName): DataBind = DataBind(prefix, signal.caseModifier(caseModifier), caseModifier)
+    def apply(signal: Signal[_]): DataBind  = DataBind(prefix, signal.name.caseModifier(caseModifier), caseModifier)
 
     def camel: PartialDataBind  = copy(caseModifier = CaseModifier.Camel)
     def kebab: PartialDataBind  = copy(caseModifier = CaseModifier.Kebab)
