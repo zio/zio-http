@@ -90,7 +90,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * Decodes a method and path into a value of type `A`.
    */
   def decode(actual: Method, path: Path): Either[String, A] =
-    if (!method.matches(actual)) {
+    if (!method.matches(actual) && !(method == Method.GET && actual == Method.HEAD)) {
       Left(s"Expected HTTP method ${method} but found method ${actual}")
     } else pathCodec.decode(path)
 
@@ -208,20 +208,21 @@ object RoutePattern                                                       {
         tree.add(p, v)
       }
 
-    def get(method: Method, path: Path): RequestHandler[Env, Response] = {
+    def get(method: Method, path: Path, generateHeadRoutes: Boolean = false): RequestHandler[Env, Response] = {
       val forMethod: RequestHandler[Env, Response] = {
         method match {
-          case Method.GET if getRoot != null               => getRoot.get(path)
-          case Method.POST if postRoot != null             => postRoot.get(path)
-          case Method.PUT if putRoot != null               => putRoot.get(path)
-          case Method.DELETE if deleteRoot != null         => deleteRoot.get(path)
-          case Method.CONNECT if connectRoot != null       => connectRoot.get(path)
-          case Method.HEAD if headRoot != null             => headRoot.get(path)
-          case Method.OPTIONS if optionsRoot != null       => optionsRoot.get(path)
-          case Method.PATCH if patchRoot != null           => patchRoot.get(path)
-          case Method.TRACE if traceRoot != null           => traceRoot.get(path)
-          case m: Method.CUSTOM if customRoots.contains(m) => customRoots(m).get(path)
-          case _                                           => null.asInstanceOf[RequestHandler[Env, Response]]
+          case Method.GET if getRoot != null                        => getRoot.get(path)
+          case Method.POST if postRoot != null                      => postRoot.get(path)
+          case Method.PUT if putRoot != null                        => putRoot.get(path)
+          case Method.DELETE if deleteRoot != null                  => deleteRoot.get(path)
+          case Method.CONNECT if connectRoot != null                => connectRoot.get(path)
+          case Method.HEAD if headRoot != null                      => headRoot.get(path)
+          case Method.HEAD if generateHeadRoutes && getRoot != null => getRoot.get(path)
+          case Method.OPTIONS if optionsRoot != null                => optionsRoot.get(path)
+          case Method.PATCH if patchRoot != null                    => patchRoot.get(path)
+          case Method.TRACE if traceRoot != null                    => traceRoot.get(path)
+          case m: Method.CUSTOM if customRoots.contains(m)          => customRoots(m).get(path)
+          case _                                                    => null.asInstanceOf[RequestHandler[Env, Response]]
         }
       }
 
