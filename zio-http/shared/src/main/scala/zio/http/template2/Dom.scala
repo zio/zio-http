@@ -192,6 +192,8 @@ object Dom {
 
   def attr(name: String, value: AttributeValue): CompleteAttribute = CompleteAttribute(name, value)
 
+  def attr(name: String, value: String): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value))
+
   def boolAttr(name: String, enabled: Boolean = true): BooleanAttribute = BooleanAttribute(name, enabled)
 
   def multiAttr(name: String): PartialMultiAttribute =
@@ -247,6 +249,8 @@ object Dom {
      * Add or update an attribute
      */
     def attr(name: String, value: AttributeValue): Element
+
+    def attr(name: String, value: String): Element
 
     def attributes: Map[String, AttributeValue]
 
@@ -434,6 +438,9 @@ object Dom {
       def attr(name: String, value: AttributeValue): Generic =
         copy(attributes = attributes + (name -> value))
 
+      def attr(name: String, value: String): Generic =
+        copy(attributes = attributes + (name -> AttributeValue.StringValue(value)))
+
       def removeAttr(name: String): Generic =
         copy(attributes = attributes - name)
 
@@ -493,6 +500,9 @@ object Dom {
 
       def attr(name: String, value: AttributeValue): Script =
         copy(attributes = attributes + (name -> value))
+
+      def attr(name: String, value: String): Script =
+        copy(attributes = attributes + (name -> AttributeValue.StringValue(value)))
 
       def crossOrigin(value: String): Script = attr("crossorigin", AttributeValue.StringValue(value))
 
@@ -599,6 +609,9 @@ object Dom {
 
       def attr(name: String, value: AttributeValue): Style =
         copy(attributes = attributes + (name -> value))
+
+      def attr(name: String, value: String): Style =
+        copy(attributes = attributes + (name -> AttributeValue.StringValue(value)))
 
       def css(code: String): Style = apply(Dom.text(code))
 

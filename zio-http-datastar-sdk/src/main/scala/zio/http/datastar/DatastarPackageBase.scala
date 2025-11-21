@@ -7,8 +7,8 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
-import zio.http.codec.{Doc, HttpCodec, HttpContentCodec, SegmentCodec}
-import zio.http.endpoint.{AuthType, Endpoint, Invocation}
+import zio.http.codec._
+import zio.http.endpoint._
 import zio.http.template2._
 
 trait DatastarPackageBase extends Attributes {
@@ -16,6 +16,61 @@ trait DatastarPackageBase extends Attributes {
     Header.CacheControl.NoCache,
     Header.Connection.KeepAlive,
   )
+
+  private[datastar] val scriptName: String
+
+  private val DefaultDatastarVersion = "1.0.0-RC.6"
+
+  /**
+   * Script element that loads Datastar from CDN using the version
+   * zio-http-datastar-sdk was built against.
+   * @example
+   *   {{{head( datastarScript() )}}}
+   */
+  def datastarScript: Dom.Element.Script = datastarScript(DefaultDatastarVersion)
+
+  /**
+   * Script element that loads Datastar from CDN using a specific version. Must
+   * be at least version 1.0.0-RC.6
+   * @param version
+   *   The Datastar version to load (e.g., "1.0.0-RC.6")
+   * @example
+   *   {{{head( datastarScript("1.0.0-RC.6") )}}}
+   */
+  def datastarScript(version: String): Dom.Element.Script =
+    script.externalModule(s"https://cdn.jsdelivr.net/gh/starfederation/datastar@$version/bundles/$scriptName")
+
+  /**
+   * Creates a complete HTML page template with a specific version of Datastar.
+   * @param headContent
+   *   Additional content for the head element (e.g., meta tags, title, styles)
+   * @param bodyContent
+   *   Content for the body element
+   * @param datastarVersion
+   *   The Datastar version to load
+   * @param language
+   *   Language attribute for the html element
+   * @example
+   *   {{{ mainPage( headContent = Seq( title("My App"), meta.charset("UTF-8")
+   *   ), bodyContent = Seq( div("Hello, Datastar!") ), datastarVersion =
+   *   "1.0.0-RC.6", language = Some("en") ) }}}
+   */
+  def mainPage(
+    headContent: Seq[Dom],
+    bodyContent: Seq[Dom],
+    datastarVersion: String = DefaultDatastarVersion,
+    language: Option[String] = None,
+  ): Dom =
+    html(
+      language.map(lang := _),
+      head(
+        datastarScript(datastarVersion),
+        headContent,
+      ),
+      body(
+        bodyContent,
+      ),
+    )
 
   val Signal: zio.http.datastar.signal.Signal.type                  = zio.http.datastar.signal.Signal
   val SignalUpdate: zio.http.datastar.signal.SignalUpdate.type      = zio.http.datastar.signal.SignalUpdate
