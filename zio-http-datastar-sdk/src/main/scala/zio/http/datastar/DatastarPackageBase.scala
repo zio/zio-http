@@ -1,10 +1,15 @@
 package zio.http.datastar
 
+import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
 import zio._
+import zio.json._
 
 import zio.stream.ZStream
+
+import zio.schema.Schema
+import zio.schema.codec.json._
 
 import zio.http._
 import zio.http.codec._
@@ -101,15 +106,85 @@ trait DatastarPackageBase extends Attributes {
       HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache) ++
       HttpCodec.header(Header.Connection).const(Header.Connection.KeepAlive)
 
+  private val patchElementsCodec = (HttpCodec.content[Dom] ++
+    HttpCodec
+      .header(Header.ContentType)
+      .const(Header.ContentType(MediaType.text.`html`)) ++
+    HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache) ++
+    HttpCodec.headerAs[CssSelector]("datastar-selector").optional ++
+    HttpCodec.headerAs[ElementPatchMode]("datastar-mode").optional ++
+    HttpCodec.headerAs[Boolean]("datastar-use-view-transition").optional)
+    .transformOrFailLeft[DatastarEvent.PatchElements](_ => Left("Not implemented"))(event =>
+      (
+        event.elements,
+        event.selector,
+        if (event.mode == ElementPatchMode.Outer) None else Some(event.mode),
+        if (event.useViewTransition) Some(true) else None,
+      ),
+    )
+
+  private val executeScriptCodec = (HttpCodec.content[String]
+    ++ HttpCodec
+      .header(Header.ContentType)
+      .const(Header.ContentType(MediaType.text.`javascript`))
+    ++ HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache)
+    ++ HttpCodec.headerAs[String]("datastar-script-attributes").optional)
+    .transformOrFail[DatastarEvent.ExecuteScript](_ => Left("Not implemented"))(event =>
+      if (event.script.children.size == 1 && event.script.children.head.isInstanceOf[Dom.Text]) {
+        val scriptContent = event.script.children.head.asInstanceOf[Dom.Text].content
+        val attributes    =
+          if (event.script.attributes.isEmpty) None
+          else
+            Some(
+              zio.json.ast.Json
+                .apply(event.script.attributes.map { case (k, v) =>
+                  k -> zio.json.ast.Json.Str(v.toString)
+                }.toList: _*)
+                .toJson,
+            )
+        Right((scriptContent, attributes))
+      } else {
+        Left("Script must be a single text node.")
+      },
+    )
+
+  private val patchSignalsCodec = (HttpCodec.Content(
+    HttpContentCodec.Choices(
+      ListMap(
+        MediaType.application.`json` ->
+          BinaryCodecWithSchema(zio.http.codec.TextBinaryCodec.fromSchema[String](Schema[String]), Schema[String]),
+      ),
+    ),
+    None,
+  ) ++
+    HttpCodec
+      .header(Header.ContentType)
+      .const(Header.ContentType(MediaType.application.json)) ++
+    HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache) ++
+    HttpCodec.headerAs[Boolean]("datastar-only-if-missing").optional)
+    .transformOrFailLeft[DatastarEvent.PatchSignals](_ => Left("Not implemented"))(event =>
+      (
+        event.signals,
+        if (event.onlyIfMissing) Some(true) else None,
+      ),
+    )
+
+  private val datastarEventMediaTypes = Chunk(
+    Header.Accept.MediaTypeWithQFactor(MediaType.text.`html`, None),
+    Header.Accept.MediaTypeWithQFactor(MediaType.application.`json`, None),
+    Header.Accept.MediaTypeWithQFactor(MediaType.text.`javascript`, None),
+  )
+
   val datastarEventCodec =
-    HttpCodec.content[Dom] ++
-      HttpCodec
-        .header(Header.ContentType)
-        .const(Header.ContentType(MediaType.text.`html`)) ++
-      HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache) ++
-      HttpCodec.headerAs[CssSelector]("datastar-selector").optional ++
-      HttpCodec.headerAs[ElementPatchMode]("datastar-mode").optional ++
-      HttpCodec.headerAs[Boolean]("datastar-use-view-transition").optional
+    ((patchElementsCodec | executeScriptCodec).transform(_.merge) {
+      case e: DatastarEvent.PatchElements => Left(e)
+      case e: DatastarEvent.ExecuteScript => Right(e)
+      case e: DatastarEvent.PatchSignals  => throw new Exception("Unreachable")
+    } | patchSignalsCodec).transform(_.merge) {
+      case e: DatastarEvent.PatchElements => Left(e)
+      case e: DatastarEvent.ExecuteScript => Left(e)
+      case e: DatastarEvent.PatchSignals  => Right(e)
+    }
 
   implicit class EndpointExtensions(endpoint: Endpoint.type) {
     def datastarEvents[Input](
@@ -127,18 +202,11 @@ trait DatastarPackageBase extends Attributes {
 
     def datastarEvent[Input](
       route: RoutePattern[Input],
-    ): Endpoint[Input, Input, ZNothing, DatastarEvent.PatchElements, AuthType.None.type] =
+    ): Endpoint[Input, Input, ZNothing, DatastarEvent, AuthType.None.type] =
       Endpoint(
         route,
         route.toHttpCodec,
-        datastarEventCodec.transformOrFailLeft[DatastarEvent.PatchElements](_ => Left("Not implemented"))(event =>
-          (
-            event.elements,
-            event.selector,
-            if (event.mode == ElementPatchMode.Outer) None else Some(event.mode),
-            if (event.useViewTransition) Some(true) else None,
-          ),
-        ),
+        datastarEventCodec,
         HttpCodec.unused,
         HttpContentCodec.responseErrorCodec,
         Doc.empty,
@@ -806,6 +874,21 @@ trait DatastarPackageBase extends Attributes {
       }
     }
   }
+
+  def event[R, In](h: Handler[R, Response, In, DatastarEvent]): Handler[R, Response, In, Response] =
+    Handler.scoped[R] {
+      handler { (in: In) =>
+        for {
+          r     <- ZIO.environment[Scope with R]
+          event <- h(in).provideEnvironment(r)
+          response = datastarEventCodec.encodeResponse(
+            event,
+            datastarEventMediaTypes,
+            zio.http.codec.CodecConfig.defaultConfig,
+          )
+        } yield response
+      }
+    }
 
   def events[R, R1, In](
     h: Handler[R, Nothing, In, Unit],

@@ -13,7 +13,7 @@ import zio.http.URL.Location
 import zio.http.URL.Location.Relative
 import zio.http._
 import zio.http.internal.{HeaderOps, QueryOps, QueryParamEncoding, ThreadLocals}
-import zio.http.template2.Js
+import zio.http.template2.{CssSelector, Js}
 
 final case class DatastarRequest(
   method: Method,
@@ -120,7 +120,7 @@ object DatastarRequest {
 final case class DatastarRequestOptions(
   contentType: MediaType = MediaType.application.json,
   filterSignals: Option[DatastarSignalFilter] = None,
-  selector: Option[String] = None,
+  selector: Option[CssSelector] = None,
   @fieldName("headers")
   hdrs: Headers = Headers.empty,
   openWhenHidden: Boolean = false,

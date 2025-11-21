@@ -1,6 +1,7 @@
 package zio.http.datastar
 
 import zio._
+import zio.json.ast.Json
 import zio.test._
 
 import zio.stream._
@@ -30,8 +31,8 @@ object DatastarEventSpec extends ZIOSpecDefault {
       },
       test("should convert ZStream of PatchSignals events to SSE stream") {
         val eventStream = ZStream(
-          DatastarEvent.patchSignals("""{"count": 1}"""),
-          DatastarEvent.patchSignals("""{"count": 2}"""),
+          DatastarEvent.patchSignals("count" -> "1"),
+          DatastarEvent.patchSignals("count" -> "2"),
         )
 
         for {
@@ -67,7 +68,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
       test("should handle mixed DatastarEvent types in stream") {
         val eventStream = ZStream(
           DatastarEvent.patchElements(div("Element")),
-          DatastarEvent.patchSignals("""{"signal": "value"}"""),
+          DatastarEvent.patchSignals("signal" -> "value"),
           DatastarEvent.executeScript("console.log('script')"),
         )
 
@@ -167,7 +168,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
           ZIO.succeed(
             ZStream(
               DatastarEvent.patchElements(div("Step 1")),
-              DatastarEvent.patchSignals("""{"progress": 50}"""),
+              DatastarEvent.patchSignals("progress" -> "50"),
               DatastarEvent.patchElements(div("Step 2")),
               DatastarEvent.executeScript("console.log('done')"),
             ),
@@ -261,7 +262,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
       },
       test("patchSignals with onlyIfMissing parameter") {
         val event = DatastarEvent.patchSignals(
-          """{"key": "value"}""",
+          "key" -> "value",
           onlyIfMissing = true,
         )
 
@@ -273,7 +274,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
       },
       test("patchSignals with multiple signals and options") {
         val event = DatastarEvent.patchSignals(
-          List("""{"a": 1}""", """{"b": 2}"""),
+          Seq("a" -> "1", "b" -> "2"),
           onlyIfMissing = true,
           Some("sig-123"),
           2000.millis,
@@ -358,10 +359,10 @@ object DatastarEventSpec extends ZIOSpecDefault {
       },
       test("PatchSignals handles multiple signals correctly") {
         val event = DatastarEvent.patchSignals(
-          List(
-            """{"user": {"id": 1}}""",
-            """{"count": 42}""",
-            """{"status": "active"}""",
+          Json.Obj(
+            "user"   -> Json.Obj("id" -> Json.Num(1)),
+            "count"  -> Json.Num(42),
+            "status" -> Json.Str("active"),
           ),
         )
 
