@@ -138,7 +138,10 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
         } yield assertTrue(event.data == "Hello World")
       },
     )
-      .provideSomeLayer[Client & Server.Config & NettyConfig](Server.customized)
+      .provideSomeLayer[Client & Server.Config & NettyConfig](
+        (ZLayer.fromFunction[Server.Config => ServerRuntimeConfig](ServerRuntimeConfig(_)) ++ ZLayer
+          .service[NettyConfig]) >>> Server.customized,
+      )
       .provideShared(
         Client.live,
         ZLayer.succeed(Server.Config.default.port(0)),
