@@ -37,7 +37,7 @@ private[http] final case class FetchBodyInternal(
    */
   override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
     ZStream.unfoldChunkZIO(result.body.getReader()) { reader =>
-      ZIO.fromFuture { implicit ec =>
+      ZIO.fromFuture { _ =>
         reader.read().toFuture
       }.map { result =>
         if (result.done) {

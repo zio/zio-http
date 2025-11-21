@@ -4,6 +4,8 @@ import zio._
 import zio.test.TestAspect._
 import zio.test._
 
+import zio.http.internal.FetchBodyBatched
+
 object JSClientSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("JSClientSpec")(
@@ -16,7 +18,11 @@ object JSClientSpec extends ZIOSpecDefault {
             } yield (response, string))
               .provide(ZLayer.succeed(ZClient.Config.default.addUserAgentHeader(false)) >>> ZClient.live)
             (response, string) = res
-          } yield assertTrue(response.status.isSuccess, string.startsWith("<!doctype html>"))
+          } yield assertTrue(
+            response.status.isSuccess,
+            response.body.isInstanceOf[FetchBodyBatched],
+            string.startsWith("<!doctype html>"),
+          )
         },
         test("Get with User Agent") {
           val client = (for {
