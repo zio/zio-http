@@ -17,6 +17,7 @@ import zio.http.endpoint._
 import zio.http.template2._
 
 trait DatastarPackageBase extends Attributes {
+  self =>
   private val headers = Headers(
     Header.CacheControl.NoCache,
     Header.Connection.KeepAlive,
@@ -29,6 +30,7 @@ trait DatastarPackageBase extends Attributes {
   /**
    * Script element that loads Datastar from CDN using the version
    * zio-http-datastar-sdk was built against.
+   *
    * @example
    *   {{{head( datastarScript() )}}}
    */
@@ -37,6 +39,7 @@ trait DatastarPackageBase extends Attributes {
   /**
    * Script element that loads Datastar from CDN using a specific version. Must
    * be at least version 1.0.0-RC.6
+   *
    * @param version
    *   The Datastar version to load (e.g., "1.0.0-RC.6")
    * @example
@@ -47,6 +50,7 @@ trait DatastarPackageBase extends Attributes {
 
   /**
    * Creates a complete HTML page template with a specific version of Datastar.
+   *
    * @param headContent
    *   Additional content for the head element (e.g., meta tags, title, styles)
    * @param bodyContent
@@ -68,13 +72,8 @@ trait DatastarPackageBase extends Attributes {
   ): Dom =
     html(
       language.map(lang := _),
-      head(
-        datastarScript(datastarVersion),
-        headContent,
-      ),
-      body(
-        bodyContent,
-      ),
+      head(datastarScript(datastarVersion), headContent),
+      body(bodyContent),
     )
 
   val Signal: zio.http.datastar.signal.Signal.type                  = zio.http.datastar.signal.Signal
@@ -227,24 +226,25 @@ trait DatastarPackageBase extends Attributes {
       )
   }
 
-  implicit class DatastarHeaderOps(self: Header.type) {
+  implicit class DatastarHeaderOps(header: Header.type) {
     def signalHeader(signalName: SignalName): Header =
       Header.Custom("datastar-signal", signalName.ref)
-    def signalHeader(signal: Signal[_]): Header      =
+
+    def signalHeader(signal: Signal[_]): Header =
       Header.Custom("datastar-signal", signal.name.ref)
   }
 
   implicit class DatastarEndpointOps[PathInput](
-    self: Endpoint[PathInput, _, _, _, _],
+    endpoint: Endpoint[PathInput, _, _, _, _],
   ) {
 
     private def makeRequest(valuesIt: Iterator[ValueOrSignal[Any]]) = {
-      val rendered     = self.route.pathCodec.render
+      val rendered     = endpoint.route.pathCodec.render
       val replacements = Chunk.newBuilder[String]
       replacements.sizeHint(rendered.count(_ == '{'))
 
       for {
-        (segment, transform) <- self.route.pathCodec.segmentsWithTransformEncode
+        (segment, transform) <- endpoint.route.pathCodec.segmentsWithTransformEncode
       } {
         segment match {
           case SegmentCodec.Empty                => ()
@@ -288,22 +288,22 @@ trait DatastarPackageBase extends Attributes {
       val url = replacements.result().foldLeft(rendered) { (acc, replacement) =>
         acc.replaceFirst("\\{[^}]+\\}", replacement)
       }
-      DatastarRequest(self.route.method, URL(Path(url)))
+      DatastarRequest(endpoint.route.method, URL(Path(url)))
     }
 
     def datastarRequest(input: ValueOrSignal[PathInput]): DatastarRequest = {
       val url = input match {
         case zio.http.datastar.model.ValueOrSignal.Value(value: PathInput @unchecked) =>
-          self.route
+          endpoint.route
             .format(value)
             .getOrElse(
               throw new IllegalArgumentException("Failed to encode path input."),
             )
             .encode
         case zio.http.datastar.model.ValueOrSignal.SignalValue(signal)                =>
-          self.route.pathCodec.render.replaceAll("\\{[^}]+\\}", signal.ref.replace("$", "\\$"))
+          endpoint.route.pathCodec.render.replaceAll("\\{[^}]+\\}", signal.ref.replace("$", "\\$"))
       }
-      DatastarRequest(self.route.method, URL(Path(url)))
+      DatastarRequest(endpoint.route.method, URL(Path(url)))
     }
 
     def datastarRequest[A, B](a: ValueOrSignal[A], b: ValueOrSignal[B])(implicit
@@ -312,14 +312,14 @@ trait DatastarPackageBase extends Attributes {
       if (a.isValue && b.isValue) {
         val va  = a.asInstanceOf[ValueOrSignal.Value[A]].value
         val vb  = b.asInstanceOf[ValueOrSignal.Value[B]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -336,14 +336,14 @@ trait DatastarPackageBase extends Attributes {
         val va  = a.asInstanceOf[ValueOrSignal.Value[A]].value
         val vb  = b.asInstanceOf[ValueOrSignal.Value[B]].value
         val vc  = c.asInstanceOf[ValueOrSignal.Value[C]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -363,14 +363,14 @@ trait DatastarPackageBase extends Attributes {
         val vb  = b.asInstanceOf[ValueOrSignal.Value[B]].value
         val vc  = c.asInstanceOf[ValueOrSignal.Value[C]].value
         val vd  = d.asInstanceOf[ValueOrSignal.Value[D]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -392,14 +392,14 @@ trait DatastarPackageBase extends Attributes {
         val vc  = c.asInstanceOf[ValueOrSignal.Value[C]].value
         val vd  = d.asInstanceOf[ValueOrSignal.Value[D]].value
         val ve  = e.asInstanceOf[ValueOrSignal.Value[E]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -423,14 +423,14 @@ trait DatastarPackageBase extends Attributes {
         val vd  = d.asInstanceOf[ValueOrSignal.Value[D]].value
         val ve  = e.asInstanceOf[ValueOrSignal.Value[E]].value
         val vf  = f.asInstanceOf[ValueOrSignal.Value[F]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -456,14 +456,14 @@ trait DatastarPackageBase extends Attributes {
         val ve  = e.asInstanceOf[ValueOrSignal.Value[E]].value
         val vf  = f.asInstanceOf[ValueOrSignal.Value[F]].value
         val vg  = g.asInstanceOf[ValueOrSignal.Value[G]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -491,14 +491,14 @@ trait DatastarPackageBase extends Attributes {
         val vf  = f.asInstanceOf[ValueOrSignal.Value[F]].value
         val vg  = g.asInstanceOf[ValueOrSignal.Value[G]].value
         val vh  = h.asInstanceOf[ValueOrSignal.Value[H]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g, h).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -530,14 +530,14 @@ trait DatastarPackageBase extends Attributes {
         val vg  = g.asInstanceOf[ValueOrSignal.Value[G]].value
         val vh  = h.asInstanceOf[ValueOrSignal.Value[H]].value
         val vi  = i.asInstanceOf[ValueOrSignal.Value[I]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh, vi)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g, h, i).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -571,14 +571,14 @@ trait DatastarPackageBase extends Attributes {
         val vh  = h.asInstanceOf[ValueOrSignal.Value[H]].value
         val vi  = i.asInstanceOf[ValueOrSignal.Value[I]].value
         val vj  = j.asInstanceOf[ValueOrSignal.Value[J]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh, vi, vj)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g, h, i, j).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -614,14 +614,14 @@ trait DatastarPackageBase extends Attributes {
         val vi  = i.asInstanceOf[ValueOrSignal.Value[I]].value
         val vj  = j.asInstanceOf[ValueOrSignal.Value[J]].value
         val vk  = k.asInstanceOf[ValueOrSignal.Value[K]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh, vi, vj, vk)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g, h, i, j, k).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -659,14 +659,14 @@ trait DatastarPackageBase extends Attributes {
         val vj  = j.asInstanceOf[ValueOrSignal.Value[J]].value
         val vk  = k.asInstanceOf[ValueOrSignal.Value[K]].value
         val vl  = l.asInstanceOf[ValueOrSignal.Value[L]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh, vi, vj, vk, vl)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g, h, i, j, k, l).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -706,14 +706,14 @@ trait DatastarPackageBase extends Attributes {
         val vk  = k.asInstanceOf[ValueOrSignal.Value[K]].value
         val vl  = l.asInstanceOf[ValueOrSignal.Value[L]].value
         val vm  = m.asInstanceOf[ValueOrSignal.Value[M]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh, vi, vj, vk, vl, vm)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g, h, i, j, k, l, m).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -755,14 +755,14 @@ trait DatastarPackageBase extends Attributes {
         val vl  = l.asInstanceOf[ValueOrSignal.Value[L]].value
         val vm  = m.asInstanceOf[ValueOrSignal.Value[M]].value
         val vn  = n.asInstanceOf[ValueOrSignal.Value[N]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh, vi, vj, vk, vl, vm, vn)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g, h, i, j, k, l, m, n).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -806,14 +806,14 @@ trait DatastarPackageBase extends Attributes {
         val vm  = m.asInstanceOf[ValueOrSignal.Value[M]].value
         val vn  = n.asInstanceOf[ValueOrSignal.Value[N]].value
         val vo  = o.asInstanceOf[ValueOrSignal.Value[O]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh, vi, vj, vk, vl, vm, vn, vo)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt = List(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o).asInstanceOf[List[ValueOrSignal[Any]]].iterator
         makeRequest(valuesIt)
@@ -859,14 +859,14 @@ trait DatastarPackageBase extends Attributes {
         val vn  = n.asInstanceOf[ValueOrSignal.Value[N]].value
         val vo  = o.asInstanceOf[ValueOrSignal.Value[O]].value
         val vp  = p.asInstanceOf[ValueOrSignal.Value[P]].value
-        val url = self.route
+        val url = endpoint.route
           .encode(ev((va, vb, vc, vd, ve, vf, vg, vh, vi, vj, vk, vl, vm, vn, vo, vp)))
           .getOrElse(
             throw new IllegalArgumentException("Failed to encode path input."),
           )
           ._2
           .encode
-        DatastarRequest(self.route.method, URL(Path(url)))
+        DatastarRequest(endpoint.route.method, URL(Path(url)))
       } else {
         val valuesIt =
           List(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p).asInstanceOf[List[ValueOrSignal[Any]]].iterator
@@ -947,4 +947,21 @@ trait DatastarPackageBase extends Attributes {
           .addHeaders(headers)
       }
     }
+
+  def readSignals[T: Schema](request: Request): IO[String, T] =
+    if (request.method == Method.GET) {
+      ZIO.fromEither {
+        request
+          .header[String]("datastar")
+          .left
+          .map(_.getMessage())
+          .flatMap(_.fromJson[T](zio.schema.codec.JsonCodec.jsonDecoder(Schema[T])))
+      }
+    } else {
+      request.body.asJson[T].mapError(_.getMessage)
+    }
+
+  implicit class RequestOps(req: Request) {
+    def readSignals[T: Schema]: IO[String, T] = self.readSignals[T](req)
+  }
 }
