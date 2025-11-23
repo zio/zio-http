@@ -227,7 +227,7 @@ object WebSocketSpec extends RoutesRunnableSpec {
     suite("request streaming enabled")(
       serve.as(websocketSpec),
     )
-      .provideSome[DynamicServer & Server & Client](Scope.default)
+      .provideSome[DynamicServer & Server & Server.Config & Client](Scope.default)
       .provideShared(
         DynamicServer.live,
         ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
@@ -240,7 +240,7 @@ object WebSocketSpec extends RoutesRunnableSpec {
     suite("request streaming disabled")(
       serve.as(websocketSpec),
     )
-      .provideSome[DynamicServer & Server & Client](Scope.default)
+      .provideSome[DynamicServer & Server & Server.Config & Client](Scope.default)
       .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ sequential
 
   override def spec = suite("WebSocketSpec")(

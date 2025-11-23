@@ -107,7 +107,7 @@ object RequestStreamingServerSpec extends RoutesRunnableSpec {
       suite("app with request streaming") {
         appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec))
       }
-    }.provideSome[DynamicServer & Server & Client](Scope.default)
+    }.provideSome[DynamicServer & Server & Server.Config & Client](Scope.default)
       .provideShared(
         DynamicServer.live,
         ZLayer.succeed(configAppWithRequestStreaming),

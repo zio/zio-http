@@ -44,6 +44,7 @@ object ServerSpec extends RoutesRunnableSpec {
     .disableRequestStreaming(MaxSize)
     .port(port)
     .responseCompression()
+    .generateHeadRoutes(true)
 
   private val app = serve
 
@@ -519,9 +520,74 @@ object ServerSpec extends RoutesRunnableSpec {
       }
   }
 
+  def generateHeadRoutesSpec = suite("GenerateHeadRoutesSpec")(
+    suite("generateHeadRoutes = true")(
+      test("HEAD request falls back to GET route") {
+        val routes = Routes(
+          Method.GET / "users" -> Handler.text("User list"),
+        )
+        for {
+          response <- routes.deploy.run(method = Method.HEAD, path = Path.root / "users")
+        } yield assertTrue(
+          response.status == Status.Ok,
+          response.headers.get(Header.ContentLength).contains(Header.ContentLength(9L)),
+        )
+      },
+      test("HEAD request with explicit HEAD route uses HEAD handler") {
+        val routes = Routes(
+          Method.GET / "users"  -> Handler.text("GET response"),
+          Method.HEAD / "users" -> Handler.ok.addHeader(Header.Custom("X-Head-Handler", "true")),
+        )
+        for {
+          response <- routes.deploy.run(method = Method.HEAD, path = Path.root / "users")
+        } yield assertTrue(
+          response.status == Status.Ok,
+          response.headers.get("X-Head-Handler").isDefined,
+        )
+      },
+      test("HEAD request body is discarded even when falling back to GET") {
+        val routes = Routes(
+          Method.GET / "data" -> Handler.text("Response body content"),
+        )
+        for {
+          response <- routes.deploy.run(method = Method.HEAD, path = Path.root / "data")
+          body     <- response.body.asString
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body.isEmpty,
+          response.headers.get(Header.ContentLength).contains(Header.ContentLength(21L)),
+        )
+      },
+      test("HEAD request returns 404 when no GET route exists") {
+        val routes = Routes(
+          Method.POST / "users" -> Handler.text("POST handler"),
+        )
+        for {
+          response <- routes.deploy.run(method = Method.HEAD, path = Path.root / "users")
+        } yield assertTrue(response.status == Status.NotFound)
+      },
+      test("HEAD falls back to GET with path parameters") {
+        val routes = Routes(
+          Method.GET / "users" / int("id") -> handler { (id: Int, _: Request) =>
+            Response.text(s"User $id")
+          },
+        )
+        for {
+          response <- routes.deploy.run(method = Method.HEAD, path = Path.root / "users" / "123")
+          body     <- response.body.asString
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body.isEmpty,
+          response.headers.get(Header.ContentLength).isDefined,
+        )
+      },
+    ),
+  )
+
   override def spec =
     suite("ServerSpec") {
-      val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
+      val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec +
+        generateHeadRoutesSpec
       suite("app without request streaming") { app.as(List(spec)) }
     }.provideShared(
       Scope.default,

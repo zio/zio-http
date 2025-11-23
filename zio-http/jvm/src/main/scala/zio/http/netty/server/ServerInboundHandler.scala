@@ -58,7 +58,7 @@ private[zio] final case class ServerInboundHandler(
   def refreshApp(): Unit = {
     val pair = appRef.get()
 
-    this.handler = pair._1.toHandler
+    this.handler = pair._1.toHandlerWithConfig(config.generateHeadRoutes)
     this.runtime = new NettyRuntime(pair._2)
   }
 

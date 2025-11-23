@@ -175,6 +175,11 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(crossProjectSettings)
   .settings(Shading.shadingSettings())
   .settings(
+    autoCompilerPlugins := true,
+    libraryDependencies ++= unroll,
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
+    )
+  .settings(
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, _)) =>

@@ -41,14 +41,14 @@ object DynamicServer {
 
   val APP_ID = "X-APP_ID"
 
-  def handler(dynamicServer: DynamicServer): RequestHandler[Any, Response] =
+  def handler(dynamicServer: DynamicServer, config: Server.Config): RequestHandler[Any, Response] =
     Handler.fromFunctionHandler[Request] { (req: Request) =>
       Handler
         .fromZIO(req.rawHeader(APP_ID) match {
           case Some(id) =>
             get(id)
               .provideEnvironment(ZEnvironment(dynamicServer))
-              .map(_.map(_.toHandler))
+              .map(_.map(_.toHandlerWithConfig(generateHeadRoutes = config.generateHeadRoutes)))
               .map(_.getOrElse(Handler.notFound))
           case None     =>
             ZIO.succeed(Handler.notFound)
