@@ -19,6 +19,8 @@ package zio.http
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.atomic._
 
+import scala.annotation.unroll
+
 import zio._
 
 import zio.http.Server.Config.ResponseCompressionConfig
@@ -72,6 +74,8 @@ object Server extends ServerPlatformSpecific {
     avoidContextSwitching: Boolean,
     soBacklog: Int,
     tcpNoDelay: Boolean,
+    @unroll
+    generateHeadRoutes: Boolean = false,
   ) { self =>
 
     /**
@@ -128,6 +132,8 @@ object Server extends ServerPlatformSpecific {
     /** Enables hybrid request streaming */
     def hybridRequestStreaming(maxAggregatedLength: Int): Config =
       self.copy(requestStreaming = RequestStreaming.Hybrid(maxAggregatedLength))
+
+    def generateHeadRoutes(enable: Boolean): Config = self.copy(generateHeadRoutes = enable)
 
     def gracefulShutdownTimeout(duration: Duration): Config = self.copy(gracefulShutdownTimeout = duration)
 
