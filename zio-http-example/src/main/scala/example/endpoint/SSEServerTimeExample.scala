@@ -3,15 +3,17 @@
 
 package example.endpoint
 
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
 import zio._
+
+import zio.stream._
+
 import zio.http._
 import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
 import zio.http.template2._
-import zio.stream._
-
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 object SSEServerTimeExample extends ZIOAppDefault {
 
