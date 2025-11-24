@@ -40,15 +40,17 @@ To use the Datastar SDK with ZIO HTTP, add the following dependency to your `bui
 libraryDependencies += "dev.zio" %% "zio-http-datastar-sdk" % "@VERSION@"
 ```
 
-You also have to include the Datastar JavaScript client module in your HTML pages. You can do this by adding the following script tag to your HTML head:
+You also have to include the Datastar JavaScript client module in your HTML pages. You can do this by adding the following script tag to your HTML:
 
 ```scala mdoc:compile-only
+import zio.http.datastar._
 import zio.http.template2._
 
-script(
-  `type` := "module", 
-  src := "https://cdn.jsdelivr.net/gh/starfederation/datastar@<VERSION>/bundles/datastar.js"
-)
+// Uses the default version of datastar from the zio-http-datastar-sdk module
+head(datastarScript)
+
+// Or specify a custom version of datastar
+head(datastarScript(version = "1.2.3"))
 ```
 
 Pick the proper version of the module according to the [installation instructions](https://data-star.dev/guide/getting_started#installation) in the Datastar's documentation.
@@ -189,30 +191,24 @@ The server can extract the signals from the request like this:
 
 ```scala mdoc:silent
 import zio._
-import zio.json._
+import zio.schema._
 import zio.http._
 import zio.http.datastar._
 
 case class Delay(value: Int)
 object Delay {
-  implicit val jsonCodec: JsonCodec[Delay] = DeriveJsonCodec.gen
+  implicit val schema: Schema[Delay] = DeriveSchema.gen
 }
 
 val route =
   Method.GET / "hello-world" -> events {
     handler { (request: Request) =>
-      val delay = request.url.queryParams
-        .getAll("datastar")
-        .headOption
-        .flatMap { s =>
-          Delay.jsonCodec.decodeJson(s).toOption
-        }
-        .getOrElse(Delay(100))
       
       // Use the extracted delay value in your logic 
       val message = "Hello, world!"
       ZIO.foreachDiscard(message.indices) { i =>
         for {
+          delay <- request.readSignals[Delay].orElse(ZIO.succeed(Delay(100))) 
           _ <- ServerSentEventGenerator.executeScript(js"console.log('Sending substring(0, ${i + 1})')")
           _ <- ServerSentEventGenerator.patchElements(div(id("message"), message.substring(0, i + 1)))
           _ <- ZIO.sleep(delay.value.millis)
@@ -253,16 +249,15 @@ div(
 The server responds with a single-shot event that updates a greeting message with the provided username:
 
 ```scala mdoc:compile-only
-Method.GET / "greet" -> handler { (req: Request) =>
-  Response(
-    headers = Headers(Header.ContentType(MediaType.text.`html`)),
-    body = Body.fromCharSequence(
+Method.GET / "greet" -> event {
+  handler { (req: Request) =>
+    DatastarEvent.patchElements(
       div(
         id("greeting"),
         p(s"Hello ${req.queryParam("name").getOrElse("Guest")}"),
-      ).render
-    )
-  )
+        )
+      )
+  }
 }
 ```
 
