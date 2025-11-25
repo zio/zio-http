@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.unroll
+
 import zio.Config
 import zio.Config.Secret
 
@@ -36,6 +38,7 @@ final case class SSLConfig(
   provider: Provider,
   clientAuth: Option[ClientAuth] = None,
   includeClientCert: Boolean = false,
+  @unroll
   protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
 )
 
@@ -69,6 +72,7 @@ object SSLConfig {
     clientAuth: Option[ClientAuth] = None,
     trustCertCollectionPath: Option[String] = None,
     includeClientCert: Boolean = false,
+    @unroll
     protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig =
     new SSLConfig(
@@ -93,6 +97,7 @@ object SSLConfig {
     clientAuth: Option[ClientAuth] = None,
     trustCertCollectionPath: Option[String] = None,
     includeClientCert: Boolean = false,
+    @unroll
     protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig =
     new SSLConfig(
@@ -112,6 +117,7 @@ object SSLConfig {
     trustManagerKeyStore: Option[Data.TrustManagerKeyStore] = None,
     clientAuth: Option[ClientAuth] = None,
     includeClientCert: Boolean = false,
+    @unroll
     protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig =
     new SSLConfig(
@@ -138,6 +144,7 @@ object SSLConfig {
     trustManagerKeyStore: Option[Data.TrustManagerKeyStore] = None,
     clientAuth: Option[ClientAuth] = None,
     includeClientCert: Boolean = false,
+    @unroll
     protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig = {
     fromJavaxNetSsl(
@@ -159,6 +166,7 @@ object SSLConfig {
     behaviour: HttpBehaviour = HttpBehaviour.Redirect,
     clientAuth: Option[ClientAuth] = None,
     includeClientCert: Boolean = false,
+    @unroll
     protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig =
     new SSLConfig(
