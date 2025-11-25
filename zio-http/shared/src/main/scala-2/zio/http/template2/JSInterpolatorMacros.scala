@@ -58,6 +58,10 @@ object JSInterpolatorMacros {
     val trimmed = js.trim
     if (trimmed.isEmpty) return true
 
+    // Check for Datastar expressions (e.g., @get('url'), @post('url'), etc.)
+    val datastarPattern = """@[a-zA-Z_][a-zA-Z0-9_]*\s*\([^)]*\)""".r
+    if (datastarPattern.findFirstMatchIn(trimmed).isDefined) return true
+
     // Basic JavaScript validation patterns
     val jsKeywords = Set(
       "var",
@@ -104,6 +108,6 @@ object JSInterpolatorMacros {
 
     validJsPatterns.exists(_.findFirstMatchIn(trimmed).isDefined) ||
     jsKeywords.exists(keyword => trimmed.contains(keyword)) ||
-    """^[a-zA-Z0-9_$\s.(){}\[\];:,'"+-=<>!&|*/%]+$""".r.findFirstMatchIn(trimmed).isDefined
+    """^[a-zA-Z0-9_$\s.(){}\[\];:,'"+-=<>!&|*/%@]+$""".r.findFirstMatchIn(trimmed).isDefined
   }
 }

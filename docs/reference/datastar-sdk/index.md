@@ -107,7 +107,7 @@ import zio.http.template2._
 import zio.http.endpoint.Endpoint
 
 body(
-  dataOnLoad := Js("@get('/hello-world')"),
+  dataOnLoad := js"@get('/hello-world')",
   dataOn.load := Endpoint(Method.GET / "hello-world").out[String].datastarRequest(()),
   div(
     className := "container",
@@ -237,7 +237,7 @@ div(
   h1("👋 Greeting Form 👋"),
   form(
     id("greetingForm"),
-    dataOn.submit := Js("@get('/greet', {contentType: 'form'})"),
+    dataOn.submit := js"@get('/greet', {contentType: 'form'})",
     label(`for`("name"), "What's your name?"),
     input(`type`("text"), id("name"), name("name"), placeholder("Enter your name!"), required, autofocus),
     button(`type`("submit"), "Greet me!"),
@@ -281,7 +281,7 @@ Assume you call the `/hello-world` endpoint that streams a "Hello, World!" messa
 
 ```scala mdoc:compile-only
 body(
-  dataOn.load := Js("@get('/hello-world')"),
+  dataOn.load := js"@get('/hello-world')",
   div(
     className := "container",
     h1("Hello World Example"),
@@ -563,7 +563,7 @@ utils.printSource("zio-http-example/src/main/scala/example/datastar/ServerTimeEx
 
 **How it works:**
 
-The page displays a time value using `dataText := Js("$currentTime")`, which binds the text content of a span element to the `currentTime` signal. The signal is declared with `dataSignals(Signal[String]("currentTime"))` and initialized to an empty string. When the page loads (`dataOn.load := Js("@get('/server-time')")`), it establishes an SSE connection to the `/server-time` endpoint.
+The page displays a time value using `dataText := $currentTime)`, which binds the text content of a span element to the `currentTime` signal. The signal is declared with `dataSignals(Signal[String]("currentTime"))` and initialized to an empty string. When the page loads (`dataOn.load := Js("@get('/server-time')")`), it establishes an SSE connection to the `/server-time` endpoint.
 
 The server handler uses ZIO's scheduling capabilities to create a repeating effect that runs every second. Each second, the server:
 1. Gets the current time from the clock
@@ -583,22 +583,17 @@ utils.printSource("zio-http-example/src/main/scala/example/datastar/GreetingForm
 
 **How it works:**
 
-The page contains a form with an input field for the user's name. The form uses `dataOn.submit := Js("@get('/greet', {contentType: 'form'})")` to intercept the submit event and send a GET request with the form data. The `{contentType: 'form'}` option tells Datastar to serialize the form fields as query parameters.
+The page contains a form with an input field for the user's name. The form uses `dataOn.submit := js"@get('/greet', {contentType: 'form'})"` to intercept the submit event and send a GET request with the form data. The `{contentType: 'form'}` option tells Datastar to serialize the form fields as query parameters.
 
 Unlike the streaming examples, the server responds with a single HTML fragment (not SSE):
 
 ```scala
-Response(
-  headers = Headers(Header.ContentType(MediaType.text.`html`)),
-  body = Body.fromCharSequence(
-    div(id("greeting"), p(s"Hello ${req.queryParam("name").getOrElse("Guest")}")).render
-  )
-)
+event(handler((_: Request) => DatastarEvent.patchElements(indexPage)))
 ```
 
 The response is a `text/html` fragment containing a div with `id="greeting"`. Datastar automatically finds the existing `<div id="greeting">` in the DOM and morphs it with the new content, displaying the personalized greeting.
 
-The interaction is smooth and partial—only the greeting div updates, not the entire page. This pattern is useful for traditional CRUD operations where you don't need continuous streaming but want the benefits of hypermedia-driven updates.
+The interaction is smooth and partial—only the greeting div updates, not the entire page.
 
 ### Fruit Explorer Example
 
@@ -612,7 +607,7 @@ utils.printSource("zio-http-example/src/main/scala/example/datastar/FruitExplore
 
 The page contains a single input field with two key attributes:
 1. `dataBind("query")` - Binds the input value to a `$query` signal
-2. `dataOn.input.debounce(300.millis) := Js("@get('/search?q=' + $query)")` - Triggers a search request 300ms after the user stops typing
+2. `dataOn.input.debounce(300.millis) := js"@get('/search?q=' + ${$query})"` - Triggers a search request 300ms after the user stops typing
 
 The debouncing prevents excessive server requests while typing. Each keystroke updates the `$query` signal, but the search only fires after a 300ms pause, reducing server load and providing a smoother UX.
 

@@ -56,7 +56,7 @@ object SimpleHelloWorldExample extends ZIOAppDefault {
       .serve(routes)
       .provide(Server.default)
 
-  val css = """
+  val css = css"""
     body {
       display: flex;
       flex-direction: column;

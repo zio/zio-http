@@ -5,6 +5,4 @@ sealed abstract case class Css(value: String) {
   def stripMargin: Css          = Css(value.stripMargin)
 }
 
-object Css {
-  private[template2] def apply(value: String): Css = new Css(value) {}
-}
+object Css { def apply(value: String): Css = new Css(value) {} }
