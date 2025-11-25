@@ -9,26 +9,17 @@ import zio.http.template2._
 object GreetingFormExample extends ZIOAppDefault {
 
   val routes: Routes[Any, Response] = Routes(
-    Method.GET / ""      -> handler {
-      Response(
-        headers = Headers(
-          Header.ContentType(MediaType.text.html),
-        ),
-        body = Body.fromCharSequence(indexPage.render),
-      )
-    },
-    Method.GET / "greet" -> handler { (req: Request) =>
-      Response(
-        headers = Headers(
-          Header.ContentType(MediaType.text.`html`),
-        ),
-        body = Body.fromCharSequence(
+    Method.GET / ""      ->
+      event(handler((_: Request) => DatastarEvent.patchElements(indexPage))),
+    Method.GET / "greet" -> event {
+      handler { (req: Request) =>
+        DatastarEvent.patchElements(
           div(
             id("greeting"),
             p(s"Hello ${req.queryParam("name").getOrElse("Guest")}"),
-          ).render,
-        ),
-      )
+          ),
+        )
+      }
     } @@ Middleware.debug,
   )
 
@@ -37,10 +28,7 @@ object GreetingFormExample extends ZIOAppDefault {
       meta(charset("UTF-8")),
       meta(name("viewport"), content("width=device-width, initial-scale=1.0")),
       title("Greeting Form - ZIO HTTP Datastar"),
-      script(
-        `type` := "module",
-        src    := "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-RC.5/bundles/datastar.js",
-      ),
+      datastarScript,
       style.inlineCss(css),
     ),
     body(
@@ -49,7 +37,7 @@ object GreetingFormExample extends ZIOAppDefault {
         h1("👋 Greeting Form 👋"),
         form(
           id("greetingForm"),
-          dataOn.submit := Js("@get('/greet', {contentType: 'form'})"),
+          dataOn.submit := js"@get('/greet', {contentType: 'form'})",
           label(
             `for`("name"),
             "What's your name?",

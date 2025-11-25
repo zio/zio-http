@@ -14,12 +14,9 @@ object ServerTimeExample extends ZIOAppDefault {
   val timeHTML = html(
     head(
       title("Server Time - Datastar"),
-      script(
-        `type` := "module",
-        src    := "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-RC.5/bundles/datastar.js",
-      ),
+      datastarScript,
       style.inlineCss(
-        """
+        css"""
         body {
           display: flex;
           justify-content: center;
@@ -111,14 +108,10 @@ object ServerTimeExample extends ZIOAppDefault {
     }
 
   val routes = Routes(
-    Method.GET / Root          -> handler(
-      Response(
-        status = Status.Ok,
-        headers = Headers(Header.ContentType(MediaType.text.html)),
-        body = Body.fromString(timeHTML.render),
-      ),
-    ),
-    Method.GET / "server-time" -> serverTimeHandler,
+    Method.GET / Root          ->
+      event(handler((_: Request) => DatastarEvent.patchElements(timeHTML))),
+    Method.GET / "server-time" ->
+      serverTimeHandler,
   )
 
   override def run =
