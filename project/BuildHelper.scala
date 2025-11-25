@@ -84,6 +84,20 @@ object BuildHelper extends ScalaSettings {
       if (scalaVersion.value == Scala3) semanticdbVersion.value
       else scalafixSemanticdb.revision
     },
+    // Fix for Scala 2.12 scaladoc "pickler" phase error
+    Compile / doc / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, 12)) => Seq("-no-java-comments", "-skip-packages", "akka.pattern")
+        case _             => Seq.empty
+      }
+    },
+    // Skip doc generation entirely for Scala 2.12 to avoid pickler phase issues
+    Compile / doc / sources := {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, 12)) => Seq.empty
+        case _             => (Compile / doc / sources).value
+      }
+    },
   )
 
   private def shadedSuffix = {
