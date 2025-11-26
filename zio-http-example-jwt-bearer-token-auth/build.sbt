@@ -3,6 +3,7 @@ version      := "0.1.0"
 scalaVersion := "2.13.17"
 
 publish / skip := true
+publishArtifact := false
 run / fork := true
 
 libraryDependencies ++= Seq(
