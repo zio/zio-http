@@ -267,41 +267,56 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    */
   def toHandler(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] = {
     if (_handler eq null) {
-      _handler = {
-        implicit val trace: Trace = Trace.empty
-        val (unique, duplicates)  = uniqueRoutes
-        val tree                  = Routes(unique).tree[Env]
-        val h                     = Handler
-          .fromFunctionHandler[Request] { req =>
-            val handler = tree.get(req.method, req.path)
-            if (handler eq null) notFound else handler
-          }
-          .merge
-          .asInstanceOf[Handler[Any, Nothing, Request, Response]]
-        if (duplicates.nonEmpty) {
-          val duplicateRoutes       = duplicates.map(_.routePattern)
-          val duplicateRoutesString = duplicateRoutes.mkString("\n")
-          var message               =
-            s"Duplicate routes detected:\n$duplicateRoutesString\nThe last route of each path will be used."
-          Handler
-            .fromZIO(
-              if (message != null)
-                ZIO.suspendSucceed {
-                  val msg = message
-                  message = null
-
-                  ZIO.logWarning(msg).as(h)
-                }
-              else Exit.succeed(h),
-            )
-            .flatten
-        } else {
-          h
-        }
-      }.asInstanceOf[Handler[Any, Nothing, Request, Response]]
+      _handler = buildHandler(generateHeadRoutes = false).asInstanceOf[Handler[Any, Nothing, Request, Response]]
     }
     _handler.asInstanceOf[Handler[Env, Nothing, Request, Response]]
+  }
 
+  /**
+   * Converts the HTTP application into a request handler with the specified
+   * generateHeadRoutes setting. When generateHeadRoutes is true, HEAD requests
+   * will automatically fall back to GET routes if no explicit HEAD route
+   * exists.
+   */
+  private[http] def toHandlerWithConfig(
+    generateHeadRoutes: Boolean,
+  )(implicit ev: Err <:< Response): Handler[Env, Nothing, Request, Response] =
+    if (!generateHeadRoutes) toHandler(ev)
+    else buildHandler(generateHeadRoutes = true).asInstanceOf[Handler[Env, Nothing, Request, Response]]
+
+  private def buildHandler(
+    generateHeadRoutes: Boolean,
+  )(implicit ev: Err <:< Response): Handler[Any, Nothing, Request, Response] = {
+    implicit val trace: Trace                           = Trace.empty
+    val (unique, duplicates)                            = uniqueRoutes
+    val tree                                            = Routes(unique).tree[Env]
+    val hCore: Handler[Any, Nothing, Request, Response] = Handler
+      .fromFunctionHandler[Request] { req =>
+        val handler = tree.get(req.method, req.path, generateHeadRoutes)
+        if (handler eq null) notFound else handler
+      }
+      .merge
+      .asInstanceOf[Handler[Any, Nothing, Request, Response]]
+
+    if (duplicates.nonEmpty) {
+      val duplicateRoutes       = duplicates.map(_.routePattern)
+      val duplicateRoutesString = duplicateRoutes.mkString("\n")
+      var message = s"Duplicate routes detected:\n$duplicateRoutesString\nThe last route of each path will be used."
+      Handler
+        .fromZIO(
+          if (message != null)
+            ZIO.suspendSucceed {
+              val msg = message
+              message = null
+              ZIO.logWarning(msg).as(hCore)
+            }
+          else Exit.succeed(hCore),
+        )
+        .flatten
+        .asInstanceOf[Handler[Any, Nothing, Request, Response]]
+    } else {
+      hCore
+    }
   }
 
   /**
@@ -400,23 +415,30 @@ object Routes extends RoutesCompanionVersionSpecific {
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =
       Tree(self.tree.asInstanceOf[RoutePattern.Tree[Env1]] ++ that.tree)
 
+    private def forRoute[Env1 <: Env](
+      route: Route[Env1, Response],
+    ): List[(RoutePattern[_], RequestHandler[Env1, Response])] = {
+      val method = route.routePattern.method
+      route.routePattern.pathCodec.alternatives.flatMap { path =>
+        if (method == Method.ANY)
+          Method.standardMethods.toList.map(m => (RoutePattern(m, path), route.toHandler))
+        else
+          List((RoutePattern(method, path), route.toHandler))
+      }
+    }
+
     final def add[Env1 <: Env](route: Route[Env1, Response])(implicit trace: Trace): Tree[Env1] =
-      Tree(
-        self.tree
-          .asInstanceOf[RoutePattern.Tree[Env1]]
-          .addAll(route.routePattern.alternatives.map(alt => (alt, route.toHandler))),
-      )
+      Tree(self.tree.asInstanceOf[RoutePattern.Tree[Env1]].addAll(forRoute(route)))
 
     final def addAll[Env1 <: Env](routes: Iterable[Route[Env1, Response]])(implicit trace: Trace): Tree[Env1] =
-      // only change to flatMap when Scala 2.12 is dropped
       Tree(
         self.tree
           .asInstanceOf[RoutePattern.Tree[Env1]]
-          .addAll(routes.map(r => r.routePattern.alternatives.map(alt => (alt, r.toHandler))).flatten),
+          .addAll(routes.flatMap(forRoute).asInstanceOf[Iterable[(RoutePattern[_], RequestHandler[Env1, Response])]]),
       )
 
-    final def get(method: Method, path: Path): RequestHandler[Env, Response] =
-      tree.get(method, path)
+    final def get(method: Method, path: Path, generateHeadRoutes: Boolean = false): RequestHandler[Env, Response] =
+      tree.get(method, path, generateHeadRoutes)
   }
   private[http] object Tree                                              {
     val empty: Tree[Any] = Tree(RoutePattern.Tree.empty)

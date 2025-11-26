@@ -2,6 +2,7 @@ package zio.http.datastar
 
 import java.time.Duration
 
+import scala.annotation.nowarn
 import scala.language.implicitConversions
 
 import zio.schema._
@@ -17,25 +18,25 @@ trait Attributes {
   import Attributes._
 
   /**
-   * data-attr-* – Set arbitrary attributes. Doc:
+   * data-attr:* – Set arbitrary attributes. Doc:
    * [[https://data-star.dev/reference/attributes#data-attr]]
    */
   final def dataAttr(attr: Dom.PartialAttribute): DatastarAttribute =
-    DatastarAttribute(s"$prefix-attr-${attr.name}")
+    DatastarAttribute(s"$prefix-attr:${attr.name}")
 
   /**
-   * data-attr-* – Set arbitrary attributes. Doc:
+   * data-attr:* – Set arbitrary attributes. Doc:
    * [[https://data-star.dev/reference/attributes#data-attr]]
    */
   final def dataAttr(attr: Dom.PartialMultiAttribute): DatastarAttribute =
-    DatastarAttribute(s"$prefix-attr-${attr.name}")
+    DatastarAttribute(s"$prefix-attr:${attr.name}")
 
   /**
-   * data-attr-* – Set arbitrary attributes. Doc:
+   * data-attr:* – Set arbitrary attributes. Doc:
    * [[https://data-star.dev/reference/attributes#data-attr]]
    */
   final def dataAttr(attr: String): DatastarAttribute =
-    DatastarAttribute(s"$prefix-attr-$attr")
+    DatastarAttribute(s"$prefix-attr:$attr")
 
   final def dataAttr: DatastarAttribute = DatastarAttribute(s"$prefix-attr")
 
@@ -144,9 +145,19 @@ trait Attributes {
   final def dataOnInterval: DataOnInterval = DataOnInterval(prefix, OnIntervalModifier.None)
 
   /**
-   * data-on-load – Execute when element loads. Doc:
-   * [[https://data-star.dev/reference/attributes#data-on-load]]
+   * data-init – Execute when element loads. Doc:
+   * [[https://data-star.dev/reference/attributes#data-init]]
    */
+  final def dataInit: DataInit = DataInit(prefix, InitModifier.None)
+
+  /**
+   * data-on-load – Execute when element loads (deprecated, use dataInit). Doc:
+   * [[https://data-star.dev/reference/attributes#data-init]]
+   *
+   * Note: This is kept for binary compatibility. It generates the same
+   * data-init attribute.
+   */
+  @deprecated("Use dataInit instead of dataOnLoad", "3.6.0")
   final def dataOnLoad: DataOnLoad = DataOnLoad(prefix, LoadModifier.None)
 
   /**
@@ -206,10 +217,10 @@ trait Attributes {
   final def dataStyle: DatastarAttribute = DatastarAttribute(s"$prefix-style")
 
   /**
-   * data-style-* – Dynamically set inline style(s). Doc:
+   * data-style:* – Dynamically set inline style(s). Doc:
    * [[https://data-star.dev/reference/attributes#data-style]]
    */
-  final def dataStyle(styleName: String): DatastarAttribute = DatastarAttribute(s"$prefix-style-$styleName")
+  final def dataStyle(styleName: String): DatastarAttribute = DatastarAttribute(s"$prefix-style:$styleName")
 
   /**
    * data-text – Sets element text content from an expression / signal. Doc:
@@ -239,7 +250,7 @@ object Attributes {
     final case class Single(prefix: String, className: String, caseModifier: CaseModifier = defaultCaseModifier)
         extends DataClass {
       assert(!className.isBlank, "Class name cannot be empty")
-      private[datastar] val full = s"$prefix-class-$className${caseModifier.suffix(defaultCaseModifier)}"
+      private[datastar] val full = s"$prefix-class:$className${caseModifier.suffix(defaultCaseModifier)}"
 
       def :=(signal: Signal[_]): CompleteAttribute = Dom.attr(full) := signal.ref
 
@@ -260,7 +271,7 @@ object Attributes {
   }
 
   final case class SignalAttr[A](attrName: String, signal: Signal[A], caseModifier: CaseModifier = CaseModifier.Camel) {
-    private val full = s"$attrName-${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}"
+    private val full = s"$attrName:${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}"
 
     def :=(expression: Js): Attribute          = Dom.attr(full) := expression.value
     def :=(update: SignalUpdate[A]): Attribute = Dom.attr(full) := update.toExpression.value
@@ -295,7 +306,7 @@ object Attributes {
   ) {
     private val full = {
       val ifMissing0: String = if (ifMissing) "__if-missing" else ""
-      s"$prefix-signals-${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}$ifMissing0"
+      s"$prefix-signals:${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}$ifMissing0"
     }
 
     def :=(expression: Js): Attribute = Dom.attr(full) := expression.value
@@ -333,7 +344,7 @@ object Attributes {
     signal: Signal[Boolean],
     caseModifier: CaseModifier = CaseModifier.Camel,
   ) {
-    private val full = s"$prefix-indicator-${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}"
+    private val full = s"$prefix-indicator:${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}"
 
     def camel: DataIndicatorAttr  = copy(caseModifier = CaseModifier.Camel)
     def kebab: DataIndicatorAttr  = copy(caseModifier = CaseModifier.Kebab)
@@ -369,8 +380,8 @@ object Attributes {
     def kebab: PartialDataOn                      = modify(EventModifier.Case(CaseModifier.Kebab))
     def snake: PartialDataOn                      = modify(EventModifier.Case(CaseModifier.Snake))
     def pascal: PartialDataOn                     = modify(EventModifier.Case(CaseModifier.Pascal))
-    def debounce(duration: Duration, leading: Boolean = false, notrail: Boolean = false): PartialDataOn =
-      modify(EventModifier.Debounce(duration, leading, notrail))
+    def debounce(duration: Duration, leading: Boolean = false, notrailing: Boolean = false): PartialDataOn =
+      modify(EventModifier.Debounce(duration, leading, notrailing))
     def delay(duration: Duration): PartialDataOn = modify(EventModifier.Delay(duration))
     def once: PartialDataOn                      = modify(EventModifier.Once)
     def outside: PartialDataOn                   = modify(EventModifier.Outside)
@@ -446,7 +457,7 @@ object Attributes {
   }
 
   final case class DataOn(prefix: String, event: String, modifier: EventModifier) {
-    private val full = s"$prefix-on-$event${modifier.render}"
+    private val full = s"$prefix-on:$event${modifier.render}"
 
     def :=(expression: Js): Attribute = Dom.attr(full) := expression.value
 
@@ -456,8 +467,8 @@ object Attributes {
     def kebab: DataOn                      = modify(EventModifier.Case(CaseModifier.Kebab))
     def snake: DataOn                      = modify(EventModifier.Case(CaseModifier.Snake))
     def pascal: DataOn                     = modify(EventModifier.Case(CaseModifier.Pascal))
-    def debounce(duration: Duration, leading: Boolean = false, notrail: Boolean = false): DataOn =
-      modify(EventModifier.Debounce(duration, leading, notrail))
+    def debounce(duration: Duration, leading: Boolean = false, notrailing: Boolean = false): DataOn =
+      modify(EventModifier.Debounce(duration, leading, notrailing))
     def delay(duration: Duration): DataOn = modify(EventModifier.Delay(duration))
     def once: DataOn                      = modify(EventModifier.Once)
     def outside: DataOn                   = modify(EventModifier.Outside)
@@ -480,8 +491,8 @@ object Attributes {
     def half: DataOnIntersect                           = modify(IntersectModifier.Half)
     def full: DataOnIntersect                           = modify(IntersectModifier.Full)
     def delay(duration: Duration): DataOnIntersect      = modify(IntersectModifier.Delay(duration))
-    def debounce(duration: Duration, leading: Boolean = false, notrail: Boolean = false): DataOnIntersect    =
-      modify(IntersectModifier.Debounce(duration, leading, notrail))
+    def debounce(duration: Duration, leading: Boolean = false, notrailing: Boolean = false): DataOnIntersect =
+      modify(IntersectModifier.Debounce(duration, leading, notrailing))
     def throttle(duration: Duration, noleading: Boolean = false, trailing: Boolean = false): DataOnIntersect =
       modify(IntersectModifier.Throttle(duration, noleading, trailing))
     def viewTransition: DataOnIntersect = modify(IntersectModifier.ViewTransition)
@@ -508,19 +519,19 @@ object Attributes {
     final case class Delay(duration: Duration)                              extends IntersectModifier {
       val render: String = s"__delay.${duration.toMillis}ms"
     }
-    final case class Debounce(duration: Duration, leading: Boolean = false, notrail: Boolean = false)
+    final case class Debounce(duration: Duration, leading: Boolean = false, notrailing: Boolean = false)
         extends IntersectModifier {
-      val render: String  = {
+      val render: String     = {
         val base = s"__debounce.${duration.toMillis}ms"
-        (leading, notrail) match {
+        (leading, notrailing) match {
           case (false, false) => base
           case (true, false)  => s"$base.leading"
-          case (false, true)  => s"$base.notrail"
-          case (true, true)   => s"$base.leading.notrail"
+          case (false, true)  => s"$base.notrailing"
+          case (true, true)   => s"$base.leading.notrailing"
         }
       }
-      def lead: Debounce  = copy(leading = true)
-      def trail: Debounce = copy(notrail = false)
+      def lead: Debounce     = copy(leading = true)
+      def trailing: Debounce = copy(notrailing = false)
     }
     final case class Throttle(duration: Duration, noleading0: Boolean = false, trailing0: Boolean = false)
         extends IntersectModifier {
@@ -574,8 +585,42 @@ object Attributes {
     }
   }
 
+  final case class DataInit(prefix: String, modifier: InitModifier) {
+    private val full = s"$prefix-init${modifier.render}"
+
+    def :=(expression: Js): Attribute = Dom.attr(full) := expression
+
+    def delay(duration: Duration): DataInit = copy(modifier = modifier && InitModifier.Delay(duration))
+    def viewTransition: DataInit            = copy(modifier = modifier && InitModifier.ViewTransition)
+  }
+
+  sealed trait InitModifier extends Product with Serializable {
+    val render: String
+    def &&(other: InitModifier): InitModifier  = and(other)
+    def and(other: InitModifier): InitModifier = InitModifier.And(this, other)
+  }
+
+  object InitModifier {
+    final case class And(left: InitModifier, right: InitModifier) extends InitModifier {
+      val render: String = s"${left.render}${right.render}"
+    }
+    case object None                                              extends InitModifier {
+      val render: String = ""
+    }
+    final case class Delay(duration: java.time.Duration)          extends InitModifier {
+      val render: String = s"__delay.${duration.toMillis}ms"
+    }
+    case object ViewTransition                                    extends InitModifier {
+      val render: String = "__viewtransition"
+    }
+  }
+
+  // Binary compatibility: Keep DataOnLoad class (deprecated, use DataInit)
+  // Note: Both generate the same data-init attribute per RC6
+  @deprecated("Use dataInit instead of dataOnLoad", "3.6.0")
+  @nowarn("cat=deprecation")
   final case class DataOnLoad(prefix: String, modifier: LoadModifier) {
-    private val full = s"$prefix-on-load${modifier.render}"
+    private val full = s"$prefix-init${modifier.render}"
 
     def :=(expression: Js): Attribute = Dom.attr(full) := expression
 
@@ -583,12 +628,15 @@ object Attributes {
     def viewTransition: DataOnLoad            = copy(modifier = modifier && LoadModifier.ViewTransition)
   }
 
+  @deprecated("Use dataInit instead of dataOnLoad", "3.6.0")
+  @nowarn("cat=deprecation")
   sealed trait LoadModifier extends Product with Serializable {
     val render: String
     def &&(other: LoadModifier): LoadModifier  = and(other)
     def and(other: LoadModifier): LoadModifier = LoadModifier.And(this, other)
   }
 
+  @deprecated("Use dataInit instead of dataOnLoad", "3.6.0")
   object LoadModifier {
     final case class And(left: LoadModifier, right: LoadModifier) extends LoadModifier {
       val render: String = s"${left.render}${right.render}"
@@ -611,8 +659,8 @@ object Attributes {
 
     def delay(duration: Duration): DataOnSignalPatch                                                           =
       copy(modifier = modifier && OnSignalPatchModifier.Delay(duration))
-    def debounce(duration: Duration, leading: Boolean = false, notrail: Boolean = false): DataOnSignalPatch    =
-      copy(modifier = modifier && OnSignalPatchModifier.Debounce(duration, leading, notrail))
+    def debounce(duration: Duration, leading: Boolean = false, notrailing: Boolean = false): DataOnSignalPatch =
+      copy(modifier = modifier && OnSignalPatchModifier.Debounce(duration, leading, notrailing))
     def throttle(duration: Duration, noleading: Boolean = false, trailing: Boolean = false): DataOnSignalPatch =
       copy(modifier = modifier && OnSignalPatchModifier.Throttle(duration, noleading, trailing))
   }
@@ -633,19 +681,19 @@ object Attributes {
     final case class Delay(duration: java.time.Duration)                            extends OnSignalPatchModifier {
       val render: String = s"__delay.${duration.toMillis}ms"
     }
-    final case class Debounce(duration: java.time.Duration, leading: Boolean = false, notrail: Boolean = false)
+    final case class Debounce(duration: java.time.Duration, leading: Boolean = false, notrailing: Boolean = false)
         extends OnSignalPatchModifier {
-      val render: String  = {
+      val render: String     = {
         val base = s"__debounce.${duration.toMillis}ms"
-        (leading, notrail) match {
+        (leading, notrailing) match {
           case (false, false) => base
           case (true, false)  => s"$base.leading"
-          case (false, true)  => s"$base.notrail"
-          case (true, true)   => s"$base.leading.notrail"
+          case (false, true)  => s"$base.notrailing"
+          case (true, true)   => s"$base.leading.notrailing"
         }
       }
-      def lead: Debounce  = copy(leading = true)
-      def trail: Debounce = copy(notrail = false)
+      def lead: Debounce     = copy(leading = true)
+      def trailing: Debounce = copy(notrailing = false)
     }
     final case class Throttle(duration: java.time.Duration, noleading0: Boolean = false, trailing0: Boolean = false)
         extends OnSignalPatchModifier {
@@ -666,6 +714,7 @@ object Attributes {
   final case class PartialDataBind(prefix: String, caseModifier: CaseModifier = CaseModifier.Camel) {
     def apply(signal: String): DataBind     = DataBind(prefix, SignalName(caseModifier)(signal), caseModifier)
     def apply(signal: SignalName): DataBind = DataBind(prefix, signal.caseModifier(caseModifier), caseModifier)
+    def apply(signal: Signal[_]): DataBind  = DataBind(prefix, signal.name.caseModifier(caseModifier), caseModifier)
 
     def camel: PartialDataBind  = copy(caseModifier = CaseModifier.Camel)
     def kebab: PartialDataBind  = copy(caseModifier = CaseModifier.Kebab)
@@ -674,7 +723,7 @@ object Attributes {
   }
 
   final case class DataBind(prefix: String, signalName: SignalName, caseModifier: CaseModifier = CaseModifier.Camel) {
-    private val full = s"$prefix-bind-${signalName.name}${caseModifier.suffix(CaseModifier.Camel)}"
+    private val full = s"$prefix-bind:${signalName.name}${caseModifier.suffix(CaseModifier.Camel)}"
 
     def camel: DataBind  = copy(caseModifier = CaseModifier.Camel)
     def kebab: DataBind  = copy(caseModifier = CaseModifier.Kebab)
@@ -697,7 +746,7 @@ object Attributes {
   }
 
   final case class DataRef(prefix: String, signalName: SignalName, caseModifier: CaseModifier = CaseModifier.Camel) {
-    private val full = s"$prefix-ref-${signalName.name}${caseModifier.suffix(CaseModifier.Camel)}"
+    private val full = s"$prefix-ref:${signalName.name}${caseModifier.suffix(CaseModifier.Camel)}"
 
     def camel: DataRef  = copy(caseModifier = CaseModifier.Camel)
     def kebab: DataRef  = copy(caseModifier = CaseModifier.Kebab)
@@ -730,19 +779,19 @@ object Attributes {
         if (suffix.isEmpty) "" else suffix
       }
     }
-    final case class Debounce(duration: Duration, leading: Boolean = false, notrail: Boolean = false)
+    final case class Debounce(duration: Duration, leading: Boolean = false, notrailing: Boolean = false)
         extends EventModifier {
-      val render: String  = {
+      val render: String     = {
         val base = s"__debounce.${duration.toMillis}ms"
-        (leading, notrail) match {
+        (leading, notrailing) match {
           case (false, false) => base
           case (true, false)  => s"$base.leading"
-          case (false, true)  => s"$base.notrail"
-          case (true, true)   => s"$base.leading.notrail"
+          case (false, true)  => s"$base.notrailing"
+          case (true, true)   => s"$base.leading.notrailing"
         }
       }
-      def lead: Debounce  = copy(leading = true)
-      def trail: Debounce = copy(notrail = false)
+      def lead: Debounce     = copy(leading = true)
+      def trailing: Debounce = copy(notrailing = false)
     }
     final case class Delay(duration: Duration)                      extends EventModifier {
       val render: String = s"__delay.${duration.toMillis}ms"

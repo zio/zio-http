@@ -57,10 +57,7 @@ object HelloWorldWithCustomDelayExample extends ZIOAppDefault {
         meta(charset("UTF-8")),
         meta(name("viewport"), content("width=device-width, initial-scale=1.0")),
         title("Datastar Hello World - ZIO HTTP Datastar"),
-        script(
-          `type` := "module",
-          src    := "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-RC.5/bundles/datastar.js",
-        ),
+        datastarScript,
         style.inlineCss(css),
       ),
       body(
@@ -87,7 +84,7 @@ object HelloWorldWithCustomDelayExample extends ZIOAppDefault {
       .serve(routes)
       .provide(Server.default)
 
-  val css = """
+  val css = css"""
     body {
       display: flex;
       flex-direction: row;

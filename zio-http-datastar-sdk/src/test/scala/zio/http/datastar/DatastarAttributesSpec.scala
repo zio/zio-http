@@ -26,11 +26,11 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
     },
     test("data bind") {
       val view = a(dataBind("href"))
-      assertTrue(view.render.contains("data-bind-href"))
+      assertTrue(view.render.contains("data-bind:href"))
     },
     test("event attribute rendering") {
       val view = button(dataOn.click := js"increment()")
-      assertTrue(view.render.contains("data-on-click=\"increment()\""))
+      assertTrue(view.render.contains("data-on:click=\"increment()\""))
     },
     test("signal rendering") {
       val c        = Signal[Int]("count")
@@ -53,13 +53,13 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
     test("event modifiers chain renders with dots and colon before event name") {
       val view     = button(
         dataOn.click
-          .debounce(3.seconds, leading = true, notrail = true)
+          .debounce(3.seconds, leading = true, notrailing = true)
           .prevent
           .stop := js"doStuff()",
       )
       val rendered = view.render
       assertTrue(
-        rendered.contains("data-on-click__debounce.3000ms.leading.notrail__prevent__stop=\"doStuff()\""),
+        rendered.contains("data-on:click__debounce.3000ms.leading.notrailing__prevent__stop=\"doStuff()\""),
       )
     },
     test("event case modifier and throttle rendering order is preserved") {
@@ -69,7 +69,7 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
       )("+")
       val rendered = view.render
       assertTrue(
-        rendered.contains("data-on-click__case.camel__throttle.750ms.noleading.trailing=\"count++\""),
+        rendered.contains("data-on:click__case.camel__throttle.750ms.noleading.trailing=\"count++\""),
       )
     },
     test("data-ignore-self boolean attribute short form") {
@@ -85,20 +85,20 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
     test("data-ref with case modifier") {
       val view     = div(dataRef.kebab("customer-id"))
       val rendered = view.render
-      assertTrue(rendered == "<div data-ref-customer-id__case.kebab></div>")
+      assertTrue(rendered == "<div data-ref:customer-id__case.kebab></div>")
     },
     test("single data-class with case modifier bound to signal name") {
       val a        = Signal[Boolean]("active")
       val view     = div(dataClass("active").camel := a)
       val rendered = view.render
-      val expected = """data-class-active__case.camel="$active""""
+      val expected = """data-class:active__case.camel="$active""""
       assertTrue(rendered.contains(expected))
     },
     test("data-signals with snake case modifier") {
       val sig      = Signal[Int]("count")
       val view     = div(dataSignals(sig).snake := js"1")
       val rendered = view.render
-      assertTrue(rendered.contains("data-signals-count__case.snake=\"1\""))
+      assertTrue(rendered.contains("data-signals:count__case.snake=\"1\""))
     },
     test("data-on-interval with duration and viewTransition") {
       val t        = Signal[Int]("tick")
@@ -107,10 +107,10 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
       val expected = """data-on-interval__duration.250ms.leading__viewtransition="$tick++""""
       assertTrue(rendered.contains(expected))
     },
-    test("data-on-load with delay and viewTransition") {
-      val view     = div(dataOnLoad.delay(Duration.ofMillis(100)).viewTransition := js"init()")
+    test("data-init with delay and viewTransition") {
+      val view     = div(dataInit.delay(Duration.ofMillis(100)).viewTransition := js"init()")
       val rendered = view.render
-      assertTrue(rendered.contains("data-on-load__delay.100ms__viewtransition=\"init()\""))
+      assertTrue(rendered.contains("data-init__delay.100ms__viewtransition=\"init()\""))
     },
     test("data-on-signal-patch with debounce and throttle modifiers") {
       val view     = div(
@@ -144,18 +144,18 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
     test("Request from endpoint as attribute value") {
       val getCustomer = Endpoint(Method.GET / "customer" / int("customer-id")).out[Customer]
       val req         = getCustomer.datastarRequest(123)
-      val view        = div(dataOnLoad := req)
+      val view        = div(dataInit := req)
       val rendered    = view.render
-      val expected    = """data-on-load="@get('/customer/123')""""
+      val expected    = """data-init="@get('/customer/123')""""
       assertTrue(rendered.contains(expected))
     },
     test("Request from endpoint as attribute value and signal") {
       val getCustomer = Endpoint(Method.GET / "customer" / int("customer-id")).out[Customer]
       val signal      = Signal[Int]("customerId")
       val req         = getCustomer.datastarRequest(signal)
-      val view        = div(dataOnLoad := req)
+      val view        = div(dataInit := req)
       val rendered    = view.render
-      val expected    = """data-on-load="@get('/customer/$customerId')""""
+      val expected    = """data-init="@get('/customer/$customerId')""""
       assertTrue(rendered.contains(expected))
     },
   )

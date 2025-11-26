@@ -342,3 +342,15 @@ import utils._
 
 printSource("zio-http-example/src/main/scala/example/StaticFiles.scala")
 ```
+
+### Forwarding Headers Middleware
+
+The `Middleware.forwardHeaders` middleware is used to forward headers from the incoming request to the outgoing request when using the ZIO HTTP Client. This is useful when we want to forward headers like `Authorization`, `X-Request-ID`, and so on. It takes a set of header names to be forwarded:
+
+```scala
+routes @@ Middleware.forwardHeaders(Set("X-Request-ID", "Authorization"))
+```
+
+This middleware extracts the specified headers from the incoming request and stores them in the `RequestStore`. When we make an outgoing request using the ZIO HTTP Client, the `ZClientAspect.forwardHeaders` retrieves the headers from the [`RequestStore`](../contextual/request-store.md) and adds them to the outgoing request.
+
+To see the full flow, please refer to the [`ZClientAspect.forwardHeaders` documentation](../client.md#forwarding-headers).
