@@ -1,5 +1,6 @@
 import BuildHelper.*
 import Dependencies.{scalafmt, *}
+import scala.sys.process.*
 
 import scala.concurrent.duration.*
 
@@ -126,6 +127,18 @@ inThisBuild(
 
 ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
+lazy val exampleProjects: Seq[ProjectReference] = if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference] else Seq[ProjectReference](
+  zioHttpExampleBasicAuth,
+  zioHttpExampleCookieAuth,
+  zioHttpExampleDigestAuth,
+  zioHttpExampleOpaqueBearerTokenAuth,
+  zioHttpExampleJwtBearerTokenAuth,
+  zioHttpExampleJwtBearerRefreshTokenAuth,
+  zioHttpExampleOauthBearerTokenAuth,
+  zioHttpExampleWebauthn,
+  )
+
+
 lazy val aggregatedProjects: Seq[ProjectReference] =
   if (Shading.shadingEnabled) {
     Seq(
@@ -134,7 +147,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpTestkit,
     )
   } else {
-    Seq(
+    Seq[ProjectReference](
       zioHttpJVM,
       zioHttpJS,
       zioHttpBenchmarks,
@@ -146,18 +159,10 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpHtmx,
       zioHttpStomp,
       zioHttpExample,
-      zioHttpExampleBasicAuth,
-      zioHttpExampleCookieAuth,
-      zioHttpExampleDigestAuth,
-      zioHttpExampleOpaqueBearerTokenAuth,
-      zioHttpExampleJwtBearerTokenAuth,
-      zioHttpExampleJwtBearerRefreshTokenAuth,
-      zioHttpExampleOauthBearerTokenAuth,
-      zioHttpExampleWebauthn,
       zioHttpTestkit,
       zioHttpTools,
       docs,
-    )
+    ) ++ exampleProjects
   }
 
 lazy val root = (project in file("."))
