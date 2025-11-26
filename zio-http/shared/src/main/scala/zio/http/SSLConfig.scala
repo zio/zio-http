@@ -38,9 +38,35 @@ final case class SSLConfig(
   provider: Provider,
   clientAuth: Option[ClientAuth] = None,
   includeClientCert: Boolean = false,
-  @unroll
   protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
-)
+) {
+  // @unroll annotation does not work here, doing manual unroll for binary compatibility
+
+  def this(
+    behaviour: HttpBehaviour,
+    data: Data,
+    provider: Provider,
+    clientAuth: Option[ClientAuth],
+    includeClientCert: Boolean,
+  ) = this(behaviour, data, provider, clientAuth, includeClientCert, Seq("TLSv1.3", "TLSv1.2"))
+
+  def copy(
+    behaviour: HttpBehaviour = this.behaviour,
+    data: Data = this.data,
+    provider: Provider = this.provider,
+    clientAuth: Option[ClientAuth] = this.clientAuth,
+    includeClientCert: Boolean = this.includeClientCert,
+    protocols: Seq[String] = this.protocols,
+  ): SSLConfig = SSLConfig(behaviour, data, provider, clientAuth, includeClientCert, protocols)
+
+  def copy(
+    behaviour: HttpBehaviour,
+    data: Data,
+    provider: Provider,
+    clientAuth: Option[ClientAuth],
+    includeClientCert: Boolean,
+  ): SSLConfig = SSLConfig(behaviour, data, provider, clientAuth, includeClientCert, this.protocols)
+}
 
 object SSLConfig {
 
@@ -49,6 +75,14 @@ object SSLConfig {
 
   def apply(data: Data, clientAuth: ClientAuth): SSLConfig =
     new SSLConfig(HttpBehaviour.Redirect, data, Provider.JDK, Some(clientAuth))
+
+  def apply(
+    behaviour: HttpBehaviour,
+    data: Data,
+    provider: Provider,
+    clientAuth: Option[ClientAuth],
+    includeClientCert: Boolean,
+  ): SSLConfig = new SSLConfig(behaviour, data, provider, clientAuth, includeClientCert)
 
   val config: Config[SSLConfig] =
     (
