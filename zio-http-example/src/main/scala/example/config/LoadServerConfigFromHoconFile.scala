@@ -1,6 +1,6 @@
 //> using dep "dev.zio::zio-http:3.4.0"
-//> using dep "dev.zio::zio-config:4.0.5"
-//> using dep "dev.zio::zio-config-typesafe:4.0.5"
+//> using dep "dev.zio::zio-config:4.0.6"
+//> using dep "dev.zio::zio-config-typesafe:4.0.6"
 
 package example.config
 

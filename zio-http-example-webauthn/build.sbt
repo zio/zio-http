@@ -4,12 +4,12 @@ scalaVersion := "2.13.17"
 
 publish / skip  := true
 publishArtifact := false
-run / fork := true
+run / fork      := true
 
 libraryDependencies ++= Seq(
-  "dev.zio" %% "zio"      % "2.1.22",
-  "dev.zio" %% "zio-http" % "3.5.1",
-  "dev.zio" %% "zio-config" % "4.0.5",
+  "dev.zio"   %% "zio"                         % "2.1.22",
+  "dev.zio"   %% "zio-http"                    % "3.5.1",
+  "dev.zio"   %% "zio-config"                  % "4.0.6",
   "com.yubico" % "webauthn-server-core"        % "2.7.0",
   "com.yubico" % "webauthn-server-attestation" % "2.7.0",
 )
