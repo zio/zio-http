@@ -127,17 +127,19 @@ inThisBuild(
 
 ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
-lazy val exampleProjects: Seq[ProjectReference] = if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference] else Seq[ProjectReference](
-  zioHttpExampleBasicAuth,
-  zioHttpExampleCookieAuth,
-  zioHttpExampleDigestAuth,
-  zioHttpExampleOpaqueBearerTokenAuth,
-  zioHttpExampleJwtBearerTokenAuth,
-  zioHttpExampleJwtBearerRefreshTokenAuth,
-  zioHttpExampleOauthBearerTokenAuth,
-  zioHttpExampleWebauthn,
-  )
-
+lazy val exampleProjects: Seq[ProjectReference] =
+  if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference]
+  else
+    Seq[ProjectReference](
+      zioHttpExampleBasicAuth,
+      zioHttpExampleCookieAuth,
+      zioHttpExampleDigestAuth,
+      zioHttpExampleOpaqueBearerTokenAuth,
+      zioHttpExampleJwtBearerTokenAuth,
+      zioHttpExampleJwtBearerRefreshTokenAuth,
+      zioHttpExampleOauthBearerTokenAuth,
+      zioHttpExampleWebauthn,
+    )
 
 lazy val aggregatedProjects: Seq[ProjectReference] =
   if (Shading.shadingEnabled) {
@@ -182,8 +184,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(
     autoCompilerPlugins := true,
     libraryDependencies ++= unroll,
-    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
-    )
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12"),
+  )
   .settings(
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
@@ -359,8 +361,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.0",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.0",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.5.4",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.4",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
