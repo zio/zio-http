@@ -127,17 +127,19 @@ inThisBuild(
 
 ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
-lazy val exampleProjects: Seq[ProjectReference] = if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference] else Seq[ProjectReference](
-  zioHttpExampleBasicAuth,
-  zioHttpExampleCookieAuth,
-  zioHttpExampleDigestAuth,
-  zioHttpExampleOpaqueBearerTokenAuth,
-  zioHttpExampleJwtBearerTokenAuth,
-  zioHttpExampleJwtBearerRefreshTokenAuth,
-  zioHttpExampleOauthBearerTokenAuth,
-  zioHttpExampleWebauthn,
-  )
-
+lazy val exampleProjects: Seq[ProjectReference] =
+  if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference]
+  else
+    Seq[ProjectReference](
+      zioHttpExampleBasicAuth,
+      zioHttpExampleCookieAuth,
+      zioHttpExampleDigestAuth,
+      zioHttpExampleOpaqueBearerTokenAuth,
+      zioHttpExampleJwtBearerTokenAuth,
+      zioHttpExampleJwtBearerRefreshTokenAuth,
+      zioHttpExampleOauthBearerTokenAuth,
+      zioHttpExampleWebauthn,
+    )
 
 lazy val aggregatedProjects: Seq[ProjectReference] =
   if (Shading.shadingEnabled) {
@@ -182,8 +184,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(
     autoCompilerPlugins := true,
     libraryDependencies ++= unroll,
-    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
-    )
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12"),
+  )
   .settings(
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
@@ -406,7 +408,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.20",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.32.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.1"  % "protobuf",
     ),
   )
   .settings(
@@ -430,7 +432,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.32.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.1"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
     ),
     Compile / run / fork := true,
