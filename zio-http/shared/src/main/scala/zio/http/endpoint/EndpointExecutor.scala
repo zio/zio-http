@@ -130,6 +130,16 @@ object EndpointExecutor {
   ): EndpointExecutor[Any, Auth, ReqEnv] =
     EndpointExecutor(client, EndpointLocator.fromURL(location), ZIO.succeed(auth))
 
+  @nowarn("msg=deprecated")
+  def apply[R, Auth, ReqEnv](
+    client: ZClient[Any, ReqEnv, Body, Throwable, Response],
+    location: URL,
+    authProvider: ZIO[R, Nothing, Auth],
+  )(implicit
+    trace: Trace,
+  ): EndpointExecutor[R, Auth, ReqEnv] =
+    EndpointExecutor(client, EndpointLocator.fromURL(location), authProvider)
+
   final case class Config(url: URL)
   object Config {
     import zio.{Config => ZConfig}
