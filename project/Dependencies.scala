@@ -4,7 +4,7 @@ object Dependencies {
   val JwtCoreVersion               = "11.0.3"
   val NettyVersion                 = "4.2.7.Final"
   val ScalaCompatCollectionVersion = "2.13.0"
-  val ZioVersion                   = "2.1.21"
+  val ZioVersion                   = "2.1.23"
   val ZioCliVersion                = "0.7.3"
   val ZioJsonVersion               = "0.7.45"
   val ZioParserVersion             = "0.1.10"
@@ -36,8 +36,8 @@ object Dependencies {
 
   val unroll = Seq(
     "com.lihaoyi" %% "unroll-annotation" % "0.1.12",
-    "com.lihaoyi" %% "unroll-plugin" % "0.1.12"
-    )
+    "com.lihaoyi" %% "unroll-plugin"     % "0.1.12",
+  )
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
