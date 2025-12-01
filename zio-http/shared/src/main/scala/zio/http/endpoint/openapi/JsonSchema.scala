@@ -434,8 +434,7 @@ object JsonSchema {
     def toSerializableSchema: SerializableJsonSchema = {
       root.toSerializableSchema.copy(
         schema = Some("https://json-schema.org/draft/2020-12/schema"),
-        defs = Some(children.map { case (key, schema) => key -> schema.toSerializableSchema },
-      ),
+        defs = Some(children.map { case (key, schema) => key -> schema.toSerializableSchema }),
       )
     }
 
