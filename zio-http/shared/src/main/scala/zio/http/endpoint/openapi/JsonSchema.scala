@@ -420,6 +420,16 @@ object JsonSchema {
       case SegmentCodec.Combined(_, _, _) => throw new IllegalArgumentException("Combined segment is not supported.")
     }
 
+  /**
+   * Represents a complete JSON Schema document, consisting of:
+   *
+   * @param root
+   *   The top-level [[JsonSchema]] for the document.
+   * @param children
+   *   A map of definition names to their corresponding [[JsonSchema]]
+   *   instances. These will be emitted in the `"$defs"` section of the
+   *   serialized schema.
+   */
   case class JsonSchemaRoot(root: JsonSchema, children: Map[java.lang.String, JsonSchema]) {
     def toSerializableSchema: SerializableJsonSchema = {
       root.toSerializableSchema.copy(
@@ -438,7 +448,20 @@ object JsonSchema {
         )(JsonSchemaRoot.schema)
         .encodeJson(this, indent)
 
-    def toJson: java.lang.String       = encodeJson(None).toString
+    /**
+     * Serializes the schema into compact JSON (no pretty-printing).
+     *
+     * @return
+     *   A JSON string containing the serialized schema.
+     */
+    def toJson: java.lang.String = encodeJson(None).toString
+
+    /**
+     * Serializes the schema into human-readable, pretty-printed JSON.
+     *
+     * @return
+     *   A formatted JSON string representing the schema.
+     */
     def toJsonPretty: java.lang.String = encodeJson(Some(0)).toString
   }
 
@@ -454,6 +477,14 @@ object JsonSchema {
       )
   }
 
+  /**
+   * Builds a JSON Schema document from the given ZIO `Schema`
+   *
+   * @param schema
+   *   The schema to convert into a JSON Schema document.
+   * @return
+   *   A [[JsonSchemaRoot]] representing a valid JSON Schema document.
+   */
   def jsonSchema(schema: Schema[_]): JsonSchemaRoot = {
     val path = "#/$defs/"
     val s    = fromZSchemaMulti(schema, SchemaRef(path, SchemaStyle.Compact))
