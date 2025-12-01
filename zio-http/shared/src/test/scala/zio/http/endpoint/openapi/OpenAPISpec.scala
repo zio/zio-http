@@ -131,7 +131,6 @@ object OpenAPISpec extends ZIOSpecDefault {
       val jsonSchema = JsonSchema.jsonSchema(schemaTestSchema)
       val json       = jsonSchema.toJsonPretty
       val expected   = """{
-                       |  "$schema" : "https://json-schema.org/draft/2020-12/schema",
                        |  "type" : "object",
                        |  "properties" : {
                        |    "number" : {
@@ -203,7 +202,8 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |        }
                        |      }
                        |    }
-                       |  }
+                       |  },
+                       |  "$schema" : "https://json-schema.org/draft/2020-12/schema"
                        |}""".stripMargin
 
       println(json)
