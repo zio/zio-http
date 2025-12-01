@@ -1,14 +1,18 @@
 package zio.http.endpoint.openapi
 
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.collection.{immutable, mutable}
+
 import zio._
 import zio.json.ast.Json
+
 import zio.schema.Schema.{Record, Transform}
 import zio.schema.codec.JsonCodec
 import zio.schema.{Schema, TypeId}
+
 import zio.http._
 import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec.HttpCodecType.Content

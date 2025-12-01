@@ -1,14 +1,18 @@
 package zio.http.endpoint.openapi
 
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
+
 import zio.json.ast.Json
 import zio.test._
+
+import zio.schema.annotation.discriminatorName
 import zio.schema.{DeriveSchema, Schema}
+
 import zio.http.endpoint.openapi.JsonSchema.{SchemaRef, SchemaStyle}
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme._
-import zio.schema.annotation.discriminatorName
 
 object OpenAPISpec extends ZIOSpecDefault {
 
