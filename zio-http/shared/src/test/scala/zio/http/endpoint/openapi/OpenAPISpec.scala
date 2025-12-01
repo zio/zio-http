@@ -18,16 +18,14 @@ object OpenAPISpec extends ZIOSpecDefault {
   def toJsonAst(api: OpenAPI): Json =
     toJsonAst(api.toJson)
 
-
-  @discriminatorName("type") sealed trait SchemaTestChild
-  object SchemaTestChild {
-    case class A(set: Set[String]) extends   SchemaTestChild
-    case class B(list: List[String]) extends  SchemaTestChild
+  @discriminatorName("type") sealed trait SealedTrait
+  object SealedTrait {
+    case class One(set: Set[String])   extends SealedTrait
+    case class Two(list: List[String]) extends SealedTrait
   }
 
-  case class SchemaTest(number: Int, string: String, child: Option[SchemaTestChild])
-  implicit val schemaTestSchema: Schema[SchemaTest] =
-    DeriveSchema.gen[SchemaTest]
+  case class SchemaTest(number: Int, string: String, child: Option[SealedTrait])
+  implicit val schemaTestSchema: Schema[SchemaTest] = DeriveSchema.gen[SchemaTest]
 
   val spec = suite("OpenAPISpec")(
     test("auth schema serialization") {
@@ -125,10 +123,11 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |}""".stripMargin
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
-    test("json") {
-      val jsonSchema = JsonSchema.root(schemaTestSchema)
-      val json = jsonSchema.toJsonPretty
-      val expected = """{
+    test("JsonSchema.jsonSchema correctly generate valid Json Schema with $defs and associated $ref") {
+      val jsonSchema = JsonSchema.jsonSchema(schemaTestSchema)
+      val json       = jsonSchema.toJsonPretty
+      val expected   = """{
+                       |  "$schema" : "https://json-schema.org/draft/2020-12/schema",
                        |  "type" : "object",
                        |  "properties" : {
                        |    "number" : {
@@ -144,7 +143,7 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |          "type" : "null"
                        |        },
                        |        {
-                       |          "$ref" : "#/$defs/SchemaTestChild"
+                       |          "$ref" : "#/$defs/SealedTrait"
                        |        }
                        |      ]
                        |    }
@@ -154,7 +153,7 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |    "string"
                        |  ],
                        |  "$defs" : {
-                       |    "A" : {
+                       |    "One" : {
                        |      "type" : "object",
                        |      "properties" : {
                        |        "set" : {
@@ -169,7 +168,7 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |        "set"
                        |      ]
                        |    },
-                       |    "B" : {
+                       |    "Two" : {
                        |      "type" : "object",
                        |      "properties" : {
                        |        "list" : {
@@ -183,20 +182,20 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |        "list"
                        |      ]
                        |    },
-                       |    "SchemaTestChild" : {
+                       |    "SealedTrait" : {
                        |      "oneOf" : [
                        |        {
-                       |          "$ref" : "#/$defs/A"
+                       |          "$ref" : "#/$defs/One"
                        |        },
                        |        {
-                       |          "$ref" : "#/$defs/B"
+                       |          "$ref" : "#/$defs/Two"
                        |        }
                        |      ],
                        |      "discriminator" : {
                        |        "propertyName" : "type",
                        |        "mapping" : {
-                       |          "A" : "#/$defs/A",
-                       |          "B" : "#/$defs/B"
+                       |          "One" : "#/$defs/One",
+                       |          "Two" : "#/$defs/Two"
                        |        }
                        |      }
                        |    }
@@ -206,6 +205,6 @@ object OpenAPISpec extends ZIOSpecDefault {
       println(json)
 
       assertTrue(toJsonAst(json) == toJsonAst(expected))
-    }
+    },
   )
 }

@@ -18,6 +18,7 @@ import zio.http.endpoint.openapi.JsonSchema.MetaData
 
 @nowarn("msg=possible missing interpolator")
 private[openapi] case class SerializableJsonSchema(
+  @fieldName("$schema") schema: Option[String] = None,
   @fieldName("$ref") ref: Option[String] = None,
   @fieldName("type") schemaType: Option[TypeOrTypes] = None,
   format: Option[String] = None,
@@ -49,7 +50,7 @@ private[openapi] case class SerializableJsonSchema(
   exclusiveMaximum: Option[Either[Boolean, Either[Double, Long]]] = None,
   uniqueItems: Option[Boolean] = None,
   minItems: Option[Int] = None,
-  @fieldName("$defs") defs: Map[String, SerializableJsonSchema] = Map.empty,
+  @fieldName("$defs") defs: Map[String, SerializableJsonSchema] = Map.empty
 ) {
   def asNullableType(nullable: Boolean): SerializableJsonSchema = {
     import SerializableJsonSchema.typeNull
@@ -421,10 +422,12 @@ object JsonSchema {
 
   case class JsonSchemaRoot(root: JsonSchema, children: Map[java.lang.String, JsonSchema]) {
     def toSerializableSchema: SerializableJsonSchema = {
-      root.toSerializableSchema.copy(defs = children.map { case (key, schema) => key -> schema.toSerializableSchema })
+      root.toSerializableSchema.copy(
+        schema = Some("https://json-schema.org/draft/2020-12/schema"),
+        defs = children.map { case (key, schema) => key -> schema.toSerializableSchema })
     }
 
-    def toJson: java.lang.String =
+    def encodeJson(indent: Option[Int] = None): CharSequence =
       JsonCodec
         .jsonEncoder(
           JsonCodec.Configuration(
@@ -432,19 +435,10 @@ object JsonSchema {
             explicitNulls = ExplicitConfig(encoding = false),
           ),
         )(JsonSchemaRoot.schema)
-        .encodeJson(this, None)
-        .toString
+        .encodeJson(this, indent)
 
-    def toJsonPretty: java.lang.String =
-      JsonCodec
-        .jsonEncoder(
-          JsonCodec.Configuration(
-            explicitEmptyCollections = ExplicitConfig(encoding = false),
-            explicitNulls = ExplicitConfig(encoding = false),
-          ),
-        )(JsonSchemaRoot.schema)
-        .encodeJson(this, Some(0))
-        .toString
+    def toJson: java.lang.String = encodeJson(None).toString
+    def toJsonPretty: java.lang.String = encodeJson(Some(0)).toString
   }
 
   object JsonSchemaRoot {
@@ -459,7 +453,7 @@ object JsonSchema {
       )
   }
 
-  def root(schema: Schema[_]) = {
+  def jsonSchema(schema: Schema[_]): JsonSchemaRoot = {
     val path = "#/$defs/"
     val s    = fromZSchemaMulti(schema, SchemaRef(path, SchemaStyle.Compact))
     JsonSchemaRoot(s.root, s.children.map { case (key, schema) => key.replace(path, "") -> schema })
