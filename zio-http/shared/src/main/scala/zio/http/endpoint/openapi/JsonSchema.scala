@@ -50,7 +50,7 @@ private[openapi] case class SerializableJsonSchema(
   exclusiveMaximum: Option[Either[Boolean, Either[Double, Long]]] = None,
   uniqueItems: Option[Boolean] = None,
   minItems: Option[Int] = None,
-  @fieldName("$defs") defs: Map[String, SerializableJsonSchema] = Map.empty,
+  @fieldName("$defs") defs: Option[Map[String, SerializableJsonSchema]] = None,
 ) {
   def asNullableType(nullable: Boolean): SerializableJsonSchema = {
     import SerializableJsonSchema.typeNull
@@ -434,7 +434,8 @@ object JsonSchema {
     def toSerializableSchema: SerializableJsonSchema = {
       root.toSerializableSchema.copy(
         schema = Some("https://json-schema.org/draft/2020-12/schema"),
-        defs = children.map { case (key, schema) => key -> schema.toSerializableSchema },
+        defs = Some(children.map { case (key, schema) => key -> schema.toSerializableSchema },
+      ),
       )
     }
 
@@ -473,7 +474,7 @@ object JsonSchema {
     private[openapi] def fromSerializableSchema(schema: SerializableJsonSchema): JsonSchemaRoot =
       JsonSchemaRoot(
         JsonSchema.fromSerializableSchema(schema),
-        schema.defs.map { case (key, schema) => key -> JsonSchema.fromSerializableSchema(schema) },
+        schema.defs.getOrElse(Map.empty).map { case (key, schema) => key -> JsonSchema.fromSerializableSchema(schema) },
       )
   }
 
