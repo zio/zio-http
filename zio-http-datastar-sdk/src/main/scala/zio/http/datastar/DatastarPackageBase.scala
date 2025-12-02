@@ -16,7 +16,7 @@ import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.template2._
 
-trait DatastarPackageBase extends Attributes {
+trait DatastarPackageBase extends Attributes with InvocationExtensions {
   self =>
   private val headers = Headers(
     Header.CacheControl.NoCache,
@@ -178,7 +178,7 @@ trait DatastarPackageBase extends Attributes {
     ((patchElementsCodec | executeScriptCodec).transform(_.merge) {
       case e: DatastarEvent.PatchElements => Left(e)
       case e: DatastarEvent.ExecuteScript => Right(e)
-      case e: DatastarEvent.PatchSignals  => throw new Exception("Unreachable")
+      case _: DatastarEvent.PatchSignals  => throw new Exception("Unreachable")
     } | patchSignalsCodec).transform(_.merge) {
       case e: DatastarEvent.PatchElements => Left(e)
       case e: DatastarEvent.ExecuteScript => Left(e)
