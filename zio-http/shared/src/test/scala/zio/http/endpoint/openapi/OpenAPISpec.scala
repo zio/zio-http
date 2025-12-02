@@ -130,81 +130,80 @@ object OpenAPISpec extends ZIOSpecDefault {
     test("JsonSchema.jsonSchema correctly generate valid Json Schema with $defs and associated $ref") {
       val jsonSchema = JsonSchema.jsonSchema(schemaTestSchema)
       val json       = jsonSchema.toJsonPretty
-      val expected   = """{
-                       |  "type" : "object",
-                       |  "properties" : {
-                       |    "number" : {
-                       |      "type" : "integer",
-                       |      "format" : "int32"
-                       |    },
-                       |    "string" : {
-                       |      "type" : "string"
-                       |    },
-                       |    "child" : {
-                       |      "anyOf" : [
-                       |        {
-                       |          "type" : "null"
-                       |        },
-                       |        {
-                       |          "$ref" : "#/$defs/SealedTrait"
-                       |        }
-                       |      ]
-                       |    }
-                       |  },
-                       |  "required" : [
-                       |    "number",
-                       |    "string"
-                       |  ],
-                       |  "$defs" : {
-                       |    "One" : {
-                       |      "type" : "object",
-                       |      "properties" : {
-                       |        "set" : {
-                       |          "type" : "array",
-                       |          "items" : {
-                       |            "type" : "string"
-                       |          },
-                       |          "uniqueItems" : true
-                       |        }
-                       |      },
-                       |      "required" : [
-                       |        "set"
-                       |      ]
-                       |    },
-                       |    "Two" : {
-                       |      "type" : "object",
-                       |      "properties" : {
-                       |        "list" : {
-                       |          "type" : "array",
-                       |          "items" : {
-                       |            "type" : "string"
-                       |          }
-                       |        }
-                       |      },
-                       |      "required" : [
-                       |        "list"
-                       |      ]
-                       |    },
-                       |    "SealedTrait" : {
-                       |      "oneOf" : [
-                       |        {
-                       |          "$ref" : "#/$defs/One"
-                       |        },
-                       |        {
-                       |          "$ref" : "#/$defs/Two"
-                       |        }
-                       |      ],
-                       |      "discriminator" : {
-                       |        "propertyName" : "type",
-                       |        "mapping" : {
-                       |          "One" : "#/$defs/One",
-                       |          "Two" : "#/$defs/Two"
-                       |        }
-                       |      }
-                       |    }
-                       |  },
-                       |  "$schema" : "https://json-schema.org/draft/2020-12/schema"
-                       |}""".stripMargin
+      val expected   = f"""{"$$schema" : "https://json-schema.org/draft/2020-12/schema",""" +
+        """  "type" : "object",
+          |  "properties" : {
+          |    "number" : {
+          |      "type" : "integer",
+          |      "format" : "int32"
+          |    },
+          |    "string" : {
+          |      "type" : "string"
+          |    },
+          |    "child" : {
+          |      "anyOf" : [
+          |        {
+          |          "type" : "null"
+          |        },
+          |        {
+          |          "$ref" : "#/$defs/SealedTrait"
+          |        }
+          |      ]
+          |    }
+          |  },
+          |  "required" : [
+          |    "number",
+          |    "string"
+          |  ],
+          |  "$defs" : {
+          |    "One" : {
+          |      "type" : "object",
+          |      "properties" : {
+          |        "set" : {
+          |          "type" : "array",
+          |          "items" : {
+          |            "type" : "string"
+          |          },
+          |          "uniqueItems" : true
+          |        }
+          |      },
+          |      "required" : [
+          |        "set"
+          |      ]
+          |    },
+          |    "Two" : {
+          |      "type" : "object",
+          |      "properties" : {
+          |        "list" : {
+          |          "type" : "array",
+          |          "items" : {
+          |            "type" : "string"
+          |          }
+          |        }
+          |      },
+          |      "required" : [
+          |        "list"
+          |      ]
+          |    },
+          |    "SealedTrait" : {
+          |      "oneOf" : [
+          |        {
+          |          "$ref" : "#/$defs/One"
+          |        },
+          |        {
+          |          "$ref" : "#/$defs/Two"
+          |        }
+          |      ],
+          |      "discriminator" : {
+          |        "propertyName" : "type",
+          |        "mapping" : {
+          |          "One" : "#/$defs/One",
+          |          "Two" : "#/$defs/Two"
+          |        }
+          |      }
+          |    }
+          |  }
+          |}""".stripMargin
 
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
