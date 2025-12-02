@@ -412,5 +412,155 @@ object DatastarEventSpec extends ZIOSpecDefault {
         )
       },
     ),
+    suite("PatchElements with multi-line content")(
+      test("handles script tags with multi-line JavaScript") {
+        val scriptContent = """console.log('line 1');
+                              |console.log('line 2');
+                              |console.log('line 3');""".stripMargin
+        val event         = DatastarEvent.patchElements(
+          Dom.script(scriptContent),
+        )
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          sse.data == """elements <script>console.log('line 1');
+                        |elements console.log('line 2');
+                        |elements console.log('line 3');</script>
+                        |""".stripMargin,
+        )
+      },
+      test("handles style tags with multi-line CSS") {
+        val cssContent = """.button {
+                           |  color: red;
+                           |  background: blue;
+                           |}""".stripMargin
+        val event      = DatastarEvent.patchElements(
+          Dom.style(cssContent),
+        )
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          sse.data == """elements <style>.button {
+                        |elements   color: red;
+                        |elements   background: blue;
+                        |elements }</style>
+                        |""".stripMargin,
+        )
+      },
+      test("handles inline style attribute with newlines") {
+        val styleContent = """color: red;
+                             |background: blue;
+                             |padding: 10px;""".stripMargin
+        val event        = DatastarEvent.patchElements(
+          div(Dom.attr("style", styleContent))("Content"),
+        )
+
+        val sse = event.toServerSentEvent
+
+        // The minified output should handle newlines in attribute values
+        assertTrue(
+          sse.data.startsWith("elements ") &&
+            sse.data.contains("style=") &&
+            sse.data.contains("Content"),
+        )
+      },
+      test("handles complex HTML with embedded script and style") {
+        val event = DatastarEvent.patchElements(
+          div(
+            Dom.style(""".test {
+                        |  color: red;
+                        |}""".stripMargin),
+            Dom.script("""console.log('test');
+                         |alert('hello');""".stripMargin),
+            p("Content"),
+          ),
+        )
+
+        val sse = event.toServerSentEvent
+
+        // Should split on newlines and prefix each line with "elements "
+        val lines = sse.data.split('\n').filter(_.nonEmpty)
+        assertTrue(
+          lines.forall(_.startsWith("elements ")),
+          lines.length > 1, // Multi-line content
+          sse.data.contains(".test"),
+          sse.data.contains("console.log"),
+          sse.data.contains("Content"),
+        )
+      },
+      test("handles single-line content without extra splitting") {
+        val event = DatastarEvent.patchElements(
+          div("Simple content"),
+        )
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          sse.data == "elements <div>Simple content</div>\n",
+        )
+      },
+      test("handles script with selector and mode options") {
+        val scriptContent = """function init() {
+                              |  console.log('initialized');
+                              |}""".stripMargin
+        val event         = DatastarEvent.patchElements(
+          Dom.script(scriptContent),
+          Some(selector"#app"),
+          ElementPatchMode.Append,
+        )
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          sse.data.contains("selector #app\n"),
+          sse.data.contains("mode append\n"),
+          sse.data.contains("elements <script>function init() {\n"),
+          sse.data.contains("elements   console.log('initialized');\n"),
+          sse.data.contains("elements }</script>\n"),
+        )
+      },
+      test("handles CSS with minification and newlines") {
+        val cssContent = """.container {
+                           |  display: flex;
+                           |  justify-content: center;
+                           |}
+                           |.item {
+                           |  margin: 5px;
+                           |}""".stripMargin
+        val event      = DatastarEvent.patchElements(
+          Dom.style(cssContent),
+        )
+
+        val sse = event.toServerSentEvent
+
+        // Each line should be prefixed with "elements "
+        val lines = sse.data.split('\n').filter(_.nonEmpty)
+        assertTrue(
+          lines.forall(_.startsWith("elements ")),
+          lines.length >= 5, // Multiple lines from CSS
+          sse.data.contains("container"),
+          sse.data.contains("display"),
+          sse.data.contains("item"),
+        )
+      },
+      test("ExecuteScript should also handle multi-line correctly") {
+        val scriptContent = """const x = 1;
+                              |const y = 2;
+                              |console.log(x + y);""".stripMargin
+        val event         = DatastarEvent.executeScript(scriptContent)
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          sse.data.contains("selector <body></body>\n"),
+          sse.data.contains("mode append\n"),
+          sse.data.contains("elements <script data-effect=\"el.remove\">const x = 1;\n"),
+          sse.data.contains("elements const y = 2;\n"),
+          sse.data.contains("elements console.log(x + y);</script>\n"),
+        )
+      },
+    ),
   )
 }
