@@ -427,8 +427,7 @@ object JsonSchema {
    *   The top-level [[JsonSchema]] for the document.
    * @param children
    *   A map of definition names to their corresponding [[JsonSchema]]
-   *   instances. These will be emitted in the `"$defs"` section of the
-   *   serialized schema.
+   *   instances.
    */
   case class JsonSchemaRoot(root: JsonSchema, children: Map[java.lang.String, JsonSchema]) {
     def toSerializableSchema: SerializableJsonSchema = {
