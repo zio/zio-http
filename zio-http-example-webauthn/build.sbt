@@ -2,7 +2,8 @@ name         := "zio-http-example-webauthn"
 version      := "0.1.1"
 scalaVersion := "2.13.17"
 
-publish / skip := true
+publish / skip  := true
+publishArtifact := false
 run / fork := true
 
 libraryDependencies ++= Seq(
