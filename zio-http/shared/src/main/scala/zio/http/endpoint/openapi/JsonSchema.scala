@@ -486,12 +486,19 @@ object JsonSchema {
    *   A [[JsonSchemaRoot]] representing a valid JSON Schema document.
    */
   def jsonSchema(schema: Schema[_]): JsonSchemaRoot = {
-    val path = "#/$defs/"
-    val s    = fromZSchemaMulti(schema, SchemaRef(path, SchemaStyle.Compact))
-    JsonSchemaRoot(s.root, s.children.map { case (key, schema) => key.replace(path, "") -> schema })
+    val schemaRef = SchemaRef.jsonSchema(SchemaStyle.Compact)
+    val s         = fromZSchemaMultiple(schema, schemaRef)
+    JsonSchemaRoot(s.root, s.children.map { case (key, schema) => key.replace(schemaRef.path, "") -> schema })
   }
 
+  @deprecated("use fromZSchemaMultiple", "4.0")
   def fromZSchemaMulti(
+    schema: Schema[_],
+    refType: SchemaStyle = SchemaStyle.Inline,
+    seen: Set[java.lang.String] = Set.empty,
+  ): JsonSchemas = fromZSchemaMultiple(schema, SchemaRef("", refType), seen)
+
+  def fromZSchemaMultiple(
     schema: Schema[_],
     refType: SchemaRef,
     seen: Set[java.lang.String] = Set.empty,
@@ -514,7 +521,7 @@ object JsonSchema {
                 val key    =
                   nominal(c.schema, refType)
                     .orElse(nominal(c.schema, refType.inline))
-                val nested = fromZSchemaMulti(
+                val nested = fromZSchemaMultiple(
                   c.schema,
                   refType,
                   seenWithCurrent,
@@ -527,7 +534,7 @@ object JsonSchema {
           val children = record.fields
             .filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
             .flatMap { field =>
-              val nested = fromZSchemaMulti(
+              val nested = fromZSchemaMultiple(
                 field.annotations.foldLeft(field.schema)((schema, annotation) => schema.annotate(annotation)),
                 refType,
                 seenWithCurrent,
@@ -557,32 +564,32 @@ object JsonSchema {
               arraySchemaMulti(refType, ref, elementSchema, seenWithCurrent)
           }
         case Schema.Transform(schema, _, _, _, _)                                              =>
-          fromZSchemaMulti(schema, refType, seen)
+          fromZSchemaMultiple(schema, refType, seen)
         case Schema.Primitive(_, _)                                                            =>
           JsonSchemas(fromZSchema(schema, refType.inline), ref, Map.empty)
         case Schema.Optional(schema, _)                                                        =>
-          fromZSchemaMulti(schema, refType, seenWithCurrent)
+          fromZSchemaMultiple(schema, refType, seenWithCurrent)
         case Schema.Fail(_, _)                                                                 =>
           throw new IllegalArgumentException("Fail schema is not supported.")
         case Schema.Tuple2(left, right, _)                                                     =>
-          val leftSchema  = fromZSchemaMulti(left, refType, seenWithCurrent)
-          val rightSchema = fromZSchemaMulti(right, refType, seenWithCurrent)
+          val leftSchema  = fromZSchemaMultiple(left, refType, seenWithCurrent)
+          val rightSchema = fromZSchemaMultiple(right, refType, seenWithCurrent)
           JsonSchemas(
             AllOfSchema(Chunk(leftSchema.root, rightSchema.root)),
             ref,
             leftSchema.children ++ rightSchema.children,
           )
         case Schema.Either(left, right, _)                                                     =>
-          val leftSchema  = fromZSchemaMulti(left, refType, seenWithCurrent)
-          val rightSchema = fromZSchemaMulti(right, refType, seenWithCurrent)
+          val leftSchema  = fromZSchemaMultiple(left, refType, seenWithCurrent)
+          val rightSchema = fromZSchemaMultiple(right, refType, seenWithCurrent)
           JsonSchemas(
             OneOfSchema(Chunk(leftSchema.root, rightSchema.root)),
             ref,
             leftSchema.children ++ rightSchema.children,
           )
         case Schema.Fallback(left, right, fullDecode, _)                                       =>
-          val leftSchema  = fromZSchemaMulti(left, refType, seenWithCurrent)
-          val rightSchema = fromZSchemaMulti(right, refType, seenWithCurrent)
+          val leftSchema  = fromZSchemaMultiple(left, refType, seenWithCurrent)
+          val rightSchema = fromZSchemaMultiple(right, refType, seenWithCurrent)
           val candidates  =
             if (fullDecode)
               Chunk(
@@ -602,7 +609,7 @@ object JsonSchema {
             leftSchema.children ++ rightSchema.children,
           )
         case Schema.Lazy(schema0)                                                              =>
-          fromZSchemaMulti(schema0(), refType, seen)
+          fromZSchemaMultiple(schema0(), refType, seen)
         case Schema.Dynamic(_)                                                                 =>
           JsonSchemas(AnyJson, None, Map.empty)
       }
@@ -616,7 +623,7 @@ object JsonSchema {
     keySchema: Schema[K],
     valueSchema: Schema[V],
   ) = {
-    val nested          = fromZSchemaMulti(valueSchema, refType, seenWithCurrent)
+    val nested          = fromZSchemaMultiple(valueSchema, refType, seenWithCurrent)
     val mapObjectSchema = annotateMapSchemaWithKeysSchema(nested.root, keySchema)
 
     if (valueSchema.isInstanceOf[Schema.Primitive[_]]) {
@@ -642,7 +649,7 @@ object JsonSchema {
     minItems: Option[Int] = None,
     uniqueItems: Boolean = false,
   ): JsonSchemas = {
-    val nested = fromZSchemaMulti(elementSchema, refType, seen)
+    val nested = fromZSchemaMultiple(elementSchema, refType, seen)
     if (elementSchema.isInstanceOf[Schema.Primitive[_]]) {
       JsonSchemas(
         JsonSchema.ArrayType(Some(nested.root), minItems, uniqueItems),
@@ -662,7 +669,7 @@ object JsonSchema {
     keySchema match {
       case Schema.Primitive(StandardType.StringType, annotations) if annotations.isEmpty => None
       case nonSimple                                                                     =>
-        fromZSchema(nonSimple) match {
+        fromZSchema(nonSimple, SchemaRef.openApi(SchemaStyle.Inline)) match {
           case JsonSchema.String(None, None, None, None) => None // no need for extension
           case s: JsonSchema.String                      => Some(MetaData.KeySchema(s))
           case _                                         => None // only string keys are allowed
@@ -691,7 +698,11 @@ object JsonSchema {
     annotateMapSchemaWithKeysSchema(valuesSchema, keySchema)
   }
 
-  def fromZSchema(schema: Schema[_], refType: SchemaRef = SchemaRef("", SchemaStyle.Inline)): JsonSchema =
+  @deprecated("use SchemaRef instead of SchemaStyle", "4.0")
+  def fromZSchema(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchema =
+    fromZSchema(schema, SchemaRef("", refType))
+
+  def fromZSchema(schema: Schema[_], refType: SchemaRef): JsonSchema =
     schema match {
       case enum0: Schema.Enum[_] if refType.style != SchemaStyle.Inline && nominal(enum0).isDefined     =>
         JsonSchema.RefSchema(nominal(enum0, refType).get)
@@ -911,6 +922,10 @@ object JsonSchema {
   case class SchemaRef(path: java.lang.String, style: SchemaStyle) {
     def inline: SchemaRef  = copy(style = SchemaStyle.Inline)
     def compact: SchemaRef = copy(style = SchemaStyle.Compact)
+  }
+  object SchemaRef                                                 {
+    def openApi(style: SchemaStyle)    = SchemaRef("#/components/schemas/", style)
+    def jsonSchema(style: SchemaStyle) = SchemaRef("#/$defs/", style)
   }
 
   private def deprecated(schema: Schema[_]): Boolean =

@@ -76,7 +76,7 @@ object OpenAPISpec extends ZIOSpecDefault {
     },
     test("JsonSchema.fromZSchemaMulti correctly handles Map schema with List as Value") {
       val schema           = Schema.map[String, List[String]]
-      val sch: JsonSchemas = JsonSchema.fromZSchemaMulti(schema, SchemaRef("", SchemaStyle.Reference))
+      val sch: JsonSchemas = JsonSchema.fromZSchemaMultiple(schema, SchemaRef.openApi(SchemaStyle.Reference))
 
       val isSchemaProperlyGenerated = if (sch.root.isCollection) sch.root match {
         case JsonSchema.Object(_, additionalProperties, _) =>
@@ -92,7 +92,7 @@ object OpenAPISpec extends ZIOSpecDefault {
     },
     test("JsonSchema.fromZSchema correctly handles Map with non-simple string keys") {
       val schema   = Schema.map[UUID, String]
-      val js       = JsonSchema.fromZSchema(schema)
+      val js       = JsonSchema.fromZSchema(schema, SchemaRef.openApi(SchemaStyle.Inline))
       val oapi     = OpenAPI.empty.copy(
         components =
           Some(OpenAPI.Components(schemas = ListMap(OpenAPI.Key.fromString("IdToName").get -> ReferenceOr.Or(js)))),
@@ -205,8 +205,6 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |  },
                        |  "$schema" : "https://json-schema.org/draft/2020-12/schema"
                        |}""".stripMargin
-
-      println(json)
 
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
