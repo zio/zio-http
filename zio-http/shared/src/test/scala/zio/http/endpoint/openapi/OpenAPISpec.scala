@@ -10,7 +10,7 @@ import zio.test._
 import zio.schema.annotation.discriminatorName
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.endpoint.openapi.JsonSchema.{SchemaRef, SchemaStyle}
+import zio.http.endpoint.openapi.JsonSchema.{SchemaRef, SchemaSpec, SchemaStyle}
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme._
 
@@ -76,7 +76,8 @@ object OpenAPISpec extends ZIOSpecDefault {
     },
     test("JsonSchema.fromZSchemaMulti correctly handles Map schema with List as Value") {
       val schema           = Schema.map[String, List[String]]
-      val sch: JsonSchemas = JsonSchema.fromZSchemaMultiple(schema, SchemaRef.openApi(SchemaStyle.Reference))
+      val sch: JsonSchemas =
+        JsonSchema.fromZSchemaMultiple(schema, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Reference))
 
       val isSchemaProperlyGenerated = if (sch.root.isCollection) sch.root match {
         case JsonSchema.Object(_, additionalProperties, _) =>
@@ -92,7 +93,7 @@ object OpenAPISpec extends ZIOSpecDefault {
     },
     test("JsonSchema.fromZSchema correctly handles Map with non-simple string keys") {
       val schema   = Schema.map[UUID, String]
-      val js       = JsonSchema.fromZSchema(schema, SchemaRef.openApi(SchemaStyle.Inline))
+      val js       = JsonSchema.fromZSchema(schema, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Inline))
       val oapi     = OpenAPI.empty.copy(
         components =
           Some(OpenAPI.Components(schemas = ListMap(OpenAPI.Key.fromString("IdToName").get -> ReferenceOr.Or(js)))),

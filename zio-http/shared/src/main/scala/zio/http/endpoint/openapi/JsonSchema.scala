@@ -485,9 +485,11 @@ object JsonSchema {
    *   A [[JsonSchemaRoot]] representing a valid JSON Schema document.
    */
   def jsonSchema(schema: Schema[_]): JsonSchemaRoot = {
-    val schemaRef = SchemaRef.jsonSchema(SchemaStyle.Compact)
-    val s         = fromZSchemaMultiple(schema, schemaRef)
-    JsonSchemaRoot(s.root, s.children.map { case (key, schema) => key.replace(schemaRef.path, "") -> schema })
+    val s = fromZSchemaMultiple(schema, SchemaRef(SchemaSpec.JsonSchema, SchemaStyle.Compact))
+    JsonSchemaRoot(
+      s.root,
+      s.children.map { case (key, schema) => key.replace(SchemaSpec.JsonSchema.path, "") -> schema },
+    )
   }
 
   @deprecated("use fromZSchemaMultiple", "4.0")
@@ -495,7 +497,7 @@ object JsonSchema {
     schema: Schema[_],
     refType: SchemaStyle = SchemaStyle.Inline,
     seen: Set[java.lang.String] = Set.empty,
-  ): JsonSchemas = fromZSchemaMultiple(schema, SchemaRef("", refType), seen)
+  ): JsonSchemas = fromZSchemaMultiple(schema, SchemaRef(SchemaSpec.OpenAPI, refType), seen)
 
   def fromZSchemaMultiple(
     schema: Schema[_],
@@ -668,7 +670,7 @@ object JsonSchema {
     keySchema match {
       case Schema.Primitive(StandardType.StringType, annotations) if annotations.isEmpty => None
       case nonSimple                                                                     =>
-        fromZSchema(nonSimple, SchemaRef.openApi(SchemaStyle.Inline)) match {
+        fromZSchema(nonSimple, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Inline)) match {
           case JsonSchema.String(None, None, None, None) => None // no need for extension
           case s: JsonSchema.String                      => Some(MetaData.KeySchema(s))
           case _                                         => None // only string keys are allowed
@@ -697,21 +699,22 @@ object JsonSchema {
     annotateMapSchemaWithKeysSchema(valuesSchema, keySchema)
   }
 
-  @deprecated("use SchemaRef instead of SchemaStyle", "4.0")
+  @deprecated("use SchemaRef instead of SchemaStyle", "3.8")
   def fromZSchema(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchema =
-    fromZSchema(schema, SchemaRef("", refType))
+    fromZSchema(schema, SchemaRef(SchemaSpec.OpenAPI, refType))
 
   def fromZSchema(schema: Schema[_], refType: SchemaRef): JsonSchema =
     schema match {
-      case enum0: Schema.Enum[_] if refType.style != SchemaStyle.Inline && nominal(enum0).isDefined     =>
+      case enum0: Schema.Enum[_]
+          if refType.style != SchemaStyle.Inline && nominal(enum0, refType.reference).isDefined =>
         JsonSchema.RefSchema(nominal(enum0, refType).get)
-      case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]])            =>
+      case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]]) =>
         JsonSchema.Enum(
           enum0.cases.map(c =>
             EnumValue.Str(c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)),
           ),
         )
-      case enum0: Schema.Enum[_]                                                                        =>
+      case enum0: Schema.Enum[_]                                                             =>
         val noDiscriminator    = enum0.annotations.exists(_.isInstanceOf[noDiscriminator])
         val discriminatorName0 =
           enum0.annotations.collectFirst { case discriminatorName(name) => name }
@@ -744,9 +747,10 @@ object JsonSchema {
               )
             })
         }
-      case record: Schema.Record[_] if refType.style != SchemaStyle.Inline && nominal(record).isDefined =>
+      case record: Schema.Record[_]
+          if refType.style != SchemaStyle.Inline && nominal(record, refType.reference).isDefined =>
         JsonSchema.RefSchema(nominal(record, refType).get)
-      case record: Schema.Record[_]                                                                     =>
+      case record: Schema.Record[_]                                                          =>
         val additionalProperties =
           if (record.annotations.exists(_.isInstanceOf[rejectExtraFields])) {
             Left(false)
@@ -780,7 +784,7 @@ object JsonSchema {
           )
           .deprecated(deprecated(record))
           .description(descriptionFromAnnotations(record.annotations))
-      case collection: Schema.Collection[_, _]                                                          =>
+      case collection: Schema.Collection[_, _]                                               =>
         collection match {
           case Schema.Sequence(elementSchema, _, _, _, _)                =>
             JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)), None, uniqueItems = false)
@@ -797,9 +801,9 @@ object JsonSchema {
           case Schema.Set(elementSchema, _)                              =>
             JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)), None, uniqueItems = true)
         }
-      case Schema.Transform(schema, _, _, _, _)                                                         =>
+      case Schema.Transform(schema, _, _, _, _)                                              =>
         fromZSchema(schema, refType)
-      case Schema.Primitive(standardType, annotations)                                                  =>
+      case Schema.Primitive(standardType, annotations)                                       =>
         standardType match {
           case StandardType.UnitType           => JsonSchema.Null
           case StandardType.StringType         =>
@@ -918,13 +922,24 @@ object JsonSchema {
     case object Compact extends SchemaStyle
   }
 
-  case class SchemaRef(path: java.lang.String, style: SchemaStyle) {
-    def inline: SchemaRef  = copy(style = SchemaStyle.Inline)
-    def compact: SchemaRef = copy(style = SchemaStyle.Compact)
+  sealed trait SchemaSpec extends Product with Serializable { def path: java.lang.String }
+  object SchemaSpec {
+
+    /**
+     * Generates schema references for an Open API document
+     */
+    case object OpenAPI extends SchemaSpec { override def path: java.lang.String = "#/components/schemas/" }
+
+    /**
+     * Generates schema references for an JSON Schema document
+     */
+    case object JsonSchema extends SchemaSpec { override def path: java.lang.String = "#/$defs/" }
   }
-  object SchemaRef                                                 {
-    def openApi(style: SchemaStyle)    = SchemaRef("#/components/schemas/", style)
-    def jsonSchema(style: SchemaStyle) = SchemaRef("#/$defs/", style)
+
+  case class SchemaRef(spec: SchemaSpec, style: SchemaStyle) {
+    def inline: SchemaRef    = copy(style = SchemaStyle.Inline)
+    def reference: SchemaRef = copy(style = SchemaStyle.Reference)
+    def compact: SchemaRef   = copy(style = SchemaStyle.Compact)
   }
 
   private def deprecated(schema: Schema[_]): Boolean =
@@ -946,7 +961,7 @@ object JsonSchema {
   @tailrec
   private def nominal(
     schema: Schema[_],
-    referenceType: SchemaRef = SchemaRef("", SchemaStyle.Reference),
+    referenceType: SchemaRef,
   ): Option[java.lang.String] =
     schema match {
       case enumSchema: Schema.Enum[_]                 => refForTypeId(enumSchema.id, referenceType)
@@ -959,9 +974,9 @@ object JsonSchema {
   private def refForTypeId(id: TypeId, referenceType: SchemaRef): Option[java.lang.String] =
     id match {
       case nominal: TypeId.Nominal if referenceType.style == SchemaStyle.Reference =>
-        Some(s"${referenceType.path}${nominal.fullyQualified.replace(".", "_")}")
+        Some(s"${referenceType.spec.path}${nominal.fullyQualified.replace(".", "_")}")
       case nominal: TypeId.Nominal if referenceType.style == SchemaStyle.Compact   =>
-        Some(s"${referenceType.path}${nominal.typeName}")
+        Some(s"${referenceType.spec.path}${nominal.typeName}")
       case _                                                                       =>
         None
     }
