@@ -492,7 +492,7 @@ object JsonSchema {
     )
   }
 
-  @deprecated("use fromZSchemaMultiple", "4.0")
+  @deprecated("use fromZSchemaMultiple", "3.8")
   def fromZSchemaMulti(
     schema: Schema[_],
     refType: SchemaStyle = SchemaStyle.Inline,
@@ -922,7 +922,7 @@ object JsonSchema {
     case object Compact extends SchemaStyle
   }
 
-  sealed trait SchemaSpec extends Product with Serializable { def path: java.lang.String }
+  sealed trait SchemaSpec extends Product with Serializable { private[openapi] def path: java.lang.String }
   object SchemaSpec {
 
     /**
@@ -936,7 +936,7 @@ object JsonSchema {
     case object JsonSchema extends SchemaSpec { override def path: java.lang.String = "#/$defs/" }
   }
 
-  case class SchemaRef(spec: SchemaSpec, style: SchemaStyle) {
+  final case class SchemaRef(spec: SchemaSpec, style: SchemaStyle) {
     def inline: SchemaRef    = copy(style = SchemaStyle.Inline)
     def reference: SchemaRef = copy(style = SchemaStyle.Reference)
     def compact: SchemaRef   = copy(style = SchemaStyle.Compact)
