@@ -15,7 +15,7 @@ import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
 import zio.http.template2._
 
-import example.endpoint.{style => _, _}
+import example.endpoint.{style => _}
 
 object SSEServerTimeExample extends ZIOAppDefault {
 
