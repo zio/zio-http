@@ -15,6 +15,8 @@ import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
 import zio.http.template2._
 
+import example.endpoint.{style => _, _}
+
 object SSEServerTimeExample extends ZIOAppDefault {
 
   val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], None] =
