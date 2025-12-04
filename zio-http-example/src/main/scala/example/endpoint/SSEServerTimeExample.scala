@@ -15,8 +15,6 @@ import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
 import zio.http.template2._
 
-import example.endpoint.{style => _}
-
 object SSEServerTimeExample extends ZIOAppDefault {
 
   val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], None] =
@@ -40,7 +38,7 @@ object SSEServerTimeExample extends ZIOAppDefault {
           meta(charset := "UTF-8"),
           meta(name    := "viewport", content := "width=device-width, initial-scale=1.0"),
           titleAttr := "Server Time using SSE",
-          style.inlineCss("""
+          zio.http.template2.style.inlineCss("""
             body {
               font-family: Arial, sans-serif;
               display: flex;
