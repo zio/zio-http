@@ -63,7 +63,7 @@ const sidebars = {
         },
       ],
     },
-    "reference/template/index",
+    "reference/template",
     {
       type: "category",
       label: "Declarative Endpoints",

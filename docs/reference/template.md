@@ -1,5 +1,5 @@
 ---
-id: index
+id: template
 title: "Template DSL"
 sidebar_label: Template
 ---
