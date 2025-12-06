@@ -10,10 +10,7 @@ ZIO HTTP Template2 is a modern, type-safe HTML templating DSL for Scala that all
 
 - **Type Safety**: Catch HTML errors at compile time
 - **Composability**: Build reusable components as Scala functions
-- **Integration**: Seamless integration with ZIO HTTP
-- **DSL**: Clean, intuitive syntax that feels natural in Scala
-- **No Templates**: No separate template files to maintain, everything is in Scala
-
+- **Pure Scala**: No separate template files to maintain, everything is in Scala
 
 ## Your First HTML Page using Template2
 
@@ -85,7 +82,7 @@ No need to render the HTML manually; `Response.html` takes care of it for you.
 
 We have three types of attributes: Partial Attributes, Boolean Attributes, and Multi-Value Attributes.
 
-1. **Partial attributes** require a value to become complete, e.g., `id`, `href` and `name`. They use the `:=` operator or `apply()` method:
+1. **Partial attributes** require a value to become complete, e.g., `id`, `href`, and `name`. They use the `:=` operator or `apply()` method:
 
 ```scala mdoc:compile-only
 // Using := operator
@@ -487,7 +484,7 @@ link(rel := "stylesheet", href := "https://example.com/styles/main.css")
 
 ### Finding, Filtering and Collecting
 
-Using `find`, `filter`, and `collect` methods, we can traverse the Dom to locate, select, or extract specific elements based on defined criteria:
+Using `find`, `filter`, and `collect` methods, we can traverse the `Dom` to locate, select, or extract specific elements based on defined criteria:
 
 ```scala
 val element = div(
@@ -549,3 +546,57 @@ card(
   p("Email: john@example.com"),
 )
 ```
+
+## Using Third-Party Template Libraries
+
+If you're running your project with other template libraries like Twirl or Scalate and want to migrate to ZIO HTTP, you can integrate them without rewriting all your templates. After migrating and integrating with ZIO HTTP, you can gradually replace your old templates with ZIO HTTP Template2 templates.
+
+Here's an example of how to integrate [Twirl](https://github.com/playframework/twirl) templates with ZIO HTTP. Assume you have written a Twirl template named `greetUser.scala.html` inside the `mytwirltemplate` package:
+
+```html
+@import models.User
+@(param: User)
+<html>
+  <head>
+    <title>Greet User Twirl Template</title>
+  </head>
+  <body>
+    <h1>Hello, @param.name!</h1>
+    <p>Your email is: @param.email</p>
+  </body>
+</html>
+```
+
+And you have a case class `User` defined as follows:
+
+```scala
+package models
+
+import zio.schema.DeriveSchema
+
+case class User(name: String, email: String)
+
+object User {
+  implicit val schema = DeriveSchema.gen[User]
+}
+```
+
+Now you can use this Twirl template inside a ZIO HTTP route as follows:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+val greetRoute =
+  Method.GET / "greet" -> handler { (req: Request) =>
+    for {
+      user     <- req.body.to[User]
+      response = mytwirltemplate.greetUser.render(user)
+    } yield Response(
+      body    = Body.fromString(response),
+      headers = Headers(Header.ContentType(MediaType.text.html)),
+    )
+  }
+```
+
+You can follow a similar approach to integrate other template libraries with ZIO HTTP.
