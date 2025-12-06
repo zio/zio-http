@@ -583,7 +583,7 @@ object User {
 
 Now you can use this Twirl template inside a ZIO HTTP route as follows:
 
-```scala mdoc:compile-only
+```scala
 import zio.http._
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
