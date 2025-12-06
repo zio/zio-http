@@ -224,7 +224,7 @@ private[netty] object NettyConnectionPool {
             localAddress,
           ).onError(_ => queue.offer(())),
           addresses.tail.zipWithIndex.map { case (address, index) =>
-            ZIO.sleep(HappyEyeballsDelay * index.toLong).raceFirst(queue.take).ignore *>
+            ZIO.sleep(HappyEyeballsDelay * index.toDouble).raceFirst(queue.take).ignore *>
               connectToAddress(
                 address,
                 channelFactory,
