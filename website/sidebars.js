@@ -63,11 +63,7 @@ const sidebars = {
         },
       ],
     },
-    {
-      type: "category",
-      label: "Template",
-      link: { type: 'doc', id: "reference/template/index" },
-    },
+    "reference/template/index",
     {
       type: "category",
       label: "Declarative Endpoints",
