@@ -7,10 +7,9 @@ import scala.collection.immutable.ListMap
 import zio.json.ast.Json
 import zio.test._
 
-import zio.schema.annotation.discriminatorName
-import zio.schema.{DeriveSchema, Schema}
+import zio.schema.Schema
 
-import zio.http.endpoint.openapi.JsonSchema.{SchemaRef, SchemaSpec, SchemaStyle}
+import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
 import zio.http.endpoint.openapi.OpenAPI.ReferenceOr
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme._
 
@@ -21,15 +20,6 @@ object OpenAPISpec extends ZIOSpecDefault {
 
   def toJsonAst(api: OpenAPI): Json =
     toJsonAst(api.toJson)
-
-  @discriminatorName("type") sealed trait SealedTrait
-  object SealedTrait {
-    case class One(set: Set[String])   extends SealedTrait
-    case class Two(list: List[String]) extends SealedTrait
-  }
-
-  case class SchemaTest(number: Int, string: String, child: Option[SealedTrait])
-  implicit val schemaTestSchema: Schema[SchemaTest] = DeriveSchema.gen[SchemaTest]
 
   val spec = suite("OpenAPISpec")(
     test("auth schema serialization") {
@@ -76,8 +66,7 @@ object OpenAPISpec extends ZIOSpecDefault {
     },
     test("JsonSchema.fromZSchemaMulti correctly handles Map schema with List as Value") {
       val schema           = Schema.map[String, List[String]]
-      val sch: JsonSchemas =
-        JsonSchema.fromZSchemaMultiple(schema, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Reference))
+      val sch: JsonSchemas = JsonSchema.fromZSchemaMulti(schema, SchemaStyle.Reference)
 
       val isSchemaProperlyGenerated = if (sch.root.isCollection) sch.root match {
         case JsonSchema.Object(_, additionalProperties, _) =>
@@ -93,7 +82,7 @@ object OpenAPISpec extends ZIOSpecDefault {
     },
     test("JsonSchema.fromZSchema correctly handles Map with non-simple string keys") {
       val schema   = Schema.map[UUID, String]
-      val js       = JsonSchema.fromZSchema(schema, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Inline))
+      val js       = JsonSchema.fromZSchema(schema)
       val oapi     = OpenAPI.empty.copy(
         components =
           Some(OpenAPI.Components(schemas = ListMap(OpenAPI.Key.fromString("IdToName").get -> ReferenceOr.Or(js)))),
@@ -126,86 +115,6 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |    }
                        |  }
                        |}""".stripMargin
-      assertTrue(toJsonAst(json) == toJsonAst(expected))
-    },
-    test("JsonSchema.jsonSchema correctly generate valid Json Schema with $defs and associated $ref") {
-      val jsonSchema = JsonSchema.jsonSchema(schemaTestSchema)
-      val json       = jsonSchema.toJsonPretty
-      val expected   = f"""{"$$schema" : "https://json-schema.org/draft/2020-12/schema",""" +
-        """  "type" : "object",
-          |  "properties" : {
-          |    "number" : {
-          |      "type" : "integer",
-          |      "format" : "int32"
-          |    },
-          |    "string" : {
-          |      "type" : "string"
-          |    },
-          |    "child" : {
-          |      "anyOf" : [
-          |        {
-          |          "type" : "null"
-          |        },
-          |        {
-          |          "$ref" : "#/$defs/SealedTrait"
-          |        }
-          |      ]
-          |    }
-          |  },
-          |  "required" : [
-          |    "number",
-          |    "string"
-          |  ],
-          |  "$defs" : {
-          |    "One" : {
-          |      "type" : "object",
-          |      "properties" : {
-          |        "set" : {
-          |          "type" : "array",
-          |          "items" : {
-          |            "type" : "string"
-          |          },
-          |          "uniqueItems" : true
-          |        }
-          |      },
-          |      "required" : [
-          |        "set"
-          |      ]
-          |    },
-          |    "Two" : {
-          |      "type" : "object",
-          |      "properties" : {
-          |        "list" : {
-          |          "type" : "array",
-          |          "items" : {
-          |            "type" : "string"
-          |          }
-          |        }
-          |      },
-          |      "required" : [
-          |        "list"
-          |      ]
-          |    },
-          |    "SealedTrait" : {
-          |      "oneOf" : [
-          |        {
-          |          "$ref" : "#/$defs/One"
-          |        },
-          |        {
-          |          "$ref" : "#/$defs/Two"
-          |        }
-          |      ],
-          |      "discriminator" : {
-          |        "propertyName" : "type",
-          |        "mapping" : {
-          |          "One" : "#/$defs/One",
-          |          "Two" : "#/$defs/Two"
-          |        }
-          |      }
-          |    }
-          |  }
-          |}""".stripMargin
-
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
   )
