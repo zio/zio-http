@@ -18,6 +18,8 @@ package zio.http
 
 import java.net.{InetSocketAddress, URI}
 
+import scala.annotation.unroll
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -529,11 +531,28 @@ object ZClient extends ZClientPlatformSpecific {
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
+    @unroll
+    bodyReadTimeout: Option[Duration] = None,
   ) {
     self =>
 
     def addUserAgentHeader(addUserAgentHeader: Boolean): Config =
       self.copy(addUserAgentHeader = addUserAgentHeader)
+
+    /**
+     * Configure the timeout for reading HTTP response bodies. This timeout is
+     * specifically for the time spent reading the body after headers are
+     * received. If not set, defaults to idleTimeout.
+     *
+     * This is separate from:
+     *   - connectionTimeout: Time to establish TCP connection
+     *   - idleTimeout: Time channel can be idle without any data
+     *
+     * @param timeout
+     *   The duration to wait for body data
+     */
+    def bodyReadTimeout(timeout: Duration): Config =
+      self.copy(bodyReadTimeout = Some(timeout))
 
     def connectionTimeout(timeout: Duration): Config =
       self.copy(connectionTimeout = Some(timeout))
@@ -551,6 +570,8 @@ object ZClient extends ZClientPlatformSpecific {
      * headers.
      */
     def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
+
+    def noBodyReadTimeout: Config = self.copy(bodyReadTimeout = None)
 
     def noConnectionTimeout: Config = self.copy(connectionTimeout = None)
 
@@ -676,6 +697,7 @@ object ZClient extends ZClientPlatformSpecific {
                         connectionPool.enableKeepAlive,
                         createSocketApp,
                         clientConfig.webSocketConfig,
+                        clientConfig.bodyReadTimeout.map(_.toMillis),
                       )
                       .tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-
@@ -747,6 +769,7 @@ object ZClient extends ZClientPlatformSpecific {
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = Some(50.seconds),
       connectionTimeout = None,
+      bodyReadTimeout = None, // Defaults to idleTimeout when None
     )
 
     def config: zio.Config[Config] =
@@ -759,7 +782,8 @@ object ZClient extends ZClientPlatformSpecific {
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
           zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
           zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
-          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout)
+          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout) ++
+          zio.Config.duration("body-read-timeout").optional.withDefault(Config.default.bodyReadTimeout)
       ).map {
         case (
               ssl,
@@ -771,6 +795,7 @@ object ZClient extends ZClientPlatformSpecific {
               addUserAgentHeader,
               idleTimeout,
               connectionTimeout,
+              bodyReadTimeout,
             ) =>
           default.copy(
             ssl = ssl,
@@ -782,6 +807,7 @@ object ZClient extends ZClientPlatformSpecific {
             addUserAgentHeader = addUserAgentHeader,
             idleTimeout = idleTimeout,
             connectionTimeout = connectionTimeout,
+            bodyReadTimeout = bodyReadTimeout,
           )
       }
   }
