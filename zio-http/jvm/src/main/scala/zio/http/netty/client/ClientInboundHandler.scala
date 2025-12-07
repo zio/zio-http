@@ -36,6 +36,7 @@ private[netty] final class ClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
   enableKeepAlive: Boolean,
+  bodyReadTimeoutMillis: Option[Long] = None,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
@@ -62,7 +63,7 @@ private[netty] final class ClientInboundHandler(
     msg match {
       case response: HttpResponse =>
         val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
-        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive)
+        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive, bodyReadTimeoutMillis)
         onResponse.unsafe.done(Exit.succeed(resp))
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit
