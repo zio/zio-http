@@ -80,7 +80,7 @@ jobs:
       - name: Setup sbt
         uses: sbt/setup-sbt@v1
 
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -94,7 +94,7 @@ jobs:
       - name: Build project
         run: sbt '++ ${{ matrix.scala }}' test
 
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -202,11 +202,11 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -243,7 +243,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -270,7 +270,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -302,7 +302,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -340,7 +340,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -378,7 +378,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -416,7 +416,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -454,7 +454,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -492,7 +492,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -530,7 +530,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -568,7 +568,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -606,7 +606,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -644,7 +644,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -682,7 +682,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -720,7 +720,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -758,7 +758,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -796,7 +796,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -834,7 +834,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -872,7 +872,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -910,7 +910,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
@@ -948,7 +948,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
 
