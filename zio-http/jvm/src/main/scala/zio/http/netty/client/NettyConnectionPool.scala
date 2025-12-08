@@ -149,8 +149,8 @@ private[netty] object NettyConnectionPool {
         NettyFutureExecutor.executed {
           channelFuture.cancel(true)
           ch.close()
-        }.when(ch.isOpen).ignoreLogged
-      } *> NettyFutureExecutor.executed(channelFuture).as(ch)
+        }.whenDiscard(ch.isOpen).ignoreLogged
+      }.uninterruptible *> NettyFutureExecutor.executed(channelFuture).as(ch)
     }
   }
 
@@ -163,7 +163,7 @@ private[netty] object NettyConnectionPool {
     val (ipv6Addresses, ipv4Addresses) = resolvedHosts.partition(_.isInstanceOf[Inet6Address])
     val ipv6Iter                       = ipv6Addresses.iterator
     val ipv4Iter                       = ipv4Addresses.iterator
-    val builder                        = ChunkBuilder.make[InetAddress]()
+    val builder                        = ChunkBuilder.make[InetAddress](resolvedHosts.size)
 
     // Alternate between families
     var useIpv6 = true
