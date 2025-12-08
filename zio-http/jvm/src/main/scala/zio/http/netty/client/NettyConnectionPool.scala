@@ -159,11 +159,12 @@ private[netty] object NettyConnectionPool {
    * we start with IPv6, then after firstAddressFamilyDelay we try IPv4, then
    * alternate between families.
    */
-  private def sortAddresses(resolvedHosts: Chunk[InetAddress]): Chunk[InetAddress] = {
+  private def sortAddresses(resolvedHosts: Chunk[InetAddress]): List[InetAddress] = {
     val (ipv6Addresses, ipv4Addresses) = resolvedHosts.partition(_.isInstanceOf[Inet6Address])
     val ipv6Iter                       = ipv6Addresses.iterator
     val ipv4Iter                       = ipv4Addresses.iterator
-    val builder                        = ChunkBuilder.make[InetAddress](resolvedHosts.size)
+    val builder                        = List.newBuilder[InetAddress]
+    builder.sizeHint(resolvedHosts.size)
 
     // Alternate between families
     var useIpv6 = true
@@ -212,8 +213,9 @@ private[netty] object NettyConnectionPool {
     } else {
       val addresses = sortAddresses(resolvedHosts)
       for {
-        queue   <- Queue.bounded[Unit](requestedCapacity = 1)
-        channel <- ZIO.raceAll(
+        lastFailed <- Queue.bounded[Unit](requestedCapacity = 1)
+        successful <- Ref.make(List.empty[JChannel])
+        _          <- ZIO.raceAll(
           connectToAddress(
             addresses.head,
             channelFactory,
@@ -222,9 +224,12 @@ private[netty] object NettyConnectionPool {
             initializer,
             connectionTimeout,
             localAddress,
-          ).onError(_ => queue.offer(())),
+          ).onExit {
+            case e: Exit.Success[JChannel] => successful.update(channels => channels :+ e.value)
+            case _: Exit.Failure[_]        => lastFailed.offer(())
+          },
           addresses.tail.zipWithIndex.map { case (address, index) =>
-            ZIO.sleep(HappyEyeballsDelay * index.toDouble).raceFirst(queue.take).ignore *>
+            ZIO.sleep(HappyEyeballsDelay * index.toDouble).raceFirst(lastFailed.take).ignore *>
               connectToAddress(
                 address,
                 channelFactory,
@@ -233,9 +238,18 @@ private[netty] object NettyConnectionPool {
                 initializer,
                 connectionTimeout,
                 localAddress,
-              )
+              ).onExit {
+                case e: Exit.Success[JChannel] => successful.update(channels => channels :+ e.value)
+                case _: Exit.Failure[_]        => lastFailed.offer(())
+              }
           },
         )
+        channels   <- successful.get
+        channel    <- channels.headOption match {
+          case ch: Some[JChannel] => ZIO.succeed(ch.value)
+          case None               => ZIO.fail(new RuntimeException("All connection attempts failed"))
+        }
+        _          <- ZIO.foreachDiscard(channels.tail)(ch => ZIO.attempt(ch.close()))
       } yield channel
 
     }
