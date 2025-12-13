@@ -8,6 +8,7 @@ import zio.schema.codec.BinaryCodec
 import zio.http.MediaType
 import zio.http.codec._
 import zio.http.endpoint.Endpoint
+import zio.http.endpoint.openapi.JsonSchema.{SchemaRef, SchemaSpec, SchemaStyle}
 import zio.http.endpoint.openapi.OpenAPIGen.{AtomizedMetaCodecs, MetaCodec}
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPIGen}
 
@@ -52,7 +53,7 @@ object HttpGen {
       inAtoms.content.collect {
         case MetaCodec(HttpCodec.Content(codec, _, _), _) if codec.choices.contains(MediaType.application.json) =>
           val schema     = codec.choices(MediaType.application.json).schema
-          val jsonSchema = JsonSchema.fromZSchema(schema)
+          val jsonSchema = JsonSchema.fromZSchema(schema, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Inline))
           jsonSchema
       }.headOption
   }
