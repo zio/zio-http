@@ -584,4 +584,23 @@ val greetRoute =
   }
 ```
 
+If you want to use `Endpoint` API, you can use `RawHtml` to convert your rendered Twirl template into a `Dom`:
+
+```scala
+import zio.http._
+import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
+
+val endpoint: Endpoint[Unit, User, ZNothing, Dom, None] =
+  Endpoint(Method.GET / Root)
+    .in[User]
+    .out[Dom](MediaType.text.`html`)
+
+val route =
+  endpoint.implementHandler{
+    handler{ user: User =>
+      RawHtml(mytwirltemplate.greetUser.render(user))
+    }
+  }
+```
+
 You can follow a similar approach to integrate other template libraries with ZIO HTTP.
