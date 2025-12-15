@@ -75,7 +75,11 @@ object OpenAPIGen {
     def examples(schema: Schema[_], generate: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       examples(schema, generate, MediaType.application.json)
 
-    def examples(schema: Schema[_], generate: Boolean, mediaType: MediaType): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
+    def examples(
+      schema: Schema[_],
+      generate: Boolean,
+      mediaType: MediaType,
+    ): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       (if (generate && examples.isEmpty) generateExamples(schema) else examples).map { case (k, v) =>
         k -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(toExampleValue(schema, v, mediaType)))
       }
@@ -147,14 +151,16 @@ object OpenAPIGen {
     def contentExamples(genExamples: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       contentExamples(genExamples, MediaType.application.json)
 
-    def contentExamples(genExamples: Boolean, mediaType: MediaType): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
+    def contentExamples(
+      genExamples: Boolean,
+      mediaType: MediaType,
+    ): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       content.flatMap {
-        case mc @ MetaCodec(HttpCodec.Content(codec, _, _), _) if codec.lookup(mediaType).isDefined =>
+        case mc @ MetaCodec(HttpCodec.Content(codec, _, _), _) if codec.lookup(mediaType).isDefined       =>
           mc.examples(codec.lookup(mediaType).get._2.schema, genExamples, mediaType)
-        case mc @ MetaCodec(HttpCodec.ContentStream(codec, _, _), _)
-            if codec.lookup(mediaType).isDefined =>
+        case mc @ MetaCodec(HttpCodec.ContentStream(codec, _, _), _) if codec.lookup(mediaType).isDefined =>
           mc.examples(codec.lookup(mediaType).get._2.schema, genExamples, mediaType)
-        case _ =>
+        case _                                                                                            =>
           Map.empty[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]]
       }.toMap
 
