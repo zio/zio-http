@@ -21,9 +21,7 @@ import zio.http.template2._
 
 val page: Dom =
   html(
-    head(
-      title("Hello World")
-    ),
+    head(title("Hello World")),
     body(
       h1("Hello, ZIO HTTP Template2!"),
       p("This is my first template.")
@@ -49,34 +47,19 @@ Rendering the above code (`page.render(indentation = true)`) will produce the fo
 
 To serve the HTML page we created using `template2`, we can set up a simple server as follows:
 
-```scala mdoc:compile-only
-import zio._
-import zio.http._
-import zio.http.template2._
-
-object HelloWorld extends ZIOAppDefault {
-
-  val page: Dom = html(
-    head(
-      title("Hello World")
-    ),
-    body(
-      h1("Hello, ZIO HTTP Template2!"),
-      p("This is my first template.")
-    )
-  )
-
-  val run = Server
-    .serve(
-      Method.GET / Root -> handler {
-        Response.html(page)
-      }
-    )
-    .provide(Server.default)
-}
+```scala 
+import utils._
+printSource("zio-http-example/src/main/scala/example/template2/HelloWorldExample.scala")
 ```
 
 No need to render the HTML manually; `Response.html` takes care of it for you.
+
+Aslo you can do the same using `Endpoint` API:
+
+```scala 
+import utils._
+printSource("zio-http-example/src/main/scala/example/template2/EndpointExample.scala")
+```
 
 ## Attributes
 
