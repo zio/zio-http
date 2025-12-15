@@ -100,11 +100,11 @@ div(
 )
 ```
 
-There are many predefined partial attributes available for use. However, if you need to create a custom one, you can use the `custom()` helper. For example:
+There are many predefined partial attributes available for use. However, if you need to create a custom one, you can use the `attr` helper. For example:
 
 ```scala mdoc:compile-only
 button(
-  custom("onclick") := js"handleClick()"
+  Dom.attr("onclick") := js"handleClick()"
 )("Click here!")
 ```
 
@@ -395,7 +395,7 @@ def userCard(user: User, showEmail: Boolean): Dom.Element = {
 If we need to create a custom element that is not predefined, we can use the `Dom.element` method:
 
 ```scala mdoc:compile-only
-Dom.element("custom-tag")(custom("x-property") := "value")("Content here")
+Dom.element("custom-tag")(Dom.attr("x-property") := "value")("Content here")
 // Renders as:  
 // <custom-tag x-property="value">Content here</custom-tag>
 ```
