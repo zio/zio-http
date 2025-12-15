@@ -4538,7 +4538,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           .out[Payload](Status.Ok, MediaType.text.plain)
 
         val generated = OpenAPIGen.fromEndpoints("Greeting API", "1.0", endpoint)
-        val json = toJsonAst(generated)
+        val json      = toJsonAst(generated)
 
         // Verify the response content type is text/plain (not application/json)
         val expectedJson = """|{
