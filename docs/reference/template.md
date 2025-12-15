@@ -54,7 +54,7 @@ printSource("zio-http-example/src/main/scala/example/template2/HelloWorldExample
 
 No need to render the HTML manually; `Response.html` takes care of it for you.
 
-Aslo you can do the same using `Endpoint` API:
+Also you can do the same using `Endpoint` API:
 
 ```scala 
 import utils._
