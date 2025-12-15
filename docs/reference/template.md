@@ -392,6 +392,8 @@ def userCard(user: User, showEmail: Boolean): Dom.Element = {
 }
 ```
 
+Please note that in the above example, the `user.avatar.map(url => img(src := url))` is an `Option[Dom]`. If the avatar is `None`, it will not render anything in that place.
+
 If we need to create a custom element that is not predefined, we can use the `Dom.element` method:
 
 ```scala mdoc:compile-only
