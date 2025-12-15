@@ -486,6 +486,8 @@ object DatastarRequestSpec extends ZIOSpecDefault {
         )
         val request = DatastarRequest(Method.GET, url"/api/users", options)
 
+        println(request.render)
+
         assertTrue(
           request.render.contains("@get"),
           request.render.contains("/api/users"),

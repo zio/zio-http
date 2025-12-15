@@ -265,16 +265,17 @@ object Attributes {
     def apply[A: Schema](signal: String): SignalAttr[A]     =
       SignalAttr(attrName, SignalName(caseModifier)(signal).toSignal, caseModifier)
     def apply[A: Schema](signal: SignalName): SignalAttr[A] =
-      SignalAttr(attrName, signal.caseModifier(caseModifier).toSignal, caseModifier)
+      SignalAttr(attrName, signal.toSignal, caseModifier)
     def apply[A](signal: Signal[A]): SignalAttr[A]          =
-      SignalAttr(attrName, signal.caseModifier(caseModifier), caseModifier)
+      SignalAttr(attrName, signal, caseModifier)
   }
 
   final case class SignalAttr[A](attrName: String, signal: Signal[A], caseModifier: CaseModifier = CaseModifier.Camel) {
-    private val full = s"$attrName:${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}"
+    private val full  = s"$attrName:${signal.name.name}${signal.name.caseModifier.suffix(CaseModifier.Camel)}"
+    private val plain = s"$attrName${signal.name.caseModifier.suffix(CaseModifier.Camel)}"
 
-    def :=(expression: Js): Attribute          = Dom.attr(full) := expression.value
-    def :=(update: SignalUpdate[A]): Attribute = Dom.attr(full) := update.toExpression.value
+    def :=(expression: Js): Attribute          = Dom.attr(full)  := expression.value
+    def :=(update: SignalUpdate[A]): Attribute = Dom.attr(plain) := update.toExpression.value
   }
 
   object SignalAttr {
@@ -290,9 +291,9 @@ object Attributes {
     def apply[A: Schema](signal: String): SignalsAttr[A]     =
       SignalsAttr(prefix, SignalName(caseModifier)(signal).toSignal[A], caseModifier)
     def apply[A: Schema](signal: SignalName): SignalsAttr[A] =
-      SignalsAttr(prefix, signal.caseModifier(caseModifier).toSignal[A], caseModifier)
+      SignalsAttr(prefix, signal.toSignal[A], caseModifier)
     def apply[A: Schema](signal: Signal[A]): SignalsAttr[A]  =
-      SignalsAttr(prefix, signal.caseModifier(caseModifier), caseModifier)
+      SignalsAttr(prefix, signal, caseModifier)
 
     def :=(expression: Js): Attribute =
       Dom.attr(s"$prefix-signals${caseModifier.suffix(CaseModifier.Camel)}") := expression.value
@@ -306,21 +307,33 @@ object Attributes {
   ) {
     private val full = {
       val ifMissing0: String = if (ifMissing) "__if-missing" else ""
-      s"$prefix-signals:${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}$ifMissing0"
+      s"$prefix-signals:${signal.name.name}${signal.name.caseModifier.suffix(CaseModifier.Camel)}$ifMissing0"
+    }
+
+    private val plain = {
+      val ifMissing0: String = if (ifMissing) "__if-missing" else ""
+      s"$prefix-signals${signal.name.caseModifier.suffix(CaseModifier.Camel)}$ifMissing0"
     }
 
     def :=(expression: Js): Attribute = Dom.attr(full) := expression.value
 
     def :=(update: SignalUpdate[A]): Attribute =
-      Dom.attr(s"$prefix-signals${caseModifier.suffix(CaseModifier.Camel)}") := update.toExpression.value
+      Dom.attr(plain) := update.toExpression.value
 
     def :=(in: A): Attribute =
-      Dom.attr(s"$prefix-signals${caseModifier.suffix(CaseModifier.Camel)}") := signal.update(in).toExpression.value
+      Dom.attr(plain) := signal
+        .update(in)
+        .toExpression
+        .value
 
-    def camel: SignalsAttr[A]  = copy(caseModifier = CaseModifier.Camel)
-    def kebab: SignalsAttr[A]  = copy(caseModifier = CaseModifier.Kebab)
-    def snake: SignalsAttr[A]  = copy(caseModifier = CaseModifier.Snake)
-    def pascal: SignalsAttr[A] = copy(caseModifier = CaseModifier.Pascal)
+    def camel: SignalsAttr[A]  =
+      copy(caseModifier = CaseModifier.Camel, signal = signal.caseModifier(CaseModifier.Camel))
+    def kebab: SignalsAttr[A]  =
+      copy(caseModifier = CaseModifier.Kebab, signal = signal.caseModifier(CaseModifier.Kebab))
+    def snake: SignalsAttr[A]  =
+      copy(caseModifier = CaseModifier.Snake, signal = signal.caseModifier(CaseModifier.Snake))
+    def pascal: SignalsAttr[A] =
+      copy(caseModifier = CaseModifier.Pascal, signal = signal.caseModifier(CaseModifier.Pascal))
   }
 
   final case class PartialDataIndicator(prefix: String, caseModifier: CaseModifier = CaseModifier.Camel) {
@@ -328,10 +341,10 @@ object Attributes {
       DataIndicatorAttr(prefix, SignalName(caseModifier)(signal).toSignal[Boolean], caseModifier)
 
     def apply(signal: SignalName): DataIndicatorAttr =
-      DataIndicatorAttr(prefix, signal.caseModifier(caseModifier).toSignal[Boolean], caseModifier)
+      DataIndicatorAttr(prefix, signal.toSignal[Boolean], caseModifier)
 
     def apply(signal: Signal[Boolean]): DataIndicatorAttr =
-      DataIndicatorAttr(prefix, signal.caseModifier(caseModifier), caseModifier)
+      DataIndicatorAttr(prefix, signal, caseModifier)
 
     def camel: PartialDataIndicator  = copy(caseModifier = CaseModifier.Camel)
     def kebab: PartialDataIndicator  = copy(caseModifier = CaseModifier.Kebab)
@@ -344,12 +357,16 @@ object Attributes {
     signal: Signal[Boolean],
     caseModifier: CaseModifier = CaseModifier.Camel,
   ) {
-    private val full = s"$prefix-indicator:${signal.name.name}${caseModifier.suffix(CaseModifier.Camel)}"
+    private val full = s"$prefix-indicator:${signal.name.name}${signal.name.caseModifier.suffix(CaseModifier.Camel)}"
 
-    def camel: DataIndicatorAttr  = copy(caseModifier = CaseModifier.Camel)
-    def kebab: DataIndicatorAttr  = copy(caseModifier = CaseModifier.Kebab)
-    def snake: DataIndicatorAttr  = copy(caseModifier = CaseModifier.Snake)
-    def pascal: DataIndicatorAttr = copy(caseModifier = CaseModifier.Pascal)
+    def camel: DataIndicatorAttr  =
+      copy(caseModifier = CaseModifier.Camel, signal = signal.caseModifier(CaseModifier.Camel))
+    def kebab: DataIndicatorAttr  =
+      copy(caseModifier = CaseModifier.Kebab, signal = signal.caseModifier(CaseModifier.Kebab))
+    def snake: DataIndicatorAttr  =
+      copy(caseModifier = CaseModifier.Snake, signal = signal.caseModifier(CaseModifier.Snake))
+    def pascal: DataIndicatorAttr =
+      copy(caseModifier = CaseModifier.Pascal, signal = signal.caseModifier(CaseModifier.Pascal))
   }
 
   object DataIndicatorAttr {
@@ -713,8 +730,8 @@ object Attributes {
 
   final case class PartialDataBind(prefix: String, caseModifier: CaseModifier = CaseModifier.Camel) {
     def apply(signal: String): DataBind     = DataBind(prefix, SignalName(caseModifier)(signal), caseModifier)
-    def apply(signal: SignalName): DataBind = DataBind(prefix, signal.caseModifier(caseModifier), caseModifier)
-    def apply(signal: Signal[_]): DataBind  = DataBind(prefix, signal.name.caseModifier(caseModifier), caseModifier)
+    def apply(signal: SignalName): DataBind = DataBind(prefix, signal, caseModifier)
+    def apply(signal: Signal[_]): DataBind  = DataBind(prefix, signal.name, caseModifier)
 
     def camel: PartialDataBind  = copy(caseModifier = CaseModifier.Camel)
     def kebab: PartialDataBind  = copy(caseModifier = CaseModifier.Kebab)
@@ -723,12 +740,16 @@ object Attributes {
   }
 
   final case class DataBind(prefix: String, signalName: SignalName, caseModifier: CaseModifier = CaseModifier.Camel) {
-    private val full = s"$prefix-bind:${signalName.name}${caseModifier.suffix(CaseModifier.Camel)}"
+    private val full = s"$prefix-bind:${signalName.name}${signalName.caseModifier.suffix(CaseModifier.Camel)}"
 
-    def camel: DataBind  = copy(caseModifier = CaseModifier.Camel)
-    def kebab: DataBind  = copy(caseModifier = CaseModifier.Kebab)
-    def snake: DataBind  = copy(caseModifier = CaseModifier.Snake)
-    def pascal: DataBind = copy(caseModifier = CaseModifier.Pascal)
+    def camel: DataBind  =
+      copy(caseModifier = CaseModifier.Camel, signalName = signalName.caseModifier(CaseModifier.Camel))
+    def kebab: DataBind  =
+      copy(caseModifier = CaseModifier.Kebab, signalName = signalName.caseModifier(CaseModifier.Kebab))
+    def snake: DataBind  =
+      copy(caseModifier = CaseModifier.Snake, signalName = signalName.caseModifier(CaseModifier.Snake))
+    def pascal: DataBind =
+      copy(caseModifier = CaseModifier.Pascal, signalName = signalName.caseModifier(CaseModifier.Pascal))
   }
 
   object DataBind {
@@ -737,7 +758,7 @@ object Attributes {
 
   final case class PartialDataRef(prefix: String, caseModifier: CaseModifier = CaseModifier.Camel) {
     def apply(signal: String): DataRef     = DataRef(prefix, SignalName(caseModifier)(signal), caseModifier)
-    def apply(signal: SignalName): DataRef = DataRef(prefix, signal.caseModifier(caseModifier), caseModifier)
+    def apply(signal: SignalName): DataRef = DataRef(prefix, signal, caseModifier)
 
     def camel: PartialDataRef  = copy(caseModifier = CaseModifier.Camel)
     def kebab: PartialDataRef  = copy(caseModifier = CaseModifier.Kebab)
@@ -746,7 +767,7 @@ object Attributes {
   }
 
   final case class DataRef(prefix: String, signalName: SignalName, caseModifier: CaseModifier = CaseModifier.Camel) {
-    private val full = s"$prefix-ref:${signalName.name}${caseModifier.suffix(CaseModifier.Camel)}"
+    private val full = s"$prefix-ref:${signalName.name}${signalName.caseModifier.suffix(CaseModifier.Camel)}"
 
     def camel: DataRef  = copy(caseModifier = CaseModifier.Camel)
     def kebab: DataRef  = copy(caseModifier = CaseModifier.Kebab)
@@ -822,14 +843,21 @@ object Attributes {
     case object Window extends OptionLess
   }
 
-  sealed trait CaseModifier extends Product with Serializable {
-    def modify(original: String): String      = this match {
-      case CaseModifier.Camel  => zio.json.CamelCase(original)
-      case CaseModifier.Kebab  => zio.json.KebabCase(original)
-      case CaseModifier.Snake  => zio.json.SnakeCase(original)
-      case CaseModifier.Pascal => zio.json.PascalCase(original)
+  sealed trait CaseModifier extends Product with Serializable { self =>
+    def modify(original: String): String = {
+      val privateSignal = original.startsWith("_")
+      val toModify      = if (privateSignal) original.drop(1) else original
+      val modified      =
+        self match {
+          case CaseModifier.Camel  => zio.json.CamelCase(toModify)
+          case CaseModifier.Kebab  => zio.json.KebabCase(toModify)
+          case CaseModifier.Snake  => zio.json.SnakeCase(toModify)
+          case CaseModifier.Pascal => zio.json.PascalCase(toModify)
+        }
+      if (privateSignal) "_" + modified else modified
     }
-    def suffix(default: CaseModifier): String = this match {
+
+    def suffix(default: CaseModifier): String = self match {
       case `default`           => ""
       case CaseModifier.Camel  => "__case.camel"
       case CaseModifier.Kebab  => "__case.kebab"

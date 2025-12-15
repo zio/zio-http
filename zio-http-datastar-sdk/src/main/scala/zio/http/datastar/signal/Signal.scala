@@ -97,22 +97,51 @@ object SignalName {
  */
 final case class SignalUpdate[A](signal: Signal[A], value: A) {
   private implicit val codec: JsonCodec[A] = zio.schema.codec.JsonCodec.jsonCodec(signal.schema)
-  def toExpression: Js                     = {
-    val update = signal.schema match {
-      case _: Schema.Primitive[_] => value.toJson.replace("\"", "'")
-      case _                      =>
-        val ast    = value.toJsonAST.getOrElse(throw new RuntimeException("Failed to convert value to JSON AST"))
-        val nested = signal.name.path.foldRight(ast) { (key, acc) =>
+
+  /**
+   * Render as a JSON object expression with the signal name/path included (for
+   * data-signals attributes)
+   */
+  def toExpression: Js = {
+    val ast    = value.toJsonAST.getOrElse(throw new RuntimeException("Failed to convert value to JSON AST"))
+    val nested = signal.name.path.foldRight(ast) { (key, acc) =>
+      zio.json.ast.Json.Obj(key -> acc)
+    }
+    js"${SignalUpdate.astToExpression(nested)}"
+  }
+
+  /**
+   * Render as an assignment expression (for event handlers like dataOn.click)
+   */
+  private[http] def toAssignmentExpression: Js = {
+    signal.name.path match {
+      case _ :: Nil               =>
+        // Root signal: $name = value
+        val signalRef = signal.name.ref
+        val valueStr  = signal.schema match {
+          case _: Schema.Primitive[_] => value.toJson.replace("\"", "'")
+          case _                      =>
+            val ast = value.toJsonAST.getOrElse(throw new RuntimeException("Failed to convert value to JSON AST"))
+            SignalUpdate.astToExpression(ast)
+        }
+        js"$signalRef = $valueStr"
+      case outermost :: innerPath =>
+        // Nested signal: $outermost = {inner: {path: value}}
+        val ast           = value.toJsonAST.getOrElse(throw new RuntimeException("Failed to convert value to JSON AST"))
+        val nestedObj     = innerPath.foldRight(ast) { (key, acc) =>
           zio.json.ast.Json.Obj(key -> acc)
         }
-        SignalUpdate.astToExpression(nested)
+        val outermostRef  = s"$$${signal.name.caseModifier.modify(outermost)}"
+        val nestedExprStr = SignalUpdate.astToExpression(nestedObj)
+        js"$outermostRef = $nestedExprStr"
+      case Nil                    =>
+        throw new RuntimeException("Signal path cannot be empty")
     }
-    js"$update"
   }
 }
 
 object SignalUpdate {
-  private def astToExpression(ast: zio.json.ast.Json): String   = ast match {
+  private[signal] def astToExpression(ast: zio.json.ast.Json): String = ast match {
     case zio.json.ast.Json.Obj(fields) =>
       val fieldStrs = fields.map { case (k, v) => s"$k: ${astToExpression(v)}" }
       s"{${fieldStrs.mkString(", ")}}"
@@ -124,5 +153,10 @@ object SignalUpdate {
     case zio.json.ast.Json.Bool(value) => value.toString
     case zio.json.ast.Json.Null        => "null"
   }
-  implicit def signalUpdateToJs[A](update: SignalUpdate[A]): Js = update.toExpression
+
+  /**
+   * Implicit conversion uses assignment expression format for use in event
+   * handlers
+   */
+  implicit def signalUpdateToJs[A](update: SignalUpdate[A]): Js = update.toAssignmentExpression
 }

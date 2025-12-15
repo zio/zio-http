@@ -122,7 +122,15 @@ trait DatastarPackageBase extends Attributes {
       ),
     )
 
-  private val executeScriptCodec = (HttpCodec.content[String]
+  private val executeScriptCodec = (HttpCodec.Content(
+    HttpContentCodec.Choices(
+      ListMap(
+        MediaType.text.`javascript` ->
+          BinaryCodecWithSchema(zio.http.codec.TextBinaryCodec.fromSchema[String](Schema[String]), Schema[String]),
+      ),
+    ),
+    None,
+  )
     ++ HttpCodec
       .header(Header.ContentType)
       .const(Header.ContentType(MediaType.text.`javascript`))

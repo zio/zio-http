@@ -175,7 +175,11 @@ object ServerSentEventGenerator {
         sb.append("useViewTransition true\n")
       }
 
-      sb.append("elements ").append(elements.renderMinified).append('\n')
+      val rendered = elements.renderMinified
+      if (rendered.contains('\n'))
+        rendered.split('\n').foreach(line => sb.append("elements ").append(line).append('\n'))
+      else
+        sb.append("elements ").append(rendered).append('\n')
 
       val retry = if (options.retryDuration != DefaultRetryDelay) Some(options.retryDuration) else None
       send(EventType.PatchElements, sb.toString(), options.eventId, retry)

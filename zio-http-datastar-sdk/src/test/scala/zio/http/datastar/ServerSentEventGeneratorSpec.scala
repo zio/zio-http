@@ -400,6 +400,197 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
         )
       },
     ),
+    suite("patchElements with multi-line content")(
+      test("handles script tags with multi-line JavaScript") {
+        for {
+          datastar <- Datastar.make
+          queue         = datastar.queue
+          scriptContent = """console.log('line 1');
+                            |console.log('line 2');
+                            |console.log('line 3');""".stripMargin
+          element       = script(scriptContent)
+          _     <- ServerSentEventGenerator.patchElements(element).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data == """elements <script>console.log('line 1');
+                          |elements console.log('line 2');
+                          |elements console.log('line 3');</script>
+                          |""".stripMargin,
+        )
+      },
+      test("handles style tags with multi-line CSS") {
+        for {
+          datastar <- Datastar.make
+          queue      = datastar.queue
+          cssContent = """.button {
+                         |  color: red;
+                         |  background: blue;
+                         |}""".stripMargin
+          element    = style(cssContent)
+          _     <- ServerSentEventGenerator.patchElements(element).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data == """elements <style>.button {
+                          |elements   color: red;
+                          |elements   background: blue;
+                          |elements }</style>
+                          |""".stripMargin,
+        )
+      },
+      test("handles inline style attribute with newlines") {
+        for {
+          datastar <- Datastar.make
+          queue        = datastar.queue
+          styleContent = """color: red;
+                           |background: blue;
+                           |padding: 10px;""".stripMargin
+          element      = div(Dom.attr("style", Dom.AttributeValue.StringValue(styleContent)))("Content")
+          _     <- ServerSentEventGenerator.patchElements(element).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data.startsWith("elements ") &&
+            event.data.contains("style=") &&
+            event.data.contains("Content"),
+        )
+      },
+      test("handles complex HTML with embedded script and style") {
+        for {
+          datastar <- Datastar.make
+          queue   = datastar.queue
+          element = div(
+            style(""".test {
+                    |  color: red;
+                    |}""".stripMargin),
+            script("""console.log('test');
+                     |alert('hello');""".stripMargin),
+            p("Content"),
+          )
+          _     <- ServerSentEventGenerator.patchElements(element).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield {
+          val lines = event.data.split('\n').filter(_.nonEmpty)
+          assertTrue(
+            lines.forall(_.startsWith("elements ")),
+            lines.length > 1, // Multi-line content
+            event.data.contains(".test"),
+            event.data.contains("console.log"),
+            event.data.contains("Content"),
+          )
+        }
+      },
+      test("handles single-line content without extra splitting") {
+        for {
+          datastar <- Datastar.make
+          queue   = datastar.queue
+          element = div("Simple content")
+          _     <- ServerSentEventGenerator.patchElements(element).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data == "elements <div>Simple content</div>\n",
+        )
+      },
+      test("handles script with selector and mode options") {
+        for {
+          datastar <- Datastar.make
+          queue         = datastar.queue
+          scriptContent = """function init() {
+                            |  console.log('initialized');
+                            |}""".stripMargin
+          element       = script(scriptContent)
+          options       = PatchElementOptions(
+            selector = Some(selector"#app"),
+            mode = ElementPatchMode.Append,
+          )
+          _     <- ServerSentEventGenerator.patchElements(element, options).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data.contains("selector #app\n"),
+          event.data.contains("mode append\n"),
+          event.data.contains("elements <script>function init() {\n"),
+          event.data.contains("elements   console.log('initialized');\n"),
+          event.data.contains("elements }</script>\n"),
+        )
+      },
+      test("handles CSS with minification and newlines") {
+        for {
+          datastar <- Datastar.make
+          queue      = datastar.queue
+          cssContent = """.container {
+                         |  display: flex;
+                         |  justify-content: center;
+                         |}
+                         |.item {
+                         |  margin: 5px;
+                         |}""".stripMargin
+          element    = style(cssContent)
+          _     <- ServerSentEventGenerator.patchElements(element).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield {
+          val lines = event.data.split('\n').filter(_.nonEmpty)
+          assertTrue(
+            lines.forall(_.startsWith("elements ")),
+            lines.length >= 5, // Multiple lines from CSS
+            event.data.contains("container"),
+            event.data.contains("display"),
+            event.data.contains("item"),
+          )
+        }
+      },
+      test("ExecuteScript should also handle multi-line correctly") {
+        for {
+          datastar <- Datastar.make
+          queue         = datastar.queue
+          scriptContent = """const x = 1;
+                            |const y = 2;
+                            |console.log(x + y);""".stripMargin
+          _     <- ServerSentEventGenerator.executeScript(scriptContent).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data.contains("selector body\n"),
+          event.data.contains("mode append\n"),
+          event.data.contains("elements <script data-effect=\"el.remove\">const x = 1;\n"),
+          event.data.contains("elements const y = 2;\n"),
+          event.data.contains("elements console.log(x + y);</script>\n"),
+        )
+      },
+      test("ExecuteScript with custom attributes and multi-line") {
+        for {
+          datastar <- Datastar.make
+          queue         = datastar.queue
+          scriptContent = """let a = 'foo';
+                            |let b = 'bar';""".stripMargin
+          options       = ExecuteScriptOptions(
+            autoRemove = false,
+            attributes = Seq("type" -> "module"),
+          )
+          _ <- ServerSentEventGenerator.executeScript(scriptContent, options).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data.contains("elements <script type=\"module\">let a = 'foo';\n"),
+          event.data.contains("elements let b = 'bar';</script>\n"),
+          !event.data.contains("data-effect"),
+        )
+      },
+      test("handles raw HTML string with multi-line content") {
+        for {
+          datastar <- Datastar.make
+          queue = datastar.queue
+          html  = """<div>
+                   |  <span>Line 1</span>
+                   |  <span>Line 2</span>
+                   |</div>""".stripMargin
+          _     <- ServerSentEventGenerator.patchElements(html).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield {
+          val lines = event.data.split('\n').filter(_.nonEmpty)
+          assertTrue(
+            lines.forall(_.startsWith("elements ")),
+            event.data.contains("Line 1"),
+            event.data.contains("Line 2"),
+          )
+        }
+      },
+    ),
   )
 
 }
