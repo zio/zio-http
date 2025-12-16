@@ -2,6 +2,8 @@ package zio.http.datastar.aliased
 
 import java.time.Duration
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test._
 
@@ -11,6 +13,7 @@ import zio.http._
 import zio.http.endpoint.Endpoint
 import zio.http.template2._
 
+@nowarn("msg=possible missing interpolator")
 object DatastarAliasedAttributesSpec extends ZIOSpecDefault {
 
   case class Customer(name: String, age: Int)
@@ -128,7 +131,7 @@ object DatastarAliasedAttributesSpec extends ZIOSpecDefault {
     test("SignalUpdate primitive produces assignment expression") {
       val sig  = Signal[Int]("count")
       val expr = (sig := 42).toExpression
-      assertTrue(expr == Js("42"))
+      assertTrue(expr == Js("{count: 42}"))
     },
     test("SignalUpdate root complex type produces raw JSON value (no assignment)") {
       val sig  = Signal[Customer]("customer")
@@ -157,6 +160,97 @@ object DatastarAliasedAttributesSpec extends ZIOSpecDefault {
       val rendered    = view.render
       val expected    = """data-star-init="@get('/customer/$customerId')""""
       assertTrue(rendered.contains(expected))
+    },
+    test("dataSignals := with SignalUpdate renders correct expression for primitive") {
+      val signal   = Signal[Int]("count")
+      val update   = signal := 42
+      val view     = div(dataSignals(signal) := update)
+      val rendered = view.render
+      assertTrue(rendered == """<div data-star-signals="{count: 42}"></div>""")
+    },
+    test("dataSignals := with SignalUpdate renders correct expression for complex type") {
+      val signal   = Signal[Customer]("customer")
+      val update   = signal := Customer("Alice", 30)
+      val view     = div(dataSignals(signal) := update)
+      val rendered = view.render
+      assertTrue(rendered == "<div data-star-signals=\"{customer: {name: &#x27;Alice&#x27;, age: 30}}\"></div>")
+    },
+    test("dataComputed := with nested primitive value renders correct expression") {
+      val signal   = Signal[Int]("total").nest("computed")
+      val update   = signal := 500
+      val view     = div(dataComputed(signal) := update)
+      val rendered = view.render
+      assertTrue(rendered == """<div data-star-computed="{computed: {total: 500}}"></div>""")
+    },
+    test("dataSignals := with direct complex value renders correct expression") {
+      val signal   = Signal[Customer]("customer")
+      val view     = div(dataSignals(signal) := Customer("Bob", 25))
+      val rendered = view.render
+      assertTrue(rendered == "<div data-star-signals=\"{customer: {name: &#x27;Bob&#x27;, age: 25}}\"></div>")
+    },
+    test("dataSignals := with nested signal and direct value") {
+      val signal   = Signal[Customer]("customer").nest("state")
+      val view     = div(dataSignals(signal) := Customer("Charlie", 35))
+      val rendered = view.render
+      assertTrue(
+        rendered == "<div data-star-signals=\"{state: {customer: {name: &#x27;Charlie&#x27;, age: 35}}}\"></div>",
+      )
+    },
+    test("dataComputed := with SignalUpdate renders correct expression for primitive") {
+      val signal   = Signal[Int]("total")
+      val update   = signal := 100
+      val view     = div(dataComputed(signal) := update)
+      val rendered = view.render
+      assertTrue(rendered == """<div data-star-computed="{total: 100}"></div>""")
+    },
+    test("dataComputed := with SignalUpdate renders correct expression for complex type") {
+      val signal   = Signal[Customer]("computedCustomer")
+      val update   = signal := Customer("ComputedAlice", 40)
+      val view     = div(dataComputed(signal) := update)
+      val rendered = view.render
+      assertTrue(
+        rendered == "<div data-star-computed=\"{computedCustomer: {name: &#x27;ComputedAlice&#x27;, age: 40}}\"></div>",
+      )
+    },
+    test("SignalUpdate toAssignmentExpression for primitive produces $name = value") {
+      val sig  = Signal[Int]("count")
+      val expr = (sig := 42).toAssignmentExpression
+      assertTrue(expr == Js("$count = 42"))
+    },
+    test("SignalUpdate toAssignmentExpression for complex type produces $name = {object}") {
+      val sig  = Signal[Customer]("customer")
+      val expr = (sig := Customer("Alice", 30)).toAssignmentExpression
+      assertTrue(expr == Js("$customer = {name: 'Alice', age: 30}"))
+    },
+    test("SignalUpdate toAssignmentExpression for nested primitive produces $outer = {nested: value}") {
+      val sig  = Signal[Int]("count").nest("state")
+      val expr = (sig := 42).toAssignmentExpression
+      assertTrue(expr == Js("$state = {count: 42}"))
+    },
+    test("SignalUpdate toAssignmentExpression for nested complex produces $outer = {nested: {object}}") {
+      val sig  = Signal[Customer]("customer").nest("state")
+      val expr = (sig := Customer("Bob", 25)).toAssignmentExpression
+      assertTrue(expr == Js("$state = {customer: {name: 'Bob', age: 25}}"))
+    },
+    test("SignalUpdate implicit conversion uses assignment expression for event handlers") {
+      val countdown = Signal[Int]("_restoreCountdown")
+      val view      = button(dataOn.click := countdown.update(0))("Reset")
+      val rendered  = view.render
+      assertTrue(rendered == """<button data-star-on:click="$_restoreCountdown = 0">Reset</button>""")
+    },
+    test("SignalUpdate implicit conversion for nested signal in event handler") {
+      val nested   = Signal[Int]("value").nest("state")
+      val view     = button(dataOn.click := nested.update(100))("Set")
+      val rendered = view.render
+      assertTrue(rendered == """<button data-star-on:click="$state = {value: 100}">Set</button>""")
+    },
+    test("SignalUpdate implicit conversion for complex type in event handler") {
+      val customer = Signal[Customer]("customer")
+      val view     = button(dataOn.click := customer.update(Customer("Alice", 30)))("Set")
+      val rendered = view.render
+      assertTrue(
+        rendered == "<button data-star-on:click=\"$customer = {name: &#x27;Alice&#x27;, age: 30}\">Set</button>",
+      )
     },
   )
 }

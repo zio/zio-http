@@ -45,7 +45,11 @@ object DatastarEvent {
         sb.append("useViewTransition true\n")
       }
 
-      sb.append("elements ").append(elements.renderMinified).append('\n')
+      val rendered = elements.renderMinified
+      if (rendered.contains('\n'))
+        rendered.split('\n').foreach(line => sb.append("elements ").append(line).append('\n'))
+      else
+        sb.append("elements ").append(rendered).append('\n')
 
       val retry = if (retryDuration != DefaultRetryDelay) Some(retryDuration) else None
       ServerSentEvent(sb.toString(), Some(eventType.render), eventId, retry)
