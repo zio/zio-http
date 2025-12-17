@@ -182,6 +182,7 @@ object ServerApp extends ZIOAppDefault {
       ),
       includeClientCert = false,
       clientAuth = Some(ClientAuth.Required),
+      protocols = Seq("TLSv1.3", "TLSv1.2"),
     )
 
   private val serverConfig =
@@ -200,6 +201,8 @@ object ServerApp extends ZIOAppDefault {
 Please note that we enabled the `ClientAuth.Required` option in the SSL configuration. This forces clients to present their certificates during the TLS handshake. If a client does not provide a valid certificate, the connection will be rejected.
 
 If we want to access the client certificate, we can enable the `includeClientCert` option in the SSL configuration. This allows us to access the client certificate via `req.remoteCertificate` in the request handler.
+
+The `protocols` parameter in `SSLConfig` allows configuring supported TLS protocol versions. This is useful for disabling older protocol versions for security reasons.
 
 ### Client Implementation
 
