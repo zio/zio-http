@@ -76,6 +76,11 @@ private[netty] object NettyConnectionPool {
           )
         }
 
+        // Add read timeout handler if configured
+        // This provides channel-level timeout detection (triggers if no bytes are read)
+        // Works in coordination with body-level timeout in AsyncBodyReader:
+        // - Channel-level: Detects complete channel stalls (no bytes at all)
+        // - Body-level: Detects body reading stalls (headers received but body incomplete)
         idleTimeout.foreach { timeout =>
           pipeline.addLast(Names.ReadTimeoutHandler, new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS))
         }
@@ -142,10 +147,25 @@ private[netty] object NettyConnectionPool {
   }
 
   /**
-   * Refreshes the idle timeout handler on the channel pipeline.
+   * Refreshes the idle timeout handler on the channel pipeline when reusing a
+   * connection from the pool. This ensures the timeout counter resets for each
+   * new request, preventing timeouts from accumulating across requests.
+   *
+   * The ReadTimeoutHandler monitors channel-level read activity and triggers if
+   * no bytes are received within the timeout period. This works together with
+   * AsyncBodyReader's body-specific timeout to provide comprehensive timeout
+   * coverage:
+   *   - Channel timeout: Detects complete stalls (no data at all)
+   *   - Body timeout: Detects incomplete body reads (headers sent but body
+   *     hangs)
+   *
+   * @param channel
+   *   The channel to refresh the timeout handler on
+   * @param timeout
+   *   The timeout duration to apply
    * @return
    *   true if the handler was successfully refreshed prior to the channel being
-   *   closed
+   *   closed, false otherwise
    */
   private def refreshIdleTimeoutHandler(
     channel: JChannel,
@@ -161,6 +181,23 @@ private[netty] object NettyConnectionPool {
     channel.isOpen
   }
 
+  /**
+   * Handler for ReadTimeoutExceptions from Netty's ReadTimeoutHandler.
+   *
+   * This provides the first layer of timeout protection at the channel level.
+   * When a ReadTimeoutException occurs (no bytes read within idleTimeout):
+   *   1. Logs the event for debugging
+   *   2. Closes the channel to trigger cleanup
+   *   3. Allows AsyncBodyReader to detect the closure and fail appropriately
+   *
+   * This works in coordination with AsyncBodyReader's body-specific timeout:
+   *   - Channel-level (this handler): Triggers if channel becomes completely
+   *     idle
+   *   - Body-level (AsyncBodyReader): Triggers if body reading stalls
+   *     specifically
+   *
+   * The dual-layer approach ensures timeout detection even if one layer fails.
+   */
   private final class ReadTimeoutErrorHandler(nettyRuntime: NettyRuntime)(implicit trace: Trace)
       extends ChannelInboundHandlerAdapter {
 
@@ -168,8 +205,14 @@ private[netty] object NettyConnectionPool {
 
     override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
       cause match {
-        case _: ReadTimeoutException => nettyRuntime.unsafeRunSync(ZIO.logDebug("ReadTimeoutException caught"))
-        case _                       => super.exceptionCaught(ctx, cause)
+        case _: ReadTimeoutException =>
+          // Log the timeout at debug level
+          nettyRuntime.unsafeRunSync(ZIO.logDebug(s"ReadTimeoutException on channel ${ctx.channel()}"))
+          // Close the channel to ensure proper cleanup
+          // The timeout will be detected by response handlers (AsyncBodyReader)
+          ctx.close(): Unit
+        case _                       =>
+          super.exceptionCaught(ctx, cause)
       }
     }
   }
