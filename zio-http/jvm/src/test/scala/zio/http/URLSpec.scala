@@ -164,7 +164,7 @@ object URLSpec extends ZIOHttpSpec {
           check(HttpGen.nonEmptyPath) { path =>
             assertTrue(URL(path = path).encode == path.encode)
           }
-        }
+        },
       ),
       suite("builder")(
         test("creates a URL with all attributes set") {

@@ -30,16 +30,16 @@ import zio.http._
 object HttpGen {
   def pcharUriChar(implicit trace: Trace): Gen[Any, Char] =
     Gen.weighted(
-      Gen.char(48, 57) -> 10,  // digits
-      Gen.char(65, 90) -> 26,  // uppercase letters
+      Gen.char(48, 57)  -> 10, // digits
+      Gen.char(65, 90)  -> 26, // uppercase letters
       Gen.char(97, 122) -> 26, // lowercase letters
-      Gen.const('-') -> 1,
-      Gen.const('.') -> 1,
-      Gen.const('_') -> 1,
-      Gen.const('~') -> 1,
-      Gen.const('*') -> 1,
-      Gen.const(':') -> 1,
-      Gen.const('@') -> 1,
+      Gen.const('-')    -> 1,
+      Gen.const('.')    -> 1,
+      Gen.const('_')    -> 1,
+      Gen.const('~')    -> 1,
+      Gen.const('*')    -> 1,
+      Gen.const(':')    -> 1,
+      Gen.const('@')    -> 1,
     )
 
   def anyPath: Gen[Any, Path] = for {
