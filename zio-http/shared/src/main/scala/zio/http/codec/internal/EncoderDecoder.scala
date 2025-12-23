@@ -165,7 +165,7 @@ private[codec] object EncoderDecoder {
       decodeStatus(status, inputsBuilder.status)
       decodeMethod(method, inputsBuilder.method)
       decodeHeaders(headers, inputsBuilder.header)
-      decodeBody(config, body, inputsBuilder.content).as(constructor(inputsBuilder))
+      decodeBody(config, body, status, inputsBuilder.content).as(constructor(inputsBuilder))
     }
 
     override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
@@ -254,7 +254,7 @@ private[codec] object EncoderDecoder {
           },
       )
 
-    private def decodeBody(config: CodecConfig, body: Body, inputs: Array[Any])(implicit
+    private def decodeBody(config: CodecConfig, body: Body, status: Status, inputs: Array[Any])(implicit
       trace: Trace,
     ): Task[Unit] = {
       val isNonMultiPart = inputs.length < 2
@@ -266,7 +266,7 @@ private[codec] object EncoderDecoder {
         else {
           val codec = codecs.head
           codec
-            .decodeFromBody(body, config)
+            .decodeFromBody(body, status, config)
             .mapBoth(
               { err => HttpCodecError.MalformedBody(err.getMessage, Some(err)) },
               result => inputs(0) = result,

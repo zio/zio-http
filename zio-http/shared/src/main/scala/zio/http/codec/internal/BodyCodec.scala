@@ -24,7 +24,7 @@ import zio.schema._
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http.codec.{BinaryCodecWithSchema, CodecConfig, HttpCodecError, HttpContentCodec}
-import zio.http.{Body, FormField, MediaType}
+import zio.http.{Body, FormField, MediaType, Status}
 
 /**
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
@@ -47,7 +47,7 @@ private[http] sealed trait BodyCodec[A] { self =>
   /**
    * Attempts to decode the `A` from a body using the given codec.
    */
-  def decodeFromBody(body: Body, config: CodecConfig)(implicit trace: Trace): IO[Throwable, A]
+def decodeFromBody(body: Body, status: Status, config: CodecConfig)(implicit trace: Trace): IO[Throwable, A]
 
   /**
    * Encodes the `A` to a FormField in the given codec.
@@ -89,7 +89,7 @@ private[http] object BodyCodec {
     override def decodeFromField(field: FormField, config: CodecConfig)(implicit trace: Trace): IO[Throwable, Unit] =
       ZIO.unit
 
-    override def decodeFromBody(body: Body, config: CodecConfig)(implicit trace: Trace): IO[Nothing, Unit] = ZIO.unit
+    override def decodeFromBody(body: Body, status: Status, config: CodecConfig)(implicit trace: Trace): IO[Nothing, Unit] = ZIO.unit
 
     override def encodeToBody(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
       trace: Trace,
@@ -126,13 +126,14 @@ private[http] object BodyCodec {
       }
     }
 
-    override def decodeFromBody(body: Body, config: CodecConfig)(implicit trace: Trace): IO[Throwable, A] = {
+    override def decodeFromBody(body: Body, status: Status, config: CodecConfig)(implicit trace: Trace): IO[Throwable, A] = {
       val codec0 = codecForBody(codec, body)
       codec0 match {
         case Left(error)                                                            =>
           Exit.fail(error)
         case Right((_, BinaryCodecWithSchema(_, schema))) if schema == Schema[Unit] =>
-          if (body.isEmpty) Exit.unit.asInstanceOf[IO[Throwable, A]]
+          // For NoContent status, treat body as empty even if it's not physically empty
+          if (body.isEmpty || status == Status.NoContent) Exit.unit.asInstanceOf[IO[Throwable, A]]
           else ZIO.fail(HttpCodecError.CustomError("InvalidBody", "Non-empty body cannot be decoded as Unit"))
         case Right((_, bc @ BinaryCodecWithSchema(_, schema)))                      =>
           body.asChunk.flatMap { chunk => ZIO.fromEither(bc.codec(config).decode(chunk)) }.flatMap(validateZIO(schema))
@@ -191,7 +192,7 @@ private[http] object BodyCodec {
           }
       }
 
-    override def decodeFromBody(body: Body, config: CodecConfig)(implicit
+    override def decodeFromBody(body: Body, status: Status, config: CodecConfig)(implicit
       trace: Trace,
     ): IO[Throwable, ZStream[Any, Nothing, E]] =
       ZIO.fromEither {
