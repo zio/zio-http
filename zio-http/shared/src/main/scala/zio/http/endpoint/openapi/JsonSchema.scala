@@ -637,11 +637,32 @@ object JsonSchema {
           JsonSchema
             .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, SchemaStyle.Compact)))
         } else if (discriminatorName0.isDefined) {
+          val discriminatorName = discriminatorName0.get
           JsonSchema
-            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, SchemaStyle.Compact)))
+            .OneOfSchema(nonTransientCases.map { c =>
+              val caseName = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
+              val caseSchema = fromZSchema(c.schema, SchemaStyle.Compact)
+              
+              caseSchema match {
+                case recordSchema: Object =>
+                  recordSchema.copy(
+                    properties = recordSchema.properties + (discriminatorName -> JsonSchema.Enum(Chunk(EnumValue.Str(caseName)))),
+                    required = recordSchema.required :+ discriminatorName
+                  )
+                case _ => 
+                  Object(
+                    Map(
+                      discriminatorName -> JsonSchema.Enum(Chunk(EnumValue.Str(caseName))),
+                      "data" -> caseSchema
+                    ),
+                    Left(false),
+                    Chunk(discriminatorName, "data")
+                  )
+              }
+            })
             .discriminator(
               OpenAPI.Discriminator(
-                propertyName = discriminatorName0.get,
+                propertyName = discriminatorName,
                 mapping = nonTransientCases.map { c =>
                   val name = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
                   name -> nominal(c.schema, refType).orElse(nominal(c.schema, SchemaStyle.Compact)).get
