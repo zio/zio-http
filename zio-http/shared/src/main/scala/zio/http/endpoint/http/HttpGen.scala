@@ -134,7 +134,7 @@ object HttpGen {
       )
     }
 
-  def queryVariables(config: CodecConfig, inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
+  def queryVariables(_config: CodecConfig, inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
     inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(codec, _), _) =>
       val recordSchema = (codec.schema match {
         case value if value.isInstanceOf[Schema.Optional[_]] => value.asInstanceOf[Schema.Optional[Any]].schema

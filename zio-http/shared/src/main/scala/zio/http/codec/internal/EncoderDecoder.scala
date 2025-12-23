@@ -210,7 +210,7 @@ private[codec] object EncoderDecoder {
         },
       )
 
-    private def decodeQuery(config: CodecConfig, queryParams: QueryParams, inputs: Array[Any]): Unit =
+    private def decodeQuery(_config: CodecConfig, queryParams: QueryParams, inputs: Array[Any]): Unit =
       genericDecode[QueryParams, HttpCodec.Query[_]](
         queryParams,
         flattened.query,
@@ -345,7 +345,7 @@ private[codec] object EncoderDecoder {
         },
       )
 
-    private def encodeQuery(config: CodecConfig, inputs: Array[Any]): QueryParams =
+    private def encodeQuery(_config: CodecConfig, inputs: Array[Any]): QueryParams =
       genericEncode[QueryParams, HttpCodec.Query[_]](
         flattened.query,
         inputs,

@@ -640,19 +640,19 @@ object JsonSchema {
           val discriminatorName = discriminatorName0.get
           JsonSchema
             .OneOfSchema(nonTransientCases.map { c =>
-              val caseName = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
+              val caseNameValue = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
               val caseSchema = fromZSchema(c.schema, SchemaStyle.Compact)
               
               caseSchema match {
                 case recordSchema: Object =>
                   recordSchema.copy(
-                    properties = recordSchema.properties + (discriminatorName -> JsonSchema.Enum(Chunk(EnumValue.Str(caseName)))),
+                    properties = recordSchema.properties + (discriminatorName -> JsonSchema.Enum(Chunk(EnumValue.Str(caseNameValue)))),
                     required = recordSchema.required :+ discriminatorName
                   )
                 case _ => 
                   Object(
                     Map(
-                      discriminatorName -> JsonSchema.Enum(Chunk(EnumValue.Str(caseName))),
+                      discriminatorName -> JsonSchema.Enum(Chunk(EnumValue.Str(caseNameValue))),
                       "data" -> caseSchema
                     ),
                     Left(false),

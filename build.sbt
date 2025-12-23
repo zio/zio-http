@@ -128,18 +128,33 @@ inThisBuild(
 ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
 lazy val exampleProjects: Seq[ProjectReference] =
-  if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference]
-  else
-    Seq[ProjectReference](
-      zioHttpExampleBasicAuth,
-      zioHttpExampleCookieAuth,
-      zioHttpExampleDigestAuth,
-      zioHttpExampleOpaqueBearerTokenAuth,
-      zioHttpExampleJwtBearerTokenAuth,
-      zioHttpExampleJwtBearerRefreshTokenAuth,
-      zioHttpExampleOauthBearerTokenAuth,
-      zioHttpExampleWebauthn,
-    )
+  try {
+    if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference]
+    else
+      Seq[ProjectReference](
+        zioHttpExampleBasicAuth,
+        zioHttpExampleCookieAuth,
+        zioHttpExampleDigestAuth,
+        zioHttpExampleOpaqueBearerTokenAuth,
+        zioHttpExampleJwtBearerTokenAuth,
+        zioHttpExampleJwtBearerRefreshTokenAuth,
+        zioHttpExampleOauthBearerTokenAuth,
+        zioHttpExampleWebauthn,
+      )
+  } catch {
+    case _: Exception => 
+      // If git command fails (e.g., in CI or without tags), include all example projects
+      Seq[ProjectReference](
+        zioHttpExampleBasicAuth,
+        zioHttpExampleCookieAuth,
+        zioHttpExampleDigestAuth,
+        zioHttpExampleOpaqueBearerTokenAuth,
+        zioHttpExampleJwtBearerTokenAuth,
+        zioHttpExampleJwtBearerRefreshTokenAuth,
+        zioHttpExampleOauthBearerTokenAuth,
+        zioHttpExampleWebauthn,
+      )
+  }
 
 lazy val aggregatedProjects: Seq[ProjectReference] =
   if (Shading.shadingEnabled) {

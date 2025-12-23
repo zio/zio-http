@@ -48,7 +48,7 @@ object ClientSSLConfig {
       serverCertConfig.zipWith(clientCertConfig)(FromClientAndServerCert(_, _))
     }
 
-    val fromJavaxNetSsl = {
+    val _fromJavaxNetSsl = {
       keyManagerKeyStoreType.optional
         .zip(keyManagerFile.optional)
         .zip(keyManagerResource.optional)
