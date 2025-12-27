@@ -357,8 +357,8 @@ object Body {
   }
 
   /**
-   * Constructs a [[zio.http.Body]] from a byte range within a file.
-   * This is used for HTTP Range requests to serve partial content.
+   * Constructs a [[zio.http.Body]] from a byte range within a file. This is
+   * used for HTTP Range requests to serve partial content.
    *
    * @param file
    *   The file to read from
@@ -376,7 +376,6 @@ object Body {
       FileRangeBody(file, start, end, chunkSize)
     }
   }
-
 
   /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
@@ -705,8 +704,8 @@ object Body {
   }
 
   /**
-   * A Body that streams a specific byte range from a file.
-   * Used for HTTP Range requests to serve partial content.
+   * A Body that streams a specific byte range from a file. Used for HTTP Range
+   * requests to serve partial content.
    */
   private[zio] final case class FileRangeBody(
     file: java.io.File,
@@ -742,9 +741,9 @@ object Body {
         ZIO.blocking {
           ZIO.suspendSucceed {
             try {
-              val raf      = new java.io.RandomAccessFile(file, "r")
+              val raf       = new java.io.RandomAccessFile(file, "r")
               raf.seek(start)
-              val size     = Math.min(chunkSize.toLong, rangeLength).toInt
+              val size      = Math.min(chunkSize.toLong, rangeLength).toInt
               var bytesRead = 0L
 
               val read: Task[Option[Chunk[Byte]]] =
@@ -783,7 +782,6 @@ object Body {
 
     override def knownContentLength: Option[Long] = Some(rangeLength)
   }
-
 
   private[zio] final case class StreamBody(
     stream: ZStream[Any, Throwable, Byte],

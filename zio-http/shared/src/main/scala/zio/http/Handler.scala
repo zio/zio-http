@@ -955,9 +955,9 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   /**
    * Creates a handler that serves a file with support for HTTP Range requests.
-   * When a Range header is present in the request, returns partial content (206)
-   * with appropriate Content-Range headers. Supports single byte range requests
-   * as specified in RFC 9110 §14.
+   * When a Range header is present in the request, returns partial content
+   * (206) with appropriate Content-Range headers. Supports single byte range
+   * requests as specified in RFC 9110 §14.
    *
    * @param getFile
    *   A ZIO effect that produces the file to serve
@@ -1025,7 +1025,8 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
         } else {
           // Valid range - return 206 Partial Content
           Body.fromFileRange(file, startPos, endPos + 1).flatMap { body =>
-            val response = http.Response(body = body, status = Status.PartialContent)
+            val response = http
+              .Response(body = body, status = Status.PartialContent)
               .addHeader(Header.ContentRange.EndTotal("bytes", startPos.toInt, endPos.toInt, fileLength.toInt))
               .addHeader(Header.AcceptRanges.Bytes)
               .addHeader(Header.ContentLength(rangeSize))
@@ -1039,7 +1040,8 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
         val rangeSize = endPos - startPos + 1
 
         Body.fromFileRange(file, startPos, fileLength).flatMap { body =>
-          val response = http.Response(body = body, status = Status.PartialContent)
+          val response = http
+            .Response(body = body, status = Status.PartialContent)
             .addHeader(Header.ContentRange.EndTotal("bytes", startPos.toInt, endPos.toInt, fileLength.toInt))
             .addHeader(Header.AcceptRanges.Bytes)
             .addHeader(Header.ContentLength(rangeSize))
@@ -1060,7 +1062,8 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           )
         } else {
           Body.fromFileRange(file, startPos, fileLength).flatMap { body =>
-            val response = http.Response(body = body, status = Status.PartialContent)
+            val response = http
+              .Response(body = body, status = Status.PartialContent)
               .addHeader(Header.ContentRange.EndTotal("bytes", startPos.toInt, endPos.toInt, fileLength.toInt))
               .addHeader(Header.AcceptRanges.Bytes)
               .addHeader(Header.ContentLength(rangeSize))
@@ -1109,7 +1112,6 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       case None            => ZIO.succeed(response)
     }
   }
-
 
   /**
    * Creates a Handler that always succeeds with a 200 status code and the

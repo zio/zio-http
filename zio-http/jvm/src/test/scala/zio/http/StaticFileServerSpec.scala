@@ -129,7 +129,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         ZIO.blocking {
           for {
             tmpFile <- ZIO.succeed {
-              val f = File.createTempFile("range-test", ".txt")
+              val f      = File.createTempFile("range-test", ".txt")
               val writer = new java.io.FileWriter(f)
               writer.write("0123456789abcdefghij")
               writer.close()
@@ -139,7 +139,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
             request = Request.get(url"/file").addHeader(Header.Range.Single("bytes", 0, Some(9)))
             handler = Handler.fromFileWithRange(ZIO.succeed(tmpFile), request).sandbox
             response <- handler.toRoutes.deploy.run()
-            body <- response.body.asString
+            body     <- response.body.asString
           } yield assertTrue(
             response.status == Status.PartialContent,
             body == "0123456789",
@@ -152,7 +152,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         ZIO.blocking {
           for {
             tmpFile <- ZIO.succeed {
-              val f = File.createTempFile("range-invalid", ".txt")
+              val f      = File.createTempFile("range-invalid", ".txt")
               val writer = new java.io.FileWriter(f)
               writer.write("short")
               writer.close()
@@ -172,7 +172,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         ZIO.blocking {
           for {
             tmpFile <- ZIO.succeed {
-              val f = File.createTempFile("full-file", ".txt")
+              val f      = File.createTempFile("full-file", ".txt")
               val writer = new java.io.FileWriter(f)
               writer.write("content")
               writer.close()
@@ -192,7 +192,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         ZIO.blocking {
           for {
             tmpFile <- ZIO.succeed {
-              val f = File.createTempFile("suffix-test", ".txt")
+              val f      = File.createTempFile("suffix-test", ".txt")
               val writer = new java.io.FileWriter(f)
               writer.write("0123456789")
               writer.close()
@@ -202,7 +202,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
             request = Request.get(url"/file").addHeader(Header.Range.Suffix("bytes", 5))
             handler = Handler.fromFileWithRange(ZIO.succeed(tmpFile), request).sandbox
             response <- handler.toRoutes.deploy.run()
-            body <- response.body.asString
+            body     <- response.body.asString
           } yield assertTrue(
             response.status == Status.PartialContent,
             body == "56789",
@@ -213,7 +213,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         ZIO.blocking {
           for {
             tmpFile <- ZIO.succeed {
-              val f = File.createTempFile("prefix-test", ".txt")
+              val f      = File.createTempFile("prefix-test", ".txt")
               val writer = new java.io.FileWriter(f)
               writer.write("0123456789")
               writer.close()
@@ -223,7 +223,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
             request = Request.get(url"/file").addHeader(Header.Range.Prefix("bytes", 5))
             handler = Handler.fromFileWithRange(ZIO.succeed(tmpFile), request).sandbox
             response <- handler.toRoutes.deploy.run()
-            body <- response.body.asString
+            body     <- response.body.asString
           } yield assertTrue(
             response.status == Status.PartialContent,
             body == "56789",
@@ -234,4 +234,3 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
   )
 
 }
-
