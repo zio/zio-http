@@ -169,7 +169,7 @@ object FileRangeSupport {
   
   private def rangeNotSatisfiable(fileLength: Long): Response = {
     Response(
-      status = Status.Custom(416), // 416 Range Not Satisfiable
+      status = Status.Custom(416),
       headers = Headers(
         Header.ContentRange.RangeTotal("bytes", fileLength.toInt),
         Header.AcceptRanges.Bytes
