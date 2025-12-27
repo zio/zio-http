@@ -357,6 +357,28 @@ object Body {
   }
 
   /**
+   * Constructs a [[zio.http.Body]] from a byte range within a file.
+   * This is used for HTTP Range requests to serve partial content.
+   *
+   * @param file
+   *   The file to read from
+   * @param start
+   *   The starting byte position (inclusive)
+   * @param end
+   *   The ending byte position (exclusive)
+   * @param chunkSize
+   *   The size of chunks to read (default: 4KB)
+   */
+  def fromFileRange(file: java.io.File, start: Long, end: Long, chunkSize: Int = 1024 * 4)(implicit
+    trace: Trace,
+  ): ZIO[Any, Nothing, Body] = {
+    ZIO.succeed {
+      FileRangeBody(file, start, end, chunkSize)
+    }
+  }
+
+
+  /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
    * encoding and the specified character set, which defaults to UTF-8.
    */
@@ -681,6 +703,87 @@ object Body {
 
     override def knownContentLength: Option[Long] = Some(fileSize)
   }
+
+  /**
+   * A Body that streams a specific byte range from a file.
+   * Used for HTTP Range requests to serve partial content.
+   */
+  private[zio] final case class FileRangeBody(
+    file: java.io.File,
+    start: Long,
+    end: Long,
+    chunkSize: Int = 1024 * 4,
+    override val contentType: Option[Body.ContentType] = None,
+  ) extends Body {
+
+    private val rangeLength: Long = end - start
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attemptBlocking {
+      val raf    = new java.io.RandomAccessFile(file, "r")
+      val buffer = new Array[Byte](rangeLength.toInt)
+      try {
+        raf.seek(start)
+        raf.readFully(buffer)
+        buffer
+      } finally {
+        raf.close()
+      }
+    }
+
+    override def isComplete: Boolean = false
+
+    override def isEmpty: Boolean = rangeLength <= 0
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
+      asArray.map(Chunk.fromArray)
+
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+      ZStream.unwrap {
+        ZIO.blocking {
+          ZIO.suspendSucceed {
+            try {
+              val raf      = new java.io.RandomAccessFile(file, "r")
+              raf.seek(start)
+              val size     = Math.min(chunkSize.toLong, rangeLength).toInt
+              var bytesRead = 0L
+
+              val read: Task[Option[Chunk[Byte]]] =
+                ZIO.suspendSucceed {
+                  try {
+                    val remaining = rangeLength - bytesRead
+                    if (remaining <= 0) {
+                      Exit.none
+                    } else {
+                      val toRead = Math.min(size.toLong, remaining).toInt
+                      val buffer = new Array[Byte](toRead)
+                      val len    = raf.read(buffer)
+                      if (len > 0) {
+                        bytesRead += len
+                        Exit.succeed(Some(Chunk.fromArray(buffer.slice(0, len))))
+                      } else Exit.none
+                    }
+                  } catch {
+                    case e: Throwable => Exit.fail(e)
+                  }
+                }
+
+              Exit.succeed {
+                ZStream
+                  .unfoldChunkZIO(read)(_.map(_.map(_ -> read)))
+                  .ensuring(ZIO.attempt(raf.close()).ignoreLogged)
+              }
+            } catch {
+              case e: Throwable => Exit.fail(e)
+            }
+          }
+        }
+      }
+
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
+
+    override def knownContentLength: Option[Long] = Some(rangeLength)
+  }
+
 
   private[zio] final case class StreamBody(
     stream: ZStream[Any, Throwable, Byte],

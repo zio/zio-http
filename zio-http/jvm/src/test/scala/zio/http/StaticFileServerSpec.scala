@@ -21,7 +21,7 @@ import java.io.File
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.{mac, os, sequential, unix, withLiveClock}
-import zio.test.assertZIO
+import zio.test.{assertZIO, assertTrue}
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
@@ -124,6 +124,114 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         },
       ),
     ),
+    suite("fromFileWithRange")(
+      test("should return 206 Partial Content for valid Range request") {
+        ZIO.blocking {
+          for {
+            tmpFile <- ZIO.succeed {
+              val f = File.createTempFile("range-test", ".txt")
+              val writer = new java.io.FileWriter(f)
+              writer.write("0123456789abcdefghij")
+              writer.close()
+              f.deleteOnExit()
+              f
+            }
+            request = Request.get(url"/file").addHeader(Header.Range.Single("bytes", 0, Some(9)))
+            handler = Handler.fromFileWithRange(ZIO.succeed(tmpFile), request).sandbox
+            response <- handler.toRoutes.deploy.run()
+            body <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.PartialContent,
+            body == "0123456789",
+            response.header(Header.ContentRange).isDefined,
+            response.header(Header.AcceptRanges).isDefined,
+          )
+        }
+      },
+      test("should return 416 Range Not Satisfiable for invalid range") {
+        ZIO.blocking {
+          for {
+            tmpFile <- ZIO.succeed {
+              val f = File.createTempFile("range-invalid", ".txt")
+              val writer = new java.io.FileWriter(f)
+              writer.write("short")
+              writer.close()
+              f.deleteOnExit()
+              f
+            }
+            request = Request.get(url"/file").addHeader(Header.Range.Single("bytes", 100, Some(200)))
+            handler = Handler.fromFileWithRange(ZIO.succeed(tmpFile), request).sandbox
+            response <- handler.toRoutes.deploy.run()
+          } yield assertTrue(
+            response.status == Status.RequestedRangeNotSatisfiable,
+            response.header(Header.ContentRange).isDefined,
+          )
+        }
+      },
+      test("should return Accept-Ranges header for full file requests") {
+        ZIO.blocking {
+          for {
+            tmpFile <- ZIO.succeed {
+              val f = File.createTempFile("full-file", ".txt")
+              val writer = new java.io.FileWriter(f)
+              writer.write("content")
+              writer.close()
+              f.deleteOnExit()
+              f
+            }
+            request = Request.get(url"/file")
+            handler = Handler.fromFileWithRange(ZIO.succeed(tmpFile), request).sandbox
+            response <- handler.toRoutes.deploy.run()
+          } yield assertTrue(
+            response.status == Status.Ok,
+            response.header(Header.AcceptRanges).isDefined,
+          )
+        }
+      },
+      test("should handle suffix range request") {
+        ZIO.blocking {
+          for {
+            tmpFile <- ZIO.succeed {
+              val f = File.createTempFile("suffix-test", ".txt")
+              val writer = new java.io.FileWriter(f)
+              writer.write("0123456789")
+              writer.close()
+              f.deleteOnExit()
+              f
+            }
+            request = Request.get(url"/file").addHeader(Header.Range.Suffix("bytes", 5))
+            handler = Handler.fromFileWithRange(ZIO.succeed(tmpFile), request).sandbox
+            response <- handler.toRoutes.deploy.run()
+            body <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.PartialContent,
+            body == "56789",
+          )
+        }
+      },
+      test("should handle prefix range request") {
+        ZIO.blocking {
+          for {
+            tmpFile <- ZIO.succeed {
+              val f = File.createTempFile("prefix-test", ".txt")
+              val writer = new java.io.FileWriter(f)
+              writer.write("0123456789")
+              writer.close()
+              f.deleteOnExit()
+              f
+            }
+            request = Request.get(url"/file").addHeader(Header.Range.Prefix("bytes", 5))
+            handler = Handler.fromFileWithRange(ZIO.succeed(tmpFile), request).sandbox
+            response <- handler.toRoutes.deploy.run()
+            body <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.PartialContent,
+            body == "56789",
+          )
+        }
+      },
+    ),
   )
 
 }
+

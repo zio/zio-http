@@ -936,8 +936,12 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
                 determineMediaType(pathName) match {
                   case Some(mediaType) =>
                     val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
-                    ZIO.succeed(response.addHeader(Header.ContentType(mediaType, charset = charset0)))
-                  case None            => ZIO.succeed(response)
+                    ZIO.succeed(
+                      response
+                        .addHeader(Header.ContentType(mediaType, charset = charset0))
+                        .addHeader(Header.AcceptRanges.Bytes),
+                    )
+                  case None            => ZIO.succeed(response.addHeader(Header.AcceptRanges.Bytes))
                 }
               }
             } else {
@@ -948,6 +952,164 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       },
     )
   }
+
+  /**
+   * Creates a handler that serves a file with support for HTTP Range requests.
+   * When a Range header is present in the request, returns partial content (206)
+   * with appropriate Content-Range headers. Supports single byte range requests
+   * as specified in RFC 9110 §14.
+   *
+   * @param getFile
+   *   A ZIO effect that produces the file to serve
+   * @param request
+   *   The incoming HTTP request to check for Range headers
+   * @param charset
+   *   The charset to use for text files (default: UTF-8)
+   */
+  def fromFileWithRange[R](getFile: ZIO[R, Throwable, File], request: Request, charset: Charset = Charsets.Utf8)(
+    implicit trace: Trace,
+  ): Handler[R, Throwable, Any, Response] = {
+    Handler.fromZIO[R, Throwable, Response](
+      ZIO.blocking {
+        getFile.flatMap { file =>
+          if (!file.exists()) {
+            ZIO.fail(new FileNotFoundException())
+          } else if (file.isFile && !file.canRead) {
+            ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
+          } else {
+            if (file.isFile) {
+              val fileLength = file.length()
+              val pathName   = file.toPath.toString
+
+              // Check for Range header
+              request.header(Header.Range) match {
+                case Some(rangeHeader) =>
+                  handleRangeRequest(file, fileLength, rangeHeader, pathName, charset)
+                case None              =>
+                  // No Range header - serve full file
+                  Body.fromFile(file).flatMap { body =>
+                    val response = http.Response(body = body)
+                    addFileHeaders(response, pathName, charset)
+                  }
+              }
+            } else {
+              ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
+            }
+          }
+        }
+      },
+    )
+  }
+
+  private def handleRangeRequest(
+    file: File,
+    fileLength: Long,
+    rangeHeader: Header.Range,
+    pathName: String,
+    charset: Charset,
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    rangeHeader match {
+      case Header.Range.Single(unit, start, endOpt) if unit.toLowerCase == "bytes" =>
+        val startPos  = start
+        val endPos    = endOpt.map(e => Math.min(e, fileLength - 1)).getOrElse(fileLength - 1)
+        val rangeSize = endPos - startPos + 1
+
+        if (startPos < 0 || startPos >= fileLength || endPos < startPos) {
+          // Invalid range - return 416 Range Not Satisfiable
+          ZIO.succeed(
+            Response
+              .status(Status.RequestedRangeNotSatisfiable)
+              .addHeader(Header.ContentRange.RangeTotal("bytes", fileLength.toInt))
+              .addHeader(Header.AcceptRanges.Bytes),
+          )
+        } else {
+          // Valid range - return 206 Partial Content
+          Body.fromFileRange(file, startPos, endPos + 1).flatMap { body =>
+            val response = http.Response(body = body, status = Status.PartialContent)
+              .addHeader(Header.ContentRange.EndTotal("bytes", startPos.toInt, endPos.toInt, fileLength.toInt))
+              .addHeader(Header.AcceptRanges.Bytes)
+              .addHeader(Header.ContentLength(rangeSize))
+            addContentTypeHeader(response, pathName, charset)
+          }
+        }
+
+      case Header.Range.Suffix(unit, suffixLen) if unit.toLowerCase == "bytes" =>
+        val startPos  = Math.max(0, fileLength - suffixLen)
+        val endPos    = fileLength - 1
+        val rangeSize = endPos - startPos + 1
+
+        Body.fromFileRange(file, startPos, fileLength).flatMap { body =>
+          val response = http.Response(body = body, status = Status.PartialContent)
+            .addHeader(Header.ContentRange.EndTotal("bytes", startPos.toInt, endPos.toInt, fileLength.toInt))
+            .addHeader(Header.AcceptRanges.Bytes)
+            .addHeader(Header.ContentLength(rangeSize))
+          addContentTypeHeader(response, pathName, charset)
+        }
+
+      case Header.Range.Prefix(unit, prefixStart) if unit.toLowerCase == "bytes" =>
+        val startPos  = prefixStart
+        val endPos    = fileLength - 1
+        val rangeSize = endPos - startPos + 1
+
+        if (startPos >= fileLength) {
+          ZIO.succeed(
+            Response
+              .status(Status.RequestedRangeNotSatisfiable)
+              .addHeader(Header.ContentRange.RangeTotal("bytes", fileLength.toInt))
+              .addHeader(Header.AcceptRanges.Bytes),
+          )
+        } else {
+          Body.fromFileRange(file, startPos, fileLength).flatMap { body =>
+            val response = http.Response(body = body, status = Status.PartialContent)
+              .addHeader(Header.ContentRange.EndTotal("bytes", startPos.toInt, endPos.toInt, fileLength.toInt))
+              .addHeader(Header.AcceptRanges.Bytes)
+              .addHeader(Header.ContentLength(rangeSize))
+            addContentTypeHeader(response, pathName, charset)
+          }
+        }
+
+      case Header.Range.Multiple(_, _) =>
+        // Multiple ranges not supported - return full file
+        Body.fromFile(file).flatMap { body =>
+          val response = http.Response(body = body)
+          addFileHeaders(response, pathName, charset)
+        }
+
+      case _ =>
+        // Unsupported range unit - return full file
+        Body.fromFile(file).flatMap { body =>
+          val response = http.Response(body = body)
+          addFileHeaders(response, pathName, charset)
+        }
+    }
+  }
+
+  private def addFileHeaders(response: Response, pathName: String, charset: Charset): ZIO[Any, Nothing, Response] = {
+    determineMediaType(pathName) match {
+      case Some(mediaType) =>
+        val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
+        ZIO.succeed(
+          response
+            .addHeader(Header.ContentType(mediaType, charset = charset0))
+            .addHeader(Header.AcceptRanges.Bytes),
+        )
+      case None            => ZIO.succeed(response.addHeader(Header.AcceptRanges.Bytes))
+    }
+  }
+
+  private def addContentTypeHeader(
+    response: Response,
+    pathName: String,
+    charset: Charset,
+  ): ZIO[Any, Nothing, Response] = {
+    determineMediaType(pathName) match {
+      case Some(mediaType) =>
+        val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
+        ZIO.succeed(response.addHeader(Header.ContentType(mediaType, charset = charset0)))
+      case None            => ZIO.succeed(response)
+    }
+  }
+
 
   /**
    * Creates a Handler that always succeeds with a 200 status code and the
