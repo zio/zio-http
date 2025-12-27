@@ -21,7 +21,7 @@ import java.io.File
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.{mac, os, sequential, unix, withLiveClock}
-import zio.test.{assertZIO, assertTrue}
+import zio.test.{assertTrue, assertZIO}
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
