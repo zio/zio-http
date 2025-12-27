@@ -52,7 +52,7 @@ object FileRangeSupport {
         Header.ContentLength(fileLength),
         Header.AcceptRanges.Bytes
       ),
-      body = Body.fromStream(stream)
+      body = Body.fromStreamChunked(stream)
     )
   }
   
@@ -127,7 +127,7 @@ object FileRangeSupport {
         Header.ContentRange.EndTotal("bytes", start.toInt, end.toInt, fileLength.toInt),
         Header.AcceptRanges.Bytes
       ),
-      body = Body.fromStream(stream)
+      body = Body.fromStreamChunked(stream)
     )
   }
   
@@ -163,13 +163,13 @@ object FileRangeSupport {
         Header.Custom("Content-Type", s"multipart/byteranges; boundary=$boundary"),
         Header.AcceptRanges.Bytes
       ),
-      body = Body.fromStream(combinedStream)
+      body = Body.fromStreamChunked(combinedStream)
     )
   }
   
   private def rangeNotSatisfiable(fileLength: Long): Response = {
     Response(
-      status = Status.RangeNotSatisfiable,
+      status = Status.Custom(416), // 416 Range Not Satisfiable
       headers = Headers(
         Header.ContentRange.RangeTotal("bytes", fileLength.toInt),
         Header.AcceptRanges.Bytes
@@ -178,12 +178,12 @@ object FileRangeSupport {
   }
   
   private def readFileRange(path: Path, start: Long, length: Long): ZStream[Any, Throwable, Byte] = {
-    ZStream.unwrap {
+    ZStream.fromZIO {
       ZIO.attemptBlocking {
         val raf = new RandomAccessFile(path.toFile, "r")
         raf.seek(start)
         
-        ZStream.fromInputStream(new java.io.InputStream {
+        val inputStream = new java.io.InputStream {
           private var remaining = length
           
           override def read(): Int = {
@@ -205,13 +205,18 @@ object FileRangeSupport {
           }
           
           override def close(): Unit = raf.close()
-        })
+        }
+        
+        ZStream.fromInputStream(inputStream)
       }
     }.flatten
   }
   
-  private def generateBoundary(): String =
-    s"ZIO_HTTP_BOUNDARY_${System.currentTimeMillis()}_${scala.util.Random.nextInt(100000)}"
+  private def generateBoundary(): String = {
+    val timestamp = java.lang.System.currentTimeMillis()
+    val random = scala.util.Random.nextInt(100000)
+    s"ZIO_HTTP_BOUNDARY_${timestamp}_${random}"
+  }
   
   private def detectMediaType(path: Path): MediaType = {
     val fileName = path.getFileName.toString
