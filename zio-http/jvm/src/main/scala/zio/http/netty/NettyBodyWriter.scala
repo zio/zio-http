@@ -55,6 +55,11 @@ private[netty] object NettyBodyWriter {
     }
 
     body match {
+      case body: Body.RangedFileBody       =>
+        println(s"[NettyBodyWriter] RangedFileBody detected, converting to StreamBody")
+        val stream = body.asStream
+        val s      = StreamBody(stream, body.knownContentLength, contentType = body.contentType)
+        NettyBodyWriter.writeAndFlush(s, body.knownContentLength, ctx)
       case body: FileBody                  =>
         // We need to stream the file when compression is enabled otherwise the response encoding fails
         val stream = ZStream.fromFile(body.file)
