@@ -910,13 +910,14 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   def fromFile[R](makeFile: => File, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
-  ): Handler[R, Throwable, Any, Response] =
+  ): Handler[R, Throwable, Request, Response] = {
     fromFileZIO(ZIO.attempt(makeFile), charset)
+  }
 
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File], charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
-  ): Handler[R, Throwable, Any, Response] = {
-    Handler.fromZIO[R, Throwable, Response](
+  ): Handler[R, Throwable, Request, Response] = {
+    Handler.fromFunctionZIO[Request] { request =>
       ZIO.blocking {
         getFile.flatMap { file =>
           if (!file.exists()) {
@@ -945,8 +946,8 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
             }
           }
         }
-      },
-    )
+      }
+    }
   }
 
   /**
