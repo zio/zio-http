@@ -908,6 +908,25 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
   }
 
+  /**
+    * Set MIME type in the response headers. This is only relevant in
+    * case of RandomAccessFile transfers as browsers use the MIME type,
+    * not the file extension, to determine how to process a URL.
+    * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+    */
+  private def addMediaType(
+    response: Response,
+    pathName: String,
+    charset: Charset,
+  ): ZIO[Any, Nothing, Response] = {
+    determineMediaType(pathName) match {
+      case Some(mediaType) =>
+        val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
+        ZIO.succeed(response.addHeader(Header.ContentType(mediaType, charset = charset0)))
+      case None => ZIO.succeed(response)
+    }
+  }
+
   def fromFile[R](makeFile: => File, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Request, Response] = {
@@ -926,20 +945,23 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
             ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
           } else {
             if (file.isFile) {
-              Body.fromFile(file).flatMap { body =>
-                val response = http.Response(body = body)
                 val pathName = file.toPath.toString
 
-                // Set MIME type in the response headers. This is only relevant in
-                // case of RandomAccessFile transfers as browsers use the MIME type,
-                // not the file extension, to determine how to process a URL.
-                // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-                determineMediaType(pathName) match {
-                  case Some(mediaType) =>
-                    val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
-                    ZIO.succeed(response.addHeader(Header.ContentType(mediaType, charset = charset0)))
-                  case None            => ZIO.succeed(response)
-                }
+              (request.header(Header.Range) match {
+                case Some(rangeHeader) =>
+                  ZIO.attemptBlocking(file.length()).orDie.flatMap { fileSize =>
+                    serveFileWithRange(file, fileSize, rangeHeader, pathName)
+                  }
+
+                case None =>
+                  Body.fromFile(file).map { body =>
+                    Response(
+                      body = body,
+                      headers = Headers(Header.AcceptRanges.Bytes),
+                    )
+                  }
+              }).flatMap { response =>
+                addMediaType(response, pathName, charset)
               }
             } else {
               ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
