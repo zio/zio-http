@@ -927,6 +927,48 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
   }
 
+  private def serveFileWithRange(
+    file: File,
+    fileSize: Long,
+    rangeHeader: Header.Range,
+    pathName: String,
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    rangeHeader match {
+      case Header.Range.Single(unit, start, endOpt) if unit == "bytes" =>
+        val end = endOpt.getOrElse(fileSize - 1)
+
+        if (start >= fileSize || start < 0 || end >= fileSize || start > end) {
+          println(s"[RANGE] invalid range: start=$start, end=$end, fileSize=$fileSize")
+          ZIO.succeed(
+            Response(
+              status = Status.RequestedRangeNotSatisfiable,
+              headers = Headers(Header.ContentRange.RangeTotal("bytes", fileSize.toInt)),
+            ),
+          )
+        } else {
+          println(s"[RANGE] serving bytes $start-$end de $fileSize")
+          Body.fromFile(file, start = start, end = Some(end)).map { body =>
+            Response(
+              status = Status.PartialContent,
+              body = body,
+              headers = Headers(
+                Header.ContentRange.EndTotal("bytes", start.toInt, end.toInt, fileSize.toInt),
+                Header.AcceptRanges.Bytes,
+              ),
+            )
+          }
+        }
+
+      case _ =>
+        ZIO.succeed(
+          Response(
+            status = Status.RequestedRangeNotSatisfiable,
+            headers = Headers(Header.ContentRange.RangeTotal("bytes", fileSize.toInt)),
+          ),
+        )
+    }
+  }
+
   def fromFile[R](makeFile: => File, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Request, Response] = {
@@ -945,7 +987,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
             ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
           } else {
             if (file.isFile) {
-                val pathName = file.toPath.toString
+              val pathName = file.toPath.toString
 
               (request.header(Header.Range) match {
                 case Some(rangeHeader) =>
