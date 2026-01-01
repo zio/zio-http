@@ -682,6 +682,33 @@ object Body {
     override def knownContentLength: Option[Long] = Some(fileSize)
   }
 
+  private[zio] final case class RangedFileBody(
+    file: java.io.File,
+    chunkSize: Int,
+    fileSize: Long,
+    start: Long,
+    end: Long,
+    override val contentType: Option[Body.ContentType] = None,
+  ) extends Body {
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ???
+
+    override def isComplete: Boolean = false
+
+    override def isEmpty: Boolean = false
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ???
+
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = {
+      println(s"[RangedFileBody] asStream called! file=${file.getName}, start=$start, end=$end, contentLength=$fileSize")
+      ZStream.fromIterable("TODO: implement response creation\n".getBytes)
+    }
+
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
+
+    override def knownContentLength: Option[Long] = Some(fileSize)
+  }
+
   private[zio] final case class StreamBody(
     stream: ZStream[Any, Throwable, Byte],
     knownContentLength: Option[Long],
