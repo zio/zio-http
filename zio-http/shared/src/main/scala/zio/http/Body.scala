@@ -350,9 +350,22 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
+  def fromFile(
+    file: java.io.File,
+    chunkSize: Int = 1024 * 4,
+    start: Long = 0,
+    end: Option[Long] = None
+  )(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
     ZIO.attemptBlocking(file.length()).orDie.map { fileSize =>
-      FileBody(file, chunkSize, fileSize)
+      val isRangeRequest = start > 0 || end.exists(_ < fileSize - 1)
+
+      if (isRangeRequest) {
+        val endByte = end.getOrElse(fileSize - 1)
+        val contentLength = endByte - start + 1
+        RangedFileBody(file, chunkSize, contentLength, start, endByte)
+      } else {
+        FileBody(file, chunkSize, fileSize)
+      }
     }
   }
 
@@ -675,7 +688,7 @@ object Body {
             }
           }
         }
-      }
+    }
 
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
