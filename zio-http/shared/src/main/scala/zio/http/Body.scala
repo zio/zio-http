@@ -712,10 +712,54 @@ object Body {
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ???
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = {
-      println(s"[RangedFileBody] asStream called! file=${file.getName}, start=$start, end=$end, contentLength=$fileSize")
-      ZStream.fromIterable("TODO: implement response creation\n".getBytes)
-    }
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+      ZStream.unwrap {
+        ZIO.blocking {
+          ZIO.suspendSucceed {
+            try {
+              val totalBytesToRead = end - start + 1
+              val raf = new java.io.RandomAccessFile(file, "r")
+              raf.seek(start)
+
+              println(s"[RangedFileBody.asStream] Starting read - start=$start, end=$end, totalBytes=$totalBytesToRead")
+
+              var bytesRead = 0L
+
+              val read: Task[Option[Chunk[Byte]]] =
+                ZIO.suspendSucceed {
+                  try {
+                    val remaining = totalBytesToRead - bytesRead
+                    if (remaining <= 0) {
+                      Exit.none
+                    } else {
+                      val size = Math.min(chunkSize.toLong, remaining).toInt
+                      val buffer = new Array[Byte](size)
+                      val len = raf.read(buffer)
+                      if (len > 0) {
+                        bytesRead += len
+                        println(s"[RangedFileBody.asStream] Read chunk: $len bytes, total read: $bytesRead/$totalBytesToRead")
+                        Exit.succeed(Some(Chunk.fromArray(buffer.slice(0, len))))
+                      } else {
+                        println(s"[RangedFileBody.asStream] Finished reading - total: $bytesRead bytes")
+                        Exit.none
+                      }
+                    }
+                  } catch {
+                    case e: Throwable => Exit.fail(e)
+                  }
+                }
+
+              Exit.succeed {
+                ZStream
+                  .unfoldChunkZIO(read)(_.map(_.map(_ -> read)))
+                  .ensuring(ZIO.attempt(raf.close()).ignoreLogged)
+              }
+            } catch {
+              case e: Throwable => Exit.fail(e)
+            }
+          }
+        }
+      }
 
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
