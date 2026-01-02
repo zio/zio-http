@@ -8,7 +8,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'ZIO HTTP',
   tagline: ' A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers',
-  url: 'https://zio-http.netlify.app',
+  url: 'https://ziohttp.com',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -50,6 +50,7 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+    image: 'img/ZIO.png',
 
     algolia: {
       // The application ID provided by Algolia
