@@ -393,7 +393,7 @@ object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
           val tempFile = tempPath.toFile
           val http     = Handler.fromFileZIO(ZIO.succeed(tempFile))
           for {
-            r        <- http.apply {}
+            r        <- http.apply(Request.get(URL.root))
             tempFile <- Body.fromFile(tempFile)
           } yield {
             assert(r.status)(equalTo(Status.Ok)) &&
