@@ -704,7 +704,18 @@ object Body {
     override val contentType: Option[Body.ContentType] = None,
   ) extends Body {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ???
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] =
+      ZIO.attemptBlocking {
+        val raf = new java.io.RandomAccessFile(file, "r")
+        try {
+          raf.seek(start)
+          val buffer = new Array[Byte]((end - start + 1).toInt)
+          raf.readFully(buffer)
+          buffer
+        } finally {
+          raf.close()
+        }
+      }
 
     override def isComplete: Boolean = false
 
