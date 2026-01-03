@@ -354,13 +354,13 @@ object Body {
     file: java.io.File,
     chunkSize: Int = 1024 * 4,
     start: Long = 0,
-    end: Option[Long] = None
+    end: Option[Long] = None,
   )(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
     ZIO.attemptBlocking(file.length()).orDie.map { fileSize =>
       val isRangeRequest = start > 0 || end.exists(_ < fileSize - 1)
 
       if (isRangeRequest) {
-        val endByte = end.getOrElse(fileSize - 1)
+        val endByte       = end.getOrElse(fileSize - 1)
         val contentLength = endByte - start + 1
         RangedFileBody(file, chunkSize, contentLength, start, endByte)
       } else {
@@ -688,7 +688,7 @@ object Body {
             }
           }
         }
-    }
+      }
 
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
@@ -729,7 +729,7 @@ object Body {
           ZIO.suspendSucceed {
             try {
               val totalBytesToRead = end - start + 1
-              val raf = new java.io.RandomAccessFile(file, "r")
+              val raf              = new java.io.RandomAccessFile(file, "r")
               raf.seek(start)
 
               println(s"[RangedFileBody.asStream] Starting read - start=$start, end=$end, totalBytes=$totalBytesToRead")
@@ -743,12 +743,14 @@ object Body {
                     if (remaining <= 0) {
                       Exit.none
                     } else {
-                      val size = Math.min(chunkSize.toLong, remaining).toInt
+                      val size   = Math.min(chunkSize.toLong, remaining).toInt
                       val buffer = new Array[Byte](size)
-                      val len = raf.read(buffer)
+                      val len    = raf.read(buffer)
                       if (len > 0) {
                         bytesRead += len
-                        println(s"[RangedFileBody.asStream] Read chunk: $len bytes, total read: $bytesRead/$totalBytesToRead")
+                        println(
+                          s"[RangedFileBody.asStream] Read chunk: $len bytes, total read: $bytesRead/$totalBytesToRead",
+                        )
                         Exit.succeed(Some(Chunk.fromArray(buffer.slice(0, len))))
                       } else {
                         println(s"[RangedFileBody.asStream] Finished reading - total: $bytesRead bytes")

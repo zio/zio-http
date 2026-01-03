@@ -909,11 +909,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   }
 
   /**
-    * Set MIME type in the response headers. This is only relevant in
-    * case of RandomAccessFile transfers as browsers use the MIME type,
-    * not the file extension, to determine how to process a URL.
-    * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-    */
+   * Set MIME type in the response headers. This is only relevant in case of
+   * RandomAccessFile transfers as browsers use the MIME type, not the file
+   * extension, to determine how to process a URL.
+   * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+   */
   private def addMediaType(
     response: Response,
     pathName: String,
@@ -923,7 +923,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       case Some(mediaType) =>
         val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
         ZIO.succeed(response.addHeader(Header.ContentType(mediaType, charset = charset0)))
-      case None => ZIO.succeed(response)
+      case None            => ZIO.succeed(response)
     }
   }
 
