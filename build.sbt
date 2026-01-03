@@ -127,17 +127,19 @@ inThisBuild(
 
 ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
-lazy val exampleProjects: Seq[ProjectReference] = if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference] else Seq[ProjectReference](
-  zioHttpExampleBasicAuth,
-  zioHttpExampleCookieAuth,
-  zioHttpExampleDigestAuth,
-  zioHttpExampleOpaqueBearerTokenAuth,
-  zioHttpExampleJwtBearerTokenAuth,
-  zioHttpExampleJwtBearerRefreshTokenAuth,
-  zioHttpExampleOauthBearerTokenAuth,
-  zioHttpExampleWebauthn,
-  )
-
+lazy val exampleProjects: Seq[ProjectReference] =
+  if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference]
+  else
+    Seq[ProjectReference](
+      zioHttpExampleBasicAuth,
+      zioHttpExampleCookieAuth,
+      zioHttpExampleDigestAuth,
+      zioHttpExampleOpaqueBearerTokenAuth,
+      zioHttpExampleJwtBearerTokenAuth,
+      zioHttpExampleJwtBearerRefreshTokenAuth,
+      zioHttpExampleOauthBearerTokenAuth,
+      zioHttpExampleWebauthn,
+    )
 
 lazy val aggregatedProjects: Seq[ProjectReference] =
   if (Shading.shadingEnabled) {
@@ -182,8 +184,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(
     autoCompilerPlugins := true,
     libraryDependencies ++= unroll,
-    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
-    )
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12"),
+  )
   .settings(
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
@@ -273,8 +275,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.11.50",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.11.50",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.12.6",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.12.6",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -406,7 +408,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.20",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.32.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.2"  % "protobuf",
     ),
   )
   .settings(
@@ -430,7 +432,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.32.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.2"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
     ),
     Compile / run / fork := true,
