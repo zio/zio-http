@@ -162,7 +162,9 @@ object URLSpec extends ZIOHttpSpec {
         },
         test("does not escape valid characters") {
           check(HttpGen.nonEmptyPath) { path =>
-            assertTrue(URL(path = path).encode == path.encode)
+            val urlEncode  = URL(path = path).encode
+            val pathEncode = path.encode
+            assertTrue(urlEncode == pathEncode)
           }
         },
       ),
