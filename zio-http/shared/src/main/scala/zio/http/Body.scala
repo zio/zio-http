@@ -350,9 +350,22 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
+  def fromFile(
+    file: java.io.File,
+    chunkSize: Int = 1024 * 4,
+    start: Long = 0,
+    end: Option[Long] = None,
+  )(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
     ZIO.attemptBlocking(file.length()).orDie.map { fileSize =>
-      FileBody(file, chunkSize, fileSize)
+      val isRangeRequest = start > 0 || end.exists(_ < fileSize - 1)
+
+      if (isRangeRequest) {
+        val endByte       = end.getOrElse(fileSize - 1)
+        val contentLength = endByte - start + 1
+        RangedFileBody(file, chunkSize, contentLength, start, endByte)
+      } else {
+        FileBody(file, chunkSize, fileSize)
+      }
     }
   }
 
@@ -669,6 +682,90 @@ object Body {
                 ZStream
                   .unfoldChunkZIO(read)(_.map(_.map(_ -> read)))
                   .ensuring(ZIO.attempt(fs.close()).ignoreLogged)
+              }
+            } catch {
+              case e: Throwable => Exit.fail(e)
+            }
+          }
+        }
+      }
+
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
+
+    override def knownContentLength: Option[Long] = Some(fileSize)
+  }
+
+  private[zio] final case class RangedFileBody(
+    file: java.io.File,
+    chunkSize: Int,
+    fileSize: Long,
+    start: Long,
+    end: Long,
+    override val contentType: Option[Body.ContentType] = None,
+  ) extends Body {
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] =
+      ZIO.attemptBlocking {
+        val raf = new java.io.RandomAccessFile(file, "r")
+        try {
+          raf.seek(start)
+          val buffer = new Array[Byte]((end - start + 1).toInt)
+          raf.readFully(buffer)
+          buffer
+        } finally {
+          raf.close()
+        }
+      }
+
+    override def isComplete: Boolean = false
+
+    override def isEmpty: Boolean = false
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ???
+
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+      ZStream.unwrap {
+        ZIO.blocking {
+          ZIO.suspendSucceed {
+            try {
+              val totalBytesToRead = end - start + 1
+              val raf              = new java.io.RandomAccessFile(file, "r")
+              raf.seek(start)
+
+              println(s"[RangedFileBody.asStream] Starting read - start=$start, end=$end, totalBytes=$totalBytesToRead")
+
+              var bytesRead = 0L
+
+              val read: Task[Option[Chunk[Byte]]] =
+                ZIO.suspendSucceed {
+                  try {
+                    val remaining = totalBytesToRead - bytesRead
+                    if (remaining <= 0) {
+                      Exit.none
+                    } else {
+                      val size   = Math.min(chunkSize.toLong, remaining).toInt
+                      val buffer = new Array[Byte](size)
+                      val len    = raf.read(buffer)
+                      if (len > 0) {
+                        bytesRead += len
+                        println(
+                          s"[RangedFileBody.asStream] Read chunk: $len bytes, total read: $bytesRead/$totalBytesToRead",
+                        )
+                        Exit.succeed(Some(Chunk.fromArray(buffer.slice(0, len))))
+                      } else {
+                        println(s"[RangedFileBody.asStream] Finished reading - total: $bytesRead bytes")
+                        Exit.none
+                      }
+                    }
+                  } catch {
+                    case e: Throwable => Exit.fail(e)
+                  }
+                }
+
+              Exit.succeed {
+                ZStream
+                  .unfoldChunkZIO(read)(_.map(_.map(_ -> read)))
+                  .ensuring(ZIO.attempt(raf.close()).ignoreLogged)
               }
             } catch {
               case e: Throwable => Exit.fail(e)

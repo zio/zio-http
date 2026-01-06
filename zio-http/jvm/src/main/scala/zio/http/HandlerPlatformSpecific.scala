@@ -16,7 +16,7 @@ trait HandlerPlatformSpecific {
    */
   def fromResource(path: String, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
-  ): Handler[Any, Throwable, Any, Response] =
+  ): Handler[Any, Throwable, Request, Response] =
     Handler.fromZIO {
       ZIO
         .attemptBlocking(getClass.getClassLoader.getResource(path))
@@ -29,7 +29,7 @@ trait HandlerPlatformSpecific {
   private[zio] def fromResourceWithURL(
     url: java.net.URL,
     charset: Charset,
-  )(implicit trace: Trace): Handler[Any, Throwable, Any, Response] = {
+  )(implicit trace: Trace): Handler[Any, Throwable, Request, Response] =
     url.getProtocol match {
       case "file" => Handler.fromFile(new File(url.getPath), charset)
       case "jar"  =>
@@ -70,7 +70,6 @@ trait HandlerPlatformSpecific {
       case proto =>
         Handler.fail(new IllegalArgumentException(s"Unsupported protocol: $proto"))
     }
-  }
 
   /**
    * Attempts to retrieve files from the classpath.
