@@ -501,7 +501,7 @@ object Attributes {
   }
 
   final case class DataOnIntersect(prefix: String, modifier: IntersectModifier) {
-    def :=(expression: Js): Attribute = Dom.attr(s"$prefix-on-intersect") := expression.value
+    def :=(expression: Js): Attribute = Dom.attr(s"$prefix-on-intersect${modifier.render}") := expression.value
 
     def modify(mod: IntersectModifier): DataOnIntersect = copy(modifier = modifier && mod)
     def once: DataOnIntersect                           = modify(IntersectModifier.Once)
@@ -521,13 +521,20 @@ object Attributes {
     def and(other: IntersectModifier): IntersectModifier = IntersectModifier.And(this, other)
   }
 
-  sealed trait OptionLessIntersect extends IntersectModifier {
-    final val render: String = s"__${productPrefix.toLowerCase}"
+  sealed trait OptionLessIntersect extends IntersectModifier { self =>
+    final val render: String =
+      if (self == IntersectModifier.None) ""
+      else s"__${productPrefix.toLowerCase}"
   }
 
   object IntersectModifier                                                      {
     final case class And(left: IntersectModifier, right: IntersectModifier) extends IntersectModifier {
-      val render: String = s"${left.render}${right.render}"
+      val render: String =
+        (left, right) match {
+          case (None, r) => r.render
+          case (l, None) => l.render
+          case _         => s"${left.render}${right.render}"
+        }
     }
     case object None                                                        extends OptionLessIntersect
     case object Once                                                        extends OptionLessIntersect
@@ -585,7 +592,12 @@ object Attributes {
 
   object OnIntervalModifier {
     final case class And(left: OnIntervalModifier, right: OnIntervalModifier) extends OnIntervalModifier {
-      val render: String = s"${left.render}${right.render}"
+      val render: String =
+        (left, right) match {
+          case (None, r) => r.render
+          case (l, None) => l.render
+          case _         => s"${left.render}${right.render}"
+        }
     }
     case object None                                                          extends OnIntervalModifier {
       val render: String = ""
@@ -605,7 +617,7 @@ object Attributes {
   final case class DataInit(prefix: String, modifier: InitModifier) {
     private val full = s"$prefix-init${modifier.render}"
 
-    def :=(expression: Js): Attribute = Dom.attr(full) := expression
+    def :=(expression: Js): Attribute = Dom.attr(full) := expression.value
 
     def delay(duration: Duration): DataInit = copy(modifier = modifier && InitModifier.Delay(duration))
     def viewTransition: DataInit            = copy(modifier = modifier && InitModifier.ViewTransition)
@@ -619,7 +631,12 @@ object Attributes {
 
   object InitModifier {
     final case class And(left: InitModifier, right: InitModifier) extends InitModifier {
-      val render: String = s"${left.render}${right.render}"
+      val render: String =
+        (left, right) match {
+          case (None, r) => r.render
+          case (l, None) => l.render
+          case _         => s"${left.render}${right.render}"
+        }
     }
     case object None                                              extends InitModifier {
       val render: String = ""
@@ -639,7 +656,7 @@ object Attributes {
   final case class DataOnLoad(prefix: String, modifier: LoadModifier) {
     private val full = s"$prefix-init${modifier.render}"
 
-    def :=(expression: Js): Attribute = Dom.attr(full) := expression
+    def :=(expression: Js): Attribute = Dom.attr(full) := expression.value
 
     def delay(duration: Duration): DataOnLoad = copy(modifier = modifier && LoadModifier.Delay(duration))
     def viewTransition: DataOnLoad            = copy(modifier = modifier && LoadModifier.ViewTransition)
@@ -690,7 +707,12 @@ object Attributes {
 
   object OnSignalPatchModifier {
     final case class And(left: OnSignalPatchModifier, right: OnSignalPatchModifier) extends OnSignalPatchModifier {
-      val render: String = s"${left.render}${right.render}"
+      val render: String =
+        (left, right) match {
+          case (None, r) => r.render
+          case (l, None) => l.render
+          case _         => s"${left.render}${right.render}"
+        }
     }
     case object None                                                                extends OnSignalPatchModifier {
       val render: String = ""
@@ -769,10 +791,14 @@ object Attributes {
   final case class DataRef(prefix: String, signalName: SignalName, caseModifier: CaseModifier = CaseModifier.Camel) {
     private val full = s"$prefix-ref:${signalName.name}${signalName.caseModifier.suffix(CaseModifier.Camel)}"
 
-    def camel: DataRef  = copy(caseModifier = CaseModifier.Camel)
-    def kebab: DataRef  = copy(caseModifier = CaseModifier.Kebab)
-    def snake: DataRef  = copy(caseModifier = CaseModifier.Snake)
-    def pascal: DataRef = copy(caseModifier = CaseModifier.Pascal)
+    def camel: DataRef  =
+      copy(caseModifier = CaseModifier.Camel, signalName = signalName.caseModifier(CaseModifier.Camel))
+    def kebab: DataRef  =
+      copy(caseModifier = CaseModifier.Kebab, signalName = signalName.caseModifier(CaseModifier.Kebab))
+    def snake: DataRef  =
+      copy(caseModifier = CaseModifier.Snake, signalName = signalName.caseModifier(CaseModifier.Snake))
+    def pascal: DataRef =
+      copy(caseModifier = CaseModifier.Pascal, signalName = signalName.caseModifier(CaseModifier.Pascal))
   }
 
   object DataRef {
@@ -791,7 +817,12 @@ object Attributes {
 
   object EventModifier {
     final case class And(left: EventModifier, right: EventModifier) extends EventModifier {
-      val render: String = s"${left.render}${right.render}"
+      val render: String =
+        (left, right) match {
+          case (None, r) => r.render
+          case (l, None) => l.render
+          case _         => s"${left.render}${right.render}"
+        }
     }
     case object Capture                                             extends OptionLess
     final case class Case(caseModifier: CaseModifier)               extends EventModifier {

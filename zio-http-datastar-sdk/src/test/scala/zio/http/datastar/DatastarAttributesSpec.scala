@@ -149,8 +149,7 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
       val req         = getCustomer.datastarRequest(123)
       val view        = div(dataInit := req)
       val rendered    = view.render
-      val expected    = """data-init="@get('/customer/123')""""
-      assertTrue(rendered.contains(expected))
+      assertTrue(rendered == "<div data-init=\"@get(&#x27;/customer/123&#x27;)\"></div>")
     },
     test("Request from endpoint as attribute value and signal") {
       val getCustomer = Endpoint(Method.GET / "customer" / int("customer-id")).out[Customer]
@@ -158,8 +157,7 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
       val req         = getCustomer.datastarRequest(signal)
       val view        = div(dataInit := req)
       val rendered    = view.render
-      val expected    = """data-init="@get('/customer/$customerId')""""
-      assertTrue(rendered.contains(expected))
+      assertTrue(rendered == "<div data-init=\"@get(&#x27;/customer/$customerId&#x27;)\"></div>")
     },
     test("dataSignals := with SignalUpdate renders correct expression for primitive") {
       val signal   = Signal[Int]("count")
@@ -245,6 +243,77 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
       val view     = button(dataOn.click := customer.update(Customer("Alice", 30)))("Set")
       val rendered = view.render
       assertTrue(rendered == "<button data-on:click=\"$customer = {name: &#x27;Alice&#x27;, age: 30}\">Set</button>")
+    },
+    test("dataOnIntersect basic renders correct attribute") {
+      val view     = div(dataOnIntersect := js"handleIntersect()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect="handleIntersect()"></div>""")
+    },
+    test("dataOnIntersect with once modifier") {
+      val view     = div(dataOnIntersect.once := js"handleOnce()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect__once="handleOnce()"></div>""")
+    },
+    test("dataOnIntersect with half modifier") {
+      val view     = div(dataOnIntersect.half := js"handleHalf()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect__half="handleHalf()"></div>""")
+    },
+    test("dataOnIntersect with full modifier") {
+      val view     = div(dataOnIntersect.full := js"handleFull()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect__full="handleFull()"></div>""")
+    },
+    test("dataOnIntersect with delay modifier") {
+      val view     = div(dataOnIntersect.delay(Duration.ofMillis(500)) := js"handleDelay()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect__delay.500ms="handleDelay()"></div>""")
+    },
+    test("dataOnIntersect with debounce modifier") {
+      val view     = div(dataOnIntersect.debounce(Duration.ofMillis(300), leading = true) := js"handleDebounce()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect__debounce.300ms.leading="handleDebounce()"></div>""")
+    },
+    test("dataOnIntersect with throttle modifier") {
+      val view     =
+        div(dataOnIntersect.throttle(Duration.ofMillis(200), noleading = true, trailing = true) := js"handleThrottle()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect__throttle.200ms.noleading.trailing="handleThrottle()"></div>""")
+    },
+    test("dataOnIntersect with viewTransition modifier") {
+      val view     = div(dataOnIntersect.viewTransition := js"handleViewTransition()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect__viewtransition="handleViewTransition()"></div>""")
+    },
+    test("dataOnIntersect with chained modifiers") {
+      val view     = div(dataOnIntersect.once.half.viewTransition := js"handleChained()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-intersect__once__half__viewtransition="handleChained()"></div>""")
+    },
+    test("dataOnInterval basic renders correct attribute") {
+      val view     = div(dataOnInterval := js"tick()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-interval="tick()"></div>""")
+    },
+    test("dataOnInterval with duration modifier") {
+      val view     = div(dataOnInterval.duration(Duration.ofMillis(1000)) := js"tick()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-interval__duration.1000ms="tick()"></div>""")
+    },
+    test("dataOnInterval with duration and leading modifier") {
+      val view     = div(dataOnInterval.duration(Duration.ofMillis(500), leading = true) := js"tick()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-interval__duration.500ms.leading="tick()"></div>""")
+    },
+    test("dataOnInterval with viewTransition modifier") {
+      val view     = div(dataOnInterval.viewTransition := js"tick()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-interval__viewtransition="tick()"></div>""")
+    },
+    test("dataOnInterval with chained modifiers") {
+      val view     = div(dataOnInterval.duration(Duration.ofMillis(250), leading = true).viewTransition := js"tick()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-on-interval__duration.250ms.leading__viewtransition="tick()"></div>""")
     },
   )
 }
