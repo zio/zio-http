@@ -21,6 +21,7 @@ ThisBuild / githubWorkflowJavaVersions := Seq(
   JavaSpec.temurin("17"),
   JavaSpec.temurin("21"),
 )
+ThisBuild / githubWorkflowTargetBranches := Seq("main")
 ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
