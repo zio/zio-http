@@ -58,6 +58,31 @@ object RequestStoreSpec extends ZIOHttpSpec {
   private val t21 = T21(21)
   private val t22 = T22(22)
 
+  // Expected tuples for getMany tests (avoid Scala 2.12 "adapting argument list" warnings)
+  // format: off
+  private val expected2  = (Some(t1), Some(t2))
+  private val expected3  = (Some(t1), Some(t2), Some(t3))
+  private val expected4  = (Some(t1), Some(t2), Some(t3), Some(t4))
+  private val expected5  = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5))
+  private val expected6  = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6))
+  private val expected7  = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7))
+  private val expected8  = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8))
+  private val expected9  = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9))
+  private val expected10 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10))
+  private val expected11 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11))
+  private val expected12 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12))
+  private val expected13 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13))
+  private val expected14 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14))
+  private val expected15 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14), Some(t15))
+  private val expected16 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14), Some(t15), Some(t16))
+  private val expected17 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14), Some(t15), Some(t16), Some(t17))
+  private val expected18 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14), Some(t15), Some(t16), Some(t17), Some(t18))
+  private val expected19 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14), Some(t15), Some(t16), Some(t17), Some(t18), Some(t19))
+  private val expected20 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14), Some(t15), Some(t16), Some(t17), Some(t18), Some(t19), Some(t20))
+  private val expected21 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14), Some(t15), Some(t16), Some(t17), Some(t18), Some(t19), Some(t20), Some(t21))
+  private val expected22 = (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9), Some(t10), Some(t11), Some(t12), Some(t13), Some(t14), Some(t15), Some(t16), Some(t17), Some(t18), Some(t19), Some(t20), Some(t21), Some(t22))
+  // format: on
+
   // Helper method to set all 22 test values in the RequestStore
   // format: off
   private def setAll: UIO[Unit] =
@@ -190,349 +215,125 @@ object RequestStoreSpec extends ZIOHttpSpec {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2]
-          } yield assertTrue(result == (Some(t1), Some(t2)))
+          } yield assertTrue(result == expected2)
         },
         test("with 3 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3]
-          } yield assertTrue(result == (Some(t1), Some(t2), Some(t3)))
+          } yield assertTrue(result == expected3)
         },
         test("with 4 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4]
-          } yield assertTrue(result == (Some(t1), Some(t2), Some(t3), Some(t4)))
+          } yield assertTrue(result == expected4)
         },
         test("with 5 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5]
-          } yield assertTrue(result == (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5)))
+          } yield assertTrue(result == expected5)
         },
         test("with 6 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6]
-          } yield assertTrue(result == (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6)))
+          } yield assertTrue(result == expected6)
         },
         test("with 7 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7]
-          } yield assertTrue(result == (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7)))
+          } yield assertTrue(result == expected7)
         },
         test("with 8 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8]
-          } yield assertTrue(result == (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8)))
+          } yield assertTrue(result == expected8)
         },
         test("with 9 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9]
-          } yield assertTrue(
-            result == (Some(t1), Some(t2), Some(t3), Some(t4), Some(t5), Some(t6), Some(t7), Some(t8), Some(t9)),
-          )
+          } yield assertTrue(result == expected9)
         },
         test("with 10 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-            ),
-          )
+          } yield assertTrue(result == expected10)
         },
         test("with 11 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-            ),
-          )
+          } yield assertTrue(result == expected11)
         },
         test("with 12 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-            ),
-          )
+          } yield assertTrue(result == expected12)
         },
         test("with 13 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-            ),
-          )
+          } yield assertTrue(result == expected13)
         },
         test("with 14 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-            ),
-          )
+          } yield assertTrue(result == expected14)
         },
         test("with 15 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-              Some(t15),
-            ),
-          )
+          } yield assertTrue(result == expected15)
         },
         test("with 16 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-              Some(t15),
-              Some(t16),
-            ),
-          )
+          } yield assertTrue(result == expected16)
         },
         test("with 17 types") {
           for {
             _      <- setAll
             result <- RequestStore.getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-              Some(t15),
-              Some(t16),
-              Some(t17),
-            ),
-          )
+          } yield assertTrue(result == expected17)
         },
         test("with 18 types") {
           for {
             _      <- setAll
             result <- RequestStore
               .getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-              Some(t15),
-              Some(t16),
-              Some(t17),
-              Some(t18),
-            ),
-          )
+          } yield assertTrue(result == expected18)
         },
         test("with 19 types") {
           for {
             _      <- setAll
             result <- RequestStore
               .getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-              Some(t15),
-              Some(t16),
-              Some(t17),
-              Some(t18),
-              Some(t19),
-            ),
-          )
+          } yield assertTrue(result == expected19)
         },
         test("with 20 types") {
           for {
             _      <- setAll
             result <- RequestStore
               .getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-              Some(t15),
-              Some(t16),
-              Some(t17),
-              Some(t18),
-              Some(t19),
-              Some(t20),
-            ),
-          )
+          } yield assertTrue(result == expected20)
         },
         test("with 21 types") {
           for {
             _      <- setAll
             result <- RequestStore
               .getMany[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-              Some(t15),
-              Some(t16),
-              Some(t17),
-              Some(t18),
-              Some(t19),
-              Some(t20),
-              Some(t21),
-            ),
-          )
+          } yield assertTrue(result == expected21)
         },
         test("with 22 types") {
           for {
@@ -561,32 +362,7 @@ object RequestStoreSpec extends ZIOHttpSpec {
               T21,
               T22,
             ]
-          } yield assertTrue(
-            result == (
-              Some(t1),
-              Some(t2),
-              Some(t3),
-              Some(t4),
-              Some(t5),
-              Some(t6),
-              Some(t7),
-              Some(t8),
-              Some(t9),
-              Some(t10),
-              Some(t11),
-              Some(t12),
-              Some(t13),
-              Some(t14),
-              Some(t15),
-              Some(t16),
-              Some(t17),
-              Some(t18),
-              Some(t19),
-              Some(t20),
-              Some(t21),
-              Some(t22),
-            ),
-          )
+          } yield assertTrue(result == expected22)
         },
         test("returns None for types not set - E1 to E3 are never set") {
           for {
