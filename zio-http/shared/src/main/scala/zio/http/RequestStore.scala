@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.{Exit, FiberRef, Tag, UIO, Unsafe, ZIO}
+import zio._
 
 object RequestStore {
 

@@ -1,7 +1,7 @@
 package zio.http
 
-import zio.{Scope, UIO}
 import zio.test._
+import zio.{Scope, UIO}
 
 object RequestStoreSpec extends ZIOHttpSpec {
 
