@@ -26,12 +26,40 @@ import zio.http.netty.AsyncBodyReader
 import io.netty.channel._
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 
+/**
+ * Handles streaming HTTP response bodies and manages connection lifecycle.
+ *
+ * This handler extends AsyncBodyReader to provide body reading with timeout
+ * support, while also ensuring proper connection pool management through the
+ * onComplete promise.
+ *
+ * Connection Lifecycle Management:
+ *   - onLastMessage(): Called when body completes successfully
+ *     - keepAlive=true: Mark connection as reusable (ChannelState.forStatus)
+ *     - keepAlive=false: Mark connection as invalid
+ *   - channelInactive(): Called when channel closes prematurely
+ *     - Always marks connection as Invalid to remove from pool
+ *     - Allows parent AsyncBodyReader to fail the body callback
+ *     - Ensures connection cleanup even on timeout/error
+ *   - exceptionCaught(): Called on any exception during body reading
+ *     - Marks connection as Invalid via Exit.fail
+ *     - Ensures connection removed from pool on errors
+ *
+ * This ensures proper coordination with ZClient's connection pool:
+ *   1. Body reads successfully → connection returned to pool (if keep-alive)
+ *   2. Body read times out → connection invalidated and removed
+ *   3. Channel closes early → connection invalidated and removed
+ *   4. Exception occurs → connection invalidated and removed
+ *
+ * The onComplete promise is always fulfilled, preventing connection leaks.
+ */
 private[netty] final class ClientResponseStreamHandler(
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
   status: Status,
+  timeoutMillis: Option[Long],
 )(implicit trace: Trace)
-    extends AsyncBodyReader { self =>
+    extends AsyncBodyReader(timeoutMillis) { self =>
 
   private implicit val unsafe: Unsafe = Unsafe.unsafe
 
@@ -47,6 +75,15 @@ private[netty] final class ClientResponseStreamHandler(
     if (isLast && !keepAlive) ctx.close(): Unit
   }
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     onComplete.unsafe.done(Exit.fail(cause))
+  }
+
+  override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+    // Channel closed before body reading completed
+    // Mark connection as invalid to ensure it's removed from pool
+    // The parent AsyncBodyReader will handle failing the body callback
+    onComplete.unsafe.done(Exit.succeed(ChannelState.Invalid))
+    super.channelInactive(ctx)
+  }
 }

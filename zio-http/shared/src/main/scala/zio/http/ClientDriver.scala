@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.unroll
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
@@ -34,6 +36,8 @@ trait ClientDriver {
     enableKeepAlive: Boolean,
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
+    @unroll
+    bodyReadTimeoutMillis: Option[Long] = None,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
 
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
