@@ -1,6 +1,6 @@
 name         := "zio-http-example-oauth-bearer-token-auth"
 version      := "0.1.1"
-scalaVersion := "2.13.17"
+scalaVersion := "2.13.16"
 
 publish / skip  := true
 publishArtifact := false
