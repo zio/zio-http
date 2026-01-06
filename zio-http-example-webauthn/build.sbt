@@ -1,6 +1,6 @@
 name         := "zio-http-example-webauthn"
 version      := "0.1.1"
-scalaVersion := "2.13.16"
+scalaVersion := "2.13.17"
 
 publish / skip  := true
 publishArtifact := false
