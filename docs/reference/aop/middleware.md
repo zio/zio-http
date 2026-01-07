@@ -343,6 +343,36 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/StaticFiles.scala")
 ```
 
+### Ensure Header Middleware
+
+The `Middleware.ensureHeader` middleware guarantees that a specific header is present in incoming requests. If the header already exists, the request passes through unchanged. If the header is missing, the middleware adds it with a provided default value.
+
+This middleware comes in two variants:
+
+1. **Type-safe variant** - Uses ZIO HTTP's `Header.HeaderType` for compile-time type safety:
+
+   ```scala mdoc:compile-only
+   Middleware.ensureHeader(Header.ContentType)(MediaType.application.json)
+   ```
+
+2. **String-based variant** - Uses header name and value as strings for flexibility:
+
+   ```scala mdoc:compile-only
+   Middleware.ensureHeader("X-Request-ID")("default-request-id")
+   ```
+
+A common use case for this middleware is to ensure that every incoming request contains a unique correlation ID, which is essential for distributed tracing in microservices architectures:
+
+```scala mdoc:compile-only
+import java.util.UUID
+
+val routes = Routes(
+  Method.GET / "api" / trailing -> handler {
+    Response.text("API response")
+  }
+) @@ Middleware.ensureHeader("X-Request-ID")(UUID.randomUUID().toString)
+```
+
 ### Forwarding Headers Middleware
 
 The `Middleware.forwardHeaders` middleware is used to forward headers from the incoming request to the outgoing request when using the ZIO HTTP Client. This is useful when we want to forward headers like `Authorization`, `X-Request-ID`, and so on. It takes a set of header names to be forwarded:
