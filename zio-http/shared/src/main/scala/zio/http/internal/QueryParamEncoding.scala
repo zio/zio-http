@@ -241,13 +241,7 @@ private[http] object QueryParamEncoding {
     val bytesLen = bytes.length
     while (k < bytesLen) {
       val unsignedByte = bytes(k) & 0xff
-      if (
-        (unsignedByte >= 'a' && unsignedByte <= 'z') ||
-        (unsignedByte >= 'A' && unsignedByte <= 'Z') ||
-        (unsignedByte >= '0' && unsignedByte <= '9') ||
-        unsignedByte == '-' || unsignedByte == '.' ||
-        unsignedByte == '_' || unsignedByte == '~' || unsignedByte == '*'
-      ) {
+      if (needsNoEncoding(unsignedByte.toChar)) {
         // Unreserved character
         target.append(unsignedByte.toChar)
       } else if (unsignedByte == ' ') {
@@ -267,6 +261,6 @@ private[http] object QueryParamEncoding {
     (c >= 'a' && c <= 'z') ||
     (c >= 'A' && c <= 'Z') ||
     (c >= '0' && c <= '9') ||
-    c == '-' || c == '.' || c == '_' || c == '~' || c == '*'
+    c == '-' || c == '.' || c == '_' || c == '~' || c == '*' || c == ':' || c == '@'
   }
 }
