@@ -99,6 +99,12 @@ object URLSpec extends ZIOHttpSpec {
           val expected     = urlWithSpace.encode
           assertTrue(expected == "/my%20folder/file.txt")
         },
+        test("decode url with percent-encoded space in path should not double-encode") {
+          val decoded = URL.decode("http://testsample.com/file/test%20hotel.pdf")
+          assertTrue(
+            decoded.map(_.toString) == Right("http://testsample.com/file/test%20hotel.pdf"),
+          )
+        },
         test("auto-gen") {
           check(HttpGen.url) { url =>
             val expected        = url.copy(path = url.path.addLeadingSlash)
