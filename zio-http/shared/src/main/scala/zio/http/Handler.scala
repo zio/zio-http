@@ -16,9 +16,11 @@
 
 package zio.http
 
-import java.io.{File, FileNotFoundException}
+import java.io.{File, FileNotFoundException, RandomAccessFile}
 import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
+import java.time.{Instant, ZoneId, ZonedDateTime}
 
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
@@ -691,6 +693,82 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
 object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
+  private object RangeUtils {
+    sealed trait NormalizedRange
+    object NormalizedRange {
+      case object Ignore                                 extends NormalizedRange
+      case object Unsatisfiable                          extends NormalizedRange
+      final case class Ranges(value: List[(Long, Long)]) extends NormalizedRange
+    }
+
+    def normalizeRange(start0: Long, end0: Long, totalBytes: Long): Option[(Long, Long)] = {
+      if (totalBytes <= 0) None
+      else if (start0 < 0 || end0 < 0) None
+      else if (start0 >= totalBytes) None
+      else {
+        val clampedEnd = Math.min(end0, totalBytes - 1)
+        if (clampedEnd < start0) None
+        else Some((start0, clampedEnd))
+      }
+    }
+
+    def normalize(range: Header.Range, totalBytes: Long): NormalizedRange = {
+      val unitOk = range match {
+        case Header.Range.Single(unit, _, _) => unit.trim.equalsIgnoreCase("bytes")
+        case Header.Range.Multiple(unit, _)  => unit.trim.equalsIgnoreCase("bytes")
+        case Header.Range.Suffix(unit, _)    => unit.trim.equalsIgnoreCase("bytes")
+        case Header.Range.Prefix(unit, _)    => unit.trim.equalsIgnoreCase("bytes")
+      }
+
+      if (!unitOk) NormalizedRange.Ignore
+      else if (totalBytes <= 0L) NormalizedRange.Unsatisfiable
+      else {
+        range match {
+          case Header.Range.Single(_, start, endOpt) =>
+            val end = endOpt.getOrElse(totalBytes - 1)
+            normalizeRange(start, end, totalBytes) match {
+              case Some(r) => NormalizedRange.Ranges(List(r))
+              case None    =>
+                if (start >= totalBytes && start >= 0L) NormalizedRange.Unsatisfiable
+                else NormalizedRange.Ignore
+            }
+
+          case Header.Range.Prefix(_, start)         =>
+            normalizeRange(start, totalBytes - 1, totalBytes) match {
+              case Some(r) => NormalizedRange.Ranges(List(r))
+              case None    =>
+                if (start >= totalBytes && start >= 0L) NormalizedRange.Unsatisfiable
+                else NormalizedRange.Ignore
+            }
+
+          case Header.Range.Suffix(_, suffixLen)     =>
+            if (suffixLen <= 0L) NormalizedRange.Ignore
+            else {
+              val start = Math.max(totalBytes - suffixLen, 0L)
+              normalizeRange(start, totalBytes - 1, totalBytes) match {
+                case Some(r) => NormalizedRange.Ranges(List(r))
+                case None    => NormalizedRange.Unsatisfiable
+              }
+            }
+
+          case Header.Range.Multiple(_, ranges)      =>
+            val normalized = ranges.flatMap { case (start, endOpt) =>
+              val end = endOpt.getOrElse(totalBytes - 1)
+              normalizeRange(start, end, totalBytes)
+            }
+
+            if (normalized.nonEmpty) NormalizedRange.Ranges(normalized)
+            else {
+              val allStartBeyondOrAtEnd =
+                ranges.nonEmpty && ranges.forall { case (start, _) => start >= 0L && start >= totalBytes }
+              if (allStartBeyondOrAtEnd) NormalizedRange.Unsatisfiable
+              else NormalizedRange.Ignore
+            }
+        }
+      }
+    }
+  }
+
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
   sealed trait IsRequest[-A]
@@ -908,31 +986,72 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
   }
 
+  /**
+   * Creates a handler that serves a static file.
+   *
+   * @param makeFile
+   *   Effect that creates/locates the file.
+   * @param charset
+   *   Charset to use for content type determination (if text)
+   */
   def fromFile[R](makeFile: => File, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     fromFileZIO(ZIO.attempt(makeFile), charset)
 
+  /**
+   * Creates a handler that serves a static file from a ZIO effect. This handler supports:
+   *   - HTTP Range requests (RFC 9110), including multiple ranges (multipart/byteranges).
+   *   - HEAD requests (returns headers without body).
+   *   - Large files > 2GB (using random access file streaming and custom headers).
+   *   - Correct handling of specialized errors (416 Range Not Satisfiable).
+   *
+   * Design decisions:
+   *   - Custom Content-Range Header: We use `Header.Custom` instead of the typed `Header.ContentRange` because the
+   *     current typed model uses `Int` for offsets/totals, which overflows for files > 2GB.
+   *   - No Compression on Partial Content: Range responses are served raw (identity encoding) to ensure byte alignment
+   *     matches the requested range.
+   *   - Optimistic Request Extraction: When the input is a Tuple (e.g., from `Http.collectZIO`), we optimistically scan
+   *     for a `Request` to support headers, while avoiding deep scans of arbitrary user case classes.
+   *
+   * @param getFile
+   *   ZIO effect that yields the file to serve.
+   */
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File], charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] = {
-    Handler.fromZIO[R, Throwable, Response](
-      ZIO.blocking {
-        getFile.flatMap { file =>
-          if (!file.exists()) {
-            ZIO.fail(new FileNotFoundException())
-          } else if (file.isFile && !file.canRead) {
-            ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
-          } else {
-            if (file.isFile) {
-              Body.fromFile(file).flatMap { body =>
-                val response = http.Response(body = body)
-                val pathName = file.toPath.toString
+    new Handler[R, Throwable, Any, Response] {
+      override def apply(in: Any): ZIO[Scope & R, Throwable, Response] =
+        ZIO.blocking {
+          getFile.flatMap { file =>
+            if (!file.exists()) {
+              ZIO.fail(new FileNotFoundException())
+            } else if (file.isFile && !file.canRead) {
+              ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
+            } else if (!file.isFile) {
+              ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
+            } else {
 
-                // Set MIME type in the response headers. This is only relevant in
-                // case of RandomAccessFile transfers as browsers use the MIME type,
-                // not the file extension, to determine how to process a URL.
-                // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+              def extractRequest(any: Any): Option[Request] =
+                any match {
+                  case req: Request => Some(req)
+                  case p: Product
+                      if p.productPrefix.startsWith("Tuple") =>
+                    // Only scan known internal tuples (generated by ZIO's Zippable), not arbitrary case classes.
+                    // This creates a defensible boundary against scanning user domain objects while still
+                    // supporting the common pattern of `Http.collectZIO` returning `request` in a tuple context.
+                    // We optimistically look for exactly one `Request` in the tuple.
+                    // Note: This matches Scala 2.13+ tuple behavior.
+                    val reqs = p.productIterator.collect { case r: Request => r }.toList
+                    reqs match {
+                      case r :: Nil => Some(r)
+                      case _        => None
+                    }
+                  case _            => None
+                }
+
+              def addContentType(response: Response): UIO[Response] = {
+                val pathName = file.toPath.toString
                 determineMediaType(pathName) match {
                   case Some(mediaType) =>
                     val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
@@ -940,13 +1059,176 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
                   case None            => ZIO.succeed(response)
                 }
               }
-            } else {
-              ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
+
+              def fileRangeBody(start: Long, length: Long, chunkSize: Int = 1024 * 4): Body = {
+                val stream: ZStream[Any, Throwable, Byte] =
+                  ZStream.acquireReleaseWith(ZIO.attemptBlocking(new RandomAccessFile(file, "r")))(raf =>
+                    ZIO.attemptBlocking(raf.close()).ignoreLogged,
+                  ).flatMap { raf =>
+                    ZStream.fromZIO(ZIO.attemptBlocking(raf.seek(start))) *>
+                      ZStream.unfoldChunkZIO(length) { remaining =>
+                        if (remaining <= 0) ZIO.succeed(None)
+                        else {
+                          ZIO.attemptBlocking {
+                            val toRead = Math.min(chunkSize.toLong, remaining).toInt
+                            val buffer = new Array[Byte](toRead)
+                            val len    = raf.read(buffer)
+                            if (len > 0) {
+                              Some((Chunk.fromArray(buffer.slice(0, len)), remaining - len))
+                            } else None
+                          }
+                        }
+                      }
+                  }
+
+                Body.fromStream(stream, length)
+              }
+
+              val requestOpt = extractRequest(in)
+              val isGetOrHead = requestOpt.exists(req => req.method == Method.GET || req.method == Method.HEAD)
+              val isHead     = requestOpt.exists(_.method == Method.HEAD)
+              val total      = file.length()
+              val lastModifiedMilli = file.lastModified()
+              val lastModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(lastModifiedMilli), ZoneId.of("GMT"))
+              val etagValue = s"$total-$lastModifiedMilli"
+
+              val ifRangeRaw = requestOpt.flatMap(_.headers.get(Header.IfRange.name))
+              val shouldIgnoreRange = ifRangeRaw.exists { value =>
+                val isEtagMatch = {
+                  val normalized = if (value.startsWith("W/")) value.drop(2) else value
+                  val clean = normalized.replaceAll("^\"|\"$", "")
+                  clean == etagValue
+                }
+
+                val isDateMatch = Header.IfRange.parse(value) match {
+                  case Right(Header.IfRange.DateTime(date)) => date.toInstant.toEpochMilli == lastModifiedMilli
+                  case _ => false
+                }
+
+                !(isEtagMatch || isDateMatch)
+              }
+
+              val rangeOpt   = if (shouldIgnoreRange) None else requestOpt.flatMap(_.header(Header.Range))
+              val baseAcceptRanges = Header.AcceptRanges.Bytes
+
+              def addCommonHeaders(response: Response): Response =
+                response
+                  .addHeader(Header.ETag.Weak(etagValue))
+                  .addHeader(Header.LastModified(lastModified))
+
+              def fullResponse: ZIO[Any, Nothing, Response] =
+                if (isHead) {
+                  val response =
+                    http.Response(status = Status.Ok, body = Body.empty)
+                      .addHeader(Header.ContentLength(total))
+
+                  val resWithRange = if (requestOpt.isDefined) response.addHeader(baseAcceptRanges) else response
+                  addContentType(addCommonHeaders(resWithRange))
+                } else {
+                  Body.fromFile(file).flatMap { body =>
+                    val response = http.Response(body = body)
+                    val resWithRange = if (requestOpt.isDefined) response.addHeader(baseAcceptRanges) else response
+                    addContentType(addCommonHeaders(resWithRange))
+                  }
+                }
+
+              def notSatisfiable(totalBytes: Long): ZIO[Any, Nothing, Response] = {
+                // We use Header.Custom because Header.ContentRange uses Int, which overflows for >2GB files.
+                // This ensures we can serve large files correctly on the wire, even if the typed model catches up later.
+                val headerVal = s"bytes */$totalBytes"
+
+                val response =
+                  http.Response(status = Status.RequestedRangeNotSatisfiable, body = Body.empty)
+                    .addHeader(Header.Custom("Content-Range", headerVal))
+
+                val resWithRange = if (requestOpt.isDefined) response.addHeader(baseAcceptRanges) else response
+                ZIO.succeed(addCommonHeaders(resWithRange))
+              }
+
+              if (!isGetOrHead || rangeOpt.isEmpty) {
+                fullResponse
+              } else {
+                RangeUtils.normalize(rangeOpt.get, total) match {
+                  case RangeUtils.NormalizedRange.Ignore         =>
+                    fullResponse
+                  case RangeUtils.NormalizedRange.Unsatisfiable  =>
+                    notSatisfiable(total)
+                  case RangeUtils.NormalizedRange.Ranges(ranges) if ranges.length == 1 =>
+                    val (start, end) = ranges.head
+                    val length       = end - start + 1
+
+                    val body =
+                      if (isHead) Body.empty
+                      else fileRangeBody(start, length)
+
+                    val response =
+                      http.Response(status = Status.PartialContent, body = body)
+                        .addHeader(baseAcceptRanges)
+                        // Use Custom header to avoid Int overflow in Header.ContentRange for >2GB files
+                        .addHeader(Header.Custom("Content-Range", s"bytes $start-$end/$total"))
+                        .addHeader(Header.ContentLength(length))
+
+                    addContentType(addCommonHeaders(response))
+
+                  case RangeUtils.NormalizedRange.Ranges(ranges) =>
+                    // Multipart/byteranges
+                    Boundary.randomUUID.flatMap { boundary =>
+                      val boundaryId = boundary.id
+                      val crlf       = "\r\n"
+
+                      def bytesOf(s: String): Chunk[Byte] =
+                        Chunk.fromArray(s.getBytes(StandardCharsets.ISO_8859_1))
+
+                      val contentTypeHeader =
+                        determineMediaType(file.toPath.toString).map { mediaType =>
+                          s"Content-Type: ${mediaType.fullType}" + crlf
+                        }.getOrElse("")
+
+                      val parts: List[(Chunk[Byte], Long, Long, Chunk[Byte])] =
+                        ranges.map { case (start, end) =>
+                          val header =
+                            "--" + boundaryId + crlf +
+                              contentTypeHeader +
+                              "Content-Range: bytes " + start.toString + "-" + end.toString + "/" + total.toString + crlf +
+                              crlf
+                          val footer = crlf
+                          (bytesOf(header), start, end, bytesOf(footer))
+                        }
+
+                      val closing = bytesOf("--" + boundaryId + "--" + crlf)
+
+                      val totalLength =
+                        parts.foldLeft(0L) { case (acc, (headerBytes, start, end, footerBytes)) =>
+                          acc + headerBytes.size.toLong + (end - start + 1) + footerBytes.size.toLong
+                        } + closing.size.toLong
+
+                      val stream =
+                        parts.foldLeft[ZStream[Any, Throwable, Byte]](ZStream.empty) { case (acc, (headerBytes, start, end, footerBytes)) =>
+                          val contentLen = end - start + 1
+                          acc ++
+                            ZStream.fromChunk(headerBytes) ++
+                            fileRangeBody(start, contentLen).asStream ++
+                            ZStream.fromChunk(footerBytes)
+                        } ++ ZStream.fromChunk(closing)
+
+                      val body =
+                        if (isHead) Body.empty
+                        else Body.fromStream(stream, totalLength)
+
+                      val response =
+                        http.Response(status = Status.PartialContent, body = body)
+                          .addHeader(baseAcceptRanges)
+                          .addHeader(Header.ContentType(MediaType.multipart.byteranges, boundary = Some(boundary)))
+                          .addHeader(Header.ContentLength(totalLength))
+
+                      ZIO.succeed(addCommonHeaders(response))
+                    }
+                }
+              }
             }
           }
         }
-      },
-    )
+    }
   }
 
   /**
