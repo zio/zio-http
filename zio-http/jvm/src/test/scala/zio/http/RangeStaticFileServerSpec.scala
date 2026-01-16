@@ -1,15 +1,12 @@
 /*
  * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
-
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
-
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
-
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,6 +26,8 @@ import zio.test._
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
 object RangeStaticFileServerSpec extends RoutesRunnableSpec {
+  private val largeFileTestSupported =
+    if (scala.util.Properties.isWin) TestAspect.ignore else TestAspect.identity
 
   override def spec =
     suite("RangeStaticFileServerSpec (Issue #709 Range + multipart/byteranges)") {
@@ -345,7 +344,9 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
       )
     },
     test("Large file (>2GB) Range handling") {
-      val size          = 3L * 1024 * 1024 * 1024 // 3GB
+      // Just over 2GB is enough to validate we don't overflow `Int`.
+      // Note: Windows temp filesystems may not support sparse extension by default.
+      val size          = Int.MaxValue.toLong + 1024
       val createBigFile = ZIO.attempt {
         val tempFile = Files.createTempFile("large-test", ".dat")
         val raf      = new RandomAccessFile(tempFile.toFile, "rw")
@@ -362,8 +363,8 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
           Method.GET / "large" -> Handler.fromFile(tempFile.toFile),
         ).sandbox.deploy
 
-        val start = 3000000000L
-        val end   = 3000000009L
+        val start = size - 10
+        val end   = size - 1
         val req   = Request
           .get(URL(Path.root / "large"))
           .addHeader(Header.Custom("Range", s"bytes=$start-$end"))
@@ -381,7 +382,7 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
           },
         )
       }
-    },
+    } @@ largeFileTestSupported,
   ) @@ TestAspect.blocking
 
   private def withTempAsciiFile[R](
