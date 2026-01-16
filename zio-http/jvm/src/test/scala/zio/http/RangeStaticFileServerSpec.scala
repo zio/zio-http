@@ -372,15 +372,16 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
         for {
           resp <- app(req)
           headerOpt = resp.headers.get("Content-Range")
-        } yield assertTrue(
-          resp.status == Status.PartialContent,
-          headerOpt.exists { h =>
-            h match {
-              case s"bytes $s-$e/$t" => s.toLong == start && e.toLong == end && t.toLong == size
-              case _                 => false
-            }
-          },
-        )
+        } yield {
+          val ContentRangePattern = """bytes (\d+)-(\d+)/(\d+)""".r
+          assertTrue(
+            resp.status == Status.PartialContent,
+            headerOpt.exists {
+              case ContentRangePattern(s, e, t) => s.toLong == start && e.toLong == end && t.toLong == size
+              case _                            => false
+            },
+          )
+        }
       }
     } @@ largeFileTestSupported,
   ) @@ TestAspect.blocking
