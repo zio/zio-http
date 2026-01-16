@@ -1,12 +1,15 @@
 /*
  * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
  *
+
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
+
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
+
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,9 +19,9 @@
 
 package zio.http
 
+import java.io.RandomAccessFile
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path => JPath}
-import java.io.RandomAccessFile
 
 import zio._
 import zio.test._
@@ -32,7 +35,11 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
       serve.as(List(rangeSpec))
     }
       .provideSome[DynamicServer & Server & Server.Config & Client](Scope.default)
-      .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+      .provideShared(
+        DynamicServer.live,
+        serverTestLayer,
+        Client.default,
+      ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
 
   private def rangeSpec = suite("static file range")(
     test("single range -> 206 + Content-Range + correct bytes") {
@@ -75,9 +82,11 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
           val expectedLength = bytes.length - start
           assertTrue(
             response.status == Status.PartialContent,
-            response.header(Header.ContentRange).contains(
-              Header.ContentRange.EndTotal("bytes", start, bytes.length - 1, bytes.length),
-            ),
+            response
+              .header(Header.ContentRange)
+              .contains(
+                Header.ContentRange.EndTotal("bytes", start, bytes.length - 1, bytes.length),
+              ),
             response.header(Header.ContentLength).contains(Header.ContentLength(expectedLength.toLong)),
             bodyStr == new String(bytes.slice(start, bytes.length), StandardCharsets.US_ASCII),
           )
@@ -101,9 +110,11 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
           bodyStr  <- response.body.asString(StandardCharsets.US_ASCII)
         } yield assertTrue(
           response.status == Status.PartialContent,
-          response.header(Header.ContentRange).contains(
-            Header.ContentRange.EndTotal("bytes", start, bytes.length - 1, bytes.length),
-          ),
+          response
+            .header(Header.ContentRange)
+            .contains(
+              Header.ContentRange.EndTotal("bytes", start, bytes.length - 1, bytes.length),
+            ),
           response.header(Header.ContentLength).contains(Header.ContentLength(suffixLen.toLong)),
           bodyStr == new String(bytes.slice(start, bytes.length), StandardCharsets.US_ASCII),
         )
@@ -127,7 +138,9 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
           val boundaryOpt = contentType.flatMap(_.boundary).map(_.id)
 
           val boundary = boundaryOpt.getOrElse {
-            throw new RuntimeException("Expected multipart boundary in Content-Type, got: " + contentType.map(_.renderedValue))
+            throw new RuntimeException(
+              "Expected multipart boundary in Content-Type, got: " + contentType.map(_.renderedValue),
+            )
           }
 
           val parts = splitMultipart(bodyStr, boundary)
@@ -143,7 +156,7 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
             partBody(parts(0)) == expected0,
             partHasHeader(parts(1), "content-range", "bytes 20-29/" + bytes.length.toString),
             partBody(parts(1)) == expected20,
-            bodyStr.endsWith("--" + boundary + "--\r\n")
+            bodyStr.endsWith("--" + boundary + "--\r\n"),
           )
         }
       }
@@ -242,7 +255,7 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
       }
     },
     test("HEAD + multi-range -> 206 multipart, Correct Headers, Empty Body") {
-      withTempAsciiFile { case (filePath, bytes) =>
+      withTempAsciiFile { case (filePath, _) =>
         val app = Routes(
           Method.HEAD / "file" -> Handler.fromFile(filePath.toFile),
         ).sandbox.deploy
@@ -259,7 +272,7 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
             response.status == Status.PartialContent,
             bodyStr.isEmpty,
             contentType.exists(_.mediaType == MediaType.multipart.byteranges),
-            totalLen > 0L
+            totalLen > 0L,
           )
         }
       }
@@ -278,7 +291,7 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
         } yield assertTrue(
           response.status == Status.RequestedRangeNotSatisfiable,
           bodyStr.isEmpty,
-          response.header(Header.ContentRange).contains(Header.ContentRange.RangeTotal("bytes", bytes.length))
+          response.header(Header.ContentRange).contains(Header.ContentRange.RangeTotal("bytes", bytes.length)),
         )
       }
     },
@@ -293,24 +306,26 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
         for {
           // 1. Get ETag
           resp1 <- app(Request.get(URL(Path.root / "file")))
-          etagH = resp1.header(Header.ETag).getOrElse(throw new RuntimeException("Missing ETag"))
+          etagH        = resp1.header(Header.ETag).getOrElse(throw new RuntimeException("Missing ETag"))
           validatorStr = etagH match {
-             case Header.ETag.Strong(v) => v
-             case Header.ETag.Weak(v) => v
+            case Header.ETag.Strong(v) => v
+            case Header.ETag.Weak(v)   => v
           }
 
           // 2. Request with Matching If-Range -> 206
           // Note: Header.IfRange.ETag constructor implies it holds the value.
           // Since our logic compares raw string in IfRange with calculated strong etag,
           // passing the validator string directly should work if parsing is symmetric.
-          req2 = Request.get(URL(Path.root / "file"))
+          req2 = Request
+            .get(URL(Path.root / "file"))
             .addHeader(rangeHeader)
             .addHeader(Header.IfRange.ETag(validatorStr))
-            
+
           resp2 <- app(req2)
 
           // 3. Request with Mismatching If-Range -> 200
-          req3 = Request.get(URL(Path.root / "file"))
+          req3 = Request
+            .get(URL(Path.root / "file"))
             .addHeader(rangeHeader)
             .addHeader(Header.IfRange.ETag("mismatch"))
           resp3 <- app(req3)
@@ -318,7 +333,7 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
         } yield assertTrue(
           resp2.status == Status.PartialContent,
           resp3.status == Status.Ok,
-          resp3.header(Header.ContentLength).map(_.length).contains(bytes.length.toLong)
+          resp3.header(Header.ContentLength).map(_.length).contains(bytes.length.toLong),
         )
       }
     },
@@ -330,10 +345,10 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
       )
     },
     test("Large file (>2GB) Range handling") {
-      val size = 3L * 1024 * 1024 * 1024 // 3GB
+      val size          = 3L * 1024 * 1024 * 1024 // 3GB
       val createBigFile = ZIO.attempt {
         val tempFile = Files.createTempFile("large-test", ".dat")
-        val raf = new RandomAccessFile(tempFile.toFile, "rw")
+        val raf      = new RandomAccessFile(tempFile.toFile, "rw")
         try {
           raf.setLength(size)
         } finally {
@@ -349,7 +364,8 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
 
         val start = 3000000000L
         val end   = 3000000009L
-        val req = Request.get(URL(Path.root / "large"))
+        val req   = Request
+          .get(URL(Path.root / "large"))
           .addHeader(Header.Custom("Range", s"bytes=$start-$end"))
 
         for {
@@ -360,9 +376,9 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
           headerOpt.exists { h =>
             h match {
               case s"bytes $s-$e/$t" => s.toLong == start && e.toLong == end && t.toLong == size
-              case _ => false
+              case _                 => false
             }
-          }
+          },
         )
       }
     },
@@ -403,8 +419,7 @@ object RangeStaticFileServerSpec extends RoutesRunnableSpec {
   }
 
   private def partHasHeader(part: String, headerNameLower: String, expectedValue: String): Boolean =
-    part
-      .linesIterator
+    part.linesIterator
       .takeWhile(_.nonEmpty)
       .exists { line =>
         val idx = line.indexOf(':')
