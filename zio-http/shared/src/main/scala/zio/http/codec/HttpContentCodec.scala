@@ -295,7 +295,15 @@ object HttpContentCodec {
     if (fromSchemaCache.contains(schema)) {
       fromSchemaCache(schema).asInstanceOf[HttpContentCodec[A]]
     } else {
-      val codec = json.only[A] ++ protobuf.only[A] ++ text.only[A]
+      val codec: HttpContentCodec[A] = schema match {
+        // Special handling for Option types: create codec for inner type and call .optional
+        // This ensures empty body is properly decoded as None
+        case Schema.Optional(innerSchema, _) =>
+          val innerCodec = json.only(innerSchema) ++ protobuf.only(innerSchema) ++ text.only(innerSchema)
+          innerCodec.optional.asInstanceOf[HttpContentCodec[A]]
+        case _                               =>
+          json.only[A] ++ protobuf.only[A] ++ text.only[A]
+      }
       fromSchemaCache = fromSchemaCache + (schema -> codec)
       codec
     }
