@@ -16,6 +16,8 @@
 
 package zio.http.netty.client
 
+import scala.annotation.unroll
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -49,11 +51,13 @@ final case class NettyClientDriver private[netty] (
     enableKeepAlive: Boolean,
     createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
+    @unroll
+    bodyReadTimeoutMillis: Option[Long] = None,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] =
     if (location.scheme.isWebSocket)
       requestWebsocket(channel, req, onResponse, onComplete, createSocketApp, webSocketConfig)
     else
-      requestHttp(channel, req, onResponse, onComplete, enableKeepAlive)
+      requestHttp(channel, req, onResponse, onComplete, enableKeepAlive, bodyReadTimeoutMillis)
 
   private def requestHttp(
     channel: Channel,
@@ -61,6 +65,7 @@ final case class NettyClientDriver private[netty] (
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
+    bodyReadTimeoutMillis: Option[Long],
   )(implicit trace: Trace): RIO[Scope, ChannelInterface] =
     ZIO
       .succeed(NettyRequestEncoder.encode(req))
@@ -85,7 +90,15 @@ final case class NettyClientDriver private[netty] (
 
         pipeline.addLast(
           Names.ClientInboundHandler,
-          new ClientInboundHandler(nettyRuntime, req, jReq, onResponse, onComplete, enableKeepAlive),
+          new ClientInboundHandler(
+            nettyRuntime,
+            req,
+            jReq,
+            onResponse,
+            onComplete,
+            enableKeepAlive,
+            bodyReadTimeoutMillis,
+          ),
         )
 
         pipeline.addLast(
