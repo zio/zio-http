@@ -11,7 +11,7 @@ object RequestStore {
     requestStore.get.map(_.get(implicitly[Tag[A]]).asInstanceOf[Option[A]])
 
   def getOrElse[A: Tag](orElse: => A): ZIO[Any, Nothing, A] =
-    get[A].map(_.getOrElse(orElse))
+    requestStore.get.map(_.getOrElse(implicitly[Tag[A]], orElse).asInstanceOf[A])
 
   def getOrFail[A: Tag]: ZIO[Any, NoSuchElementException, A] =
     get[A].flatMap {
@@ -23,10 +23,12 @@ object RequestStore {
     requestStore.update(_.updated(implicitly[Tag[A]], a))
 
   def update[A: Tag](a: Option[A] => A): ZIO[Any, Nothing, Unit] =
-    for {
-      current <- get[A]
-      _       <- set(a(current))
-    } yield ()
+    requestStore.modify { store =>
+      val tag     = implicitly[Tag[A]]
+      val current = store.get(tag).asInstanceOf[Option[A]]
+      val updated = a(current)
+      ((), store.updated(tag, updated))
+    }
 
   def storeRequest: HandlerAspect[Any, Unit] =
     Middleware.interceptIncomingHandler(handler((request: Request) => set(request).as((request, ()))))
