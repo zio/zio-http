@@ -58,6 +58,47 @@ object RouteSpec extends ZIOHttpSpec {
           result <- ignored.toHandler.merge.run()
         } yield assertTrue(extractStatus(result) == Status.InternalServerError)
       },
+      test("sandbox logs defects") {
+        val route =
+          Method.GET / "foo" ->
+            Handler.die(new RuntimeException("boom"))
+
+        for {
+          _       <- route.sandbox.toRoutes.runZIO(Request.get(url"/foo")).ignore
+          entries <- ZTestLogger.logOutput
+        } yield assertTrue(
+          entries.exists(e =>
+            e.logLevel == LogLevel.Error &&
+              e.message().contains("Unhandled exception in request handler"),
+          ),
+        )
+      },
+      test("sandbox logs typed failures") {
+        val route =
+          Method.GET / "foo" ->
+            Handler.fail(new Exception("typed error"))
+
+        for {
+          _       <- route.sandbox.toRoutes.runZIO(Request.get(url"/foo")).ignore
+          entries <- ZTestLogger.logOutput
+        } yield assertTrue(
+          entries.exists(e =>
+            e.logLevel == LogLevel.Error &&
+              e.message().contains("Unhandled exception in request handler"),
+          ),
+        )
+      },
+      test("sandbox does not log for successful requests") {
+        val route =
+          Method.GET / "foo" -> handler(Response.ok)
+
+        for {
+          _       <- route.sandbox.toRoutes.runZIO(Request.get(url"/foo"))
+          entries <- ZTestLogger.logOutput
+        } yield assertTrue(
+          !entries.exists(e => e.message().contains("Unhandled exception in request handler")),
+        )
+      },
     ),
     suite("auto-sandboxing for middleware")(
       test("die error does not stop middleware from executing") {

@@ -610,7 +610,7 @@ In this example, the type of the handler before applying the `sandbox` operator 
 
 Without the `sandbox` operator, the compiler would complain about the unhandled `Throwable` error.
 
-By default, sandboxed errors will result in a `500 Internal Server Error` response without a body. If you want to have all information about the error in the response body you can use a different (`ErrorResponseConfig`)[response/response.md#failure-responses-with-details] like `ErrorResponseConfig.debug`:
+By default, sandboxed errors will result in a `500 Internal Server Error` response without a body, and the error will be logged using `ZIO.logErrorCause`. If you want to have all information about the error in the response body you can use a different (`ErrorResponseConfig`)[response/response.md#failure-responses-with-details] like `ErrorResponseConfig.debug`:
 
 ```scala mdoc:compile-only
 import zio.http._
