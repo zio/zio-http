@@ -389,6 +389,7 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
         .exclude("org.scala-lang.modules", "scala-collection-compat_2.13")
         .exclude("com.lihaoyi", "sourcecode_2.13"),
       `zio-json-yaml` % Test,
+      "software.amazon.smithy" % "smithy-model" % "1.53.0",
     ),
   )
   .settings(
