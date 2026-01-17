@@ -63,6 +63,24 @@ object CorsSpec extends ZIOHttpSpec with TestExtensions {
     ),
   )
 
+  // App with restricted origin - only allows "http://allowed.com"
+  // See: https://github.com/zio/zio-http/issues/3206
+  val appRestrictedOrigin = Routes(
+    Method.GET / "success"  -> handler(Response.ok),
+    Method.POST / "success" -> handler(Response.ok),
+  ).handleErrorCause { cause =>
+    Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
+  } @@ cors(
+    CorsConfig(
+      allowedOrigin = {
+        case Header.Origin.Value(_, host, _) if host == "allowed.com" =>
+          Some(Header.AccessControlAllowOrigin.Specific(Header.Origin.Value("http", host, None)))
+        case _                                                        => None
+      },
+      allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST),
+    ),
+  )
+
   override def spec = suite("CorsSpec")(
     test("OPTIONS request with allowAllHeaders server config") {
       val request =
@@ -169,6 +187,98 @@ object CorsSpec extends ZIOHttpSpec with TestExtensions {
         res.hasHeader(Header.AccessControlAllowOrigin("http", "test-env")),
         res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
         res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+      )
+    },
+    // Tests for https://github.com/zio/zio-http/issues/3206
+    // CORS restrictions should apply to all HTTP methods, not just OPTIONS
+    test("OPTIONS request from disallowed origin should be rejected") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "notallowed.com"),
+              Header.AccessControlRequestMethod(Method.GET),
+            ),
+          )
+
+      for {
+        res <- appRestrictedOrigin.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.NotFound,
+        !res.hasHeader(Header.AccessControlAllowOrigin.name),
+      )
+    },
+    test("OPTIONS request from allowed origin should succeed") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "allowed.com"),
+              Header.AccessControlRequestMethod(Method.GET),
+            ),
+          )
+
+      for {
+        res <- appRestrictedOrigin.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.NoContent,
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "allowed.com")),
+      )
+    },
+    test("GET request from disallowed origin should be rejected - issue #3206") {
+      // This test demonstrates the bug: non-OPTIONS requests from disallowed origins
+      // are currently processed (just without CORS headers) instead of being rejected
+      val request =
+        Request
+          .get(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "notallowed.com"),
+            ),
+          )
+
+      for {
+        res <- appRestrictedOrigin.runZIO(request)
+      } yield assertTrue(
+        // The request from a disallowed origin should be rejected with 403 Forbidden
+        extractStatus(res) == Status.Forbidden,
+      )
+    },
+    test("POST request from disallowed origin should be rejected - issue #3206") {
+      // Same bug for POST requests
+      val request =
+        Request
+          .post(URL(Path.root / "success"), Body.empty)
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "notallowed.com"),
+            ),
+          )
+
+      for {
+        res <- appRestrictedOrigin.runZIO(request)
+      } yield assertTrue(
+        // The request from a disallowed origin should be rejected with 403 Forbidden
+        extractStatus(res) == Status.Forbidden,
+      )
+    },
+    test("GET request from allowed origin should succeed") {
+      val request =
+        Request
+          .get(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "allowed.com"),
+            ),
+          )
+
+      for {
+        res <- appRestrictedOrigin.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.Ok,
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "allowed.com")),
       )
     },
   )
