@@ -160,6 +160,13 @@ object URLSpec extends ZIOHttpSpec {
           val expected = Right(host + channels)
           assertTrue(actual == expected)
         },
+        test("does not escape valid characters") {
+          check(HttpGen.nonEmptyPath) { path =>
+            val urlEncode  = URL(path = path).encode
+            val pathEncode = path.encode
+            assertTrue(urlEncode == pathEncode)
+          }
+        },
       ),
       suite("builder")(
         test("creates a URL with all attributes set") {
