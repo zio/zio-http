@@ -532,6 +532,80 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = input ++ codec)
 
   /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * optional. If the request body is empty, the input will be `None`. If the
+   * request body is non-empty, it will be decoded and wrapped in `Some`.
+   */
+  def inOptional[Input2: HttpContentCodec](implicit
+    combiner: Combiner[Input, Option[Input2]],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = input ++ HttpCodec.content[Input2].optional)
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * optional and is documented.
+   */
+  def inOptional[Input2: HttpContentCodec](doc: Doc)(implicit
+    combiner: Combiner[Input, Option[Input2]],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = input ++ HttpCodec.content[Input2].optional ?? doc)
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * optional and has the specified name.
+   */
+  def inOptional[Input2: HttpContentCodec](name: String)(implicit
+    combiner: Combiner[Input, Option[Input2]],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = input ++ HttpCodec.content[Input2](name).optional)
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * optional, has the specified name, and is documented.
+   */
+  def inOptional[Input2: HttpContentCodec](name: String, doc: Doc)(implicit
+    combiner: Combiner[Input, Option[Input2]],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = input ++ (HttpCodec.content[Input2](name).optional ?? doc))
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * optional and uses the specified media type.
+   */
+  def inOptional[Input2: HttpContentCodec](mediaType: MediaType)(implicit
+    combiner: Combiner[Input, Option[Input2]],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = input ++ HttpCodec.content[Input2](mediaType).optional)
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * optional, uses the specified media type, and is documented.
+   */
+  def inOptional[Input2: HttpContentCodec](mediaType: MediaType, doc: Doc)(implicit
+    combiner: Combiner[Input, Option[Input2]],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = input ++ (HttpCodec.content[Input2](mediaType).optional ?? doc))
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * optional, uses the specified media type, and has the specified name.
+   */
+  def inOptional[Input2: HttpContentCodec](mediaType: MediaType, name: String)(implicit
+    combiner: Combiner[Input, Option[Input2]],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = input ++ HttpCodec.content[Input2](name, mediaType).optional)
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * optional, uses the specified media type, has the specified name, and is
+   * documented.
+   */
+  def inOptional[Input2: HttpContentCodec](mediaType: MediaType, name: String, doc: Doc)(implicit
+    combiner: Combiner[Input, Option[Input2]],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input = input ++ (HttpCodec.content[Input2](name, mediaType).optional ?? doc))
+
+  /**
    * Returns a new endpoint derived from this one, whose input type is a stream
    * of the specified typ.
    */
