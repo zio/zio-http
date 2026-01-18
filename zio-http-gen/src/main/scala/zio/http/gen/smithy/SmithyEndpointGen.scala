@@ -319,6 +319,7 @@ final class SmithyEndpointGen(model: SmithyModel) {
     op.httpTrait.map { http =>
       val method = httpMethodToMethod(http.method)
       val inputShape = op.input.flatMap(id => model.getStructure(id.name))
+      val outputShape = op.output.flatMap(id => model.getStructure(id.name))
       
       // Build path segments
       val segments = buildPathSegments(http.uri, inputShape)
@@ -341,11 +342,24 @@ final class SmithyEndpointGen(model: SmithyModel) {
         }.toList
       }
       
+      // Check for streaming on input
+      val inputStreaming = isStreamingShape(op.input)
+      
+      // Check for streaming on output  
+      val outputStreaming = isStreamingShape(op.output)
+      
       // Input type - the request body (member with @httpPayload or the whole input minus path/query/header)
       val inType = determineInputType(op, inputShape)
       
       // Output type
       val outType = op.output.map(_.name).getOrElse("Unit")
+      
+      // Get documentation from operation traits
+      val opDoc = op.traits.collectFirst { case SmithyTrait.Documentation(doc) => doc }
+      
+      // Determine media type
+      val inMediaType = determineMediaType(inputShape)
+      val outMediaType = determineMediaType(outputShape)
       
       // Error types
       val errorCodes = op.errors.map { errorId =>
@@ -355,11 +369,15 @@ final class SmithyEndpointGen(model: SmithyModel) {
           s.traits.collectFirst { case SmithyTrait.HttpError(code) => code }
         }.getOrElse(500)
         
+        val errorDoc = errorShape.flatMap { s =>
+          s.traits.collectFirst { case SmithyTrait.Documentation(doc) => doc }
+        }
+        
         Code.OutCode(
           outType = errorId.name,
           status = zio.http.Status.fromInt(statusCode),
           mediaType = Some("application/json"),
-          doc = None,
+          doc = errorDoc,
           streaming = false,
         )
       }
@@ -369,14 +387,14 @@ final class SmithyEndpointGen(model: SmithyModel) {
         pathPatternCode = Code.PathPatternCode(segments),
         queryParamsCode = queryParams,
         headersCode = Code.HeadersCode(headers),
-        inCode = Code.InCode(inType),
+        inCode = Code.InCode(inType, inMediaType, opDoc, inputStreaming),
         outCodes = List(
           Code.OutCode(
             outType = outType,
             status = zio.http.Status.fromInt(http.code),
-            mediaType = Some("application/json"),
-            doc = None,
-            streaming = false,
+            mediaType = outMediaType,
+            doc = opDoc,
+            streaming = outputStreaming,
           )
         ),
         errorsCode = errorCodes,
@@ -385,6 +403,31 @@ final class SmithyEndpointGen(model: SmithyModel) {
 
       Code.Field(name, zio.http.gen.openapi.Config.default.fieldNamesNormalization) -> endpointCode
     }
+  }
+  
+  /**
+   * Check if a shape reference points to a streaming blob
+   */
+  private def isStreamingShape(shapeRef: Option[ShapeId]): Boolean = {
+    shapeRef.exists { ref =>
+      model.getShape(ref.name) match {
+        case Some(shape) => shape.traits.exists {
+          case SmithyTrait.Streaming => true
+          case SmithyTrait.EventStream => true
+          case _ => false
+        }
+        case None => false
+      }
+    }
+  }
+  
+  /**
+   * Determine media type from shape traits
+   */
+  private def determineMediaType(shape: Option[Shape.StructureShape]): Option[String] = {
+    shape.flatMap { s =>
+      s.traits.collectFirst { case SmithyTrait.MediaType(mt) => mt }
+    }.orElse(Some("application/json"))
   }
 
   private def httpMethodToMethod(method: String): Method = method.toUpperCase match {

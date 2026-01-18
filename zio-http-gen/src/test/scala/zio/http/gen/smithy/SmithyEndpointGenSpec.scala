@@ -444,5 +444,127 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
           }
         },
       ),
+      suite("Advanced Features")(
+        test("parse streaming trait") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |@streaming
+                               |blob StreamingBlob
+                               |
+                               |structure StreamRequest {
+                               |    @httpPayload
+                               |    data: StreamingBlob
+                               |}""".stripMargin
+          
+          val result = SmithyParser.parse(smithyString)
+          
+          assertTrue(result.isRight) && {
+            val model = result.toOption.get
+            assertTrue(model.shapes.contains("StreamingBlob")) && {
+              val blobShape = model.shapes("StreamingBlob")
+              assertTrue(blobShape.traits.exists {
+                case SmithyTrait.Streaming => true
+                case _ => false
+              })
+            }
+          }
+        },
+        test("parse documentation trait") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |/// This is documentation for the User structure
+                               |structure User {
+                               |    /// The unique identifier
+                               |    id: String
+                               |}""".stripMargin
+          
+          val result = SmithyParser.parse(smithyString)
+          
+          assertTrue(result.isRight) && {
+            val model = result.toOption.get
+            assertTrue(model.shapes.contains("User")) && {
+              val userShape = model.shapes("User").asInstanceOf[Shape.StructureShape]
+              val hasDoc = userShape.traits.exists {
+                case SmithyTrait.Documentation(_) => true
+                case _ => false
+              }
+              assertTrue(hasDoc)
+            }
+          }
+        },
+        test("parse auth traits") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |@httpBearerAuth
+                               |service SecureService {
+                               |    version: "1.0"
+                               |}""".stripMargin
+          
+          val result = SmithyParser.parse(smithyString)
+          
+          assertTrue(result.isRight) && {
+            val model = result.toOption.get
+            assertTrue(model.shapes.contains("SecureService")) && {
+              val svcShape = model.shapes("SecureService").asInstanceOf[Shape.ServiceShape]
+              val hasAuth = svcShape.traits.exists {
+                case SmithyTrait.HttpBearerAuth => true
+                case _ => false
+              }
+              assertTrue(hasAuth)
+            }
+          }
+        },
+        test("generate endpoint with error status codes") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |@http(method: "GET", uri: "/users/{userId}")
+                               |operation GetUser {
+                               |    input: GetUserInput
+                               |    output: User
+                               |    errors: [NotFound, Unauthorized]
+                               |}
+                               |
+                               |structure GetUserInput {
+                               |    @required
+                               |    @httpLabel
+                               |    userId: String
+                               |}
+                               |
+                               |structure User {
+                               |    id: String
+                               |}
+                               |
+                               |@error("client")
+                               |@httpError(404)
+                               |structure NotFound {
+                               |    message: String
+                               |}
+                               |
+                               |@error("client")
+                               |@httpError(401)
+                               |structure Unauthorized {
+                               |    message: String
+                               |}""".stripMargin
+          
+          val result = for {
+            model <- SmithyParser.parse(smithyString)
+            files = SmithyEndpointGen.fromSmithyModel(model)
+            rendered = CodeGen.renderedFiles(files, "example.api")
+          } yield rendered
+          
+          assertTrue(result.isRight) && {
+            val rendered = result.toOption.get
+            assertTrue(rendered.keys.exists(_.contains("Endpoints.scala"))) && {
+              val endpointsCode = rendered.find(_._1.contains("Endpoints.scala")).map(_._2).getOrElse("")
+              // Verify error handling is generated
+              assertTrue(endpointsCode.contains("NotFound") || endpointsCode.contains("Unauthorized"))
+            }
+          }
+        },
+      ),
     )
 }

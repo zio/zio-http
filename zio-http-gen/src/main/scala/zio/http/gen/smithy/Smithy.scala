@@ -148,6 +148,37 @@ object SmithyTrait {
     def shapeId: ShapeId = ShapeId("smithy.api", "default")
   }
   
+  // Streaming trait
+  case object Streaming extends SmithyTrait {
+    def shapeId: ShapeId = ShapeId("smithy.api", "streaming")
+  }
+  
+  // Event stream trait (for bi-directional streaming)
+  case object EventStream extends SmithyTrait {
+    def shapeId: ShapeId = ShapeId("smithy.api", "eventStream")
+  }
+  
+  // Auth traits
+  case object HttpBasicAuth extends SmithyTrait {
+    def shapeId: ShapeId = ShapeId("smithy.api", "httpBasicAuth")
+  }
+  
+  case object HttpDigestAuth extends SmithyTrait {
+    def shapeId: ShapeId = ShapeId("smithy.api", "httpDigestAuth")
+  }
+  
+  case object HttpBearerAuth extends SmithyTrait {
+    def shapeId: ShapeId = ShapeId("smithy.api", "httpBearerAuth")
+  }
+  
+  case object HttpApiKeyAuth extends SmithyTrait {
+    def shapeId: ShapeId = ShapeId("smithy.api", "httpApiKeyAuth")
+  }
+  
+  case class Auth(schemes: List[ShapeId]) extends SmithyTrait {
+    def shapeId: ShapeId = ShapeId("smithy.api", "auth")
+  }
+  
   // Generic trait for unrecognized traits
   case class Generic(id: ShapeId, value: Option[NodeValue]) extends SmithyTrait {
     def shapeId: ShapeId = id
@@ -410,14 +441,40 @@ object SmithyParser {
         val c = input.charAt(pos)
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ',') {
           pos += 1
-        } else if (input.startsWith("//", pos)) {
-          // Skip line comment
+        } else if (input.startsWith("//", pos) && !input.startsWith("///", pos)) {
+          // Skip line comment (but not doc comments)
           while (pos < input.length && input.charAt(pos) != '\n') pos += 1
           if (pos < input.length) pos += 1
         } else {
           return
         }
       }
+    }
+    
+    /**
+     * Parse documentation comments (/// style) and return as Documentation trait
+     */
+    def parseDocComments(): Option[SmithyTrait.Documentation] = {
+      skipWs()
+      val docLines = scala.collection.mutable.ListBuffer.empty[String]
+      while (pos < input.length && input.startsWith("///", pos)) {
+        pos += 3 // skip ///
+        // Skip leading space if present
+        if (pos < input.length && input.charAt(pos) == ' ') pos += 1
+        val lineStart = pos
+        while (pos < input.length && input.charAt(pos) != '\n') pos += 1
+        docLines += input.substring(lineStart, pos)
+        if (pos < input.length) pos += 1 // skip newline
+        // Skip whitespace between doc lines (but not regular comments)
+        while (pos < input.length) {
+          val c = input.charAt(pos)
+          if (c == ' ' || c == '\t' || c == '\r') pos += 1
+          else if (c == '\n') { pos += 1 }
+          else return Some(SmithyTrait.Documentation(docLines.mkString("\n")))
+        }
+      }
+      if (docLines.nonEmpty) Some(SmithyTrait.Documentation(docLines.mkString("\n")))
+      else None
     }
     
     def consume(s: String): Boolean = {
@@ -606,8 +663,14 @@ object SmithyParser {
     def parseTraits(): List[SmithyTrait] = {
       val traits = scala.collection.mutable.ListBuffer.empty[SmithyTrait]
       skipWs()
+      // First check for doc comments (/// style)
+      parseDocComments().foreach(traits += _)
+      skipWs()
       while (pos < input.length && input.charAt(pos) == '@') {
         traits += parseTrait()
+        skipWs()
+        // Check for doc comments between traits
+        parseDocComments().foreach(traits += _)
         skipWs()
       }
       traits.toList
@@ -918,6 +981,15 @@ object SmithyParser {
       case ("mediaType", Some(NodeValue.Str(mt))) => SmithyTrait.MediaType(mt)
       case ("jsonName", Some(NodeValue.Str(n))) => SmithyTrait.JsonName(n)
       case ("default", Some(v)) => SmithyTrait.Default(v)
+      case ("streaming", _) => SmithyTrait.Streaming
+      case ("eventStream", _) => SmithyTrait.EventStream
+      case ("httpBasicAuth", _) => SmithyTrait.HttpBasicAuth
+      case ("httpDigestAuth", _) => SmithyTrait.HttpDigestAuth
+      case ("httpBearerAuth", _) => SmithyTrait.HttpBearerAuth
+      case ("httpApiKeyAuth", _) => SmithyTrait.HttpApiKeyAuth
+      case ("auth", Some(NodeValue.Arr(schemes))) =>
+        val schemeIds = schemes.collect { case NodeValue.ShapeIdValue(id) => id }
+        SmithyTrait.Auth(schemeIds)
       case _ => SmithyTrait.Generic(id, value)
     }
   }
