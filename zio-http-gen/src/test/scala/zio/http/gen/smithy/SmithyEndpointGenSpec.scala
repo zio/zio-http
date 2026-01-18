@@ -36,7 +36,7 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
 
       val assembler = Model.assembler()
       assembler.addUnparsedModel("example.smithy", smithy)
-      val model = assembler.assemble().unwrap()
+      val model     = assembler.assemble().unwrap()
 
       val generated = SmithyEndpointGen.fromSmithy(model)
 
@@ -44,9 +44,8 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
       assertTrue(generated.files.exists(_.path.last == "HelloInput.scala"))
       assertTrue(generated.files.exists(_.path.last == "HelloOutput.scala"))
     },
-
     test("generates path parameters") {
-       val smithy =
+      val smithy =
         """namespace com.example
           |
           |use smithy.api#http
@@ -72,14 +71,14 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
 
       val assembler = Model.assembler()
       assembler.addUnparsedModel("user.smithy", smithy)
-      val model = assembler.assemble().unwrap()
+      val model     = assembler.assemble().unwrap()
 
       val generated = SmithyEndpointGen.fromSmithy(model)
 
       val serviceFile = generated.files.find(_.path.last == "User.scala").get
-      val endpoint = serviceFile.objects.head.endpoints.head._2
+      val endpoint    = serviceFile.objects.head.endpoints.head._2
 
       assertTrue(endpoint.pathPatternCode.segments.exists(_.name == "userId"))
-    }
+    },
   )
 }

@@ -15,14 +15,14 @@ ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss
 
 ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
 
-ThisBuild / githubWorkflowJavaVersions := Seq(
+ThisBuild / githubWorkflowJavaVersions   := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
   JavaSpec.temurin("17"),
   JavaSpec.temurin("21"),
 )
 ThisBuild / githubWorkflowTargetBranches := Seq("main")
-ThisBuild / githubWorkflowPREventTypes := Seq(
+ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
@@ -388,7 +388,7 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
         .cross(CrossVersion.for3Use2_13)
         .exclude("org.scala-lang.modules", "scala-collection-compat_2.13")
         .exclude("com.lihaoyi", "sourcecode_2.13"),
-      `zio-json-yaml` % Test,
+      `zio-json-yaml`          % Test,
       "software.amazon.smithy" % "smithy-model" % "1.53.0",
     ),
   )
