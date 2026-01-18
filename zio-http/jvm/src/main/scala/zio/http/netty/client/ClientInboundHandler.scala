@@ -51,9 +51,14 @@ private[netty] final class ClientInboundHandler(
     jReq match {
       case fullRequest: FullHttpRequest =>
         ctx.writeAndFlush(fullRequest): Unit
-      case _: HttpRequest               =>
+      case request: HttpRequest         =>
         ctx.write(jReq)
-        NettyBodyWriter.writeAndFlush(req.body, None, ctx).foreach { effect =>
+        // Extract content length from headers (set by NettyRequestEncoder)
+        val contentLength = request.headers().get(HttpHeaderNames.CONTENT_LENGTH) match {
+          case null  => None
+          case value => Some(value.toLong)
+        }
+        NettyBodyWriter.writeAndFlush(req.body, contentLength, ctx).foreach { effect =>
           rtm.run(ctx, NettyRuntime.noopEnsuring, preferOnCurrentThread = true)(effect)(Unsafe.unsafe, trace)
         }
     }

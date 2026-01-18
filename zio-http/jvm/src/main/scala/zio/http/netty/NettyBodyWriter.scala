@@ -88,7 +88,9 @@ private[netty] object NettyBodyWriter {
         None
       case StreamBody(stream, _, _)        =>
         Some(
-          contentLength.orElse(body.knownContentLength) match {
+          // Use the contentLength parameter directly - it comes from headers set by the encoder.
+          // Don't fall back to body.knownContentLength as compression may change the actual size.
+          contentLength match {
             case Some(length) =>
               stream.chunks
                 .runFoldZIO(length) { (remaining, bytes) =>
