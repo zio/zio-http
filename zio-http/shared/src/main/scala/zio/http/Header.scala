@@ -2196,8 +2196,8 @@ object Header {
     }
 
     private val contentRangeStartEndTotalRegex = """(\w+) (\d+)-(\d+)/(\d+)""".r
-    private val contentRangeStartEndRegex      = """(\w+) (\d+)-(\d+)/*""".r
-    private val contentRangeTotalRegex         = """(\w+) */(\d+)""".r
+    private val contentRangeStartEndRegex      = """(\w+) (\d+)-(\d+)/\*""".r
+    private val contentRangeTotalRegex         = """(\w+) \*/(\d+)""".r
 
     def parse(s: String): Either[String, ContentRange] =
       s match {
