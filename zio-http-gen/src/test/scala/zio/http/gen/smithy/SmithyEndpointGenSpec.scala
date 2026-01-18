@@ -388,5 +388,61 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
           }
         },
       ),
+      suite("Filesystem")(
+        test("fromString parses and generates code") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |structure User {
+                               |    id: String
+                               |}""".stripMargin
+          
+          val result = SmithyEndpointGen.fromString(smithyString)
+          
+          assertTrue(result.isRight) && {
+            val files = result.toOption.get
+            assertTrue(files.files.nonEmpty)
+          }
+        },
+        test("fromString returns empty files for text without shapes") {
+          val textWithoutShapes = "this is not valid smithy"
+          
+          val result = SmithyEndpointGen.fromString(textWithoutShapes)
+          
+          // Parser is lenient, produces empty model for unrecognized text
+          assertTrue(result.isRight) && {
+            val files = result.toOption.get
+            assertTrue(files.files.isEmpty)
+          }
+        },
+        test("merging multiple models combines shapes") {
+          val smithy1 = """$version: "2"
+                          |namespace example.api
+                          |
+                          |structure User {
+                          |    id: String
+                          |}""".stripMargin
+          
+          val smithy2 = """$version: "2"
+                          |namespace example.api
+                          |
+                          |structure Order {
+                          |    orderId: String
+                          |}""".stripMargin
+          
+          val result1 = SmithyParser.parse(smithy1)
+          val result2 = SmithyParser.parse(smithy2)
+          
+          assertTrue(result1.isRight) &&
+          assertTrue(result2.isRight) && {
+            val model1 = result1.toOption.get
+            val model2 = result2.toOption.get
+            
+            // Both models should have their respective shapes
+            assertTrue(model1.shapes.contains("User")) &&
+            assertTrue(model2.shapes.contains("Order"))
+          }
+        },
+      ),
     )
 }

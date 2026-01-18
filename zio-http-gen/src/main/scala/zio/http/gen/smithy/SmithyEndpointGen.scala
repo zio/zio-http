@@ -1,8 +1,13 @@
 package zio.http.gen.smithy
 
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, Paths}
+import scala.jdk.CollectionConverters._
+
 import zio.http.Method
 import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code._
+import zio.http.gen.scala.CodeGen
 
 /**
  * Generates zio-http Endpoint definitions from Smithy models.
@@ -31,6 +36,126 @@ object SmithyEndpointGen {
   def fromSmithyModel(model: SmithyModel): Code.Files = {
     val gen = new SmithyEndpointGen(model)
     gen.generate()
+  }
+
+  /**
+   * Parse a Smithy IDL string and generate Code.Files
+   */
+  def fromString(smithyIdl: String): Either[String, Code.Files] = {
+    SmithyParser.parse(smithyIdl).map(fromSmithyModel)
+  }
+
+  /**
+   * Read a single .smithy file and generate Code.Files
+   */
+  def fromFile(path: Path): Either[String, Code.Files] = {
+    try {
+      val content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+      fromString(content)
+    } catch {
+      case e: Exception => Left(s"Failed to read file ${path}: ${e.getMessage}")
+    }
+  }
+
+  /**
+   * Read all .smithy files from a directory and generate combined Code.Files
+   */
+  def fromDirectory(dir: Path): Either[String, Code.Files] = {
+    try {
+      if (!Files.isDirectory(dir)) {
+        return Left(s"Not a directory: $dir")
+      }
+
+      val smithyFiles = Files.walk(dir)
+        .iterator()
+        .asScala
+        .filter(p => Files.isRegularFile(p) && p.toString.endsWith(".smithy"))
+        .toList
+
+      if (smithyFiles.isEmpty) {
+        return Left(s"No .smithy files found in $dir")
+      }
+
+      // Parse all files
+      val results = smithyFiles.map { file =>
+        val content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8)
+        SmithyParser.parse(content) match {
+          case Right(model) => Right(file -> model)
+          case Left(err)    => Left(s"Failed to parse ${file}: $err")
+        }
+      }
+
+      // Check for errors
+      val errors = results.collect { case Left(err) => err }
+      if (errors.nonEmpty) {
+        return Left(errors.mkString("\n"))
+      }
+
+      // Merge all models
+      val models = results.collect { case Right((_, model)) => model }
+      val mergedModel = mergeModels(models)
+
+      Right(fromSmithyModel(mergedModel))
+    } catch {
+      case e: Exception => Left(s"Failed to read directory ${dir}: ${e.getMessage}")
+    }
+  }
+
+  /**
+   * Generate code from .smithy files and write to target directory
+   * 
+   * @param sourceDir Directory containing .smithy files
+   * @param targetDir Directory to write generated Scala files
+   * @param basePackage Base package for generated code
+   * @param scalafmtPath Optional path to scalafmt config for formatting
+   * @return Either an error message or the list of generated file paths
+   */
+  def generate(
+    sourceDir: Path,
+    targetDir: Path,
+    basePackage: String,
+    scalafmtPath: Option[Path] = None
+  ): Either[String, Iterable[Path]] = {
+    fromDirectory(sourceDir).map { files =>
+      CodeGen.writeFiles(files, targetDir, basePackage, scalafmtPath)
+    }
+  }
+
+  /**
+   * Generate code from a single .smithy file and write to target directory
+   */
+  def generateFromFile(
+    sourceFile: Path,
+    targetDir: Path,
+    basePackage: String,
+    scalafmtPath: Option[Path] = None
+  ): Either[String, Iterable[Path]] = {
+    fromFile(sourceFile).map { files =>
+      CodeGen.writeFiles(files, targetDir, basePackage, scalafmtPath)
+    }
+  }
+
+  /**
+   * Merge multiple SmithyModels into one
+   * Uses the namespace from the first model
+   */
+  private def mergeModels(models: List[SmithyModel]): SmithyModel = {
+    if (models.isEmpty) {
+      SmithyModel("2", "", Map.empty, Nil, Map.empty)
+    } else {
+      val first = models.head
+      val allShapes = models.flatMap(_.shapes).toMap
+      val allUseStatements = models.flatMap(_.useStatements).distinct
+      val allMetadata = models.flatMap(_.metadata).toMap
+      
+      SmithyModel(
+        version = first.version,
+        namespace = first.namespace,
+        metadata = allMetadata,
+        useStatements = allUseStatements,
+        shapes = allShapes
+      )
+    }
   }
 }
 
