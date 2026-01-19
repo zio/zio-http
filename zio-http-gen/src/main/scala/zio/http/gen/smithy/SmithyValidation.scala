@@ -2,17 +2,17 @@ package zio.http.gen.smithy
 
 /**
  * Smithy Model Validation
- * 
+ *
  * Validates Smithy models according to the Smithy specification:
  * https://smithy.io/2.0/spec/model-validation.html
- * 
+ *
  * Provides comprehensive validation with helpful error messages including:
- * - Shape reference validation (undefined references)
- * - HTTP trait validation (path parameters, methods, status codes)
- * - Constraint trait validation (@length, @range, @pattern)
- * - Structure validation (required members, duplicate members)
- * - Operation validation (input/output/error shapes)
- * - Service validation (referenced operations/resources exist)
+ *   - Shape reference validation (undefined references)
+ *   - HTTP trait validation (path parameters, methods, status codes)
+ *   - Constraint trait validation (@length, @range, @pattern)
+ *   - Structure validation (required members, duplicate members)
+ *   - Operation validation (input/output/error shapes)
+ *   - Service validation (referenced operations/resources exist)
  */
 object SmithyValidation {
 
@@ -23,7 +23,7 @@ object SmithyValidation {
     shapeName: Option[String],
     memberName: Option[String],
     errorType: ErrorType,
-    message: String
+    message: String,
   ) {
     def render: String = {
       val location = (shapeName, memberName) match {
@@ -39,25 +39,25 @@ object SmithyValidation {
   sealed trait ErrorType {
     def name: String
   }
-  object ErrorType {
-    case object UndefinedShape extends ErrorType { def name = "UNDEFINED_SHAPE" }
-    case object UndefinedMember extends ErrorType { def name = "UNDEFINED_MEMBER" }
-    case object InvalidHttpMethod extends ErrorType { def name = "INVALID_HTTP_METHOD" }
-    case object InvalidHttpPath extends ErrorType { def name = "INVALID_HTTP_PATH" }
-    case object InvalidStatusCode extends ErrorType { def name = "INVALID_STATUS_CODE" }
-    case object PathParameterMismatch extends ErrorType { def name = "PATH_PARAMETER_MISMATCH" }
-    case object MissingPathParameter extends ErrorType { def name = "MISSING_PATH_PARAMETER" }
+  object ErrorType       {
+    case object UndefinedShape         extends ErrorType { def name = "UNDEFINED_SHAPE"          }
+    case object UndefinedMember        extends ErrorType { def name = "UNDEFINED_MEMBER"         }
+    case object InvalidHttpMethod      extends ErrorType { def name = "INVALID_HTTP_METHOD"      }
+    case object InvalidHttpPath        extends ErrorType { def name = "INVALID_HTTP_PATH"        }
+    case object InvalidStatusCode      extends ErrorType { def name = "INVALID_STATUS_CODE"      }
+    case object PathParameterMismatch  extends ErrorType { def name = "PATH_PARAMETER_MISMATCH"  }
+    case object MissingPathParameter   extends ErrorType { def name = "MISSING_PATH_PARAMETER"   }
     case object DuplicatePathParameter extends ErrorType { def name = "DUPLICATE_PATH_PARAMETER" }
-    case object InvalidConstraint extends ErrorType { def name = "INVALID_CONSTRAINT" }
-    case object InvalidPattern extends ErrorType { def name = "INVALID_PATTERN" }
-    case object IncompatibleTrait extends ErrorType { def name = "INCOMPATIBLE_TRAIT" }
-    case object MissingRequiredTrait extends ErrorType { def name = "MISSING_REQUIRED_TRAIT" }
-    case object InvalidOperation extends ErrorType { def name = "INVALID_OPERATION" }
-    case object InvalidService extends ErrorType { def name = "INVALID_SERVICE" }
-    case object InvalidEnum extends ErrorType { def name = "INVALID_ENUM" }
-    case object CyclicReference extends ErrorType { def name = "CYCLIC_REFERENCE" }
-    case object InvalidRange extends ErrorType { def name = "INVALID_RANGE" }
-    case object InvalidLength extends ErrorType { def name = "INVALID_LENGTH" }
+    case object InvalidConstraint      extends ErrorType { def name = "INVALID_CONSTRAINT"       }
+    case object InvalidPattern         extends ErrorType { def name = "INVALID_PATTERN"          }
+    case object IncompatibleTrait      extends ErrorType { def name = "INCOMPATIBLE_TRAIT"       }
+    case object MissingRequiredTrait   extends ErrorType { def name = "MISSING_REQUIRED_TRAIT"   }
+    case object InvalidOperation       extends ErrorType { def name = "INVALID_OPERATION"        }
+    case object InvalidService         extends ErrorType { def name = "INVALID_SERVICE"          }
+    case object InvalidEnum            extends ErrorType { def name = "INVALID_ENUM"             }
+    case object CyclicReference        extends ErrorType { def name = "CYCLIC_REFERENCE"         }
+    case object InvalidRange           extends ErrorType { def name = "INVALID_RANGE"            }
+    case object InvalidLength          extends ErrorType { def name = "INVALID_LENGTH"           }
   }
 
   /**
@@ -65,33 +65,33 @@ object SmithyValidation {
    */
   final case class ValidationResult(
     errors: List[ValidationError],
-    warnings: List[ValidationError]
+    warnings: List[ValidationError],
   ) {
-    def isValid: Boolean = errors.isEmpty
+    def isValid: Boolean     = errors.isEmpty
     def hasWarnings: Boolean = warnings.nonEmpty
-    
+
     def ++(other: ValidationResult): ValidationResult =
       ValidationResult(errors ++ other.errors, warnings ++ other.warnings)
-      
+
     def render: String = {
       val errorMessages = if (errors.nonEmpty) {
         s"Errors (${errors.size}):\n" + errors.map(e => s"  - ${e.render}").mkString("\n")
       } else ""
-      
+
       val warningMessages = if (warnings.nonEmpty) {
         s"Warnings (${warnings.size}):\n" + warnings.map(w => s"  - ${w.render}").mkString("\n")
       } else ""
-      
+
       List(errorMessages, warningMessages).filter(_.nonEmpty).mkString("\n\n")
     }
   }
 
   object ValidationResult {
     val empty: ValidationResult = ValidationResult(Nil, Nil)
-    
-    def error(e: ValidationError): ValidationResult = ValidationResult(List(e), Nil)
-    def warning(w: ValidationError): ValidationResult = ValidationResult(Nil, List(w))
-    def errors(es: List[ValidationError]): ValidationResult = ValidationResult(es, Nil)
+
+    def error(e: ValidationError): ValidationResult           = ValidationResult(List(e), Nil)
+    def warning(w: ValidationError): ValidationResult         = ValidationResult(Nil, List(w))
+    def errors(es: List[ValidationError]): ValidationResult   = ValidationResult(es, Nil)
     def warnings(ws: List[ValidationError]): ValidationResult = ValidationResult(Nil, ws)
   }
 
@@ -112,7 +112,7 @@ object SmithyValidation {
       validateEnums,
       validateUnions,
     )
-    
+
     validators.foldLeft(ValidationResult.empty) { (acc, validator) =>
       acc ++ validator(model)
     }
@@ -129,18 +129,35 @@ object SmithyValidation {
     model
   }
 
-  class SmithyValidationException(val result: ValidationResult) 
-    extends RuntimeException(s"Smithy validation failed:\n${result.render}")
+  class SmithyValidationException(val result: ValidationResult)
+      extends RuntimeException(s"Smithy validation failed:\n${result.render}")
 
   // ===========================================================================
   // Shape Reference Validation
   // ===========================================================================
 
   private val preludeShapes: Set[String] = Set(
-    "String", "Integer", "Long", "Short", "Byte", "Float", "Double", 
-    "Boolean", "Timestamp", "Blob", "Document", "BigInteger", "BigDecimal",
-    "Unit", "PrimitiveBoolean", "PrimitiveByte", "PrimitiveShort",
-    "PrimitiveInteger", "PrimitiveLong", "PrimitiveFloat", "PrimitiveDouble"
+    "String",
+    "Integer",
+    "Long",
+    "Short",
+    "Byte",
+    "Float",
+    "Double",
+    "Boolean",
+    "Timestamp",
+    "Blob",
+    "Document",
+    "BigInteger",
+    "BigDecimal",
+    "Unit",
+    "PrimitiveBoolean",
+    "PrimitiveByte",
+    "PrimitiveShort",
+    "PrimitiveInteger",
+    "PrimitiveLong",
+    "PrimitiveFloat",
+    "PrimitiveDouble",
   )
 
   /**
@@ -148,14 +165,15 @@ object SmithyValidation {
    */
   private def validateShapeReferences(model: SmithyModel): ValidationResult = {
     val errors = scala.collection.mutable.ListBuffer.empty[ValidationError]
-    
+
     def checkRef(ref: ShapeId, context: (Option[String], Option[String])): Unit = {
       val name = ref.name
       if (!preludeShapes.contains(name) && !model.shapes.contains(name)) {
         errors += ValidationError(
-          context._1, context._2,
+          context._1,
+          context._2,
           ErrorType.UndefinedShape,
-          s"Reference to undefined shape: $name"
+          s"Reference to undefined shape: $name",
         )
       }
     }
@@ -167,30 +185,30 @@ object SmithyValidation {
             checkRef(member.target, (Some(shapeName), Some(memberName)))
           }
           s.mixins.foreach(mixin => checkRef(mixin, (Some(shapeName), None)))
-          
+
         case s: Shape.UnionShape =>
           s.members.foreach { case (memberName, member) =>
             checkRef(member.target, (Some(shapeName), Some(memberName)))
           }
           s.mixins.foreach(mixin => checkRef(mixin, (Some(shapeName), None)))
-          
+
         case s: Shape.ListShape =>
           checkRef(s.member, (Some(shapeName), Some("member")))
-          
+
         case s: Shape.MapShape =>
           checkRef(s.key, (Some(shapeName), Some("key")))
           checkRef(s.value, (Some(shapeName), Some("value")))
-          
+
         case s: Shape.OperationShape =>
           s.input.foreach(i => checkRef(i, (Some(shapeName), Some("input"))))
           s.output.foreach(o => checkRef(o, (Some(shapeName), Some("output"))))
           s.errors.foreach(e => checkRef(e, (Some(shapeName), Some("errors"))))
-          
+
         case s: Shape.ServiceShape =>
           s.operations.foreach(op => checkRef(op, (Some(shapeName), Some("operations"))))
           s.resources.foreach(r => checkRef(r, (Some(shapeName), Some("resources"))))
           s.errors.foreach(e => checkRef(e, (Some(shapeName), Some("errors"))))
-          
+
         case s: Shape.ResourceShape =>
           s.identifiers.values.foreach(id => checkRef(id, (Some(shapeName), Some("identifiers"))))
           s.properties.values.foreach(p => checkRef(p, (Some(shapeName), Some("properties"))))
@@ -203,7 +221,7 @@ object SmithyValidation {
           s.operations.foreach(op => checkRef(op, (Some(shapeName), Some("operations"))))
           s.collectionOperations.foreach(op => checkRef(op, (Some(shapeName), Some("collectionOperations"))))
           s.resources.foreach(r => checkRef(r, (Some(shapeName), Some("resources"))))
-          
+
         case _ => // Simple shapes don't have references
       }
     }
@@ -216,7 +234,15 @@ object SmithyValidation {
   // ===========================================================================
 
   private val validHttpMethods: Set[String] = Set(
-    "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE", "CONNECT"
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "PATCH",
+    "HEAD",
+    "OPTIONS",
+    "TRACE",
+    "CONNECT",
   )
 
   /**
@@ -230,18 +256,20 @@ object SmithyValidation {
         // Validate HTTP method
         if (!validHttpMethods.contains(http.method.toUpperCase)) {
           errors += ValidationError(
-            Some(opName), None,
+            Some(opName),
+            None,
             ErrorType.InvalidHttpMethod,
-            s"Invalid HTTP method: '${http.method}'. Valid methods are: ${validHttpMethods.mkString(", ")}"
+            s"Invalid HTTP method: '${http.method}'. Valid methods are: ${validHttpMethods.mkString(", ")}",
           )
         }
 
         // Validate status code
         if (http.code < 100 || http.code > 599) {
           errors += ValidationError(
-            Some(opName), None,
+            Some(opName),
+            None,
             ErrorType.InvalidStatusCode,
-            s"Invalid HTTP status code: ${http.code}. Must be between 100 and 599."
+            s"Invalid HTTP status code: ${http.code}. Must be between 100 and 599.",
           )
         }
 
@@ -249,23 +277,25 @@ object SmithyValidation {
         val uri = http.uri
         if (!uri.startsWith("/")) {
           errors += ValidationError(
-            Some(opName), None,
+            Some(opName),
+            None,
             ErrorType.InvalidHttpPath,
-            s"HTTP URI must start with '/': $uri"
+            s"HTTP URI must start with '/': $uri",
           )
         }
 
         // Extract path parameters from URI
         val pathParamRegex = """\{(\w+)\}""".r
-        val pathParams = pathParamRegex.findAllMatchIn(uri).map(_.group(1)).toList
+        val pathParams     = pathParamRegex.findAllMatchIn(uri).map(_.group(1)).toList
 
         // Check for duplicate path parameters
         val duplicates = pathParams.groupBy(identity).filter(_._2.size > 1).keys
         duplicates.foreach { dup =>
           errors += ValidationError(
-            Some(opName), None,
+            Some(opName),
+            None,
             ErrorType.DuplicatePathParameter,
-            s"Duplicate path parameter: {$dup}"
+            s"Duplicate path parameter: {$dup}",
           )
         }
 
@@ -282,15 +312,17 @@ object SmithyValidation {
                 // Check if the member exists at all
                 if (inputStruct.members.contains(param)) {
                   errors += ValidationError(
-                    Some(inputId.name), Some(param),
+                    Some(inputId.name),
+                    Some(param),
                     ErrorType.MissingRequiredTrait,
-                    s"Path parameter '$param' exists but is missing @httpLabel trait"
+                    s"Path parameter '$param' exists but is missing @httpLabel trait",
                   )
                 } else {
                   errors += ValidationError(
-                    Some(opName), None,
+                    Some(opName),
+                    None,
                     ErrorType.MissingPathParameter,
-                    s"Path parameter '$param' in URI has no corresponding member in ${inputId.name}"
+                    s"Path parameter '$param' in URI has no corresponding member in ${inputId.name}",
                   )
                 }
               }
@@ -300,9 +332,10 @@ object SmithyValidation {
             labelMembers.foreach { label =>
               if (!pathParams.contains(label)) {
                 errors += ValidationError(
-                  Some(inputId.name), Some(label),
+                  Some(inputId.name),
+                  Some(label),
                   ErrorType.PathParameterMismatch,
-                  s"Member '$label' has @httpLabel but is not in the URI path: $uri"
+                  s"Member '$label' has @httpLabel but is not in the URI path: $uri",
                 )
               }
             }
@@ -318,9 +351,10 @@ object SmithyValidation {
 
             if (payloadMembers.size > 1) {
               errors += ValidationError(
-                Some(inputId.name), None,
+                Some(inputId.name),
+                None,
                 ErrorType.IncompatibleTrait,
-                s"Multiple @httpPayload members: ${payloadMembers.mkString(", ")}. Only one member can have @httpPayload."
+                s"Multiple @httpPayload members: ${payloadMembers.mkString(", ")}. Only one member can have @httpPayload.",
               )
             }
           }
@@ -336,11 +370,12 @@ object SmithyValidation {
       shape.traits.foreach {
         case SmithyTrait.HttpError(code) if code < 400 || code > 599 =>
           errors += ValidationError(
-            Some(shapeName), None,
+            Some(shapeName),
+            None,
             ErrorType.InvalidStatusCode,
-            s"@httpError code must be 4xx or 5xx, got: $code"
+            s"@httpError code must be 4xx or 5xx, got: $code",
           )
-        case _ => // ok
+        case _                                                       => // ok
       }
     }
 
@@ -364,18 +399,20 @@ object SmithyValidation {
           min.foreach { m =>
             if (m < 0) {
               errors += ValidationError(
-                Some(shapeName), None,
+                Some(shapeName),
+                None,
                 ErrorType.InvalidLength,
-                s"@length min must be non-negative, got: $m"
+                s"@length min must be non-negative, got: $m",
               )
             }
           }
           max.foreach { m =>
             if (m < 0) {
               errors += ValidationError(
-                Some(shapeName), None,
+                Some(shapeName),
+                None,
                 ErrorType.InvalidLength,
-                s"@length max must be non-negative, got: $m"
+                s"@length max must be non-negative, got: $m",
               )
             }
           }
@@ -383,22 +420,23 @@ object SmithyValidation {
           (min, max) match {
             case (Some(minVal), Some(maxVal)) if minVal > maxVal =>
               errors += ValidationError(
-                Some(shapeName), None,
+                Some(shapeName),
+                None,
                 ErrorType.InvalidLength,
-                s"@length min ($minVal) cannot be greater than max ($maxVal)"
+                s"@length min ($minVal) cannot be greater than max ($maxVal)",
               )
-            case _ => // ok
+            case _                                               => // ok
           }
-          
+
           // Length can only be applied to strings, lists, maps, blobs
           shape match {
-            case _: Shape.StringShape | _: Shape.ListShape | 
-                 _: Shape.MapShape | _: Shape.BlobShape => // ok
-            case _ =>
+            case _: Shape.StringShape | _: Shape.ListShape | _: Shape.MapShape | _: Shape.BlobShape => // ok
+            case _                                                                                  =>
               errors += ValidationError(
-                Some(shapeName), None,
+                Some(shapeName),
+                None,
                 ErrorType.IncompatibleTrait,
-                "@length trait can only be applied to string, list, map, or blob shapes"
+                "@length trait can only be applied to string, list, map, or blob shapes",
               )
           }
 
@@ -407,23 +445,25 @@ object SmithyValidation {
           (min, max) match {
             case (Some(minVal), Some(maxVal)) if minVal > maxVal =>
               errors += ValidationError(
-                Some(shapeName), None,
+                Some(shapeName),
+                None,
                 ErrorType.InvalidRange,
-                s"@range min ($minVal) cannot be greater than max ($maxVal)"
+                s"@range min ($minVal) cannot be greater than max ($maxVal)",
               )
-            case _ => // ok
+            case _                                               => // ok
           }
-          
+
           // Range can only be applied to numeric shapes
           shape match {
-            case _: Shape.ByteShape | _: Shape.ShortShape | _: Shape.IntegerShape |
-                 _: Shape.LongShape | _: Shape.FloatShape | _: Shape.DoubleShape |
-                 _: Shape.BigIntegerShape | _: Shape.BigDecimalShape => // ok
+            case _: Shape.ByteShape | _: Shape.ShortShape | _: Shape.IntegerShape | _: Shape.LongShape |
+                _: Shape.FloatShape | _: Shape.DoubleShape | _: Shape.BigIntegerShape |
+                _: Shape.BigDecimalShape => // ok
             case _ =>
               errors += ValidationError(
-                Some(shapeName), None,
+                Some(shapeName),
+                None,
                 ErrorType.IncompatibleTrait,
-                "@range trait can only be applied to numeric shapes"
+                "@range trait can only be applied to numeric shapes",
               )
           }
 
@@ -434,20 +474,22 @@ object SmithyValidation {
           } catch {
             case e: Exception =>
               errors += ValidationError(
-                Some(shapeName), None,
+                Some(shapeName),
+                None,
                 ErrorType.InvalidPattern,
-                s"@pattern contains invalid regex: ${e.getMessage}"
+                s"@pattern contains invalid regex: ${e.getMessage}",
               )
           }
-          
+
           // Pattern can only be applied to strings
           shape match {
             case _: Shape.StringShape => // ok
-            case _ =>
+            case _                    =>
               errors += ValidationError(
-                Some(shapeName), None,
+                Some(shapeName),
+                None,
                 ErrorType.IncompatibleTrait,
-                "@pattern trait can only be applied to string shapes"
+                "@pattern trait can only be applied to string shapes",
               )
           }
 
@@ -455,9 +497,10 @@ object SmithyValidation {
           val validFormats = Set("date-time", "http-date", "epoch-seconds")
           if (!validFormats.contains(format)) {
             errors += ValidationError(
-              Some(shapeName), None,
+              Some(shapeName),
+              None,
               ErrorType.InvalidConstraint,
-              s"Invalid @timestampFormat: '$format'. Valid formats: ${validFormats.mkString(", ")}"
+              s"Invalid @timestampFormat: '$format'. Valid formats: ${validFormats.mkString(", ")}",
             )
           }
 
@@ -468,47 +511,50 @@ object SmithyValidation {
     // Validate traits on all shapes
     model.shapes.foreach { case (shapeName, shape) =>
       validateTraitsOnShape(shapeName, shape)
-      
+
       // Also validate member traits
       shape match {
         case s: Shape.StructureShape =>
           s.members.foreach { case (memberName, member) =>
             member.traits.foreach {
-              case SmithyTrait.Pattern(regex) =>
+              case SmithyTrait.Pattern(regex)   =>
                 try {
                   regex.r
                 } catch {
                   case e: Exception =>
                     errors += ValidationError(
-                      Some(shapeName), Some(memberName),
+                      Some(shapeName),
+                      Some(memberName),
                       ErrorType.InvalidPattern,
-                      s"@pattern contains invalid regex: ${e.getMessage}"
+                      s"@pattern contains invalid regex: ${e.getMessage}",
                     )
                 }
               case SmithyTrait.Length(min, max) =>
                 (min, max) match {
                   case (Some(minVal), Some(maxVal)) if minVal > maxVal =>
                     errors += ValidationError(
-                      Some(shapeName), Some(memberName),
+                      Some(shapeName),
+                      Some(memberName),
                       ErrorType.InvalidLength,
-                      s"@length min ($minVal) cannot be greater than max ($maxVal)"
+                      s"@length min ($minVal) cannot be greater than max ($maxVal)",
                     )
-                  case _ => // ok
+                  case _                                               => // ok
                 }
-              case SmithyTrait.Range(min, max) =>
+              case SmithyTrait.Range(min, max)  =>
                 (min, max) match {
                   case (Some(minVal), Some(maxVal)) if minVal > maxVal =>
                     errors += ValidationError(
-                      Some(shapeName), Some(memberName),
+                      Some(shapeName),
+                      Some(memberName),
                       ErrorType.InvalidRange,
-                      s"@range min ($minVal) cannot be greater than max ($maxVal)"
+                      s"@range min ($minVal) cannot be greater than max ($maxVal)",
                     )
-                  case _ => // ok
+                  case _                                               => // ok
                 }
-              case _ => // ok
+              case _                            => // ok
             }
           }
-        case _ => // ok
+        case _                       => // ok
       }
     }
 
@@ -530,14 +576,15 @@ object SmithyValidation {
       op.input.foreach { inputId =>
         model.getShape(inputId.name) match {
           case Some(_: Shape.StructureShape) => // ok
-          case Some(_) =>
+          case Some(_)                       =>
             errors += ValidationError(
-              Some(opName), Some("input"),
+              Some(opName),
+              Some("input"),
               ErrorType.InvalidOperation,
-              s"Operation input must be a structure, but '${inputId.name}' is not"
+              s"Operation input must be a structure, but '${inputId.name}' is not",
             )
-          case None =>
-            // Already caught by shape reference validation
+          case None                          =>
+          // Already caught by shape reference validation
         }
       }
 
@@ -545,14 +592,15 @@ object SmithyValidation {
       op.output.foreach { outputId =>
         model.getShape(outputId.name) match {
           case Some(_: Shape.StructureShape) => // ok
-          case Some(_) =>
+          case Some(_)                       =>
             errors += ValidationError(
-              Some(opName), Some("output"),
+              Some(opName),
+              Some("output"),
               ErrorType.InvalidOperation,
-              s"Operation output must be a structure, but '${outputId.name}' is not"
+              s"Operation output must be a structure, but '${outputId.name}' is not",
             )
-          case None =>
-            // Already caught by shape reference validation
+          case None                          =>
+          // Already caught by shape reference validation
         }
       }
 
@@ -562,23 +610,25 @@ object SmithyValidation {
           case Some(s: Shape.StructureShape) =>
             val hasErrorTrait = s.traits.exists {
               case SmithyTrait.Error | SmithyTrait.ErrorMessage(_) => true
-              case _ => false
+              case _                                               => false
             }
             if (!hasErrorTrait) {
               errors += ValidationError(
-                Some(opName), Some("errors"),
+                Some(opName),
+                Some("errors"),
                 ErrorType.MissingRequiredTrait,
-                s"Error structure '${errorId.name}' must have @error trait"
+                s"Error structure '${errorId.name}' must have @error trait",
               )
             }
-          case Some(_) =>
+          case Some(_)                       =>
             errors += ValidationError(
-              Some(opName), Some("errors"),
+              Some(opName),
+              Some("errors"),
               ErrorType.InvalidOperation,
-              s"Operation error must be a structure, but '${errorId.name}' is not"
+              s"Operation error must be a structure, but '${errorId.name}' is not",
             )
-          case None =>
-            // Already caught by shape reference validation
+          case None                          =>
+          // Already caught by shape reference validation
         }
       }
     }
@@ -601,14 +651,15 @@ object SmithyValidation {
       svc.operations.foreach { opId =>
         model.getShape(opId.name) match {
           case Some(_: Shape.OperationShape) => // ok
-          case Some(_) =>
+          case Some(_)                       =>
             errors += ValidationError(
-              Some(svcName), Some("operations"),
+              Some(svcName),
+              Some("operations"),
               ErrorType.InvalidService,
-              s"'${opId.name}' is not an operation shape"
+              s"'${opId.name}' is not an operation shape",
             )
-          case None =>
-            // Already caught by shape reference validation
+          case None                          =>
+          // Already caught by shape reference validation
         }
       }
 
@@ -616,23 +667,25 @@ object SmithyValidation {
       svc.resources.foreach { resId =>
         model.getShape(resId.name) match {
           case Some(_: Shape.ResourceShape) => // ok
-          case Some(_) =>
+          case Some(_)                      =>
             errors += ValidationError(
-              Some(svcName), Some("resources"),
+              Some(svcName),
+              Some("resources"),
               ErrorType.InvalidService,
-              s"'${resId.name}' is not a resource shape"
+              s"'${resId.name}' is not a resource shape",
             )
-          case None =>
-            // Already caught by shape reference validation
+          case None                         =>
+          // Already caught by shape reference validation
         }
       }
 
       // Service version should not be empty
       if (svc.version.isEmpty) {
         errors += ValidationError(
-          Some(svcName), None,
+          Some(svcName),
+          None,
           ErrorType.InvalidService,
-          "Service version should not be empty"
+          "Service version should not be empty",
         )
       }
     }
@@ -654,43 +707,47 @@ object SmithyValidation {
       case (name, e: Shape.EnumShape) =>
         if (e.members.isEmpty) {
           errors += ValidationError(
-            Some(name), None,
+            Some(name),
+            None,
             ErrorType.InvalidEnum,
-            "Enum must have at least one member"
+            "Enum must have at least one member",
           )
         }
-        
+
         // Check for duplicate enum values
-        val values = e.members.values.flatMap(_.value).toList
+        val values          = e.members.values.flatMap(_.value).toList
         val duplicateValues = values.groupBy(identity).filter(_._2.size > 1).keys
         duplicateValues.foreach { dup =>
           errors += ValidationError(
-            Some(name), None,
+            Some(name),
+            None,
             ErrorType.InvalidEnum,
-            s"Duplicate enum value: '$dup'"
+            s"Duplicate enum value: '$dup'",
           )
         }
-        
+
       case (name, e: Shape.IntEnumShape) =>
         if (e.members.isEmpty) {
           errors += ValidationError(
-            Some(name), None,
+            Some(name),
+            None,
             ErrorType.InvalidEnum,
-            "IntEnum must have at least one member"
+            "IntEnum must have at least one member",
           )
         }
-        
+
         // Check for duplicate int values
-        val values = e.members.values.map(_.value).toList
+        val values          = e.members.values.map(_.value).toList
         val duplicateValues = values.groupBy(identity).filter(_._2.size > 1).keys
         duplicateValues.foreach { dup =>
           errors += ValidationError(
-            Some(name), None,
+            Some(name),
+            None,
             ErrorType.InvalidEnum,
-            s"Duplicate intEnum value: $dup"
+            s"Duplicate intEnum value: $dup",
           )
         }
-        
+
       case _ => // not an enum
     }
 
@@ -711,12 +768,13 @@ object SmithyValidation {
       case (name, u: Shape.UnionShape) =>
         if (u.members.isEmpty) {
           errors += ValidationError(
-            Some(name), None,
+            Some(name),
+            None,
             ErrorType.InvalidOperation, // reusing error type
-            "Union must have at least one member"
+            "Union must have at least one member",
           )
         }
-        
+
       case _ => // not a union
     }
 

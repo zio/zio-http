@@ -11,12 +11,12 @@ import zio.http.gen.scala.CodeGen
 
 /**
  * Generates zio-http Endpoint definitions from Smithy models.
- * 
+ *
  * This code generator reads a SmithyModel AST and produces:
- * - Endpoint definitions for operations with @http traits
- * - Case classes for structure shapes
- * - Sealed traits for union shapes
- * - Type aliases for simple shapes
+ *   - Endpoint definitions for operations with @http traits
+ *   - Case classes for structure shapes
+ *   - Sealed traits for union shapes
+ *   - Type aliases for simple shapes
  */
 object SmithyEndpointGen {
 
@@ -38,9 +38,11 @@ object SmithyEndpointGen {
 
   /**
    * Generate Code.Files from a SmithyModel
-   * 
-   * @param model The SmithyModel to generate code from
-   * @param config Configuration options for code generation
+   *
+   * @param model
+   *   The SmithyModel to generate code from
+   * @param config
+   *   Configuration options for code generation
    */
   def fromSmithyModel(model: SmithyModel, config: SmithyConfig): Code.Files = {
     val gen = new SmithyEndpointGen(model, config)
@@ -49,23 +51,34 @@ object SmithyEndpointGen {
 
   /**
    * Generate Code.Files from a SmithyModel with validation using default config
-   * 
-   * @param model The SmithyModel to generate code from
-   * @param validate Whether to validate the model before generation
-   * @return Either validation errors or the generated code files
+   *
+   * @param model
+   *   The SmithyModel to generate code from
+   * @param validate
+   *   Whether to validate the model before generation
+   * @return
+   *   Either validation errors or the generated code files
    */
   def fromSmithyModelValidated(model: SmithyModel, validate: Boolean = true): Either[String, Code.Files] =
     fromSmithyModelValidated(model, SmithyConfig.default, validate)
 
   /**
    * Generate Code.Files from a SmithyModel with optional validation
-   * 
-   * @param model The SmithyModel to generate code from
-   * @param config Configuration options for code generation
-   * @param validate Whether to validate the model before generation (overrides config)
-   * @return Either validation errors or the generated code files
+   *
+   * @param model
+   *   The SmithyModel to generate code from
+   * @param config
+   *   Configuration options for code generation
+   * @param validate
+   *   Whether to validate the model before generation (overrides config)
+   * @return
+   *   Either validation errors or the generated code files
    */
-  def fromSmithyModelValidated(model: SmithyModel, config: SmithyConfig, validate: Boolean): Either[String, Code.Files] = {
+  def fromSmithyModelValidated(
+    model: SmithyModel,
+    config: SmithyConfig,
+    validate: Boolean,
+  ): Either[String, Code.Files] = {
     val shouldValidate = validate && config.validateBeforeGeneration
     if (shouldValidate) {
       val validationResult = SmithyValidation.validate(model)
@@ -87,9 +100,11 @@ object SmithyEndpointGen {
 
   /**
    * Parse a Smithy IDL string and generate Code.Files
-   * 
-   * @param smithyIdl The Smithy IDL string to parse
-   * @param config Configuration options for code generation
+   *
+   * @param smithyIdl
+   *   The Smithy IDL string to parse
+   * @param config
+   *   Configuration options for code generation
    */
   def fromString(smithyIdl: String, config: SmithyConfig): Either[String, Code.Files] = {
     SmithyParser.parse(smithyIdl).flatMap { model =>
@@ -105,9 +120,11 @@ object SmithyEndpointGen {
 
   /**
    * Read a single .smithy file and generate Code.Files
-   * 
-   * @param path Path to the .smithy file
-   * @param config Configuration options for code generation
+   *
+   * @param path
+   *   Path to the .smithy file
+   * @param config
+   *   Configuration options for code generation
    */
   def fromFile(path: Path, config: SmithyConfig): Either[String, Code.Files] = {
     try {
@@ -119,17 +136,21 @@ object SmithyEndpointGen {
   }
 
   /**
-   * Read all .smithy files from a directory and generate combined Code.Files using default config
+   * Read all .smithy files from a directory and generate combined Code.Files
+   * using default config
    */
   def fromDirectory(dir: Path): Either[String, Code.Files] =
     fromDirectory(dir, SmithyConfig.default)
 
   /**
    * Read all .smithy files from a directory and generate combined Code.Files
-   * 
-   * @param dir Directory containing .smithy files
-   * @param config Configuration options for code generation
-   * @return Either parse/validation errors or the generated code files
+   *
+   * @param dir
+   *   Directory containing .smithy files
+   * @param config
+   *   Configuration options for code generation
+   * @return
+   *   Either parse/validation errors or the generated code files
    */
   def fromDirectory(dir: Path, config: SmithyConfig): Either[String, Code.Files] = {
     try {
@@ -137,7 +158,8 @@ object SmithyEndpointGen {
         return Left(s"Not a directory: $dir")
       }
 
-      val smithyFiles = Files.walk(dir)
+      val smithyFiles = Files
+        .walk(dir)
         .iterator()
         .asScala
         .filter(p => Files.isRegularFile(p) && p.toString.endsWith(".smithy"))
@@ -163,7 +185,7 @@ object SmithyEndpointGen {
       }
 
       // Merge all models
-      val models = results.collect { case Right((_, model)) => model }
+      val models      = results.collect { case Right((_, model)) => model }
       val mergedModel = mergeModels(models)
 
       // Optionally validate based on config
@@ -174,38 +196,50 @@ object SmithyEndpointGen {
   }
 
   /**
-   * Generate code from .smithy files and write to target directory using default config
-   * 
-   * @param sourceDir Directory containing .smithy files
-   * @param targetDir Directory to write generated Scala files
-   * @param basePackage Base package for generated code
-   * @param scalafmtPath Optional path to scalafmt config for formatting
-   * @return Either an error message or the list of generated file paths
+   * Generate code from .smithy files and write to target directory using
+   * default config
+   *
+   * @param sourceDir
+   *   Directory containing .smithy files
+   * @param targetDir
+   *   Directory to write generated Scala files
+   * @param basePackage
+   *   Base package for generated code
+   * @param scalafmtPath
+   *   Optional path to scalafmt config for formatting
+   * @return
+   *   Either an error message or the list of generated file paths
    */
   def generate(
     sourceDir: Path,
     targetDir: Path,
     basePackage: String,
-    scalafmtPath: Option[Path] = None
+    scalafmtPath: Option[Path] = None,
   ): Either[String, Iterable[Path]] =
     generate(sourceDir, targetDir, basePackage, scalafmtPath, SmithyConfig.default)
 
   /**
    * Generate code from .smithy files and write to target directory
-   * 
-   * @param sourceDir Directory containing .smithy files
-   * @param targetDir Directory to write generated Scala files
-   * @param basePackage Base package for generated code
-   * @param scalafmtPath Optional path to scalafmt config for formatting
-   * @param config Configuration options for code generation
-   * @return Either an error message or the list of generated file paths
+   *
+   * @param sourceDir
+   *   Directory containing .smithy files
+   * @param targetDir
+   *   Directory to write generated Scala files
+   * @param basePackage
+   *   Base package for generated code
+   * @param scalafmtPath
+   *   Optional path to scalafmt config for formatting
+   * @param config
+   *   Configuration options for code generation
+   * @return
+   *   Either an error message or the list of generated file paths
    */
   def generate(
     sourceDir: Path,
     targetDir: Path,
     basePackage: String,
     scalafmtPath: Option[Path],
-    config: SmithyConfig
+    config: SmithyConfig,
   ): Either[String, Iterable[Path]] = {
     fromDirectory(sourceDir, config).map { files =>
       CodeGen.writeFiles(files, targetDir, basePackage, scalafmtPath)
@@ -213,38 +247,50 @@ object SmithyEndpointGen {
   }
 
   /**
-   * Generate code from a single .smithy file and write to target directory using default config
-   * 
-   * @param sourceFile Path to the .smithy file
-   * @param targetDir Directory to write generated Scala files
-   * @param basePackage Base package for generated code
-   * @param scalafmtPath Optional path to scalafmt config for formatting
-   * @return Either an error message or the list of generated file paths
+   * Generate code from a single .smithy file and write to target directory
+   * using default config
+   *
+   * @param sourceFile
+   *   Path to the .smithy file
+   * @param targetDir
+   *   Directory to write generated Scala files
+   * @param basePackage
+   *   Base package for generated code
+   * @param scalafmtPath
+   *   Optional path to scalafmt config for formatting
+   * @return
+   *   Either an error message or the list of generated file paths
    */
   def generateFromFile(
     sourceFile: Path,
     targetDir: Path,
     basePackage: String,
-    scalafmtPath: Option[Path] = None
+    scalafmtPath: Option[Path] = None,
   ): Either[String, Iterable[Path]] =
     generateFromFile(sourceFile, targetDir, basePackage, scalafmtPath, SmithyConfig.default)
 
   /**
    * Generate code from a single .smithy file and write to target directory
-   * 
-   * @param sourceFile Path to the .smithy file
-   * @param targetDir Directory to write generated Scala files
-   * @param basePackage Base package for generated code
-   * @param scalafmtPath Optional path to scalafmt config for formatting
-   * @param config Configuration options for code generation
-   * @return Either an error message or the list of generated file paths
+   *
+   * @param sourceFile
+   *   Path to the .smithy file
+   * @param targetDir
+   *   Directory to write generated Scala files
+   * @param basePackage
+   *   Base package for generated code
+   * @param scalafmtPath
+   *   Optional path to scalafmt config for formatting
+   * @param config
+   *   Configuration options for code generation
+   * @return
+   *   Either an error message or the list of generated file paths
    */
   def generateFromFile(
     sourceFile: Path,
     targetDir: Path,
     basePackage: String,
     scalafmtPath: Option[Path],
-    config: SmithyConfig
+    config: SmithyConfig,
   ): Either[String, Iterable[Path]] = {
     fromFile(sourceFile, config).map { files =>
       CodeGen.writeFiles(files, targetDir, basePackage, scalafmtPath)
@@ -252,24 +298,24 @@ object SmithyEndpointGen {
   }
 
   /**
-   * Merge multiple SmithyModels into one
-   * Uses the namespace from the first model
+   * Merge multiple SmithyModels into one Uses the namespace from the first
+   * model
    */
   private def mergeModels(models: List[SmithyModel]): SmithyModel = {
     if (models.isEmpty) {
       SmithyModel("2", "", Map.empty, Nil, Map.empty)
     } else {
-      val first = models.head
-      val allShapes = models.flatMap(_.shapes).toMap
+      val first            = models.head
+      val allShapes        = models.flatMap(_.shapes).toMap
       val allUseStatements = models.flatMap(_.useStatements).distinct
-      val allMetadata = models.flatMap(_.metadata).toMap
-      
+      val allMetadata      = models.flatMap(_.metadata).toMap
+
       SmithyModel(
         version = first.version,
         namespace = first.namespace,
         metadata = allMetadata,
         useStatements = allUseStatements,
-        shapes = allShapes
+        shapes = allShapes,
       )
     }
   }
@@ -280,7 +326,7 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
 
   def generate(): Code.Files = {
     val componentFiles = generateComponents()
-    val endpointFiles = generateEndpoints()
+    val endpointFiles  = generateEndpoints()
     Code.Files(componentFiles ++ endpointFiles)
   }
 
@@ -316,27 +362,29 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
       Code.Field(memberName, finalType, Nil, config.fieldNamesNormalization)
     }
 
-    Some(Code.File(
-      path = List("component", s"${name.capitalize}.scala"),
-      pkgPath = List("component"),
-      imports = DataImports,
-      objects = Nil,
-      caseClasses = List(
-        Code.CaseClass(
-          name = name,
-          fields = fields,
-          companionObject = Some(Code.Object.schemaCompanion(name)),
-          mixins = Nil,
-        )
+    Some(
+      Code.File(
+        path = List("component", s"${name.capitalize}.scala"),
+        pkgPath = List("component"),
+        imports = DataImports,
+        objects = Nil,
+        caseClasses = List(
+          Code.CaseClass(
+            name = name,
+            fields = fields,
+            companionObject = Some(Code.Object.schemaCompanion(name)),
+            mixins = Nil,
+          ),
+        ),
+        enums = Nil,
       ),
-      enums = Nil,
-    ))
+    )
   }
 
   private def unionToCode(name: String, union: Shape.UnionShape): Option[Code.File] = {
     val cases = union.members.toList.map { case (memberName, member) =>
       val fields = List(
-        Code.Field("value", shapeIdToType(member.target), Nil, config.fieldNamesNormalization)
+        Code.Field("value", shapeIdToType(member.target), Nil, config.fieldNamesNormalization),
       )
       Code.CaseClass(
         name = memberName.capitalize,
@@ -346,23 +394,25 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
       )
     }
 
-    Some(Code.File(
-      path = List("component", s"${name.capitalize}.scala"),
-      pkgPath = List("component"),
-      imports = DataImports ++ List(Code.Import("zio.schema.annotation._")),
-      objects = Nil,
-      caseClasses = Nil,
-      enums = List(
-        Code.Enum(
-          name = name,
-          cases = cases,
-          caseNames = Nil,
-          discriminator = None,
-          noDiscriminator = true,
-          schema = true,
-        )
+    Some(
+      Code.File(
+        path = List("component", s"${name.capitalize}.scala"),
+        pkgPath = List("component"),
+        imports = DataImports ++ List(Code.Import("zio.schema.annotation._")),
+        objects = Nil,
+        caseClasses = Nil,
+        enums = List(
+          Code.Enum(
+            name = name,
+            cases = cases,
+            caseNames = Nil,
+            discriminator = None,
+            noDiscriminator = true,
+            schema = true,
+          ),
+        ),
       ),
-    ))
+    )
   }
 
   private def enumToCode(name: String, `enum`: Shape.EnumShape): Option[Code.File] = {
@@ -375,23 +425,25 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
       )
     }
 
-    Some(Code.File(
-      path = List("component", s"${name.capitalize}.scala"),
-      pkgPath = List("component"),
-      imports = DataImports,
-      objects = Nil,
-      caseClasses = Nil,
-      enums = List(
-        Code.Enum(
-          name = name,
-          cases = cases,
-          caseNames = Nil,
-          discriminator = None,
-          noDiscriminator = false,
-          schema = true,
-        )
+    Some(
+      Code.File(
+        path = List("component", s"${name.capitalize}.scala"),
+        pkgPath = List("component"),
+        imports = DataImports,
+        objects = Nil,
+        caseClasses = Nil,
+        enums = List(
+          Code.Enum(
+            name = name,
+            cases = cases,
+            caseNames = Nil,
+            discriminator = None,
+            noDiscriminator = false,
+            schema = true,
+          ),
+        ),
       ),
-    ))
+    )
   }
 
   // ===========================================================================
@@ -411,35 +463,37 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
     if (endpoints.isEmpty) return Nil
 
     // Create a single Endpoints object
-    List(Code.File(
-      path = List("Endpoints.scala"),
-      pkgPath = Nil,
-      imports = EndpointImports ++ List(Code.Import.FromBase("component._")),
-      objects = List(
-        Code.Object(
-          name = "Endpoints",
-          extensions = Nil,
-          schema = None,
-          endpoints = endpoints.toMap,
-          objects = Nil,
-          caseClasses = Nil,
-          enums = Nil,
-        )
+    List(
+      Code.File(
+        path = List("Endpoints.scala"),
+        pkgPath = Nil,
+        imports = EndpointImports ++ List(Code.Import.FromBase("component._")),
+        objects = List(
+          Code.Object(
+            name = "Endpoints",
+            extensions = Nil,
+            schema = None,
+            endpoints = endpoints.toMap,
+            objects = Nil,
+            caseClasses = Nil,
+            enums = Nil,
+          ),
+        ),
+        caseClasses = Nil,
+        enums = Nil,
       ),
-      caseClasses = Nil,
-      enums = Nil,
-    ))
+    )
   }
 
   private def operationToEndpoint(name: String, op: Shape.OperationShape): Option[(Code.Field, Code.EndpointCode)] = {
     op.httpTrait.map { http =>
-      val method = httpMethodToMethod(http.method)
-      val inputShape = op.input.flatMap(id => model.getStructure(id.name))
+      val method      = httpMethodToMethod(http.method)
+      val inputShape  = op.input.flatMap(id => model.getStructure(id.name))
       val outputShape = op.output.flatMap(id => model.getStructure(id.name))
-      
+
       // Build path segments
       val segments = buildPathSegments(http.uri, inputShape)
-      
+
       // Extract query parameters (members with @httpQuery)
       val queryParams: Set[Code.QueryParamCode] = inputShape.toSet.flatMap { (struct: Shape.StructureShape) =>
         struct.members.values.flatMap { member =>
@@ -448,7 +502,7 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
           }
         }
       }
-      
+
       // Extract headers (members with @httpHeader)
       val headers = inputShape.toList.flatMap { struct =>
         struct.members.values.flatMap { member =>
@@ -457,26 +511,26 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
           }
         }.toList
       }
-      
+
       // Check for streaming on input
       val inputStreaming = isStreamingShape(op.input)
-      
-      // Check for streaming on output  
+
+      // Check for streaming on output
       val outputStreaming = isStreamingShape(op.output)
-      
+
       // Input type - the request body (member with @httpPayload or the whole input minus path/query/header)
       val inType = determineInputType(op, inputShape)
-      
+
       // Output type
       val outType = op.output.map(_.name).getOrElse("Unit")
-      
+
       // Get documentation from operation traits
       val opDoc = op.traits.collectFirst { case SmithyTrait.Documentation(doc) => doc }
-      
+
       // Determine media type
-      val inMediaType = determineMediaType(inputShape)
+      val inMediaType  = determineMediaType(inputShape)
       val outMediaType = determineMediaType(outputShape)
-      
+
       // Error types
       val errorCodes = op.errors.map { errorId =>
         // Check if error has @httpError trait
@@ -484,11 +538,11 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
         val statusCode = errorShape.flatMap { s =>
           s.traits.collectFirst { case SmithyTrait.HttpError(code) => code }
         }.getOrElse(500)
-        
+
         val errorDoc = errorShape.flatMap { s =>
           s.traits.collectFirst { case SmithyTrait.Documentation(doc) => doc }
         }
-        
+
         Code.OutCode(
           outType = errorId.name,
           status = zio.http.Status.fromInt(statusCode),
@@ -511,7 +565,7 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
             mediaType = outMediaType,
             doc = opDoc,
             streaming = outputStreaming,
-          )
+          ),
         ),
         errorsCode = errorCodes,
         authTypeCode = None,
@@ -520,23 +574,24 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
       Code.Field(name, config.fieldNamesNormalization) -> endpointCode
     }
   }
-  
+
   /**
    * Check if a shape reference points to a streaming blob
    */
   private def isStreamingShape(shapeRef: Option[ShapeId]): Boolean = {
     shapeRef.exists { ref =>
       model.getShape(ref.name) match {
-        case Some(shape) => shape.traits.exists {
-          case SmithyTrait.Streaming => true
-          case SmithyTrait.EventStream => true
-          case _ => false
-        }
-        case None => false
+        case Some(shape) =>
+          shape.traits.exists {
+            case SmithyTrait.Streaming   => true
+            case SmithyTrait.EventStream => true
+            case _                       => false
+          }
+        case None        => false
       }
     }
   }
-  
+
   /**
    * Determine media type from shape traits
    */
@@ -560,17 +615,17 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
 
   private def buildPathSegments(
     uri: String,
-    inputShape: Option[Shape.StructureShape]
+    inputShape: Option[Shape.StructureShape],
   ): List[Code.PathSegmentCode] = {
     val segments = uri.stripPrefix("/").split("/").toList
-    
+
     segments.filter(_.nonEmpty).map { segment =>
       if (segment.startsWith("{") && segment.endsWith("}")) {
         val paramName = segment.tail.init
         val paramType = inputShape.flatMap { struct =>
           struct.members.get(paramName).map(m => shapeIdToCodecType(m.target))
         }.getOrElse(Code.CodecType.String)
-        
+
         Code.PathSegmentCode(paramName, paramType)
       } else {
         Code.PathSegmentCode(segment, Code.CodecType.Literal)
@@ -580,16 +635,16 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
 
   private def determineInputType(
     op: Shape.OperationShape,
-    inputShape: Option[Shape.StructureShape]
+    inputShape: Option[Shape.StructureShape],
   ): String = {
     inputShape match {
-      case None => "Unit"
+      case None         => "Unit"
       case Some(struct) =>
         // Check if there's a @httpPayload member
         val payloadMember = struct.members.values.find(_.httpPayload)
         payloadMember match {
           case Some(member) => shapeIdToTypeName(member.target)
-          case None =>
+          case None         =>
             // If no payload, check if there are non-path/query/header members
             val bodyMembers = struct.members.values.filterNot { m =>
               m.httpLabel || m.httpQuery.isDefined || m.httpHeader.isDefined
@@ -606,7 +661,7 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
 
   private def shapeIdToType(shapeId: ShapeId): Code.ScalaType = {
     val name = shapeId.name
-    
+
     // Check if it's a prelude type
     name match {
       case "String"     => Code.Primitive.ScalaString
@@ -623,21 +678,29 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
       case "BigInteger" => Code.TypeRef("BigInt")
       case "BigDecimal" => Code.TypeRef("BigDecimal")
       case "Unit"       => Code.ScalaType.Unit
-      case _ =>
+      case _            =>
         // Check if it's a shape in our model
         model.shapes.get(name) match {
-          case Some(_: Shape.ListShape) =>
-            model.shapes.get(name).collect { case l: Shape.ListShape => l }.map { list =>
-              shapeIdToType(list.member).seq(nonEmpty = false)
-            }.getOrElse(Code.TypeRef(name))
-          case Some(_: Shape.MapShape) =>
-            model.shapes.get(name).collect { case m: Shape.MapShape => m }.map { map =>
-              Code.Collection.Map(shapeIdToType(map.value), Some(shapeIdToType(map.key)))
-            }.getOrElse(Code.TypeRef(name))
+          case Some(_: Shape.ListShape)   =>
+            model.shapes
+              .get(name)
+              .collect { case l: Shape.ListShape => l }
+              .map { list =>
+                shapeIdToType(list.member).seq(nonEmpty = false)
+              }
+              .getOrElse(Code.TypeRef(name))
+          case Some(_: Shape.MapShape)    =>
+            model.shapes
+              .get(name)
+              .collect { case m: Shape.MapShape => m }
+              .map { map =>
+                Code.Collection.Map(shapeIdToType(map.value), Some(shapeIdToType(map.key)))
+              }
+              .getOrElse(Code.TypeRef(name))
           case Some(_: Shape.SimpleShape) =>
             // Simple shapes are type aliases
             shapeIdToTypeForSimpleShape(name)
-          case _ =>
+          case _                          =>
             // Reference to a structure, union, etc.
             Code.TypeRef(name)
         }
@@ -692,7 +755,7 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
       case "Long"      => Code.CodecType.Long
       case "Boolean"   => Code.CodecType.Boolean
       case "Timestamp" => Code.CodecType.Instant
-      case _ =>
+      case _           =>
         // Check if it's a simple shape alias
         model.shapes.get(name) match {
           case Some(_: Shape.StringShape)    => Code.CodecType.String

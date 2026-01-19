@@ -14,7 +14,7 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |service Weather {
                                |    version: "2006-03-01"
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) &&
           assertTrue(result.toOption.get.namespace == "example.weather") &&
           assertTrue(result.toOption.get.version == "2") &&
@@ -40,7 +40,7 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |
                                |@pattern("^[A-Za-z0-9 ]+$")
                                |string CityId""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) &&
           assertTrue(result.toOption.get.shapes.contains("Weather")) &&
           assertTrue(result.toOption.get.shapes.contains("City")) &&
@@ -66,10 +66,10 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |    name: String
                                |    email: String
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
             val model = result.toOption.get
-            val op = model.getOperation("GetUser")
+            val op    = model.getOperation("GetUser")
             assertTrue(op.isDefined) &&
             assertTrue(op.get.httpTrait.isDefined) &&
             assertTrue(op.get.httpTrait.get.method == "GET") &&
@@ -87,9 +87,9 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |    @httpHeader("X-Request-Id")
                                |    requestId: String
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
-            val model = result.toOption.get
+            val model  = result.toOption.get
             val struct = model.getStructure("Person")
             assertTrue(struct.isDefined) &&
             assertTrue(struct.get.members.contains("name")) &&
@@ -106,9 +106,9 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |list StringList {
                                |    member: String
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
-            val model = result.toOption.get
+            val model     = result.toOption.get
             val listShape = model.shapes.get("StringList")
             assertTrue(listShape.isDefined) &&
             assertTrue(listShape.get.isInstanceOf[Shape.ListShape]) &&
@@ -123,9 +123,9 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |    key: String
                                |    value: Integer
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
-            val model = result.toOption.get
+            val model    = result.toOption.get
             val mapShape = model.shapes.get("StringMap")
             assertTrue(mapShape.isDefined) &&
             assertTrue(mapShape.get.isInstanceOf[Shape.MapShape]) &&
@@ -141,9 +141,9 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |    intValue: Integer
                                |    stringValue: String
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
-            val model = result.toOption.get
+            val model      = result.toOption.get
             val unionShape = model.shapes.get("IntOrString")
             assertTrue(unionShape.isDefined) &&
             assertTrue(unionShape.get.isInstanceOf[Shape.UnionShape]) &&
@@ -160,9 +160,9 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |    ACTIVE = "active"
                                |    COMPLETED
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
-            val model = result.toOption.get
+            val model     = result.toOption.get
             val enumShape = model.shapes.get("Status")
             assertTrue(enumShape.isDefined) &&
             assertTrue(enumShape.get.isInstanceOf[Shape.EnumShape])
@@ -178,7 +178,7 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |boolean MyBoolean
                                |timestamp MyTimestamp
                                |blob MyBlob""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
             val model = result.toOption.get
             assertTrue(model.shapes.get("MyString").exists(_.isInstanceOf[Shape.StringShape])) &&
@@ -217,10 +217,10 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |structure ValidationError {
                                |    message: String
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
             val model = result.toOption.get
-            val op = model.getOperation("DeleteItem")
+            val op    = model.getOperation("DeleteItem")
             assertTrue(op.isDefined) &&
             assertTrue(op.get.errors.length == 2) &&
             assertTrue(op.get.errors.exists(_.name == "NotFoundError")) &&
@@ -244,9 +244,9 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |    @httpPayload
                                |    body: String
                                |}""".stripMargin
-          val result = SmithyParser.parse(smithyString)
+          val result       = SmithyParser.parse(smithyString)
           assertTrue(result.isRight) && {
-            val model = result.toOption.get
+            val model  = result.toOption.get
             val struct = model.getStructure("SearchRequest")
             assertTrue(struct.isDefined) && {
               val members = struct.get.members
@@ -256,7 +256,7 @@ object SmithyParsingSpec extends ZIOSpecDefault {
               assertTrue(members("body").httpPayload)
             }
           }
-        }
+        },
       ),
       suite("Legacy API Compatibility")(
         test("parse service via legacy API") {
@@ -266,7 +266,7 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |service Weather {
                                |    version: "2006-03-01"
                                |}""".stripMargin
-          val parsed = Smithy.parse(smithyString)
+          val parsed       = Smithy.parse(smithyString)
           assertTrue(parsed.services.contains("Weather")) &&
           assertTrue(parsed.services("Weather").version == "2006-03-01")
         },
@@ -290,7 +290,7 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |
                                |@pattern("^[A-Za-z0-9 ]+$")
                                |string CityId""".stripMargin
-          val parsed = Smithy.parse(smithyString)
+          val parsed       = Smithy.parse(smithyString)
           assertTrue(parsed.services.contains("Weather")) &&
           assertTrue(parsed.resources.contains("City"))
         },
@@ -313,11 +313,11 @@ object SmithyParsingSpec extends ZIOSpecDefault {
                                |structure GetUserOutput {
                                |    name: String
                                |}""".stripMargin
-          val parsed = Smithy.parse(smithyString)
+          val parsed       = Smithy.parse(smithyString)
           assertTrue(parsed.operations.contains("GetUser")) &&
           assertTrue(parsed.operations("GetUser").input == "GetUserInput") &&
           assertTrue(parsed.operations("GetUser").output == "GetUserOutput")
-        }
-      )
+        },
+      ),
     )
 }

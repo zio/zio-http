@@ -7,32 +7,39 @@ import zio.http.gen.openapi.Config.NormalizeFields
 /**
  * Configuration for Smithy code generation.
  *
- * @param fieldNamesNormalization Controls normalization of field names from Smithy conventions 
- *                                (e.g., snake_case) to Scala conventions (camelCase).
- *                                Original names are preserved via @fieldName annotations.
- *                                Enabled by default.
+ * @param fieldNamesNormalization
+ *   Controls normalization of field names from Smithy conventions (e.g.,
+ *   snake_case) to Scala conventions (camelCase). Original names are preserved
+ *   via @fieldName annotations. Enabled by default.
  *
- * @param validateBeforeGeneration If true, validates the Smithy model before generating code.
- *                                 Validation errors will cause generation to fail with detailed messages.
+ * @param validateBeforeGeneration
+ *   If true, validates the Smithy model before generating code. Validation
+ *   errors will cause generation to fail with detailed messages.
  *
- * @param generateCompanionObjects If true, generates companion objects with Schema derivation
- *                                 for all case classes.
+ * @param generateCompanionObjects
+ *   If true, generates companion objects with Schema derivation for all case
+ *   classes.
  *
- * @param unwrapSingleMemberInputs If true, operations with single-member input structures
- *                                 will use the member type directly instead of the wrapper.
- *                                 e.g., `GetUserInput { userId: String }` -> endpoint takes `String`
+ * @param unwrapSingleMemberInputs
+ *   If true, operations with single-member input structures will use the member
+ *   type directly instead of the wrapper. e.g.,
+ *   `GetUserInput { userId: String }` -> endpoint takes `String`
  *
- * @param generateEndpointsObject  If true, generates a single `Endpoints` object containing all
- *                                 endpoint definitions. If false, generates separate files per operation.
+ * @param generateEndpointsObject
+ *   If true, generates a single `Endpoints` object containing all endpoint
+ *   definitions. If false, generates separate files per operation.
  *
- * @param endpointsObjectName      Name of the generated endpoints object (default: "Endpoints").
+ * @param endpointsObjectName
+ *   Name of the generated endpoints object (default: "Endpoints").
  *
- * @param includeDocumentation     If true, includes Smithy @documentation traits as Scaladoc comments
- *                                 in the generated code.
+ * @param includeDocumentation
+ *   If true, includes Smithy @documentation traits as Scaladoc comments in the
+ *   generated code.
  *
- * @param typeMapping              Custom mapping of Smithy shape names to Scala types.
- *                                 Allows overriding default type mappings for specific shapes.
- *                                 e.g., Map("UserId" -> "java.util.UUID")
+ * @param typeMapping
+ *   Custom mapping of Smithy shape names to Scala types. Allows overriding
+ *   default type mappings for specific shapes. e.g., Map("UserId" ->
+ *   "java.util.UUID")
  */
 final case class SmithyConfig(
   fieldNamesNormalization: NormalizeFields,
@@ -49,11 +56,11 @@ object SmithyConfig {
 
   /**
    * Default configuration with field name normalization enabled.
-   * 
-   * - Field names are automatically converted to camelCase
-   * - Validation is enabled
-   * - Companion objects are generated
-   * - Documentation is included
+   *
+   *   - Field names are automatically converted to camelCase
+   *   - Validation is enabled
+   *   - Companion objects are generated
+   *   - Documentation is included
    */
   val default: SmithyConfig = SmithyConfig(
     fieldNamesNormalization = NormalizeFields(
@@ -69,15 +76,19 @@ object SmithyConfig {
     typeMapping = Map.empty,
   )
 
-  /** Config with validation disabled for faster generation during development */
+  /**
+   * Config with validation disabled for faster generation during development
+   */
   val fast: SmithyConfig = default.copy(validateBeforeGeneration = false)
 
-  /** Config with field name normalization disabled (preserves original names) */
+  /**
+   * Config with field name normalization disabled (preserves original names)
+   */
   val preserveFieldNames: SmithyConfig = default.copy(
     fieldNamesNormalization = NormalizeFields(
       enableAutomatic = false,
       manualOverrides = Map.empty,
-    )
+    ),
   )
 
   /** ZIO Config descriptor for loading from configuration files */

@@ -19,13 +19,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    name: String
                                |    age: Integer
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             // Should have one file for the User structure
@@ -55,13 +55,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |structure BankAccount {
                                |    accountNumber: String
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             assertTrue(rendered.size == 3) && // Union + 2 structures
@@ -77,13 +77,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    ACTIVE
                                |    INACTIVE
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             assertTrue(rendered.size == 1) &&
@@ -134,13 +134,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    name: String
                                |    email: String
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             // Should have Endpoints.scala + component files
@@ -182,13 +182,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |structure User {
                                |    id: String
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             assertTrue(rendered.keys.exists(_.contains("Endpoints.scala"))) && {
@@ -217,13 +217,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |structure ProtectedData {
                                |    data: String
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             assertTrue(rendered.keys.exists(_.contains("Endpoints.scala"))) && {
@@ -247,15 +247,15 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    byteField: Byte
                                |    timestampField: Timestamp
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
-            val rendered = result.toOption.get
+            val rendered     = result.toOption.get
             val allTypesCode = rendered.find(_._1.contains("AllTypes.scala")).map(_._2).getOrElse("")
             assertTrue(allTypesCode.contains("String")) &&
             assertTrue(allTypesCode.contains("Int")) &&
@@ -362,17 +362,17 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |
                                |@pattern("^[A-Za-z0-9 ]+$")
                                |string CityId""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.weather")
           } yield (model, files, rendered)
-          
+
           assertTrue(result.isRight) && {
             val (model, files, rendered) = result.toOption.get
-            val endpointsCode = rendered.find(_._1.contains("Endpoints.scala")).map(_._2).getOrElse("")
-            
+            val endpointsCode            = rendered.find(_._1.contains("Endpoints.scala")).map(_._2).getOrElse("")
+
             assertTrue(
               model.namespace == "example.weather",
               model.shapes.contains("Weather"),
@@ -384,7 +384,7 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
               endpointsCode.contains("ListCities"),
               endpointsCode.contains("GetCurrentTime"),
               endpointsCode.contains("Method.GET"),
-              rendered.keys.exists(k => k.contains("GetCityOutput.scala") || k.contains("component"))
+              rendered.keys.exists(k => k.contains("GetCityOutput.scala") || k.contains("component")),
             )
           }
         },
@@ -397,9 +397,9 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |structure User {
                                |    id: String
                                |}""".stripMargin
-          
+
           val result = SmithyEndpointGen.fromString(smithyString)
-          
+
           assertTrue(result.isRight) && {
             val files = result.toOption.get
             assertTrue(files.files.nonEmpty)
@@ -407,9 +407,9 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
         },
         test("fromString returns empty files for text without shapes") {
           val textWithoutShapes = "this is not valid smithy"
-          
+
           val result = SmithyEndpointGen.fromString(textWithoutShapes)
-          
+
           // Parser is lenient, produces empty model for unrecognized text
           assertTrue(result.isRight) && {
             val files = result.toOption.get
@@ -423,22 +423,22 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                           |structure User {
                           |    id: String
                           |}""".stripMargin
-          
+
           val smithy2 = """$version: "2"
                           |namespace example.api
                           |
                           |structure Order {
                           |    orderId: String
                           |}""".stripMargin
-          
+
           val result1 = SmithyParser.parse(smithy1)
           val result2 = SmithyParser.parse(smithy2)
-          
+
           assertTrue(result1.isRight) &&
           assertTrue(result2.isRight) && {
             val model1 = result1.toOption.get
             val model2 = result2.toOption.get
-            
+
             // Both models should have their respective shapes
             assertTrue(model1.shapes.contains("User")) &&
             assertTrue(model2.shapes.contains("Order"))
@@ -457,16 +457,16 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    @httpPayload
                                |    data: StreamingBlob
                                |}""".stripMargin
-          
+
           val result = SmithyParser.parse(smithyString)
-          
+
           assertTrue(result.isRight) && {
             val model = result.toOption.get
             assertTrue(model.shapes.contains("StreamingBlob")) && {
               val blobShape = model.shapes("StreamingBlob")
               assertTrue(blobShape.traits.exists {
                 case SmithyTrait.Streaming => true
-                case _ => false
+                case _                     => false
               })
             }
           }
@@ -480,16 +480,16 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    /// The unique identifier
                                |    id: String
                                |}""".stripMargin
-          
+
           val result = SmithyParser.parse(smithyString)
-          
+
           assertTrue(result.isRight) && {
             val model = result.toOption.get
             assertTrue(model.shapes.contains("User")) && {
               val userShape = model.shapes("User").asInstanceOf[Shape.StructureShape]
-              val hasDoc = userShape.traits.exists {
+              val hasDoc    = userShape.traits.exists {
                 case SmithyTrait.Documentation(_) => true
-                case _ => false
+                case _                            => false
               }
               assertTrue(hasDoc)
             }
@@ -503,16 +503,16 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |service SecureService {
                                |    version: "1.0"
                                |}""".stripMargin
-          
+
           val result = SmithyParser.parse(smithyString)
-          
+
           assertTrue(result.isRight) && {
             val model = result.toOption.get
             assertTrue(model.shapes.contains("SecureService")) && {
               val svcShape = model.shapes("SecureService").asInstanceOf[Shape.ServiceShape]
-              val hasAuth = svcShape.traits.exists {
+              val hasAuth  = svcShape.traits.exists {
                 case SmithyTrait.HttpBearerAuth => true
-                case _ => false
+                case _                          => false
               }
               assertTrue(hasAuth)
             }
@@ -550,13 +550,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |structure Unauthorized {
                                |    message: String
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model)
+            files    = SmithyEndpointGen.fromSmithyModel(model)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             assertTrue(rendered.keys.exists(_.contains("Endpoints.scala"))) && {
@@ -581,13 +581,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    first_name: String
                                |    last_name: String
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model, SmithyConfig.default)
+            files    = SmithyEndpointGen.fromSmithyModel(model, SmithyConfig.default)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             val userCode = rendered.find(_._1.contains("UserProfile.scala")).map(_._2).getOrElse("")
@@ -610,13 +610,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    user_id: String
                                |    first_name: String
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model, SmithyConfig.preserveFieldNames)
+            files    = SmithyEndpointGen.fromSmithyModel(model, SmithyConfig.preserveFieldNames)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             val userCode = rendered.find(_._1.contains("UserProfile.scala")).map(_._2).getOrElse("")
@@ -630,9 +630,9 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
             fieldNamesNormalization = NormalizeFields(
               enableAutomatic = true,
               manualOverrides = Map("user_id" -> "uid"),
-            )
+            ),
           )
-          
+
           val smithyString = """$version: "2"
                                |namespace example.api
                                |
@@ -641,13 +641,13 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |    user_id: String
                                |    first_name: String
                                |}""".stripMargin
-          
+
           val result = for {
             model <- SmithyParser.parse(smithyString)
-            files = SmithyEndpointGen.fromSmithyModel(model, config)
+            files    = SmithyEndpointGen.fromSmithyModel(model, config)
             rendered = CodeGen.renderedFiles(files, "example.api")
           } yield rendered
-          
+
           assertTrue(result.isRight) && {
             val rendered = result.toOption.get
             val userCode = rendered.find(_._1.contains("UserProfile.scala")).map(_._2).getOrElse("")
@@ -667,9 +667,9 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |structure User {
                                |    profile: UndefinedType
                                |}""".stripMargin
-          
+
           val result = SmithyEndpointGen.fromString(smithyString, SmithyConfig.default)
-          
+
           assertTrue(result.isLeft) &&
           assertTrue(result.swap.toOption.get.contains("validation failed"))
         },
@@ -680,9 +680,9 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
                                |structure User {
                                |    profile: UndefinedType
                                |}""".stripMargin
-          
+
           val result = SmithyEndpointGen.fromString(smithyString, SmithyConfig.fast)
-          
+
           assertTrue(result.isRight)
         },
       ),
