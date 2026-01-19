@@ -31,96 +31,107 @@ object SmithyEndpointGen {
   )
 
   /**
-   * Generate Code.Files from a SmithyModel
+   * Generate Code.Files from a SmithyModel using default config
    */
-  def fromSmithyModel(model: SmithyModel): Code.Files = {
-    val gen = new SmithyEndpointGen(model)
+  def fromSmithyModel(model: SmithyModel): Code.Files =
+    fromSmithyModel(model, SmithyConfig.default)
+
+  /**
+   * Generate Code.Files from a SmithyModel
+   * 
+   * @param model The SmithyModel to generate code from
+   * @param config Configuration options for code generation
+   */
+  def fromSmithyModel(model: SmithyModel, config: SmithyConfig): Code.Files = {
+    val gen = new SmithyEndpointGen(model, config)
     gen.generate()
   }
 
   /**
-   * Generate Code.Files from a SmithyModel with validation
+   * Generate Code.Files from a SmithyModel with validation using default config
    * 
    * @param model The SmithyModel to generate code from
    * @param validate Whether to validate the model before generation
    * @return Either validation errors or the generated code files
    */
-  def fromSmithyModelValidated(model: SmithyModel, validate: Boolean = true): Either[String, Code.Files] = {
-    if (validate) {
+  def fromSmithyModelValidated(model: SmithyModel, validate: Boolean = true): Either[String, Code.Files] =
+    fromSmithyModelValidated(model, SmithyConfig.default, validate)
+
+  /**
+   * Generate Code.Files from a SmithyModel with optional validation
+   * 
+   * @param model The SmithyModel to generate code from
+   * @param config Configuration options for code generation
+   * @param validate Whether to validate the model before generation (overrides config)
+   * @return Either validation errors or the generated code files
+   */
+  def fromSmithyModelValidated(model: SmithyModel, config: SmithyConfig, validate: Boolean): Either[String, Code.Files] = {
+    val shouldValidate = validate && config.validateBeforeGeneration
+    if (shouldValidate) {
       val validationResult = SmithyValidation.validate(model)
       if (!validationResult.isValid) {
         Left(s"Smithy model validation failed:\n${validationResult.render}")
       } else {
-        Right(fromSmithyModel(model))
+        Right(fromSmithyModel(model, config))
       }
     } else {
-      Right(fromSmithyModel(model))
+      Right(fromSmithyModel(model, config))
     }
   }
+
+  /**
+   * Parse a Smithy IDL string and generate Code.Files using default config
+   */
+  def fromString(smithyIdl: String): Either[String, Code.Files] =
+    fromString(smithyIdl, SmithyConfig.default)
 
   /**
    * Parse a Smithy IDL string and generate Code.Files
+   * 
+   * @param smithyIdl The Smithy IDL string to parse
+   * @param config Configuration options for code generation
    */
-  def fromString(smithyIdl: String): Either[String, Code.Files] = {
-    SmithyParser.parse(smithyIdl).map(fromSmithyModel)
+  def fromString(smithyIdl: String, config: SmithyConfig): Either[String, Code.Files] = {
+    SmithyParser.parse(smithyIdl).flatMap { model =>
+      fromSmithyModelValidated(model, config, config.validateBeforeGeneration)
+    }
   }
 
   /**
-   * Parse a Smithy IDL string, validate it, and generate Code.Files
-   * 
-   * @param smithyIdl The Smithy IDL string to parse
-   * @param validate Whether to validate the model before generation
-   * @return Either parse/validation errors or the generated code files
+   * Read a single .smithy file and generate Code.Files using default config
    */
-  def fromStringValidated(smithyIdl: String, validate: Boolean = true): Either[String, Code.Files] = {
-    SmithyParser.parse(smithyIdl).flatMap { model =>
-      fromSmithyModelValidated(model, validate)
-    }
-  }
+  def fromFile(path: Path): Either[String, Code.Files] =
+    fromFile(path, SmithyConfig.default)
 
   /**
    * Read a single .smithy file and generate Code.Files
+   * 
+   * @param path Path to the .smithy file
+   * @param config Configuration options for code generation
    */
-  def fromFile(path: Path): Either[String, Code.Files] = {
+  def fromFile(path: Path, config: SmithyConfig): Either[String, Code.Files] = {
     try {
       val content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-      fromString(content)
+      fromString(content, config)
     } catch {
       case e: Exception => Left(s"Failed to read file ${path}: ${e.getMessage}")
     }
   }
 
   /**
-   * Read a single .smithy file, validate it, and generate Code.Files
-   * 
-   * @param path Path to the .smithy file
-   * @param validate Whether to validate the model before generation
-   * @return Either parse/validation errors or the generated code files
+   * Read all .smithy files from a directory and generate combined Code.Files using default config
    */
-  def fromFileValidated(path: Path, validate: Boolean = true): Either[String, Code.Files] = {
-    try {
-      val content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-      fromStringValidated(content, validate)
-    } catch {
-      case e: Exception => Left(s"Failed to read file ${path}: ${e.getMessage}")
-    }
-  }
+  def fromDirectory(dir: Path): Either[String, Code.Files] =
+    fromDirectory(dir, SmithyConfig.default)
 
   /**
    * Read all .smithy files from a directory and generate combined Code.Files
-   */
-  def fromDirectory(dir: Path): Either[String, Code.Files] = {
-    fromDirectoryValidated(dir, validate = false)
-  }
-
-  /**
-   * Read all .smithy files from a directory, optionally validate, and generate combined Code.Files
    * 
    * @param dir Directory containing .smithy files
-   * @param validate Whether to validate the merged model before generation
+   * @param config Configuration options for code generation
    * @return Either parse/validation errors or the generated code files
    */
-  def fromDirectoryValidated(dir: Path, validate: Boolean = true): Either[String, Code.Files] = {
+  def fromDirectory(dir: Path, config: SmithyConfig): Either[String, Code.Files] = {
     try {
       if (!Files.isDirectory(dir)) {
         return Left(s"Not a directory: $dir")
@@ -155,12 +166,29 @@ object SmithyEndpointGen {
       val models = results.collect { case Right((_, model)) => model }
       val mergedModel = mergeModels(models)
 
-      // Optionally validate
-      fromSmithyModelValidated(mergedModel, validate)
+      // Optionally validate based on config
+      fromSmithyModelValidated(mergedModel, config, config.validateBeforeGeneration)
     } catch {
       case e: Exception => Left(s"Failed to read directory ${dir}: ${e.getMessage}")
     }
   }
+
+  /**
+   * Generate code from .smithy files and write to target directory using default config
+   * 
+   * @param sourceDir Directory containing .smithy files
+   * @param targetDir Directory to write generated Scala files
+   * @param basePackage Base package for generated code
+   * @param scalafmtPath Optional path to scalafmt config for formatting
+   * @return Either an error message or the list of generated file paths
+   */
+  def generate(
+    sourceDir: Path,
+    targetDir: Path,
+    basePackage: String,
+    scalafmtPath: Option[Path] = None
+  ): Either[String, Iterable[Path]] =
+    generate(sourceDir, targetDir, basePackage, scalafmtPath, SmithyConfig.default)
 
   /**
    * Generate code from .smithy files and write to target directory
@@ -169,20 +197,37 @@ object SmithyEndpointGen {
    * @param targetDir Directory to write generated Scala files
    * @param basePackage Base package for generated code
    * @param scalafmtPath Optional path to scalafmt config for formatting
-   * @param validate Whether to validate the model before generation (default: true)
+   * @param config Configuration options for code generation
    * @return Either an error message or the list of generated file paths
    */
   def generate(
     sourceDir: Path,
     targetDir: Path,
     basePackage: String,
-    scalafmtPath: Option[Path] = None,
-    validate: Boolean = true
+    scalafmtPath: Option[Path],
+    config: SmithyConfig
   ): Either[String, Iterable[Path]] = {
-    fromDirectoryValidated(sourceDir, validate).map { files =>
+    fromDirectory(sourceDir, config).map { files =>
       CodeGen.writeFiles(files, targetDir, basePackage, scalafmtPath)
     }
   }
+
+  /**
+   * Generate code from a single .smithy file and write to target directory using default config
+   * 
+   * @param sourceFile Path to the .smithy file
+   * @param targetDir Directory to write generated Scala files
+   * @param basePackage Base package for generated code
+   * @param scalafmtPath Optional path to scalafmt config for formatting
+   * @return Either an error message or the list of generated file paths
+   */
+  def generateFromFile(
+    sourceFile: Path,
+    targetDir: Path,
+    basePackage: String,
+    scalafmtPath: Option[Path] = None
+  ): Either[String, Iterable[Path]] =
+    generateFromFile(sourceFile, targetDir, basePackage, scalafmtPath, SmithyConfig.default)
 
   /**
    * Generate code from a single .smithy file and write to target directory
@@ -191,17 +236,17 @@ object SmithyEndpointGen {
    * @param targetDir Directory to write generated Scala files
    * @param basePackage Base package for generated code
    * @param scalafmtPath Optional path to scalafmt config for formatting
-   * @param validate Whether to validate the model before generation (default: true)
+   * @param config Configuration options for code generation
    * @return Either an error message or the list of generated file paths
    */
   def generateFromFile(
     sourceFile: Path,
     targetDir: Path,
     basePackage: String,
-    scalafmtPath: Option[Path] = None,
-    validate: Boolean = true
+    scalafmtPath: Option[Path],
+    config: SmithyConfig
   ): Either[String, Iterable[Path]] = {
-    fromFileValidated(sourceFile, validate).map { files =>
+    fromFile(sourceFile, config).map { files =>
       CodeGen.writeFiles(files, targetDir, basePackage, scalafmtPath)
     }
   }
@@ -230,7 +275,7 @@ object SmithyEndpointGen {
   }
 }
 
-final class SmithyEndpointGen(model: SmithyModel) {
+final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
   import SmithyEndpointGen._
 
   def generate(): Code.Files = {
@@ -268,7 +313,7 @@ final class SmithyEndpointGen(model: SmithyModel) {
     val fields = structure.members.toList.map { case (memberName, member) =>
       val fieldType = shapeIdToType(member.target)
       val finalType = if (member.isRequired) fieldType else fieldType.opt
-      Code.Field(memberName, finalType, Nil, zio.http.gen.openapi.Config.default.fieldNamesNormalization)
+      Code.Field(memberName, finalType, Nil, config.fieldNamesNormalization)
     }
 
     Some(Code.File(
@@ -291,7 +336,7 @@ final class SmithyEndpointGen(model: SmithyModel) {
   private def unionToCode(name: String, union: Shape.UnionShape): Option[Code.File] = {
     val cases = union.members.toList.map { case (memberName, member) =>
       val fields = List(
-        Code.Field("value", shapeIdToType(member.target), Nil, zio.http.gen.openapi.Config.default.fieldNamesNormalization)
+        Code.Field("value", shapeIdToType(member.target), Nil, config.fieldNamesNormalization)
       )
       Code.CaseClass(
         name = memberName.capitalize,
@@ -472,7 +517,7 @@ final class SmithyEndpointGen(model: SmithyModel) {
         authTypeCode = None,
       )
 
-      Code.Field(name, zio.http.gen.openapi.Config.default.fieldNamesNormalization) -> endpointCode
+      Code.Field(name, config.fieldNamesNormalization) -> endpointCode
     }
   }
   

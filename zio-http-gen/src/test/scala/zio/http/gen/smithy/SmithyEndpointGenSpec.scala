@@ -3,6 +3,7 @@ package zio.http.gen.smithy
 import zio.Scope
 import zio.test._
 import zio.http.gen.scala.CodeGen
+import zio.http.gen.openapi.Config.NormalizeFields
 
 object SmithyEndpointGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -564,6 +565,125 @@ object SmithyEndpointGenSpec extends ZIOSpecDefault {
               assertTrue(endpointsCode.contains("NotFound") || endpointsCode.contains("Unauthorized"))
             }
           }
+        },
+      ),
+      suite("SmithyConfig")(
+        test("default config has field normalization enabled") {
+          assertTrue(SmithyConfig.default.fieldNamesNormalization.enableAutomatic)
+        },
+        test("field normalization converts snake_case to camelCase") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |structure UserProfile {
+                               |    @required
+                               |    user_id: String
+                               |    first_name: String
+                               |    last_name: String
+                               |}""".stripMargin
+          
+          val result = for {
+            model <- SmithyParser.parse(smithyString)
+            files = SmithyEndpointGen.fromSmithyModel(model, SmithyConfig.default)
+            rendered = CodeGen.renderedFiles(files, "example.api")
+          } yield rendered
+          
+          assertTrue(result.isRight) && {
+            val rendered = result.toOption.get
+            val userCode = rendered.find(_._1.contains("UserProfile.scala")).map(_._2).getOrElse("")
+            // Should have camelCase field names
+            assertTrue(userCode.contains("userId")) &&
+            assertTrue(userCode.contains("firstName")) &&
+            assertTrue(userCode.contains("lastName")) &&
+            // Should have @fieldName annotations preserving original names
+            assertTrue(userCode.contains("@fieldName(\"user_id\")")) &&
+            assertTrue(userCode.contains("@fieldName(\"first_name\")")) &&
+            assertTrue(userCode.contains("@fieldName(\"last_name\")"))
+          }
+        },
+        test("preserveFieldNames config keeps original field names") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |structure UserProfile {
+                               |    @required
+                               |    user_id: String
+                               |    first_name: String
+                               |}""".stripMargin
+          
+          val result = for {
+            model <- SmithyParser.parse(smithyString)
+            files = SmithyEndpointGen.fromSmithyModel(model, SmithyConfig.preserveFieldNames)
+            rendered = CodeGen.renderedFiles(files, "example.api")
+          } yield rendered
+          
+          assertTrue(result.isRight) && {
+            val rendered = result.toOption.get
+            val userCode = rendered.find(_._1.contains("UserProfile.scala")).map(_._2).getOrElse("")
+            // Should keep original snake_case field names
+            assertTrue(userCode.contains("user_id: String")) &&
+            assertTrue(userCode.contains("first_name:"))
+          }
+        },
+        test("custom config with manual overrides") {
+          val config = SmithyConfig.default.copy(
+            fieldNamesNormalization = NormalizeFields(
+              enableAutomatic = true,
+              manualOverrides = Map("user_id" -> "uid"),
+            )
+          )
+          
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |structure UserProfile {
+                               |    @required
+                               |    user_id: String
+                               |    first_name: String
+                               |}""".stripMargin
+          
+          val result = for {
+            model <- SmithyParser.parse(smithyString)
+            files = SmithyEndpointGen.fromSmithyModel(model, config)
+            rendered = CodeGen.renderedFiles(files, "example.api")
+          } yield rendered
+          
+          assertTrue(result.isRight) && {
+            val rendered = result.toOption.get
+            val userCode = rendered.find(_._1.contains("UserProfile.scala")).map(_._2).getOrElse("")
+            // Should use manual override for user_id -> uid
+            assertTrue(userCode.contains("uid: String")) &&
+            // Should still normalize first_name -> firstName
+            assertTrue(userCode.contains("firstName"))
+          }
+        },
+        test("fast config disables validation") {
+          assertTrue(!SmithyConfig.fast.validateBeforeGeneration)
+        },
+        test("validation is enabled by default") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |structure User {
+                               |    profile: UndefinedType
+                               |}""".stripMargin
+          
+          val result = SmithyEndpointGen.fromString(smithyString, SmithyConfig.default)
+          
+          assertTrue(result.isLeft) &&
+          assertTrue(result.swap.toOption.get.contains("validation failed"))
+        },
+        test("validation can be disabled via config") {
+          val smithyString = """$version: "2"
+                               |namespace example.api
+                               |
+                               |structure User {
+                               |    profile: UndefinedType
+                               |}""".stripMargin
+          
+          val result = SmithyEndpointGen.fromString(smithyString, SmithyConfig.fast)
+          
+          assertTrue(result.isRight)
         },
       ),
     )
