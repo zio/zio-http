@@ -2,8 +2,9 @@ package zio.http.gen.smithy
 
 import zio.Scope
 import zio.test._
-import zio.http.gen.scala.CodeGen
+
 import zio.http.gen.openapi.Config.NormalizeFields
+import zio.http.gen.scala.CodeGen
 
 object SmithyEndpointGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =

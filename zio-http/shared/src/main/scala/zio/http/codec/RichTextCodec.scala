@@ -136,10 +136,9 @@ sealed abstract class RichTextCodec[A] { self =>
     RichTextCodec.Repeated(self)
 
   final lazy val repeatNonEmpty: RichTextCodec[NonEmptyChunk[A]] =
-    self.repeat.transformOrFailLeft[NonEmptyChunk[A]](
-      chunk =>
-        if (chunk.isEmpty) Left("Expected at least one element")
-      else Right(NonEmptyChunk.fromIterable(chunk.head, chunk.tail))
+    self.repeat.transformOrFailLeft[NonEmptyChunk[A]](chunk =>
+      if (chunk.isEmpty) Left("Expected at least one element")
+      else Right(NonEmptyChunk.fromIterable(chunk.head, chunk.tail)),
     )(chunk => chunk.toChunk)
 
   final def singleton: RichTextCodec[NonEmptyChunk[A]] =
@@ -268,15 +267,15 @@ object RichTextCodec {
     literalUnit(lit).as(lit)
 
   def literalUnit(lit: String): RichTextCodec[Unit] = {
-     def loop(list: List[Char]): RichTextCodec[Unit] =
-       list match {
-         case head :: tail =>
-           char(head).const(head) ~> loop(tail)
-         case Nil          => empty
-       }
+    def loop(list: List[Char]): RichTextCodec[Unit] =
+      list match {
+        case head :: tail =>
+          char(head).const(head) ~> loop(tail)
+        case Nil          => empty
+      }
 
-     loop(lit.toList)
-   }
+    loop(lit.toList)
+  }
 
   /**
    * A codec that describes a literal character sequence, ignoring case.

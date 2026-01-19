@@ -2,12 +2,12 @@ package zio.http.gen.smithy
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+
 import scala.jdk.CollectionConverters._
 
 import zio.http.Method
-import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code._
-import zio.http.gen.scala.CodeGen
+import zio.http.gen.scala.{Code, CodeGen}
 
 /**
  * Generates zio-http Endpoint definitions from Smithy models.
