@@ -3,7 +3,13 @@ package zio.http.gen.smithy
 import zio.Scope
 import zio.test._
 
+import scala.io.Source
+
 object SmithyParsingSpec extends ZIOSpecDefault {
+  private def loadResource(name: String): String = {
+    val stream = getClass.getResourceAsStream(s"/smithy/$name")
+    Source.fromInputStream(stream).mkString
+  }
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("SmithyParsingSpec")(
       suite("Full IDL Parsing")(
@@ -255,6 +261,100 @@ object SmithyParsingSpec extends ZIOSpecDefault {
               assertTrue(members("apiKey").httpHeader == Some("X-Api-Key")) &&
               assertTrue(members("body").httpPayload)
             }
+          }
+        },
+      ),
+      suite("Real World .smithy Files")(
+        test("parse pet_store.smithy") {
+          val smithyString = loadResource("pet_store.smithy")
+          val result       = SmithyParser.parse(smithyString)
+          assertTrue(result.isRight) && {
+            val model = result.toOption.get
+            assertTrue(model.namespace == "example.petstore") &&
+            assertTrue(model.shapes.contains("PetStore")) &&
+            assertTrue(model.shapes.contains("Pet")) &&
+            assertTrue(model.shapes.contains("Species")) &&
+            assertTrue(model.shapes.get("Species").exists(_.isInstanceOf[Shape.EnumShape])) &&
+            assertTrue(model.getOperation("GetPet").isDefined) &&
+            assertTrue(model.getOperation("ListPets").isDefined) &&
+            assertTrue(model.getOperation("CreatePet").isDefined) &&
+            assertTrue(model.getOperation("DeletePet").isDefined) &&
+            assertTrue(model.getOperation("GetPet").get.httpTrait.get.method == "GET") &&
+            assertTrue(model.getOperation("GetPet").get.httpTrait.get.uri == "/pets/{petId}") &&
+            assertTrue(model.getOperation("CreatePet").get.httpTrait.get.method == "POST") &&
+            assertTrue(model.getOperation("DeletePet").get.httpTrait.get.method == "DELETE") &&
+            assertTrue(model.getStructure("Pet").isDefined) &&
+            assertTrue(model.getStructure("Pet").get.members.size == 6) &&
+            assertTrue(model.getStructure("Pet").get.members("id").isRequired) &&
+            assertTrue(model.getStructure("Pet").get.members("name").isRequired) &&
+            assertTrue(model.getStructure("Pet").get.members("species").isRequired) &&
+            assertTrue(model.getStructure("Pet").get.members("createdAt").isRequired) &&
+            assertTrue(!model.getStructure("Pet").get.members("age").isRequired)
+          }
+        },
+        test("parse auth_service.smithy") {
+          val smithyString = loadResource("auth_service.smithy")
+          val result       = SmithyParser.parse(smithyString)
+          assertTrue(result.isRight) && {
+            val model = result.toOption.get
+            assertTrue(model.namespace == "example.auth") &&
+            assertTrue(model.shapes.contains("AuthService")) &&
+            assertTrue(model.shapes.contains("User")) &&
+            assertTrue(model.shapes.contains("Role")) &&
+            assertTrue(model.shapes.contains("UserStatus")) &&
+            assertTrue(model.getOperation("Login").isDefined) &&
+            assertTrue(model.getOperation("Logout").isDefined) &&
+            assertTrue(model.getOperation("GetCurrentUser").isDefined) &&
+            assertTrue(model.getOperation("RefreshToken").isDefined) &&
+            assertTrue(model.getOperation("Login").get.httpTrait.get.uri == "/auth/login") &&
+            assertTrue(model.getOperation("Login").get.errors.exists(_.name == "InvalidCredentials")) &&
+            assertTrue(model.getOperation("Login").get.errors.exists(_.name == "AccountLocked")) &&
+            assertTrue(model.getStructure("User").isDefined) &&
+            assertTrue(model.getStructure("User").get.members.contains("id")) &&
+            assertTrue(model.getStructure("User").get.members.contains("email")) &&
+            assertTrue(model.getStructure("User").get.members.contains("roles")) &&
+            assertTrue(model.getStructure("LoginInput").get.members("username").isRequired) &&
+            assertTrue(model.getStructure("LoginInput").get.members("password").isRequired)
+          }
+        },
+        test("parse order_service.smithy") {
+          val smithyString = loadResource("order_service.smithy")
+          val result       = SmithyParser.parse(smithyString)
+          assertTrue(result.isRight) && {
+            val model = result.toOption.get
+            assertTrue(model.namespace == "example.orders") &&
+            assertTrue(model.shapes.contains("OrderService")) &&
+            assertTrue(model.shapes.contains("Order")) &&
+            assertTrue(model.shapes.contains("OrderItem")) &&
+            assertTrue(model.shapes.contains("Money")) &&
+            assertTrue(model.shapes.contains("Address")) &&
+            assertTrue(model.shapes.contains("OrderStatus")) &&
+            assertTrue(model.shapes.contains("Currency")) &&
+            assertTrue(model.getOperation("GetOrder").isDefined) &&
+            assertTrue(model.getOperation("CreateOrder").isDefined) &&
+            assertTrue(model.getOperation("UpdateOrder").isDefined) &&
+            assertTrue(model.getOperation("CancelOrder").isDefined) &&
+            assertTrue(model.getOperation("ListOrders").isDefined) &&
+            assertTrue(model.getOperation("SearchOrders").isDefined) &&
+            assertTrue(model.getOperation("AddOrderItem").isDefined) &&
+            assertTrue(model.getOperation("RemoveOrderItem").isDefined) &&
+            assertTrue(model.getOperation("RemoveOrderItem").get.httpTrait.get.uri == "/orders/{orderId}/items/{itemId}") &&
+            assertTrue(model.getStructure("OrderData").isDefined) &&
+            assertTrue(model.getStructure("OrderData").get.members.size == 14) &&
+            assertTrue(model.getStructure("Money").isDefined) &&
+            assertTrue(model.getStructure("Money").get.members.contains("amount")) &&
+            assertTrue(model.getStructure("Money").get.members.contains("currency")) &&
+            assertTrue(model.getStructure("Address").isDefined) &&
+            assertTrue(model.getStructure("Address").get.members.size == 6)
+          }
+        },
+        test("parse weather_service.smithy") {
+          val smithyString = loadResource("weather_service.smithy")
+          val result       = SmithyParser.parse(smithyString)
+          assertTrue(result.isRight) && {
+            val model = result.toOption.get
+            assertTrue(model.namespace == "example.weather") &&
+            assertTrue(model.shapes.contains("Weather"))
           }
         },
       ),
