@@ -451,10 +451,7 @@ object SmithyParser {
       }
     }
 
-    /**
-     * Parse documentation comments (/// style) and return as Documentation
-     * trait
-     */
+    // Parse documentation comments (/// style) and return as Documentation trait
     def parseDocComments(): Option[SmithyTrait.Documentation] = {
       skipWs()
       val docLines = scala.collection.mutable.ListBuffer.empty[String]
