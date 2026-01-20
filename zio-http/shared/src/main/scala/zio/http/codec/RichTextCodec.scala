@@ -81,7 +81,7 @@ sealed abstract class RichTextCodec[A] { self =>
   ): RichTextCodec[alternator.Out] =
     RichTextCodec
       .Alt(self, RichTextCodec.defer(that))
-      .transform[alternator.Out](either => either.fold(alternator.left, alternator.right))(value =>
+      .transform[alternator.Out](either => either.fold(l => alternator.left(l), r => alternator.right(r)))(value =>
         alternator
           .unleft(value)
           .map(Left(_))
