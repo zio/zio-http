@@ -1,12 +1,12 @@
 package zio.http.gen.smithy
 
+import scala.io.Source
+
 import zio.Scope
 import zio.test._
 
-import scala.io.Source
-
 object SmithyParsingSpec extends ZIOSpecDefault {
-  private def loadResource(name: String): String = {
+  private def loadResource(name: String): String           = {
     val stream = getClass.getResourceAsStream(s"/smithy/$name")
     Source.fromInputStream(stream).mkString
   }
@@ -338,7 +338,9 @@ object SmithyParsingSpec extends ZIOSpecDefault {
             assertTrue(model.getOperation("SearchOrders").isDefined) &&
             assertTrue(model.getOperation("AddOrderItem").isDefined) &&
             assertTrue(model.getOperation("RemoveOrderItem").isDefined) &&
-            assertTrue(model.getOperation("RemoveOrderItem").get.httpTrait.get.uri == "/orders/{orderId}/items/{itemId}") &&
+            assertTrue(
+              model.getOperation("RemoveOrderItem").get.httpTrait.get.uri == "/orders/{orderId}/items/{itemId}",
+            ) &&
             assertTrue(model.getStructure("OrderData").isDefined) &&
             assertTrue(model.getStructure("OrderData").get.members.size == 14) &&
             assertTrue(model.getStructure("Money").isDefined) &&
