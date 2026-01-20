@@ -139,7 +139,7 @@ object SmithyCodecs {
     }
   }
 
-  /** ShapeId: [namespace#]name[$member] */
+  /** ShapeId: `[namespace#]name[$$member]` */
   val shapeId: RichTextCodec[ShapeId] = {
     val hash   = RichTextCodec.char('#').const('#')
     val dollar = RichTextCodec.char('$').const('$')
