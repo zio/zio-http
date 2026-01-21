@@ -499,7 +499,7 @@ object Route                   {
     location: Trace,
   ) extends Route[Env, Nothing] {
     override def toHandler(implicit ev: Nothing <:< Response, trace: Trace): Handler[Env, Response, Request, Response] =
-      toHandlerUnsandboxed.sandbox
+      toHandlerUnsandboxed(ev, trace).sandbox
 
     override private[http] def toHandlerUnsandboxed(implicit
       ev: Nothing <:< Response,
