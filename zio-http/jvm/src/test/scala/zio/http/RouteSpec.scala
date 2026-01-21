@@ -116,6 +116,57 @@ object RouteSpec extends ZIOHttpSpec {
         } yield assertTrue(cnt == 2)
       },
     ),
+    suite("transform with error handling (#3228)")(
+      test("transform with catchAllDefect should intercept defects before sandboxing") {
+        val routes = Routes(
+          Method.POST / "fail" -> Handler.fromZIO(ZIO.dieMessage("Defect")),
+        )
+
+        def logDefects(handle: Handler[Any, Response, Request, Response]): Handler[Any, Response, Request, Response] =
+          Handler.scoped[Any] {
+            handler { (req: Request) =>
+              handle(req).catchAllDefect { e =>
+                ZIO
+                  .logErrorCause("Application defect", Cause.die(e))
+                  .as(Response.internalServerError("Something went wrong"))
+              }
+            }
+          }
+
+        for {
+          _       <- routes.transform(logDefects).runZIO(Request.post("/fail", Body.empty)).ignore
+          entries <- ZTestLogger.logOutput
+          errorLog = entries.find(_.message() == "Application defect")
+        } yield assertTrue(
+          errorLog.isDefined,
+          errorLog.get.logLevel == LogLevel.Error,
+        )
+      },
+      test("transform with catchAllDefect should not affect successful requests") {
+        val routes = Routes(
+          Method.GET / "ok" -> handler(Response.ok),
+        )
+
+        def logDefects(handle: Handler[Any, Response, Request, Response]): Handler[Any, Response, Request, Response] =
+          Handler.scoped[Any] {
+            handler { (req: Request) =>
+              handle(req).catchAllDefect { e =>
+                ZIO
+                  .logErrorCause("Application defect", Cause.die(e))
+                  .as(Response.internalServerError("Something went wrong"))
+              }
+            }
+          }
+
+        for {
+          response <- routes.transform(logDefects).runZIO(Request.get(url"/ok"))
+          entries  <- ZTestLogger.logOutput
+        } yield assertTrue(
+          response.status == Status.Ok,
+          !entries.exists(_.message() == "Application defect"),
+        )
+      },
+    ),
     test("Middleware is applied to not found handler") {
       val routes = Routes(Method.GET / "foo" -> handler(Response.ok))
 
@@ -194,8 +245,9 @@ object RouteSpec extends ZIOHttpSpec {
       },
       test("handleErrorCauseZIO should handle defects") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
-        val errorHandled =
-          route.handleErrorCauseZIO(_ => ZIO.succeed(Response.text("error").status(Status.InternalServerError)))
+        val errorHandled = route.handleErrorCauseZIO { _ =>
+          ZIO.succeed(Response.text("error").status(Status.InternalServerError))
+        }
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         for {
           response   <- errorHandled.toRoutes.runZIO(request)
@@ -203,53 +255,21 @@ object RouteSpec extends ZIOHttpSpec {
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
       test("handleErrorCauseZIO should pass through responses in error channel of handled routes") {
-        val route   = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
-        val request = Request.get(URL.decode("/endpoint").toOption.get)
-        for {
-          ref <- Ref.make(false)
-          errorHandled = route.handleErrorCauseZIO(_ =>
-            ref.set(true) *> ZIO.succeed(Response.text("error").status(Status.InternalServerError)),
-          )
-          response <- errorHandled.toRoutes.runZIO(request)
-          refValue <- ref.get
-        } yield assertTrue(extractStatus(response) == Status.Ok, !refValue)
-      },
-      test("handleErrorRequestCause should handle defects") {
-        val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
-        val errorHandled =
-          route.handleErrorRequestCause((_, _) => Response.text("error").status(Status.InternalServerError))
-        val request      = Request.get(URL.decode("/endpoint").toOption.get)
-        for {
-          response   <- errorHandled.toRoutes.runZIO(request)
-          bodyString <- response.body.asString
-        } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
-      },
-      test("handleErrorRequestCause should pass through responses in error channel of handled routes") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
-        val errorHandled =
-          route.handleErrorRequestCause((_, _) => Response.text("error").status(Status.InternalServerError))
+        val errorHandled = route.handleErrorCauseZIO { _ =>
+          ZIO.succeed(Response.text("error").status(Status.InternalServerError))
+        }
         val request      = Request.get(URL.decode("/endpoint").toOption.get)
         errorHandled.toRoutes.runZIO(request).map(response => assertTrue(extractStatus(response) == Status.Ok))
       },
-      test("handleErrorRequestCauseZIO should handle defects") {
-        val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.dieMessage("hmm...") }
-        val errorHandled = route.handleErrorRequestCauseZIO((_, _) =>
-          ZIO.succeed(Response.text("error").status(Status.InternalServerError)),
-        )
-        val request      = Request.get(URL.decode("/endpoint").toOption.get)
-        for {
-          response   <- errorHandled.toRoutes.runZIO(request)
-          bodyString <- response.body.asString
-        } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
-      },
-      test("handleErrorRequestCauseZIO should pass through responses in error channel of handled routes") {
-        val route   = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
+      test("handleErrorCauseZIO should not call function when route succeeds") {
+        val route   = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.attempt(Response.ok) }
         val request = Request.get(URL.decode("/endpoint").toOption.get)
         for {
           ref <- Ref.make(false)
-          errorHandled = route.handleErrorRequestCauseZIO((_, _) =>
-            ref.set(true) *> ZIO.succeed(Response.text("error").status(Status.InternalServerError)),
-          )
+          errorHandled = route.handleErrorCauseZIO { _ =>
+            ref.set(true) *> ZIO.succeed(Response.text("error").status(Status.InternalServerError))
+          }
           response <- errorHandled.toRoutes.runZIO(request)
           refValue <- ref.get
         } yield assertTrue(extractStatus(response) == Status.Ok, !refValue)
