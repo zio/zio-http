@@ -3,6 +3,7 @@
 package example.template2
 
 import zio._
+
 import zio.http._
 import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
