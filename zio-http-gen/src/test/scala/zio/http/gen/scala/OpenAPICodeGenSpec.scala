@@ -29,7 +29,7 @@ import zio.http.gen.openapi.Config.NormalizeFields
 import zio.http.gen.openapi.{Config, EndpointGen}
 
 @nowarn("msg=missing interpolator")
-object CodeGenSpec extends ZIOSpecDefault {
+object OpenAPICodeGenSpec extends ZIOSpecDefault {
 
   case class ValidatedData(
     @validate(Validation.maxLength(10)) name: String,
