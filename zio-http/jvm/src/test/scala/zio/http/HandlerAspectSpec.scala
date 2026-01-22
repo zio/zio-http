@@ -64,7 +64,7 @@ object HandlerAspectSpec extends ZIOSpecDefault {
         // Routes with path parameters combined with context-providing middleware
         // This is the correct pattern - apply @@ at Routes level, not Handler level
         val routes: Routes[Any, Response] = Routes(
-          Method.GET / "base" / string("param") -> handler { (param: String, _: Request) =>
+          Method.GET / "base" / string("param")          -> handler { (param: String, _: Request) =>
             withContext { (ctx: Option[WebSession]) =>
               ZIO.succeed(Response.text(s"param=$param, session=${ctx.map(_.id).getOrElse(-1)}"))
             }
