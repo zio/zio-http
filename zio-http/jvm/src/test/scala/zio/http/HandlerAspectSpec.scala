@@ -3,8 +3,6 @@ package zio.http
 import zio._
 import zio.test._
 
-
-
 object HandlerAspectSpec extends ZIOSpecDefault {
 
   // Test context for issue #3141
