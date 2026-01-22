@@ -59,19 +59,20 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           )
 
         // Routes with path parameters combined with context-providing middleware
-        // This is the correct pattern - apply @@ at Routes level, not Handler level
-        val routes: Routes[Any, Response] = Routes(
-          Method.GET / "base" / string("param") -> handler { (param: String, _: Request) =>
-            withContext { (ctx: Option[WebSession]) =>
-              ZIO.succeed(Response.text(s"param=$param, session=${ctx.map(_.id).getOrElse(-1)}"))
-            }
-          },
-          Method.GET / "multi" / string("a") / int("b") -> handler { (a: String, b: Int, _: Request) =>
-            withContext { (ctx: Option[WebSession]) =>
-              ZIO.succeed(Response.text(s"a=$a, b=$b, session=${ctx.map(_.id).getOrElse(-1)}"))
-            }
-          },
-        ) @@ maybeWebSession
+        // With the fix, we can now apply @@ directly to the Route
+        val route1 = (Method.GET / "base" / string("param") -> handler { (param: String, _: Request) =>
+          withContext { (ctx: Option[WebSession]) =>
+            ZIO.succeed(Response.text(s"param=$param, session=${ctx.map(_.id).getOrElse(-1)}"))
+          }
+        }) @@ maybeWebSession
+
+        val route2 = (Method.GET / "multi" / string("a") / int("b") -> handler { (a: String, b: Int, _: Request) =>
+          withContext { (ctx: Option[WebSession]) =>
+            ZIO.succeed(Response.text(s"a=$a, b=$b, session=${ctx.map(_.id).getOrElse(-1)}"))
+          }
+        }) @@ maybeWebSession
+
+        val routes: Routes[Any, Response] = Routes(route1, route2)
 
         for {
           // Test single path param

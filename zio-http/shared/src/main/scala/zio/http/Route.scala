@@ -45,6 +45,9 @@ sealed trait Route[-Env, +Err] { self =>
   final def apply(request: Request)(implicit ev: Err <:< Response, trace: Trace): ZIO[Scope & Env, Response, Response] =
     toHandler.apply(request)
 
+  final def @@[Env1 <: Env](aspect: HandlerAspect[Env1, _]): Route[Env1, Err] =
+    transform(aspect.applyHandler)
+
   def asErrorType[Err2](implicit ev: Err <:< Err2): Route[Env, Err2] = self.asInstanceOf[Route[Env, Err2]]
 
   /**

@@ -112,6 +112,12 @@ final case class HandlerAspect[-Env, +CtxOut](
     }
 
   /**
+   * Applies middleware to the specified route.
+   */
+  def apply[Env1 <: Env, Err](route: Route[Env1, Err]): Route[Env1, Err] =
+    route @@ self
+
+  /**
    * Applies middleware to the specified handler, which must process the context
    * produced by this middleware.
    */
