@@ -3,7 +3,7 @@ package zio.http
 import zio._
 import zio.test._
 
-import zio.http.codec.PathCodec.{int, string}
+
 
 object HandlerAspectSpec extends ZIOSpecDefault {
 
