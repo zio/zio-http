@@ -1142,7 +1142,8 @@ object OpenAPIGen {
     genExamples: Boolean,
   ): Map[OpenAPI.StatusOrDefault, OpenAPI.ReferenceOr[OpenAPI.Response]] =
     codecs.map { case (status, mediaTypes) =>
-      val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }.reduce(_ ++ _)
+      val combinedAtomizedCodecs =
+        mediaTypes.map { case (_, (_, atomized)) => atomized }.foldLeft(AtomizedMetaCodecs.empty)(_ ++ _)
       val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
         mediaType.fullType -> OpenAPI.MediaType(
           schema = OpenAPI.ReferenceOr.Or(schema),
