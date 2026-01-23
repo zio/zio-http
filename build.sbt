@@ -2,122 +2,12 @@ import BuildHelper.*
 import Dependencies.{scalafmt, *}
 import scala.sys.process.*
 
-import scala.concurrent.duration.*
-
 val releaseDrafterVersion = "5"
 
 // Setting default log level to INFO
 val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
-// CI Configuration
-ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
-ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
-
 ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
-ThisBuild / libraryDependencySchemes += "dev.zio" %% "zio-json" % VersionScheme.Always
-
-ThisBuild / githubWorkflowJavaVersions   := Seq(
-  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "25"),
-  JavaSpec.temurin("17"),
-  JavaSpec.temurin("25"),
-)
-ThisBuild / githubWorkflowTargetBranches := Seq("main")
-ThisBuild / githubWorkflowPREventTypes   := Seq(
-  PREventType.Opened,
-  PREventType.Synchronize,
-  PREventType.Reopened,
-  PREventType.Edited,
-  PREventType.Labeled,
-)
-
-val coursierSetup =
-  WorkflowStep.Use(
-    UseRef.Public("coursier", "setup-action", "v3"),
-    params = Map("apps" -> "sbt"),
-  )
-
-ThisBuild / githubWorkflowAddedJobs :=
-  Seq(
-    WorkflowJob(
-      id = "mima_check",
-      name = "Mima Check",
-      steps = List(
-        WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
-        coursierSetup,
-      ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("25"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
-      cond = Option("${{ github.event_name == 'pull_request' }}"),
-      scalas = List(Scala213),
-      javas = List(JavaSpec.temurin("25")),
-    ),
-  ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
-
-ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
-ThisBuild / githubWorkflowPublish         :=
-  Seq(
-    WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v3"), Map("apps" -> "sbt")),
-    WorkflowStep.Sbt(
-      List("ci-release"),
-      name = Some("Release"),
-      env = Map(
-        "PGP_PASSPHRASE"    -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET"        -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_RELEASE_MODE"   -> "1",
-      ),
-    ),
-    WorkflowStep.Sbt(
-      List("ci-release"),
-      name = Some("Release Shaded"),
-      env = Map(
-        Shading.env.PUBLISH_SHADED -> "true",
-        "PGP_PASSPHRASE"           -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET"               -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD"        -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME"        -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_RELEASE_MODE"          -> "1",
-      ),
-    ),
-  )
-//scala fix isn't available for scala 3 so ensure we only run the fmt check
-//using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble   := Seq(
-  coursierSetup,
-  WorkflowStep.Run(
-    name = Some("Check formatting"),
-    commands = List(s"sbt ++${Scala213} fmtCheck"),
-    cond = Some(s"matrix.scala == '${Scala213}'"),
-  ),
-)
-
-ThisBuild / githubWorkflowBuildPostamble :=
-  WorkflowJob(
-    "checkDocGeneration",
-    "Check doc generation",
-    List(
-      coursierSetup,
-      WorkflowStep.Run(
-        commands = List(s"sbt ++${Scala213} doc"),
-        name = Some("Check doc generation"),
-        cond = Some("${{ github.event_name == 'pull_request' }}"),
-      ),
-    ),
-    scalas = List(Scala213),
-  ).steps ++
-    WorkflowJob(
-      id = "zio-http-shaded-tests",
-      name = "Test shaded version of zio-http",
-      steps = List(
-        WorkflowStep.Sbt(
-          name = Some("zio-http-shaded Tests"),
-          commands = List("zioHttpShadedTests/test"),
-          cond = Some(s"matrix.scala == '$Scala213'"),
-          env = Map(Shading.env.PUBLISH_SHADED -> "true"),
-        ),
-      ),
-    ).steps
 
 inThisBuild(
   List(
@@ -126,8 +16,6 @@ inThisBuild(
     licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
   ),
 )
-
-ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
 lazy val exampleProjects: Seq[ProjectReference] =
   if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference]
@@ -162,9 +50,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
       zioHttpStomp,
-      zioHttpMetrics,
       zioHttpExample,
-      zioHttpExampleDatastarChat,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -213,6 +99,10 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     ) ++ netty,
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
+  .jvmSettings(
+    coverageMinimumStmtTotal   := 50,
+    coverageMinimumBranchTotal := 60,
+  )
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
@@ -279,8 +169,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.18",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.18",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.5",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.5",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -347,19 +237,6 @@ lazy val zioHttpStomp = (project in file("zio-http-stomp"))
   .dependsOn(zioHttpTestkit % Test)
   .settings(MimaSettings.mimaSettings(failOnProblem = true))
 
-lazy val zioHttpMetrics = (project in file("zio-http-metrics"))
-  .settings(
-    stdSettings("zio-http-metrics"),
-    publishSetting(true),
-    libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.5",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.5",
-      `zio-test`,
-      `zio-test-sbt`,
-    ),
-  )
-  .dependsOn(zioHttpJVM)
-  .settings(MimaSettings.mimaSettings(failOnProblem = true))
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
   .settings(publishSetting(false))
@@ -384,15 +261,6 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
 
-lazy val zioHttpExampleDatastarChat = (project in file("zio-http-example-datastar-chat"))
-  .disablePlugins(ScalafixPlugin)
-  .settings(stdSettings("zio-http-example-datastar-chat"))
-  .settings(publishSetting(false))
-  .settings(
-    run / fork := true,
-  )
-  .dependsOn(zioHttpJVM, zioHttpDatastarSdk)
-
 lazy val zioHttpTools = (project in file("zio-http-tools"))
   .settings(stdSettings("zio-http-tools"))
   .settings(publishSetting(false))
@@ -408,9 +276,7 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-test`,
       `zio-test-sbt`,
       `zio-config`,
-      scalafmt
-        .cross(CrossVersion.for3Use2_13)
-        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
+      scalafmt.cross(CrossVersion.for3Use2_13),
       scalametaParsers
         .cross(CrossVersion.for3Use2_13)
         .exclude("org.scala-lang.modules", "scala-collection-compat_2.13")
@@ -436,7 +302,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.20",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.34.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.4"  % "protobuf",
     ),
   )
   .settings(
@@ -460,7 +326,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.34.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.4"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
     ),
     Compile / run / fork := true,
@@ -497,9 +363,6 @@ lazy val docs = project
   .in(file("zio-http-docs"))
   .settings(stdSettings("zio-http-docs"))
   .settings(publishSetting(false))
-  .settings(
-    excludeDependencies += "com.github.plokhotnyuk.jsoniter-scala" % "jsoniter-scala-core_2.13",
-  )
   .settings(
     fork                                       := false,
     moduleName                                 := "zio-http-docs",
