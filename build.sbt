@@ -15,14 +15,14 @@ ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss
 
 ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
 
-ThisBuild / githubWorkflowJavaVersions := Seq(
+ThisBuild / githubWorkflowJavaVersions   := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
   JavaSpec.temurin("17"),
   JavaSpec.temurin("21"),
 )
 ThisBuild / githubWorkflowTargetBranches := Seq("main")
-ThisBuild / githubWorkflowPREventTypes := Seq(
+ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
@@ -409,7 +409,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.20",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.33.2"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.4"  % "protobuf",
     ),
   )
   .settings(
@@ -433,7 +433,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.33.2"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.4"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
     ),
     Compile / run / fork := true,

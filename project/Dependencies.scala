@@ -6,7 +6,7 @@ object Dependencies {
   val ScalaCompatCollectionVersion = "2.13.0"
   val ZioVersion                   = "2.1.23"
   val ZioCliVersion                = "0.7.3"
-  val ZioJsonVersion               = "0.7.45"
+  val ZioJsonVersion               = "0.8.0"
   val ZioSchemaVersion             = "1.7.5"
   val SttpVersion                  = "3.3.18"
   val ZioConfigVersion             = "4.0.5"
@@ -16,7 +16,7 @@ object Dependencies {
   val `scala-compat-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompatCollectionVersion
 
   val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.9"
-  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.14.2"
+  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.14.5"
 
   val netty =
     Seq(
