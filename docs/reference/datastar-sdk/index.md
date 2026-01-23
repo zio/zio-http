@@ -644,7 +644,7 @@ The result is a highly responsive search experience with beautiful animations, a
 
 ### Real-time Chat Example
 
-For a more comprehensive example demonstrating multi-client real-time chat with ZIO Hub broadcasting, see the [Real-time Chat with Datastar](../guides/real-time-chat-with-datastar.md) guide. This example showcases:
+For a more comprehensive example demonstrating multi-client real-time chat with ZIO Hub broadcasting, see the [Real-time Chat with Datastar](../../guides/real-time-chat-with-datastar.md) guide. This example showcases:
 
 - Broadcasting messages to multiple connected clients using ZIO Hub
 - Persistent SSE connections for real-time updates
