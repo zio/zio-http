@@ -393,12 +393,12 @@ object RouteSpec extends ZIOHttpSpec {
 
         for {
           response <- routes.runZIO(Request.get(url"/base/test123"))
-          body <- response.body.asString
+          body     <- response.body.asString
         } yield assertTrue(
           response.status == Status.Ok,
-          body == "id=test123"
+          body == "id=test123",
         )
-      }
+      },
     ),
   )
 }
