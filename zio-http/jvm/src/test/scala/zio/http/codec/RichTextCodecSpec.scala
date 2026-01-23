@@ -234,14 +234,24 @@ object RichTextCodecSpec extends ZIOHttpSpec {
         assertTrue(success(("abc", "123")) == codec.decode("abc123")) &&
         assertTrue(codec.decode("abc-123").isLeft)
       },
-      test("alt decoder") {
+      test("alt decoder with same types unifies result") {
         val codec = RichTextCodec.literal("abc") | RichTextCodec.literal("123")
 
-        val expectedL: Either[String, Either[String, String]] = Right(Left("abc"))
-        val expectedR: Either[String, Either[String, String]] = Right(Right("123"))
+        val expectedL: Either[String, String] = Right("abc")
+        val expectedR: Either[String, String] = Right("123")
         assertTrue(expectedL == codec.decode("abc---")) &&
         assertTrue(expectedR == codec.decode("123---")) &&
         assertTrue(codec.decode("---123---").isLeft)
+      },
+      test("alt decoder with different types produces Either") {
+        val stringCodec = RichTextCodec.literal("abc")
+        val intCodec    = RichTextCodec.literal("123").transform(_.toInt)(_.toString)
+        val codec       = stringCodec | intCodec
+
+        val expectedL: Either[String, Either[String, Int]] = Right(Left("abc"))
+        val expectedR: Either[String, Either[String, Int]] = Right(Right(123))
+        assertTrue(expectedL == codec.decode("abc---")) &&
+        assertTrue(expectedR == codec.decode("123---"))
       },
       test("transformOrFail decoder") {
         val codec = RichTextCodec.literal("123").transform(_.toInt)(_.toString)

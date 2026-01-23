@@ -122,7 +122,7 @@ object Middleware extends HandlerAspects {
     // HandlerAspect:
     val aspect =
       HandlerAspect.interceptHandlerStateful[Any, Headers, Unit](
-        Handler.fromFunction[Request] { request =>
+        Handler.fromFunctionZIO[Request] { request =>
           val originHeader = request.header(Header.Origin)
           val acrhHeader   = request.header(Header.AccessControlRequestHeaders)
 
@@ -130,12 +130,13 @@ object Middleware extends HandlerAspects {
             case Some(origin) =>
               config.allowedOrigin(origin) match {
                 case Some(allowOrigin) if config.allowedMethods.contains(request.method) =>
-                  (corsHeaders(allowOrigin, acrhHeader, isPreflight = false), (request, ()))
+                  ZIO.succeed((corsHeaders(allowOrigin, acrhHeader, isPreflight = false), (request, ())))
                 case _                                                                   =>
-                  (Headers.empty, (request, ()))
+                  // Origin is not allowed - reject the request with 403 Forbidden
+                  ZIO.fail(Response.status(Status.Forbidden))
               }
 
-            case None => (Headers.empty, (request, ()))
+            case None => ZIO.succeed((Headers.empty, (request, ())))
           }
         },
       )(Handler.fromFunction[(Headers, Response)] { case (headers, response) =>
@@ -432,7 +433,7 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         Routes.fromIterable(
-          routes.routes.map(route => route.transform[Env1](_ @@ aspect(route.routePattern))),
+          routes.routes.map(route => route.transform[Env1](handler => handler.sandbox @@ aspect(route.routePattern))),
         )
     }
   }

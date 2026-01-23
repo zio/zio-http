@@ -551,7 +551,10 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self(in)
 
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
-    self.mapErrorCauseZIO(c => ErrorResponseConfig.configRef.getWith(cfg => Exit.fail(Response.fromCause(c, cfg))))
+    self.mapErrorCauseZIO { cause =>
+      ZIO.logErrorCause("Unhandled exception in request handler", cause) *>
+        ErrorResponseConfig.configRef.getWith(cfg => Exit.fail(Response.fromCause(cause, cfg)))
+    }
 
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
     self.map(_.status)
@@ -910,43 +913,218 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   def fromFile[R](makeFile: => File, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
-  ): Handler[R, Throwable, Any, Response] =
+  ): Handler[R, Throwable, Request, Response] =
     fromFileZIO(ZIO.attempt(makeFile), charset)
 
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File], charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
-  ): Handler[R, Throwable, Any, Response] = {
-    Handler.fromZIO[R, Throwable, Response](
-      ZIO.blocking {
-        getFile.flatMap { file =>
-          if (!file.exists()) {
-            ZIO.fail(new FileNotFoundException())
-          } else if (file.isFile && !file.canRead) {
-            ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
-          } else {
-            if (file.isFile) {
-              Body.fromFile(file).flatMap { body =>
-                val response = http.Response(body = body)
-                val pathName = file.toPath.toString
-
-                // Set MIME type in the response headers. This is only relevant in
-                // case of RandomAccessFile transfers as browsers use the MIME type,
-                // not the file extension, to determine how to process a URL.
-                // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-                determineMediaType(pathName) match {
-                  case Some(mediaType) =>
-                    val charset0 = if (mediaType.mainType == "text" || !mediaType.binary) Some(charset) else None
-                    ZIO.succeed(response.addHeader(Header.ContentType(mediaType, charset = charset0)))
-                  case None            => ZIO.succeed(response)
-                }
-              }
-            } else {
+  ): Handler[R, Throwable, Request, Response] = {
+    Handler
+      .fromZIO[R, Throwable, (File, Long, Option[MediaType], Header.ETag, Header.LastModified)](
+        ZIO.blocking {
+          getFile.flatMap { file =>
+            if (!file.exists()) {
+              ZIO.fail(new FileNotFoundException())
+            } else if (file.isFile && !file.canRead) {
+              ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
+            } else if (!file.isFile) {
               ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
+            } else {
+              ZIO.attemptBlocking {
+                val fileSize      = file.length()
+                val pathName      = file.toPath.toString
+                val mediaType     = determineMediaType(pathName)
+                val lastModified  = java.time.Instant.ofEpochMilli(file.lastModified())
+                val etag          = Header.ETag.Weak(s"${file.lastModified().toHexString}-${fileSize.toHexString}")
+                val lastModHeader =
+                  Header.LastModified(java.time.ZonedDateTime.ofInstant(lastModified, java.time.ZoneOffset.UTC))
+                (file, fileSize, mediaType, etag, lastModHeader)
+              }
             }
           }
+        },
+      )
+      .flatMap { case (file, fileSize, mediaType, etag, lastModified) =>
+        Handler.fromFunctionZIO[Request] { request =>
+          handleRangeRequest(request, file, fileSize, mediaType, charset, etag, lastModified)
         }
-      },
-    )
+      }
+  }
+
+  private def handleRangeRequest(
+    request: Request,
+    file: File,
+    fileSize: Long,
+    mediaType: Option[MediaType],
+    charset: Charset,
+    etag: Header.ETag,
+    lastModified: Header.LastModified,
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    val rangeOpt   = request.headers.get(Header.Range)
+    val ifRangeOpt = request.headers.get(Header.IfRange)
+
+    // Check If-Range precondition
+    val shouldProcessRange = ifRangeOpt match {
+      case None                             => true // No If-Range, always process Range
+      case Some(Header.IfRange.ETag(v))     =>
+        // Compare ETag (strip quotes if needed)
+        Header.ETag.render(etag).contains(v) || v == etag.asInstanceOf[Header.ETag.Weak].validator
+      case Some(Header.IfRange.DateTime(v)) =>
+        // Compare with Last-Modified
+        !v.isBefore(lastModified.value)
+    }
+
+    // Only process "bytes" unit
+    val isBytesRange = rangeOpt.exists {
+      case Header.Range.Single(unit, _, _) => unit == "bytes"
+      case Header.Range.Multiple(unit, _)  => unit == "bytes"
+      case Header.Range.Suffix(unit, _)    => unit == "bytes"
+      case Header.Range.Prefix(unit, _)    => unit == "bytes"
+    }
+
+    if (rangeOpt.isDefined && shouldProcessRange && isBytesRange) {
+      handleByteRangeRequest(rangeOpt.get, file, fileSize, mediaType, charset, etag, lastModified)
+    } else {
+      // Return full file with Accept-Ranges header
+      fullFileResponse(file, mediaType, charset, etag, lastModified)
+    }
+  }
+
+  private def handleByteRangeRequest(
+    range: Header.Range,
+    file: File,
+    fileSize: Long,
+    mediaType: Option[MediaType],
+    charset: Charset,
+    etag: Header.ETag,
+    lastModified: Header.LastModified,
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    range match {
+      case Header.Range.Single(_, start, endOpt) =>
+        handleSingleRange(start, endOpt, file, fileSize, mediaType, charset, etag, lastModified)
+
+      case Header.Range.Suffix(_, suffixLength) =>
+        val start = (fileSize - suffixLength).max(0)
+        handleSingleRange(start, Some(fileSize - 1), file, fileSize, mediaType, charset, etag, lastModified)
+
+      case Header.Range.Prefix(_, start) =>
+        handleSingleRange(start, None, file, fileSize, mediaType, charset, etag, lastModified)
+
+      case Header.Range.Multiple(_, ranges) =>
+        handleMultipleRanges(ranges, file, fileSize, mediaType, etag, lastModified)
+    }
+  }
+
+  private def handleSingleRange(
+    start: Long,
+    endOpt: Option[Long],
+    file: File,
+    fileSize: Long,
+    mediaType: Option[MediaType],
+    charset: Charset,
+    etag: Header.ETag,
+    lastModified: Header.LastModified,
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    val actualEnd = endOpt.map(e => Math.min(e, fileSize - 1)).getOrElse(fileSize - 1)
+
+    if (start >= fileSize || start < 0 || start > actualEnd) {
+      // 416 Range Not Satisfiable
+      ZIO.succeed(
+        Response
+          .status(Status.RequestedRangeNotSatisfiable)
+          .addHeader(Header.ContentRange.RangeTotal("bytes", fileSize.toInt)),
+      )
+    } else {
+      val length = actualEnd - start + 1
+      Body.fromFileRange(file, start, length).map { body =>
+        val charset0 = mediaType.filter(mt => mt.mainType == "text" || !mt.binary).flatMap(_ => Some(charset))
+        var response = Response(status = Status.PartialContent, body = body)
+          .addHeader(Header.ContentRange.EndTotal("bytes", start.toInt, actualEnd.toInt, fileSize.toInt))
+          .addHeader(Header.AcceptRanges.Bytes)
+          .addHeader(etag)
+          .addHeader(lastModified)
+
+        mediaType.foreach { mt =>
+          response = response.addHeader(Header.ContentType(mt, charset = charset0))
+        }
+
+        response
+      }
+    }
+  }
+
+  private def handleMultipleRanges(
+    ranges: List[(Long, Option[Long])],
+    file: File,
+    fileSize: Long,
+    mediaType: Option[MediaType],
+    etag: Header.ETag,
+    lastModified: Header.LastModified,
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    // Validate all ranges and filter valid ones
+    val validatedRanges = ranges.flatMap { case (start, endOpt) =>
+      val actualEnd = endOpt.map(e => Math.min(e, fileSize - 1)).getOrElse(fileSize - 1)
+      if (start >= 0 && start < fileSize && start <= actualEnd) {
+        Some((start, actualEnd))
+      } else {
+        None
+      }
+    }
+
+    if (validatedRanges.isEmpty) {
+      ZIO.succeed(
+        Response
+          .status(Status.RequestedRangeNotSatisfiable)
+          .addHeader(Header.ContentRange.RangeTotal("bytes", fileSize.toInt)),
+      )
+    } else {
+      val contentType = mediaType.getOrElse(MediaType.application.`octet-stream`)
+
+      val byteRanges = Chunk.fromIterable(validatedRanges.map { case (start, end) =>
+        val length = end - start + 1
+        Body.ByteRange(
+          start = start,
+          end = end,
+          totalSize = fileSize,
+          contentType = contentType,
+          data =
+            Body.FileBody(file, chunkSize = 4096, fileSize = fileSize, offset = start, length = Some(length)).asStream,
+        )
+      })
+
+      Boundary.randomUUID.map { boundary =>
+        val body = Body.fromMultipartByteRanges(byteRanges, boundary)
+        Response(status = Status.PartialContent, body = body)
+          .addHeader(
+            Header.ContentType(MediaType.multipart.`byteranges`.copy(parameters = Map("boundary" -> boundary.id))),
+          )
+          .addHeader(Header.AcceptRanges.Bytes)
+          .addHeader(etag)
+          .addHeader(lastModified)
+      }
+    }
+  }
+
+  private def fullFileResponse(
+    file: File,
+    mediaType: Option[MediaType],
+    charset: Charset,
+    etag: Header.ETag,
+    lastModified: Header.LastModified,
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    Body.fromFile(file).map { body =>
+      val charset0 = mediaType.filter(mt => mt.mainType == "text" || !mt.binary).flatMap(_ => Some(charset))
+      var response = Response(body = body)
+        .addHeader(Header.AcceptRanges.Bytes)
+        .addHeader(etag)
+        .addHeader(lastModified)
+
+      mediaType.foreach { mt =>
+        response = response.addHeader(Header.ContentType(mt, charset = charset0))
+      }
+
+      response
+    }
   }
 
   /**

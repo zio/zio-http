@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.unroll
+
 import zio.Config
 import zio.Config.Secret
 
@@ -36,7 +38,35 @@ final case class SSLConfig(
   provider: Provider,
   clientAuth: Option[ClientAuth] = None,
   includeClientCert: Boolean = false,
-)
+  protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
+) {
+  // @unroll annotation does not work here, doing manual unroll for binary compatibility
+
+  def this(
+    behaviour: HttpBehaviour,
+    data: Data,
+    provider: Provider,
+    clientAuth: Option[ClientAuth],
+    includeClientCert: Boolean,
+  ) = this(behaviour, data, provider, clientAuth, includeClientCert, Seq("TLSv1.3", "TLSv1.2"))
+
+  def copy(
+    behaviour: HttpBehaviour = this.behaviour,
+    data: Data = this.data,
+    provider: Provider = this.provider,
+    clientAuth: Option[ClientAuth] = this.clientAuth,
+    includeClientCert: Boolean = this.includeClientCert,
+    protocols: Seq[String] = this.protocols,
+  ): SSLConfig = SSLConfig(behaviour, data, provider, clientAuth, includeClientCert, protocols)
+
+  def copy(
+    behaviour: HttpBehaviour,
+    data: Data,
+    provider: Provider,
+    clientAuth: Option[ClientAuth],
+    includeClientCert: Boolean,
+  ): SSLConfig = SSLConfig(behaviour, data, provider, clientAuth, includeClientCert, this.protocols)
+}
 
 object SSLConfig {
 
@@ -45,6 +75,14 @@ object SSLConfig {
 
   def apply(data: Data, clientAuth: ClientAuth): SSLConfig =
     new SSLConfig(HttpBehaviour.Redirect, data, Provider.JDK, Some(clientAuth))
+
+  def apply(
+    behaviour: HttpBehaviour,
+    data: Data,
+    provider: Provider,
+    clientAuth: Option[ClientAuth],
+    includeClientCert: Boolean,
+  ): SSLConfig = new SSLConfig(behaviour, data, provider, clientAuth, includeClientCert)
 
   val config: Config[SSLConfig] =
     (
@@ -68,6 +106,8 @@ object SSLConfig {
     clientAuth: Option[ClientAuth] = None,
     trustCertCollectionPath: Option[String] = None,
     includeClientCert: Boolean = false,
+    @unroll
+    protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig =
     new SSLConfig(
       behaviour,
@@ -75,6 +115,7 @@ object SSLConfig {
       Provider.JDK,
       clientAuth,
       includeClientCert,
+      protocols,
     )
 
   def fromResource(certPath: String, keyPath: String): SSLConfig =
@@ -90,6 +131,8 @@ object SSLConfig {
     clientAuth: Option[ClientAuth] = None,
     trustCertCollectionPath: Option[String] = None,
     includeClientCert: Boolean = false,
+    @unroll
+    protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig =
     new SSLConfig(
       behaviour,
@@ -97,6 +140,7 @@ object SSLConfig {
       Provider.JDK,
       clientAuth,
       includeClientCert,
+      protocols,
     )
 
   def fromJavaxNetSslKeyStoreFile(
@@ -107,6 +151,8 @@ object SSLConfig {
     trustManagerKeyStore: Option[Data.TrustManagerKeyStore] = None,
     clientAuth: Option[ClientAuth] = None,
     includeClientCert: Boolean = false,
+    @unroll
+    protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig =
     new SSLConfig(
       behaviour,
@@ -119,6 +165,7 @@ object SSLConfig {
       Provider.JDK,
       clientAuth,
       includeClientCert,
+      protocols,
     )
 
   def fromJavaxNetSslKeyStoreFile(keyManagerFile: String, keyManagerPassword: Secret): SSLConfig =
@@ -131,6 +178,8 @@ object SSLConfig {
     trustManagerKeyStore: Option[Data.TrustManagerKeyStore] = None,
     clientAuth: Option[ClientAuth] = None,
     includeClientCert: Boolean = false,
+    @unroll
+    protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig = {
     fromJavaxNetSsl(
       Data.FromJavaxNetSsl(
@@ -142,6 +191,7 @@ object SSLConfig {
       HttpBehaviour.Redirect,
       clientAuth,
       includeClientCert,
+      protocols,
     )
   }
 
@@ -150,6 +200,8 @@ object SSLConfig {
     behaviour: HttpBehaviour = HttpBehaviour.Redirect,
     clientAuth: Option[ClientAuth] = None,
     includeClientCert: Boolean = false,
+    @unroll
+    protocols: Seq[String] = Seq("TLSv1.3", "TLSv1.2"),
   ): SSLConfig =
     new SSLConfig(
       behaviour,
@@ -157,6 +209,7 @@ object SSLConfig {
       Provider.JDK,
       clientAuth,
       includeClientCert,
+      protocols,
     )
 
   def fromJavaxNetSslKeyStoreResource(keyManagerResource: String, keyManagerPassword: Secret): SSLConfig =

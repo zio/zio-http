@@ -15,13 +15,14 @@ ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss
 
 ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
 
-ThisBuild / githubWorkflowJavaVersions := Seq(
+ThisBuild / githubWorkflowJavaVersions   := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
   JavaSpec.temurin("17"),
   JavaSpec.temurin("21"),
 )
-ThisBuild / githubWorkflowPREventTypes := Seq(
+ThisBuild / githubWorkflowTargetBranches := Seq("main")
+ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
@@ -45,6 +46,7 @@ ThisBuild / githubWorkflowAddedJobs :=
         coursierSetup,
       ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
       cond = Option("${{ github.event_name == 'pull_request' }}"),
+      scalas = List(Scala213),
       javas = List(JavaSpec.temurin("21")),
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
@@ -275,8 +277,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.12.6",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.12.6",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.5",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.5",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -361,8 +363,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.0",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.0",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.5.5",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.5",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
@@ -408,7 +410,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.20",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.33.2"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.4"  % "protobuf",
     ),
   )
   .settings(
@@ -432,7 +434,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.33.2"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.33.4"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
     ),
     Compile / run / fork := true,

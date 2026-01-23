@@ -495,7 +495,9 @@ object HttpConformanceSpec extends ZIOSpecDefault {
                     Response
                       .text(partial)
                       .status(Status.PartialContent)
-                      .addHeader(Header.ContentRange.EndTotal(unit, start, end - 1, content.length))
+                      .addHeader(
+                        Header.ContentRange.EndTotal(unit, start.toInt, end - 1, content.length),
+                      )
                       .addHeader(Header.AcceptRanges.Bytes)
                   case Header.Range.Single(unit, start, endOpt) =>
                     val startInt = start.toInt
@@ -510,7 +512,10 @@ object HttpConformanceSpec extends ZIOSpecDefault {
                       Response
                         .text(partial)
                         .status(Status.PartialContent)
-                        .addHeader(Header.ContentRange.EndTotal(unit, startInt, actualEnd - 1, content.length))
+                        .addHeader(
+                          Header.ContentRange
+                            .EndTotal(unit, startInt, actualEnd - 1, content.length),
+                        )
                         .addHeader(Header.AcceptRanges.Bytes)
                     }
                   case _                                        =>
@@ -1065,7 +1070,10 @@ object HttpConformanceSpec extends ZIOSpecDefault {
                 Response
                   .text(content.substring(start))
                   .status(Status.PartialContent)
-                  .addHeader(Header.ContentRange.EndTotal("bytes", start, content.length - 1, content.length))
+                  .addHeader(
+                    Header.ContentRange
+                      .EndTotal("bytes", start, content.length - 1, content.length),
+                  )
                   .addHeader(Header.AcceptRanges.Bytes)
               case _ => Response.text(content).addHeader(Header.AcceptRanges.Bytes)
             }
@@ -1090,7 +1098,10 @@ object HttpConformanceSpec extends ZIOSpecDefault {
                 Response
                   .text(slice)
                   .status(Status.PartialContent)
-                  .addHeader(Header.ContentRange.EndTotal("bytes", start, content.length - 1, content.length))
+                  .addHeader(
+                    Header.ContentRange
+                      .EndTotal("bytes", start, content.length - 1, content.length),
+                  )
                   .addHeader(Header.AcceptRanges.Bytes)
               case Some(Header.Range.Single("bytes", start, endOpt))               =>
                 val s     = start.toInt

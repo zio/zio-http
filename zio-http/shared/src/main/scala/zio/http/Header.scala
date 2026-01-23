@@ -2196,8 +2196,8 @@ object Header {
     }
 
     private val contentRangeStartEndTotalRegex = """(\w+) (\d+)-(\d+)/(\d+)""".r
-    private val contentRangeStartEndRegex      = """(\w+) (\d+)-(\d+)/*""".r
-    private val contentRangeTotalRegex         = """(\w+) */(\d+)""".r
+    private val contentRangeStartEndRegex      = """(\w+) (\d+)-(\d+)/\*""".r
+    private val contentRangeTotalRegex         = """(\w+) \*/(\d+)""".r
 
     def parse(s: String): Either[String, ContentRange] =
       s match {
@@ -2791,10 +2791,7 @@ object Header {
         case value if MediaType.mainTypeMap.contains(value) => value
       }
       val type1x       = (RichTextCodec.literalCI("x-") ~ tokenString).transform[String](in => s"${in._1}${in._2}")(in => ("x-", s"${in.substring(2)}"))
-      val codecType1   = (type1 | type1x).transform[String](_.merge) {
-        case x if x.startsWith("x-") => Right(x)
-        case x                       => Left(x)
-      }
+      val codecType1   = type1 | type1x
       val forwardSlash = RichTextCodec.char('/').const('/')
       val codecType    = (codecType1 <~ forwardSlash) ~ tokenString
       val quote        = RichTextCodec.char('"')
