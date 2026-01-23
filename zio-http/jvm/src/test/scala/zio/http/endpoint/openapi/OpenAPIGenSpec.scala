@@ -4579,6 +4579,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                               |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("outCodec with empty mediaType map") {
+        val endpoint = Endpoint(GET / "withStatusCodec").outCodec(StatusCodec.Created)
+        OpenAPIGen.fromEndpoints(endpoint)
+        assertCompletes
+      },
     )
 
 }

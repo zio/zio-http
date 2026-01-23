@@ -18,7 +18,7 @@ import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec.HttpCodecType.Content
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.http.endpoint.openapi.JsonSchema.SchemaStyle
+import zio.http.endpoint.openapi.JsonSchema.{SchemaRef, SchemaSpec, SchemaStyle}
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 import zio.http.endpoint.openapi.OpenAPI.{Key, Path, PathItem, ReferenceOr, SecurityScheme}
 import zio.http.internal.StringSchemaCodec
@@ -350,6 +350,7 @@ object OpenAPIGen {
     wrapInObject: Boolean = false,
     omitDescription: Boolean = false,
   )(mediaType: MediaType): JsonSchema = {
+    val refType             = SchemaRef(SchemaSpec.OpenAPI, referenceType)
     val descriptionFromMeta = if (omitDescription) None else description(metadata)
     codec match {
       case atom: HttpCodec.Atom[_, _]                              =>
@@ -359,7 +360,7 @@ object OpenAPIGen {
               findName(metadata).orElse(maybeName).getOrElse(throw new Exception("Multipart content without name"))
             JsonSchema.obj(
               name -> JsonSchema
-                .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), referenceType)
+                .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType)
                 .description(descriptionFromMeta)
                 .deprecated(deprecated(metadata))
                 .nullable(optional(metadata)),
@@ -373,7 +374,7 @@ object OpenAPIGen {
               findName(metadata).orElse(maybeName).getOrElse(throw new Exception("Multipart content without name"))
             JsonSchema.obj(
               name -> JsonSchema
-                .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), referenceType)
+                .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType)
                 .description(descriptionFromMeta)
                 .deprecated(deprecated(metadata))
                 .nullable(optional(metadata))
@@ -391,7 +392,7 @@ object OpenAPIGen {
                     JsonSchema
                       .fromZSchema(
                         codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema),
-                        referenceType,
+                        refType,
                       ),
                   ),
                   None,
@@ -403,7 +404,7 @@ object OpenAPIGen {
             )
           case HttpCodec.Content(codec, _, _)                               =>
             JsonSchema
-              .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), referenceType)
+              .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType)
               .description(descriptionFromMeta)
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
@@ -412,7 +413,7 @@ object OpenAPIGen {
               .ArrayType(
                 Some(
                   JsonSchema
-                    .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), referenceType),
+                    .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType),
                 ),
                 None,
                 uniqueItems = false,
@@ -662,18 +663,19 @@ object OpenAPIGen {
 
   def gen(
     endpoint: Endpoint[_, _, _, _, _],
-    referenceType: SchemaStyle = SchemaStyle.Compact,
+    referenceStyle: SchemaStyle = SchemaStyle.Compact,
     genExamples: Boolean,
   ): OpenAPI = {
-    val inAtoms = AtomizedMetaCodecs.flatten(endpoint.input)
+    val referenceType = SchemaRef(SchemaSpec.OpenAPI, referenceStyle)
+    val inAtoms       = AtomizedMetaCodecs.flatten(endpoint.input)
     val outs: Map[OpenAPI.StatusOrDefault, Map[MediaType, (JsonSchema, AtomizedMetaCodecs)]] =
       schemaByStatusAndMediaType(
         endpoint.output.alternatives.map(_._1) ++ endpoint.error.alternatives.map(_._1),
-        referenceType,
+        referenceStyle,
         omitContentDescription = true,
       )
     // there is no status for inputs. So we just take the first one (default)
-    val ins = schemaByStatusAndMediaType(endpoint.input.alternatives.map(_._1), referenceType).values.headOption
+    val ins = schemaByStatusAndMediaType(endpoint.input.alternatives.map(_._1), referenceStyle).values.headOption
 
     def path: Map[Path, PathItem] = {
       val path           = buildPath(endpoint.input)
@@ -809,7 +811,11 @@ object OpenAPIGen {
             OpenAPI.Parameter.queryParameter(
               name = field.name,
               description = docs,
-              schema = Some(OpenAPI.ReferenceOr.Or(JsonSchema.fromZSchema(codec.schema))),
+              schema = Some(
+                OpenAPI.ReferenceOr.Or(
+                  JsonSchema.fromZSchema(codec.schema, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Inline)),
+                ),
+              ),
               deprecated = mc.deprecated,
               style = OpenAPI.Parameter.Style.Form,
               explode = false,
@@ -925,24 +931,24 @@ object OpenAPIGen {
         ++ endpoint.output.alternatives.map(_._1).map(AtomizedMetaCodecs.flatten(_)).flatMap(_.content)).collect {
         case MetaCodec(HttpCodec.Content(codec, _, _), _)
             if jsonSchemaFromCodec(codec).isDefined &&
-              nominal(jsonSchemaFromCodec(codec).get, referenceType).isDefined =>
-          val schemas = JsonSchema.fromZSchemaMulti(jsonSchemaFromCodec(codec).get, referenceType)
+              nominal(jsonSchemaFromCodec(codec).get, referenceStyle).isDefined =>
+          val schemas = JsonSchema.fromZSchemaMultiple(jsonSchemaFromCodec(codec).get, referenceType)
           schemas.children.map { case (key, schema) =>
-            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
-          } + (OpenAPI.Key.fromString(nominal(jsonSchemaFromCodec(codec).get, referenceType).get).get ->
+            OpenAPI.Key.fromString(key.replace(referenceType.spec.path, "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(jsonSchemaFromCodec(codec).get, referenceStyle).get).get ->
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(jsonSchemaFromCodec(codec).get))))
 
         case MetaCodec(HttpCodec.Content(setCodec, _, _), _)
             if jsonSchemaFromCodec(setCodec).isDefined && jsonSchemaFromCodec(setCodec).get.isInstanceOf[Schema.Set[_]]
               && nominal(
                 jsonSchemaFromCodec(setCodec).get.asInstanceOf[Schema.Set[_]].elementSchema,
-                referenceType,
+                referenceStyle,
               ).isDefined =>
           val schema  = jsonSchemaFromCodec(setCodec).get.asInstanceOf[Schema.Set[_]].elementSchema
-          val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+          val schemas = JsonSchema.fromZSchemaMultiple(schema, referenceType)
           schemas.children.map { case (key, schema) =>
-            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
-          } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
+            OpenAPI.Key.fromString(key.replace(referenceType.spec.path, "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(schema, referenceStyle).get).get ->
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
 
         case MetaCodec(HttpCodec.Content(seqCodec, _, _), _)
@@ -950,13 +956,13 @@ object OpenAPIGen {
               .isInstanceOf[Schema.Sequence[_, _, _]]
               && nominal(
                 jsonSchemaFromCodec(seqCodec).get.asInstanceOf[Schema.Sequence[_, _, _]].elementSchema,
-                referenceType,
+                referenceStyle,
               ).isDefined =>
           val schema  = jsonSchemaFromCodec(seqCodec).get.asInstanceOf[Schema.Sequence[_, _, _]].elementSchema
-          val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+          val schemas = JsonSchema.fromZSchemaMultiple(schema, referenceType)
           schemas.children.map { case (key, schema) =>
-            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
-          } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
+            OpenAPI.Key.fromString(key.replace(referenceType.spec.path, "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(schema, referenceStyle).get).get ->
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
 
         case MetaCodec(HttpCodec.Content(mapCodec, _, _), _)
@@ -964,24 +970,24 @@ object OpenAPIGen {
               .isInstanceOf[Schema.Map[_, _]]
               && nominal(
                 jsonSchemaFromCodec(mapCodec).get.asInstanceOf[Schema.Map[_, _]].valueSchema,
-                referenceType,
+                referenceStyle,
               ).isDefined =>
           val schema  = jsonSchemaFromCodec(mapCodec).get.asInstanceOf[Schema.Map[_, _]].valueSchema
-          val schemas = JsonSchema.fromZSchemaMulti(schema, referenceType)
+          val schemas = JsonSchema.fromZSchemaMultiple(schema, referenceType)
           schemas.children.map { case (key, schema) =>
-            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
-          } + (OpenAPI.Key.fromString(nominal(schema, referenceType).get).get ->
+            OpenAPI.Key.fromString(key.replace(referenceType.spec.path, "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(schema, referenceStyle).get).get ->
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(schema))))
 
         case MetaCodec(HttpCodec.ContentStream(codec, _, _), _)
             if jsonSchemaFromCodec(codec).isDefined && nominal(
               jsonSchemaFromCodec(codec).get,
-              referenceType,
+              referenceStyle,
             ).isDefined =>
-          val schemas = JsonSchema.fromZSchemaMulti(jsonSchemaFromCodec(codec).get, referenceType)
+          val schemas = JsonSchema.fromZSchemaMultiple(jsonSchemaFromCodec(codec).get, referenceType)
           schemas.children.map { case (key, schema) =>
-            OpenAPI.Key.fromString(key.replace("#/components/schemas/", "")).get -> OpenAPI.ReferenceOr.Or(schema)
-          } + (OpenAPI.Key.fromString(nominal(jsonSchemaFromCodec(codec).get, referenceType).get).get ->
+            OpenAPI.Key.fromString(key.replace(referenceType.spec.path, "")).get -> OpenAPI.ReferenceOr.Or(schema)
+          } + (OpenAPI.Key.fromString(nominal(jsonSchemaFromCodec(codec).get, referenceStyle).get).get ->
             OpenAPI.ReferenceOr.Or(schemas.root.discriminator(genDiscriminator(jsonSchemaFromCodec(codec).get))))
       }.flatten.toMap
 
@@ -1156,7 +1162,8 @@ object OpenAPIGen {
     genExamples: Boolean,
   ): Map[OpenAPI.StatusOrDefault, OpenAPI.ReferenceOr[OpenAPI.Response]] =
     codecs.map { case (status, mediaTypes) =>
-      val combinedAtomizedCodecs = mediaTypes.map { case (_, (_, atomized)) => atomized }.reduce(_ ++ _)
+      val combinedAtomizedCodecs =
+        mediaTypes.map { case (_, (_, atomized)) => atomized }.foldLeft(AtomizedMetaCodecs.empty)(_ ++ _)
       val mediaTypeResponses     = mediaTypes.map { case (mediaType, (schema, atomized)) =>
         mediaType.fullType -> OpenAPI.MediaType(
           schema = OpenAPI.ReferenceOr.Or(schema),
@@ -1174,7 +1181,7 @@ object OpenAPIGen {
       )
     }
 
-  private def headersFrom(codec: AtomizedMetaCodecs)                                           = {
+  private def headersFrom(codec: AtomizedMetaCodecs)                                         = {
     codec.header.map { case mc @ MetaCodec(codec, _) =>
       // todo use all headers
       codec.headerType.names.head -> OpenAPI.ReferenceOr.Or(
@@ -1188,10 +1195,10 @@ object OpenAPIGen {
       )
     }.toMap
   }
-  private def schemaReferencePath(nominal: TypeId.Nominal, referenceType: SchemaStyle): String = {
-    referenceType match {
-      case SchemaStyle.Compact => s"#/components/schemas/${nominal.typeName}"
-      case _                   => s"#/components/schemas/${nominal.fullyQualified.replace(".", "_")}}"
+  private def schemaReferencePath(nominal: TypeId.Nominal, referenceType: SchemaRef): String = {
+    referenceType.style match {
+      case SchemaStyle.Compact => s"${referenceType.spec.path}${nominal.typeName}"
+      case _                   => s"${referenceType.spec.path}${nominal.fullyQualified.replace(".", "_")}}"
     }
   }
 }

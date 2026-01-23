@@ -17,11 +17,12 @@
 package zio.http
 
 import java.io.File
+import java.nio.file.Files
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{mac, os, sequential, unix, withLiveClock}
-import zio.test.assertZIO
+import zio.test.TestAspect.{sequential, withLiveClock}
+import zio.test._
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 
@@ -45,7 +46,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
       .deploy
 
   override def spec = suite("StaticFileServerSpec") {
-    serve.as(List(staticSpec))
+    serve.as(List(staticSpec, rangeSpec))
   }.provideShared(Scope.default, DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
@@ -66,6 +67,18 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         test("should have content-type") {
           val res = fileOk.run().map(_.header(Header.ContentType))
           assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain, charset = Some(Charsets.Utf8)))))
+        },
+        test("should have Accept-Ranges header") {
+          val res = fileOk.run().map(_.header(Header.AcceptRanges))
+          assertZIO(res)(isSome(equalTo(Header.AcceptRanges.Bytes)))
+        },
+        test("should have ETag header") {
+          val res = fileOk.run().map(_.header(Header.ETag))
+          assertZIO(res)(isSome)
+        },
+        test("should have Last-Modified header") {
+          val res = fileOk.run().map(_.header(Header.LastModified))
+          assertZIO(res)(isSome)
         },
         test("should respond with empty if file not found") {
           val res = fileNotFound.run().map(_.status)
@@ -88,7 +101,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
             val res     = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy.run().map(_.status)
             assertZIO(res)(equalTo(Status.Forbidden))
           }
-        } @@ os(o => o.isUnix || o.isMac),
+        } @@ TestAspect.os(o => o.isUnix || o.isMac),
       ),
       suite("invalid file")(
         test("should respond with 500") {
@@ -118,6 +131,10 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
           val res = resourceOk.run().map(_.header(Header.ContentType))
           assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain, charset = Some(Charsets.Utf8)))))
         },
+        test("should have Accept-Ranges: none for JAR resources") {
+          val res = resourceOk.run().map(_.header(Header.AcceptRanges))
+          assertZIO(res)(isSome(equalTo(Header.AcceptRanges.None)))
+        },
         test("should respond with empty if not found") {
           val res = resourceNotFound.run().map(_.status)
           assertZIO(res)(equalTo(Status.NotFound))
@@ -125,5 +142,243 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
       ),
     ),
   )
+
+  private def rangeSpec = suite("HTTP Range Request Support")(
+    suite("Single Range")(
+      test("returns 206 Partial Content for valid range") {
+        for {
+          tmpFile <- createTestFile("0123456789abcdefghijklmnopqrstuvwxyz") // 36 bytes
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Single("bytes", 0, Some(9))))
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          body == "0123456789",
+          res.header(Header.ContentRange).contains(Header.ContentRange.EndTotal("bytes", 0, 9, 36)),
+          res.header(Header.AcceptRanges).contains(Header.AcceptRanges.Bytes),
+        )
+      },
+      test("returns correct bytes for middle range") {
+        for {
+          tmpFile <- createTestFile("0123456789abcdefghijklmnopqrstuvwxyz")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Single("bytes", 10, Some(19))))
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          body == "abcdefghij",
+          res.header(Header.ContentRange).contains(Header.ContentRange.EndTotal("bytes", 10, 19, 36)),
+        )
+      },
+      test("clamps end to file size when end exceeds file size") {
+        for {
+          tmpFile <- createTestFile("0123456789")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Single("bytes", 5, Some(100))))
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          body == "56789",
+          res.header(Header.ContentRange).contains(Header.ContentRange.EndTotal("bytes", 5, 9, 10)),
+        )
+      },
+    ),
+    suite("Suffix Range")(
+      test("returns last N bytes for suffix range") {
+        for {
+          tmpFile <- createTestFile("0123456789abcdefghijklmnopqrstuvwxyz")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Suffix("bytes", 5)))
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          body == "vwxyz",
+          res.header(Header.ContentRange).contains(Header.ContentRange.EndTotal("bytes", 31, 35, 36)),
+        )
+      },
+      test("returns entire file if suffix exceeds file size") {
+        for {
+          tmpFile <- createTestFile("short")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Suffix("bytes", 100)))
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          body == "short",
+        )
+      },
+    ),
+    suite("Prefix Range")(
+      test("returns from offset to end for prefix range") {
+        for {
+          tmpFile <- createTestFile("0123456789abcdefghijklmnopqrstuvwxyz")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Prefix("bytes", 30)))
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          body == "uvwxyz",
+          res.header(Header.ContentRange).contains(Header.ContentRange.EndTotal("bytes", 30, 35, 36)),
+        )
+      },
+    ),
+    suite("Invalid Ranges")(
+      test("returns 416 for range starting beyond file size") {
+        for {
+          tmpFile <- createTestFile("short")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Single("bytes", 100, Some(200))))
+        } yield assertTrue(
+          res.status == Status.RequestedRangeNotSatisfiable,
+          res.header(Header.ContentRange).contains(Header.ContentRange.RangeTotal("bytes", 5)),
+        )
+      },
+      test("returns 416 for range with start > end") {
+        for {
+          tmpFile <- createTestFile("0123456789")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Single("bytes", 8, Some(3))))
+        } yield assertTrue(
+          res.status == Status.RequestedRangeNotSatisfiable,
+        )
+      },
+    ),
+    suite("Multiple Ranges")(
+      test("returns multipart/byteranges for multiple valid ranges") {
+        for {
+          tmpFile <- createTestFile("0123456789abcdefghijklmnopqrstuvwxyz")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(
+            Request
+              .get(URL.root)
+              .addHeader(Header.Range.Multiple("bytes", List((0L, Some(4L)), (10L, Some(14L))))),
+          )
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          res
+            .header(Header.ContentType)
+            .exists(ct => ct.mediaType == MediaType.multipart.`byteranges`),
+          body.contains("01234"),
+          body.contains("abcde"),
+          body.contains("Content-Range: bytes 0-4/36"),
+          body.contains("Content-Range: bytes 10-14/36"),
+        )
+      },
+      test("filters out invalid ranges in multiple range request") {
+        for {
+          tmpFile <- createTestFile("0123456789")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(
+            Request
+              .get(URL.root)
+              .addHeader(Header.Range.Multiple("bytes", List((0L, Some(4L)), (100L, Some(200L))))),
+          )
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          body.contains("01234"),
+          body.contains("Content-Range: bytes 0-4/10"),
+        )
+      },
+      test("returns 416 when all ranges are invalid") {
+        for {
+          tmpFile <- createTestFile("short")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res <- handler.runZIO(
+            Request
+              .get(URL.root)
+              .addHeader(Header.Range.Multiple("bytes", List((100L, Some(200L)), (300L, Some(400L))))),
+          )
+        } yield assertTrue(
+          res.status == Status.RequestedRangeNotSatisfiable,
+        )
+      },
+    ),
+    suite("If-Range Conditional")(
+      test("processes range when If-Range ETag matches") {
+        for {
+          tmpFile <- createTestFile("0123456789abcdefghijklmnopqrstuvwxyz")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          // First get the ETag
+          fullRes <- handler.runZIO(Request.get(URL.root))
+          etag      = fullRes.header(Header.ETag).get
+          etagValue = etag match {
+            case Header.ETag.Strong(v) => v
+            case Header.ETag.Weak(v)   => v
+          }
+          // Then make range request with matching If-Range
+          res <- handler.runZIO(
+            Request
+              .get(URL.root)
+              .addHeader(Header.Range.Single("bytes", 0, Some(9)))
+              .addHeader(Header.IfRange.ETag(etagValue)),
+          )
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.PartialContent,
+          body == "0123456789",
+        )
+      },
+      test("returns full content when If-Range ETag does not match") {
+        for {
+          tmpFile <- createTestFile("0123456789abcdefghijklmnopqrstuvwxyz")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(
+            Request
+              .get(URL.root)
+              .addHeader(Header.Range.Single("bytes", 0, Some(9)))
+              .addHeader(Header.IfRange.ETag("non-matching-etag")),
+          )
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.Ok,
+          body == "0123456789abcdefghijklmnopqrstuvwxyz",
+        )
+      },
+    ),
+    suite("Non-bytes Unit")(
+      test("ignores Range header with non-bytes unit") {
+        for {
+          tmpFile <- createTestFile("0123456789")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res  <- handler.runZIO(Request.get(URL.root).addHeader(Header.Range.Single("items", 0, Some(5))))
+          body <- res.body.asString
+        } yield assertTrue(
+          res.status == Status.Ok,
+          body == "0123456789",
+        )
+      },
+    ),
+    suite("ETag and Last-Modified")(
+      test("includes ETag header in response") {
+        for {
+          tmpFile <- createTestFile("test content")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res <- handler.runZIO(Request.get(URL.root))
+        } yield assertTrue(
+          res.header(Header.ETag).isDefined,
+        )
+      },
+      test("includes Last-Modified header in response") {
+        for {
+          tmpFile <- createTestFile("test content")
+          handler = Handler.fromFile(tmpFile).sandbox.toRoutes.deploy
+          res <- handler.runZIO(Request.get(URL.root))
+        } yield assertTrue(
+          res.header(Header.LastModified).isDefined,
+        )
+      },
+    ),
+  )
+
+  private def createTestFile(content: String): ZIO[Scope, Throwable, File] =
+    ZIO.acquireRelease(
+      ZIO.attemptBlocking {
+        val tmpFile = File.createTempFile("range-test-", ".txt")
+        Files.write(tmpFile.toPath, content.getBytes(Charsets.Utf8))
+        tmpFile
+      },
+    )(file => ZIO.attemptBlocking(file.delete()).ignoreLogged)
 
 }

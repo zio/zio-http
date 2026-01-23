@@ -57,7 +57,11 @@ private[netty] object NettyBodyWriter {
     body match {
       case body: FileBody                  =>
         // We need to stream the file when compression is enabled otherwise the response encoding fails
-        val stream = ZStream.fromFile(body.file)
+        // Use body.asStream to respect offset/length for Range requests
+        // Pass None for content length to use chunked transfer encoding - the actual Content-Length
+        // header is already set by NettyResponseEncoder from body.knownContentLength before this runs.
+        // Passing content length here would interfere with response compression which changes the size.
+        val stream = body.asStream
         val s      = StreamBody(stream, None, contentType = body.contentType)
         NettyBodyWriter.writeAndFlush(s, None, ctx)
       case AsyncBody(async, _, _, _)       =>
@@ -84,7 +88,9 @@ private[netty] object NettyBodyWriter {
         None
       case StreamBody(stream, _, _)        =>
         Some(
-          contentLength.orElse(body.knownContentLength) match {
+          // Use the contentLength parameter directly - it comes from headers set by the encoder.
+          // Don't fall back to body.knownContentLength as compression may change the actual size.
+          contentLength match {
             case Some(length) =>
               stream.chunks
                 .runFoldZIO(length) { (remaining, bytes) =>

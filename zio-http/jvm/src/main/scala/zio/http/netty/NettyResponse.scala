@@ -42,6 +42,7 @@ private[netty] object NettyResponse {
     jRes: HttpResponse,
     onComplete: Promise[Throwable, ChannelState],
     keepAlive: Boolean,
+    bodyReadTimeoutMillis: Option[Long] = None,
   )(implicit
     unsafe: Unsafe,
     trace: Trace,
@@ -55,7 +56,7 @@ private[netty] object NettyResponse {
       Response(status, headers, Body.empty)
     } else {
       val contentType     = headers.get(Header.ContentType)
-      val responseHandler = new ClientResponseStreamHandler(onComplete, keepAlive, status)
+      val responseHandler = new ClientResponseStreamHandler(onComplete, keepAlive, status, bodyReadTimeoutMillis)
       ctx
         .pipeline()
         .addAfter(

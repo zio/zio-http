@@ -12,11 +12,13 @@ trait HandlerPlatformSpecific {
   self: Handler.type =>
 
   /**
-   * Creates a handler from a resource path
+   * Creates a handler from a resource path. For file:// resources, Range
+   * requests are fully supported. For jar:// resources, Range requests are not
+   * supported (returns Accept-Ranges: none).
    */
   def fromResource(path: String, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
-  ): Handler[Any, Throwable, Any, Response] =
+  ): Handler[Any, Throwable, Request, Response] =
     Handler.fromZIO {
       ZIO
         .attemptBlocking(getClass.getClassLoader.getResource(path))
@@ -29,7 +31,7 @@ trait HandlerPlatformSpecific {
   private[zio] def fromResourceWithURL(
     url: java.net.URL,
     charset: Charset,
-  )(implicit trace: Trace): Handler[Any, Throwable, Any, Response] = {
+  )(implicit trace: Trace): Handler[Any, Throwable, Request, Response] = {
     url.getProtocol match {
       case "file" => Handler.fromFile(new File(url.getPath), charset)
       case "jar"  =>
@@ -45,6 +47,7 @@ trait HandlerPlatformSpecific {
 
         def isDirectory = new IllegalArgumentException(s"Resource $resourcePath is a directory")
 
+        // For JAR resources, we don't support Range requests due to complexity of seeking in compressed streams
         Handler.fromZIO {
           ZIO
             .acquireReleaseWith(openZip)(closeZip) { jar =>
@@ -53,12 +56,23 @@ trait HandlerPlatformSpecific {
                   .attemptBlocking(Option(jar.getEntry(resourcePath)))
                   .collect(fileNotFound) { case Some(e) => e }
                 _     <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
-                contentLength = entry.getSize
-                inZStream     = ZStream
+                contentLength  = entry.getSize
+                lastModifiedMs = entry.getTime
+                etag           = Header.ETag.Weak(s"${lastModifiedMs.toHexString}-${contentLength.toHexString}")
+                lastModified   = Header.LastModified(
+                  java.time.ZonedDateTime.ofInstant(
+                    java.time.Instant.ofEpochMilli(if (lastModifiedMs < 0) 0 else lastModifiedMs),
+                    java.time.ZoneOffset.UTC,
+                  ),
+                )
+                inZStream      = ZStream
                   .acquireReleaseWith(openZip)(closeZip)
                   .mapZIO(jar => ZIO.attemptBlocking(jar.getEntry(resourcePath) -> jar))
                   .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
-                response      = Response(body = Body.fromStream(inZStream, contentLength))
+                response       = Response(body = Body.fromStream(inZStream, contentLength))
+                  .addHeader(Header.AcceptRanges.None) // Range not supported for JAR resources
+                  .addHeader(etag)
+                  .addHeader(lastModified)
               } yield mediaType.fold(response) { t =>
                 val charset0 = if (t.mainType == "text" || !t.binary) Some(charset) else None
                 response

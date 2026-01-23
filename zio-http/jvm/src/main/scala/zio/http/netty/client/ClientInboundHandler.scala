@@ -36,6 +36,7 @@ private[netty] final class ClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
   enableKeepAlive: Boolean,
+  bodyReadTimeoutMillis: Option[Long] = None,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
@@ -50,9 +51,14 @@ private[netty] final class ClientInboundHandler(
     jReq match {
       case fullRequest: FullHttpRequest =>
         ctx.writeAndFlush(fullRequest): Unit
-      case _: HttpRequest               =>
+      case request: HttpRequest         =>
         ctx.write(jReq)
-        NettyBodyWriter.writeAndFlush(req.body, None, ctx).foreach { effect =>
+        // Extract content length from headers (set by NettyRequestEncoder)
+        val contentLength = request.headers().get(HttpHeaderNames.CONTENT_LENGTH) match {
+          case null  => None
+          case value => Some(value.toLong)
+        }
+        NettyBodyWriter.writeAndFlush(req.body, contentLength, ctx).foreach { effect =>
           rtm.run(ctx, NettyRuntime.noopEnsuring, preferOnCurrentThread = true)(effect)(Unsafe.unsafe, trace)
         }
     }
@@ -62,7 +68,7 @@ private[netty] final class ClientInboundHandler(
     msg match {
       case response: HttpResponse =>
         val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
-        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive)
+        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive, bodyReadTimeoutMillis)
         onResponse.unsafe.done(Exit.succeed(resp))
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit

@@ -72,10 +72,9 @@ object RequestLoggingSpec extends ZIOHttpSpec with TestExtensions {
         for {
           _       <- (app @@ requestLogging()).runZIO(Request.get(url = URL(Path.root / "fail"))).ignore
           entries <- ZTestLogger.logOutput
-          first = entries.head
+          requestServedEntry = entries.find(_.message() == "Http request served").get
         } yield assertTrue(
-          first.message() == "Http request served",
-          first.annotations == Map(
+          requestServedEntry.annotations == Map(
             "method"        -> "GET",
             "duration_ms"   -> "0",
             "url"           -> "/fail",
@@ -92,10 +91,9 @@ object RequestLoggingSpec extends ZIOHttpSpec with TestExtensions {
             .ignore
             .catchAllDefect(_ => ZIO.unit)
           entries <- ZTestLogger.logOutput
-          first = entries.head
+          requestServedEntry = entries.find(_.message() == "Http request served").get
         } yield assertTrue(
-          first.message() == "Http request served",
-          first.annotations == Map(
+          requestServedEntry.annotations == Map(
             "method"        -> "GET",
             "duration_ms"   -> "0",
             "url"           -> "/defect",
