@@ -16,7 +16,7 @@ object Shading {
     Seq(
       shadedModules ++= netty.map(_.module).toSet,
       shadingRules += ShadingRule.rename("io.netty.**", "zio.http.shaded.netty.@1"),
-      validNamespaces += "zio",
+      validNamespaces ++= Set("zio", "org.bouncycastle"),
     )
   } else Nil
 
