@@ -46,6 +46,7 @@ ThisBuild / githubWorkflowAddedJobs :=
         coursierSetup,
       ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
       cond = Option("${{ github.event_name == 'pull_request' }}"),
+      scalas = List(Scala213),
       javas = List(JavaSpec.temurin("21")),
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
@@ -276,8 +277,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.12.6",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.12.6",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.5",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.5",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -362,8 +363,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.0",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.0",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.5.5",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.5",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
