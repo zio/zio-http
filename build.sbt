@@ -2,122 +2,12 @@ import BuildHelper.*
 import Dependencies.{scalafmt, *}
 import scala.sys.process.*
 
-import scala.concurrent.duration.*
-
 val releaseDrafterVersion = "5"
 
 // Setting default log level to INFO
 val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
-// CI Configuration
-ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
-ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
-
 ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
-
-ThisBuild / githubWorkflowJavaVersions   := Seq(
-  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
-  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
-  JavaSpec.temurin("17"),
-  JavaSpec.temurin("21"),
-)
-ThisBuild / githubWorkflowTargetBranches := Seq("main")
-ThisBuild / githubWorkflowPREventTypes   := Seq(
-  PREventType.Opened,
-  PREventType.Synchronize,
-  PREventType.Reopened,
-  PREventType.Edited,
-  PREventType.Labeled,
-)
-
-val coursierSetup =
-  WorkflowStep.Use(
-    UseRef.Public("coursier", "setup-action", "v1"),
-    params = Map("apps" -> "sbt"),
-  )
-
-ThisBuild / githubWorkflowAddedJobs :=
-  Seq(
-    WorkflowJob(
-      id = "mima_check",
-      name = "Mima Check",
-      steps = List(
-        WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
-        coursierSetup,
-      ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
-      cond = Option("${{ github.event_name == 'pull_request' }}"),
-      scalas = List(Scala213),
-      javas = List(JavaSpec.temurin("21")),
-    ),
-  ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
-
-ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
-ThisBuild / githubWorkflowPublish         :=
-  Seq(
-    WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
-    WorkflowStep.Sbt(
-      List("ci-release"),
-      name = Some("Release"),
-      env = Map(
-        "PGP_PASSPHRASE"    -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET"        -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_RELEASE_MODE"   -> "1",
-      ),
-    ),
-    WorkflowStep.Sbt(
-      List("ci-release"),
-      name = Some("Release Shaded"),
-      env = Map(
-        Shading.env.PUBLISH_SHADED -> "true",
-        "PGP_PASSPHRASE"           -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET"               -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD"        -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME"        -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_RELEASE_MODE"          -> "1",
-      ),
-    ),
-  )
-//scala fix isn't available for scala 3 so ensure we only run the fmt check
-//using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble   := Seq(
-  coursierSetup,
-  WorkflowStep.Run(
-    name = Some("Check formatting"),
-    commands = List(s"sbt ++${Scala213} fmtCheck"),
-    cond = Some(s"matrix.scala == '${Scala213}'"),
-  ),
-)
-
-ThisBuild / githubWorkflowBuildPostamble :=
-  WorkflowJob(
-    "checkDocGeneration",
-    "Check doc generation",
-    List(
-      coursierSetup,
-      WorkflowStep.Run(
-        commands = List(s"sbt ++${Scala213} doc"),
-        name = Some("Check doc generation"),
-        cond = Some("${{ github.event_name == 'pull_request' }}"),
-      ),
-    ),
-    scalas = List(Scala213),
-  ).steps ++
-    WorkflowJob(
-      id = "zio-http-shaded-tests",
-      name = "Test shaded version of zio-http",
-      steps = List(
-        WorkflowStep.Sbt(
-          name = Some("zio-http-shaded Tests"),
-          commands = List("zioHttpShadedTests/test"),
-          cond = Some(s"matrix.scala == '$Scala213'"),
-          env = Map(Shading.env.PUBLISH_SHADED -> "true"),
-        ),
-      ),
-    ).steps
 
 inThisBuild(
   List(
@@ -126,8 +16,6 @@ inThisBuild(
     licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
   ),
 )
-
-ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
 lazy val exampleProjects: Seq[ProjectReference] =
   if ("git describe --tags --exact-match".! == 0) Seq.empty[ProjectReference]
@@ -211,6 +99,10 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     ) ++ netty,
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
+  .jvmSettings(
+    coverageMinimumStmtTotal   := 50,
+    coverageMinimumBranchTotal := 60,
+  )
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
