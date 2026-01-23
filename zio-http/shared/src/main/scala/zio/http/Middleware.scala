@@ -433,7 +433,7 @@ object Middleware extends HandlerAspects {
     new Middleware[Any] {
       def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         Routes.fromIterable(
-          routes.routes.map(route => route.transform[Env1](_ @@ aspect(route.routePattern))),
+          routes.routes.map(route => route.transform[Env1](handler => handler.sandbox @@ aspect(route.routePattern))),
         )
     }
   }
