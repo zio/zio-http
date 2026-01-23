@@ -641,3 +641,12 @@ The CSS includes view transition rules that create smooth fade-in effects:
 ```
 
 The result is a highly responsive search experience with beautiful animations, all controlled from the server without complex client-side state management.
+
+### Real-time Chat Example
+
+For a more comprehensive example demonstrating multi-client real-time chat with ZIO Hub broadcasting, see the [Real-time Chat with Datastar](../guides/real-time-chat-with-datastar.md) guide. This example showcases:
+
+- Broadcasting messages to multiple connected clients using ZIO Hub
+- Persistent SSE connections for real-time updates
+- Two-way signal binding with form inputs
+- Type-safe request handling with `readSignals[T]`

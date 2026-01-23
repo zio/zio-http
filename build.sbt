@@ -162,6 +162,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpHtmx,
       zioHttpStomp,
       zioHttpExample,
+      zioHttpExampleDatastarChat,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -367,6 +368,16 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
+
+lazy val zioHttpExampleDatastarChat = (project in file("zio-http-example-datastar-chat"))
+  .disablePlugins(ScalafixPlugin)
+  .settings(stdSettings("zio-http-example-datastar-chat"))
+  .settings(publishSetting(false))
+  .settings(
+    scalaVersion := Scala3,
+    run / fork   := true,
+  )
+  .dependsOn(zioHttpJVM, zioHttpDatastarSdk)
 
 lazy val zioHttpTools = (project in file("zio-http-tools"))
   .settings(stdSettings("zio-http-tools"))
