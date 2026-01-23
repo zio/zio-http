@@ -77,6 +77,7 @@ object JmhBenchmarkWorkflow {
     WorkflowJob(
       id = "Jmh_cache",
       name = "Cache Jmh benchmarks",
+      scalas = List(Scala213),
       javas = List(JavaSpec.temurin("17")),
       cond = Some(
         "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}",
