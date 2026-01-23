@@ -130,6 +130,121 @@ object ClientSpec extends RoutesRunnableSpec {
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == baseURL + "/my-service/hello")
     },
+    test("client should timeout when server sends headers but never sends body") {
+      // This test reproduces the issue from https://github.com/zio/zio-http/issues/2383
+      // We create a raw Netty server that sends HTTP response headers but then hangs
+      // without sending the body data - similar to what broken servers like heyhttp do
+      import io.netty.bootstrap.ServerBootstrap
+      import io.netty.channel._
+      import io.netty.channel.nio.NioIoHandler
+      import io.netty.channel.socket.SocketChannel
+      import io.netty.channel.socket.nio.NioServerSocketChannel
+      import io.netty.handler.codec.http._
+
+      val test = for {
+        // Create a broken HTTP server using raw Netty
+        bossGroup   <- ZIO.succeed(new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory()))
+        workerGroup <- ZIO.succeed(new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory()))
+        bootstrap = new ServerBootstrap()
+          .group(bossGroup, workerGroup)
+          .channel(classOf[NioServerSocketChannel])
+          .childHandler(new ChannelInitializer[SocketChannel] {
+            override def initChannel(ch: SocketChannel): Unit = {
+              ch.pipeline().addLast(new HttpServerCodec()): Unit
+              ch.pipeline()
+                .addLast(new SimpleChannelInboundHandler[HttpRequest](false) {
+                  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpRequest): Unit = {
+                    // Send response headers with Content-Length but never send the body
+                    val response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK)
+                    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, 1000): Unit
+                    response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain"): Unit
+                    ctx.writeAndFlush(response): Unit
+                    // Intentionally don't send body data and keep connection open - this is the bug scenario
+                  }
+                }): Unit
+            }
+          })
+
+        channel <- ZIO.attemptBlocking(bootstrap.bind(0).sync().channel())
+        port = channel.localAddress().asInstanceOf[java.net.InetSocketAddress].getPort
+
+        // Create a client with shorter timeout for testing
+        client <- ZIO.service[Client].map(_.url(URL.decode(s"http://localhost:$port").toOption.get))
+
+        // Try to make a request and read the body - should timeout
+        result <- (for {
+          response <- ZIO.scoped(client(Request()))
+          _        <- response.body.asString // This should timeout
+        } yield false).timeout(3.seconds).map(_.getOrElse(true)).either
+
+        // Cleanup
+        _ <- ZIO.attemptBlocking {
+          channel.close().sync()
+          bossGroup.shutdownGracefully()
+          workerGroup.shutdownGracefully()
+        }
+      } yield result match {
+        case Left(_)      => true  // Failed with error (good)
+        case Right(true)  => true  // Timed out (good)
+        case Right(false) => false // Completed successfully (bad)
+      }
+
+      assertZIO(test)(isTrue)
+    } @@ timeout(10.seconds), // Reproducer for #2383 - should pass with timeout implementation
+    test("client should not exhaust connection pool with broken servers") {
+      // This test verifies that multiple concurrent requests to broken servers
+      // don't exhaust the connection pool
+      import io.netty.bootstrap.ServerBootstrap
+      import io.netty.channel._
+      import io.netty.channel.nio.NioIoHandler
+      import io.netty.channel.socket.SocketChannel
+      import io.netty.channel.socket.nio.NioServerSocketChannel
+      import io.netty.handler.codec.http._
+
+      val test = for {
+        // Create a broken HTTP server
+        bossGroup   <- ZIO.succeed(new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory()))
+        workerGroup <- ZIO.succeed(new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory()))
+        bootstrap = new ServerBootstrap()
+          .group(bossGroup, workerGroup)
+          .channel(classOf[NioServerSocketChannel])
+          .childHandler(new ChannelInitializer[SocketChannel] {
+            override def initChannel(ch: SocketChannel): Unit = {
+              ch.pipeline().addLast(new HttpServerCodec()): Unit
+              ch.pipeline()
+                .addLast(new SimpleChannelInboundHandler[HttpRequest](false) {
+                  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpRequest): Unit = {
+                    val response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK)
+                    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, 1000): Unit
+                    ctx.writeAndFlush(response): Unit
+                    // Don't send body - simulate broken server
+                  }
+                }): Unit
+            }
+          })
+
+        channel <- ZIO.attemptBlocking(bootstrap.bind(0).sync().channel())
+        port = channel.localAddress().asInstanceOf[java.net.InetSocketAddress].getPort
+        client <- ZIO.service[Client].map(_.url(URL.decode(s"http://localhost:$port").toOption.get))
+
+        // Make multiple concurrent requests - they should all timeout, not hang forever
+        results <- ZIO.foreachPar((1 to 3).toList) { _ =>
+          (for {
+            response <- ZIO.scoped(client(Request()))
+            _        <- response.body.asString
+          } yield ()).timeout(2.seconds).as(false).catchAll(_ => ZIO.succeed(true))
+        }
+
+        // Cleanup
+        _ <- ZIO.attemptBlocking {
+          channel.close().sync()
+          bossGroup.shutdownGracefully()
+          workerGroup.shutdownGracefully()
+        }
+      } yield results.forall(identity) // All should have failed or timed out
+
+      assertZIO(test)(isTrue)
+    } @@ timeout(15.seconds),                                  // Reproducer for #2383 - connection pool exhaustion
   )
 
   override def spec = {

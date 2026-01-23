@@ -216,6 +216,16 @@ final case class ErrorResponseConfig(
 )
 ```
 
+#### Error Logging
+
+When using the `sandbox` method on routes or handlers, unhandled errors (both typed failures and defects) are automatically logged using `ZIO.logErrorCause` before being converted to HTTP responses.
+
+This means that when an exception is thrown in a request handler, you will see an error log entry like:
+
+```
+timestamp=2024-01-15T10:30:45.123Z level=ERROR message="Unhandled exception in request handler" cause="Exception in thread..."
+```
+
 This config can not only be used directly, but can also configure how ZIO-HTTP internally converts a `Cause` or `Throwable` to a `Response`.
 You can configure error responses globally by providing a custom `ErrorResponseConfig` via layer for example in the bootstrap of your application.
 Or you can apply the config locally to some routes via middleware.

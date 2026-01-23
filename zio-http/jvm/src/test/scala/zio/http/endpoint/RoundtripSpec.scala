@@ -540,6 +540,49 @@ object RoundtripSpec extends ZIOHttpSpec {
           "42",
         )
       }
+      test("endpoint error returned for outStream[Byte] - issue #3207") {
+        // This test verifies that outError works correctly with outStream[Byte]
+        // See: https://github.com/zio/zio-http/issues/3207
+        val api = Endpoint(GET / "download")
+          .query(HttpCodec.query[Boolean]("shouldFail"))
+          .outStream[Byte]
+          .outError[String](Status.Custom(999))
+
+        val route = api.implementHandler {
+          Handler.fromFunctionZIO { shouldFail =>
+            if (shouldFail) ZIO.fail("error message")
+            else ZIO.succeed(ZStream.fromChunk(Chunk.fromArray("success".getBytes)))
+          }
+        }
+
+        testEndpointError(
+          api,
+          Routes(route),
+          true,
+          "error message",
+        )
+      }
+      test("endpoint error status code for outStream[Byte] - issue #3207") {
+        // This test verifies that the actual HTTP status code is correct with outStream[Byte]
+        // See: https://github.com/zio/zio-http/issues/3207
+        val api = Endpoint(GET / "download")
+          .query(HttpCodec.query[Boolean]("shouldFail"))
+          .outStream[Byte]
+          .outError[String](Status.Custom(999))
+
+        val route = api.implementHandler {
+          Handler.fromFunctionZIO { shouldFail =>
+            if (shouldFail) ZIO.fail("error message")
+            else ZIO.succeed(ZStream.fromChunk(Chunk.fromArray("success".getBytes)))
+          }
+        }
+
+        testEndpointCustomRequestZIO(
+          Routes(route),
+          Request.get(URL.root / "download").addQueryParam("shouldFail", "true"),
+          response => assertTrue(response.status == Status.Custom(999)),
+        )
+      }
       test("Failed endpoint deserialization") {
         val endpoint =
           Endpoint(GET / "users" / int("userId")).out[Int].outError[Int](Status.Custom(999))

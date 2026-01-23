@@ -72,9 +72,25 @@ sealed abstract class RichTextCodec[A] { self =>
    * Returns a new codec that is the fallback composition of this codec and the
    * specified codec, preferring this codec, but falling back to the specified
    * codec in the event of failure.
+   *
+   * When both codecs have the same output type, the result type is unified (no
+   * Either wrapper). When types differ, the result is Either[A, B].
    */
-  final def |[B](that: => RichTextCodec[B]): RichTextCodec[Either[A, B]] =
-    RichTextCodec.Alt(self, RichTextCodec.defer(that))
+  final def |[B](that: => RichTextCodec[B])(implicit
+    alternator: Alternator[A, B],
+  ): RichTextCodec[alternator.Out] =
+    RichTextCodec
+      .Alt(self, RichTextCodec.defer(that))
+      .transform[alternator.Out](either => either.fold(l => alternator.left(l), r => alternator.right(r)))(value =>
+        alternator
+          .unleft(value)
+          .map(Left(_))
+          .orElse(alternator.unright(value).map(Right(_)))
+          .get,
+      )
+
+  final def ~|~(that: => RichTextCodec[Unit])(implicit ev: A =:= Unit): RichTextCodec[Unit] =
+    self.asType[Unit] | that
 
   /**
    * Tranforms this constant unit codec to a constant codec of another type.
@@ -132,6 +148,12 @@ sealed abstract class RichTextCodec[A] { self =>
   final lazy val repeat: RichTextCodec[Chunk[A]] =
     RichTextCodec.Repeated(self)
 
+  final lazy val repeatNonEmpty: RichTextCodec[NonEmptyChunk[A]] =
+    self.repeat.transformOrFailLeft[NonEmptyChunk[A]](chunk =>
+      if (chunk.isEmpty) Left("Expected at least one element")
+      else Right(NonEmptyChunk.fromIterable(chunk.head, chunk.tail)),
+    )(chunk => chunk.toChunk)
+
   final def singleton: RichTextCodec[NonEmptyChunk[A]] =
     self.transform(a => NonEmptyChunk.single(a))(_.head)
 
@@ -164,7 +186,7 @@ sealed abstract class RichTextCodec[A] { self =>
     }
 
   final def withError(errorMessage: String): RichTextCodec[A] =
-    (self | RichTextCodec.fail[A](errorMessage)).merge
+    self | RichTextCodec.fail[A](errorMessage)
 
 }
 object RichTextCodec {
@@ -254,7 +276,10 @@ object RichTextCodec {
   /**
    * A codec that describes a literal character sequence.
    */
-  def literal(lit: String): RichTextCodec[String] = {
+  def literal(lit: String): RichTextCodec[String] =
+    literalUnit(lit).as(lit)
+
+  def literalUnit(lit: String): RichTextCodec[Unit] = {
     def loop(list: List[Char]): RichTextCodec[Unit] =
       list match {
         case head :: tail =>
@@ -262,7 +287,7 @@ object RichTextCodec {
         case Nil          => empty
       }
 
-    loop(lit.toList).as(lit)
+    loop(lit.toList)
   }
 
   /**

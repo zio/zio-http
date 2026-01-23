@@ -275,6 +275,11 @@ object WebSpec extends ZIOHttpSpec with TestExtensions { self =>
         }
       },
     ),
+    // Reset ErrorResponseConfig before each test to ensure test isolation.
+    // The FiberRef's default value depends on Mode.isDev at class loading time,
+    // and tests that use ErrorResponseConfig.debug.whenHeader only SET the config
+    // when conditions are met - they don't reset it when conditions aren't met.
+    // This can cause flakiness when tests run in different orders or environments.
     suite("prettify error")(
       test("missing accept header treated as */*") {
         val handlerDefaultConfig = Handler.internalServerError("Error !!!").rawHeader("content-type")
@@ -347,7 +352,7 @@ object WebSpec extends ZIOHttpSpec with TestExtensions { self =>
           ),
         )(isSome(equalTo("application/json")))
       },
-    ),
+    ) @@ TestAspect.before(ErrorResponseConfig.setConfig(ErrorResponseConfig.default)),
   )
 
   private def cond(flg: Boolean) = (_: Any) => flg
