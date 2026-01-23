@@ -48,6 +48,7 @@ object ClientSSLConfig {
       serverCertConfig.zipWith(clientCertConfig)(FromClientAndServerCert(_, _))
     }
 
+    @scala.annotation.nowarn("msg=never used")
     val fromJavaxNetSsl = {
       keyManagerKeyStoreType.optional
         .zip(keyManagerFile.optional)

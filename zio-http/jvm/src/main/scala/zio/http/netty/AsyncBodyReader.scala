@@ -228,6 +228,7 @@ private[netty] object AsyncBodyReader {
   }
 
   // For Scala 2.12. In Scala 2.13+, the methods directly implemented on ArrayBuilder[Byte] are selected over syntax.
+  @scala.annotation.nowarn("msg=never used")
   private implicit class ByteArrayBuilderOps[A](private val self: mutable.ArrayBuilder[Byte]) extends AnyVal {
     def addAll(as: Array[Byte]): Unit = self ++= as
     def knownSize: Int                = -1

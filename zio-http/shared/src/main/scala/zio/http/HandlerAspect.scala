@@ -102,7 +102,7 @@ final case class HandlerAspect[-Env, +CtxOut](
         Handler.scoped[Env1] {
           for {
             tuple <- protocol.incomingHandler
-            (state, (request, ctxOut)) = tuple
+            (state, (request, _)) = tuple
             either   <- Handler.fromZIO(handler(request)).either
             response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
             response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
@@ -138,7 +138,7 @@ final case class HandlerAspect[-Env, +CtxOut](
       Handler.scoped[Env1] {
         for {
           tuple <- protocol.incomingHandler
-          (state, (request, ctxOut)) = tuple
+          (state, (request, _)) = tuple
           either   <- Handler.fromZIO(handler(request)).either
           response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
           response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)

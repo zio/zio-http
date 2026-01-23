@@ -186,7 +186,7 @@ trait DatastarPackageBase extends Attributes {
     ((patchElementsCodec | executeScriptCodec).transform(_.merge) {
       case e: DatastarEvent.PatchElements => Left(e)
       case e: DatastarEvent.ExecuteScript => Right(e)
-      case e: DatastarEvent.PatchSignals  => throw new Exception("Unreachable")
+      case _: DatastarEvent.PatchSignals  => throw new Exception("Unreachable")
     } | patchSignalsCodec).transform(_.merge) {
       case e: DatastarEvent.PatchElements => Left(e)
       case e: DatastarEvent.ExecuteScript => Left(e)

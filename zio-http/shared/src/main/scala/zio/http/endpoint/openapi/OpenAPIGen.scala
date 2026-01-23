@@ -973,7 +973,7 @@ object OpenAPIGen {
 
     def httpSecuritySchemes(
       endpoint: Endpoint[_, _, _, _, _],
-      params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
+      @scala.annotation.unused params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
     ): ListMap[Key, ReferenceOr[SecurityScheme]] =
       endpoint.authType match {
         case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
