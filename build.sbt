@@ -46,6 +46,7 @@ ThisBuild / githubWorkflowAddedJobs :=
         coursierSetup,
       ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
       cond = Option("${{ github.event_name == 'pull_request' }}"),
+      scalas = List(Scala213),
       javas = List(JavaSpec.temurin("21")),
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
