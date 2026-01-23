@@ -355,5 +355,30 @@ object RouteSpec extends ZIOHttpSpec {
 
       assertTrue(Exit.succeed(Response.ok) == ok(request))
     },
+    suite("HandlerAspect with path parameters")(
+      test("HandlerAspect should work with routes containing path parameters (#3141)") {
+        val authAspect: HandlerAspect[Any, Int] =
+          HandlerAspect.interceptIncomingHandler(Handler.fromFunction[Request] { request =>
+            (request, 42)
+          })
+
+        // Fixed: Apply aspect to the Route (not the Handler) using the new Route.@@ operator
+        // This correctly applies the aspect after path parameters are decoded
+        val route = (Method.GET / "base" / string("id") ->
+          handler((id: String, req: Request) => {
+            ZIO.succeed(Response.text(s"id=$id"))
+          })) @@ authAspect
+
+        val routes = Routes(route)
+
+        for {
+          response <- routes.runZIO(Request.get(url"/base/test123"))
+          body <- response.body.asString
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == "id=test123"
+        )
+      }
+    ),
   )
 }

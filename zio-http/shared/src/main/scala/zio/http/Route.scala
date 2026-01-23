@@ -391,6 +391,36 @@ sealed trait Route[-Env, +Err] { self =>
         ErrorResponseConfig.configRef.getWith(cfg => Exit.succeed(Response.fromCause(cause, cfg)))
     }
 
+  /**
+   * Applies a middleware aspect to this route.
+   */
+  final def @@[Env1 <: Env](aspect: Middleware[Env1])(implicit
+    ev: Err <:< Response,
+    trace: Trace,
+  ): Route[Env1, Nothing] =
+    Route.handledIgnoreParams(routePattern)(toHandler @@ aspect)
+
+  /**
+   * Applies a handler aspect that does not provide context to this route.
+   */
+  final def @@[Env0](aspect: HandlerAspect[Env0, Unit])(implicit
+    ev: Err <:< Response,
+    trace: Trace,
+  ): Route[Env with Env0, Nothing] =
+    Route.handledIgnoreParams(routePattern)(toHandler @@ aspect)
+
+  /**
+   * Applies a handler aspect that provides context to this route.
+   * The aspect is applied after path parameters are decoded, so the handler
+   * receives a plain Request rather than a tuple of (params, request).
+   */
+  final def @@[Env0, Ctx <: Env](aspect: HandlerAspect[Env0, Ctx])(implicit
+    ev: Err <:< Response,
+    trace: Trace,
+    tag: Tag[Ctx],
+  ): Route[Env0, Nothing] =
+    Route.handledIgnoreParams(routePattern)(toHandler @@ aspect)
+
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
   final def toRoutes: Routes[Env, Err] = Routes(self)
