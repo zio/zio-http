@@ -6,7 +6,7 @@ import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.21"
-  val Scala213         = "2.13.16"
+  val Scala213         = "2.13.18"
   val Scala3           = "3.3.7"
   val ScoverageVersion = "2.3.0"
   val JmhVersion       = "0.4.7"
