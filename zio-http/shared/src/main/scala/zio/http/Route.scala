@@ -15,7 +15,6 @@
  */
 package zio.http
 
-import zio.Cause.Fail
 import zio._
 
 import zio.http.Route.CheckResponse
@@ -393,6 +392,16 @@ sealed trait Route[-Env, +Err] { self =>
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
+  /**
+   * Internal method that returns the handler without applying sandbox. This is
+   * used by Augmented to allow transforms to intercept defects before they are
+   * converted to responses.
+   */
+  private[http] def toHandlerUnsandboxed(implicit
+    ev: Err <:< Response,
+    trace: Trace,
+  ): Handler[Env, Response, Request, Response]
+
   final def toRoutes: Routes[Env, Err] = Routes(self)
 
   def transform[Env1](
@@ -455,6 +464,12 @@ object Route                   {
     override def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Any, Response, Request, Response] =
       route.toHandler.provideEnvironment(env)
 
+    override private[http] def toHandlerUnsandboxed(implicit
+      ev: Err <:< Response,
+      trace: Trace,
+    ): Handler[Any, Response, Request, Response] =
+      route.toHandlerUnsandboxed.provideEnvironment(env)
+
     override def toString = s"Route.Provided(${route}, ${env})"
   }
 
@@ -467,7 +482,13 @@ object Route                   {
     def routePattern: RoutePattern[_] = route.routePattern
 
     override def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[OutEnv, Response, Request, Response] =
-      aspect(route.toHandler)
+      aspect(route.toHandlerUnsandboxed).sandbox
+
+    override private[http] def toHandlerUnsandboxed(implicit
+      ev: Err <:< Response,
+      trace: Trace,
+    ): Handler[OutEnv, Response, Request, Response] =
+      aspect(route.toHandlerUnsandboxed)
 
     override def toString = s"Route.Augmented(${route}, ${aspect})"
   }
@@ -478,9 +499,15 @@ object Route                   {
     location: Trace,
   ) extends Route[Env, Nothing] {
     override def toHandler(implicit ev: Nothing <:< Response, trace: Trace): Handler[Env, Response, Request, Response] =
+      toHandlerUnsandboxed(ev, trace).sandbox
+
+    override private[http] def toHandlerUnsandboxed(implicit
+      ev: Nothing <:< Response,
+      trace: Trace,
+    ): Handler[Env, Response, Request, Response] =
       Handler.scoped[Env] {
         Handler
-          .fromZIO(handler(routePattern).map(_.sandbox))
+          .fromZIO(handler(routePattern))
           .flatten
       }
 
@@ -498,6 +525,13 @@ object Route                   {
       convert(handler.asErrorType[Response])
     }
 
+    override private[http] def toHandlerUnsandboxed(implicit
+      ev: Err <:< Response,
+      trace: Trace,
+    ): Handler[Env, Response, Request, Response] = {
+      convertUnsandboxed(handler.asErrorType[Response])
+    }
+
     override def toString = s"Route.Unhandled(${routePattern}, ${location})"
 
     private def convert[Env1 <: Env](
@@ -506,6 +540,14 @@ object Route                   {
       implicit val z = zippable
 
       Route.handled(routePattern)(handler).toHandler
+    }
+
+    private def convertUnsandboxed[Env1 <: Env](
+      handler: Handler[Env1, Response, Input, Response],
+    )(implicit trace: Trace): Handler[Env1, Response, Request, Response] = {
+      implicit val z = zippable
+
+      Route.handled(routePattern)(handler).toHandlerUnsandboxed
     }
   }
 
