@@ -403,9 +403,9 @@ sealed trait Route[-Env, +Err] { self =>
     self.transform[Env with Env0](handler => handler @@ aspect)
 
   /**
-   * Applies a handler aspect that provides context to this route.
-   * The aspect is applied after path parameters are decoded, so the handler
-   * receives a plain Request rather than a tuple of (params, request).
+   * Applies a handler aspect that provides context to this route. The aspect is
+   * applied after path parameters are decoded, so the handler receives a plain
+   * Request rather than a tuple of (params, request).
    */
   final def @@[Env0, Ctx <: Env](aspect: HandlerAspect[Env0, Ctx])(implicit
     tag: Tag[Ctx],
