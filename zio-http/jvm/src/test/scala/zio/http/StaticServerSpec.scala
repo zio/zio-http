@@ -28,10 +28,10 @@ import zio.http.internal.{DynamicServer, HttpGen, RoutesRunnableSpec, serverTest
 object StaticServerSpec extends RoutesRunnableSpec {
 
   private val staticApp = Routes(
-    Method.GET / "success"       -> handler(Response.ok),
-    Method.GET / "failure"       -> handler(ZIO.fail(new RuntimeException("FAILURE"))),
-    Method.GET / "die"           -> handler(ZIO.die(new RuntimeException("DIE"))),
-    Method.GET / "get%2Fsuccess" -> handler(Response.ok),
+    Method.GET / "success"     -> handler(Response.ok),
+    Method.GET / "failure"     -> handler(ZIO.fail(new RuntimeException("FAILURE"))),
+    Method.GET / "die"         -> handler(ZIO.die(new RuntimeException("DIE"))),
+    Method.GET / "get success" -> handler(Response.ok),
   ).sandbox
 
   // Use this route to test anything that doesn't require ZIO related computations.
@@ -127,7 +127,7 @@ object StaticServerSpec extends RoutesRunnableSpec {
         assertZIO(actual)(equalTo(Status.NotFound))
       },
       test("200 response with encoded path") {
-        val actual = status(path = Path.root / "get%2Fsuccess")
+        val actual = status(path = Path.root / "get%20success")
         assertZIO(actual)(equalTo(Status.Ok))
       },
       test("Multiple 200 response") {
