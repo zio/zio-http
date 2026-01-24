@@ -152,11 +152,19 @@ const sidebars = {
           "guides/authentication-with-a-third-party-oauth-provider",
           "guides/passwordless-authentication-with-webauthn",
        ],
-    },
-    {
-       type: "category",
-       collapsed: false,
-       label: "SSL/TLS",
+     },
+     {
+        type: "category",
+        collapsed: false,
+        label: "Datastar",
+        items: [
+           "guides/real-time-chat-with-datastar",
+        ],
+     },
+     {
+        type: "category",
+        collapsed: false,
+        label: "SSL/TLS",
        link: { type: 'doc', id: "guides/securing-communication-with-ssl-tls" },
        items: [
           "guides/implementing-tls-with-self-signed-server-certificate",
