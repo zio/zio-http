@@ -4541,6 +4541,55 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
           json == toJsonAst(expectedJson),
         )
       },
+      test("text/plain output generates correct example format") {
+        // Test for https://github.com/zio/zio-http/issues/3260
+        // When MediaType.text.plain is specified, the response should use text/plain media type
+        // Using existing Payload class defined at the top of this file
+        val endpoint = Endpoint(GET / "greeting" / string("name"))
+          .out[Payload](Status.Ok, MediaType.text.plain)
+
+        val generated = OpenAPIGen.fromEndpoints("Greeting API", "1.0", endpoint)
+        val json      = toJsonAst(generated)
+
+        // Verify the response content type is text/plain (not application/json)
+        val expectedJson = """|{
+                              |  "openapi" : "3.1.0",
+                              |  "info" : {
+                              |    "title" : "Greeting API",
+                              |    "version" : "1.0"
+                              |  },
+                              |  "paths" : {
+                              |    "/greeting/{name}" : {
+                              |      "get" : {
+                              |        "parameters" : [
+                              |          {
+                              |            "name" : "name",
+                              |            "in" : "path",
+                              |            "required" : true,
+                              |            "schema" : {
+                              |              "type" : "string"
+                              |            },
+                              |            "style" : "simple"
+                              |          }
+                              |        ],
+                              |        "responses" : {
+                              |          "200" : {
+                              |            "content" : {
+                              |              "text/plain" : {
+                              |                "schema" : {
+                              |                  "$ref" : "#/components/schemas/Payload"
+                              |                }
+                              |              }
+                              |            }
+                              |          }
+                              |        }
+                              |      }
+                              |    }
+                              |  },
+                              |  "components" : {}
+                              |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
       test("outCodec with empty mediaType map") {
         val endpoint = Endpoint(GET / "withStatusCodec").outCodec(StatusCodec.Created)
         OpenAPIGen.fromEndpoints(endpoint)
