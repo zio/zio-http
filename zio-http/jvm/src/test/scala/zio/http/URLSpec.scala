@@ -99,6 +99,20 @@ object URLSpec extends ZIOHttpSpec {
           val expected     = urlWithSpace.encode
           assertTrue(expected == "/my%20folder/file.txt")
         },
+        test("url with already encoded path should not double encode") {
+          val originalUrl = "http://testsample.com/file/test%20hotel.pdf"
+          val decoded     = URL.decode(originalUrl)
+          val reEncoded   = decoded.map(_.encode)
+          assertTrue(reEncoded == Right(originalUrl))
+        },
+        test("url fromURI should not double encode path") {
+          val uri = new java.net.URI("http://testsample.com/file/test%20hotel.pdf")
+          val url = URL.fromURI(uri)
+          assertTrue(
+            url.isDefined,
+            url.get.encode == "http://testsample.com/file/test%20hotel.pdf",
+          )
+        },
         test("auto-gen") {
           check(HttpGen.url) { url =>
             val expected        = url.copy(path = url.path.addLeadingSlash)

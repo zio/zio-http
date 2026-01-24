@@ -393,7 +393,7 @@ object URL {
     val prefix = if (!url.path.hasLeadingSlash) "/" else ""
 
     prefix + (if (url.queryParams.isEmpty) {
-                url.path.encode
+                url.path.encodeBuilder.toString
               } else {
                 // this branch could be more efficient with something like QueryParamEncoding.appendNonEmpty(pathBuf, qparams, Charsets.Http)
                 // that directly filtered the keys/values and appended to the buffer
@@ -409,13 +409,13 @@ object URL {
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1)
       connection = URL.Location.Absolute(scheme, host, port)
-      path2      = Path.decode(path)
+      path2      = Path.decodeRaw(path)
       path3      = if (path.nonEmpty) path2.addLeadingSlash else path2
     } yield URL(path3, connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
   }
 
   private[http] def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
-  } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
+  } yield URL(Path.decodeRaw(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
 
 }

@@ -352,6 +352,57 @@ object Path {
     }
 
   /**
+   * Decodes a percent-encoded (raw) path string into a Path. This splits by '/'
+   * first, then decodes each segment, so encoded slashes (%2F) within segments
+   * are preserved as literal '/' characters in the segment value (not as path
+   * separators).
+   */
+  private[http] def decodeRaw(path: String): Path =
+    if (path.isEmpty) Path.empty
+    else {
+      val chunkBuilder = ChunkBuilder.make[String]()
+
+      var flags: Path.Flags = Path.Flags.none
+
+      val max       = path.length - 1
+      var lastSlash = -1
+
+      var i    = 0
+      var loop = true
+      while (loop) {
+        val char = path.charAt(i)
+        if (char == '/') {
+          if (i == 0) {
+            flags = Path.Flag.LeadingSlash.add(flags)
+          }
+          if (i == max) {
+            if (i != 0) flags = Path.Flag.TrailingSlash.add(flags)
+            loop = false
+          }
+          val segmentLen = (i - 1) - lastSlash
+
+          if (segmentLen > 0) {
+            val rawSegment = path.substring(lastSlash + 1, i)
+            chunkBuilder += QueryParamEncoding.decodePathSegment(rawSegment, Charsets.Http)
+          }
+
+          lastSlash = i
+        } else if (i == max) {
+          loop = false
+
+          val segmentLen = i - lastSlash
+          if (segmentLen > 0) {
+            val rawSegment = path.substring(lastSlash + 1, i + 1)
+            chunkBuilder += QueryParamEncoding.decodePathSegment(rawSegment, Charsets.Http)
+          }
+        }
+        i = i + 1
+      }
+
+      Path(flags, chunkBuilder.result()).removeDotSegments
+    }
+
+  /**
    * Represents a empty path which is rendered as "".
    */
   val empty: Path = Path(Flags.none, Chunk.empty)

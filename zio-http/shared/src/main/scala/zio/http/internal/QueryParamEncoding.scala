@@ -263,4 +263,46 @@ private[http] object QueryParamEncoding {
     (c >= '0' && c <= '9') ||
     c == '-' || c == '.' || c == '_' || c == '~' || c == '*' || c == ':' || c == '@'
   }
+
+  /**
+   * Decodes a percent-encoded path segment. Unlike query parameter decoding,
+   * this does NOT decode '+' as space ('+' is valid in paths).
+   */
+  private[http] def decodePathSegment(segment: String, charset: Charset): String = {
+    if (segment.isEmpty) return ""
+
+    var needsDecoding = false
+    var i             = 0
+    val len           = segment.length
+    while (i < len && !needsDecoding) {
+      needsDecoding = segment.charAt(i) == '%'
+      i += 1
+    }
+
+    if (!needsDecoding) return segment
+
+    ByteArrayOutputStreamPool.withStream { byteBuffer =>
+      i = 0
+      while (i < len) {
+        val c = segment.charAt(i)
+        if (c == '%' && i + 2 < len) {
+          val digit1 = Character.digit(segment.charAt(i + 1), 16)
+          val digit2 = Character.digit(segment.charAt(i + 2), 16)
+          if (digit1 >= 0 && digit2 >= 0) {
+            byteBuffer.write((digit1 << 4) | digit2)
+            i += 3
+          } else {
+            val bytes = "%".getBytes(charset)
+            byteBuffer.write(bytes, 0, bytes.length)
+            i += 1
+          }
+        } else {
+          val bytes = c.toString.getBytes(charset)
+          byteBuffer.write(bytes, 0, bytes.length)
+          i += 1
+        }
+      }
+      new String(byteBuffer.toByteArray, charset)
+    }
+  }
 }
