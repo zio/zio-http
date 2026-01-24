@@ -513,23 +513,36 @@ object JsonSchema {
         case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]]) =>
           JsonSchemas(fromZSchema(enum0, refType.inline), ref, Map.empty)
         case enum0: Schema.Enum[_]                                                             =>
+          val discriminatorName0   =
+            enum0.annotations.collectFirst { case discriminatorName(name) => name }
+          val hasNoDiscriminator   = enum0.annotations.exists(_.isInstanceOf[noDiscriminator])
+          val nonTransientCases    = enum0.cases.filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
+          val shouldAddDiscrimProp = discriminatorName0.isDefined && !hasNoDiscriminator
+
           JsonSchemas(
             fromZSchema(enum0, refType.inline),
             ref,
-            enum0.cases
-              .filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
-              .flatMap { c =>
-                val key    =
-                  nominal(c.schema, refType)
-                    .orElse(nominal(c.schema, refType.inline))
-                val nested = fromZSchemaMultiple(
-                  c.schema,
-                  refType,
-                  seenWithCurrent,
-                )
-                nested.children ++ key.map(_ -> nested.root)
-              }
-              .toMap,
+            nonTransientCases.flatMap { c =>
+              val key    =
+                nominal(c.schema, refType)
+                  .orElse(nominal(c.schema, refType.inline))
+              val nested = fromZSchemaMultiple(
+                c.schema,
+                refType,
+                seenWithCurrent,
+              )
+
+              val augmentedRoot =
+                if (shouldAddDiscrimProp) {
+                  val caseName0 =
+                    c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
+                  withDiscriminatorProperty(nested.root, discriminatorName0.get, caseName0)
+                } else {
+                  nested.root
+                }
+
+              nested.children ++ key.map(_ -> augmentedRoot)
+            }.toMap,
           )
         case record: Schema.Record[_]                                                          =>
           val children = record.fields
@@ -980,6 +993,51 @@ object JsonSchema {
       case _                                                                       =>
         None
     }
+
+  /**
+   * Adds a discriminator property to a JsonSchema. This is used when generating
+   * OpenAPI schemas for sealed traits with @discriminatorName annotation. Each
+   * case class schema needs to include the discriminator property as a required
+   * field with an enum value.
+   *
+   * @param schema
+   *   The original case schema
+   * @param discriminatorPropertyName
+   *   The name of the discriminator property (from @discriminatorName)
+   * @param caseNameValue
+   *   The value of the discriminator for this case (from @caseName or default)
+   * @return
+   *   A new JsonSchema with the discriminator property added
+   */
+  private def withDiscriminatorProperty(
+    schema: JsonSchema,
+    discriminatorPropertyName: java.lang.String,
+    caseNameValue: java.lang.String,
+  ): JsonSchema = {
+    val discriminatorField = JsonSchema.Enum(Chunk(EnumValue.Str(caseNameValue)))
+
+    schema.withoutAnnotations match {
+      case obj: Object =>
+        val annotations = schema.annotations
+        Object(
+          properties = obj.properties + (discriminatorPropertyName -> discriminatorField),
+          additionalProperties = obj.additionalProperties,
+          required = (Chunk(discriminatorPropertyName) ++ obj.required).distinct,
+        ).annotate(annotations)
+      case other       =>
+        // For non-object schemas (like refs), wrap with allOf to add the discriminator property
+        AllOfSchema(
+          Chunk(
+            other,
+            Object(
+              Map(discriminatorPropertyName -> discriminatorField),
+              Left(false),
+              Chunk(discriminatorPropertyName),
+            ),
+          ),
+        ).annotate(schema.annotations)
+    }
+  }
 
   def obj(properties: (java.lang.String, JsonSchema)*): JsonSchema =
     JsonSchema.Object(

@@ -166,9 +166,16 @@ object OpenAPISpec extends ZIOSpecDefault {
           |            "type" : "string"
           |          },
           |          "uniqueItems" : true
+          |        },
+          |        "type" : {
+          |          "type" : "string",
+          |          "enum" : [
+          |            "One"
+          |          ]
           |        }
           |      },
           |      "required" : [
+          |        "type",
           |        "set"
           |      ]
           |    },
@@ -180,9 +187,16 @@ object OpenAPISpec extends ZIOSpecDefault {
           |          "items" : {
           |            "type" : "string"
           |          }
+          |        },
+          |        "type" : {
+          |          "type" : "string",
+          |          "enum" : [
+          |            "Two"
+          |          ]
           |        }
           |      },
           |      "required" : [
+          |        "type",
           |        "list"
           |      ]
           |    },
