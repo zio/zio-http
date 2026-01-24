@@ -184,6 +184,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     implicit val schema: Schema[WithNonEmptyPayload] = DeriveSchema.gen
   }
 
+  final case class WithDateTimeFields(
+    localDate: java.time.LocalDate,
+    localDateTime: java.time.LocalDateTime,
+    localTime: java.time.LocalTime,
+    instant: java.time.Instant,
+    offsetDateTime: java.time.OffsetDateTime,
+  )
+  object WithDateTimeFields  {
+    implicit val schema: Schema[WithDateTimeFields] = DeriveSchema.gen
+  }
+
   private val simpleEndpoint =
     Endpoint(
       (GET / "static" / int("id") / uuid("uuid") ?? Doc.p("user id") / string("name")) ?? Doc.p("get path"),
@@ -4534,6 +4545,72 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
         val endpoint = Endpoint(GET / "withStatusCodec").outCodec(StatusCodec.Created)
         OpenAPIGen.fromEndpoints(endpoint)
         assertCompletes
+      },
+      test("date/time types should include format in OpenAPI schema") {
+        val endpoint     = Endpoint(GET / "dates").out[WithDateTimeFields]
+        val generated    = OpenAPIGen.fromEndpoints("Date Time API", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Date Time API",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/dates" : {
+                             |      "get" : {
+                             |        "responses" : {
+                             |          "200" : {
+                             |            "content" : {
+                             |              "application/json" : {
+                             |                "schema" : {
+                             |                  "$ref" : "#/components/schemas/WithDateTimeFields"
+                             |                }
+                             |              }
+                             |            }
+                             |          }
+                             |        }
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {
+                             |    "schemas" : {
+                             |      "WithDateTimeFields" : {
+                             |        "type" : "object",
+                             |        "properties" : {
+                             |          "localDate" : {
+                             |            "type" : "string",
+                             |            "format" : "date"
+                             |          },
+                             |          "localDateTime" : {
+                             |            "type" : "string",
+                             |            "format" : "date-time"
+                             |          },
+                             |          "localTime" : {
+                             |            "type" : "string",
+                             |            "format" : "time"
+                             |          },
+                             |          "instant" : {
+                             |            "type" : "string",
+                             |            "format" : "date-time"
+                             |          },
+                             |          "offsetDateTime" : {
+                             |            "type" : "string",
+                             |            "format" : "date-time"
+                             |          }
+                             |        },
+                             |        "required" : [
+                             |          "localDate",
+                             |          "localDateTime",
+                             |          "localTime",
+                             |          "instant",
+                             |          "offsetDateTime"
+                             |        ]
+                             |      }
+                             |    }
+                             |  }
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
       },
     )
 
