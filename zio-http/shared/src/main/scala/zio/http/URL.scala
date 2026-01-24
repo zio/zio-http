@@ -406,7 +406,7 @@ object URL {
     for {
       scheme <- Scheme.decode(uri.getScheme)
       host   <- Option(uri.getHost)
-      path   <- Option(uri.getRawPath)
+      path   <- Option(uri.getPath)
       port       = Option(uri.getPort).filter(_ != -1)
       connection = URL.Location.Absolute(scheme, host, port)
       path2      = Path.decode(path)
@@ -415,7 +415,7 @@ object URL {
   }
 
   private[http] def fromRelativeURI(uri: URI): Option[URL] = for {
-    path <- Option(uri.getRawPath)
+    path <- Option(uri.getPath)
   } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
 
 }
