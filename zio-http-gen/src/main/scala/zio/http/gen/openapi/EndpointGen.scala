@@ -174,7 +174,15 @@ final case class EndpointGen(config: Config) {
             else
               anEnum.copy(cases = shouldBePreserved ++ shouldBeReplaced.flatMap { cc =>
                 replacedCasesToOmitAsTopComponents = replacedCasesToOmitAsTopComponents + cc.name
-                componentNameToCodeFile(cc.name).caseClasses
+                val replacementCaseClasses = componentNameToCodeFile(cc.name).caseClasses
+                anEnum.discriminator match {
+                  case Some(discriminatorProp) =>
+                    replacementCaseClasses.map { caseClass =>
+                      caseClass.copy(fields = caseClass.fields.filterNot(_.name == s"`$discriminatorProp`"))
+                    }
+                  case None                    =>
+                    replacementCaseClasses
+                }
               })
           })
         }
@@ -721,8 +729,10 @@ final case class EndpointGen(config: Config) {
 
   private def fieldsOfObject(openAPI: OpenAPI, annotations: Chunk[JsonSchema.MetaData])(
     obj: JsonSchema.Object,
-  ): List[Code.Field] =
-    obj.properties.map { case (name, schema) =>
+  ): List[Code.Field] = {
+    val discriminatorPropertyName =
+      annotations.collectFirst { case JsonSchema.MetaData.Discriminator(d) => d.propertyName }
+    obj.properties.filterNot { case (name, _) => discriminatorPropertyName.contains(name) }.map { case (name, schema) =>
       val field = schemaToField(schema, openAPI, name, annotations)
         .getOrElse(
           throw new Exception(s"Could not generate code for field $name of object $name"),
@@ -730,6 +740,7 @@ final case class EndpointGen(config: Config) {
         .asInstanceOf[Code.Field]
       if (obj.required.contains(name)) field else field.copy(fieldType = field.fieldType.opt)
     }.toList
+  }
 
   /**
    * @param openAPI

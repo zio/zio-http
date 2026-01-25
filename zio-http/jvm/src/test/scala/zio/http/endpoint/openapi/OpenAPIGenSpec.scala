@@ -3049,7 +3049,18 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        {
             |        "type" :
             |          "object",
-            |        "properties" : {}
+            |        "properties" : {
+            |          "type" : {
+            |            "type" :
+            |              "string",
+            |            "enum" : [
+            |              "One"
+            |            ]
+            |          }
+            |        },
+            |        "required" : [
+            |          "type"
+            |        ]
             |      },
             |      "SealedTraitCustomDiscriminator" :
             |        {
@@ -3081,9 +3092,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          "name" : {
             |            "type" :
             |              "string"
+            |          },
+            |          "type" : {
+            |            "type" :
+            |              "string",
+            |            "enum" : [
+            |              "three"
+            |            ]
             |          }
             |        },
             |        "required" : [
+            |          "type",
             |          "name"
             |        ]
             |      },
@@ -3095,9 +3114,17 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          "name" : {
             |            "type" :
             |              "string"
+            |          },
+            |          "type" : {
+            |            "type" :
+            |              "string",
+            |            "enum" : [
+            |              "Two"
+            |            ]
             |          }
             |        },
             |        "required" : [
+            |          "type",
             |          "name"
             |        ]
             |      }
@@ -3975,7 +4002,18 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |        {
             |        "type" :
             |          "object",
-            |        "properties" : {}
+            |        "properties" : {
+            |          "type" : {
+            |            "type" :
+            |              "string",
+            |            "enum" : [
+            |              "One"
+            |            ]
+            |          }
+            |        },
+            |        "required" : [
+            |          "type"
+            |        ]
             |      },
             |      "SealedTraitCustomDiscriminator" :
             |        {
@@ -3999,6 +4037,50 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          }
             |        }
             |      },
+            |      "Three" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "type" : {
+            |            "type" :
+            |              "string",
+            |            "enum" : [
+            |              "three"
+            |            ]
+            |          }
+            |        },
+            |        "required" : [
+            |          "type",
+            |          "name"
+            |        ]
+            |      },
+            |      "Two" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          },
+            |          "type" : {
+            |            "type" :
+            |              "string",
+            |            "enum" : [
+            |              "Two"
+            |            ]
+            |          }
+            |        },
+            |        "required" : [
+            |          "type",
+            |          "name"
+            |        ]
+            |      },
             |      "WithOptionalAdtPayload" :
             |        {
             |        "type" :
@@ -4011,34 +4093,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |            ]
             |          }
             |        }
-            |      },
-            |      "Two" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "name" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "required" : [
-            |          "name"
-            |        ]
-            |      },
-            |      "Three" :
-            |        {
-            |        "type" :
-            |          "object",
-            |        "properties" : {
-            |          "name" : {
-            |            "type" :
-            |              "string"
-            |          }
-            |        },
-            |        "required" : [
-            |          "name"
-            |        ]
             |      }
             |    }
             |  }
@@ -4275,6 +4329,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |         "ConcreteBigModel":{
                              |            "type":"object",
                              |            "properties":{
+                             |               "type":{
+                             |                  "type":"string",
+                             |                  "enum":["ConcreteBigModel"]
+                             |               },
                              |               "f20":{
                              |                  "type":"boolean"
                              |               },
@@ -4346,6 +4404,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |               }
                              |            },
                              |            "required":[
+                             |               "type",
                              |               "f1",
                              |               "f2",
                              |               "f3",
@@ -4426,6 +4485,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |         "ConcreteBigModel":{
             |            "type":"object",
             |            "properties":{
+            |               "type":{
+            |                  "type":"string",
+            |                  "enum":["ConcreteBigModel"]
+            |               },
             |               "f20":{
             |                  "type":"boolean"
             |               },
@@ -4497,6 +4560,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |               }
             |            },
             |            "required":[
+            |               "type",
             |               "f1",
             |               "f2",
             |               "f3",
