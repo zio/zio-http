@@ -263,6 +263,8 @@ object Code {
     case object Duration                                           extends CodecType
     case object Instant                                            extends CodecType
     case class Aliased(underlying: CodecType, newtypeName: String) extends CodecType
+    case class SeqOf(elementType: CodecType, nonEmpty: Boolean)    extends CodecType
+    case class SetOf(elementType: CodecType, nonEmpty: Boolean)    extends CodecType
   }
   final case class QueryParamCode(name: String, queryType: CodecType)
   final case class HeadersCode(headers: List[HeaderCode])
