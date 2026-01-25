@@ -123,7 +123,8 @@ private[netty] object NettyConnectionPool {
   }
 
   /**
-   * Attempts to connect to a single address.
+   * Attempts to connect to a single address. Adds a finalizer to close the
+   * channel when the Scope is closed.
    */
   private def connectToAddress(
     host: InetAddress,
@@ -133,7 +134,34 @@ private[netty] object NettyConnectionPool {
     initializer: ChannelInitializer[JChannel],
     connectionTimeout: Option[Duration],
     localAddress: Option[InetSocketAddress],
-  )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] = {
+  )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] =
+    connectToAddressUnmanaged(
+      host,
+      channelFactory,
+      eventLoopGroup,
+      location,
+      initializer,
+      connectionTimeout,
+      localAddress,
+    ).tap { ch =>
+      Scope.addFinalizer {
+        NettyFutureExecutor.executed(ch.close()).whenDiscard(ch.isOpen).ignoreLogged
+      }
+    }
+
+  /**
+   * Attempts to connect to a single address without adding a finalizer. The
+   * caller is responsible for closing the channel.
+   */
+  private def connectToAddressUnmanaged(
+    host: InetAddress,
+    channelFactory: JChannelFactory[JChannel],
+    eventLoopGroup: JEventLoopGroup,
+    location: URL.Location.Absolute,
+    initializer: ChannelInitializer[JChannel],
+    connectionTimeout: Option[Duration],
+    localAddress: Option[InetSocketAddress],
+  )(implicit trace: Trace): ZIO[Any, Throwable, JChannel] = {
     ZIO.suspend {
       val bootstrap = new Bootstrap()
         .channelFactory(channelFactory)
@@ -145,12 +173,11 @@ private[netty] object NettyConnectionPool {
 
       val channelFuture = bootstrap.connect()
       val ch            = channelFuture.channel()
-      Scope.addFinalizer {
-        NettyFutureExecutor.executed {
-          channelFuture.cancel(true)
-          ch.close()
-        }.whenDiscard(ch.isOpen).ignoreLogged
-      }.uninterruptible *> NettyFutureExecutor.executed(channelFuture).as(ch)
+
+      NettyFutureExecutor
+        .executed(channelFuture)
+        .onInterrupt(ZIO.succeed(channelFuture.cancel(true)) *> ZIO.succeed(ch.close()).ignore)
+        .as(ch)
     }
   }
 
@@ -159,7 +186,7 @@ private[netty] object NettyConnectionPool {
    * we start with IPv6, then after firstAddressFamilyDelay we try IPv4, then
    * alternate between families.
    */
-  private def sortAddresses(resolvedHosts: Chunk[InetAddress]): List[InetAddress] = {
+  private[client] def sortAddresses(resolvedHosts: Chunk[InetAddress]): List[InetAddress] = {
     val (ipv6Addresses, ipv4Addresses) = resolvedHosts.partition(_.isInstanceOf[Inet6Address])
     val ipv6Iter                       = ipv6Addresses.iterator
     val ipv4Iter                       = ipv4Addresses.iterator
@@ -212,44 +239,55 @@ private[netty] object NettyConnectionPool {
       )
     } else {
       val addresses = sortAddresses(resolvedHosts)
-      for {
-        lastFailed <- Queue.dropping[Unit](requestedCapacity = 1)
-        successful <- Ref.make(List.empty[JChannel])
-        _          <- ZIO.raceAll(
-          connectToAddress(
-            addresses.head,
-            channelFactory,
-            eventLoopGroup,
-            location,
-            initializer,
-            connectionTimeout,
-            localAddress,
-          ).onExit {
-            case e: Exit.Success[JChannel] => successful.update(channels => channels :+ e.value)
-            case _: Exit.Failure[_]        => lastFailed.offer(()).unit
-          },
-          addresses.tail.zipWithIndex.map { case (address, index) =>
-            ZIO.sleep(HappyEyeballsDelay * index.toDouble).raceFirst(lastFailed.take).ignore *>
-              connectToAddress(
-                address,
-                channelFactory,
-                eventLoopGroup,
-                location,
-                initializer,
-                connectionTimeout,
-                localAddress,
-              ).onExit {
-                case e: Exit.Success[JChannel] => successful.update(channels => channels :+ e.value)
-                case _: Exit.Failure[_]        => lastFailed.offer(()).unit
-              }
-          },
+
+      def connect0(host: InetAddress): ZIO[Any, Throwable, JChannel] =
+        connectToAddressUnmanaged(
+          host,
+          channelFactory,
+          eventLoopGroup,
+          location,
+          initializer,
+          connectionTimeout,
+          localAddress,
         )
-        channels   <- successful.get
-        channel    <- channels.collectFirst { case c if c.isOpen => c } match {
-          case ch: Some[JChannel] => ZIO.succeed(ch.value)
-          case None               => ZIO.fail(new RuntimeException("All connection attempts failed"))
+
+      for {
+        failedHub  <- Hub.dropping[Unit](requestedCapacity = 1)
+        successful <- Ref.make(List.empty[JChannel])
+
+        attemptConnect = (host: InetAddress) =>
+          connect0(host).onExit {
+            case Exit.Success(ch) => successful.update(_ :+ ch)
+            case Exit.Failure(_)  => failedHub.publish(()).unit
+          }
+
+        _ <- ZIO.scoped {
+          for {
+            failedSub <- failedHub.subscribe
+            _         <- ZIO.raceAll(
+              attemptConnect(addresses.head),
+              addresses.tail.zipWithIndex.map { case (address, index) =>
+                ZIO.sleep(HappyEyeballsDelay * (index + 1).toDouble).raceFirst(failedSub.take).ignore *>
+                  attemptConnect(address)
+              },
+            )
+          } yield ()
         }
-        _          <- ZIO.foreachDiscard(channels.tail)(ch => ZIO.ignore(ch.close()))
+
+        channels <- successful.get
+
+        channel <- channels.find(_.isOpen) match {
+          case Some(ch) => ZIO.succeed(ch)
+          case None     => ZIO.fail(new RuntimeException("All connection attempts failed"))
+        }
+
+        _ <- ZIO.foreachDiscard(channels.filterNot(_ eq channel)) { ch =>
+          ZIO.succeed(ch.close()).ignore
+        }
+
+        _ <- Scope.addFinalizer {
+          NettyFutureExecutor.executed(channel.close()).whenDiscard(channel.isOpen).ignoreLogged
+        }
       } yield channel
 
     }
