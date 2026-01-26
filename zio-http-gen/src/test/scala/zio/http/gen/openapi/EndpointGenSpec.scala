@@ -456,6 +456,124 @@ object EndpointGenSpec extends ZIOSpecDefault {
           )
           assertTrue(scala.files.head == expected)
         },
+        test("empty request and response with array query parameters") {
+          val openapiJson = """{
+            "openapi": "3.0.3",
+            "info": { "title": "Test", "version": "1.0" },
+            "paths": {
+              "/api/v1/users": {
+                "get": {
+                  "parameters": [
+                    {
+                      "name": "tags",
+                      "in": "query",
+                      "schema": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                      }
+                    },
+                    {
+                      "name": "ids",
+                      "in": "query",
+                      "schema": {
+                        "type": "array",
+                        "items": { "type": "integer", "format": "int32" }
+                      }
+                    }
+                  ],
+                  "responses": { "200": { "description": "Success" } }
+                }
+              }
+            }
+          }"""
+          val openAPI     = OpenAPI.fromJson(openapiJson).toOption.get
+          val scala       = EndpointGen.fromOpenAPI(openAPI)
+          val expected    = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set(
+                      Code.QueryParamCode("tags", Code.CodecType.SeqOf(Code.CodecType.String, nonEmpty = false)),
+                      Code.QueryParamCode("ids", Code.CodecType.SeqOf(Code.CodecType.Int, nonEmpty = false)),
+                    ),
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = List(Code.OutCode.json("Unit", Status.Ok)),
+                    errorsCode = Nil,
+                    authTypeCode = None,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          assertTrue(scala.files.head == expected)
+        },
+        test("empty request and response with non-empty array query parameters") {
+          val openapiJson = """{
+            "openapi": "3.0.3",
+            "info": { "title": "Test", "version": "1.0" },
+            "paths": {
+              "/api/v1/users": {
+                "get": {
+                  "parameters": [
+                    {
+                      "name": "tags",
+                      "in": "query",
+                      "schema": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "minItems": 1
+                      }
+                    }
+                  ],
+                  "responses": { "200": { "description": "Success" } }
+                }
+              }
+            }
+          }"""
+          val openAPI     = OpenAPI.fromJson(openapiJson).toOption.get
+          val scala       = EndpointGen.fromOpenAPI(openAPI)
+          val expected    = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set(
+                      Code.QueryParamCode("tags", Code.CodecType.SeqOf(Code.CodecType.String, nonEmpty = true)),
+                    ),
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = List(Code.OutCode.json("Unit", Status.Ok)),
+                    errorsCode = Nil,
+                    authTypeCode = None,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          assertTrue(scala.files.head == expected)
+        },
         test("request body and empty response") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[User]
           val openAPI  = OpenAPIGen.fromEndpoints(endpoint)
