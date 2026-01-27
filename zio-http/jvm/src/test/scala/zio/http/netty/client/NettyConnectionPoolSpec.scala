@@ -16,6 +16,8 @@
 
 package zio.http.netty.client
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion.{equalTo, hasSize}
 import zio.test.TestAspect._
@@ -28,6 +30,7 @@ import zio.http.codec.PathCodec.trailing
 import zio.http.internal._
 import zio.http.netty.NettyConfig
 
+@nowarn("msg=deprecated")
 object NettyConnectionPoolSpec extends RoutesRunnableSpec {
 
   private val app = Routes(
