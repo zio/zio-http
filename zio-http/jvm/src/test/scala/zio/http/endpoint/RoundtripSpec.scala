@@ -193,6 +193,20 @@ object RoundtripSpec extends ZIOHttpSpec {
         val healthCheckHandler = healthCheckAPI.implementAs(())
         testEndpoint(healthCheckAPI, Routes(healthCheckHandler), (), ())
       }
+      test("NoContent status returns empty body - issue #3861") {
+        val noContentAPI     = Endpoint(DELETE / "posts" / int("postId")).out[Unit](Status.NoContent)
+        val noContentHandler = noContentAPI.implementHandler {
+          Handler.fromFunction { _ => () }
+        }
+        testEndpoint(noContentAPI, Routes(noContentHandler), 42, ())
+      }
+      test("NotModified status returns empty body - issue #3861") {
+        val notModifiedAPI     = Endpoint(GET / "resource" / int("id")).out[Unit](Status.NotModified)
+        val notModifiedHandler = notModifiedAPI.implementHandler {
+          Handler.fromFunction { _ => () }
+        }
+        testEndpoint(notModifiedAPI, Routes(notModifiedHandler), 1, ())
+      }
       test("simple get with query params from case class") {
         val endpoint = Endpoint(GET / "query")
           .query(HttpCodec.query[Params])
