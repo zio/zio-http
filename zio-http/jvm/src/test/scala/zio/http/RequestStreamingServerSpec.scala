@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{diagnose, sequential, shrinks, withLiveClock}
@@ -25,6 +27,7 @@ import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
 
+@nowarn("msg=deprecated")
 object RequestStreamingServerSpec extends RoutesRunnableSpec {
   def extractStatus(res: Response): Status = res.status
 

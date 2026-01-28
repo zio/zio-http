@@ -27,6 +27,7 @@ import zio.stream.ZStream
 import zio.http.URL.Location
 import zio.http.netty.NettyConfig
 
+@nowarn("msg=deprecated")
 object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
