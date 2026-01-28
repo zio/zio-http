@@ -105,7 +105,7 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
             )
           }
       case Segment(SegmentCodec.Empty)   =>
-        alts :+= codec.asInstanceOf[PathCodec[Any]]
+        if (alts.isEmpty) alts :+= codec.asInstanceOf[PathCodec[Any]]
       case pc                            =>
         if (alts.isEmpty) alts :+= pc.asInstanceOf[PathCodec[Any]]
         else
