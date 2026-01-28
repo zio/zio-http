@@ -501,9 +501,7 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
         loop(left, value)
     }
 
-    loop(self, value).map { path =>
-      if (path.nonEmpty) path.addLeadingSlash else path
-    }
+    loop(self, value).map(_.addLeadingSlash)
   }
 
   /**
