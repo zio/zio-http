@@ -211,12 +211,26 @@ private[http] object QueryParamEncoding {
   /**
    * Encodes a URL component according to HTML/URL encoding rules. Spaces become
    * '+', and special characters become percent-encoded.
+   *
+   * @param component
+   *   The string to encode
+   * @param charset
+   *   The charset to use for encoding
+   * @param target
+   *   The StringBuilder to append the encoded string to
+   * @param spaceEncode
+   *   How to encode spaces ('+' for query params, '%20' for paths)
+   * @param isPath
+   *   If true, allows ':' and '@' unescaped per RFC 3986 pchar rule. If false
+   *   (default), encodes them for application/x-www-form-urlencoded
+   *   compatibility.
    */
   private[http] def encodeComponentInto(
     component: String,
     charset: Charset,
     target: java.lang.StringBuilder,
     spaceEncode: String = "+",
+    isPath: Boolean = false,
   ): Unit = {
     if (component.isEmpty) return
 
@@ -227,7 +241,7 @@ private[http] object QueryParamEncoding {
     while (i < len && !needsEncoding) {
       val c = component.charAt(i)
       // RFC 3986 unreserved characters plus '*' (Netty-specific addition)
-      needsEncoding = !needsNoEncoding(c)
+      needsEncoding = !needsNoEncoding(c, isPath)
       i += 1
     }
 
@@ -241,7 +255,7 @@ private[http] object QueryParamEncoding {
     val bytesLen = bytes.length
     while (k < bytesLen) {
       val unsignedByte = bytes(k) & 0xff
-      if (needsNoEncoding(unsignedByte.toChar)) {
+      if (needsNoEncoding(unsignedByte.toChar, isPath)) {
         // Unreserved character
         target.append(unsignedByte.toChar)
       } else if (unsignedByte == ' ') {
@@ -257,11 +271,20 @@ private[http] object QueryParamEncoding {
     }
   }
 
-  private def needsNoEncoding(c: Char) = {
+  /**
+   * Determines if a character needs no encoding.
+   *
+   * @param c
+   *   The character to check
+   * @param isPath
+   *   If true, ':' and '@' are allowed unescaped per RFC 3986 pchar rule
+   */
+  private def needsNoEncoding(c: Char, isPath: Boolean) = {
     (c >= 'a' && c <= 'z') ||
     (c >= 'A' && c <= 'Z') ||
     (c >= '0' && c <= '9') ||
-    c == '-' || c == '.' || c == '_' || c == '~' || c == '*' || c == ':' || c == '@'
+    c == '-' || c == '.' || c == '_' || c == '~' || c == '*' ||
+    (isPath && (c == ':' || c == '@'))
   }
 
   /**

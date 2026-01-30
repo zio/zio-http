@@ -65,7 +65,7 @@ object DatastarRequest {
     while (idx <= lastIdx) {
       val segment = path.segments(idx)
       if (segment.nonEmpty && segment.head == '$') sb.append(segment)
-      else QueryParamEncoding.encodeComponentInto(path.segments(idx), Charsets.Http, sb, "%20")
+      else QueryParamEncoding.encodeComponentInto(path.segments(idx), Charsets.Http, sb, "%20", isPath = true)
       if (path.hasTrailingSlash || idx != lastIdx) sb.append('/')
       idx += 1
     }
