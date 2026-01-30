@@ -64,6 +64,10 @@ sealed trait Route[-Env, +Err] { self =>
    *
    * If the underlying handler uses the error channel to send responses, this
    * method will not pass the responses to the provided function.
+   *
+   * Note: This method only handles typed errors (failures), not defects (dies).
+   * Defects will propagate and can be handled by a subsequent
+   * `handleErrorCause`.
    */
   final def handleErrorZIO[Env1 <: Env](
     f: Err => ZIO[Env1, Nothing, Response],
@@ -71,7 +75,7 @@ sealed trait Route[-Env, +Err] { self =>
     self.handleErrorCauseZIO { cause =>
       cause.failureOrCause match {
         case Left(err)    => f(err)
-        case Right(cause) => ErrorResponseConfig.configRef.getWith(c => ZIO.succeed(Response.fromCause(cause, c)))
+        case Right(cause) => ZIO.refailCause(cause)
       }
     }
 

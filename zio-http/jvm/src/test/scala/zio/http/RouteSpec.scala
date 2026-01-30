@@ -254,6 +254,40 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(extractStatus(response) == Status.InternalServerError, bodyString == "error")
       },
+      test("handleErrorCause on Routes should handle exceptions thrown inside map - regression #3432") {
+        def throwBoom(): Unit = throw new IllegalArgumentException("boom")
+        val route             = Method.GET / "endpoint" -> handler { (_: Request) =>
+          for {
+            hello <- ZIO.succeed("Hello")
+            _     <- ZIO.succeed(throwBoom())
+          } yield Response.text(hello)
+        }
+        val app               = route.toRoutes
+          .handleErrorCause(_ => Response.text("handleErrorCause"))
+        val request           = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          response   <- app.runZIO(request)
+          bodyString <- response.body.asString
+        } yield assertTrue(bodyString == "handleErrorCause")
+      },
+      test("composed handleErrorZIO and handleErrorCause on Routes - regression #3432") {
+        def throwBoom(): Unit = throw new IllegalArgumentException("boom")
+        val route             = Method.GET / "endpoint" -> handler { (_: Request) =>
+          for {
+            hello <- ZIO.succeed("Hello")
+            _     <- ZIO.succeed(throwBoom())
+          } yield Response.text(hello)
+        }
+        @scala.annotation.nowarn("msg=dead code following this construct")
+        val app               = route.toRoutes
+          .handleErrorZIO(_ => ZIO.succeed(Response.text("handleErrorZIO")))
+          .handleErrorCause(_ => Response.text("handleErrorCause"))
+        val request           = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          response   <- app.runZIO(request)
+          bodyString <- response.body.asString
+        } yield assertTrue(bodyString == "handleErrorCause")
+      },
       test("handleErrorCauseZIO should pass through responses in error channel of handled routes") {
         val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(Response.ok) }
         val errorHandled = route.handleErrorCauseZIO { _ =>
