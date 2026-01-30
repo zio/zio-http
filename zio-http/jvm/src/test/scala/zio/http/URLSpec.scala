@@ -295,6 +295,24 @@ object URLSpec extends ZIOHttpSpec {
           assertZIO(result)(isLeft)
         },
       ),
+      suite("query parameter encoding")(
+        test("colons in query param values should be percent-encoded") {
+          val url = URL.root.addQueryParam("pe", "http://example.com")
+          assertTrue(url.encode == "/?pe=http%3A%2F%2Fexample.com")
+        },
+        test("at-signs in query param values should be percent-encoded") {
+          val url = URL.root.addQueryParam("email", "user@example.com")
+          assertTrue(url.encode == "/?email=user%40example.com")
+        },
+        test("colons in path segments should NOT be percent-encoded") {
+          val url = URL(Path("/v1:validateAddress"))
+          assertTrue(url.encode == "/v1:validateAddress")
+        },
+        test("at-signs in path segments should NOT be percent-encoded") {
+          val url = URL(Path("/users/@me"))
+          assertTrue(url.encode == "/users/@me")
+        },
+      ),
       suite("relative resolution")(
         // next ones are edge cases
         test("absolute reference with relative base") {

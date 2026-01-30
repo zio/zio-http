@@ -134,7 +134,8 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
     var idx     = 0
     val lastIdx = segments.length - 1
     while (idx <= lastIdx) {
-      QueryParamEncoding.encodeComponentInto(segments(idx), Charsets.Http, sb, "%20")
+      // isPath = true allows ':' and '@' unescaped per RFC 3986 pchar rule
+      QueryParamEncoding.encodeComponentInto(segments(idx), Charsets.Http, sb, "%20", isPath = true)
       if (hasTrailingSlash || idx != lastIdx) sb.append('/')
       idx += 1
     }
