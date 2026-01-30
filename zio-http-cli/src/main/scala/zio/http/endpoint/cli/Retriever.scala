@@ -2,6 +2,8 @@ package zio.http.endpoint.cli
 
 import java.nio.file.Path
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.http._
@@ -27,6 +29,7 @@ private[cli] object Retriever {
   final case class URL(name: String, url: String, mediaType: MediaType) extends Retriever {
 
     val request                                                = Request.get(http.URL(http.Path.decode(url)))
+    @nowarn("msg=deprecated")
     override def retrieve(): ZIO[Client, Throwable, FormField] = for {
       client <- ZIO.serviceWith[Client](_.batched)
       chunk  <- client.request(request).flatMap(_.body.asChunk)
