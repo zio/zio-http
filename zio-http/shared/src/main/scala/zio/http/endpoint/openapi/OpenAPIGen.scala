@@ -75,7 +75,7 @@ object OpenAPIGen {
     def examples(schema: Schema[_], generate: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       examples(schema, generate, MediaType.application.json)
 
-    def examples(
+    private[openapi] def examples(
       schema: Schema[_],
       generate: Boolean,
       mediaType: MediaType,
@@ -151,7 +151,7 @@ object OpenAPIGen {
     def contentExamples(genExamples: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       contentExamples(genExamples, MediaType.application.json)
 
-    def contentExamples(
+    private[openapi] def contentExamples(
       genExamples: Boolean,
       mediaType: MediaType,
     ): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
