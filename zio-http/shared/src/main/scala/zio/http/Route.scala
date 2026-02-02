@@ -390,6 +390,28 @@ sealed trait Route[-Env, +Err] { self =>
         ErrorResponseConfig.configRef.getWith(cfg => Exit.succeed(Response.fromCause(cause, cfg)))
     }
 
+  /**
+   * Applies a middleware aspect to this route.
+   */
+  final def @@[Env1 <: Env](aspect: Middleware[Env1]): Route[Env1, Err] =
+    aspect(self.toRoutes).routes.head.asInstanceOf[Route[Env1, Err]]
+
+  /**
+   * Applies a handler aspect that does not provide context to this route.
+   */
+  final def @@[Env0](aspect: HandlerAspect[Env0, Unit]): Route[Env with Env0, Err] =
+    self.transform[Env with Env0](handler => handler @@ aspect)
+
+  /**
+   * Applies a handler aspect that provides context to this route. The aspect is
+   * applied after path parameters are decoded, so the handler receives a plain
+   * Request rather than a tuple of (params, request).
+   */
+  final def @@[Env0, Ctx <: Env](aspect: HandlerAspect[Env0, Ctx])(implicit
+    tag: Tag[Ctx],
+  ): Route[Env0, Err] =
+    self.transform[Env0](handler => handler @@ aspect)
+
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
   /**
