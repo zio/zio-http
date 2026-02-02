@@ -34,7 +34,7 @@ object Dependencies {
     )
 
   val unroll = Seq(
-    "com.lihaoyi" %% "unroll-annotation" % "0.1.12",
+    "com.lihaoyi" %% "unroll-annotation" % "0.3.0",
     "com.lihaoyi" %% "unroll-plugin"     % "0.1.12",
   )
 
