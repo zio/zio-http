@@ -1,5 +1,7 @@
 package zio.http.netty
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.TestAspect.withLiveClock
 import zio.test.{Spec, TestEnvironment, assertTrue}
@@ -13,6 +15,7 @@ import zio.http.multipart.mixed.MultipartMixed
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 import zio.http.netty.NettyStreamBodySpec.app
 
+@nowarn("msg=deprecated")
 object NettyStreamBodySpec extends RoutesRunnableSpec {
 
   def app(streams: Iterator[ZStream[Any, Throwable, Byte]], len: Long) =
