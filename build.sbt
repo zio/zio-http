@@ -187,7 +187,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(
     autoCompilerPlugins := true,
     libraryDependencies ++= unroll,
-    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12"),
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.2.0"),
   )
   .settings(
     libraryDependencies ++= {
