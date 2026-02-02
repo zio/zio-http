@@ -213,11 +213,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   }
 
   private def isAuthenticationError(error: HttpCodecError): Boolean = error match {
-    case HttpCodecError.MissingHeader(name)          => name.equalsIgnoreCase(Header.Authorization.name)
-    case HttpCodecError.MissingHeaders(names)        => names.exists(_.equalsIgnoreCase(Header.Authorization.name))
-    case HttpCodecError.MalformedHeader(name, _)     => name.equalsIgnoreCase(Header.Authorization.name)
+    case HttpCodecError.MissingHeader(name)       => name.equalsIgnoreCase(Header.Authorization.name)
+    case HttpCodecError.MissingHeaders(names)     => names.exists(_.equalsIgnoreCase(Header.Authorization.name))
+    case HttpCodecError.MalformedHeader(name, _)  => name.equalsIgnoreCase(Header.Authorization.name)
     case HttpCodecError.DecodingErrorHeader(name, _) => name.equalsIgnoreCase(Header.Authorization.name)
-    case _                                           => false
+    case _                                        => false
   }
 
   def scopes(scopes: String*): Endpoint[PathInput, Input, Err, Output, AuthType] =
