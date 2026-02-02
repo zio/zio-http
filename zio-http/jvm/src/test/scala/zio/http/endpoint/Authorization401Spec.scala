@@ -24,7 +24,8 @@ object Authorization401Spec extends ZIOSpecDefault {
           .out[Unit]
         val route    = endpoint.implementPurely(_ => ())
         val request  =
-          Request(method = Method.GET, url = url"/test").addHeader(Header.Authorization.Basic("user", "pass"))
+          Request(method = Method.GET, url = url"/test")
+            .addHeader(Header.Custom(Header.Authorization.name, "Basic invalid"))
         // If it fails to decode, it should also be 401.
         for {
           response <- route.toRoutes.runZIO(request)
