@@ -23,8 +23,7 @@ object Authorization401Spec extends ZIOSpecDefault {
           .header(HeaderCodec.authorization)
           .out[Unit]
         val route    = endpoint.implementPurely(_ => ())
-        val request  = Request(method = Method.GET, url = url"/test").addHeader(Header.Authorization.Basic("user", "pass")) // HeaderCodec.authorization might expect Bearer if not specified? 
-        // Actually HeaderCodec.authorization usually just decodes the header.
+        val request  = Request(method = Method.GET, url = url"/test").addHeader(Header.Authorization.Basic("user", "pass")) 
         // If it fails to decode, it should also be 401.
         for {
           response <- route.toRoutes.runZIO(request)
