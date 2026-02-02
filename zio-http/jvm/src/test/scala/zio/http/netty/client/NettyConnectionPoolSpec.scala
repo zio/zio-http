@@ -16,6 +16,8 @@
 
 package zio.http.netty.client
 
+import java.net.{Inet4Address, Inet6Address, InetAddress}
+
 import zio._
 import zio.test.Assertion.{equalTo, hasSize}
 import zio.test.TestAspect._
@@ -341,7 +343,95 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
     )
 
   override def spec: Spec[Scope, Throwable] = {
-    (connectionPoolSpec + connectionPoolIssuesSpec) @@ sequential @@ withLiveClock
+    (connectionPoolSpec + connectionPoolIssuesSpec + sortAddressesSpec) @@ sequential @@ withLiveClock
   }
+
+  private def sortAddressesSpec: Spec[Any, Nothing] =
+    suite("sortAddresses")(
+      test("empty chunk returns empty list") {
+        val result = NettyConnectionPool.sortAddresses(Chunk.empty)
+        assertTrue(result.isEmpty)
+      },
+      test("single IPv4 address returns single element list") {
+        val ipv4   = InetAddress.getByName("127.0.0.1")
+        val result = NettyConnectionPool.sortAddresses(Chunk(ipv4))
+        assertTrue(result == List(ipv4))
+      },
+      test("single IPv6 address returns single element list") {
+        val ipv6   = InetAddress.getByName("::1")
+        val result = NettyConnectionPool.sortAddresses(Chunk(ipv6))
+        assertTrue(result == List(ipv6))
+      },
+      test("IPv6 addresses come first per RFC 8305") {
+        val ipv4 = InetAddress.getByName("127.0.0.1")
+        val ipv6 = InetAddress.getByName("::1")
+
+        val result = NettyConnectionPool.sortAddresses(Chunk(ipv4, ipv6))
+        assertTrue(
+          result.head.isInstanceOf[Inet6Address],
+          result(1).isInstanceOf[Inet4Address],
+        )
+      },
+      test("alternates between IPv6 and IPv4") {
+        val ipv4_1 = InetAddress.getByName("127.0.0.1")
+        val ipv4_2 = InetAddress.getByName("127.0.0.2")
+        val ipv6_1 = InetAddress.getByName("::1")
+        val ipv6_2 = InetAddress.getByName("::2")
+
+        val result = NettyConnectionPool.sortAddresses(Chunk(ipv4_1, ipv4_2, ipv6_1, ipv6_2))
+        assertTrue(
+          result(0).isInstanceOf[Inet6Address],
+          result(1).isInstanceOf[Inet4Address],
+          result(2).isInstanceOf[Inet6Address],
+          result(3).isInstanceOf[Inet4Address],
+        )
+      },
+      test("handles more IPv6 than IPv4") {
+        val ipv4   = InetAddress.getByName("127.0.0.1")
+        val ipv6_1 = InetAddress.getByName("::1")
+        val ipv6_2 = InetAddress.getByName("::2")
+        val ipv6_3 = InetAddress.getByName("::3")
+
+        val result = NettyConnectionPool.sortAddresses(Chunk(ipv4, ipv6_1, ipv6_2, ipv6_3))
+        assertTrue(
+          result.size == 4,
+          result(0).isInstanceOf[Inet6Address],
+          result(1).isInstanceOf[Inet4Address],
+          result(2).isInstanceOf[Inet6Address],
+          result(3).isInstanceOf[Inet6Address],
+        )
+      },
+      test("handles more IPv4 than IPv6") {
+        val ipv4_1 = InetAddress.getByName("127.0.0.1")
+        val ipv4_2 = InetAddress.getByName("127.0.0.2")
+        val ipv4_3 = InetAddress.getByName("127.0.0.3")
+        val ipv6   = InetAddress.getByName("::1")
+
+        val result = NettyConnectionPool.sortAddresses(Chunk(ipv4_1, ipv4_2, ipv4_3, ipv6))
+        assertTrue(
+          result.size == 4,
+          result(0).isInstanceOf[Inet6Address],
+          result(1).isInstanceOf[Inet4Address],
+          result(2).isInstanceOf[Inet4Address],
+          result(3).isInstanceOf[Inet4Address],
+        )
+      },
+      test("only IPv4 addresses preserves order") {
+        val ipv4_1 = InetAddress.getByName("127.0.0.1")
+        val ipv4_2 = InetAddress.getByName("127.0.0.2")
+        val ipv4_3 = InetAddress.getByName("127.0.0.3")
+
+        val result = NettyConnectionPool.sortAddresses(Chunk(ipv4_1, ipv4_2, ipv4_3))
+        assertTrue(result == List(ipv4_1, ipv4_2, ipv4_3))
+      },
+      test("only IPv6 addresses preserves order") {
+        val ipv6_1 = InetAddress.getByName("::1")
+        val ipv6_2 = InetAddress.getByName("::2")
+        val ipv6_3 = InetAddress.getByName("::3")
+
+        val result = NettyConnectionPool.sortAddresses(Chunk(ipv6_1, ipv6_2, ipv6_3))
+        assertTrue(result == List(ipv6_1, ipv6_2, ipv6_3))
+      },
+    )
 
 }
