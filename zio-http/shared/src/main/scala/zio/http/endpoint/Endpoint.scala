@@ -213,11 +213,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   }
 
   private def isAuthenticationError(error: HttpCodecError): Boolean = error match {
-    case HttpCodecError.MissingHeader(name)       => name.equalsIgnoreCase(Header.Authorization.name)
-    case HttpCodecError.MissingHeaders(names)     => names.exists(_.equalsIgnoreCase(Header.Authorization.name))
-    case HttpCodecError.MalformedHeader(name, _)  => name.equalsIgnoreCase(Header.Authorization.name)
+    case HttpCodecError.MissingHeader(name)          => name.equalsIgnoreCase(Header.Authorization.name)
+    case HttpCodecError.MissingHeaders(names)        => names.exists(_.equalsIgnoreCase(Header.Authorization.name))
+    case HttpCodecError.MalformedHeader(name, _)     => name.equalsIgnoreCase(Header.Authorization.name)
     case HttpCodecError.DecodingErrorHeader(name, _) => name.equalsIgnoreCase(Header.Authorization.name)
-    case _                                        => false
+    case _                                           => false
   }
 
   def scopes(scopes: String*): Endpoint[PathInput, Input, Err, Output, AuthType] =
@@ -446,7 +446,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                 maybeUnauthedResponse.get
               case Some(error) if isAuthenticationError(error) =>
                 Handler.succeed(Response.unauthorized)
-              case Some(_) =>
+              case Some(_)                                     =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
@@ -461,7 +461,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   }
                   ZIO.succeed(response)
                 }
-              case None    =>
+              case None                                        =>
                 Handler.failCause(cause)
             }
           }
