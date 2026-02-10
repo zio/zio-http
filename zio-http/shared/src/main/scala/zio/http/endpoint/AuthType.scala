@@ -17,8 +17,8 @@ sealed trait AuthType { self =>
       ]
 
   /**
-   * Returns the appropriate WWW-Authenticate header for this auth type,
-   * or None if no standard challenge is applicable.
+   * Returns the appropriate WWW-Authenticate header for this auth type, or None
+   * if no standard challenge is applicable.
    */
   def wwwAuthenticateHeader: Option[Header.WWWAuthenticate] = self match {
     case AuthType.Basic               => Some(Header.WWWAuthenticate.Basic())

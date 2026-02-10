@@ -443,7 +443,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   case _          => Response.unauthorized
                 }
                 Handler.succeed(response)
-              case Some(_) =>
+              case Some(_)                                   =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
@@ -458,7 +458,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   }
                   ZIO.succeed(response)
                 }
-              case None    =>
+              case None                                      =>
                 Handler.failCause(cause)
             }
           }
@@ -1033,11 +1033,11 @@ object Endpoint {
 
   private def isAuthorizationError(cause: Cause[Any]): Boolean =
     cause.defects.exists {
-      case HttpCodecError.MissingHeader(name)        => name.toLowerCase == authHeaderName
-      case HttpCodecError.MissingHeaders(names)       => names.exists(_.toLowerCase == authHeaderName)
-      case HttpCodecError.MalformedHeader(name, _)    => name.toLowerCase == authHeaderName
+      case HttpCodecError.MissingHeader(name)          => name.toLowerCase == authHeaderName
+      case HttpCodecError.MissingHeaders(names)        => names.exists(_.toLowerCase == authHeaderName)
+      case HttpCodecError.MalformedHeader(name, _)     => name.toLowerCase == authHeaderName
       case HttpCodecError.DecodingErrorHeader(name, _) => name.toLowerCase == authHeaderName
-      case _                                          => false
+      case _                                           => false
     }
 
   /**
