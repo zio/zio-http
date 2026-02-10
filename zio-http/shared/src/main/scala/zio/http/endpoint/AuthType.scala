@@ -16,6 +16,19 @@ sealed trait AuthType { self =>
         AuthType { type ClientRequirement = ClientReq },
       ]
 
+  /**
+   * Returns the appropriate WWW-Authenticate header for this auth type,
+   * or None if no standard challenge is applicable.
+   */
+  def wwwAuthenticateHeader: Option[Header.WWWAuthenticate] = self match {
+    case AuthType.Basic               => Some(Header.WWWAuthenticate.Basic())
+    case AuthType.Bearer              => Some(Header.WWWAuthenticate.Bearer(realm = "restricted"))
+    case AuthType.Digest              => Some(Header.WWWAuthenticate.Digest(realm = Some("restricted")))
+    case AuthType.Or(auth1, _, _)     => auth1.wwwAuthenticateHeader
+    case AuthType.ScopedAuth(auth, _) => auth.wwwAuthenticateHeader
+    case _                            => scala.None
+  }
+
 }
 
 object AuthType {

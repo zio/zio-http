@@ -29,7 +29,7 @@ import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 import zio.http.codec.HttpCodecError.EncodingResponseError
 import zio.http.codec._
-import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
+import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes, isAuthorizationError}
 import zio.http.internal.StringBuilderPool
 
 /**
@@ -436,6 +436,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
                 maybeUnauthedResponse.get
+              case _: Some[_] if isAuthorizationError(cause) =>
+                val wwwAuthHeader = self.authType.asInstanceOf[AuthType].wwwAuthenticateHeader
+                val response      = wwwAuthHeader match {
+                  case _: Some[_] => Response.unauthorized.addHeader(wwwAuthHeader.get)
+                  case _          => Response.unauthorized
+                }
+                Handler.succeed(response)
               case Some(_) =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
@@ -1021,6 +1028,17 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 }
 
 object Endpoint {
+
+  private val authHeaderName: String = Header.Authorization.name.toLowerCase
+
+  private def isAuthorizationError(cause: Cause[Any]): Boolean =
+    cause.defects.exists {
+      case HttpCodecError.MissingHeader(name)        => name.toLowerCase == authHeaderName
+      case HttpCodecError.MissingHeaders(names)       => names.exists(_.toLowerCase == authHeaderName)
+      case HttpCodecError.MalformedHeader(name, _)    => name.toLowerCase == authHeaderName
+      case HttpCodecError.DecodingErrorHeader(name, _) => name.toLowerCase == authHeaderName
+      case _                                          => false
+    }
 
   /**
    * Constructs an endpoint for a route pattern.
