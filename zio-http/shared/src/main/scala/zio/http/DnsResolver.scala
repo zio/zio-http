@@ -83,7 +83,7 @@ object DnsResolver {
                 case Some(previous) =>
                   (
                     ZIO.ifZIO(entry.resolvedAddresses.isDone)(
-                      onTrue = entry.resolvedAddresses.await,
+                      onTrue = entry.resolvedAddresses.await.orElseSucceed(previous),
                       onFalse = ZIO.succeed(previous),
                     ),
                     entries,
