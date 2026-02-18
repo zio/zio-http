@@ -541,3 +541,5 @@ lazy val zioHttpExampleOauthBearerTokenAuth =
 
 lazy val zioHttpExampleWebauthn =
   RootProject(file("zio-http-example-webauthn"))
+
+lazy val root = project.in(file(".")).aggregate(core, netty, client, server, endpoint)
