@@ -1,15 +1,15 @@
 name         := "zio-http-example-webauthn"
 version      := "0.1.1"
-scalaVersion := "2.13.17"
+scalaVersion := "2.13.18"
 
 publish / skip  := true
 publishArtifact := false
 run / fork := true
 
 libraryDependencies ++= Seq(
-  "dev.zio" %% "zio"      % "2.1.22",
+  "dev.zio" %% "zio"      % "2.1.24",
   "dev.zio" %% "zio-http" % "3.5.1",
-  "dev.zio" %% "zio-config" % "4.0.5",
+  "dev.zio" %% "zio-config" % "4.0.6",
   "com.yubico" % "webauthn-server-core"        % "2.7.0",
   "com.yubico" % "webauthn-server-attestation" % "2.7.0",
 )
