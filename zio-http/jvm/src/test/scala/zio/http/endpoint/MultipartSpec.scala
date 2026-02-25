@@ -198,7 +198,7 @@ object MultipartSpec extends ZIOHttpSpec {
           // form) are unique. The endpoint codec's indexByName is built with .toMap which
           // silently drops duplicates, causing "Missing multipart/form-data field" errors.
           // Effective name = explicit name if present, or "field{idx}" for unnamed fields.
-          val fields = {
+          val fields   = {
             val seen = scala.collection.mutable.Set.empty[String]
             rawFields.zipWithIndex.map { case ((ff, schema, name, isStreaming), idx) =>
               val effectiveName = name.getOrElse(s"field$idx")
