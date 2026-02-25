@@ -397,8 +397,7 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-config`,
       scalafmt
         .cross(CrossVersion.for3Use2_13)
-        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13")
-        .exclude("io.get-coursier", "coursier_2.13"),
+        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
       scalametaParsers
         .cross(CrossVersion.for3Use2_13)
         .exclude("org.scala-lang.modules", "scala-collection-compat_2.13")
@@ -485,6 +484,9 @@ lazy val docs = project
   .in(file("zio-http-docs"))
   .settings(stdSettings("zio-http-docs"))
   .settings(publishSetting(false))
+  .settings(
+    excludeDependencies += "com.github.plokhotnyuk.jsoniter-scala" % "jsoniter-scala-core_2.13",
+  )
   .settings(
     fork                                       := false,
     moduleName                                 := "zio-http-docs",
