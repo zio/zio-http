@@ -368,6 +368,40 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == expected)
       },
+      test("handleErrorCause should catch defects after handleErrorZIO (#3432)") {
+        val route = Method.GET / "endpoint" -> handler { (_: Request) =>
+          ZIO
+            .attempt(Response.ok)
+            .flatMap(_ => ZIO.die(new IllegalArgumentException("boom")))
+        }
+        val app   = route.toRoutes
+          .handleErrorZIO(_ => ZIO.succeed(Response.text("handleErrorZIO")))
+          .handleErrorCause(_ => Response.text("handleErrorCause"))
+        for {
+          response <- app.runZIO(Request.get(URL.decode("/endpoint").toOption.get))
+          body     <- response.body.asString
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == "handleErrorCause",
+        )
+      },
+      test("handleErrorCause should catch defects after handleError (#3432)") {
+        val route = Method.GET / "endpoint" -> handler { (_: Request) =>
+          ZIO
+            .attempt(Response.ok)
+            .flatMap(_ => ZIO.die(new IllegalArgumentException("boom")))
+        }
+        val app   = route.toRoutes
+          .handleError(_ => Response.text("handleError"))
+          .handleErrorCause(_ => Response.text("handleErrorCause"))
+        for {
+          response <- app.runZIO(Request.get(URL.decode("/endpoint").toOption.get))
+          body     <- response.body.asString
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == "handleErrorCause",
+        )
+      },
     ),
     test("Handled#toHandler should not suspend") {
       val request = Request(headers = Headers.empty, method = Method.GET)

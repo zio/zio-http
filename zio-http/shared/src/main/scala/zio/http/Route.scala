@@ -55,7 +55,12 @@ sealed trait Route[-Env, +Err] { self =>
    * method will not pass the responses to the provided function.
    */
   final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
-    self.handleErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCauseWith(c, _)(f)))
+    self.handleErrorCauseZIO { cause =>
+      cause.failureOrCause match {
+        case Left(err)    => ZIO.succeed(f(err))
+        case Right(cause) => ZIO.refailCause(cause.asInstanceOf[Cause[Nothing]])
+      }
+    }
 
   /**
    * Handles all typed errors in the route by converting them into a zio effect
@@ -71,7 +76,7 @@ sealed trait Route[-Env, +Err] { self =>
     self.handleErrorCauseZIO { cause =>
       cause.failureOrCause match {
         case Left(err)    => f(err)
-        case Right(cause) => ErrorResponseConfig.configRef.getWith(c => ZIO.succeed(Response.fromCause(cause, c)))
+        case Right(cause) => ZIO.refailCause(cause.asInstanceOf[Cause[Nothing]])
       }
     }
 
