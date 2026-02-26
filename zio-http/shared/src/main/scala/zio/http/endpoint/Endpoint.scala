@@ -57,6 +57,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   documentation: Doc,
   authType: Auth,
+  summary: Option[String] = None,
 ) extends EndpointPlatformSpecific[PathInput, Input, Err, Output, Auth] {
   self =>
 
@@ -78,6 +79,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * additional documentation that will be included in OpenAPI generation.
    */
   def ??(that: Doc): Endpoint[PathInput, Input, Err, Output, Auth] = copy(documentation = self.documentation + that)
+
+  /**
+   * Returns a new endpoint with a short summary for OpenAPI documentation.
+   */
+  def summary(text: String): Endpoint[PathInput, Input, Err, Output, Auth] =
+    copy(summary = Some(text))
 
   /**
    * Flattens out this endpoint to a chunk of alternatives. Each alternative is
@@ -546,6 +553,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -563,6 +571,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -580,6 +589,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -597,6 +607,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -614,6 +625,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -649,6 +661,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -667,6 +680,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -685,6 +699,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -704,6 +719,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -722,6 +738,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
 
   /**
@@ -811,6 +828,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
   }
 
@@ -835,6 +853,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
   }
 
@@ -859,6 +878,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
   }
 
@@ -895,6 +915,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
   }
 
@@ -913,6 +934,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       codecError,
       documentation,
       authType,
+      summary,
     )
   }
 

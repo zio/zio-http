@@ -742,7 +742,7 @@ object OpenAPIGen {
       val maybeDoc = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
         tags = endpoint.tags,
-        summary = None,
+        summary = endpoint.summary,
         description = maybeDoc,
         externalDocs = None,
         operationId = None,

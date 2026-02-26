@@ -4725,6 +4725,59 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("endpoint with summary to OpenAPI") {
+        val endpoint     = Endpoint(GET / "users")
+          .summary("List all users")
+          .out[SimpleOutputBody]
+        val generated    = OpenAPIGen.fromEndpoints("Summary Test", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson = """|{
+                              |  "openapi" : "3.1.0",
+                              |  "info" : {
+                              |    "title" : "Summary Test",
+                              |    "version" : "1.0"
+                              |  },
+                              |  "paths" : {
+                              |    "/users" : {
+                              |      "get" : {
+                              |        "summary" : "List all users",
+                              |        "responses" : {
+                              |          "200" : {
+                              |            "content" : {
+                              |              "application/json" : {
+                              |                "schema" : {
+                              |                  "$ref" : "#/components/schemas/SimpleOutputBody"
+                              |                }
+                              |              }
+                              |            }
+                              |          }
+                              |        }
+                              |      }
+                              |    }
+                              |  },
+                              |  "components" : {
+                              |    "schemas" : {
+                              |      "SimpleOutputBody" : {
+                              |        "type" : "object",
+                              |        "properties" : {
+                              |          "userName" : {
+                              |            "type" : "string"
+                              |          },
+                              |          "score" : {
+                              |            "type" : "integer",
+                              |            "format" : "int32"
+                              |          }
+                              |        },
+                              |        "required" : [
+                              |          "userName",
+                              |          "score"
+                              |        ]
+                              |      }
+                              |    }
+                              |  }
+                              |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
     )
 
 }
