@@ -20,9 +20,9 @@ object Mode {
     else if (str.equalsIgnoreCase("prod")) Prod
     else {
       Console.err.println(
-        s"[WARN] Unknown mode '$str', supported modes are 'dev', 'preprod' and 'prod'. Falling back to 'dev'.",
+        s"[WARN] Unknown mode '$str', supported modes are 'dev', 'preprod' and 'prod'. Falling back to 'prod'.",
       )
-      Dev
+      Prod
     }
 
   def isDev: Boolean     = current == Dev
