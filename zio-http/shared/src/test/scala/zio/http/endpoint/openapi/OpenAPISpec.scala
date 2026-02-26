@@ -31,6 +31,11 @@ object OpenAPISpec extends ZIOSpecDefault {
   case class SchemaTest(number: Int, string: String, child: Option[SealedTrait])
   implicit val schemaTestSchema: Schema[SchemaTest] = DeriveSchema.gen[SchemaTest]
 
+  case class Inner(value: String)
+  case class Outer(inner: Inner)
+  implicit val innerSchema: Schema[Inner] = DeriveSchema.gen[Inner]
+  implicit val outerSchema: Schema[Outer] = DeriveSchema.gen[Outer]
+
   val spec = suite("OpenAPISpec")(
     test("auth schema serialization") {
       import OpenAPI._
@@ -127,6 +132,11 @@ object OpenAPISpec extends ZIOSpecDefault {
                        |  }
                        |}""".stripMargin
       assertTrue(toJsonAst(json) == toJsonAst(expected))
+    },
+    test("JsonSchema.fromZSchema should produce no refs when SchemaStyle.Inline") {
+      val js   = JsonSchema.fromZSchema(outerSchema, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Inline))
+      val json = js.toJson
+      assertTrue(!json.contains("$ref"))
     },
     test("JsonSchema.jsonSchema correctly generate valid Json Schema with $defs and associated $ref") {
       val jsonSchema = JsonSchema.jsonSchema(schemaTestSchema)

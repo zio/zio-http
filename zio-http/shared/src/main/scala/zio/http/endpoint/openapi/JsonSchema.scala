@@ -511,7 +511,7 @@ object JsonSchema {
       val seenWithCurrent = seen ++ ref
       schema match {
         case enum0: Schema.Enum[_] if enum0.cases.forall(_.schema.isInstanceOf[CaseClass0[_]]) =>
-          JsonSchemas(fromZSchema(enum0, refType.inline), ref, Map.empty)
+          JsonSchemas(fromZSchemaInternal(enum0, refType.inline), ref, Map.empty)
         case enum0: Schema.Enum[_]                                                             =>
           val discriminatorName0   =
             enum0.annotations.collectFirst { case discriminatorName(name) => name }
@@ -520,7 +520,7 @@ object JsonSchema {
           val shouldAddDiscrimProp = discriminatorName0.isDefined && !hasNoDiscriminator
 
           JsonSchemas(
-            fromZSchema(enum0, refType.inline),
+            fromZSchemaInternal(enum0, refType.inline),
             ref,
             nonTransientCases.flatMap { c =>
               val key    =
@@ -556,7 +556,7 @@ object JsonSchema {
               nested.rootRef.fold(ifEmpty = nested.children)(k => nested.children + (k -> nested.root))
             }
             .toMap
-          JsonSchemas(fromZSchema(record, refType.inline), ref, children)
+          JsonSchemas(fromZSchemaInternal(record, refType.inline), ref, children)
         case collection: Schema.Collection[_, _]                                               =>
           collection match {
             case Schema.Sequence(elementSchema, _, _, _, _)                =>
@@ -580,7 +580,7 @@ object JsonSchema {
         case Schema.Transform(schema, _, _, _, _)                                              =>
           fromZSchemaMultiple(schema, refType, seen)
         case Schema.Primitive(_, _)                                                            =>
-          JsonSchemas(fromZSchema(schema, refType.inline), ref, Map.empty)
+          JsonSchemas(fromZSchemaInternal(schema, refType.inline), ref, Map.empty)
         case Schema.Optional(schema, _)                                                        =>
           fromZSchemaMultiple(schema, refType, seenWithCurrent)
         case Schema.Fail(_, _)                                                                 =>
@@ -683,7 +683,7 @@ object JsonSchema {
     keySchema match {
       case Schema.Primitive(StandardType.StringType, annotations) if annotations.isEmpty => None
       case nonSimple                                                                     =>
-        fromZSchema(nonSimple, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Inline)) match {
+        fromZSchemaInternal(nonSimple, SchemaRef(SchemaSpec.OpenAPI, SchemaStyle.Inline)) match {
           case JsonSchema.String(None, None, None, None) => None // no need for extension
           case s: JsonSchema.String                      => Some(MetaData.KeySchema(s))
           case _                                         => None // only string keys are allowed
@@ -708,7 +708,7 @@ object JsonSchema {
     valueSchema: Schema[V],
     refType: SchemaRef,
   ): JsonSchema.Object = {
-    val valuesSchema = fromZSchema(valueSchema, refType)
+    val valuesSchema = fromZSchemaInternal(valueSchema, refType)
     annotateMapSchemaWithKeysSchema(valuesSchema, keySchema)
   }
 
@@ -717,6 +717,14 @@ object JsonSchema {
     fromZSchema(schema, SchemaRef(SchemaSpec.OpenAPI, refType))
 
   def fromZSchema(schema: Schema[_], refType: SchemaRef): JsonSchema =
+    if (refType.style == SchemaStyle.Inline) {
+      val result = fromZSchemaMultiple(schema, refType.compact)
+      inlineRefs(result.root, result.children)
+    } else {
+      fromZSchemaInternal(schema, refType)
+    }
+
+  private def fromZSchemaInternal(schema: Schema[_], refType: SchemaRef): JsonSchema =
     schema match {
       case enum0: Schema.Enum[_]
           if refType.style != SchemaStyle.Inline && nominal(enum0, refType.reference).isDefined =>
@@ -734,10 +742,10 @@ object JsonSchema {
         val nonTransientCases  = enum0.cases.filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
         if (noDiscriminator) {
           JsonSchema
-            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, refType.compact)))
+            .OneOfSchema(nonTransientCases.map(c => fromZSchemaInternal(c.schema, refType.compact)))
         } else if (discriminatorName0.isDefined) {
           JsonSchema
-            .OneOfSchema(nonTransientCases.map(c => fromZSchema(c.schema, refType.compact)))
+            .OneOfSchema(nonTransientCases.map(c => fromZSchemaInternal(c.schema, refType.compact)))
             .discriminator(
               OpenAPI.Discriminator(
                 propertyName = discriminatorName0.get,
@@ -754,7 +762,7 @@ object JsonSchema {
             .OneOfSchema(nonTransientCases.map { c =>
               val name = c.annotations.collectFirst { case caseName(name) => name }.getOrElse(c.id)
               Object(
-                Map(name -> fromZSchema(c.schema, refType.compact)),
+                Map(name -> fromZSchemaInternal(c.schema, refType.compact)),
                 Left(false),
                 Chunk(name),
               )
@@ -780,7 +788,7 @@ object JsonSchema {
           )
           .addAll(nonTransientFields.map { field =>
             field.name ->
-              fromZSchema(
+              fromZSchemaInternal(
                 field.annotations.foldLeft(field.schema)((schema, annotation) => schema.annotate(annotation)),
                 refType.compact,
               )
@@ -800,10 +808,10 @@ object JsonSchema {
       case collection: Schema.Collection[_, _]                                               =>
         collection match {
           case Schema.Sequence(elementSchema, _, _, _, _)                =>
-            JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)), None, uniqueItems = false)
+            JsonSchema.ArrayType(Some(fromZSchemaInternal(elementSchema, refType)), None, uniqueItems = false)
           case Schema.NonEmptySequence(elementSchema, _, _, _, identity) =>
             JsonSchema.ArrayType(
-              Some(fromZSchema(elementSchema, refType)),
+              Some(fromZSchemaInternal(elementSchema, refType)),
               Some(1),
               uniqueItems = identity == "NonEmptySet",
             )
@@ -812,10 +820,10 @@ object JsonSchema {
           case Schema.NonEmptyMap(keySchema, valueSchema, _)             =>
             jsonSchemaFromAnyMapSchema(keySchema, valueSchema, refType)
           case Schema.Set(elementSchema, _)                              =>
-            JsonSchema.ArrayType(Some(fromZSchema(elementSchema, refType)), None, uniqueItems = true)
+            JsonSchema.ArrayType(Some(fromZSchemaInternal(elementSchema, refType)), None, uniqueItems = true)
         }
       case Schema.Transform(schema, _, _, _, _)                                              =>
-        fromZSchema(schema, refType)
+        fromZSchemaInternal(schema, refType)
       case Schema.Primitive(standardType, annotations)                                       =>
         standardType match {
           case StandardType.UnitType           => JsonSchema.Null
@@ -882,23 +890,48 @@ object JsonSchema {
           case StandardType.CurrencyType       => JsonSchema.String()
         }
 
-      case Schema.Optional(schema, _)    => fromZSchema(schema, refType).nullable(true)
-      case Schema.Fail(_, _)             => throw new IllegalArgumentException("Fail schema is not supported.")
-      case Schema.Tuple2(left, right, _) => AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
-      case Schema.Either(left, right, _) => OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
+      case Schema.Optional(schema, _)            => fromZSchemaInternal(schema, refType).nullable(true)
+      case Schema.Fail(_, _)                     => throw new IllegalArgumentException("Fail schema is not supported.")
+      case Schema.Tuple2(left, right, _)         =>
+        AllOfSchema(Chunk(fromZSchemaInternal(left, refType), fromZSchemaInternal(right, refType)))
+      case Schema.Either(left, right, _)         =>
+        OneOfSchema(Chunk(fromZSchemaInternal(left, refType), fromZSchemaInternal(right, refType)))
       case Schema.Fallback(left, right, true, _) =>
         OneOfSchema(
           Chunk(
-            AllOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType))),
-            fromZSchema(left, refType),
-            fromZSchema(right, refType),
+            AllOfSchema(Chunk(fromZSchemaInternal(left, refType), fromZSchemaInternal(right, refType))),
+            fromZSchemaInternal(left, refType),
+            fromZSchemaInternal(right, refType),
           ),
         )
       case Schema.Fallback(left, right, _, _)    =>
-        OneOfSchema(Chunk(fromZSchema(left, refType), fromZSchema(right, refType)))
-      case Schema.Lazy(schema0)                  => fromZSchema(schema0(), refType)
+        OneOfSchema(Chunk(fromZSchemaInternal(left, refType), fromZSchemaInternal(right, refType)))
+      case Schema.Lazy(schema0)                  => fromZSchemaInternal(schema0(), refType)
       case Schema.Dynamic(_)                     => AnyJson
 
+    }
+
+  private def inlineRefs(schema: JsonSchema, defs: Map[java.lang.String, JsonSchema]): JsonSchema =
+    schema match {
+      case RefSchema(ref)                                     =>
+        defs.get(ref).map(inlineRefs(_, defs)).getOrElse(schema)
+      case Object(properties, additionalProperties, required) =>
+        Object(
+          properties.map { case (k, v) => k -> inlineRefs(v, defs) },
+          additionalProperties.map(inlineRefs(_, defs)),
+          required,
+        )
+      case ArrayType(items, minItems, uniqueItems)            =>
+        ArrayType(items.map(inlineRefs(_, defs)), minItems, uniqueItems)
+      case OneOfSchema(schemas)                               =>
+        OneOfSchema(schemas.map(inlineRefs(_, defs)))
+      case AllOfSchema(schemas)                               =>
+        AllOfSchema(schemas.map(inlineRefs(_, defs)))
+      case AnyOfSchema(schemas)                               =>
+        AnyOfSchema(schemas.map(inlineRefs(_, defs)))
+      case AnnotatedSchema(inner, annotation)                 =>
+        AnnotatedSchema(inlineRefs(inner, defs), annotation)
+      case other                                              => other
     }
 
   private def descriptionFromAnnotations(annotations: Chunk[Any]) = {
