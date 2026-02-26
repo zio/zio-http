@@ -49,7 +49,8 @@ object ConversionsSpec extends ZIOHttpSpec {
           assertTrue(Conversions.headersToNetty(headers) == expected)
         },
         test("should encode multiple headers with the same name") {
-          val headers = Headers(Header.Custom("WWW-Authenticate", "Bearer")) ++ Headers(Header.Custom("WWW-Authenticate", "Basic"))
+          val headers =
+            Headers(Header.Custom("WWW-Authenticate", "Bearer")) ++ Headers(Header.Custom("WWW-Authenticate", "Basic"))
           val result  = Conversions.headersToNetty(headers).entries().size()
           assertTrue(result == 2)
         },
