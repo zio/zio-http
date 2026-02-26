@@ -42,6 +42,7 @@ object DnsResolver {
     resolvedAddresses: Promise[UnknownHostException, Chunk[InetAddress]],
     previousAddresses: Option[Chunk[InetAddress]],
     lastUpdatedAt: Instant,
+    failureCount: Int = 0,
   )
 
   sealed trait ExpireAction
@@ -69,6 +70,7 @@ object DnsResolver {
     unknownHostTtl: Duration,
     maxCount: Int,
     expireAction: ExpireAction,
+    maxRetries: Int,
     semaphore: Semaphore,
     entries: Ref[Map[String, CacheEntry]],
   ) extends DnsResolver {
@@ -137,13 +139,18 @@ object DnsResolver {
                   failure = (_: UnknownHostException) => {
                     if (entry.lastUpdatedAt.plus(unknownHostTtl).isBefore(now)) {
                       if (expireAction == ExpireAction.Refresh) {
-                        val newEntry = CacheEntry(
-                          Promise.unsafe.make(fiberId)(Unsafe.unsafe),
-                          None,
-                          now,
-                        )
-                        startResolvingHost(host, newEntry.resolvedAddresses)
-                          .as(Some(CachePatch.Update(host, newEntry)))
+                        if (entry.failureCount + 1 >= maxRetries) {
+                          ZIO.some(CachePatch.Remove(host))
+                        } else {
+                          val newEntry = CacheEntry(
+                            Promise.unsafe.make(fiberId)(Unsafe.unsafe),
+                            None,
+                            now,
+                            failureCount = entry.failureCount + 1,
+                          )
+                          startResolvingHost(host, newEntry.resolvedAddresses)
+                            .as(Some(CachePatch.Update(host, newEntry)))
+                        }
                       } else {
                         ZIO.some(CachePatch.Remove(host))
                       }
@@ -159,6 +166,7 @@ object DnsResolver {
                           Promise.unsafe.make(fiberId)(Unsafe.unsafe),
                           Some(addresses),
                           now,
+                          failureCount = 0,
                         )
                         startResolvingHost(host, newEntry.resolvedAddresses)
                           .as(Some(CachePatch.Update(host, newEntry)))
@@ -211,11 +219,21 @@ object DnsResolver {
       maxConcurrentResolutions: Int,
       expireAction: ExpireAction,
       refreshRate: Duration,
+      maxRetries: Int,
     )(implicit trace: Trace): ZIO[Scope, Nothing, DnsResolver] =
       for {
         semaphore <- Semaphore.make(maxConcurrentResolutions.toLong)
         entries   <- Ref.make(Map.empty[String, CacheEntry])
-        cachingResolver = new CachingResolver(resolver, ttl, unknownHostTtl, maxCount, expireAction, semaphore, entries)
+        cachingResolver = new CachingResolver(
+          resolver,
+          ttl,
+          unknownHostTtl,
+          maxCount,
+          expireAction,
+          maxRetries,
+          semaphore,
+          entries,
+        )
         _ <- cachingResolver.refreshAndCleanup().scheduleFork(Schedule.fixed(refreshRate))
       } yield cachingResolver
   }
@@ -233,6 +251,7 @@ object DnsResolver {
     maxConcurrentResolutions: Int,
     expireAction: ExpireAction,
     refreshRate: Duration,
+    maxRetries: Int,
   )
 
   object Config {
@@ -242,9 +261,10 @@ object DnsResolver {
         zio.Config.int("max-count").withDefault(Config.default.maxCount) ++
         zio.Config.int("max-concurrent-resolutions").withDefault(Config.default.maxConcurrentResolutions) ++
         ExpireAction.config.nested("expire-action").withDefault(Config.default.expireAction) ++
-        zio.Config.duration("refresh-rate").withDefault(Config.default.refreshRate)).map {
-        case (ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate) =>
-          Config(ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate)
+        zio.Config.duration("refresh-rate").withDefault(Config.default.refreshRate) ++
+        zio.Config.int("max-retries").withDefault(Config.default.maxRetries)).map {
+        case (ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate, maxRetries) =>
+          Config(ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate, maxRetries)
       }
 
     def default: Config = Config(
@@ -254,6 +274,7 @@ object DnsResolver {
       maxConcurrentResolutions = 16,
       expireAction = ExpireAction.Refresh,
       refreshRate = 2.seconds,
+      maxRetries = 3,
     )
   }
 
@@ -275,6 +296,7 @@ object DnsResolver {
     expireAction: ExpireAction = ExpireAction.Refresh,
     refreshRate: Duration = 2.seconds,
     implementation: DnsResolver = SystemResolver(),
+    maxRetries: Int = 3,
   ): ZLayer[Any, Nothing, DnsResolver] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
@@ -287,6 +309,7 @@ object DnsResolver {
           maxConcurrentResolutions,
           expireAction,
           refreshRate,
+          maxRetries,
         )
     }
   }
@@ -305,6 +328,7 @@ object DnsResolver {
           config.maxConcurrentResolutions,
           config.expireAction,
           config.refreshRate,
+          config.maxRetries,
         )
       } yield resolver
     }
