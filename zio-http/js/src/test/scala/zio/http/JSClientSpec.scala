@@ -12,8 +12,8 @@ object JSClientSpec extends ZIOSpecDefault {
   private val serverLayer: ZLayer[Any, Throwable, (js.Dynamic, Int)] = ZLayer.scoped {
     ZIO.acquireRelease {
       ZIO.async[Any, Throwable, (js.Dynamic, Int)] { callback =>
-        val http   = js.Dynamic.global.require("http")
-        val server = http.createServer { (_: js.Dynamic, res: js.Dynamic) =>
+        val http          = js.Dynamic.global.require("http")
+        val server        = http.createServer { (_: js.Dynamic, res: js.Dynamic) =>
           res.writeHead(200, js.Dictionary("Content-Type" -> "text/html"))
           res.end("<!doctype html><html><body>Hello</body></html>")
           ()
@@ -102,5 +102,5 @@ object JSClientSpec extends ZIOSpecDefault {
 //          } yield assertTrue(consoleMessages.contains("Server: Hello, World!"))
 //        }.provideSome[Scope & Client](ZLayer(Queue.bounded[String](100))),
 //      ),
-    ).provideShared(portLayer)
+    ).provideShared(portLayer) @@ TestAspect.ifEnvSet("CI")
 }
