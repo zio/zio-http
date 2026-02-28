@@ -19,7 +19,7 @@ package zio.http.stomp
 import zio._
 import zio.test._
 
-import zio.http._ // Import syntax extensions
+import zio.http._ // Import syntax extensions // Import syntax extensions
 
 /**
  * Tests for STOMP protocol over WebSocket
