@@ -256,7 +256,7 @@ sealed trait Route[-Env, +Err] { self =>
     self.handleErrorRequestCauseZIO { (request, cause) =>
       cause.failureOrCause match {
         case Left(err)    => f(err, request)
-        case Right(cause) => ZIO.refailCause(cause)
+        case Right(cause) => ErrorResponseConfig.configRef.getWith(c => ZIO.succeed(Response.fromCause(cause, c)))
       }
     }
 
