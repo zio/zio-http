@@ -19,6 +19,8 @@ package zio.http
 import java.net.{InetAddress, UnknownHostException}
 import java.time.Instant
 
+import scala.annotation.unroll
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -251,7 +253,8 @@ object DnsResolver {
     maxConcurrentResolutions: Int,
     expireAction: ExpireAction,
     refreshRate: Duration,
-    maxRetries: Int,
+    @unroll
+    maxRetries: Int = 3,
   )
 
   object Config {
