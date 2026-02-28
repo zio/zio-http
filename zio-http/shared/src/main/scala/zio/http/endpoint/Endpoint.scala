@@ -16,7 +16,7 @@
 
 package zio.http.endpoint
 
-import scala.annotation.nowarn
+import scala.annotation.{nowarn, unroll}
 import scala.reflect.ClassTag
 
 import zio._
@@ -57,7 +57,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   codecError: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
   documentation: Doc,
   authType: Auth,
-  summary: Option[String] = None,
+  @unroll summary: Option[String] = None,
 ) extends EndpointPlatformSpecific[PathInput, Input, Err, Output, Auth] {
   self =>
 
