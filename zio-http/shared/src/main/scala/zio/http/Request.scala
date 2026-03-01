@@ -53,7 +53,7 @@ final case class Request(
   val allHeaders: Headers = {
     body.mediaType match {
       case Some(mediaType) =>
-        headers ++ Headers(Header.ContentType(mediaType, body.boundary))
+        headers.removeHeader(Header.ContentType.name) ++ Headers(Header.ContentType(mediaType, body.boundary))
       case None            =>
         headers
     }
