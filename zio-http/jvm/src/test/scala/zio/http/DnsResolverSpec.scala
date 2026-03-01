@@ -184,7 +184,7 @@ object DnsResolverSpec extends ZIOHttpSpec {
           refreshRate = 1.second,
           unknownHostTtl = 5.seconds,
           expireAction = ExpireAction.Refresh,
-          maxRetries = 3,
+          maxRetries = 2,
           implementation = TestResolver(),
         ),
       ),
