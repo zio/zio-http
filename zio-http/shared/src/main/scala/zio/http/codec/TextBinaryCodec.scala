@@ -52,14 +52,20 @@ object TextBinaryCodec {
             codec.streamDecoder.map(v => Some(v).asInstanceOf[A])
         }
       case enum0: Schema.Enum[_] if enum0.annotations.exists(_.isInstanceOf[simpleEnum]) =>
-        val stringCodec    = fromSchema(Schema.Primitive(StandardType.StringType)).asInstanceOf[BinaryCodec[String]]
-        val caseMap        = enum0.nonTransientCases
-          .map(case_ =>
-            case_.schema.asInstanceOf[Schema.CaseClass0[A]].defaultConstruct() ->
-              case_.caseName,
-          )
-          .toMap
-        val reverseCaseMap = caseMap.map(_.swap)
+        val stringCodec = fromSchema(Schema.Primitive(StandardType.StringType)).asInstanceOf[BinaryCodec[String]]
+        def collectLeafCases(enum1: Schema.Enum[_]): Chunk[(Any, String)] =
+          Chunk.fromIterable(enum1.nonTransientCases).flatMap { c =>
+            c.schema match {
+              case cc0: Schema.CaseClass0[_] =>
+                Chunk((cc0.defaultConstruct(), c.caseName))
+              case nested: Schema.Enum[_]    =>
+                collectLeafCases(nested)
+              case _                         =>
+                Chunk.empty
+            }
+          }
+        val caseMap                                                       = collectLeafCases(enum0).toMap
+        val reverseCaseMap                                                = caseMap.map(_.swap)
         new BinaryCodec[A] {
           override def encode(a: A): Chunk[Byte] = {
             val caseName = caseMap(a.asInstanceOf[A])
