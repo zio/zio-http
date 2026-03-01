@@ -50,7 +50,7 @@ object ServerStartupErrorSpec extends ZIOSpecDefault {
                   assertTrue(
                     exit.isFailure,
                     errorLog.isDefined,
-                    errorLog.get.logLevel == LogLevel.Error,
+                    errorLog.exists(_.logLevel == LogLevel.Error),
                   )
                 }
               }
