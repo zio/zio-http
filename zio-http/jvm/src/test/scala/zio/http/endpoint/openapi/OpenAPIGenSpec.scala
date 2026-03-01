@@ -114,6 +114,23 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     case class NestedThree(name: String) extends SimpleNestedSealedTrait
   }
 
+  @noDiscriminator
+  sealed trait NestedAnimal
+
+  object NestedAnimal    {
+    implicit val schema: Schema[NestedAnimal] = DeriveSchema.gen[NestedAnimal]
+
+    sealed trait Dog extends NestedAnimal
+    object Dog {
+      case class GoldenRetriever(name: String) extends Dog
+    }
+
+    sealed trait Fish extends NestedAnimal
+    object Fish {
+      case class Bass(color: String) extends Fish
+    }
+  }
+
   @description("A recursive structure")
   case class Recursive(
     nestedOption: Option[Recursive],
@@ -124,11 +141,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     nestedTuple: (Recursive, Recursive),
     nestedOverAnother: NestedRecursive,
   )
-  object Recursive               {
+  object Recursive       {
     implicit val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
   }
   case class NestedRecursive(next: Recursive)
-  object NestedRecursive         {
+  object NestedRecursive {
     implicit val schema: Schema[NestedRecursive] = DeriveSchema.gen[NestedRecursive]
   }
 
@@ -3339,6 +3356,81 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |          },
             |          {
             |            "$ref" : "#/components/schemas/NestedThree"
+            |          }
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("nested sealed trait hierarchy flattened to leaf types") {
+        val endpoint     = Endpoint(GET / "static").in[NestedAnimal]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/NestedAnimal"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "Bass" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "color" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "color"
+            |        ]
+            |      },
+            |      "GoldenRetriever" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "NestedAnimal" :
+            |        {
+            |        "oneOf" : [
+            |          {
+            |            "$ref" : "#/components/schemas/GoldenRetriever"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Bass"
             |          }
             |        ]
             |      }

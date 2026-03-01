@@ -516,7 +516,7 @@ object JsonSchema {
           val discriminatorName0   =
             enum0.annotations.collectFirst { case discriminatorName(name) => name }
           val hasNoDiscriminator   = enum0.annotations.exists(_.isInstanceOf[noDiscriminator])
-          val nonTransientCases    = enum0.cases.filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
+          val nonTransientCases    = flattenEnumCases(enum0)
           val shouldAddDiscrimProp = discriminatorName0.isDefined && !hasNoDiscriminator
 
           JsonSchemas(
@@ -724,6 +724,21 @@ object JsonSchema {
       fromZSchemaInternal(schema, refType)
     }
 
+  private def flattenEnumCases(enum0: Schema.Enum[_]): Chunk[Schema.Case[_, _]] = {
+    val nonTransient = enum0.cases.filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
+    Chunk.fromIterable(nonTransient).flatMap { c =>
+      c.schema match {
+        case nestedEnum: Schema.Enum[_] => flattenEnumCases(nestedEnum)
+        case Schema.Lazy(schema0)       =>
+          schema0() match {
+            case nestedEnum: Schema.Enum[_] => flattenEnumCases(nestedEnum)
+            case _                          => Chunk(c)
+          }
+        case _                          => Chunk(c)
+      }
+    }
+  }
+
   private def fromZSchemaInternal(schema: Schema[_], refType: SchemaRef): JsonSchema =
     schema match {
       case enum0: Schema.Enum[_]
@@ -739,7 +754,7 @@ object JsonSchema {
         val noDiscriminator    = enum0.annotations.exists(_.isInstanceOf[noDiscriminator])
         val discriminatorName0 =
           enum0.annotations.collectFirst { case discriminatorName(name) => name }
-        val nonTransientCases  = enum0.cases.filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
+        val nonTransientCases  = flattenEnumCases(enum0)
         if (noDiscriminator) {
           JsonSchema
             .OneOfSchema(nonTransientCases.map(c => fromZSchemaInternal(c.schema, refType.compact)))
