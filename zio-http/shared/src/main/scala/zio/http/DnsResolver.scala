@@ -141,7 +141,7 @@ object DnsResolver {
                   failure = (_: UnknownHostException) => {
                     if (entry.lastUpdatedAt.plus(unknownHostTtl).isBefore(now)) {
                       if (expireAction == ExpireAction.Refresh) {
-                        if (entry.failureCount + 1 >= maxRetries) {
+                        if (entry.failureCount >= maxRetries) {
                           ZIO.some(CachePatch.Remove(host))
                         } else {
                           val newEntry = CacheEntry(
