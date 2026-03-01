@@ -402,6 +402,36 @@ object RouteSpec extends ZIOHttpSpec {
           body == "handleErrorCause",
         )
       },
+      test("handleErrorRequestZIO should handle typed errors with request info") {
+        val route        = Method.GET / "endpoint" -> handler { (_: Request) => ZIO.fail(new Exception("hmm...")) }
+        val errorHandled = route.handleErrorRequestZIO { (err, req) =>
+          ZIO.succeed(Response.internalServerError(s"error: ${err.getMessage} path: ${req.path.encode}"))
+        }
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          response <- errorHandled.toRoutes.runZIO(request)
+          body     <- response.body.asString
+        } yield assertTrue(
+          extractStatus(response) == Status.InternalServerError,
+          body == "error: hmm... path: /endpoint",
+        )
+      },
+      test("handleErrorRequestZIO should propagate defects without calling error handler") {
+        val route        = Method.GET / "endpoint" -> handler { (_: Request) =>
+          ZIO.die(new RuntimeException("boom"))
+        }
+        val errorHandled = route.handleErrorRequestZIO { (_: Throwable, _: Request) =>
+          ZIO.succeed(Response.text("should not be called"))
+        }
+        val request      = Request.get(URL.decode("/endpoint").toOption.get)
+        for {
+          response <- errorHandled.toRoutes.runZIO(request)
+          body     <- response.body.asString
+        } yield assertTrue(
+          extractStatus(response) == Status.InternalServerError,
+          !body.contains("should not be called"),
+        )
+      },
     ),
     test("Handled#toHandler should not suspend") {
       val request = Request(headers = Headers.empty, method = Method.GET)
