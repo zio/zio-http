@@ -576,11 +576,12 @@ object Server extends ServerPlatformSpecific {
     ): URIO[R, Unit] =
       for {
         _ <- initialInstall.succeed(())
-        _ <- serverStarted.await.orDie
+        _ <- serverStarted.await.tapErrorCause(cause => ZIO.logErrorCause("Failed to start server", cause)).orDie
         _ <- ZIO.environment[R].flatMap(env => driver.addApp(routes, env.prune[R]))
       } yield ()
 
-    override def port: UIO[Int] = serverStarted.await.orDie
+    override def port: UIO[Int] =
+      serverStarted.await.tapErrorCause(cause => ZIO.logErrorCause("Failed to start server", cause)).orDie
 
   }
 }
