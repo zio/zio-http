@@ -48,6 +48,12 @@ object ConversionsSpec extends ZIOHttpSpec {
             new DefaultHttpHeaders().add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
           assertTrue(Conversions.headersToNetty(headers) == expected)
         },
+        test("should encode multiple headers with the same name") {
+          val headers =
+            Headers(Header.Custom("WWW-Authenticate", "Bearer")) ++ Headers(Header.Custom("WWW-Authenticate", "Basic"))
+          val result  = Conversions.headersToNetty(headers).entries().size()
+          assertTrue(result == 2)
+        },
       ),
       suite("scheme")(
         test("java http scheme") {

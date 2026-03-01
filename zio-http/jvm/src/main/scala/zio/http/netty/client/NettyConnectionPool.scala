@@ -171,14 +171,18 @@ private[netty] object NettyConnectionPool {
     channel: JChannel,
     timeout: Duration,
   ): Boolean = {
-    channel
-      .pipeline()
-      .replace(
-        Names.ReadTimeoutHandler,
-        Names.ReadTimeoutHandler,
-        new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS),
-      )
-    channel.isOpen
+    try {
+      channel
+        .pipeline()
+        .replace(
+          Names.ReadTimeoutHandler,
+          Names.ReadTimeoutHandler,
+          new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS),
+        )
+      channel.isOpen
+    } catch {
+      case _: NoSuchElementException => false
+    }
   }
 
   /**

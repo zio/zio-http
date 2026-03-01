@@ -55,7 +55,12 @@ sealed trait Route[-Env, +Err] { self =>
    * method will not pass the responses to the provided function.
    */
   final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
-    self.handleErrorCauseZIO(c => ErrorResponseConfig.configRef.get.map(Response.fromCauseWith(c, _)(f)))
+    self.handleErrorCauseZIO { cause =>
+      cause.failureOrCause match {
+        case Left(err)    => ZIO.succeed(f(err))
+        case Right(cause) => ZIO.refailCause(cause.asInstanceOf[Cause[Nothing]])
+      }
+    }
 
   /**
    * Handles all typed errors in the route by converting them into a zio effect
@@ -71,7 +76,7 @@ sealed trait Route[-Env, +Err] { self =>
     self.handleErrorCauseZIO { cause =>
       cause.failureOrCause match {
         case Left(err)    => f(err)
-        case Right(cause) => ErrorResponseConfig.configRef.getWith(c => ZIO.succeed(Response.fromCause(cause, c)))
+        case Right(cause) => ZIO.refailCause(cause.asInstanceOf[Cause[Nothing]])
       }
     }
 
@@ -235,6 +240,25 @@ sealed trait Route[-Env, +Err] { self =>
     self.handleErrorRequestCauseZIO((request, cause) =>
       ErrorResponseConfig.configRef.get.map(Response.fromCauseWith(cause, _)(f(_, request))),
     )
+
+  /**
+   * Handles all typed errors in the route by converting them into a ZIO effect
+   * that produces a response, taking into account the request that caused the
+   * error. This method can be used to convert a route that does not handle its
+   * errors into one that does handle its errors.
+   *
+   * If the underlying handler uses the error channel to send responses, this
+   * method will not pass the responses to the provided function.
+   */
+  final def handleErrorRequestZIO[Env1 <: Env](
+    f: (Err, Request) => ZIO[Env1, Nothing, Response],
+  )(implicit trace: Trace): Route[Env1, Nothing] =
+    self.handleErrorRequestCauseZIO { (request, cause) =>
+      cause.failureOrCause match {
+        case Left(err)    => f(err, request)
+        case Right(cause) => ZIO.refailCause(cause.asInstanceOf[Cause[Nothing]])
+      }
+    }
 
   /**
    * Handles all typed errors, as well as all non-recoverable errors, by

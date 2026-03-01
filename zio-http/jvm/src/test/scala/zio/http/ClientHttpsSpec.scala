@@ -18,7 +18,6 @@ package zio.http
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{ignore, nonFlaky}
 import zio.test.{Spec, TestAspect, TestEnvironment, assertZIO}
 
 import zio.http.netty.NettyConfig
@@ -26,59 +25,16 @@ import zio.http.netty.client.NettyClientDriver
 
 abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
 
-  private val zioDev =
-    URL.decode("https://zio.dev").toOption.get
+  val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
+  val config    = Server.Config.default.port(0).ssl(sslConfig).logWarningOnFatalError(false)
 
-  private val badRequest =
-    URL
-      .decode(
-        "https://httpbin.org/status/400",
-      )
-      .toOption
-      .get
+  val routes: Routes[Any, Response] = Routes(
+    Method.GET / "success" -> handler(Response.ok),
+    Method.GET / "bad"     -> handler(Response(status = Status.BadRequest)),
+  ).sandbox
 
-  private val untrusted =
-    URL.decode("https://untrusted-root.badssl.com/").toOption.get
-
-  def tests(sslConfig: ClientSSLConfig) = suite("Client")(
-    test("respond Ok") {
-      val actual = Client.batched(Request.get(zioDev))
-      assertZIO(actual)(anything)
-    }.provide(ZLayer.succeed(ZClient.Config.default), partialClientLayer),
-    test("respond Ok with sslConfig") {
-      val actual = Client.batched(Request.get(zioDev))
-      assertZIO(actual)(anything)
-    },
-    test("should respond as Bad Request") {
-      val actual = Client.batched(Request.get(badRequest)).map(_.status)
-      assertZIO(actual)(equalTo(Status.BadRequest))
-    } @@ ignore /* started getting 503 consistently,
-    flaky does not help, nor exponential retries.
-    Either we're being throttled, or the service is under high load.
-    Regardless, we should not depend on an external service like that.
-    Luckily, httpbin is available via docker.
-    So once we make sure to:
-
-    $ docker run -p 80:80 kennethreitz/httpbin
-
-    before invoking tests, we can un-ignore this test. */,
-    test("should throw DecoderException for handshake failure") {
-      val actual = Client.batched(Request.get(untrusted)).exit
-      assertZIO(actual)(
-        fails(
-          hasField(
-            "class.simpleName",
-            _.getClass.getSimpleName,
-            isOneOf(List("DecoderException", "PrematureChannelClosureException")),
-          ),
-        ),
-      )
-    },
-  )
-    .provideShared(
-      ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
-      partialClientLayer,
-    ) @@ TestAspect.withLiveClock @@ TestAspect.flaky(5)
+  def trustedClientSSLConfig: ClientSSLConfig
+  def untrustedClientSSLConfig: ClientSSLConfig
 
   private val partialClientLayer = ZLayer.makeSome[ZClient.Config, Client](
     Client.customized,
@@ -86,31 +42,83 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
   )
+
+  def tests = suite("Client")(
+    Server
+      .installRoutes(routes)
+      .flatMap { port =>
+        val httpsUrl = URL.decode(s"https://localhost:$port/success").toOption.get
+        val badUrl   = URL.decode(s"https://localhost:$port/bad").toOption.get
+
+        ZIO.succeed(
+          List(
+            test("respond Ok") {
+              val actual = Client.batched(Request.get(httpsUrl)).map(_.status)
+              assertZIO(actual)(equalTo(Status.Ok))
+            }.provide(
+              ZLayer.succeed(ZClient.Config.default.ssl(trustedClientSSLConfig)),
+              partialClientLayer,
+            ),
+            test("should respond as Bad Request") {
+              val actual = Client.batched(Request.get(badUrl)).map(_.status)
+              assertZIO(actual)(equalTo(Status.BadRequest))
+            }.provide(
+              ZLayer.succeed(ZClient.Config.default.ssl(trustedClientSSLConfig)),
+              partialClientLayer,
+            ),
+            test("should throw DecoderException for handshake failure") {
+              Client
+                .batched(Request.get(httpsUrl))
+                .fold(
+                  { e =>
+                    val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
+                    val errorType      = e.getClass.getSimpleName
+                    if (expectedErrors.contains(errorType)) zio.test.assertCompletes
+                    else zio.test.assertNever(s"request failed with unexpected error type: $errorType")
+                  },
+                  _ => zio.test.assertNever("expected request to fail"),
+                )
+            }.provide(
+              ZLayer.succeed(ZClient.Config.default.ssl(untrustedClientSSLConfig)),
+              partialClientLayer,
+            ),
+          ),
+        )
+      },
+  ).provideShared(
+    Server.customized,
+    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+    ZLayer.succeed(config),
+  ) @@ TestAspect.withLiveClock
 }
 
 object ClientHttpsSpec extends ClientHttpsSpecBase {
 
-  private val sslConfig = ClientSSLConfig.FromTrustStoreResource(
-    trustStorePath = "truststore.jks",
+  override val trustedClientSSLConfig: ClientSSLConfig = ClientSSLConfig.FromTrustStoreResource(
+    trustStorePath = "server-truststore.jks",
     trustStorePassword = "changeit",
   )
 
+  override val untrustedClientSSLConfig: ClientSSLConfig = ClientSSLConfig.FromCertResource("ss2.crt.pem")
+
   override def spec: Spec[TestEnvironment & Scope, Throwable] =
     suite("Https Client request - From Trust Store")(
-      tests(sslConfig) @@ TestAspect.ignore,
+      tests,
     )
 }
 
 object ClientHttpsFromJavaxNetSslSpec extends ClientHttpsSpecBase {
 
-  private val sslConfig =
+  override val trustedClientSSLConfig: ClientSSLConfig =
     ClientSSLConfig.FromJavaxNetSsl
-      .builderWithTrustManagerResource("trustStore.jks")
+      .builderWithTrustManagerResource("server-truststore.jks")
       .trustManagerPassword("changeit")
       .build()
 
+  override val untrustedClientSSLConfig: ClientSSLConfig = ClientSSLConfig.FromCertResource("ss2.crt.pem")
+
   override def spec: Spec[TestEnvironment & Scope, Throwable] =
     suite("Https Client request - From Javax Net Ssl")(
-      tests(sslConfig) @@ TestAspect.flaky(5) @@ TestAspect.ignore,
+      tests,
     )
 }

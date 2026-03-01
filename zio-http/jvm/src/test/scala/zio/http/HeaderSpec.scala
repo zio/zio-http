@@ -342,6 +342,46 @@ object HeaderSpec extends ZIOHttpSpec {
         assert(actual)(isFalse)
       },
     ),
+    suite("StrictTransportSecurity")(
+      test("parse max-age only") {
+        val result = Header.StrictTransportSecurity.parse("max-age=31536000")
+        assert(result)(isRight(equalTo(Header.StrictTransportSecurity(31536000L))))
+      },
+      test("parse max-age with includeSubDomains") {
+        val result = Header.StrictTransportSecurity.parse("max-age=31536000; includeSubDomains")
+        assert(result)(isRight(equalTo(Header.StrictTransportSecurity(31536000L, includeSubDomains = true))))
+      },
+      test("parse all directives") {
+        val result = Header.StrictTransportSecurity.parse("max-age=0; includeSubDomains; preload")
+        assert(result)(isRight(equalTo(Header.StrictTransportSecurity(0L, includeSubDomains = true, preload = true))))
+      },
+      test("parse case-insensitive directives") {
+        val result = Header.StrictTransportSecurity.parse("Max-Age=600; INCLUDESUBDOMAINS; Preload")
+        assert(result)(isRight(equalTo(Header.StrictTransportSecurity(600L, includeSubDomains = true, preload = true))))
+      },
+      test("render max-age only") {
+        val rendered = Header.StrictTransportSecurity.render(Header.StrictTransportSecurity(31536000L))
+        assertTrue(rendered == "max-age=31536000")
+      },
+      test("render all directives") {
+        val rendered = Header.StrictTransportSecurity.render(
+          Header.StrictTransportSecurity(31536000L, includeSubDomains = true, preload = true),
+        )
+        assertTrue(rendered == "max-age=31536000; includeSubDomains; preload")
+      },
+      test("parse invalid header - missing max-age") {
+        val result = Header.StrictTransportSecurity.parse("includeSubDomains; preload")
+        assert(result)(isLeft)
+      },
+      test("parse invalid header - negative max-age") {
+        val result = Header.StrictTransportSecurity.parse("max-age=-1")
+        assert(result)(isLeft)
+      },
+      test("parse invalid header - non-numeric max-age") {
+        val result = Header.StrictTransportSecurity.parse("max-age=abc")
+        assert(result)(isLeft)
+      },
+    ),
   )
 
   private val acceptJson                = Headers(Header.Accept(MediaType.application.json))

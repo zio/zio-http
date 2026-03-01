@@ -31,6 +31,9 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   final case class ImageMetadata(name: String, size: Int)
   implicit val imageMetadataSchema: Schema[ImageMetadata]               =
     DeriveSchema.gen[ImageMetadata]
+  final case class Greeting(msg: String)
+  implicit val greetingSchema: Schema[Greeting]                         =
+    DeriveSchema.gen[Greeting]
 
   final case class WithTransientField(name: String, @transientField age: Int = 42)
   implicit val withTransientFieldSchema: Schema[WithTransientField] =
@@ -4723,6 +4726,75 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    }
                              |  }
                              |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("response examples via examplesOut - issue #3259") {
+
+        val endpoint =
+          Endpoint(GET / "greeting" / string("name"))
+            .out[Greeting]
+            .examplesOut("1" -> Greeting("Hi Jane"))
+
+        val generated    = OpenAPIGen.fromEndpoints("Test", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Test",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/greeting/{name}" : {
+            |      "get" : {
+            |        "parameters" : [
+            |          {
+            |            "name" : "name",
+            |            "in" : "path",
+            |            "required" : true,
+            |            "schema" : {
+            |              "type" : "string"
+            |            },
+            |            "style" : "simple"
+            |          }
+            |        ],
+            |        "responses" : {
+            |          "200" : {
+            |            "content" : {
+            |              "application/json" : {
+            |                "schema" : {
+            |                  "$ref" : "#/components/schemas/Greeting"
+            |                },
+            |                "examples" : {
+            |                  "1" : {
+            |                    "value" : {
+            |                      "msg" : "Hi Jane"
+            |                    }
+            |                  }
+            |                }
+            |              }
+            |            }
+            |          }
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "Greeting" : {
+            |        "type" : "object",
+            |        "properties" : {
+            |          "msg" : {
+            |            "type" : "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "msg"
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
     )
