@@ -21,10 +21,10 @@ import scala.annotation.nowarn
 import zio.Scope
 import zio.test._
 
-import zio.http.{Header, Headers, Version, ZIOHttpSpec}
+import zio.http.{Header, Headers, Status, Version, ZIOHttpSpec}
 
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme, HttpVersion}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpResponseStatus, HttpScheme, HttpVersion}
 
 @nowarn("msg=possible missing interpolator")
 object ConversionsSpec extends ZIOHttpSpec {
@@ -80,6 +80,44 @@ object ConversionsSpec extends ZIOHttpSpec {
             )
           },
         ),
+      ),
+      suite("status")(
+        test("statusToNetty returns cached Netty instance for standard status codes") {
+          val standardStatuses = List(
+            Status.Ok,
+            Status.NotFound,
+            Status.InternalServerError,
+            Status.BadRequest,
+            Status.Created,
+            Status.NoContent,
+            Status.MovedPermanently,
+            Status.Found,
+            Status.Forbidden,
+            Status.Unauthorized,
+          )
+          assertTrue(
+            standardStatuses.forall { status =>
+              val nettyStatus = Conversions.statusToNetty(status)
+              // valueOf(int) returns the cached singleton; reference equality proves no new allocation
+              nettyStatus eq HttpResponseStatus.valueOf(status.code)
+            },
+          )
+        },
+        test("statusToNetty preserves custom reason phrase for Custom status") {
+          val custom      = Status.Custom(299, "My Custom Reason")
+          val nettyStatus = Conversions.statusToNetty(custom)
+          assertTrue(
+            nettyStatus.code() == 299,
+            nettyStatus.reasonPhrase() == "My Custom Reason",
+          )
+        },
+        test("statusToNetty uses standard reason phrase for Custom status with empty phrase") {
+          val custom      = Status.Custom(200, "")
+          val nettyStatus = Conversions.statusToNetty(custom)
+          assertTrue(
+            nettyStatus eq HttpResponseStatus.valueOf(200),
+          )
+        },
       ),
     )
 
