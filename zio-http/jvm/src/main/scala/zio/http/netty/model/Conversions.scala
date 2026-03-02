@@ -106,8 +106,8 @@ private[netty] object Conversions {
 
   def statusToNetty(status: Status): HttpResponseStatus =
     status match {
-      case Status.Custom(code, phrase) if phrase.nonEmpty =>
-        HttpResponseStatus.valueOf(code, phrase)
+      case c: Status.Custom if c.reasonPhrase.nonEmpty =>
+        HttpResponseStatus.valueOf(c.code, c.reasonPhrase)
       case _ =>
         HttpResponseStatus.valueOf(status.code)
     }
