@@ -729,7 +729,7 @@ object OpenAPIGen {
       endpointSecurity(endpoint)
 
     def customAuthSchemes(codec: HttpCodec[_, _]): List[(String, SecurityScheme.ApiKey)] = {
-      val atoms = AtomizedMetaCodecs.flatten(codec)
+      val atoms         = AtomizedMetaCodecs.flatten(codec)
       val headerSchemes = atoms.header.map { meta =>
         val headerAtom = meta.codec.asInstanceOf[HttpCodec.Header[_]]
         val name       = headerAtom.headerType.names.head
@@ -738,7 +738,7 @@ object OpenAPIGen {
           else SecurityScheme.ApiKey.In.Header
         (name, SecurityScheme.ApiKey(description = None, name = name, in = in))
       }.toList
-      val querySchemes = atoms.query.map { meta =>
+      val querySchemes  = atoms.query.map { meta =>
         val queryAtom = meta.codec.asInstanceOf[HttpCodec.Query[_]]
         val name      = queryAtom.codec.recordFields.head._1.fieldName
         (name, SecurityScheme.ApiKey(description = None, name = name, in = SecurityScheme.ApiKey.In.Query))
