@@ -105,7 +105,12 @@ private[netty] object Conversions {
   }
 
   def statusToNetty(status: Status): HttpResponseStatus =
-    HttpResponseStatus.valueOf(status.code, status.reasonPhrase)
+    status match {
+      case _: Status.Custom =>
+        HttpResponseStatus.valueOf(status.code, status.reasonPhrase)
+      case _                =>
+        HttpResponseStatus.valueOf(status.code)
+    }
 
   def statusFromNetty(status: HttpResponseStatus): Status =
     Status.fromInt(status.code) match {
