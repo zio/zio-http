@@ -42,20 +42,19 @@ private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
             case cause                    => cb(ZIO.fail(cause))
           }
         }
-        try {
-          jFuture.addListener(handler)
-        } catch {
-          case failure: Throwable =>
-            cb(ZIO.fail(failure))
+
+        try jFuture.addListener(handler)
+        catch {
+          case failure: Throwable => cb(ZIO.fail(failure))
         }
+
         ()
       })
       .onInterrupt(ZIO.succeed(jFuture.removeListener(handler)))
   }
 
-  def scoped(implicit trace: Trace): ZIO[Scope, Throwable, Option[A]] = {
-    execute.withFinalizer(_ => cancel(true))
-  }
+  def scoped(implicit trace: Trace): ZIO[Scope, Throwable, Option[A]] =
+    execute.withFinalizer(_ => cancel(interruptIfRunning = true))
 
   // Cancels the future
   def cancel(interruptIfRunning: Boolean = false)(implicit trace: Trace): UIO[Boolean] =
@@ -67,8 +66,8 @@ object NettyFutureExecutor {
     ZIO.succeed(new NettyFutureExecutor(jFuture))
 
   def executed[A](jFuture: => Future[A])(implicit trace: Trace): Task[Unit] =
-    make(jFuture).flatMap(_.execute.unit)
+    ZIO.suspend(new NettyFutureExecutor(jFuture).execute.unit)
 
   def scoped[A](jFuture: => Future[A])(implicit trace: Trace): ZIO[Scope, Throwable, Unit] =
-    make(jFuture).flatMap(_.scoped.unit)
+    ZIO.suspend(new NettyFutureExecutor(jFuture).scoped.unit)
 }
