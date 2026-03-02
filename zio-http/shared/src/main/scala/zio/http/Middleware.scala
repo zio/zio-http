@@ -82,8 +82,8 @@ object Middleware extends HandlerAspects {
     // Pre-build the allowed headers Set once at construction time to avoid per-request allocation
     val allowedHeadersSet: Set[String] =
       config.allowedHeaders match {
-        case Header.AccessControlAllowHeaders.Some(values) => values.toSet
-        case _                                             => Set.empty
+        case s: Header.AccessControlAllowHeaders.Some => s.values.toSet
+        case _                                        => Set.empty
       }
 
     def allowedHeaders(
@@ -93,7 +93,7 @@ object Middleware extends HandlerAspects {
       // Returning an intersection of requested headers and allowed headers
       // if there are no requested headers, we return the configured allowed headers without modification
       allowedHeaders match {
-        case Header.AccessControlAllowHeaders.Some(_) =>
+        case _: Header.AccessControlAllowHeaders.Some =>
           requestedHeaders match {
             case Some(Header.AccessControlRequestHeaders(headers)) =>
               val intersection = headers.toSet.intersect(allowedHeadersSet)
