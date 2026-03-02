@@ -111,11 +111,12 @@ object ConversionsSpec extends ZIOHttpSpec {
             nettyStatus.reasonPhrase() == "My Custom Reason",
           )
         },
-        test("statusToNetty uses standard reason phrase for Custom status with empty phrase") {
-          val custom      = Status.Custom(200, "")
+        test("statusToNetty preserves empty reason phrase for Custom status") {
+          val custom      = Status.Custom(999, "")
           val nettyStatus = Conversions.statusToNetty(custom)
           assertTrue(
-            nettyStatus eq HttpResponseStatus.valueOf(200),
+            nettyStatus.code() == 999,
+            nettyStatus.reasonPhrase() == "",
           )
         },
       ),
