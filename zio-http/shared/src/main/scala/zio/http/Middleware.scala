@@ -79,6 +79,13 @@ object Middleware extends HandlerAspects {
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
   def cors(config: CorsConfig): Middleware[Any] = {
+    // Pre-build the allowed headers Set once at construction time to avoid per-request allocation
+    val allowedHeadersSet: Set[String] =
+      config.allowedHeaders match {
+        case s: Header.AccessControlAllowHeaders.Some => s.values.toSet
+        case _                                        => Set.empty
+      }
+
     def allowedHeaders(
       requestedHeaders: Option[Header.AccessControlRequestHeaders],
       allowedHeaders: Header.AccessControlAllowHeaders,
@@ -86,22 +93,22 @@ object Middleware extends HandlerAspects {
       // Returning an intersection of requested headers and allowed headers
       // if there are no requested headers, we return the configured allowed headers without modification
       allowedHeaders match {
-        case Header.AccessControlAllowHeaders.Some(values) =>
+        case _: Header.AccessControlAllowHeaders.Some =>
           requestedHeaders match {
             case Some(Header.AccessControlRequestHeaders(headers)) =>
-              val intersection = headers.toSet.intersect(values.toSet)
+              val intersection = headers.toSet.intersect(allowedHeadersSet)
               NonEmptyChunk.fromIterableOption(intersection) match {
                 case Some(values) => Header.AccessControlAllowHeaders.Some(values)
                 case None         => Header.AccessControlAllowHeaders.None
               }
             case None                                              => allowedHeaders
           }
-        case Header.AccessControlAllowHeaders.All          =>
+        case Header.AccessControlAllowHeaders.All     =>
           requestedHeaders match {
             case Some(Header.AccessControlRequestHeaders(headers)) => Header.AccessControlAllowHeaders.Some(headers)
             case _                                                 => Header.AccessControlAllowHeaders.All
           }
-        case Header.AccessControlAllowHeaders.None         => Header.AccessControlAllowHeaders.None
+        case Header.AccessControlAllowHeaders.None    => Header.AccessControlAllowHeaders.None
       }
 
     def corsHeaders(
