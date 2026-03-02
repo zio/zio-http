@@ -104,12 +104,13 @@ private[netty] object Conversions {
     nettyHeaders
   }
 
-  def statusToNetty(status: Status): HttpResponseStatus = status match {
-    case Status.Custom(code, phrase) if phrase.nonEmpty =>
-      HttpResponseStatus.valueOf(code, phrase)
-    case _ =>
-      HttpResponseStatus.valueOf(status.code)
-  }
+  def statusToNetty(status: Status): HttpResponseStatus =
+    status match {
+      case Status.Custom(code, phrase) if phrase.nonEmpty =>
+        HttpResponseStatus.valueOf(code, phrase)
+      case _ =>
+        HttpResponseStatus.valueOf(status.code)
+    }
 
   def statusFromNetty(status: HttpResponseStatus): Status =
     Status.fromInt(status.code) match {
