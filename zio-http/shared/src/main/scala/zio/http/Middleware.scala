@@ -80,10 +80,11 @@ object Middleware extends HandlerAspects {
    */
   def cors(config: CorsConfig): Middleware[Any] = {
     // Pre-build the allowed headers Set once at construction time to avoid per-request allocation
-    val allowedHeadersSet: Option[Set[String]] = config.allowedHeaders match {
-      case Header.AccessControlAllowHeaders.Some(values) => Some(values.toSet)
-      case _                                             => None
-    }
+    val allowedHeadersSet: Set[String] =
+      config.allowedHeaders match {
+        case Header.AccessControlAllowHeaders.Some(values) => values.toSet
+        case _                                             => Set.empty
+      }
 
     def allowedHeaders(
       requestedHeaders: Option[Header.AccessControlRequestHeaders],
@@ -95,7 +96,7 @@ object Middleware extends HandlerAspects {
         case Header.AccessControlAllowHeaders.Some(_) =>
           requestedHeaders match {
             case Some(Header.AccessControlRequestHeaders(headers)) =>
-              val intersection = headers.toSet.intersect(allowedHeadersSet.get)
+              val intersection = headers.toSet.intersect(allowedHeadersSet)
               NonEmptyChunk.fromIterableOption(intersection) match {
                 case Some(values) => Header.AccessControlAllowHeaders.Some(values)
                 case None         => Header.AccessControlAllowHeaders.None
