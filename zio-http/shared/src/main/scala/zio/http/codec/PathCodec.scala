@@ -133,7 +133,7 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
     var i                           = 0
     var j                           = 0
     var fail                        = ""
-    val stack: java.util.Deque[Any] = new java.util.ArrayDeque[Any](2)
+    val stack: java.util.Deque[Any] = zio.http.internal.ThreadLocals.deque
 
     // For root:
     stack.push(())

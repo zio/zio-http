@@ -21,4 +21,21 @@ private[http] object ThreadLocals {
     }
   }
 
+  private val Deque: ThreadLocal[java.util.ArrayDeque[Any]] =
+    new ThreadLocal[java.util.ArrayDeque[Any]] {
+      override def initialValue(): java.util.ArrayDeque[Any] = null.asInstanceOf[java.util.ArrayDeque[Any]]
+    }
+
+  def deque: java.util.ArrayDeque[Any] = {
+    val d = Deque.get()
+    if (d == null) {
+      val newD = new java.util.ArrayDeque[Any](8)
+      Deque.set(newD)
+      newD
+    } else {
+      d.clear()
+      d
+    }
+  }
+
 }

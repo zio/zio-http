@@ -239,5 +239,23 @@ object PathCodecSpec extends ZIOHttpSpec {
           )
         },
       ),
+      suite("consecutive decodes reuse stack correctly")(
+        test("multiple decodes on the same thread produce correct results") {
+          val codec = PathCodec.literal("users") / PathCodec.int("id")
+          val path1 = Path.decode("/users/1")
+          val path2 = Path.decode("/users/42")
+          val path3 = Path.decode("/users/999")
+
+          val r1 = codec.decode(path1)
+          val r2 = codec.decode(path2)
+          val r3 = codec.decode(path3)
+
+          assertTrue(
+            r1 == Right(1),
+            r2 == Right(42),
+            r3 == Right(999),
+          )
+        },
+      ),
     )
 }
