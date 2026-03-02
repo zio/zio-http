@@ -829,8 +829,9 @@ object PathCodec {
         val segment = segments(i)
 
         // Fast path, jump down the tree:
+        val literalChild = subtree.literals.getOrElse(segment, null)
         if (
-          subtree.literals.contains(segment)
+          (literalChild ne null)
           && (subtree.literalsWithCollisions.eq(Set.empty) || !skipLiteralsFor.contains(i))
         ) {
 
@@ -840,7 +841,7 @@ object PathCodec {
             trySkipLiteralIdx = i +: trySkipLiteralIdx
           }
 
-          subtree = subtree.literals(segment)
+          subtree = literalChild
 
           result = subtree.value
           i += 1
