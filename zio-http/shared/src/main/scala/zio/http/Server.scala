@@ -570,17 +570,20 @@ object Server extends ServerPlatformSpecific {
     // or a throwable if starting the driver failed for any reason.
     private val serverStarted: Promise[Throwable, Int],
   ) extends Server {
+    private val awaitStarted: UIO[Int] =
+      serverStarted.await.tapErrorCause(cause => ZIO.logErrorCause("Failed to start server", cause)).orDie
+
     override private[http] def installInternal[R](routes: Routes[R, Response])(implicit
       trace: Trace,
       tag: EnvironmentTag[R],
     ): URIO[R, Unit] =
       for {
         _ <- initialInstall.succeed(())
-        _ <- serverStarted.await.orDie
+        _ <- awaitStarted
         _ <- ZIO.environment[R].flatMap(env => driver.addApp(routes, env.prune[R]))
       } yield ()
 
-    override def port: UIO[Int] = serverStarted.await.orDie
+    override def port: UIO[Int] = awaitStarted
 
   }
 }
