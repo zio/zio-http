@@ -297,16 +297,50 @@ object URL {
     def invalidURL(e: Throwable = null): Either[MalformedURLException, URL] = Left(new Err(rawUrl = rawUrl, cause = e))
 
     try {
-      val uri = new URI(rawUrl)
-      val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+      // Fast path for relative URIs (the common case for incoming HTTP requests):
+      // avoid allocating a java.net.URI by splitting on '?' and '#' directly.
+      if (rawUrl.nonEmpty && rawUrl.charAt(0) == '/' && !hasScheme(rawUrl)) {
+        val fragmentIdx = rawUrl.indexOf('#')
+        val queryIdx    = rawUrl.indexOf('?')
 
-      url match {
-        case Some(value) => Right(value)
-        case None        => invalidURL()
+        val pathEnd  = if (queryIdx >= 0) queryIdx else if (fragmentIdx >= 0) fragmentIdx else rawUrl.length
+        val rawPath  = rawUrl.substring(0, pathEnd)
+        val rawQuery = if (queryIdx >= 0) {
+          val queryEnd = if (fragmentIdx > queryIdx) fragmentIdx else rawUrl.length
+          rawUrl.substring(queryIdx + 1, queryEnd)
+        } else null
+        val fragment = if (fragmentIdx >= 0) {
+          val rawFrag     = rawUrl.substring(fragmentIdx + 1)
+          val decodedFrag = java.net.URLDecoder.decode(rawFrag, "UTF-8")
+          Some(Fragment(rawFrag, decodedFrag))
+        } else None
+
+        Right(URL(Path.decodeRaw(rawPath), Location.Relative, QueryParams.decode(rawQuery), fragment))
+      } else {
+        val uri = new URI(rawUrl)
+        val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+
+        url match {
+          case Some(value) => Right(value)
+          case None        => invalidURL()
+        }
       }
     } catch {
       case NonFatal(e) => invalidURL(e)
     }
+  }
+
+  /** Checks if the URL string contains a scheme (e.g., "http://", "https://"). */
+  private def hasScheme(url: String): Boolean = {
+    var i = 0
+    while (i < url.length) {
+      val c = url.charAt(i)
+      if (c == ':') return i > 0
+      if (c == '/' || c == '?' || c == '#') return false
+      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (i > 0 && ((c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.')))) return false
+      i += 1
+    }
+    false
   }
 
   def config: Config[URL] = Config.string.mapAttempt(decode(_).fold(throw _, identity))
