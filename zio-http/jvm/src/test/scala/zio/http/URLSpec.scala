@@ -413,8 +413,8 @@ object URLSpec extends ZIOHttpSpec {
           val url = URL.decode("/api/users?page=2&limit=10").toOption.get
           assertTrue(
             url.path == Path.decode("/api/users"),
-            url.queryParams.queryParam("page").contains("2"),
-            url.queryParams.queryParam("limit").contains("10"),
+            url.queryParams.queryParam("page") == Some("2"),
+            url.queryParams.queryParam("limit") == Some("10"),
             url.fragment.isEmpty,
           )
         },
@@ -423,15 +423,15 @@ object URLSpec extends ZIOHttpSpec {
           assertTrue(
             url.path == Path.decode("/docs/intro"),
             url.queryParams.isEmpty,
-            url.fragment.map(_.raw).contains("section-1"),
+            url.fragment.map(_.raw) == Some("section-1"),
           )
         },
         test("path with query and fragment") {
           val url = URL.decode("/search?q=test#results").toOption.get
           assertTrue(
             url.path == Path.decode("/search"),
-            url.queryParams.queryParam("q").contains("test"),
-            url.fragment.map(_.raw).contains("results"),
+            url.queryParams.queryParam("q") == Some("test"),
+            url.fragment.map(_.raw) == Some("results"),
           )
         },
         test("matches java.net.URI behavior for relative URLs") {
@@ -456,6 +456,92 @@ object URLSpec extends ZIOHttpSpec {
           assertTrue(
             url.kind.isAbsolute,
             url.path == Path.decode("/users"),
+          )
+        },
+      ),
+      suite("hasScheme")(
+        test("standard schemes") {
+          assertTrue(
+            URL.hasScheme("http://example.com"),
+            URL.hasScheme("https://example.com/path"),
+            URL.hasScheme("ftp://files.example.com"),
+            URL.hasScheme("ws://example.com"),
+            URL.hasScheme("wss://example.com"),
+          )
+        },
+        test("uppercase schemes") {
+          assertTrue(
+            URL.hasScheme("HTTP://EXAMPLE.COM"),
+            URL.hasScheme("HTTPS://EXAMPLE.COM"),
+            URL.hasScheme("FTP://EXAMPLE.COM"),
+          )
+        },
+        test("mixed case schemes") {
+          assertTrue(
+            URL.hasScheme("Http://example.com"),
+            URL.hasScheme("hTtPs://example.com"),
+          )
+        },
+        test("schemes with digits after first letter") {
+          assertTrue(
+            URL.hasScheme("h323://example.com"),
+            URL.hasScheme("s3://bucket/key"),
+          )
+        },
+        test("schemes with plus, hyphen, and dot after first letter") {
+          assertTrue(
+            URL.hasScheme("coap+tcp://example.com"),
+            URL.hasScheme("my-scheme://example.com"),
+            URL.hasScheme("a.b://example.com"),
+            URL.hasScheme("svn+ssh://example.com"),
+          )
+        },
+        test("single letter scheme") {
+          assertTrue(URL.hasScheme("a:something"))
+        },
+        test("bare colon without preceding alpha is not a scheme") {
+          assertTrue(!URL.hasScheme(":not-a-scheme"))
+        },
+        test("digit as first character is not a valid scheme") {
+          assertTrue(
+            !URL.hasScheme("1http://example.com"),
+            !URL.hasScheme("3com://example.com"),
+          )
+        },
+        test("special char as first character is not a valid scheme") {
+          assertTrue(
+            !URL.hasScheme("+scheme://example.com"),
+            !URL.hasScheme("-scheme://example.com"),
+            !URL.hasScheme(".scheme://example.com"),
+          )
+        },
+        test("slash before colon means no scheme") {
+          assertTrue(
+            !URL.hasScheme("/path/with:colon"),
+            !URL.hasScheme("/path"),
+            !URL.hasScheme("//example.com"),
+          )
+        },
+        test("question mark before colon means no scheme") {
+          assertTrue(!URL.hasScheme("?query:value"))
+        },
+        test("hash before colon means no scheme") {
+          assertTrue(!URL.hasScheme("#fragment:value"))
+        },
+        test("empty string has no scheme") {
+          assertTrue(!URL.hasScheme(""))
+        },
+        test("no colon at all means no scheme") {
+          assertTrue(
+            !URL.hasScheme("example.com"),
+            !URL.hasScheme("path/to/resource"),
+            !URL.hasScheme("justtext"),
+          )
+        },
+        test("space and invalid chars before colon means no scheme") {
+          assertTrue(
+            !URL.hasScheme("no scheme://example.com"),
+            !URL.hasScheme("no\tscheme://example.com"),
           )
         },
       ),

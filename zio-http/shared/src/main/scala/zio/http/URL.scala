@@ -296,6 +296,9 @@ object URL {
   def decode(rawUrl: String): Either[MalformedURLException, URL] = {
     def invalidURL(e: Throwable = null): Either[MalformedURLException, URL] = Left(new Err(rawUrl = rawUrl, cause = e))
 
+    def isRelativeUrl(url: String): Boolean =
+      url.charAt(0) == '/' && !hasScheme(url)
+
     try {
       if (rawUrl.isEmpty) Right(URL.empty)
       // Fast path for relative URIs (the common case for incoming HTTP requests):
@@ -331,13 +334,10 @@ object URL {
     }
   }
 
-  private def isRelativeUrl(url: String): Boolean =
-    url.charAt(0) == '/' && !hasScheme(url)
-
   /**
    * Checks if the URL string contains a scheme (e.g., "http://", "https://").
    */
-  private def hasScheme(url: String): Boolean = {
+  private[http] def hasScheme(url: String): Boolean = {
     var i = 0
     while (i < url.length) {
       val c               = url.charAt(i)
