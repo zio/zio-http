@@ -86,6 +86,24 @@ object Middleware extends HandlerAspects {
         case _                                        => Set.empty
       }
 
+    // Pre-build fixed headers at construction time to avoid per-request allocation.
+    // The repetition of config fields across branches is intentional: each call to
+    // Headers(...) produces a flat FromIterable, avoiding any Concat wrapper that
+    // Headers#++ would introduce.
+    val (nonPreflightHeaders, preflightBaseHeaders): (Headers, Headers) =
+      config.maxAge match {
+        case Some(maxAge) =>
+          (
+            Headers(config.allowedMethods, config.allowCredentials, config.exposedHeaders, maxAge),
+            Headers(config.allowedMethods, config.allowCredentials, maxAge),
+          )
+        case None         =>
+          (
+            Headers(config.allowedMethods, config.allowCredentials, config.exposedHeaders),
+            Headers(config.allowedMethods, config.allowCredentials),
+          )
+      }
+
     def allowedHeaders(
       requestedHeaders: Option[Header.AccessControlRequestHeaders],
       allowedHeaders: Header.AccessControlAllowHeaders,
@@ -116,15 +134,10 @@ object Middleware extends HandlerAspects {
       requestedHeaders: Option[Header.AccessControlRequestHeaders],
       isPreflight: Boolean,
     ): Headers =
-      Headers(
-        allowOrigin,
-        config.allowedMethods,
-        config.allowCredentials,
-      ) ++
-        Headers.ifThenElse(isPreflight)(
-          onTrue = Headers(allowedHeaders(requestedHeaders, config.allowedHeaders)),
-          onFalse = Headers(config.exposedHeaders),
-        ) ++ config.maxAge.fold(Headers.empty)(Headers(_))
+      if (isPreflight)
+        Headers(allowOrigin, allowedHeaders(requestedHeaders, config.allowedHeaders)) ++ preflightBaseHeaders
+      else
+        Headers(allowOrigin) ++ nonPreflightHeaders
 
     // HandlerAspect:
     val aspect =
