@@ -434,6 +434,14 @@ object URLSpec extends ZIOHttpSpec {
             url.fragment.map(_.raw) == Some("results"),
           )
         },
+        test("fragment before query — question mark is part of fragment") {
+          val url = URL.decode("/search#results?q=test").toOption.get
+          assertTrue(
+            url.path == Path.decode("/search"),
+            url.queryParams.isEmpty,
+            url.fragment.map(_.raw) == Some("results?q=test"),
+          )
+        },
         test("matches java.net.URI behavior for relative URLs") {
           val urls = List(
             "/",
@@ -441,6 +449,20 @@ object URLSpec extends ZIOHttpSpec {
             "/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
             "/users#the%20hash",
             "/a/b/c?x=1&y=2#frag",
+            "/search#results?q=test",
+            "/path?",
+            "/path#",
+            "/path?#",
+            "/path#?",
+            "/path?key=val%26ue&other=123",
+            "/path?empty=&also=",
+            "/%E4%B8%AD%E6%96%87/path",
+            "/a/b/c?x=1&x=2&x=3",
+            "/path?q=hello+world",
+            "/path#frag%20ment",
+            "/path?q=a%20b#frag%20c",
+            "/deeply/nested/path/to/resource",
+            "/trailing/slash/",
           )
           assertTrue(urls.forall { raw =>
             val fast = URL.decode(raw).toOption.get

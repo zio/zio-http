@@ -304,7 +304,9 @@ object URL {
       // avoid allocating a java.net.URI by splitting on '?' and '#' directly.
       else if (isRelativeUrl(rawUrl)) {
         val fragmentIdx = rawUrl.indexOf('#')
-        val queryIdx    = rawUrl.indexOf('?')
+        val rawQueryIdx = rawUrl.indexOf('?')
+        // A '?' after '#' is part of the fragment, not a query delimiter
+        val queryIdx    = if (fragmentIdx >= 0 && rawQueryIdx > fragmentIdx) -1 else rawQueryIdx
 
         val pathEnd  = if (queryIdx >= 0) queryIdx else if (fragmentIdx >= 0) fragmentIdx else rawUrl.length
         val rawPath  = rawUrl.substring(0, pathEnd)
