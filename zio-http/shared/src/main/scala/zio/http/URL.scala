@@ -300,7 +300,7 @@ object URL {
       if (rawUrl.isEmpty) Right(URL.empty)
       // Fast path for relative URIs (the common case for incoming HTTP requests):
       // avoid allocating a java.net.URI by splitting on '?' and '#' directly.
-      else if (rawUrl.charAt(0) == '/' && !hasScheme(rawUrl)) {
+      else if (isRelativeUrl(rawUrl)) {
         val fragmentIdx = rawUrl.indexOf('#')
         val queryIdx    = rawUrl.indexOf('?')
 
@@ -330,6 +330,9 @@ object URL {
       case NonFatal(e) => invalidURL(e)
     }
   }
+
+  private def isRelativeUrl(url: String): Boolean =
+    url.charAt(0) == '/' && !hasScheme(url)
 
   /**
    * Checks if the URL string contains a scheme (e.g., "http://", "https://").
