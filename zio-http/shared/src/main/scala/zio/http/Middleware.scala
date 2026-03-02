@@ -103,12 +103,12 @@ object Middleware extends HandlerAspects {
               }
             case None                                              => allowedHeaders
           }
-        case Header.AccessControlAllowHeaders.All          =>
+        case Header.AccessControlAllowHeaders.All     =>
           requestedHeaders match {
             case Some(Header.AccessControlRequestHeaders(headers)) => Header.AccessControlAllowHeaders.Some(headers)
             case _                                                 => Header.AccessControlAllowHeaders.All
           }
-        case Header.AccessControlAllowHeaders.None         => Header.AccessControlAllowHeaders.None
+        case Header.AccessControlAllowHeaders.None    => Header.AccessControlAllowHeaders.None
       }
 
     def corsHeaders(
