@@ -199,14 +199,17 @@ object Header {
     override type Self = Custom
     override def self: Self = this
 
+    override def headerName: String    = customName.toString.toLowerCase
+    override def renderedValue: String = value.toString
+
     override def headerType: HeaderType.Typed[Custom] = new Header.HeaderType {
       override type HeaderValue = Custom
 
-      override def name: String = self.customName.toString.toLowerCase
+      override def name: String = self.headerName
 
       override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
 
-      override def render(value: HeaderValue): String = value.value.toString
+      override def render(value: HeaderValue): String = value.renderedValue
     }
 
     private[http] override def headerNameAsCharSequence: CharSequence    = customName
