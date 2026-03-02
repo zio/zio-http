@@ -828,10 +828,10 @@ object PathCodec {
       while (i < nSegments) {
         val segment = segments(i)
 
-        // Fast path, jump down the tree (single lookup instead of contains+apply):
+        // Fast path, jump down the tree:
         val literalChild = subtree.literals.getOrElse(segment, null)
         if (
-          literalChild != null
+          (literalChild ne null)
           && (subtree.literalsWithCollisions.eq(Set.empty) || !skipLiteralsFor.contains(i))
         ) {
 
