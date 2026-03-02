@@ -297,7 +297,7 @@ object URL {
     def invalidURL(e: Throwable = null): Either[MalformedURLException, URL] = Left(new Err(rawUrl = rawUrl, cause = e))
 
     def isRelativeUrl(url: String): Boolean =
-      url.charAt(0) == '/' && !hasScheme(url)
+      url.charAt(0) == '/'
 
     try {
       if (rawUrl.isEmpty) Right(URL.empty)
