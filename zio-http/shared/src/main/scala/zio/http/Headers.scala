@@ -118,8 +118,12 @@ object Headers {
     override def contains(key: CharSequence): Boolean =
       first.contains(key) || second.contains(key)
 
-    override def iterator: Iterator[Header] =
-      first.iterator ++ second.iterator
+    override def iterator: Iterator[Header] = new Iterator[Header] {
+      private val firstIter  = first.iterator
+      private val secondIter = second.iterator
+      def hasNext: Boolean   = firstIter.hasNext || secondIter.hasNext
+      def next(): Header     = if (firstIter.hasNext) firstIter.next() else secondIter.next()
+    }
 
     private[http] override def getUnsafe(key: CharSequence): String = {
       val fromFirst = first.getUnsafe(key)

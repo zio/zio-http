@@ -382,6 +382,7 @@ object HeaderSpec extends ZIOHttpSpec {
         assert(result)(isLeft)
       },
     ),
+    concatSpec,
   )
 
   private val acceptJson                = Headers(Header.Accept(MediaType.application.json))
@@ -397,4 +398,29 @@ object HeaderSpec extends ZIOHttpSpec {
 
   private def predefinedHeaders: Headers =
     Headers(Header.Accept(MediaType.application.json), Header.ContentType(MediaType.application.json))
+
+  private val concatSpec = suite("Concat")(
+    test("iterator yields all headers from both sides in order") {
+      val left   = Headers(Header.ContentType(MediaType.application.json))
+      val right  = Headers(Header.Accept(MediaType.text.html))
+      val concat = left ++ right
+      val names  = concat.iterator.map(_.headerName).toList
+      assertTrue(names == List("content-type", "accept"))
+    },
+    test("iterator works with nested Concat") {
+      val a      = Headers(Header.ContentType(MediaType.application.json))
+      val b      = Headers(Header.Accept(MediaType.text.html))
+      val c      = Headers(Header.Host("example.com"))
+      val concat = a ++ b ++ c
+      val names  = concat.iterator.map(_.headerName).toList
+      assertTrue(names == List("content-type", "accept", "host"))
+    },
+    test("iterator works when one side is empty") {
+      val left   = Headers.empty
+      val right  = Headers(Header.Host("example.com"))
+      val concat = left ++ right
+      val names  = concat.iterator.map(_.headerName).toList
+      assertTrue(names == List("host"))
+    },
+  )
 }
